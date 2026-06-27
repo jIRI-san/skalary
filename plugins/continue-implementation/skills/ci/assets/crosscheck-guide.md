@@ -66,7 +66,7 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
 1. Run dependency preflight (`Test-DependencyPlan006.ps1`) before entering harvest/finalization.
 2. If append infra is present (`Test-Path scripts/skalary/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
    - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
-   - Distill entries from `evolution-log.md` (`## Capture`), `cr-log.md`, and `learnings.md`.
+   - Distill entries from `capture.md` (`## Capture`), `cr-log.md`, and `learnings.md`.
    - Map candidates deterministically into `Add-LedgerEntry` inputs: `-Category` from the 7-category rubric, `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
    - Invoke `Add-LedgerEntry.ps1` via argument arrays / `ArgumentList` only (no shell-string interpolation).
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.

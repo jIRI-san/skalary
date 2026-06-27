@@ -36,4 +36,12 @@ Describe 'Skill contract token guards' {
         $text | Should -Match 'Get-PlanState'
         $text | Should -Match 'validate-plan'
     }
+
+    It 'test:cip-skill-scripts routes cip/SKILL.md through the deterministic plan scripts' {
+        $text = Get-SkillText -RelativePath 'plugins/create-implementation-plan/skills/cip/SKILL.md'
+        $text | Should -Match 'New-Plan'
+        $text | Should -Match 'Set-PlanStage'
+        $text | Should -Match 'Add-WorkflowNote'
+        $text | Should -Match 'Test-Plan\.ps1'
+    }
 }
