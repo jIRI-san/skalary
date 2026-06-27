@@ -60,10 +60,10 @@
 | RISK-7 | Presence-only evidence passes while behavior regresses; space-containing `test:` ids silently truncate in the marker parser. | Medium | Medium | Use no-space `test:` ids backed by real Pester tests for scripts and `Select-String` guards for prose files; round-trip `test:` markers on ledger compat; `contains:` only for genuine presence facts. | 4.1, 5.1 |
 
 ## Phase 1: PlanState module foundation + naming
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: agents/optimize-ci-cip-plugins-performance -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) · Points: S=1, M=2, L=3 (advisory cap 6) -->
 
-- [ ] 1.1 Move `Get-PlanMetadata` + private helpers into `scripts/skalary/PlanState.psm1` with an explicit `-RepoRoot` param; update all `Test-Plan.ps1` call sites; add a parity test under a non-default `-RepoRoot` (REQ-4, RISK-1) `M`
+- [x] 1.1 Move `Get-PlanMetadata` + private helpers into `scripts/skalary/PlanState.psm1` with an explicit `-RepoRoot` param; update all `Test-Plan.ps1` call sites; add a parity test under a non-default `-RepoRoot` (REQ-4, RISK-1) `M`
 - [ ] 1.2 Add `New-PlanId` (6 crypto-random hex) with active+archived collision scan, regenerate-on-collision, and non-unique-prefix warning, with tests (REQ-1, RISK-4) [after: 1.1] `M`
 - [ ] 1.3 Add `Resolve-Plan` (hash-prefix ≥4 / legacy number / slug / date; ambiguity + all-digit disambiguation; dual-format; returns canonical id) with tests (REQ-3) [after: 1.1] `M`
 - [ ] 1.4 Add `New-Plan.ps1` scaffolding `<date>-<hash>-<slug>/plan.md` + `plan-id` anchor with slug sanitization/path-confinement, with tests (REQ-2, RISK-5) [after: 1.2] `M`

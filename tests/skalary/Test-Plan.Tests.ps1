@@ -117,3 +117,51 @@ Describe 'Test-Plan validator' {
         (& $invokeTestPlan -PlanPath $plan004).ExitCode | Should -Be 0
     }
 }
+
+Describe 'PlanState Get-PlanMetadata' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+        $fixturesRoot = Join-Path $PSScriptRoot 'fixtures'
+        $validPlan = Join-Path $fixturesRoot 'plan-valid.md'
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:planstate-parser-parity parses identically under a non-default RepoRoot' {
+        $default = Get-PlanMetadata -Path $validPlan -RepoRoot $repoRoot
+
+        $altRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("planstate-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $altRoot -Force | Out-Null
+        try {
+            $alt = Get-PlanMetadata -Path $validPlan -RepoRoot $altRoot
+
+            $alt.Steps.Count | Should -Be $default.Steps.Count
+            $alt.Requirements.Keys.Count | Should -Be $default.Requirements.Keys.Count
+            $alt.Risks.Keys.Count | Should -Be $default.Risks.Keys.Count
+            ($alt.Steps | ForEach-Object { $_.Id }) -join ',' | Should -Be (($default.Steps | ForEach-Object { $_.Id }) -join ',')
+        }
+        finally {
+            Remove-Item -LiteralPath $altRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:planstate-parser-parity honors the explicit RepoRoot in returned metadata' {
+        $altRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("planstate-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $altRoot -Force | Out-Null
+        try {
+            $meta = Get-PlanMetadata -Path $validPlan -RepoRoot $altRoot
+            $meta.RepoRoot | Should -Be ([System.IO.Path]::GetFullPath($altRoot))
+        }
+        finally {
+            Remove-Item -LiteralPath $altRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'requires the RepoRoot parameter' {
+        { Get-PlanMetadata -Path $validPlan } | Should -Throw
+    }
+}
