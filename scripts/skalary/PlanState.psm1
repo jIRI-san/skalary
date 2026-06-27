@@ -198,4 +198,141 @@ function Get-PlanMetadata {
     }
 }
 
-Export-ModuleMember -Function Get-PlanMetadata
+function Get-PlanInventory {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $plansRoot = Join-Path $root 'docs/implementation-plans'
+    $inventory = [System.Collections.Generic.List[object]]::new()
+    if (-not (Test-Path -LiteralPath $plansRoot)) {
+        return , $inventory.ToArray()
+    }
+
+    $archivedRoot = Join-Path $plansRoot 'archived'
+    $folders = @()
+    $folders += Get-ChildItem -LiteralPath $plansRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'archived' } |
+        ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $false } }
+    if (Test-Path -LiteralPath $archivedRoot) {
+        $folders += Get-ChildItem -LiteralPath $archivedRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $true } }
+    }
+
+    foreach ($entry in $folders) {
+        $name = $entry.Dir.Name
+        $scheme = $null
+        $folderId = $null
+        $slug = $null
+        $date = $null
+
+        if ($name -match '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
+            $scheme = 'new'
+            $folderId = $Matches.hash
+            $slug = $Matches.slug
+            $date = $Matches.date
+        }
+        elseif ($name -match '^(?<num>\d{3})-(?<slug>.+)$') {
+            $scheme = 'legacy'
+            $folderId = $Matches.num
+            $slug = $Matches.slug
+        }
+        else {
+            continue
+        }
+
+        $planFile = Join-Path $entry.Dir.FullName 'plan.md'
+        $anchorId = $null
+        if (Test-Path -LiteralPath $planFile) {
+            $raw = Get-Content -LiteralPath $planFile -Raw
+            if ($raw -match '<!--\s*plan-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->') {
+                $anchorId = $Matches.id.ToLowerInvariant()
+            }
+        }
+
+        $canonicalId = if ($anchorId) { $anchorId } else { $folderId }
+
+        $inventory.Add([pscustomobject]@{
+            Id = $canonicalId
+            FolderId = $folderId
+            AnchorId = $anchorId
+            Scheme = $scheme
+            Slug = $slug
+            Date = $date
+            FolderName = $name
+            Path = $entry.Dir.FullName
+            IsArchived = $entry.IsArchived
+        })
+    }
+
+    return , $inventory.ToArray()
+}
+
+function New-PlanHexId {
+    [CmdletBinding()]
+    param()
+
+    $bytes = [byte[]]::new(3)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    return (($bytes | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+
+function New-PlanId {
+    [CmdletBinding()]
+    param(
+        [string]$RepoRoot,
+
+        [string[]]$ExistingId,
+
+        [scriptblock]$HexProvider = { New-PlanHexId },
+
+        [int]$MaxAttempts = 1000
+    )
+
+    if (-not $PSBoundParameters.ContainsKey('ExistingId')) {
+        if (-not $RepoRoot) {
+            throw 'New-PlanId requires -RepoRoot when -ExistingId is not supplied.'
+        }
+        $ExistingId = @(Get-PlanInventory -RepoRoot $RepoRoot | ForEach-Object { $_.Id })
+    }
+
+    $existingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($id in $ExistingId) {
+        if (-not [string]::IsNullOrWhiteSpace($id)) {
+            [void]$existingSet.Add($id.Trim().ToLowerInvariant())
+        }
+    }
+
+    $candidate = $null
+    for ($attempt = 0; $attempt -lt $MaxAttempts; $attempt++) {
+        $generated = (& $HexProvider)
+        if ($generated -isnot [string]) { $generated = [string]$generated }
+        $generated = $generated.Trim().ToLowerInvariant()
+        if ($generated -notmatch '^[0-9a-f]{6}$') {
+            throw "New-PlanId generated an invalid id '$generated' (expected 6 hex chars)."
+        }
+        if (-not $existingSet.Contains($generated)) {
+            $candidate = $generated
+            break
+        }
+    }
+
+    if (-not $candidate) {
+        throw "New-PlanId could not generate a unique id after $MaxAttempts attempts."
+    }
+
+    $prefix = $candidate.Substring(0, 4)
+    foreach ($existing in $existingSet) {
+        if ($existing.Length -ge 4 -and $existing.Substring(0, 4) -eq $prefix) {
+            Write-Warning "Plan id '$candidate' is not uniquely addressable at the 4-char prefix '$prefix' (collides with existing '$existing')."
+            break
+        }
+    }
+
+    return $candidate
+}
+
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId
