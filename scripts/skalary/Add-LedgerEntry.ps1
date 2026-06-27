@@ -6,7 +6,7 @@ param(
     [string]$Category,
 
     [Parameter(Mandatory)]
-    [ValidatePattern('^\d{3}$')]
+    [ValidatePattern('^([0-9a-f]{6}|\d{3})$')]
     [string]$Plan,
 
     [Parameter(Mandatory)]
@@ -129,7 +129,7 @@ function ConvertTo-LedgerRecord {
         [string]$Line
     )
 
-    $pattern = '^- \[(?<date>\d{4}-\d{2}-\d{2})\] (?<lesson>.+?) \(plan-(?<plan>\d{3}), src:(?<src>cip|dr|cr|code-review|ci|autopilot), sev:(?<severity>Critical|High|Med|Low)\)(?<tags>(?:\s+#\S+)*)$'
+    $pattern = '^- \[(?<date>\d{4}-\d{2}-\d{2})\] (?<lesson>.+?) \(plan-(?<plan>[0-9a-f]{6}|\d{3}), src:(?<src>cip|dr|cr|code-review|ci|autopilot), sev:(?<severity>Critical|High|Med|Low)\)(?<tags>(?:\s+#\S+)*)$'
     if ($Line -notmatch $pattern) {
         return $null
     }
