@@ -133,6 +133,89 @@ function Find-SectionRange {
     return $null
 }
 
+function Repair-EmptyLearningsSections {
+    param(
+        [System.Collections.Generic.List[string]]$Lines,
+        [string]$Header,
+        [string]$Placeholder
+    )
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Trim() -ne $Header) { continue }
+        $end = $Lines.Count
+        for ($j = $i + 1; $j -lt $Lines.Count; $j++) {
+            if ($Lines[$j] -match '^##\s') { $end = $j; break }
+        }
+        $hasEntry = $false
+        for ($k = $i + 1; $k -lt $end; $k++) {
+            if ($Lines[$k] -match '^\s*-\s') { $hasEntry = $true; break }
+        }
+        if (-not $hasEntry) {
+            $insertAt = [Math]::Min($i + 2, $end)
+            $Lines.Insert($insertAt, $Placeholder)
+        }
+    }
+}
+
+function Invoke-LearningsCap {
+    param(
+        [System.Collections.Generic.List[string]]$Lines,
+        [string]$Header,
+        [string]$Placeholder,
+        [int]$Max
+    )
+
+    $entryIndexes = [System.Collections.Generic.List[int]]::new()
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^\s*-\s\[') { $entryIndexes.Add($i) }
+    }
+    if ($entryIndexes.Count -le $Max) { return }
+
+    $summaryIndexes = @($entryIndexes | Where-Object { $Lines[$_] -match '\[trigger:overflow-summary\]' })
+    $normalIndexes = @($entryIndexes | Where-Object { $Lines[$_] -notmatch '\[trigger:overflow-summary\]' })
+
+    $existingFolded = 0
+    foreach ($s in $summaryIndexes) {
+        if ($Lines[$s] -match 'Folded\s+(?<n>\d+)') { $existingFolded += [int]$Matches.n }
+    }
+
+    $keep = $Max - 1
+    $foldNow = $normalIndexes.Count - $keep
+    if ($foldNow -lt 1) { $foldNow = 1 }
+    $newFolded = $existingFolded + $foldNow
+
+    $oldestIndexes = @($normalIndexes | Select-Object -First $foldNow)
+    $oldestStep = '0.0'
+    if ($Lines[$oldestIndexes[0]] -match '^\s*-\s\[(?<s>[^\]]+)\]') { $oldestStep = $Matches.s }
+
+    $removeSet = [System.Collections.Generic.SortedSet[int]]::new()
+    foreach ($idx in $oldestIndexes) { [void]$removeSet.Add($idx) }
+    foreach ($idx in $summaryIndexes) { [void]$removeSet.Add($idx) }
+    $removeOrdered = @($removeSet) | Sort-Object -Descending
+    foreach ($idx in $removeOrdered) { $Lines.RemoveAt($idx) }
+
+    $summaryLine = "- [$oldestStep] [trigger:overflow-summary] Folded $newFolded additional learnings into this summary."
+
+    $firstHeader = -1
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Trim() -eq $Header) { $firstHeader = $i; break }
+    }
+    if ($firstHeader -lt 0) {
+        $Lines.Add($Header)
+        $Lines.Add('Phase: 1')
+        $Lines.Add('')
+        $firstHeader = $Lines.Count - 3
+    }
+    $insertAt = [Math]::Min($firstHeader + 2, $Lines.Count)
+    if ($insertAt -lt $Lines.Count -and $Lines[$insertAt].Trim() -eq $Placeholder) {
+        $Lines[$insertAt] = $summaryLine
+    }
+    else {
+        $Lines.Insert($insertAt, $summaryLine)
+    }
+
+    Repair-EmptyLearningsSections -Lines $Lines -Header $Header -Placeholder $Placeholder
+}
+
 $range = Find-SectionRange -Lines $lines -Header $config.Header -Phase $Phase
 
 if (-not $range) {
@@ -168,6 +251,10 @@ elseif ($Message) {
     else {
         $lines.Insert($range.End, $entry)
     }
+}
+
+if ($Kind -eq 'Learnings' -and $Message) {
+    Invoke-LearningsCap -Lines $lines -Header $config.Header -Placeholder $placeholder -Max $MaxLearnings
 }
 
 $content = ($lines -join "`n").TrimEnd("`n") + "`n"

@@ -74,6 +74,47 @@ Describe 'Add-WorkflowNote' {
         }
     }
 
+    It 'test:workflownote-cap folds the oldest learnings into one loud overflow-summary' {
+        $dir = New-PlanDir
+        try {
+            for ($n = 1; $n -le 11; $n++) {
+                & $scriptPath -Kind Learnings -PlanDir $dir -Phase 1 -Step "1.$n" -Trigger 'reusable-pattern' -Message "Learning number $n" | Out-Null
+            }
+            $lines = Get-Content -LiteralPath (Join-Path $dir 'learnings.md')
+            $entries = @($lines | Where-Object { $_ -match '^- \[' })
+            $entries.Count | Should -Be 10
+
+            $summaries = @($entries | Where-Object { $_ -match '\[trigger:overflow-summary\]' })
+            $summaries.Count | Should -Be 1
+            $summaries[0] | Should -Match 'Folded 2 additional learnings into this summary\.'
+
+            # newest entry survives, oldest two are folded
+            ($entries -join "`n") | Should -Match 'Learning number 11'
+            ($entries -join "`n") | Should -Not -Match 'Learning number 1\b'
+            ($entries -join "`n") | Should -Not -Match 'Learning number 2\b'
+        }
+        finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:workflownote-cap accumulates the folded count across repeated overflow' {
+        $dir = New-PlanDir
+        try {
+            for ($n = 1; $n -le 12; $n++) {
+                & $scriptPath -Kind Learnings -PlanDir $dir -Phase 1 -Step "1.$n" -Trigger 'reusable-pattern' -Message "Learning number $n" | Out-Null
+            }
+            $entries = @(Get-Content -LiteralPath (Join-Path $dir 'learnings.md') | Where-Object { $_ -match '^- \[' })
+            $entries.Count | Should -Be 10
+            $summary = @($entries | Where-Object { $_ -match '\[trigger:overflow-summary\]' })
+            $summary.Count | Should -Be 1
+            $summary[0] | Should -Match 'Folded 3 additional learnings into this summary\.'
+        }
+        finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'test:workflownote-sanitize neutralizes brackets, backticks, pipes, middots and newlines in the body' {
         $dir = New-PlanDir
         try {
