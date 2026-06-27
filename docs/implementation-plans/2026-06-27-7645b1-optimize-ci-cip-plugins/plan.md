@@ -81,7 +81,7 @@
 
 - [x] 3.1 Add `Add-WorkflowNote.ps1` (`-Kind` CrLog/Learnings/Capture) emitting schema tokens from typed params and sanitizing only the free-text body; init/append/placeholder, with tests (REQ-8, RISK-5) `M`
 - [x] 3.2 Add the 10-entry cap folding oldest entries into a single loud overflow-summary, preserving the fail-loud placeholder contract, with tests (REQ-8) [after: 3.1] `S`
-- [ ] 3.3 Add `Set-PlanStage.ps1` idempotent `cip-stage` writer, with test (REQ-9) `S`
+- [x] 3.3 Add `Set-PlanStage.ps1` idempotent `cip-stage` writer, with test (REQ-9) `S`
 - [ ] 3.4 Add `Build-EvidenceReceipt.ps1` consuming per-marker `file:` verifier objects + caller-supplied `test:`/`review:` results, formatting the shared golden `✓/✗ REQ-N …` line (HEAD SHA, unrun/`✗` preserved), with tests (REQ-10) `M`
 - [ ] 3.5 Add `Repair-Plans.ps1` on-demand legacy migration with `-WhatIf`, idempotent no-op, reference/worktree/`plan-id` preservation, archived non-goal, with tests (REQ-11) `M`
 
