@@ -15,6 +15,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 ## Execution Loop
 
 1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Also check if the plan folder contains `evolution-log.md` or `decisions/*.md` — if so, read them for additional context.
+   - **Resolve the canonical plan id** from the `<!-- plan-id: ... -->` anchor via `scripts/skalary/PlanState.psm1` (`Resolve-Plan`). This id is dual-format (`<6hex>` for new plans, legacy `NNN` for old ones). Use this resolved id — never a raw `NNN` parsed from the folder name — everywhere a plan id is referenced: harvest `-Plan`, archive movement, and commit/PR body text.
 2. **Read config** — open `.autopilot.json` in the repo root. Extract `build`, `test`, and `maxIterationsPerStep`.
 3. **Identify phase** — find the phase number from the prompt (e.g. "phase 3"). Only work on steps in that phase.
 4. **Find next step** — scan for the first `- [ ]` or `- [~]` step in the target phase.
@@ -25,7 +26,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Exception: conditional Finalization step** → do not stop immediately. Run the canonical harvest finalization flow (append harvest first, then autonomous vs escalation branch), then continue per branch outcome.
    - `[discovery]` → treat as exploratory. Acceptance criteria are softer; iterate until the step's intent is satisfied rather than a strict pass/fail.
 8. **Mark in-progress** — change `- [ ]` to `- [~]` for the current step.
-9. **Initialize ephemeral logs by name** — in the selected plan folder, ensure `cr-log.md`, `learnings.md`, and `evolution-log.md` are ready for the active phase with stable headers and explicit empty-state lines. For `learnings.md`, append a new phase section if missing (do not truncate prior phases):
+9. **Initialize ephemeral logs by name** — in the selected plan folder, ensure `cr-log.md`, `learnings.md`, and `capture.md` are ready for the active phase with stable headers and explicit empty-state lines. For `learnings.md`, append a new phase section if missing (do not truncate prior phases):
 
    ```text
    ## CR Capture
@@ -41,7 +42,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    No entries for this phase.
    ```
 
-   Ensure `evolution-log.md` contains the capture section scaffold:
+   Ensure `capture.md` contains the capture section scaffold (written via `Add-WorkflowNote -Kind Capture`):
 
    ```text
    ## Capture
@@ -92,12 +93,12 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
     ```
 
 19. **Fix loop** — if build/test/acceptance/code-review fails, fix and retry. Maximum iterations from config.
-20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-NNN step X.Y]`
+20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
 21. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
 
 ## On Phase Completion
 
-1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the plan-folder `evidence.md` receipt:
+1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the plan-folder `evidence.md` receipt. Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1`, which emits the shared golden grammar (`✓/✗ REQ-N — evidence — result — commit`, full HEAD SHA, `✗`/unrun preserved) — never hand-format the line:
    ```
    Phase N Crosscheck:
    ✓ REQ-1 — test:TestId — passed — <commit>
@@ -119,9 +120,9 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## On Plan Completion
 
-1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to `evidence.md`:
+1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to `evidence.md` via `scripts/skalary/Build-EvidenceReceipt.ps1` (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
    ```
-   Plan NNN Final Crosscheck:
+   Plan <plan-id> Final Crosscheck:
    Requirements: X/Y satisfied
    ✓ REQ-1 — test:TestId — passed — <commit>
    ✗ REQ-4 — criterion — gap: [detail]
@@ -144,14 +145,14 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Also require `Test-Path docs/review-ledger/security.md` and `Test-Path docs/review-ledger/testing.md` before invoking `Add`.
      - If append infra is missing, skip append harvest and follow existing branch policy without infra scripts: autonomous completion may continue standard archive/push/PR; `@human` completion must still use draft-PR + marker + exit 42 (no archive).
    - **Fail-loud contract for ephemeral logs by name**:
-     - Require `evolution-log.md` to contain `## Capture`.
+     - Require `capture.md` to contain `## Capture`.
      - Require `cr-log.md` and `learnings.md` to contain either a phase section or `No entries for this phase.`.
      - Fail only when the required section/placeholder is missing; an intentionally empty phase is valid.
    - **Append harvest phase (always before branch):**
-     - Distill one-line lessons from `evolution-log` capture entries, `cr-log`, and `learnings`.
+     - Distill one-line lessons from `capture.md` capture entries, `cr-log.md`, and `learnings.md`.
      - Deterministic mapping into `Add-LedgerEntry` arguments:
        - `-Category`: selected from the 7-category taxonomy by keyword/REQ scope (same rubric as `ledger-consult`).
-       - `-Plan`: plan number from the executing `docs/implementation-plans/<NNN-*>/plan.md`.
+       - `-Plan`: the canonical plan id resolved via `Resolve-Plan` from the executing plan's `plan-id` anchor (dual-format `<6hex>`/legacy `NNN`), not a raw folder `NNN`.
        - `-Src`: `autopilot` for autopilot harvest, `ci` for interactive `/ci` harvest.
        - `-Severity`: carried from captured finding severity where present; otherwise default `Med` for reusable process learnings.
        - `-Entry`: one sanitized one-line lesson per candidate.
@@ -170,10 +171,10 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Prune only prior-plan entries flagged obsolete/superseded by `/udn`; retention guards remain enforced by script.
      - Candidate selection must pass full-line matches from active ledger files into `Remove` (`-Match` or `-MatchBase64`), never substring or regex targeting.
 
-4. **Archive plan (autonomous branch only)** — mark the plan done and move it:
-   - Edit `plan.md` title to append `[DONE]`: `# NNN: Plan Title [DONE]`
-   - Move folder: `Move-Item docs/implementation-plans/NNN-<slug> docs/implementation-plans/archived/NNN-<slug>`
-   - Stage and commit: `git commit -m "chore: archive completed plan NNN"`
+4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; the slug dir is `<date>-<hash>-<slug>` for new plans or legacy `NNN-<slug>`):
+   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`
+   - Move folder: `Move-Item docs/implementation-plans/<plan-dir> docs/implementation-plans/archived/<plan-dir>`
+   - Stage and commit: `git commit -m "chore: archive completed plan <plan-id>"`
 
 5. **Create PR (autonomous branch only)** — generate a PR with a structured title and body:
 
@@ -186,7 +187,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    <1–3 sentence description of what this plan implements and why>
 
    ## Plan
-   `docs/implementation-plans/<NNN-slug>/plan.md`
+   `docs/implementation-plans/<plan-dir>/plan.md`
 
    ## Changes
    - <bulleted list of key changes, one per phase or major subsystem touched>

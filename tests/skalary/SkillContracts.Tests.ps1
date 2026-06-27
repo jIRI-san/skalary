@@ -58,4 +58,11 @@ Describe 'Skill contract token guards' {
         $text | Should -Match 'capture\.md'
         $text | Should -Match 'allowlist-clean'
     }
+
+    It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {
+        $sync = Join-Path $repoRoot 'scripts/skalary/Sync-Dogfood.ps1'
+        $output = & $sync -WhatIf *>&1
+        $LASTEXITCODE | Should -Be 0
+        ($output -join "`n") | Should -Match 'Changed file count: 0'
+    }
 }

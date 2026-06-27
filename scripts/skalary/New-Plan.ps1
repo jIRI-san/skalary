@@ -107,7 +107,12 @@ $titleReplaced = $false
 for ($i = 0; $i -lt $lines.Count; $i++) {
     if (-not $titleReplaced -and $lines[$i] -match '^#\s+') {
         $lines[$i] = "# ${PlanId}: $Title"
-        $lines.Insert($i + 1, "<!-- plan-id: $PlanId -->")
+        if (($i + 1) -lt $lines.Count -and $lines[$i + 1] -match '^\s*<!--\s*plan-id:') {
+            $lines[$i + 1] = "<!-- plan-id: $PlanId -->"
+        }
+        else {
+            $lines.Insert($i + 1, "<!-- plan-id: $PlanId -->")
+        }
         $titleReplaced = $true
         break
     }

@@ -1,4 +1,6 @@
-# NNN: Plan Title
+# <plan-id>: Plan Title
+<!-- plan-id: <6hex> -->
+<!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
 <!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->
