@@ -209,7 +209,7 @@ function Get-PlanInventory {
     $plansRoot = Join-Path $root 'docs/implementation-plans'
     $inventory = [System.Collections.Generic.List[object]]::new()
     if (-not (Test-Path -LiteralPath $plansRoot)) {
-        return , $inventory.ToArray()
+        return $inventory.ToArray()
     }
 
     $archivedRoot = Join-Path $plansRoot 'archived'
@@ -268,7 +268,7 @@ function Get-PlanInventory {
         })
     }
 
-    return , $inventory.ToArray()
+    return $inventory.ToArray()
 }
 
 function New-PlanHexId {

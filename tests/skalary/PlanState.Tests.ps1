@@ -102,7 +102,7 @@ Describe 'PlanState Get-PlanInventory' {
         Set-Content -LiteralPath (Join-Path $new 'plan.md') -Value "# new`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
 
         try {
-            $inv = Get-PlanInventory -RepoRoot $root
+            $inv = @(Get-PlanInventory -RepoRoot $root)
             ($inv | Where-Object Scheme -eq 'legacy').Id | Should -Be '003'
             ($inv | Where-Object Scheme -eq 'legacy').IsArchived | Should -BeTrue
             $newEntry = $inv | Where-Object Scheme -eq 'new'
@@ -123,7 +123,7 @@ Describe 'PlanState Get-PlanInventory' {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Value "# x`n<!-- plan-id: 9f9f9f -->`n" -Encoding utf8NoBOM
         try {
-            $inv = Get-PlanInventory -RepoRoot $root
+            $inv = @(Get-PlanInventory -RepoRoot $root)
             $inv.Count | Should -Be 1
             $inv[0].Id | Should -Be '9f9f9f'
             $inv[0].FolderId | Should -Be 'ffffff'
