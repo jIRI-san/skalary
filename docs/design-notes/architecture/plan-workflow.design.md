@@ -11,6 +11,10 @@ globs:
   - scripts/skalary/PlanEvidence.psm1
   - scripts/skalary/PlanState.psm1
   - scripts/skalary/New-Plan.ps1
+  - scripts/skalary/Get-PlanState.ps1
+  - scripts/skalary/Set-PlanStage.ps1
+  - scripts/skalary/Add-WorkflowNote.ps1
+  - scripts/skalary/Repair-Plans.ps1
   - scripts/skalary/Validate-Plan.ps1
   - scripts/validate.ps1
   - plugins/create-implementation-plan/**
@@ -23,11 +27,15 @@ globs:
 
 | Component | Responsibility | Notes |
 |---|---|---|
-| `plugins/create-implementation-plan/skills/cip/SKILL.md` | Orchestrates interview, drafting, DR rounds | Stays orchestration-only; calls validator scripts, does not embed validation logic |
-| `plugins/continue-implementation/skills/ci/SKILL.md` | Orchestrates step execution and crosschecks | Uses deterministic script entry points before execution/crosscheck |
+| `plugins/create-implementation-plan/skills/cip/SKILL.md` | Orchestrates interview, drafting, DR rounds | Slim/orchestration-only; calls `New-Plan`/`Set-PlanStage`/`Add-WorkflowNote`/`Test-Plan` and embeds no validation or capture-schema prose; carries the anti-drift contract |
+| `plugins/continue-implementation/skills/ci/SKILL.md` | Orchestrates step execution and crosschecks | Slim; reads state via `Get-PlanState`, captures via `Add-WorkflowNote` (`capture.md`), builds receipts via `Build-EvidenceReceipt`; retains resume/reset + `@human`/`[discovery]` judgment under the anti-drift contract |
 | `scripts/skalary/Test-Plan.ps1` | Deterministic plan validator and file-evidence verifier | Supports `-Stage Draft|PhaseCrosscheck|PlanCrosscheck`; reusable evidence verification path |
 | `scripts/skalary/PlanState.psm1` | Plan parsing + identity/resolution module | Holds `Get-PlanMetadata` (explicit `-RepoRoot`), `Get-PlanInventory`, `New-PlanId`, `Resolve-Plan`; pure parsing, no plan-text execution |
 | `scripts/skalary/New-Plan.ps1` | Scaffolds a new plan folder from the cip template | Generates the id via `New-PlanId`, writes the `plan-id` anchor + `# <id>: <Title>` heading, sanitizes + path-confines the slug |
+| `scripts/skalary/Get-PlanState.ps1` | Plan progress + next-step state CLI (`npm run plan-state`) | Composes `Resolve-Plan`/`Get-PlanProgress`/`Get-NextStep`/`Get-PlanHeaderMarkers`; text or `-Json`; surfaces `@human`/`[discovery]`/blocked/uncommitted flags so `ci` collapses its read/find-next-step prose to one call |
+| `scripts/skalary/Set-PlanStage.ps1` | Idempotent `cip-stage` anchor writer | Single writer of `<!-- cip-stage: ... -->`; `cip`/`dr` set the stage instead of hand-editing the header |
+| `scripts/skalary/Add-WorkflowNote.ps1` | Typed mid-run capture writer | `-Kind` CrLog/Learnings/Capture → `cr-log.md`/`learnings.md`/`capture.md`; emits `[src:][sev:]`/`[trigger:]` tokens from typed params, sanitizes only the free-text body, owns init/append/placeholder + 10-entry-cap fail-loud contract |
+| `scripts/skalary/Repair-Plans.ps1` | On-demand legacy loose-file migration | `-WhatIf`, idempotent no-op on clean, preserves `depends-on`/worktree markers and existing `plan-id`s; archived plans are a non-goal |
 | `scripts/skalary/PlanEvidence.psm1` | Confined `file:` marker evaluator | Canonicalize-then-confine path checks, assertion vocabulary, regex/time budget enforcement |
 | `scripts/skalary/Add-LedgerEntry.ps1` | Deterministic workflow-memory append and dedup writer | Sanitizes untrusted text, enforces category/src/severity enums, uses workspace lock + idempotent replay; accepts both legacy `\d{3}` and `[0-9a-f]{6}` hash plan ids and canonicalizes the reference via `Resolve-Plan` before writing |
 | `scripts/skalary/Remove-LedgerEntry.ps1` | Deterministic workflow-memory prune/tombstone path | Full-line ordinal match, retention guards, `.archive/` move, no regex-driven destructive deletes |

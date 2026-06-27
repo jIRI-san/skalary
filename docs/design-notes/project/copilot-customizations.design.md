@@ -84,33 +84,45 @@ All three subagents perform a **comprehensive review** across every important di
 
 ## Implementation Workflow Skills (cip / ci)
 
-`cip` and `ci` are workspace **skills** (`SKILL.md` under `.github/skills/`) — multi-step workflows invocable via `/cip` and `/ci`. Both have `disable-model-invocation: true` so they only load when explicitly called.
+`cip` and `ci` are workspace **skills** (`SKILL.md` under `.github/skills/`) — multi-step workflows invocable via `/cip` and `/ci`. Both have `disable-model-invocation: true` so they only load when explicitly called. Both are deliberately slim: deterministic mechanics live in the PowerShell **state-script layer** (below), and the `SKILL.md` files keep only the judgment the agent must own. Each `SKILL.md` carries an **anti-drift contract** naming the `/ci` Step-5 `validate-plan` reconcile gate as the single source of truth for plan state.
+
+**Deterministic state-script layer** (`scripts/skalary/`, dogfood-mirrored, npm-aliased):
+- `PlanState.psm1` — shared module: `Get-PlanMetadata` (explicit `-RepoRoot`), `Resolve-Plan` (resolves a plan by 6-hex id / ≥4-char hash prefix / legacy number / slug / date → canonical id), `New-PlanId` (6 crypto-random hex with active+archived collision scan), `Get-PlanProgress`, `Get-NextStep`, `Get-PlanHeaderMarkers`.
+- `Get-PlanState.ps1` (`npm run plan-state`) — text/`-Json` snapshot composing resolve + progress + next-step + flags (`@human`/`[discovery]`/blocked/uncommitted). Replaces the hand-walked "find next step" prose in `ci`.
+- `New-Plan.ps1` (`npm run new-plan`) — scaffolds `<yyyy-mm-dd>-<6hex>-<slug>/plan.md` from `plan-template.md`, injecting the `<!-- plan-id: <6hex> -->` anchor (idempotently) with slug sanitization + path confinement.
+- `Set-PlanStage.ps1` — idempotent `<!-- cip-stage: ... -->` writer (DR rounds, etc.).
+- `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture → `cr-log.md`/`learnings.md`/`capture.md`); emits schema tokens from typed params, sanitizes only the free-text body, owns the init/append/placeholder + 10-entry-cap fail-loud contract.
+- `Build-EvidenceReceipt.ps1` — formats verifier output into the shared golden `✓/✗ REQ-N — evidence — result — commit` grammar (full HEAD SHA, `✗`/unrun preserved).
+- `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
+
+**Plan naming + identity:** plans live in `docs/implementation-plans/<yyyy-mm-dd>-<6hex>-<slug>/`. The `<!-- plan-id: <6hex> -->` anchor is the canonical handle — date, slug, and hash-prefix all resolve to it via `Resolve-Plan`, so collisions on the old `NNN` counter are gone. Legacy `NNN-<slug>` folders still resolve (dual-format) everywhere.
 
 **`cip` flow:**
-1. Load all relevant design notes
-2. Locate or create plan folder `docs/implementation-plans/NNN-<slug>/` and write `plan.md` to the repo immediately (as soon as the slug is known) so all later passes operate on the in-repo file — avoids VS Code access-control approvals for temporary files
-3. Thorough requirements interview across all dimensions (goals, API surface, error handling, testing, observability, security, performance, migration), refining the repo `plan.md` in place
-4. Draft plan: Decisions log + Requirements table + Risks table + Phases with `[ ]`/`[x]`/`[~]` step markers
-5. Keep the in-repo `plan.md` updated each iteration; plan mode hands off to agent mode early to persist (never plan-only-in-session-memory)
-6. Iterative `@dr` review (max 3 rounds) against the in-repo plan file — re-runs if High/Critical findings require significant changes
+1. Load all relevant design notes.
+2. `New-Plan.ps1` scaffolds the plan folder + `plan-id` anchor and writes `plan.md` to the repo immediately (as soon as the slug is known) so all later passes operate on the in-repo file — avoids VS Code access-control approvals for temporary files.
+3. Thorough requirements interview across all dimensions (goals, API surface, error handling, testing, observability, security, performance, migration), refining the repo `plan.md` in place.
+4. Draft plan: Decisions log + Requirements table + Risks table + Phases with `[ ]`/`[x]`/`[~]` step markers.
+5. Keep the in-repo `plan.md` updated each iteration; plan mode hands off to agent mode early to persist (never plan-only-in-session-memory). `Set-PlanStage.ps1` records the stage anchor.
+6. Iterative `@dr` review (max 3 rounds) against the in-repo plan file; notable/recurring findings captured via `Add-WorkflowNote -Kind Capture` → `capture.md`.
 
 **`ci` flow:**
-1. Select plan from `docs/implementation-plans/`; load relevant design notes
-2. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous)
-3. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue
-4. Branch name recorded as `<!-- worktree: <branch-name> -->` in the plan file to avoid derivation drift
-5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate
-6. Commit: `feat(<scope>): <step title> [plan-NNN step X.Y]`; plan file updated in same commit
-7. On all steps `[x]`: plan-level crosscheck → mark plan `[DONE]` in title → move folder to `docs/implementation-plans/archived/`
-8. Validation is script-only: orchestrators delegate to `npm run validate-plan` / `scripts/skalary/Test-Plan.ps1` / `scripts/validate.ps1` and never embed ad-hoc validation logic
-9. `cr` smart default scope is changed files including committed branch deltas plus uncommitted changes
-10. Workflow-memory loop from plan 007 is active: mid-run findings/lessons are captured to per-plan `cr-log.md` / `learnings.md` / `evolution-log.md` and initialized each phase with explicit empty-state placeholders
-11. Pre-review `ledger-consult` is part of drafting/crosscheck guidance; readers load only relevant files from `docs/review-ledger/` and exclude `.archive/`
-12. Harvest guidance in `/ci` is a marked mirror of canonical `autopilot.agent.md` finalization behavior (append phase always first, prune + `/udn` only on escalation branch)
+1. Resolve plan via `Resolve-Plan` (date/slug/hash); load relevant design notes.
+2. `Get-PlanState.ps1` yields the progress snapshot **and** next-step selection with `@human`/`[discovery]`/blocked/uncommitted flags — collapsing the former hand-walked "read plan / find next step" steps. The agent still owns resume/reset of `[~]`, `@human` stops, and `[discovery]` judgment.
+3. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
+4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
+5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate.
+6. Commit: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (canonical id, dual-format); plan file updated in same commit.
+7. On all steps `[x]`: plan-level crosscheck (receipt via `Build-EvidenceReceipt`) → mark plan `[DONE]` in title → move folder to `docs/implementation-plans/archived/`.
+8. Validation is script-only: orchestrators delegate to `npm run validate-plan` / `scripts/skalary/Test-Plan.ps1` / `scripts/validate.ps1` and never embed ad-hoc validation logic.
+9. `cr` smart default scope is changed files including committed branch deltas plus uncommitted changes.
+10. Workflow-memory loop from plan 007 is active: mid-run findings/lessons are captured via `Add-WorkflowNote` to per-plan `cr-log.md` / `learnings.md` / `capture.md`, initialized each phase with explicit empty-state placeholders.
+11. Pre-review `ledger-consult` is part of drafting/crosscheck guidance; readers load only relevant files from `docs/review-ledger/` and exclude `.archive/`.
+12. Harvest guidance in `/ci` is a marked mirror of canonical `autopilot.agent.md` finalization behavior (append phase always first, prune + `/udn` only on escalation branch); the harvest distillation source is `capture.md`.
 
 **Plan file format** (designed to be scannable by a human reviewer — no prose implementation instructions):
 ```markdown
-# NNN: Plan Title
+# <plan-id>: Plan Title
+<!-- plan-id: <6hex> -->
 
 ## Decisions
 - Key decision made during planning
@@ -119,7 +131,7 @@ All three subagents perform a **comprehensive review** across every important di
 | ID | Requirement | Acceptance Criteria | Phases/Steps |
 
 ## Phase 1: Name
-<!-- worktree: feature/<plan-slug> -->
+<!-- worktree: <branch-name> -->
 - [ ] 1.1 Step title (REQ-1)
 - [~] 1.2 Step title (in progress)
 - [x] 1.3 Step title (done)
