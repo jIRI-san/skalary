@@ -310,3 +310,71 @@ Describe 'PlanState Get-PlanProgress' {
     }
 }
 
+Describe 'PlanState Get-NextStep' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+
+        function New-FullStep {
+            param($Id, $Status, $Role = 'ai-agent', $After = @(), $Body = 'body')
+            [pscustomobject]@{ Id = $Id; Status = $Status; Role = $Role; After = $After; Body = $Body; Phase = '## Phase 1' }
+        }
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:get-nextstep-after returns the first non-complete step in top-down order' {
+        $meta = [pscustomobject]@{ Steps = @(
+            New-FullStep -Id '1.1' -Status 'x'
+            New-FullStep -Id '1.2' -Status '~'
+            New-FullStep -Id '1.3' -Status ' '
+        ) }
+        $next = Get-NextStep -Metadata $meta
+        $next.Id | Should -Be '1.2'
+        $next.IsComplete | Should -BeFalse
+    }
+
+    It 'test:get-nextstep-after flags blockedByAfter when an [after:] dependency is incomplete' {
+        $meta = [pscustomobject]@{ Steps = @(
+            New-FullStep -Id '1.1' -Status ' '
+            New-FullStep -Id '2.1' -Status 'x'
+            New-FullStep -Id '3.1' -Status ' ' -After @('1.1', '2.1')
+        ) }
+        $next = Get-NextStep -Metadata $meta
+        $next.Id | Should -Be '1.1'
+        $next.BlockedByAfter | Should -BeFalse
+
+        $meta2 = [pscustomobject]@{ Steps = @(
+            New-FullStep -Id '1.1' -Status 'x'
+            New-FullStep -Id '3.1' -Status ' ' -After @('1.1', '2.9')
+        ) }
+        $next2 = Get-NextStep -Metadata $meta2
+        $next2.Id | Should -Be '3.1'
+        $next2.BlockedByAfter | Should -BeTrue
+        $next2.UnmetAfter | Should -Be @('2.9')
+    }
+
+    It 'test:get-nextstep-flags surfaces isHuman, isDiscovery, and hasUncommittedChanges' {
+        $meta = [pscustomobject]@{ Steps = @(
+            New-FullStep -Id '1.1' -Status ' ' -Role 'human' -Body 'Manual review [discovery] of X'
+        ) }
+        $next = Get-NextStep -Metadata $meta -HasUncommittedChanges
+        $next.IsHuman | Should -BeTrue
+        $next.IsDiscovery | Should -BeTrue
+        $next.HasUncommittedChanges | Should -BeTrue
+    }
+
+    It 'test:get-nextstep-flags reports IsComplete when no step remains' {
+        $meta = [pscustomobject]@{ Steps = @(
+            New-FullStep -Id '1.1' -Status 'x'
+            New-FullStep -Id '1.2' -Status 'x'
+        ) }
+        $next = Get-NextStep -Metadata $meta
+        $next.IsComplete | Should -BeTrue
+        $next.Step | Should -BeNullOrEmpty
+    }
+}
+

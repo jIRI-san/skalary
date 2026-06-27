@@ -498,4 +498,68 @@ function Get-PlanProgress {
     }
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers
+function Get-NextStep {
+    [CmdletBinding(DefaultParameterSetName = 'Metadata')]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Metadata')]
+        [object]$Metadata,
+
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [string]$Path,
+
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [string]$RepoRoot,
+
+        [switch]$HasUncommittedChanges
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Path') {
+        $Metadata = Get-PlanMetadata -Path $Path -RepoRoot $RepoRoot
+    }
+
+    $steps = @($Metadata.Steps)
+    $completed = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($step in $steps) {
+        if ($step.Status -eq 'x') { [void]$completed.Add($step.Id) }
+    }
+
+    $next = $null
+    foreach ($step in $steps) {
+        if ($step.Status -ne 'x') { $next = $step; break }
+    }
+
+    if (-not $next) {
+        return [pscustomobject]@{
+            Step                  = $null
+            Id                    = $null
+            Status                = $null
+            IsHuman               = $false
+            IsDiscovery           = $false
+            HasUncommittedChanges = [bool]$HasUncommittedChanges
+            BlockedByAfter        = $false
+            UnmetAfter            = @()
+            IsComplete            = $true
+        }
+    }
+
+    $unmet = @()
+    foreach ($afterId in @($next.After)) {
+        if (-not $completed.Contains($afterId)) { $unmet += , $afterId }
+    }
+
+    $isDiscovery = ($next.Body -match '\[discovery\]')
+
+    return [pscustomobject]@{
+        Step                  = $next
+        Id                    = $next.Id
+        Status                = $next.Status
+        IsHuman               = ($next.Role -eq 'human')
+        IsDiscovery           = [bool]$isDiscovery
+        HasUncommittedChanges = [bool]$HasUncommittedChanges
+        BlockedByAfter        = ($unmet.Count -gt 0)
+        UnmetAfter            = $unmet
+        IsComplete            = $false
+    }
+}
+
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep
