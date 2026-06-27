@@ -1,4 +1,4 @@
-# Drafting Guide (`cip` Step 4)
+# Drafting Guide (`cip` Step 3)
 
 > Read this asset when drafting or refining `plan.md`. Keep the plan compact, executable, and machine-verifiable.
 
@@ -47,7 +47,7 @@ When approaching limits:
 
 ## State anchor and validator cadence
 
-- Set/update the stage anchor with `Set-PlanStage.ps1 -Stage drafted` after drafting (never hand-edit `<!-- cip-stage: ... -->`).
+- Set/update the stage anchor with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted` after drafting (never hand-edit `<!-- cip-stage: ... -->`).
 - Re-run `Test-Plan.ps1 -Stage Draft` after drafting and after each DR round.
 
 ## Capture (`capture.md`)

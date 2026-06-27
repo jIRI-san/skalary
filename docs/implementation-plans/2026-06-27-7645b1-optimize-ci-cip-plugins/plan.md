@@ -107,4 +107,4 @@
 
 - [x] 6.1 Add npm aliases `plan-state` + `new-plan`; verify they invoke the scripts; add the manifest-coverage test (REQ-16) [after: 2.3, 1.4] `S`
 - [x] 6.2 Update `copilot-customizations.design.md` for the slimmed ci/cip flow + state-script layer; finalize `plan-workflow.design.md` (REQ-17) [after: 5.5] `M`
-- [ ] 6.3 Plan crosscheck: rebuild `evidence.md` via `Build-EvidenceReceipt`, run full `npm test` + `npm run eval`, resolve or defer remaining markers (REQ-12, REQ-13, REQ-16, REQ-17) [after: 6.1, 6.2] `S`
+- [x] 6.3 Plan crosscheck: rebuild `evidence.md` via `Build-EvidenceReceipt`, run full `npm test` + `npm run eval`, resolve or defer remaining markers (REQ-12, REQ-13, REQ-16, REQ-17) [after: 6.1, 6.2] `S`

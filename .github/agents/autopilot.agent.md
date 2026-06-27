@@ -26,57 +26,35 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Exception: conditional Finalization step** → do not stop immediately. Run the canonical harvest finalization flow (append harvest first, then autonomous vs escalation branch), then continue per branch outcome.
    - `[discovery]` → treat as exploratory. Acceptance criteria are softer; iterate until the step's intent is satisfied rather than a strict pass/fail.
 8. **Mark in-progress** — change `- [ ]` to `- [~]` for the current step.
-9. **Initialize ephemeral logs by name** — in the selected plan folder, ensure `cr-log.md`, `learnings.md`, and `capture.md` are ready for the active phase with stable headers and explicit empty-state lines. For `learnings.md`, append a new phase section if missing (do not truncate prior phases):
+9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize `cr-log.md`, `learnings.md`, and `capture.md` for the active phase through `Add-WorkflowNote.ps1` (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the 10-entry learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
 
-   ```text
-   ## CR Capture
-   Phase: <N>
-
-   No entries for this phase.
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog     -PlanDir <plan-folder> -Phase <N>
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture   -PlanDir <plan-folder> -Phase <N>
    ```
 
-   ```text
-   ## Learnings Capture
-   Phase: <N>
-
-   No entries for this phase.
-   ```
-
-   Ensure `capture.md` contains the capture section scaffold (written via `Add-WorkflowNote -Kind Capture`):
-
-   ```text
-   ## Capture
-
-   No entries for this phase.
-   ```
-
-   Stage/commit these files by explicit name when changed (never wildcard staging). Mid-run capture is ephemeral only; do not write `docs/review-ledger/*` here.
+   Each kind writes its own file (`cr-log.md` / `learnings.md` / `capture.md`) with a stable header and an explicit `No entries for this phase.` placeholder; for `learnings.md` the script appends a new phase section if missing and never truncates prior phases. Stage/commit these files by explicit name when changed (never wildcard staging). Mid-run capture is ephemeral only; do not write `docs/review-ledger/*` here.
 10. **Pre-execution validation** — run the committed `.autopilot.json` test command (`npm test` in this repo). It is the deterministic evidence-runner and executes `validate-plan` before any other checks. If this fails, stop and fix integrity issues before writing code.
 11. **Implement** — write the code/files for this step. Follow design notes in `docs/design-notes/`. Make only changes necessary for this step.
    - **Try the simplest approach first.** If the plan specifies a complex solution but a simpler one might work, try the simple one. Only escalate to complexity when the simple approach demonstrably fails.
    - **Tests must encode invariants, not snapshots.** Assert the meaningful property (e.g. "cells grow outward from center") not an incidental observation (e.g. "all center-row cells have height 42px"). If a test would break from a valid future change to an unrelated aspect, it's asserting the wrong thing.
-   - **Learning capture trigger:** append to `learnings.md` only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern` — and include trigger type + source step:
+   - **Learning capture trigger:** append to `learnings.md` **only** through `Add-WorkflowNote.ps1 -Kind Learnings` (the script replaces the phase placeholder, enforces the 10-entry cap, and folds overflow into a single summary). Append only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern`:
 
-     ```text
-     - [<source-step>] [trigger:<rework>1|plan-contradiction|reusable-pattern>] <one-line learning>
+     ```powershell
+     pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Step <source-step> -Trigger <rework>1|plan-contradiction|reusable-pattern> -Message "<one-line learning>"
      ```
 
-     Replace the current phase placeholder (`No entries for this phase.`) when writing the first real entry.
-
-     Enforce a hard per-plan cap of 10 entries across all phase sections. If exceeded, append one overflow summary and stop appending individual entries:
-
-     ```text
-     - [<source-step>] [trigger:overflow-summary] Folded <N> additional learnings into this summary.
-     ```
+     The script emits the entry shape `- [<source-step>] [trigger:<...>] <learning>` and, once the per-plan cap of 10 is reached, a single `[trigger:overflow-summary]` line — do not hand-write these.
 12. **Build** — run the build command from `.autopilot.json` `build` field. Fix errors and retry up to `maxIterationsPerStep` times.
 13. **Test** — run the test command from `.autopilot.json` `test` field. If a relevant test filter can be identified from the changed subsystem (e.g. `--filter Category=Scheduling`), use it for faster feedback. Otherwise run all tests. Fix failures and retry.
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
-17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` using `src:code-review` and this entry shape:
+17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
 
-   ```text
-   - [<source-step>] [src:code-review] [sev:<Critical|High|Med|Low>] <one-line finding or triage note>
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
    ```
 
    It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. For any findings it reports, fix them and re-run build/test.

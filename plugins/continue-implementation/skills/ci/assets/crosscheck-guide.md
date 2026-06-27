@@ -1,4 +1,4 @@
-# Crosscheck Guide (`ci` Step 6)
+# Crosscheck Guide (`ci` Step 5)
 
 > Read this asset when validating phase/plan completion and proving requirements with typed evidence.
 
@@ -12,10 +12,12 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
 
-Build the receipt with the shared formatter — do not hand-write receipt lines:
+Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into `evidence.md` (the script itself does not read or write `evidence.md`):
 
 ```powershell
-pwsh -NoProfile -File scripts/skalary/Build-EvidenceReceipt.ps1 -PlanDir <plan-folder> -Commit <HEAD-sha> ...
+# $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Success=$true; Note='' } ...
+$receipt = & scripts/skalary/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N>
+Set-Content -LiteralPath <plan-folder>/evidence.md -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
 `Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>` (`✓` pass, `✗` fail/unrun); a REQ passes only when all its markers pass, and failed/unrun markers are preserved.

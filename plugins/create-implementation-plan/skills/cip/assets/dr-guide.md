@@ -1,4 +1,4 @@
-# Design Review Guide (`cip` Step 6)
+# Design Review Guide (`cip` Step 4)
 
 > Read this asset when running design review. Iterative, **max 3 rounds by default**. Most real issues surface in rounds 1–3; later rounds produce re-discoveries, cross-model contradictions, and increasingly theoretical edge cases that add bulk without value.
 
@@ -43,4 +43,4 @@ Flag overengineering explicitly. Reject findings that optimize for theoretical c
 
 ## State Anchor
 
-After each DR round, set the stage with `Set-PlanStage.ps1 -Stage dr-round-N` (never hand-edit `<!-- cip-stage: ... -->`) so a resumed session knows where review left off.
+After each DR round, set the stage with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage dr-round-N` (never hand-edit `<!-- cip-stage: ... -->`) so a resumed session knows where review left off.

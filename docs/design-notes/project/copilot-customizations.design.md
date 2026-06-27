@@ -91,7 +91,7 @@ All three subagents perform a **comprehensive review** across every important di
 - `Get-PlanState.ps1` (`npm run plan-state`) — text/`-Json` snapshot composing resolve + progress + next-step + flags (`@human`/`[discovery]`/blocked/uncommitted). Replaces the hand-walked "find next step" prose in `ci`.
 - `New-Plan.ps1` (`npm run new-plan`) — scaffolds `<yyyy-mm-dd>-<6hex>-<slug>/plan.md` from `plan-template.md`, injecting the `<!-- plan-id: <6hex> -->` anchor (idempotently) with slug sanitization + path confinement.
 - `Set-PlanStage.ps1` — idempotent `<!-- cip-stage: ... -->` writer (DR rounds, etc.).
-- `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture → `cr-log.md`/`learnings.md`/`capture.md`); emits schema tokens from typed params, sanitizes only the free-text body, owns the init/append/placeholder + 10-entry-cap fail-loud contract.
+- `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture → `cr-log.md`/`learnings.md`/`capture.md`); emits schema tokens from typed params, sanitizes only the free-text body, owns init/append + the `No entries for this phase.` placeholder fail-loud contract. The 10-entry fold-to-overflow cap is Learnings-only (`CrLog`/`Capture` uncapped).
 - `Build-EvidenceReceipt.ps1` — formats verifier output into the shared golden `✓/✗ REQ-N — evidence — result — commit` grammar (full HEAD SHA, `✗`/unrun preserved).
 - `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
 
@@ -107,7 +107,7 @@ All three subagents perform a **comprehensive review** across every important di
 
 **`ci` flow:**
 1. Resolve plan via `Resolve-Plan` (date/slug/hash); load relevant design notes.
-2. `Get-PlanState.ps1` yields the progress snapshot **and** next-step selection with `@human`/`[discovery]`/blocked/uncommitted flags — collapsing the former hand-walked "read plan / find next step" steps. The agent still owns resume/reset of `[~]`, `@human` stops, and `[discovery]` judgment.
+2. `Get-PlanState.ps1` yields the progress snapshot **and** the next incomplete candidate step with `@human`/`[discovery]`/blocked-by-after/uncommitted flags — collapsing the former hand-walked "read plan / find next step" steps. It returns the first non-`[x]` step in order (flagged if its `[after:]` deps are unmet); it does not skip ahead to later unblocked work. The agent still owns resume/reset of `[~]`, `@human` stops, `[discovery]` judgment, and resolving a blocked-by-after candidate.
 3. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
 4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
 5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate.

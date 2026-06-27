@@ -34,7 +34,7 @@ Surface deterministic state before any work:
 pwsh -NoProfile -File scripts/skalary/Get-PlanState.ps1 <plan-reference> -RepoRoot .
 ```
 
-`Get-PlanState` reports progress (done/total, current phase, last completed) and selects the next eligible step with its `@human` / `[discovery]` / `blocked-by-after` flags. Add only the judgment it cannot make:
+`Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
 
 - **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
 - **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.

@@ -1,4 +1,4 @@
-# Execution Guide (`ci` Step 5)
+# Execution Guide (`ci` Step 4)
 
 > Read this asset when implementing one plan step.
 
