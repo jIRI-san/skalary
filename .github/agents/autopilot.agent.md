@@ -15,6 +15,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 ## Execution Loop
 
 1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Also check if the plan folder contains `evolution-log.md` or `decisions/*.md` — if so, read them for additional context.
+   - **Resolve the canonical plan id** from the `<!-- plan-id: ... -->` anchor via `scripts/skalary/PlanState.psm1` (`Resolve-Plan`). This id is dual-format (`<6hex>` for new plans, legacy `NNN` for old ones). Use this resolved id — never a raw `NNN` parsed from the folder name — everywhere a plan id is referenced: harvest `-Plan`, archive movement, and commit/PR body text.
 2. **Read config** — open `.autopilot.json` in the repo root. Extract `build`, `test`, and `maxIterationsPerStep`.
 3. **Identify phase** — find the phase number from the prompt (e.g. "phase 3"). Only work on steps in that phase.
 4. **Find next step** — scan for the first `- [ ]` or `- [~]` step in the target phase.
@@ -25,57 +26,35 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Exception: conditional Finalization step** → do not stop immediately. Run the canonical harvest finalization flow (append harvest first, then autonomous vs escalation branch), then continue per branch outcome.
    - `[discovery]` → treat as exploratory. Acceptance criteria are softer; iterate until the step's intent is satisfied rather than a strict pass/fail.
 8. **Mark in-progress** — change `- [ ]` to `- [~]` for the current step.
-9. **Initialize ephemeral logs by name** — in the selected plan folder, ensure `cr-log.md`, `learnings.md`, and `evolution-log.md` are ready for the active phase with stable headers and explicit empty-state lines. For `learnings.md`, append a new phase section if missing (do not truncate prior phases):
+9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize `cr-log.md`, `learnings.md`, and `capture.md` for the active phase through `Add-WorkflowNote.ps1` (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the 10-entry learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
 
-   ```text
-   ## CR Capture
-   Phase: <N>
-
-   No entries for this phase.
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog     -PlanDir <plan-folder> -Phase <N>
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture   -PlanDir <plan-folder> -Phase <N>
    ```
 
-   ```text
-   ## Learnings Capture
-   Phase: <N>
-
-   No entries for this phase.
-   ```
-
-   Ensure `evolution-log.md` contains the capture section scaffold:
-
-   ```text
-   ## Capture
-
-   No entries for this phase.
-   ```
-
-   Stage/commit these files by explicit name when changed (never wildcard staging). Mid-run capture is ephemeral only; do not write `docs/review-ledger/*` here.
+   Each kind writes its own file (`cr-log.md` / `learnings.md` / `capture.md`) with a stable header and an explicit `No entries for this phase.` placeholder; for `learnings.md` the script appends a new phase section if missing and never truncates prior phases. Stage/commit these files by explicit name when changed (never wildcard staging). Mid-run capture is ephemeral only; do not write `docs/review-ledger/*` here.
 10. **Pre-execution validation** — run the committed `.autopilot.json` test command (`npm test` in this repo). It is the deterministic evidence-runner and executes `validate-plan` before any other checks. If this fails, stop and fix integrity issues before writing code.
 11. **Implement** — write the code/files for this step. Follow design notes in `docs/design-notes/`. Make only changes necessary for this step.
    - **Try the simplest approach first.** If the plan specifies a complex solution but a simpler one might work, try the simple one. Only escalate to complexity when the simple approach demonstrably fails.
    - **Tests must encode invariants, not snapshots.** Assert the meaningful property (e.g. "cells grow outward from center") not an incidental observation (e.g. "all center-row cells have height 42px"). If a test would break from a valid future change to an unrelated aspect, it's asserting the wrong thing.
-   - **Learning capture trigger:** append to `learnings.md` only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern` — and include trigger type + source step:
+   - **Learning capture trigger:** append to `learnings.md` **only** through `Add-WorkflowNote.ps1 -Kind Learnings` (the script replaces the phase placeholder, enforces the 10-entry cap, and folds overflow into a single summary). Append only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern`:
 
-     ```text
-     - [<source-step>] [trigger:<rework>1|plan-contradiction|reusable-pattern>] <one-line learning>
+     ```powershell
+     pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Step <source-step> -Trigger <rework>1|plan-contradiction|reusable-pattern> -Message "<one-line learning>"
      ```
 
-     Replace the current phase placeholder (`No entries for this phase.`) when writing the first real entry.
-
-     Enforce a hard per-plan cap of 10 entries across all phase sections. If exceeded, append one overflow summary and stop appending individual entries:
-
-     ```text
-     - [<source-step>] [trigger:overflow-summary] Folded <N> additional learnings into this summary.
-     ```
+     The script emits the entry shape `- [<source-step>] [trigger:<...>] <learning>` and, once the per-plan cap of 10 is reached, a single `[trigger:overflow-summary]` line — do not hand-write these.
 12. **Build** — run the build command from `.autopilot.json` `build` field. Fix errors and retry up to `maxIterationsPerStep` times.
 13. **Test** — run the test command from `.autopilot.json` `test` field. If a relevant test filter can be identified from the changed subsystem (e.g. `--filter Category=Scheduling`), use it for faster feedback. Otherwise run all tests. Fix failures and retry.
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
-17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` using `src:code-review` and this entry shape:
+17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
 
-   ```text
-   - [<source-step>] [src:code-review] [sev:<Critical|High|Med|Low>] <one-line finding or triage note>
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
    ```
 
    It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. For any findings it reports, fix them and re-run build/test.
@@ -92,12 +71,12 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
     ```
 
 19. **Fix loop** — if build/test/acceptance/code-review fails, fix and retry. Maximum iterations from config.
-20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-NNN step X.Y]`
+20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
 21. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
 
 ## On Phase Completion
 
-1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the plan-folder `evidence.md` receipt:
+1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the plan-folder `evidence.md` receipt. Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1`, which emits the shared golden grammar (`✓/✗ REQ-N — evidence — result — commit`, full HEAD SHA, `✗`/unrun preserved) — never hand-format the line:
    ```
    Phase N Crosscheck:
    ✓ REQ-1 — test:TestId — passed — <commit>
@@ -119,9 +98,9 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## On Plan Completion
 
-1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to `evidence.md`:
+1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to `evidence.md` via `scripts/skalary/Build-EvidenceReceipt.ps1` (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
    ```
-   Plan NNN Final Crosscheck:
+   Plan <plan-id> Final Crosscheck:
    Requirements: X/Y satisfied
    ✓ REQ-1 — test:TestId — passed — <commit>
    ✗ REQ-4 — criterion — gap: [detail]
@@ -144,14 +123,14 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Also require `Test-Path docs/review-ledger/security.md` and `Test-Path docs/review-ledger/testing.md` before invoking `Add`.
      - If append infra is missing, skip append harvest and follow existing branch policy without infra scripts: autonomous completion may continue standard archive/push/PR; `@human` completion must still use draft-PR + marker + exit 42 (no archive).
    - **Fail-loud contract for ephemeral logs by name**:
-     - Require `evolution-log.md` to contain `## Capture`.
+     - Require `capture.md` to contain `## Capture`.
      - Require `cr-log.md` and `learnings.md` to contain either a phase section or `No entries for this phase.`.
      - Fail only when the required section/placeholder is missing; an intentionally empty phase is valid.
    - **Append harvest phase (always before branch):**
-     - Distill one-line lessons from `evolution-log` capture entries, `cr-log`, and `learnings`.
+     - Distill one-line lessons from `capture.md` capture entries, `cr-log.md`, and `learnings.md`.
      - Deterministic mapping into `Add-LedgerEntry` arguments:
        - `-Category`: selected from the 7-category taxonomy by keyword/REQ scope (same rubric as `ledger-consult`).
-       - `-Plan`: plan number from the executing `docs/implementation-plans/<NNN-*>/plan.md`.
+       - `-Plan`: the canonical plan id resolved via `Resolve-Plan` from the executing plan's `plan-id` anchor (dual-format `<6hex>`/legacy `NNN`), not a raw folder `NNN`.
        - `-Src`: `autopilot` for autopilot harvest, `ci` for interactive `/ci` harvest.
        - `-Severity`: carried from captured finding severity where present; otherwise default `Med` for reusable process learnings.
        - `-Entry`: one sanitized one-line lesson per candidate.
@@ -170,10 +149,10 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Prune only prior-plan entries flagged obsolete/superseded by `/udn`; retention guards remain enforced by script.
      - Candidate selection must pass full-line matches from active ledger files into `Remove` (`-Match` or `-MatchBase64`), never substring or regex targeting.
 
-4. **Archive plan (autonomous branch only)** — mark the plan done and move it:
-   - Edit `plan.md` title to append `[DONE]`: `# NNN: Plan Title [DONE]`
-   - Move folder: `Move-Item docs/implementation-plans/NNN-<slug> docs/implementation-plans/archived/NNN-<slug>`
-   - Stage and commit: `git commit -m "chore: archive completed plan NNN"`
+4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; the slug dir is `<date>-<hash>-<slug>` for new plans or legacy `NNN-<slug>`):
+   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`
+   - Move folder: `Move-Item docs/implementation-plans/<plan-dir> docs/implementation-plans/archived/<plan-dir>`
+   - Stage and commit: `git commit -m "chore: archive completed plan <plan-id>"`
 
 5. **Create PR (autonomous branch only)** — generate a PR with a structured title and body:
 
@@ -186,7 +165,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    <1–3 sentence description of what this plan implements and why>
 
    ## Plan
-   `docs/implementation-plans/<NNN-slug>/plan.md`
+   `docs/implementation-plans/<plan-dir>/plan.md`
 
    ## Changes
    - <bulleted list of key changes, one per phase or major subsystem touched>

@@ -1,7 +1,7 @@
 ---
 name: cip
-description: 'Create Implementation Plan — use when planning a new feature, designing an implementation, starting development work, or resuming/refining an existing plan. Conducts thorough requirements gathering across all aspects (goals, constraints, API surface, error handling, testing, observability, security, performance), drafts a phased plan with step-level tracking, runs iterative design review via @dr, and saves to docs/implementation-plans/. Invoke with /cip <name> for a new plan or /cip <slug> to resume an existing one.'
-argument-hint: 'Plan name for a new plan (e.g. "data persistence"), or an existing plan slug to resume (e.g. "001-data-persistence")'
+description: 'Create Implementation Plan — use when planning a new feature, designing an implementation, starting development work, or resuming/refining an existing plan. Conducts thorough requirements gathering across all aspects (goals, constraints, API surface, error handling, testing, observability, security, performance), drafts a phased plan with step-level tracking, runs iterative design review via @dr, and saves to docs/implementation-plans/. Invoke with /cip <name> for a new plan or /cip <reference> to resume an existing one.'
+argument-hint: 'Plan name for a new plan (e.g. "data persistence"), or an existing plan reference to resume (hash prefix, legacy number, slug, or date)'
 user-invocable: true
 disable-model-invocation: true
 context: fork
@@ -20,7 +20,7 @@ context: fork
 - Every requirement needs machine-checkable evidence markers in acceptance criteria.
 - Keep plans phase-budget aware and size-bounded.
 - Run `Test-Plan.ps1` after drafting and after each DR round.
-- Maintain the state anchor `<!-- cip-stage: ... -->` in the plan header.
+- Maintain the `<!-- cip-stage: ... -->` anchor via `Set-PlanStage.ps1` (never hand-edit it).
 
 ## Preservation checklist (legacy Step-4 rules -> assets)
 
@@ -30,12 +30,16 @@ context: fork
 - **Architecture lock-in** -> `./assets/interview-guide.md`
 - **Cross-reference + evidence integrity** -> `./assets/drafting-guide.md` + `Test-Plan.ps1` gate
 
-## Step 1: Load context
+## Step 1: Load context and resolve the plan folder
 
-1. Read `docs/design-notes/.design-notes.md`.
-2. Load relevant design notes for touched subsystems.
-3. Identify target plan folder in `docs/implementation-plans/` (exclude `archived/`), or create `NNN-<slug>/plan.md` for a new plan.
-4. Migrate any legacy loose plan files into folder format before proceeding.
+1. Read `docs/design-notes/.design-notes.md` and load relevant design notes for touched subsystems.
+2. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
+
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
+   ```
+3. **Resume:** resolve the existing plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`.
+4. If legacy loose plan files exist, migrate them with `scripts/skalary/Repair-Plans.ps1` — do not hand-migrate.
 
 ## Step 2: Run interview (`./assets/interview-guide.md`)
 
@@ -47,37 +51,34 @@ context: fork
 
 1. Build/update the plan in-repo using `./assets/plan-template.md`.
 2. Follow the drafting checklist in `./assets/drafting-guide.md` (typed evidence legend, phase-budget points, concise steps, decisions extraction, size limits).
-3. Set/update the stage anchor in plan header:
+3. Set the stage anchor with `Set-PlanStage.ps1`:
 
-```md
-<!-- cip-stage: drafted -->
-```
-
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted
+   ```
 4. Run:
 
-```powershell
-pwsh -NoProfile -File scripts/skalary/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
-```
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
+   ```
 
 ## Step 4: Design review (`./assets/dr-guide.md`)
 
 1. Run iterative DR (up to 3 rounds) using the DR asset process and evolution log.
-2. After each round, set/update:
-
-```md
-<!-- cip-stage: dr-round-N -->
-```
-
-3. After each round, re-run:
-
-```powershell
-pwsh -NoProfile -File scripts/skalary/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
-```
+2. After each round, set the stage with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage dr-round-N` and re-run `Test-Plan.ps1 -Stage Draft`.
 
 Keep this file orchestration-only: validation logic lives in `scripts/skalary/Test-Plan.ps1` and `scripts/validate.ps1`, never as ad-hoc checks embedded in markdown instructions.
 
 ## Step 5: Finish
 
 1. Confirm `plan.md` is saved in repo.
-2. Confirm state anchor reflects final stage reached.
+2. Confirm the stage anchor reflects the final stage reached.
 3. Ask: **"Ready to start implementation? Use `/ci` to begin."**
+
+## Anti-drift contract
+
+Long runs drift; re-anchor every step instead of trusting context memory:
+
+- **Validation authority:** `Test-Plan.ps1` / `npm run validate-plan` is the only authority on plan structure and evidence integrity. Resolve divergence by re-running it, not by reasoning from context.
+- **Script-only mutation:** plan scaffolding (`New-Plan`), stage anchors (`Set-PlanStage`), and capture writes (`Add-WorkflowNote`) are script-mediated — never hand-edit those structures.
+- **No silent TBDs:** unresolved architecture or evidence-less requirements block drafting; surface them to the user.

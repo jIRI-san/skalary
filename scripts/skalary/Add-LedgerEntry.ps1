@@ -6,7 +6,7 @@ param(
     [string]$Category,
 
     [Parameter(Mandatory)]
-    [ValidatePattern('^\d{3}$')]
+    [ValidatePattern('^(\d{4}-\d{2}-\d{2}|[0-9a-f]{4,6}|\d{3})$')]
     [string]$Plan,
 
     [Parameter(Mandatory)]
@@ -27,6 +27,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force
 
 $maxEntryLength = 220
 $maxTagLength = 40
@@ -129,7 +131,7 @@ function ConvertTo-LedgerRecord {
         [string]$Line
     )
 
-    $pattern = '^- \[(?<date>\d{4}-\d{2}-\d{2})\] (?<lesson>.+?) \(plan-(?<plan>\d{3}), src:(?<src>cip|dr|cr|code-review|ci|autopilot), sev:(?<severity>Critical|High|Med|Low)\)(?<tags>(?:\s+#\S+)*)$'
+    $pattern = '^- \[(?<date>\d{4}-\d{2}-\d{2})\] (?<lesson>.+?) \(plan-(?<plan>[0-9a-f]{6}|\d{3}), src:(?<src>cip|dr|cr|code-review|ci|autopilot), sev:(?<severity>Critical|High|Med|Low)\)(?<tags>(?:\s+#\S+)*)$'
     if ($Line -notmatch $pattern) {
         return $null
     }
@@ -328,9 +330,52 @@ function Invoke-WithLedgerLock {
     }
 }
 
+function Resolve-LedgerPlanId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Reference,
+        [Parameter(Mandatory)]
+        [string]$Root
+    )
+
+    # The ledger may only ever write one canonical id format: 6-hex hash or 3-digit legacy.
+    $writablePattern = '^([0-9a-f]{6}|\d{3})$'
+
+    $inventory = @()
+    try {
+        $inventory = @(Get-PlanInventory -RepoRoot $Root)
+    }
+    catch {
+        $inventory = @()
+    }
+
+    if ($inventory.Count -gt 0) {
+        try {
+            $resolved = Resolve-Plan -Reference $Reference -RepoRoot $Root -Inventory $inventory
+            if ($resolved -and $resolved.Id -and ($resolved.Id -match $writablePattern)) {
+                # Every reference scheme (date, hash prefix, full id, slug) folds to one canonical id,
+                # so the idempotence and recurrence keys cannot fork across schemes.
+                return $resolved.Id
+            }
+        }
+        catch {
+            # No unambiguous plan match; fall back to the literal id below.
+        }
+    }
+
+    if ($Reference -match $writablePattern) {
+        return $Reference
+    }
+
+    throw "Plan reference '$Reference' could not be resolved to a canonical writable id (no matching plan; not a 6-hex or 3-digit id)."
+}
+
 if ($Date -notmatch '^\d{4}-\d{2}-\d{2}$') {
     throw "Date '$Date' must match yyyy-MM-dd."
 }
+
+$Plan = Resolve-LedgerPlanId -Reference $Plan -Root $RepoRoot
 
 $entrySanitized = Sanitize-LedgerText -Text $Entry -MaxLength $maxEntryLength
 $normalizedLesson = Normalize-LedgerLesson -Text $entrySanitized -MaxLength $maxEntryLength

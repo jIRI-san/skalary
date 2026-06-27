@@ -3,24 +3,71 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
     [Parameter(Mandatory)]
-    [string]$PlanPath
+    [string]$PlanPath,
+    [string]$DependencyReference = '006'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Test-PlanDependsOn006 {
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force
+
+function Resolve-DependencyId {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$Path
+        [string]$Reference,
+        [Parameter(Mandatory)]
+        [string]$Root,
+        [AllowEmptyCollection()]
+        [object[]]$Inventory = @()
     )
+
+    $literal = $Reference.Trim().ToLowerInvariant()
+    if ($Inventory.Count -gt 0) {
+        try {
+            $resolved = Resolve-Plan -Reference $Reference -RepoRoot $Root -Inventory $Inventory
+            if ($resolved -and $resolved.Id) {
+                return $resolved.Id.ToLowerInvariant()
+            }
+        }
+        catch {
+            # No unambiguous plan match; fall back to literal token comparison below.
+        }
+    }
+    return $literal
+}
+
+function Test-PlanDependsOnTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+        [Parameter(Mandatory)]
+        [string]$Root,
+        [Parameter(Mandatory)]
+        [string]$TargetReference
+    )
+
+    $inventory = @()
+    try {
+        $inventory = @(Get-PlanInventory -RepoRoot $Root)
+    }
+    catch {
+        $inventory = @()
+    }
+
+    # Resolve the guarded plan reference and every declared dependency to a canonical id so a
+    # legacy 3-digit number, a hash (prefix), a slug, or a date all trigger identical behavior.
+    $targetId = Resolve-DependencyId -Reference $TargetReference -Root $Root -Inventory $inventory
 
     $content = Get-Content -LiteralPath $Path -Raw -Encoding utf8
     foreach ($match in [regex]::Matches($content, '<!--\s*depends-on:\s*(?<deps>[^>]+?)-->', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
         $deps = $match.Groups['deps'].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
-        if ($deps -contains '006') {
-            return $true
+        foreach ($dep in $deps) {
+            if ((Resolve-DependencyId -Reference $dep -Root $Root -Inventory $inventory) -eq $targetId) {
+                return $true
+            }
         }
     }
 
@@ -79,8 +126,8 @@ try {
         throw "Plan path '$resolvedPlanPath' is outside repository root '$resolvedRoot'."
     }
 
-    if (-not (Test-PlanDependsOn006 -Path $resolvedPlanPath)) {
-        Write-Host 'Plan does not declare depends-on: 006; dependency gate skipped.'
+    if (-not (Test-PlanDependsOnTarget -Path $resolvedPlanPath -Root $resolvedRoot -TargetReference $DependencyReference)) {
+        Write-Host "Plan does not declare depends-on: $DependencyReference; dependency gate skipped."
         exit 0
     }
 
@@ -108,11 +155,18 @@ try {
         throw "Expected file-evidence fail probe failed for an unexpected reason (no 'Evidence failed' signal).`n$($failProbe.Output)"
     }
 
-    Assert-FileContains -Root $resolvedRoot -RelativePath 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md' -Pattern 'Test-Plan\.ps1'
-    Assert-FileContains -Root $resolvedRoot -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' -Pattern 'test:<TestId>'
-    Assert-FileContains -Root $resolvedRoot -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' -Pattern 'file:<path>#<assertion>'
-    Assert-FileContains -Root $resolvedRoot -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' -Pattern 'review:cr\|dr'
-    Assert-FileContains -Root $resolvedRoot -RelativePath 'plugins/autopilot/agents/autopilot.agent.md' -Pattern 'allowlist-clean'
+    # Compatibility-anchor tokens: literal contract strings that downstream skills/agents depend on.
+    # Phase-5 slimming MUST preserve these exact tokens; this gate fails loudly if any are dropped.
+    $compatibilityAnchors = @(
+        @{ Path = 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'; Pattern = 'Test-Plan\.ps1' }
+        @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'test:<TestId>' }
+        @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'file:<path>#<assertion>' }
+        @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'review:cr\|dr' }
+        @{ Path = 'plugins/autopilot/agents/autopilot.agent.md'; Pattern = 'allowlist-clean' }
+    )
+    foreach ($anchor in $compatibilityAnchors) {
+        Assert-FileContains -Root $resolvedRoot -RelativePath $anchor.Path -Pattern $anchor.Pattern
+    }
 
     $packageJsonPath = Join-Path $resolvedRoot 'package.json'
     if (-not (Test-Path -LiteralPath $packageJsonPath -PathType Leaf)) {
@@ -127,10 +181,10 @@ try {
         throw "package.json script 'test' must include 'npm run test:unit'."
     }
 
-    Write-Host 'Plan 006 dependency preflight passed.'
+    Write-Host "Plan $DependencyReference dependency preflight passed."
     exit 0
 }
 catch {
-    Write-Host "Plan 006 dependency preflight failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Plan $DependencyReference dependency preflight failed: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

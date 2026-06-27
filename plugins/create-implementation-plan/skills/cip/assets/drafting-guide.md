@@ -1,4 +1,4 @@
-# Drafting Guide (`cip` Step 4)
+# Drafting Guide (`cip` Step 3)
 
 > Read this asset when drafting or refining `plan.md`. Keep the plan compact, executable, and machine-verifiable.
 
@@ -47,26 +47,21 @@ When approaching limits:
 
 ## State anchor and validator cadence
 
-- Set/update `<!-- cip-stage: drafted -->` after drafting.
+- Set/update the stage anchor with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted` after drafting (never hand-edit `<!-- cip-stage: ... -->`).
 - Re-run `Test-Plan.ps1 -Stage Draft` after drafting and after each DR round.
 
-## Capture section (`evolution-log.md`)
+## Capture (`capture.md`)
 
-When drafting or refining a plan, initialize and maintain a delimited `## Capture` section in the plan folder `evolution-log.md` (separate from DR-round history):
+Durable interview/assumption notes are written **script-only** via `Add-WorkflowNote.ps1 -Kind Capture` into the plan-folder `capture.md` (it owns the `## Capture` header, the `No entries for this phase.` placeholder, placeholder-replace, and free-text sanitization):
 
-```markdown
-## Capture
-
-No entries for this phase.
+```powershell
+# initialize the phase section (no -Message)
+pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N>
+# record an interview decision/assumption
+pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "interview: <decision or assumption>"
 ```
 
-Record interview decisions and notable implementation assumptions in this section only, using one line per entry:
-
-```text
-- [interview] [step:<source-step>] <decision or assumption>
-```
-
-Initialize this section and commit `evolution-log.md` by explicit filename at phase start, even if no entries are added yet. Commit again whenever entries are appended.
+Initialize the section and commit `capture.md` by explicit filename at phase start even if empty; commit again when entries are appended. Missing required sections/placeholders fail loud; an intentionally empty `No entries for this phase.` stays valid.
 
 ## `ledger-consult` (on-demand, before drafting)
 

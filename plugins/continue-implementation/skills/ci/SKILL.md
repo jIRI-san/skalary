@@ -1,7 +1,7 @@
 ---
 name: ci
 description: 'Continue Implementation — execute a plan from docs/implementation-plans/, track step state, implement one step at a time, validate with build/test, review with @cr, and commit progress.'
-argument-hint: 'Optional plan slug (e.g. "006-plan-workflow-hardening")'
+argument-hint: 'Optional plan reference (hash prefix, legacy number, slug, or date)'
 user-invocable: true
 disable-model-invocation: true
 context: fork
@@ -15,26 +15,30 @@ context: fork
 
 ## Step 1: Select plan and load context
 
-1. Locate plan folders in `docs/implementation-plans/` (exclude `archived/`), then pick the target `plan.md`.
-2. Migrate any legacy loose plan files into folder structure before continuing.
-3. Read the selected plan and any sibling `evolution-log.md` / `decisions/*.md`.
-4. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: 006`:
+1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` and any sibling `evolution-log.md` / `decisions/*.md`.
+2. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
+3. If legacy loose plan files exist, migrate them deterministically with `scripts/skalary/Repair-Plans.ps1` — do not hand-migrate.
+4. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
 pwsh -NoProfile -File scripts/skalary/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
-## Step 2: Emit progress snapshot (always)
+If it exits non-zero, stop immediately.
 
-After selecting a plan and before starting work, always print:
+## Step 2: Plan state and next step (always)
 
-```text
-Progress: X of Y steps done (Z in-progress)
-Current phase: Phase N — Name
-Last completed: Step A.B — title
-Next pending:   Step C.D — title
+Surface deterministic state before any work:
+
+```powershell
+pwsh -NoProfile -File scripts/skalary/Get-PlanState.ps1 <plan-reference> -RepoRoot .
 ```
+
+`Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
+
+- **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
+- **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.
+- **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute.
 
 ## Step 3: Determine execution mode and branch/worktree
 
@@ -62,32 +66,31 @@ Next pending:   Step C.D — title
 
 6. Record `<!-- worktree: <branch> -->` in the current phase when first running in that worktree.
 
-## Step 4: Pick next eligible step
+## Step 4: Implement (`./assets/execution-guide.md`)
 
-1. Find first `[ ]` or `[~]` step in top-down order.
-2. Enforce `[after: X.Y]` dependencies.
-3. Resume `[~]` steps from uncommitted changes if present; otherwise reset to `[ ]` and restart.
-4. Mark active step as `[~]`.
-5. Respect `@human` and `[discovery]` tags.
-
-## Step 5: Implement (`./assets/execution-guide.md`)
-
-Before implementing a step, run:
+Before implementing a step, run the validation reconcile gate:
 
 ```powershell
 npm run validate-plan
 ```
 
-If validation reports blocking failures, do not start execution until they are fixed.
+If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `scripts/skalary/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
 
-Do not add inline validation logic in this orchestrator. All plan validation must delegate to `scripts/skalary/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
+Use the execution asset for the implement/build/test/code-review/commit loop.
 
-Use the execution asset for implementation/build/test/code-review/commit loop.
-
-## Step 6: Crosscheck and completion (`./assets/crosscheck-guide.md`)
+## Step 5: Crosscheck and completion (`./assets/crosscheck-guide.md`)
 
 Use the crosscheck asset for:
 - Phase crosscheck
 - Plan crosscheck
 - Evidence receipt (`evidence.md`)
 - `archival-gate` checks before completion
+
+## Anti-drift contract
+
+Long runs drift; re-anchor every step instead of trusting context memory:
+
+- **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
+- **Consistency authority:** the `npm run validate-plan` reconcile gate (Step 4) is the only authority on plan/evidence consistency — resolve any divergence by re-running it, not by reasoning from context.
+- **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
+- **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.

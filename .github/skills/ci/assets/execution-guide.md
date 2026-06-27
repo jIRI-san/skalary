@@ -1,51 +1,29 @@
-# Execution Guide (`ci` Step 5)
+# Execution Guide (`ci` Step 4)
 
 > Read this asset when implementing one plan step.
 
 ## Step loop
 
 1. Implement only the active step scope.
-2. Initialize `cr-log.md` in the selected plan folder by name for the active phase:
+2. Initialize the phase capture files (`cr-log.md`, `learnings.md`) with `Add-WorkflowNote` (no `-Message` writes the `## … Capture` header plus the `No entries for this phase.` placeholder and never truncates prior phases):
 
-   ```text
-   ## CR Capture
-   Phase: <N>
-
-   No entries for this phase.
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N>
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
    ```
-3. Initialize `learnings.md` in the selected plan folder by name for the active phase (append this section if missing; do not truncate prior phases):
+3. Build using the project command.
+4. Test using the project command (use a relevant subset only when safe and obvious).
+5. Validate step acceptance criteria tied to referenced `REQ-N` rows.
+6. Before a CR round, run `ledger-consult` (see `./crosscheck-guide.md`): read only relevant `docs/review-ledger/*.md` category files, excluding `.archive/`, optionally filtering by `#tag`.
+7. Run `@cr` on step scope and apply clear, non-ambiguous fixes.
+8. Persist `@cr` findings + triage with `Add-WorkflowNote -Kind CrLog` (it emits the `[src:…] [sev:…]` schema from typed `-Src`/`-Sev`/`-Step`/`-Message` params — never hand-write schema tokens):
 
-   ```text
-   ## Learnings Capture
-   Phase: <N>
-
-   No entries for this phase.
+   ```powershell
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N> -Step <A.B> -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
    ```
-4. Build using project command.
-5. Test using project command (use a relevant subset only when safe and obvious).
-6. Validate step acceptance criteria tied to referenced `REQ-N` rows.
-7. Before a CR round, run `ledger-consult` by reading only relevant `docs/review-ledger/*.md` category files (security/performance/error-handling/consistency/plan-structure/testing/observability), excluding `docs/review-ledger/.archive/` and optionally filtering by `#tag`.
-8. Run `@cr` on step scope and apply clear, non-ambiguous fixes.
-9. Persist `@cr` findings + triage to `cr-log.md` using:
-
-   ```text
-   - [<source-step>] [src:code-review] [sev:<Critical|High|Med|Low>] <one-line finding or triage note>
-   ```
-10. Append to `learnings.md` only on triggers (`rework>1`, `plan-contradiction`, `reusable-pattern`) using:
-
-   ```text
-   - [<source-step>] [trigger:<rework>1|plan-contradiction|reusable-pattern>] <one-line learning>
-   ```
-
-   Replace the current phase placeholder (`No entries for this phase.`) when writing the first real entry.
-
-   Cap learnings at 10 entries per plan across all phase sections; if exceeded, write one overflow summary:
-
-   ```text
-   - [<source-step>] [trigger:overflow-summary] Folded <N> additional learnings into this summary.
-   ```
-11. Re-run build/test when changes are made.
-12. Mark step `[x]` and commit atomically with plan update.
+9. Append to `learnings.md` only on triggers (`rework>1`, `plan-contradiction`, `reusable-pattern`) with `Add-WorkflowNote -Kind Learnings -Trigger <trigger>`; it replaces the phase placeholder on the first real entry and enforces the 10-entry-per-plan cap, folding overflow into one `trigger:overflow-summary` line.
+10. Re-run build/test when changes are made.
+11. Mark step `[x]` and commit atomically with the plan update.
 
 ## Guardrails
 
@@ -53,3 +31,4 @@
 - Stage explicit files only (never `git add -A`).
 - Prefer the simplest implementation that satisfies the requirement.
 - Keep changes local to the active step unless a coupled fix is required.
+- Capture writes are script-only via `Add-WorkflowNote`; missing required sections/placeholders fail loud, but `No entries for this phase.` is valid and must not fail.

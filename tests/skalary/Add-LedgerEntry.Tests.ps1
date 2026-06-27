@@ -271,4 +271,63 @@ Describe 'Add-LedgerEntry script' {
         $line | Should -Not -Match '\|'
         $line | Should -Match 'lesson with pipe char'
     }
+
+    It 'test:ledger-hash-id accepts a 6-hex plan id and writes it canonically' {
+        $root = New-TestRepoRoot
+        (Invoke-AddLedger -Root $root -Plan 'abc123' -Entry 'hash plan lesson').ExitCode | Should -Be 0
+
+        $lines = Get-LedgerLines -Root $root
+        $lines.Count | Should -Be 1
+        $lines[0] | Should -Match '\(plan-abc123, src:ci, sev:High\)'
+    }
+
+    It 'test:ledger-hash-id rejects an out-of-range plan id' {
+        $root = New-TestRepoRoot
+        (Invoke-AddLedger -Root $root -Plan 'XYZ999' -Entry 'bad id').ExitCode | Should -Not -Be 0
+        (Invoke-AddLedger -Root $root -Plan '12' -Entry 'bad id').ExitCode | Should -Not -Be 0
+    }
+
+    It 'test:ledger-legacy-id still accepts a 3-digit legacy plan id' {
+        $root = New-TestRepoRoot
+        (Invoke-AddLedger -Root $root -Plan '006' -Entry 'legacy plan lesson').ExitCode | Should -Be 0
+
+        $lines = Get-LedgerLines -Root $root
+        $lines[0] | Should -Match '\(plan-006, src:ci, sev:High\)'
+    }
+
+    It 'test:ledger-mixed-rewrite preserves both legacy and hash lines through a canonical rewrite' {
+        $root = New-TestRepoRoot
+        # seed a mixed-format ledger directly, then trigger an idempotent re-add that rewrites the file
+        $ledger = Join-Path $root 'docs/review-ledger/security.md'
+        $seed = @(
+            '- [2026-06-01] legacy seed lesson (plan-006, src:ci, sev:High)'
+            '- [2026-06-02] hash seed lesson (plan-abc123, src:cr, sev:Low)'
+        ) -join "`n"
+        Set-Content -LiteralPath $ledger -Value ($seed + "`n") -Encoding utf8NoBOM
+
+        # idempotent re-add of the legacy line forces a canonical rewrite of the whole file
+        (Invoke-AddLedger -Root $root -Plan '006' -Src 'ci' -Severity 'High' -Entry 'legacy seed lesson').ExitCode | Should -Be 0
+
+        $lines = Get-LedgerLines -Root $root
+        $lines.Count | Should -Be 2
+        ($lines -join "`n") | Should -Match 'plan-006'
+        ($lines -join "`n") | Should -Match 'plan-abc123'
+    }
+
+    It 'test:ledger-dedup-nofork folds different reference schemes to one canonical id' {
+        $root = New-TestRepoRoot
+        # a real plan folder so Resolve-Plan can canonicalize references to its plan-id
+        $planDir = Join-Path $root 'docs/implementation-plans/2026-06-27-7645b1-demo-plan'
+        New-Item -ItemType Directory -Path $planDir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Value "<!-- plan-id: 7645b1 -->`n# Demo`n" -Encoding utf8NoBOM
+
+        # same lesson referenced three ways: hash prefix, full id, and date
+        (Invoke-AddLedger -Root $root -Plan '7645' -Entry 'shared canonical lesson').ExitCode | Should -Be 0
+        (Invoke-AddLedger -Root $root -Plan '7645b1' -Entry 'shared canonical lesson').ExitCode | Should -Be 0
+        (Invoke-AddLedger -Root $root -Plan '2026-06-27' -Entry 'shared canonical lesson').ExitCode | Should -Be 0
+
+        $lines = Get-LedgerLines -Root $root
+        $lines.Count | Should -Be 1
+        $lines[0] | Should -Match '\(plan-7645b1, src:ci, sev:High\)'
+    }
 }
