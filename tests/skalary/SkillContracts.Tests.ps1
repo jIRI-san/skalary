@@ -44,4 +44,18 @@ Describe 'Skill contract token guards' {
         $text | Should -Match 'Add-WorkflowNote'
         $text | Should -Match 'Test-Plan\.ps1'
     }
+
+    It 'test:autopilot-plan-id resolves the plan id through the canonical scheme, not a raw NNN' {
+        $text = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
+        $text | Should -Match 'Resolve-Plan'
+        $text | Should -Match 'plan-id'
+        $text | Should -Match 'plan-<plan-id> step'
+    }
+
+    It 'test:autopilot-dual-format emits the shared golden receipt and harvests from capture.md' {
+        $text = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
+        $text | Should -Match 'Build-EvidenceReceipt'
+        $text | Should -Match 'capture\.md'
+        $text | Should -Match 'allowlist-clean'
+    }
 }
