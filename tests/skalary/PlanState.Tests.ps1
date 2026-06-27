@@ -133,3 +133,73 @@ Describe 'PlanState Get-PlanInventory' {
         }
     }
 }
+
+Describe 'PlanState Resolve-Plan' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+
+        function New-InvEntry {
+            param($Id, $Scheme, $Slug, $Date, $FolderName)
+            [pscustomobject]@{
+                Id = $Id; FolderId = $Id; AnchorId = $null; Scheme = $Scheme
+                Slug = $Slug; Date = $Date; FolderName = $FolderName
+                Path = "C:/fake/$FolderName"; IsArchived = $false
+            }
+        }
+
+        $inv = @(
+            New-InvEntry -Id '7645b1' -Scheme 'new' -Slug 'optimize-ci-cip-plugins' -Date '2026-06-27' -FolderName '2026-06-27-7645b1-optimize-ci-cip-plugins'
+            New-InvEntry -Id '7645c2' -Scheme 'new' -Slug 'colliding-prefix' -Date '2026-06-28' -FolderName '2026-06-28-7645c2-colliding-prefix'
+            New-InvEntry -Id '88ab00' -Scheme 'new' -Slug 'another-thing' -Date '2026-06-30' -FolderName '2026-06-30-88ab00-another-thing'
+            New-InvEntry -Id '012345' -Scheme 'new' -Slug 'numeric-hash' -Date '2026-06-29' -FolderName '2026-06-29-012345-numeric-hash'
+            New-InvEntry -Id '007' -Scheme 'legacy' -Slug 'workflow-memory-ledger' -Date $null -FolderName '007-workflow-memory-ledger'
+        )
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:resolve-plan-hash-prefix resolves a unique hash prefix to the canonical id' {
+        (Resolve-Plan -Reference '88ab' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '88ab00'
+    }
+
+    It 'test:resolve-plan-hash-prefix resolves a full hash id' {
+        (Resolve-Plan -Reference '7645b1' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '7645b1'
+    }
+
+    It 'test:resolve-plan-hash-prefix is case-insensitive' {
+        (Resolve-Plan -Reference '7645B1' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '7645b1'
+    }
+
+    It 'test:resolve-plan-legacy-number resolves a 3-digit legacy id' {
+        (Resolve-Plan -Reference '007' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '007'
+    }
+
+    It 'test:resolve-plan-ambiguous errors git-style on a non-unique prefix' {
+        { Resolve-Plan -Reference '7645' -RepoRoot 'x' -Inventory $inv } | Should -Throw -ExpectedMessage '*Ambiguous*'
+    }
+
+    It 'test:resolve-plan-alldigit-hash treats a 6-digit reference as a hash, not a legacy number' {
+        (Resolve-Plan -Reference '012345' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '012345'
+    }
+
+    It 'test:resolve-plan-alldigit-hash does not match a hash plan when querying a 3-digit legacy number' {
+        { Resolve-Plan -Reference '012' -RepoRoot 'x' -Inventory $inv } | Should -Throw -ExpectedMessage '*No plan matches*'
+    }
+
+    It 'resolves by exact slug' {
+        (Resolve-Plan -Reference 'another-thing' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '88ab00'
+    }
+
+    It 'resolves by date when unique' {
+        (Resolve-Plan -Reference '2026-06-27' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '7645b1'
+    }
+
+    It 'errors when nothing matches' {
+        { Resolve-Plan -Reference 'zzzz99' -RepoRoot 'x' -Inventory $inv } | Should -Throw -ExpectedMessage '*No plan matches*'
+    }
+}
+

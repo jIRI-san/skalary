@@ -335,4 +335,65 @@ function New-PlanId {
     return $candidate
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId
+function Resolve-Plan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Reference,
+
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [object[]]$Inventory
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Reference)) {
+        throw 'Resolve-Plan requires a non-empty -Reference.'
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('Inventory')) {
+        $Inventory = @(Get-PlanInventory -RepoRoot $RepoRoot)
+    }
+
+    $ref = $Reference.Trim()
+    $refLower = $ref.ToLowerInvariant()
+    $matches = @()
+    $kind = $null
+
+    if ($ref -match '^\d{4}-\d{2}-\d{2}$') {
+        $kind = "date '$ref'"
+        $matches = @($Inventory | Where-Object { $_.Date -eq $ref })
+    }
+    elseif ($ref -match '^\d{3}$') {
+        $kind = "legacy number '$ref'"
+        $matches = @($Inventory | Where-Object { $_.Scheme -eq 'legacy' -and $_.Id -eq $ref })
+    }
+    elseif ($refLower -match '^[0-9a-f]{4,6}$') {
+        $kind = "hash prefix '$ref'"
+        $matches = @($Inventory | Where-Object { $_.Id -and $_.Id.ToLowerInvariant().StartsWith($refLower) })
+        if ($matches.Count -eq 0) {
+            $kind = "slug '$ref'"
+            $matches = @($Inventory | Where-Object { $_.Slug -eq $ref })
+        }
+    }
+    else {
+        $kind = "slug '$ref'"
+        $matches = @($Inventory | Where-Object { $_.Slug -eq $ref })
+        if ($matches.Count -eq 0) {
+            $matches = @($Inventory | Where-Object { $_.Slug -and $_.Slug.ToLowerInvariant().Contains($refLower) })
+        }
+    }
+
+    if ($matches.Count -eq 0) {
+        throw "No plan matches $kind."
+    }
+
+    if ($matches.Count -gt 1) {
+        $detail = ($matches | ForEach-Object { "$($_.Id) ($($_.FolderName))" }) -join ', '
+        throw "Ambiguous plan reference: $kind matches multiple plans: $detail. Use a longer prefix or the full id."
+    }
+
+    return $matches[0]
+}
+
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan
