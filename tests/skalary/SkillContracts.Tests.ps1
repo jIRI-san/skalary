@@ -65,4 +65,19 @@ Describe 'Skill contract token guards' {
         $LASTEXITCODE | Should -Be 0
         ($output -join "`n") | Should -Match 'Changed file count: 0'
     }
+
+    It 'test:manifest-coverage registers every ci/cip skill asset in plugin.json files[]' {
+        foreach ($plugin in @('continue-implementation', 'create-implementation-plan')) {
+            $pluginRoot = Join-Path $repoRoot (Join-Path 'plugins' $plugin)
+            $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw | ConvertFrom-Json -Depth 100
+            $declared = @($manifest.files | ForEach-Object { ($_.src -replace '\\', '/') })
+
+            $skillsDir = Join-Path $pluginRoot 'skills'
+            $assets = Get-ChildItem -LiteralPath $skillsDir -Recurse -File -Filter '*.md'
+            foreach ($asset in $assets) {
+                $rel = ($asset.FullName.Substring($pluginRoot.Length + 1)) -replace '\\', '/'
+                $declared | Should -Contain $rel -Because "asset '$rel' must be registered in $plugin/plugin.json files[]"
+            }
+        }
+    }
 }
