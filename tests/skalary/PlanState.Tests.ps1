@@ -203,3 +203,110 @@ Describe 'PlanState Resolve-Plan' {
     }
 }
 
+Describe 'PlanState Get-PlanHeaderMarkers' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+
+        $planContent = @'
+# 7645b1: Sample plan
+
+<!-- plan-id: 7645b1 -->
+<!-- execution-mode: manual -->
+<!-- scope: step -->
+<!-- cip-stage: dr-round-2 -->
+<!-- depends-on: 006, abc123 -->
+
+## Phase 1
+<!-- worktree: agents/sample -->
+
+- [x] 1.1 First step `S`
+'@
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:get-planheadermarkers parses the named header markers from content' {
+        $markers = Get-PlanHeaderMarkers -Content $planContent
+        $markers.PlanId | Should -Be '7645b1'
+        $markers.ExecutionMode | Should -Be 'manual'
+        $markers.Scope | Should -Be 'step'
+        $markers.CipStage | Should -Be 'dr-round-2'
+    }
+
+    It 'test:get-planheadermarkers splits depends-on into a trimmed array' {
+        $markers = Get-PlanHeaderMarkers -Content $planContent
+        $markers.DependsOn | Should -Be @('006', 'abc123')
+    }
+
+    It 'test:get-planheadermarkers ignores markers below the first heading' {
+        $markers = Get-PlanHeaderMarkers -Content $planContent
+        $markers.All.Contains('worktree') | Should -BeFalse
+    }
+
+    It 'test:get-planheadermarkers returns nulls and an empty array when markers are absent' {
+        $markers = Get-PlanHeaderMarkers -Content "# Title`n`n## Phase 1`n"
+        $markers.PlanId | Should -BeNullOrEmpty
+        $markers.ExecutionMode | Should -BeNullOrEmpty
+        @($markers.DependsOn).Count | Should -Be 0
+    }
+}
+
+Describe 'PlanState Get-PlanProgress' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+
+        function New-Step {
+            param($Id, $Status, $Phase)
+            [pscustomobject]@{ Id = $Id; Status = $Status; Phase = $Phase }
+        }
+
+        $metadata = [pscustomobject]@{
+            Steps = @(
+                New-Step -Id '1.1' -Status 'x' -Phase '## Phase 1: Foundation'
+                New-Step -Id '1.2' -Status 'x' -Phase '## Phase 1: Foundation'
+                New-Step -Id '2.1' -Status '~' -Phase '## Phase 2: State commands'
+                New-Step -Id '2.2' -Status ' ' -Phase '## Phase 2: State commands'
+                New-Step -Id '3.1' -Status ' ' -Phase '## Phase 3: Scripts'
+            )
+        }
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:get-planprogress-counts reports completed/in-progress/pending counts' {
+        $progress = Get-PlanProgress -Metadata $metadata
+        $progress.Total | Should -Be 5
+        $progress.Completed | Should -Be 2
+        $progress.InProgress | Should -Be 1
+        $progress.Pending | Should -Be 2
+    }
+
+    It 'test:get-planprogress-counts reports the current phase and last completed step' {
+        $progress = Get-PlanProgress -Metadata $metadata
+        $progress.CurrentPhase | Should -Be '## Phase 2: State commands'
+        $progress.LastCompleted | Should -Be '1.2'
+        $progress.IsComplete | Should -BeFalse
+    }
+
+    It 'test:get-planprogress-counts marks a fully completed plan and pins the last phase' {
+        $allDone = [pscustomobject]@{
+            Steps = @(
+                New-Step -Id '1.1' -Status 'x' -Phase '## Phase 1: Foundation'
+                New-Step -Id '2.1' -Status 'x' -Phase '## Phase 2: Done'
+            )
+        }
+        $progress = Get-PlanProgress -Metadata $allDone
+        $progress.IsComplete | Should -BeTrue
+        $progress.Percent | Should -Be 100
+        $progress.CurrentPhase | Should -Be '## Phase 2: Done'
+    }
+}
+

@@ -128,6 +128,7 @@ function Get-PlanMetadata {
 
         if ($line -match '^\s*-\s\[(?<status>[ x~])\]\s+(?<step>\d+\.\d+[a-z]?)\s+(?<body>.+)$') {
             $stepId = $Matches.step
+            $status = $Matches.status
             $body = $Matches.body
             $size = ''
             if ($body -match '`(?<size>[SML])`') {
@@ -161,6 +162,7 @@ function Get-PlanMetadata {
 
             $step = [pscustomobject]@{
                 Id = $stepId
+                Status = $status
                 Body = $body
                 Role = $role
                 Size = $size
@@ -396,4 +398,104 @@ function Resolve-Plan {
     return $matches[0]
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan
+function Get-PlanHeaderMarkers {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [string]$Path,
+
+        [Parameter(Mandatory, ParameterSetName = 'Content')]
+        [AllowEmptyString()]
+        [string]$Content
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Path') {
+        $Content = Get-Content -LiteralPath (Resolve-Path -LiteralPath $Path).Path -Raw
+    }
+
+    $normalized = ($Content ?? '') -replace "`r`n", "`n"
+    $lines = $normalized.Split("`n")
+    $headerLines = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in $lines) {
+        if ($line -match '^##\s') { break }
+        $headerLines.Add($line)
+    }
+    $header = $headerLines -join "`n"
+
+    $all = [ordered]@{}
+    foreach ($match in [regex]::Matches($header, '<!--\s*(?<key>[A-Za-z][\w-]*)\s*:\s*(?<value>.*?)\s*-->')) {
+        $key = $match.Groups['key'].Value.ToLowerInvariant()
+        if (-not $all.Contains($key)) {
+            $all[$key] = $match.Groups['value'].Value.Trim()
+        }
+    }
+
+    $getValue = { param($k) if ($all.Contains($k)) { $all[$k] } else { $null } }
+
+    $dependsOn = @()
+    $dependsRaw = & $getValue 'depends-on'
+    if ($dependsRaw) {
+        $dependsOn = @($dependsRaw.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    }
+
+    return [pscustomobject]@{
+        PlanId        = & $getValue 'plan-id'
+        ExecutionMode = & $getValue 'execution-mode'
+        Scope         = & $getValue 'scope'
+        CipStage      = & $getValue 'cip-stage'
+        DependsOn     = $dependsOn
+        All           = $all
+    }
+}
+
+function Get-PlanProgress {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Metadata')]
+        [object]$Metadata,
+
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [string]$Path,
+
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [string]$RepoRoot
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Path') {
+        $Metadata = Get-PlanMetadata -Path $Path -RepoRoot $RepoRoot
+    }
+
+    $steps = @($Metadata.Steps)
+    $total = $steps.Count
+    $completed = @($steps | Where-Object { $_.Status -eq 'x' }).Count
+    $inProgress = @($steps | Where-Object { $_.Status -eq '~' }).Count
+    $pending = @($steps | Where-Object { $_.Status -eq ' ' }).Count
+
+    $lastCompleted = $null
+    foreach ($step in $steps) {
+        if ($step.Status -eq 'x') { $lastCompleted = $step.Id }
+    }
+
+    $currentPhase = $null
+    foreach ($step in $steps) {
+        if ($step.Status -ne 'x') { $currentPhase = $step.Phase; break }
+    }
+    if (-not $currentPhase -and $total -gt 0) {
+        $currentPhase = $steps[$total - 1].Phase
+    }
+
+    $percent = if ($total -gt 0) { [math]::Round(($completed / $total) * 100, 1) } else { 0 }
+
+    return [pscustomobject]@{
+        Total         = $total
+        Completed     = $completed
+        InProgress    = $inProgress
+        Pending       = $pending
+        Percent       = $percent
+        CurrentPhase  = $currentPhase
+        LastCompleted = $lastCompleted
+        IsComplete    = ($total -gt 0 -and $completed -eq $total)
+    }
+}
+
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers

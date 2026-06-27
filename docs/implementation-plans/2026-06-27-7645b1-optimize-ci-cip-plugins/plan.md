@@ -72,7 +72,7 @@
 ## Phase 2: State commands (anti-drift anchor)
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add `Get-PlanProgress` + `Get-PlanHeaderMarkers` to `PlanState.psm1` with tests (REQ-5) [after: 1.1] `M`
+- [x] 2.1 Add `Get-PlanProgress` + `Get-PlanHeaderMarkers` to `PlanState.psm1` with tests (REQ-5) [after: 1.1] `M`
 - [ ] 2.2 Add `Get-NextStep` returning next candidate + flags (`isHuman`/`isDiscovery`/`hasUncommittedChanges`/`blockedByAfter`), with tests (REQ-6, RISK-2) [after: 1.1] `M`
 - [ ] 2.3 Add `Get-PlanState.ps1` CLI (text default + `-Json`) composing resolve/progress/next-step/markers, with tests (REQ-7) [after: 2.1, 2.2] `M`
 
