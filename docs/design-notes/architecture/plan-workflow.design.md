@@ -5,6 +5,8 @@ globs:
   - docs/review-ledger/**
   - scripts/skalary/Add-LedgerEntry.ps1
   - scripts/skalary/Remove-LedgerEntry.ps1
+  - scripts/skalary/Build-EvidenceReceipt.ps1
+  - scripts/skalary/Test-DependencyPlan006.ps1
   - scripts/skalary/Test-Plan.ps1
   - scripts/skalary/PlanEvidence.psm1
   - scripts/skalary/PlanState.psm1
@@ -27,8 +29,10 @@ globs:
 | `scripts/skalary/PlanState.psm1` | Plan parsing + identity/resolution module | Holds `Get-PlanMetadata` (explicit `-RepoRoot`), `Get-PlanInventory`, `New-PlanId`, `Resolve-Plan`; pure parsing, no plan-text execution |
 | `scripts/skalary/New-Plan.ps1` | Scaffolds a new plan folder from the cip template | Generates the id via `New-PlanId`, writes the `plan-id` anchor + `# <id>: <Title>` heading, sanitizes + path-confines the slug |
 | `scripts/skalary/PlanEvidence.psm1` | Confined `file:` marker evaluator | Canonicalize-then-confine path checks, assertion vocabulary, regex/time budget enforcement |
-| `scripts/skalary/Add-LedgerEntry.ps1` | Deterministic workflow-memory append and dedup writer | Sanitizes untrusted text, enforces category/src/severity enums, uses workspace lock + idempotent replay |
+| `scripts/skalary/Add-LedgerEntry.ps1` | Deterministic workflow-memory append and dedup writer | Sanitizes untrusted text, enforces category/src/severity enums, uses workspace lock + idempotent replay; accepts both legacy `\d{3}` and `[0-9a-f]{6}` hash plan ids and canonicalizes the reference via `Resolve-Plan` before writing |
 | `scripts/skalary/Remove-LedgerEntry.ps1` | Deterministic workflow-memory prune/tombstone path | Full-line ordinal match, retention guards, `.archive/` move, no regex-driven destructive deletes |
+| `scripts/skalary/Build-EvidenceReceipt.ps1` | Format-only per-REQ receipt aggregator | Pure formatter over verifier objects; emits the shared golden receipt line, never re-runs evidence |
+| `scripts/skalary/Test-DependencyPlan006.ps1` | Hard phase-0 dependency start-gate | Resolves the guarded plan reference and every `depends-on` token through `Resolve-Plan`; pins compatibility-anchor tokens that slimming must preserve |
 | `docs/review-ledger/**` | Durable workflow-memory store by category | Seven-category taxonomy + README contract; consulted on demand, never auto-loaded |
 | `scripts/skalary/Validate-Plan.ps1` + `scripts/validate.ps1` | Repo-level and single-plan entry points | Keep validation pre-approvable and composable via npm scripts |
 | `docs/implementation-plans/*/evidence.md` | Receipt of typed evidence checks | Source of truth for archival-gate decisions |
@@ -45,6 +49,8 @@ globs:
 | Script-only validation | `cip`/`ci`/autopilot delegate validation to committed `.ps1` scripts; no in-chat or inline markdown validation logic. |
 | Evidence receipt gating | Crosschecks rebuild `evidence.md`; archival/finalization is blocked on unresolved `✗` or unrun required markers unless explicitly deferred in Decisions. |
 | Ledger dedup-key contract | `Add-LedgerEntry.ps1` keeps two keys: idempotence key (`category + normalized-lesson + plan + src + severity + sorted-tags`, date excluded) and recurrence key (`category + normalized-lesson + sorted-tags`, plan/src/date excluded). |
+| Ledger plan-id compatibility | The `$Plan` validator, the `ConvertTo-LedgerRecord` regex, and the entry-construction string all accept `[0-9a-f]{6}` alongside `\d{3}`, so a mixed-format ledger file survives append + canonical rewrite with **no line lost**. The reference is folded to one canonical id via `Resolve-Plan` before any key is built, so dedup/recurrence keys never fork across schemes; only `[0-9a-f]{6}` or `\d{3}` is ever written. |
+| Shared receipt grammar | `Build-EvidenceReceipt.ps1` is the single emitter of the golden per-REQ line `<glyph> REQ-N — <marker> — <result> — <commit>` (em-dash `U+2014` with surrounding spaces; `✓ U+2713` pass, `✗ U+2717` fail/unrun; result `passed`/`failed`/`unrun`, optional `: <note>`). A REQ passes only when **all** its markers pass; failed and unrun markers are preserved verbatim. The receipt is format-only — it never re-runs evidence. |
 | Workflow-memory capture | Mid-run writes are ephemeral (`cr-log.md`, `learnings.md`, `evolution-log.md`) with explicit placeholders so missing sections fail loud while intentionally empty phases stay valid. |
 | Workflow-memory harvest | Durable ledger writes happen only at finalization append-harvest via `Add-LedgerEntry.ps1`; prune is escalation-only and script-mediated via `Remove-LedgerEntry.ps1`. |
 
@@ -52,7 +58,9 @@ globs:
 
 - Plan parsing lives in `PlanState.psm1` so `Test-Plan.ps1`, `New-Plan.ps1`, and the state CLI share one parser. `Get-PlanMetadata` takes an explicit `-RepoRoot` parameter (it previously closed over a script-scoped variable, which a module function cannot inherit under `Set-StrictMode`); all call sites pass it and parity is proven under a non-default `-RepoRoot`.
 - Plan ids are random, not content-derived: a hash of slug/timestamp adds no recoverable meaning when ids are non-reproducible by design, so `New-PlanId` uses crypto-random hex and resolves collisions by scanning the active + archived inventory. `Repair-Plans` (and any migration) must never mutate an existing `plan-id` anchor.
-- A plan's id is written into the ledger and `depends-on:` in exactly **one** canonical form; callers resolve any reference to that canonical form via `Resolve-Plan` before writing, so dedup/recurrence keys never fork across the legacy/hash schemes.
+- A plan's id is written into the ledger and `depends-on:` in exactly **one** canonical form; callers resolve any reference to that canonical form via `Resolve-Plan` before writing, so dedup/recurrence keys never fork across the legacy/hash schemes. The `Test-DependencyPlan006` start-gate resolves both the guarded reference and each declared dependency the same way, so a legacy `006` and a hash-style dependency trigger identical preflight behavior.
+- Ledger hash-id compatibility is treated as a no-data-loss invariant: widening the parser (validator + `ConvertTo-LedgerRecord` regex + entry string) was co-edited so previously-unparseable hash lines become records and survive the canonical rewrite instead of being silently dropped; a mixed-format round-trip regression test guards it.
+- Evidence receipts have one golden grammar emitted only by `Build-EvidenceReceipt.ps1`; orchestrators and autopilot consume that shared formatter rather than hand-writing receipt lines, so the receipt shape stays identical across `ci`/`cip`/autopilot.
 - `Test-Plan.ps1` is the single validation authority so approval/allowlist models stay stable across host/container/autopilot execution.
 - Stage-aware validation avoids self-blocking plans during drafting while still enforcing strict verification at crosscheck/finalization.
 - Evidence is machine-checkable only; non-deterministic markers (`cmd:`/`manual:`) are excluded to preserve autopilot safety and repeatability.

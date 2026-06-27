@@ -91,7 +91,7 @@
 - [x] 4.1 Widen the ledger to hash ids: co-edit the `$Plan` `[ValidatePattern('^\d{3}$')]`, `ConvertTo-LedgerRecord` regex, the `(plan-$Plan, …)` entry string, and sort/idempotence/recurrence keys to accept `[0-9a-f]{6}` alongside `\d{3}`; add a mixed-format canonical-rewrite no-loss regression test (REQ-12, RISK-2, RISK-7) [after: 1.3] `L`
 - [x] 4.2 Enforce one canonical written id via `Resolve-Plan` before any ledger/`depends-on` write; add a dedup-no-fork test across schemes (REQ-12, RISK-2) [after: 4.1] `S`
 - [x] 4.3 Reconcile `Test-DependencyPlan006.ps1` with slimming: pin compatibility-anchor tokens, route reference resolution through `Resolve-Plan`, test legacy `006` + hash dependency identically and a gutted-contract negative (REQ-13, RISK-3) [after: 1.3] `M`
-- [ ] 4.4 Update `plan-workflow.design.md` with the ledger hash-id compatibility + canonical-id + shared receipt-grammar contracts (REQ-17) [after: 4.1, 3.4] `S`
+- [x] 4.4 Update `plan-workflow.design.md` with the ledger hash-id compatibility + canonical-id + shared receipt-grammar contracts (REQ-17) [after: 4.1, 3.4] `S`
 
 ## Phase 5: Slim skills + anti-drift contract + autopilot parity
 <!-- worktree: (recorded by /ci when worktree is created) -->
