@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-06-27T21:45:53.8875286Z",
+  "generatedAt": "2026-06-28T13:23:17.9176729Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -16,7 +16,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "5b38bdce6c42c37924884901972a0d7e26a0412ff30c0aa243cd36ea4160b8e4",
+          "sha256": "357d819e28823698a8b50615ea0868e870bcb391c93ad5fa14c86be64f8eb16b",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/autopilot/.autopilot.json.example",
-          "sha256": "b8a769fcbe39ec8e0a4408e9e95f5b7ce800296e62a3b452af314fa70effa8db",
+          "sha256": "c10a9eaccfc53588ed1937d33a4ef1e6a3a3a3cbd48aac323da697bea8d574be",
           "src": ".autopilot.json.example"
         },
         {
@@ -40,13 +40,18 @@
           "src": "devcontainer/Dockerfile"
         },
         {
+          "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
+          "sha256": "1fbaabd01c08aaefb966d25df66e98a5a1221cc13ffc99faff455a5fea42ca1b",
+          "src": "scripts/autopilot-dispatch.ps1"
+        },
+        {
           "dest": "skills/autopilot/scripts/clean-sandbox-cache.ps1",
           "sha256": "73ac229a4af4ca35e54cac7af5256eb52f7bad0eef5c421708d58f71cee4937a",
           "src": "scripts/clean-sandbox-cache.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "e292411bd943b84bdb8cefa3fc567e3be2cf58126c1e05664f10d133777c5f2f",
+          "sha256": "08c298b14c27171d83732f9a009696ab706352352ae002fad3d518c2316cd132",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -61,7 +66,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "450a8244c1922f95d67307b07c68ec59cbfdc25a68abf31897e0baf88f66c8a1",
+          "sha256": "efe92a9208c9f94415a641543697bf45b1b0978ad3d14b855f75abcb855edcd9",
           "src": "scripts/launch-container.ps1"
         },
         {
@@ -71,18 +76,23 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "10ff0e2000a1cc84263264145ab7174281c4e81778606eb6dbb8e248dc1eb992",
+          "sha256": "ea26db5c5e3dffeaf9dd042b3e4ce81614f2a35de0ce54719a70a36ba7afbea6",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "2a0e2de630669b62649422d8a2357c95566954c52fc5583005d11c9a45cc06a6",
+          "sha256": "a237e585af1f7dfac03163a1d837417eb6ce442b4c0bb7b2ac9ae30a2acdb6e2",
           "src": "scripts/launch.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
-          "sha256": "48ea12ec7521024d9ce1ef9013e55a22457b1b83843ff1f1c65224c191182462",
+          "sha256": "f91191f62256c0825b149fed1b4b1057a356a029f8324533af2be3c29404156f",
           "src": "scripts/prepare-env-file.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/prepare-packages.ps1",
+          "sha256": "f35e804329e2e7c8a4eeee42ac4ef1af286b321cdd8494278e4db7dfed604fc0",
+          "src": "scripts/prepare-packages.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/validate-auth.ps1",
@@ -96,12 +106,12 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "3656d07d02bce46d51315104700283f9f8d9fa452d7c03cbdcb6b0a3a9c065f3",
+          "sha256": "2d6616634c5c796eebb9675d18ba86723cfd4377fbe33c616484ded3d0b5a7a8",
           "src": "schemas/autopilot.schema.json"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "2bb69cc61cab9f24c8f3d55446974e39ce0f7ba53f0d586e1cc2baacb62598c2",
+          "sha256": "46fa71c9cf03c5bad224b63d7a2508432691ac6f2c49eb4f6cd526bce0890038",
           "src": "skills/autopilot/SKILL.md"
         }
       ],
@@ -114,7 +124,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "author": "jIRI-san",
@@ -208,7 +218,7 @@
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "52cca7ecd8bd80a1a073d111c9133e96b5fac1a82716ae100ffa78df2253d148",
+          "sha256": "e6778e84e531dd8447f1f2e6dab19618b16de53445a3b0cae1296e40b8a9674e",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -263,7 +273,7 @@
         },
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "1fa9b4f6ecaf77e0669077d03adcd014503de16d6ef3c62fed099610c2e596eb",
+          "sha256": "b318fe1e9815c78eefc46baafa7926f35c0107c3d51502887adab1524fd954f4",
           "src": "skills/ci/SKILL.md"
         }
       ],
@@ -275,7 +285,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",
@@ -294,17 +304,17 @@
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "bf1631d35f3ba2185074951ca016f4264797c54ca5b413ab3bedcc363fc82681",
+          "sha256": "faa0754ab3e63dd5ed8c6e500520089f0d65d69cf4bc3a2e43a474e8b2d25e22",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "b2e8186a281ec9c13be047de1affc132a1bbd19918df61b2a0ac4066a116b8f2",
+          "sha256": "2451ee25c2beeabad3667b2fdbaaba7878765f283e2922ffb3e551e022aa81d3",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "e3501e40eda4de199e2d1d08875704886c6ec9d9a325f6c72629bd310b1f6bac",
+          "sha256": "4ae86bfe4e3a63751f5f26c46feebe0bf56769e823ed843c7fa89edfa6f91bf9",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -355,7 +365,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",

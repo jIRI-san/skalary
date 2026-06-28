@@ -23,7 +23,11 @@ param(
 
     [string]$AdoToken,
 
-    [string]$Branch
+    [string]$Branch,
+
+    # When set, inject offline-restore env so the entrypoint restores from the
+    # read-only /feed mount instead of the network.
+    [switch]$Offline
 )
 
 Set-StrictMode -Version Latest
@@ -81,6 +85,12 @@ if ($remote) {
 # Pass target branch if specified
 if ($Branch) {
     $envContent += "REPO_BRANCH=$Branch"
+}
+
+# Offline restore: point the entrypoint at the read-only feed mount.
+if ($Offline) {
+    $envContent += "AUTOPILOT_OFFLINE=true"
+    $envContent += "AUTOPILOT_FEED=/feed"
 }
 
 Set-Content -Path $envFilePath -Value ($envContent -join "`n") -NoNewline -Encoding UTF8

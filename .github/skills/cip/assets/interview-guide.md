@@ -137,6 +137,11 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 - If autonomous: whole-plan or phase-at-a-time scope?
 - Record as `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->` metadata in the plan header.
 
+**Offline package bundling** (autonomous container/sandbox plans only)
+- Will this plan add or upgrade third-party packages (NuGet `dotnet`, npm)? List the expected new packages per ecosystem.
+- When the runtime is sealed (container/sandbox) it builds from a host-prepared package feed. Adding a package mid-run forces an offline rebundle round-trip (the runtime commits the manifest, the host regenerates the lockfile and relaunches). Confirm the expected packages so they can be batched into a single early phase and minimize round-trips.
+- Record the answer in the plan header as `<!-- expected-packages: dotnet:<list>; npm:<list> -->` (use `none` when a plan adds no packages). If unknown, treat it as a `RISK-N`.
+
 ## Closing the interview
 
 Once all areas are covered, run the `pre-draft` gate. When it passes, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
