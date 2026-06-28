@@ -1,6 +1,6 @@
 # aaf29b: Offline package bundling for container/sandbox autopilot
 <!-- plan-id: aaf29b -->
-<!-- cip-stage: reviewed -->
+<!-- cip-stage: done -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
@@ -108,4 +108,4 @@
 
 ## Finalization (conditional)
 
-- [ ] 8.1 Finalization gate — verify all typed evidence resolves, run `review:cr`, confirm design notes + registry in sync (REQ-9) @human `S`
+- [x] 8.1 Finalization gate — verify all typed evidence resolves, run `review:cr`, confirm design notes + registry in sync (REQ-9) @human `S`
