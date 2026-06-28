@@ -93,9 +93,9 @@
 ## Phase 6: cip authoring changes
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 6.1 `interview-guide.md`: add an "Offline package bundling" question area — for autonomous container/sandbox plans, enumerate expected new packages and confirm they will be batched to minimize host round-trips (REQ-8) `S`
-- [ ] 6.2 `plan-template.md`: add the optional `<!-- expected-packages: dotnet:<list>; npm:<list> -->` header marker with an inline legend (REQ-8) `S`
-- [ ] 6.3 `drafting-guide.md`: add guidance to batch package-adding steps into a single early phase so the offline rebundle round-trip fires at most once (REQ-8) `S`
+- [x] 6.1 `interview-guide.md`: add an "Offline package bundling" question area — for autonomous container/sandbox plans, enumerate expected new packages and confirm they will be batched to minimize host round-trips (REQ-8) `S`
+- [x] 6.2 `plan-template.md`: add the optional `<!-- expected-packages: dotnet:<list>; npm:<list> -->` header marker with an inline legend (REQ-8) `S`
+- [x] 6.3 `drafting-guide.md`: add guidance to batch package-adding steps into a single early phase so the offline rebundle round-trip fires at most once (REQ-8) `S`
 
 ## Phase 7: Docs, design notes, registry, and validation
 <!-- worktree: (recorded by /ci when worktree is created) -->
