@@ -67,6 +67,16 @@ Security warning:
 - If host config file is absent, launcher defaults to `copilot`.
 - This file is host-only; container and sandbox never read it.
 
+## Offline package bundling
+
+When `offlinePackages.enabled` is true and the runtime is container/sandbox, the host pre-builds a package feed (`prepare-packages.ps1`) and mounts it read-only; the runtime copies it to a writable cache and restores offline. Host mode ignores `offlinePackages` (warn-and-ignore).
+
+Exit-code round-trip (distinct from the `42` @human stop):
+
+- **Exit 43 — offline rebundle request.** The sealed runtime hit a package not in the feed. The agent commits the **manifest only** (never the lockfile), pushes the work branch, and exits `43`.
+- The **host owns the loop**: on `43`, `launch.ps1` calls `prepare-packages.ps1 -Branch <work-branch>` (regenerate + commit + push the lockfile), then relaunches the same runtime — the re-prep completes before the relaunch clones. Capped by `maxRebundles` (default 3); on cap it surfaces the failure.
+- **Exit 42 — @human stop.** Unchanged; halts for human review, no rebundle.
+
 ## Launcher invocations
 
 Use the installed launcher path and the delivered signature:

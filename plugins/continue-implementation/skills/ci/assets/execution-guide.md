@@ -32,3 +32,4 @@
 - Prefer the simplest implementation that satisfies the requirement.
 - Keep changes local to the active step unless a coupled fix is required.
 - Capture writes are script-only via `Add-WorkflowNote`; missing required sections/placeholders fail loud, but `No entries for this phase.` is valid and must not fail.
+- **Offline rebundle (sealed container/sandbox only).** When `AUTOPILOT_OFFLINE=true` and a step needs a package missing from the feed, stage the **manifest only** (never the lockfile), leave the step `[~]`, make one rebundle-request commit, and `exit 43`. The host launcher regenerates + pushes the lockfile and relaunches (capped by `maxRebundles`). This is distinct from the `42` @human stop. See `.github/skills/autopilot/SKILL.md`.
