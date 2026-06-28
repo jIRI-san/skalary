@@ -22,6 +22,7 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 | Registry index | `registry.json` | Generated install catalog with file hashes and bootstrap metadata | `scripts/skalary/Build-Registry.ps1` output |
 | Runtime state | `.github/.skalary/receipts/<name>.json` | Per-plugin installation tracking, merge-safe | install/update/remove verbs |
 | Dogfood target | `.github/**` | Installed copies used by local tooling | `Sync-Dogfood.ps1` |
+| Skill script bundle | `plugins/<name>/skills/<skill>/scripts/**` | Per-plugin copies of the workflow scripts a skill invokes at runtime, generated from `scripts/skalary/` | `Sync-PluginScripts.ps1` |
 
 ## Schema Contracts
 
@@ -79,6 +80,18 @@ No separate autopilot infra bootstrap script exists. Provisioning happens throug
 
 `scripts/skalary/Sync-Dogfood.ps1` converges `.github/` back to `plugins/` sources, is idempotent, and supports `-WhatIf` for CI drift detection. Running sync to convergence produces the expected state for CI drift-check pass criteria (`.github/` byte-equivalent to plugin sources). Destination collision checks in sync mirror registry safety rules.
 
+## Skill Script Bundling
+
+Skills and agents that invoke deterministic PowerShell at runtime must ship that code **inside their own plugin**. The canonical sources live once under `scripts/skalary/`; `Sync-PluginScripts.ps1` copies each plugin's referenced scripts (plus their PowerShell module closure — e.g. `PlanState.psm1`, `PlanEvidence.psm1`) into `plugins/<name>/skills/<skill>/scripts/`, which the manifest `files[]` then installs to `.github/skills/<skill>/scripts/`. The `ci` and `cip` plugins bundle their workflow scripts this way; the autopilot agent is a tracked follow-up (it currently runs scripts from the repo-root `scripts/skalary/` path because it always executes inside a checked-out repo).
+
+| Invariant | Rule |
+|---|---|
+| Bundle-or-break | Every script a shipped `SKILL.md`/agent invokes at runtime must be listed in that plugin's `files[]` and referenced by its **installed** path (`.github/skills/<skill>/scripts/<Script>.ps1`), never by the repo-root `scripts/skalary/...` path. Repo-root references only work while dogfooding and silently break on install into another repo. |
+| Managed duplication | Bundled copies are generated, not hand-authored: `scripts/skalary/` is the single source of truth and `Sync-PluginScripts.ps1` is the only writer of `plugins/**/skills/**/scripts/`. A `-WhatIf` drift gate (wired into `scripts/validate.ps1`) proves every bundled copy is byte-identical to its source. |
+| Version independence | Plugins install and version independently, so each carries its own copy — duplication across plugins is intentional and accepted (no shared runtime module, no cross-plugin hierarchy). |
+| Version-bump coupling | Because there is exactly one source per script, **any change to a shared script bumps the `version` of every plugin that bundles it.** `Sync-PluginScripts.ps1` performs this patch bump automatically when it re-copies a changed bundle, so the advertised version never lags the payload. A script edit is a content change to each dependent plugin's payload; a stale (unsynced) bundle fails the `-WhatIf` drift gate. |
+
+The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
 ## Evals Contract
 
 Plan 005 implements the eval harness as **report-only** and keeps registry/receipt seams reserved:

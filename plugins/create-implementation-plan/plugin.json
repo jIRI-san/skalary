@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -32,6 +32,34 @@
     {
       "src": "skills/cip/assets/plan-template.md",
       "dest": "skills/cip/assets/plan-template.md"
+    },
+    {
+      "src": "skills/cip/scripts/Add-WorkflowNote.ps1",
+      "dest": "skills/cip/scripts/Add-WorkflowNote.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/New-Plan.ps1",
+      "dest": "skills/cip/scripts/New-Plan.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/PlanEvidence.psm1",
+      "dest": "skills/cip/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/cip/scripts/PlanState.psm1",
+      "dest": "skills/cip/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/cip/scripts/Repair-Plans.ps1",
+      "dest": "skills/cip/scripts/Repair-Plans.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/Set-PlanStage.ps1",
+      "dest": "skills/cip/scripts/Set-PlanStage.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/Test-Plan.ps1",
+      "dest": "skills/cip/scripts/Test-Plan.ps1"
     }
   ],
   "evals": {

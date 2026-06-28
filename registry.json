@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-06-27T19:58:00.2740706Z",
+  "generatedAt": "2026-06-27T21:45:53.8875286Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -203,17 +203,67 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "800b88da8a5632ce520bad4720693929dcf96c8ecfe20996a93a2c816fa60524",
+          "sha256": "0e4117866978a7be64b479ce80af83819b9f5abd2b37d261d1f3adae64bcf535",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "cc6badf1c37e9156f050e5d6231a27103c4b90cb88485c2f56a5890ccbf6b333",
+          "sha256": "52cca7ecd8bd80a1a073d111c9133e96b5fac1a82716ae100ffa78df2253d148",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
+          "dest": "skills/ci/scripts/Add-LedgerEntry.ps1",
+          "sha256": "9a0eddc6c06603abca42fc6fb66f8d8ec0e95edb1e1a1a6eb67b6ee1d5836006",
+          "src": "skills/ci/scripts/Add-LedgerEntry.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
+          "sha256": "39cb1a7b025897413a5015d0c373f82b531d880a1da435a5267ddf88b1bdf97a",
+          "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
+          "sha256": "d9d9b6f09640613a77ca4652a6b0f941c7be97596526e292f13d0bd3ca11f08d",
+          "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Get-PlanState.ps1",
+          "sha256": "c8576035a037e3976a67f978ca101136d0788a4bf97646d72de31ffb82c2b18c",
+          "src": "skills/ci/scripts/Get-PlanState.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/PlanEvidence.psm1",
+          "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
+          "src": "skills/ci/scripts/PlanEvidence.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/PlanState.psm1",
+          "sha256": "082371f3863ab73edc583ec687495864cfc25a32bc8b66201f16b1f0864c01f7",
+          "src": "skills/ci/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/Remove-LedgerEntry.ps1",
+          "sha256": "6c49008b03176506c4e207c4eff2337977cfec83f422119f00bae9c2657b0695",
+          "src": "skills/ci/scripts/Remove-LedgerEntry.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Repair-Plans.ps1",
+          "sha256": "18454a1051df0329ce76488fa866d46e9aacdc585fafdb23ccdc01c007ebc398",
+          "src": "skills/ci/scripts/Repair-Plans.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
+          "sha256": "1d1e449b89dbd82d4af6e1d4eda493e81883931be19f213131434d9ebe50c51c",
+          "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Test-Plan.ps1",
+          "sha256": "650eba90f186b1d2e1ac279603d65598d91fc8d2d3f0bad7b31454a3b3d26e31",
+          "src": "skills/ci/scripts/Test-Plan.ps1"
+        },
+        {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "5084c0342683e20747d9f4e251d5356ac8e0b865825c89bbb5be1aa940bbbfac",
+          "sha256": "1fa9b4f6ecaf77e0669077d03adcd014503de16d6ef3c62fed099610c2e596eb",
           "src": "skills/ci/SKILL.md"
         }
       ],
@@ -225,7 +275,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",
@@ -239,12 +289,12 @@
       "files": [
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "e6398aec5394385fe4542fd878b5633219d2e509997bed1b742ad6637aa8d35b",
+          "sha256": "6699bf7e425e045775fb62dc5bf7c8a9b0f77075881803a87d2b23a14414b31f",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "4f23126464d3eebdd449e4e83e8a39224768e3533c20c9652ae920db51bba933",
+          "sha256": "bf1631d35f3ba2185074951ca016f4264797c54ca5b413ab3bedcc363fc82681",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -258,8 +308,43 @@
           "src": "skills/cip/assets/plan-template.md"
         },
         {
+          "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
+          "sha256": "39cb1a7b025897413a5015d0c373f82b531d880a1da435a5267ddf88b1bdf97a",
+          "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/New-Plan.ps1",
+          "sha256": "ea4ebea608d06f12e92050ac56116d5d2a5a3aafcc8893cf061c16e026e3d5db",
+          "src": "skills/cip/scripts/New-Plan.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/PlanEvidence.psm1",
+          "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
+          "src": "skills/cip/scripts/PlanEvidence.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/PlanState.psm1",
+          "sha256": "082371f3863ab73edc583ec687495864cfc25a32bc8b66201f16b1f0864c01f7",
+          "src": "skills/cip/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/Repair-Plans.ps1",
+          "sha256": "18454a1051df0329ce76488fa866d46e9aacdc585fafdb23ccdc01c007ebc398",
+          "src": "skills/cip/scripts/Repair-Plans.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/Set-PlanStage.ps1",
+          "sha256": "c989201dad4b9731f645e80194298354e76ef513e8666c66646a034a25417dce",
+          "src": "skills/cip/scripts/Set-PlanStage.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/Test-Plan.ps1",
+          "sha256": "650eba90f186b1d2e1ac279603d65598d91fc8d2d3f0bad7b31454a3b3d26e31",
+          "src": "skills/cip/scripts/Test-Plan.ps1"
+        },
+        {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "3702584d64b12adb0d3e763dfa79885bfba246e486504acf34f885926d432057",
+          "sha256": "fddff406dea5e0f461e4ed1b13d3c9e17e0a7f7050bb69180582be994a782d18",
           "src": "skills/cip/SKILL.md"
         }
       ],
@@ -270,7 +355,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",

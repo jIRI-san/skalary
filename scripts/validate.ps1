@@ -52,6 +52,16 @@ foreach ($file in $jsonFiles) {
 }
 Write-Host "  Parsed $($jsonFiles.Count) JSON file(s)."
 
+Write-Host '== Validating plugin script bundles =='
+$bundleSync = Join-Path $repoRoot 'scripts/skalary/Sync-PluginScripts.ps1'
+try {
+    & $bundleSync -RepoRoot $repoRoot -WhatIf *> $null
+    Write-Host '  Plugin script bundles in sync with scripts/skalary.'
+}
+catch {
+    $errors.Add("Plugin script bundle drift: $($_.Exception.Message)")
+}
+
 Write-Host '== Validating implementation plans (Draft stage) =='
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |

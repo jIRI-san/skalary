@@ -15,7 +15,7 @@ DR agents **must be given the evolution log as context** to prevent re-reporting
 The plan-folder `capture.md` keeps a separate, durable `## Capture` section for notable/recurring DR findings (not DR-round chronology), written **script-only** via `Add-WorkflowNote.ps1 -Kind Capture` (it owns the header, `No entries for this phase.` placeholder, placeholder-replace, and sanitization):
 
 ```powershell
-pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "dr: <notable finding>"
+pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "dr: <notable finding>"
 ```
 
 Keep capture entries in `capture.md` only; do not mix them into the DR-round narrative in `evolution-log.md`.

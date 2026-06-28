@@ -56,9 +56,9 @@ Durable interview/assumption notes are written **script-only** via `Add-Workflow
 
 ```powershell
 # initialize the phase section (no -Message)
-pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N>
+pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N>
 # record an interview decision/assumption
-pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "interview: <decision or assumption>"
+pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "interview: <decision or assumption>"
 ```
 
 Initialize the section and commit `capture.md` by explicit filename at phase start even if empty; commit again when entries are appended. Missing required sections/placeholders fail loud; an intentionally empty `No entries for this phase.` stays valid.

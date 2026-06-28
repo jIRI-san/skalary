@@ -77,7 +77,7 @@ Describe 'Plan dependency start-gate' {
     }
 
     It 'Skalary.Dependency.Plan006Present' {
-        $planPath = Join-Path $repoRoot 'docs/implementation-plans/007-workflow-memory-ledger/plan.md'
+        $planPath = Join-Path $repoRoot 'docs/implementation-plans/archived/007-workflow-memory-ledger/plan.md'
         $result = Invoke-DependencyGate -Root $repoRoot -PlanPath $planPath
         $result.ExitCode | Should -Be 0
     }

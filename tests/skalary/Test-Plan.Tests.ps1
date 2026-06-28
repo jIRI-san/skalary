@@ -162,6 +162,10 @@ Describe 'PlanState Get-PlanMetadata' {
     }
 
     It 'requires the RepoRoot parameter' {
-        { Get-PlanMetadata -Path $validPlan } | Should -Throw
+        $repoRootParam = (Get-Command Get-PlanMetadata).Parameters['RepoRoot']
+        $mandatory = $repoRootParam.Attributes |
+            Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+            ForEach-Object { $_.Mandatory }
+        $mandatory | Should -Contain $true
     }
 }

@@ -17,11 +17,11 @@ context: fork
 
 1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` and any sibling `evolution-log.md` / `decisions/*.md`.
 2. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-3. If legacy loose plan files exist, migrate them deterministically with `scripts/skalary/Repair-Plans.ps1` — do not hand-migrate.
+3. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
 4. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
-pwsh -NoProfile -File scripts/skalary/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
+pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
 If it exits non-zero, stop immediately.
@@ -31,7 +31,7 @@ If it exits non-zero, stop immediately.
 Surface deterministic state before any work:
 
 ```powershell
-pwsh -NoProfile -File scripts/skalary/Get-PlanState.ps1 <plan-reference> -RepoRoot .
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-reference> -RepoRoot .
 ```
 
 `Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
@@ -74,7 +74,7 @@ Before implementing a step, run the validation reconcile gate:
 npm run validate-plan
 ```
 
-If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `scripts/skalary/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
+If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `.github/skills/ci/scripts/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
 
 Use the execution asset for the implement/build/test/code-review/commit loop.
 

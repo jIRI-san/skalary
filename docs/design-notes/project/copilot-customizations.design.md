@@ -95,6 +95,8 @@ All three subagents perform a **comprehensive review** across every important di
 - `Build-EvidenceReceipt.ps1` — formats verifier output into the shared golden `✓/✗ REQ-N — evidence — result — commit` grammar (full HEAD SHA, `✗`/unrun preserved).
 - `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
 
+**Script distribution:** `scripts/skalary/` is the single source of truth and a dogfood/dev convenience (npm aliases run it in-repo), but installed skills cannot rely on it being present in a foreign repo. `Sync-PluginScripts.ps1` bundles each script a `ci`/`cip` skill invokes (plus its `PlanState.psm1`/`PlanEvidence.psm1` module closure) into that plugin's payload, so install copies them under `.github/skills/<skill>/scripts/` and the skills reference that installed path. Duplication across plugins is intentional (independent install + versioning); a shared script edit therefore patch-bumps every bundling plugin's version automatically when `Sync-PluginScripts.ps1` re-copies the bundle, and a stale bundle fails the `-WhatIf` drift gate in `scripts/validate.ps1`. (The autopilot agent still invokes these scripts from the repo-root `scripts/skalary/` path — it runs inside a checked-out repo — and bundling it is a tracked follow-up.) See plugin-registry.design.md → Skill Script Bundling.
+
 **Plan naming + identity:** plans live in `docs/implementation-plans/<yyyy-mm-dd>-<6hex>-<slug>/`. The `<!-- plan-id: <6hex> -->` anchor is the canonical handle — date, slug, and hash-prefix all resolve to it via `Resolve-Plan`, so collisions on the old `NNN` counter are gone. Legacy `NNN-<slug>` folders still resolve (dual-format) everywhere.
 
 **`cip` flow:**

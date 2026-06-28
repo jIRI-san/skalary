@@ -36,10 +36,10 @@ context: fork
 2. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
 
    ```powershell
-   pwsh -NoProfile -File scripts/skalary/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
+   pwsh -NoProfile -File .github/skills/cip/scripts/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
    ```
 3. **Resume:** resolve the existing plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`.
-4. If legacy loose plan files exist, migrate them with `scripts/skalary/Repair-Plans.ps1` — do not hand-migrate.
+4. If legacy loose plan files exist, migrate them with `.github/skills/cip/scripts/Repair-Plans.ps1` — do not hand-migrate.
 
 ## Step 2: Run interview (`./assets/interview-guide.md`)
 
@@ -54,12 +54,12 @@ context: fork
 3. Set the stage anchor with `Set-PlanStage.ps1`:
 
    ```powershell
-   pwsh -NoProfile -File scripts/skalary/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted
+   pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted
    ```
 4. Run:
 
    ```powershell
-   pwsh -NoProfile -File scripts/skalary/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
+   pwsh -NoProfile -File .github/skills/cip/scripts/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
    ```
 
 ## Step 4: Design review (`./assets/dr-guide.md`)
@@ -67,7 +67,7 @@ context: fork
 1. Run iterative DR (up to 3 rounds) using the DR asset process and evolution log.
 2. After each round, set the stage with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage dr-round-N` and re-run `Test-Plan.ps1 -Stage Draft`.
 
-Keep this file orchestration-only: validation logic lives in `scripts/skalary/Test-Plan.ps1` and `scripts/validate.ps1`, never as ad-hoc checks embedded in markdown instructions.
+Keep this file orchestration-only: validation logic lives in `.github/skills/cip/scripts/Test-Plan.ps1` and `scripts/validate.ps1`, never as ad-hoc checks embedded in markdown instructions.
 
 ## Step 5: Finish
 

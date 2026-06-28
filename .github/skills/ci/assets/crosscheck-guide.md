@@ -7,7 +7,7 @@
 At phase and plan crosschecks, verify each requirement's typed markers from Acceptance Criteria:
 
 - `test:<TestId>` -> run only the named Pester test and fail if it is missing or failing.
-- `file:<path>#<assertion>` -> verify via `scripts/skalary/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
+- `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
@@ -16,7 +16,7 @@ Build the receipt with the shared formatter — do not hand-write receipt lines.
 
 ```powershell
 # $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Success=$true; Note='' } ...
-$receipt = & scripts/skalary/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N>
+$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N>
 Set-Content -LiteralPath <plan-folder>/evidence.md -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
@@ -54,7 +54,7 @@ If the gate is not satisfied, block archival/completion.
 For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pester check at plan start and again immediately before any interactive harvest/finalization branch:
 
 ```powershell
-pwsh -NoProfile -File scripts/skalary/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
+pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
 It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the `test:unit` gate, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
@@ -66,7 +66,7 @@ This section is a **mirror** of the canonical harvest procedure in `plugins/auto
 At interactive plan completion, `/ci` runs harvest with the same shared scripts and ordering:
 
 1. Run dependency preflight (`Test-DependencyPlan006.ps1`) before entering harvest/finalization.
-2. If append infra is present (`Test-Path scripts/skalary/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
+2. If append infra is present (`Test-Path .github/skills/ci/scripts/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
    - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
    - Distill entries from `capture.md` (`## Capture`), `cr-log.md`, and `learnings.md`.
    - Map candidates deterministically into `Add-LedgerEntry` inputs: `-Category` from the 7-category rubric, `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
@@ -77,7 +77,7 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.
    - `/udn` contract: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft-PR + marker path (no archive).
-   - Prune preconditions: `Test-Path scripts/skalary/Remove-LedgerEntry.ps1` and `Test-Path docs/review-ledger/.archive`; if missing, skip prune and continue direct draft escalation.
+   - Prune preconditions: `Test-Path .github/skills/ci/scripts/Remove-LedgerEntry.ps1` and `Test-Path docs/review-ledger/.archive`; if missing, skip prune and continue direct draft escalation.
    - Invoke `Remove-LedgerEntry.ps1` via argument arrays / `ArgumentList` only; always pass `-Category`, `-CurrentPlan`, and full-line candidate match payload (`-Match`/`-MatchBase64`) — never substring/regex targeting.
 4. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
 
