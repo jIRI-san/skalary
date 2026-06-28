@@ -45,6 +45,12 @@ When approaching limits:
 - Use `S=1`, `M=2`, `L=3` point mapping.
 - Treat cap 6 per phase as advisory unless explicitly overridden in Decisions.
 
+## Offline package batching (autonomous container/sandbox plans)
+
+- When a plan adds third-party packages and runs in a sealed runtime (container/sandbox), each new package discovered mid-run triggers an offline **rebundle** round-trip: the runtime commits the manifest, the host regenerates + pushes the lockfile, then relaunches.
+- Batch all package-adding steps (NuGet `dotnet`, npm) into a **single early phase** so the rebundle round-trip fires at most once instead of once per package.
+- Mirror the batched packages in the `<!-- expected-packages: dotnet:<list>; npm:<list> -->` header marker (use `none` when none).
+
 ## State anchor and validator cadence
 
 - Set/update the stage anchor with `Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted` after drafting (never hand-edit `<!-- cip-stage: ... -->`).

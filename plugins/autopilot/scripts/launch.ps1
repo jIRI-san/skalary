@@ -219,19 +219,54 @@ $dispatchParams = @{
 # does not accept -AdoToken; only forward the token to container/sandbox runtimes.
 if ($AdoToken -and $effectiveRuntime -ne 'host') { $dispatchParams.AdoToken = $AdoToken }
 
-switch ($effectiveRuntime) {
-    'host' {
-        & (Join-Path $ScriptDir 'launch-host.ps1') @dispatchParams
+# --- Offline package bundling (container/sandbox only) ---
+. (Join-Path $ScriptDir 'autopilot-dispatch.ps1')
+$offline = Resolve-OfflinePackagesConfig -Config $Config
+$offlineActive = $false
+if ($offline.Enabled) {
+    if ($effectiveRuntime -eq 'host') {
+        Write-Warning "offlinePackages is enabled but runtime is 'host'; offline bundling applies only to container/sandbox. Ignoring."
     }
-    'container' {
-        & (Join-Path $ScriptDir 'launch-container.ps1') @dispatchParams
-    }
-    'sandbox' {
-        & (Join-Path $ScriptDir 'launch-sandbox.ps1') @dispatchParams
+    else {
+        $offlineActive = $true
+        Write-Host "Offline package bundling enabled (maxRebundles=$($offline.MaxRebundles))."
     }
 }
 
-$exitCode = $LASTEXITCODE
+$orchestratorScript = switch ($effectiveRuntime) {
+    'host' { 'launch-host.ps1' }
+    'container' { 'launch-container.ps1' }
+    'sandbox' { 'launch-sandbox.ps1' }
+}
+$WorkBranch = $dispatchParams.Branch
+$offlineEcosystems = $offline.Ecosystems
+
+$Launch = {
+    param([string]$FeedPath)
+    $p = $dispatchParams.Clone()
+    if ($FeedPath) { $p.FeedPath = $FeedPath }
+    # Orchestrators report via Write-Host and signal via exit code; discard the
+    # success stream so the dispatch loop receives only the integer exit code.
+    & (Join-Path $ScriptDir $orchestratorScript) @p | Out-Null
+    return $LASTEXITCODE
+}
+$PrepareFeed = {
+    $prepArgs = @{ RepoRoot = $RepoRoot }
+    if ($offlineEcosystems -and $offlineEcosystems.Count -gt 0) { $prepArgs.Ecosystems = $offlineEcosystems }
+    $feed = & (Join-Path $ScriptDir 'prepare-packages.ps1') @prepArgs
+    return ($feed | Select-Object -Last 1)
+}
+$Rebundle = {
+    # Re-prep MUST regenerate + commit + push the lockfile before the relaunch
+    # clones, so the resumed runtime gets a consistent manifest + lock pair.
+    $prepArgs = @{ RepoRoot = $RepoRoot; Branch = $WorkBranch }
+    if ($offlineEcosystems -and $offlineEcosystems.Count -gt 0) { $prepArgs.Ecosystems = $offlineEcosystems }
+    $feed = & (Join-Path $ScriptDir 'prepare-packages.ps1') @prepArgs
+    return ($feed | Select-Object -Last 1)
+}
+
+$exitCode = Invoke-AutopilotDispatch -Launch $Launch -PrepareFeed $PrepareFeed -Rebundle $Rebundle -MaxRebundles $offline.MaxRebundles -Offline:$offlineActive
+
 Write-Host ""
 Write-Host "=== Autopilot finished with exit code: $exitCode ==="
 exit $exitCode

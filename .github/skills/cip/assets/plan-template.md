@@ -7,6 +7,8 @@
 <!-- scope: step | phase | plan -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 6 -->
+<!-- Offline package bundling (autonomous container/sandbox plans): list expected new third-party packages so they can be batched and the offline rebundle round-trip fires at most once. Use `none` when the plan adds no packages. -->
+<!-- expected-packages: dotnet:<list>; npm:<list> -->
 
 ## Decisions
 <!-- Key decisions made during planning — one bullet per decision -->

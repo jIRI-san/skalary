@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -54,8 +54,16 @@
       "dest": "skills/autopilot/scripts/launch.ps1"
     },
     {
+      "src": "scripts/autopilot-dispatch.ps1",
+      "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1"
+    },
+    {
       "src": "scripts/prepare-env-file.ps1",
       "dest": "skills/autopilot/scripts/prepare-env-file.ps1"
+    },
+    {
+      "src": "scripts/prepare-packages.ps1",
+      "dest": "skills/autopilot/scripts/prepare-packages.ps1"
     },
     {
       "src": "scripts/validate-auth.ps1",

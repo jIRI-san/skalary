@@ -35,6 +35,8 @@ Container and Sandbox carry the "Start from which branch? (Current / main)" foll
 
 **First-run bootstrap is in-editor only.** When the user picks Autonomous, the skill checks for repo-root `.autopilot.json`; if absent it interviews (runtime, auth target, git provider/auth, build/test, model, timeout), writes from `.autopilot.json.example`, then **structurally validates** required fields/types — mirroring `launch.ps1`'s hand-rolled checks, *not* JSON-Schema validation (`Test-Json` cannot validate draft 2020-12). Headless `launch.ps1` never interviews; it fails loud if the file is missing.
 
+**Offline package bundling.** For container/sandbox plans that restore from a private package stream, the bootstrap may also interview for `offlinePackages` (boolean `enabled`; optional `ecosystems` array of `dotnet`/`npm`; optional `maxRebundles` ≥ 1). When enabled, the launcher pre-builds a feed and the host owns a rebundle loop: the sealed runtime exits `43` on a missing package (manifest-only commit), the launcher regenerates + pushes the lockfile and relaunches, capped by `maxRebundles`. This is host-owned and transparent to `/ci`, which just hands off. Mechanics live in [autopilot-execution.design.md](autopilot-execution.design.md); the `42` @human stop is unchanged.
+
 ## Design Decisions
 
 **Skill ships in `autopilot`, not `ci`.** It co-locates with the scripts it drives (reverses an earlier `ci`-ownership decision). `ci` keeps its existing `autopilot` dependency. This makes `autopilot` a single self-contained plugin — agent + skill + scripts + schemas + devcontainer + config templates all install under `.github/skills/autopilot/**` (agent stays at `.github/agents/`).

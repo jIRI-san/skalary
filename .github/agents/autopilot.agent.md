@@ -48,6 +48,12 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      The script emits the entry shape `- [<source-step>] [trigger:<...>] <learning>` and, once the per-plan cap of 10 is reached, a single `[trigger:overflow-summary]` line — do not hand-write these.
 12. **Build** — run the build command from `.autopilot.json` `build` field. Fix errors and retry up to `maxIterationsPerStep` times.
 13. **Test** — run the test command from `.autopilot.json` `test` field. If a relevant test filter can be identified from the changed subsystem (e.g. `--filter Category=Scheduling`), use it for faster feedback. Otherwise run all tests. Fix failures and retry.
+   - **Offline rebundle exception (`AUTOPILOT_OFFLINE=true` only).** If a build/test restore fails because a package is *missing from the offline feed* (not a code error), the disposable runtime cannot fetch it and cannot regenerate a valid lockfile — the host does that. In that case:
+     - Stage **only** the package **manifests** that introduce the dependency (`package.json`, `*.csproj` / `Directory.Packages.props`). **Never** stage or edit lockfiles (`package-lock.json`, `packages.lock.json`) — an offline `npm install` / `dotnet restore` produces an invalid or incomplete lock.
+     - Leave the current step `[~]` (in-progress); do **not** mark it `[x]`.
+     - Make a single rebundle-request commit (e.g. `autopilot: request offline rebundle (<step>)`).
+     - `exit 43` immediately. Do **not** fetch from the network, do **not** push, do **not** write the `.autopilot-rebundle-needed` marker, and do **not** emit offline restore config — the runtime entrypoint owns the push + signal, and the host launcher owns lockfile regeneration.
+     - Exit 43 is distinct from the `@human` exit 42. **Resume contract:** the host re-bundles (regenerates + commits + pushes the lockfile) and relaunches; the resumed run sees the committed manifest + host-regenerated lock + the `[~]` step, and continues that step from a clean offline restore.
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.

@@ -31,7 +31,11 @@ param(
 
     [string]$AdoToken,
 
-    [string]$Branch = "feature/$PlanSlug"
+    [string]$Branch = "feature/$PlanSlug",
+
+    # When set, mount this host package-feed read-only at /feed and run the
+    # container fully offline (see prepare-packages.ps1).
+    [string]$FeedPath
 )
 
 Set-StrictMode -Version Latest
@@ -99,7 +103,9 @@ try {
 
     # --- Prepare env file ---
     Write-Host "Preparing environment file..."
-    $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') -Config $Config -Token $Token -AdoToken $AdoToken -Branch $Branch
+    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $Branch }
+    if ($FeedPath) { $envParams.Offline = $true }
+    $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') @envParams
 
     # --- Run container ---
     Write-Host "Starting container: $ContainerName"
@@ -107,6 +113,13 @@ try {
         'run', '-t'
         '--name', $ContainerName
         '--env-file', $EnvFilePath
+    )
+    if ($FeedPath) {
+        # Read-only mount: the entrypoint copies /feed to a writable cache, so the
+        # mounted feed itself is never mutated by the disposable runtime.
+        $dockerArgs += @('-v', "${FeedPath}:/feed:ro")
+    }
+    $dockerArgs += @(
         $ImageName
         '/usr/local/bin/container-entrypoint.sh', $PlanSlug, $Mode
     )

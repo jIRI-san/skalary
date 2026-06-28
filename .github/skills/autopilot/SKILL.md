@@ -27,11 +27,13 @@ The launcher is the sole reader of `.autopilot.host.json`. The skill and the aut
 2. If file exists, continue.
 3. If file is missing:
    - Interview for: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `git.name`, `git.email`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
+   - Optionally interview for `offlinePackages` when the plan targets the container/sandbox runtime and restores from a private package stream.
    - Start from `.github/skills/autopilot/.autopilot.json.example`.
    - Write `.autopilot.json` at repo root.
 4. Structurally validate `.autopilot.json` (no JSON-Schema validation):
    - Required fields exist: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `git`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
    - Types: string fields are strings; `timeout` and `maxIterationsPerStep` are numbers; `git` is an object with string `name` and `email`.
+   - If `offlinePackages` is present: it is an object with boolean `enabled`; optional `ecosystems` is an array of `dotnet`/`npm`; optional `maxRebundles` is a number ≥ 1.
 5. If validation fails, stop with a loud actionable error. Do not invoke launcher.
 
 ## Mode sub-menu
@@ -64,6 +66,16 @@ Security warning:
 - Invalid host config fails loud before phase execution.
 - If host config file is absent, launcher defaults to `copilot`.
 - This file is host-only; container and sandbox never read it.
+
+## Offline package bundling
+
+When `offlinePackages.enabled` is true and the runtime is container/sandbox, the host pre-builds a package feed (`prepare-packages.ps1`) and mounts it read-only; the runtime copies it to a writable cache and restores offline. Host mode ignores `offlinePackages` (warn-and-ignore).
+
+Exit-code round-trip (distinct from the `42` @human stop):
+
+- **Exit 43 — offline rebundle request.** The sealed runtime hit a package not in the feed. The agent commits the **manifest only** (never the lockfile), pushes the work branch, and exits `43`.
+- The **host owns the loop**: on `43`, `launch.ps1` calls `prepare-packages.ps1 -Branch <work-branch>` (regenerate + commit + push the lockfile), then relaunches the same runtime — the re-prep completes before the relaunch clones. Capped by `maxRebundles` (default 3); on cap it surfaces the failure.
+- **Exit 42 — @human stop.** Unchanged; halts for human review, no rebundle.
 
 ## Launcher invocations
 

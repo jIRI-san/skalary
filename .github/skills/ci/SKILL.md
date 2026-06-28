@@ -62,6 +62,8 @@ pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-referenc
 
 4. **Autonomous handoff.** When the user picks Host / Container / Sandbox autopilot, read `.github/skills/autopilot/SKILL.md` by path and follow its steps: first-run `.autopilot.json` bootstrap (if config missing), then invoke the launcher for the chosen runtime. The chosen runtime pre-selects the autopilot sub-menu. After launch, print the handoff line and exit the `/ci` flow.
 
+   - **Offline package rebundle (container/sandbox + `offlinePackages.enabled`).** The host launcher owns a rebundle loop on top of the normal `42` @human stop. If the sealed runtime needs a package missing from the feed it commits the **manifest only** and exits `43`; `launch.ps1` regenerates + pushes the lockfile (`prepare-packages.ps1 -Branch`), then relaunches the same runtime — capped by `maxRebundles`. This is host-owned; `/ci` just hands off and the loop is transparent. Exit `42` (@human) is unchanged.
+
 5. **In-session execution (Interactive / Autopilot).** Validate or create the expected branch/worktree naming, then continue to Step 4. Autopilot skips per-step approval prompts; Interactive pauses at each step.
 
 6. Record `<!-- worktree: <branch> -->` in the current phase when first running in that worktree.
