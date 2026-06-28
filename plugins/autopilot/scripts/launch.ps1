@@ -245,7 +245,9 @@ $Launch = {
     param([string]$FeedPath)
     $p = $dispatchParams.Clone()
     if ($FeedPath) { $p.FeedPath = $FeedPath }
-    & (Join-Path $ScriptDir $orchestratorScript) @p
+    # Orchestrators report via Write-Host and signal via exit code; discard the
+    # success stream so the dispatch loop receives only the integer exit code.
+    & (Join-Path $ScriptDir $orchestratorScript) @p | Out-Null
     return $LASTEXITCODE
 }
 $PrepareFeed = {
