@@ -12,5 +12,6 @@
   "timeout": 180,
   "maxIterationsPerStep": 10,
   "build": "npm run build",
-  "test": "npm test"
+  "test": "npm test",
+  "offlinePackages": { "enabled": false }
 }

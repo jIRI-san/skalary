@@ -51,16 +51,16 @@
 | RISK-7 | Concurrent runs or a live sandbox holding the read-only mount collide with a host feed re-prep. | Medium | Medium | Feed dir scoped per repo-leaf+branch; host re-prep targets the branch feed; the loop relaunches a fresh sandbox rather than re-prepping a feed the VM still holds. | 2.1, 4.1 |
 
 ## Phase 1: Config surface
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: feature/aaf29b-offline-package-bundling -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget advisory cap: 6) -->
 
-- [ ] 1.1 Add `offlinePackages` object to `autopilot.schema.json` — properties `enabled` (boolean), optional `ecosystems` (array of `dotnet`/`npm`), optional `maxRebundles` (integer ≥1, default 3); NOT added to top-level `required`; describe the read-only-mount + private-stream rationale in the schema `description` (REQ-2, RISK-1) `S`
-- [ ] 1.2 Add `"offlinePackages": { "enabled": false }` to both `.autopilot.json.example` copies (plugin + dogfood stay byte-identical) (REQ-2) `S`
-- [ ] 1.3 Add `.autopilot-rebundle-needed` to `.gitignore` under the "Autopilot transient artifacts" block (REQ-5) `S`
-- [ ] 1.4 Update autopilot `SKILL.md` first-run bootstrap: interview/accept optional `offlinePackages`, structurally validate it when present (object; `enabled` boolean; `ecosystems` array-of-enum; `maxRebundles` number) — mirror the launcher's hand-rolled checks, not JSON-Schema (REQ-2) `M`
+- [x] 1.1 Add `offlinePackages` object to `autopilot.schema.json` — properties `enabled` (boolean), optional `ecosystems` (array of `dotnet`/`npm`), optional `maxRebundles` (integer ≥1, default 3); NOT added to top-level `required`; describe the read-only-mount + private-stream rationale in the schema `description` (REQ-2, RISK-1) `S`
+- [x] 1.2 Add `"offlinePackages": { "enabled": false }` to both `.autopilot.json.example` copies (plugin + dogfood stay byte-identical) (REQ-2) `S`
+- [x] 1.3 Add `.autopilot-rebundle-needed` to `.gitignore` under the "Autopilot transient artifacts" block (REQ-5) `S`
+- [x] 1.4 Update autopilot `SKILL.md` first-run bootstrap: interview/accept optional `offlinePackages`, structurally validate it when present (object; `enabled` boolean; `ecosystems` array-of-enum; `maxRebundles` number) — mirror the launcher's hand-rolled checks, not JSON-Schema (REQ-2) `M`
 
 ## Phase 2: Host feed builder
 <!-- worktree: (recorded by /ci when worktree is created) -->
