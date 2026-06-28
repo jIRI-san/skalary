@@ -101,7 +101,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 7.1 Document the offline flow + exit-43-vs-42 round-trip + host-side loop ownership in autopilot `SKILL.md` (read-by-`/ci`) and the `ci` `SKILL.md` / `execution-guide.md` (REQ-7) [after: 5.2] `M`
-- [ ] 7.2 Update design notes: `autopilot-execution.design.md` (offline feed, read-only mount + writable copy, exit-43 rebundle, `prepare-packages` in Script Inventory), `autopilot-skill.design.md` (`offlinePackages` config + launcher loop), `plan-workflow.design.md` (cip package-awareness) (REQ-9) [after: 7.1, 6.3] `M`
+- [x] 7.2 Update design notes: `autopilot-execution.design.md` (offline feed, read-only mount + writable copy, exit-43 rebundle, `prepare-packages` in Script Inventory), `autopilot-skill.design.md` (`offlinePackages` config + launcher loop), `plan-workflow.design.md` (cip package-awareness) (REQ-9) [after: 7.1, 6.3] `M`
 - [ ] 7.3 Register `prepare-packages.ps1` in `plugins/autopilot/plugin.json` `files[]` (plus dogfood); patch-bump `version` for `autopilot`, `continue-implementation`, `create-implementation-plan` (REQ-9) [after: 7.2] `S`
 - [ ] 7.4 Run `Sync-Dogfood.ps1` then `Build-Registry.ps1` so `.github/` copies + `registry.json` hashes are current (REQ-9) [after: 7.3] `S`
 - [ ] 7.5 Run `npm test` and `npm run eval` green; `review:cr` over the ci/cip docs confirms the exit-43-vs-42 round-trip is described (REQ-9, REQ-7) [after: 7.4] `M`

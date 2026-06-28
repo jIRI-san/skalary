@@ -62,6 +62,7 @@ globs:
 | Shared receipt grammar | `Build-EvidenceReceipt.ps1` is the single emitter of the golden per-REQ line `<glyph> REQ-N — <marker> — <result> — <commit>` (em-dash `U+2014` with surrounding spaces; `✓ U+2713` pass, `✗ U+2717` fail/unrun; result `passed`/`failed`/`unrun`, optional `: <note>`). A REQ passes only when **all** its markers pass; failed and unrun markers are preserved verbatim. The receipt is format-only — it never re-runs evidence. |
 | Workflow-memory capture | Mid-run writes are ephemeral and script-mediated via `Add-WorkflowNote.ps1` (`cr-log.md`, `learnings.md`, `capture.md`) with explicit `No entries for this phase.` placeholders so missing sections fail loud while intentionally empty phases stay valid. The 10-entry cap is **Learnings-only** and folds the oldest entries into a single `[trigger:overflow-summary]` line; `CrLog` and `Capture` are uncapped. |
 | Workflow-memory harvest | Durable ledger writes happen only at finalization append-harvest via `Add-LedgerEntry.ps1`; prune is escalation-only and script-mediated via `Remove-LedgerEntry.ps1`. |
+| cip package-awareness | For autonomous container/sandbox plans, `cip` interviews for expected new packages (`interview-guide.md`), records them in the optional `<!-- expected-packages: dotnet:<list>; npm:<list> -->` header marker (`plan-template.md`, `none` when none), and drafts package-adding steps batched into a single early phase (`drafting-guide.md`) so the offline rebundle round-trip fires at most once. The marker is advisory — no validator gate. |
 
 ## Design Decisions
 

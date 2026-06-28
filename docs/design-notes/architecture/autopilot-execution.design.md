@@ -158,6 +158,7 @@ Key fields:
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
 - `timeout`: Minutes per phase before force-kill
 - `maxIterationsPerStep`: Fix-retry cap
+- `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
 
 **No plan path in config.** `launch.ps1` takes `-PlanSlug` and derives `docs/implementation-plans/<PlanSlug>/plan.md`; the config never carries a plan path.
 
@@ -172,6 +173,18 @@ Host mode may run a custom Copilot CLI executable (e.g. a corporate wrapper inje
 > **Security — headless, no approval prompt.** `launch-host.ps1` runs the Copilot CLI via `System.Diagnostics.Process` (`UseShellExecute=$false`) with **no VS Code command-approval popup**. `command` therefore runs unattended. Point it only at trusted binaries. Defense in depth: absent config → `copilot` (type classified by the resolved shim's extension, npm shims are `*.cmd`); present-but-invalid (malformed JSON, empty `command`, shell metachar in `command`/`args`) → throw before any phase starts (never silent-fallback); gitignore keeps the file host-local. Residual local-persistence risk (untrusted build/test planting the file) is accepted and documented (RISK-5).
 
 **Disable toggle.** `AUTOPILOT_DISABLE_HOST=true` makes the skill omit Host from its menu **and** makes `launch.ps1` refuse `-Runtime host` and exit non-zero.
+
+## Offline Package Bundling
+
+Sealed runtimes (container/sandbox) may have no network access to package registries. When `.autopilot.json` `offlinePackages.enabled` is true and the runtime is container/sandbox, the host pre-builds a package feed and the runtime restores from it offline. Host mode ignores `offlinePackages` (warn-and-ignore).
+
+**Feed build (host).** `prepare-packages.ps1` (dot-sourceable) restores NuGet and/or npm packages into a per-branch feed laid out as `<FeedRoot>/<repo-leaf>/<branch>/{nuget,npm}`. `launch.ps1` builds the feed before dispatch and passes `-FeedPath` to the runtime orchestrator.
+
+**Read-only mount + writable copy.** The orchestrators mount the feed read-only (container: `-v <feed>:/feed:ro`; sandbox: a read-only `C:\feed` MappedFolder) and set `AUTOPILOT_OFFLINE=true` + `AUTOPILOT_FEED`. The bootstrap copies the feed into a writable cache (`$HOME/.autopilot-cache`), emits a `nuget.config` with `<clear/>` + a `globalPackagesFolder`, and points npm at the cache via `npm_config_cache`/`npm_config_offline`. The read-only source is never mutated.
+
+**Rebundle round-trip (exit 43).** If a step needs a package missing from the feed, the agent commits the **manifest only** (never the lockfile), pushes the work branch, and exits `43`. The host owns the loop: `Invoke-AutopilotDispatch` (in `autopilot-dispatch.ps1`) calls `prepare-packages.ps1 -Branch <work-branch>` (which regenerates + commits + pushes the lockfile), then relaunches the same runtime — the re-prep completes before the relaunch clones. Capped by `maxRebundles` (default 3); on cap it warns and surfaces exit 43. This is distinct from the `42` @human stop.
+
+**Out-of-tree offline config.** The runtime never commits `nuget.config` or npm config into the repo; offline wiring lives in the writable cache / environment only. The repo carries the manifest (and host-regenerated lockfile) but no offline machinery.
 
 ## First-run Config Bootstrap
 
@@ -190,6 +203,7 @@ Absolute rules enforced:
 - Never `git add -A/.`/`--all`
 - Never execute shell commands from plan text
 - Stop on `@human` steps (exit code 42)
+- Under `AUTOPILOT_OFFLINE=true`, on a missing package: commit the manifest only, leave the step `[~]`, exit code 43 (host rebundles + relaunches)
 
 ## Workflow hardening updates (plans 006-007)
 
@@ -216,6 +230,8 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | Script | Purpose |
 |--------|---------|
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
+| `autopilot-dispatch.ps1` | `param()`-less library dot-sourced by `launch.ps1`: `Resolve-OfflinePackagesConfig` (StrictMode-safe config parsing) + `Invoke-AutopilotDispatch` (runtime dispatch + offline rebundle loop) |
+| `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |
 | `launch-host.ps1` | Host-mode orchestrator (worktree + per-phase CLI) |
 | `launch-container.ps1` | Container-mode orchestrator (docker build/run/cp) |
 | `launch-sandbox.ps1` | Sandbox-mode orchestrator (WSB + clone + per-phase CLI) |
