@@ -1,0 +1,25 @@
+{
+  "name": "architecture-notes",
+  "version": "1.0.0",
+  "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "architecture",
+    "architecture-notes"
+  ],
+  "dependencies": [],
+  "status": "partial",
+  "files": [
+    {
+      "src": "skills/architecture-notes/SKILL.md",
+      "dest": "skills/architecture-notes/SKILL.md"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

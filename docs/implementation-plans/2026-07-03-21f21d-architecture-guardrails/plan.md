@@ -78,7 +78,7 @@
 <!-- worktree: agents/ai-plugin-architecture-plan -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) · Points S=1 M=2 L=3 -->
 
-- [ ] 1.1 Create `architecture-notes` plugin skeleton — `plugin.json` manifest, `skills/`, `prompts/`, `assets/` dirs (REQ-1) `S`
+- [x] 1.1 Create `architecture-notes` plugin skeleton — `plugin.json` manifest, `skills/`, `prompts/`, `assets/` dirs (REQ-1) `S`
 - [ ] 1.2 Author `architecture-contract.schema.json` as a **plugin asset** (`.../assets/schemas/`) scaffolded to `schemas/` on init with no-overwrite — multi-modal fields (declarative rules / prose / interface stubs), `maturity` enum (`locked`, `draft`, `provisional`), stable contract-id scheme (REQ-3, REQ-16) `M`
 - [ ] 1.3 Author tier templates — `.architecture-notes.md` index template, arch-note template (terse, contract-focused), human-doc skeleton template (REQ-2, RISK-4) `M`
 - [ ] 1.4 Register plugin in `registry.json` via the registry build script (REQ-1) `S`
