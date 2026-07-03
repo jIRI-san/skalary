@@ -6,3 +6,5 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] locked contract did not require lockedBodySha256; FIXED (schema if/then requires hash when maturity=locked; test added).
 - [1.2] [src:code-review] [sev:Med] asset-root auto-detect picked any existing dir and was untested; FIXED (require schemas/ subtree in candidate; added no-AssetRoot resolution test).
 - [1.2] [src:code-review] [sev:Low] flat (non-recursive) scaffold copy could silently skip nested subtrees; documented flat-dir assumption in-code (revisit with -Recurse when templates add subtrees).
+- [1.3] [src:code-review] [sev:Med] index template had globs:** frontmatter unlike sibling .design-notes.md (latent glob-scanner auto-load hazard, RISK-4); FIXED (removed frontmatter to match convention).
+- [1.3] [src:code-review] [sev:Low] dest dir created via New-Item -Path (wildcard-unsafe); FIXED with (IO.Directory)::CreateDirectory (New-Item lacks -LiteralPath).

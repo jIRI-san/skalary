@@ -148,3 +148,58 @@ Describe 'architecture-contract schema evals' {
         }
     }
 }
+
+Describe 'architecture-notes tier template evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:templatesDir = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/templates'
+        $script:scaffoldScript = Join-Path $script:pluginRoot 'scripts/Copy-ArchScaffold.ps1'
+        $script:assetRoot = Join-Path $script:pluginRoot 'skills/architecture-notes/assets'
+        $script:indexRelPath = 'docs/architecture-notes/.architecture-notes.md'
+    }
+
+    It 'TierTemplates-Exist: index, arch-note, and human-doc templates all exist' {
+        foreach ($name in @(
+                'architecture-notes-index.template.md',
+                'architecture-note.template.md',
+                'architecture-human-doc.template.md')) {
+            Test-Path -LiteralPath (Join-Path $script:templatesDir $name) -PathType Leaf | Should -BeTrue
+        }
+    }
+
+    It 'Init-ScaffoldsTier: scaffolds the .architecture-notes.md index into docs/architecture-notes/' {
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-tier-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $target -Force)
+        try {
+            $result = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
+            $indexPath = Join-Path $target $script:indexRelPath
+            $entry = @($result | Where-Object { $_.Path -eq $indexPath })
+            $entry.Count | Should -Be 1
+            $entry[0].Action | Should -Be 'created'
+            Test-Path -LiteralPath $indexPath -PathType Leaf | Should -BeTrue
+            (Get-Content -LiteralPath $indexPath -Raw) | Should -Match '# Architecture Notes'
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Init-NoOverwrite: an existing .architecture-notes.md index is never overwritten' {
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-tier-" + [guid]::NewGuid().ToString('N'))
+        $indexPath = Join-Path $target $script:indexRelPath
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $indexPath) -Force)
+        $sentinel = '# my own architecture index'
+        Set-Content -LiteralPath $indexPath -Value $sentinel -NoNewline
+        try {
+            $result = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
+            $entry = @($result | Where-Object { $_.Path -eq $indexPath })
+            $entry.Count | Should -Be 1
+            $entry[0].Action | Should -Be 'skipped'
+            (Get-Content -LiteralPath $indexPath -Raw) | Should -Be $sentinel
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

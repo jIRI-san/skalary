@@ -57,12 +57,44 @@ if (-not (Test-Path -LiteralPath $AssetRoot -PathType Container)) {
 # Asset subtrees scaffolded into the target repo. Source dir is under $AssetRoot; dest dir
 # is under $TargetRoot. Each subtree is copied non-recursively (flat), which matches the
 # current flat asset layout; nested subtrees would need -Recurse with dest-path
-# reconstruction. Grows as later steps add templates.
+# reconstruction.
 $scaffoldMap = @(
     [pscustomobject]@{ SourceDir = 'schemas'; DestDir = 'schemas' }
 )
 
+# Individual asset files scaffolded to a renamed destination (e.g. the tier index template
+# lands as the dot-file docs/architecture-notes/.architecture-notes.md).
+$fileMap = @(
+    [pscustomobject]@{
+        Source = 'templates/architecture-notes-index.template.md'
+        Dest   = 'docs/architecture-notes/.architecture-notes.md'
+    }
+)
+
 $results = [System.Collections.Generic.List[object]]::new()
+
+function Copy-ScaffoldFile {
+    param(
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$DestPath,
+        [Parameter(Mandatory)]$Cmdlet
+    )
+
+    if (Test-Path -LiteralPath $DestPath -PathType Leaf) {
+        return [pscustomobject]@{ Path = $DestPath; Action = 'skipped' }
+    }
+
+    $action = 'whatif'
+    if ($Cmdlet.ShouldProcess($DestPath, "Scaffold from '$SourcePath'")) {
+        $destDir = Split-Path -Parent $DestPath
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir -PathType Container)) {
+            [void][System.IO.Directory]::CreateDirectory($destDir)
+        }
+        Copy-Item -LiteralPath $SourcePath -Destination $DestPath -Force
+        $action = 'created'
+    }
+    return [pscustomobject]@{ Path = $DestPath; Action = $action }
+}
 
 foreach ($mapping in $scaffoldMap) {
     $sourceDir = Join-Path $AssetRoot $mapping.SourceDir
@@ -72,22 +104,15 @@ foreach ($mapping in $scaffoldMap) {
 
     foreach ($sourceFile in (Get-ChildItem -LiteralPath $sourceDir -File | Sort-Object Name)) {
         $destPath = Join-Path $destDir $sourceFile.Name
-
-        if (Test-Path -LiteralPath $destPath -PathType Leaf) {
-            $results.Add([pscustomobject]@{ Path = $destPath; Action = 'skipped' })
-            continue
-        }
-
-        $action = 'whatif'
-        if ($PSCmdlet.ShouldProcess($destPath, "Scaffold from '$($sourceFile.FullName)'")) {
-            if (-not (Test-Path -LiteralPath $destDir -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $destDir -Force)
-            }
-            Copy-Item -LiteralPath $sourceFile.FullName -Destination $destPath -Force
-            $action = 'created'
-        }
-        $results.Add([pscustomobject]@{ Path = $destPath; Action = $action })
+        $results.Add((Copy-ScaffoldFile -SourcePath $sourceFile.FullName -DestPath $destPath -Cmdlet $PSCmdlet))
     }
+}
+
+foreach ($file in $fileMap) {
+    $sourcePath = Join-Path $AssetRoot $file.Source
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
+    $destPath = Join-Path $TargetRoot $file.Dest
+    $results.Add((Copy-ScaffoldFile -SourcePath $sourcePath -DestPath $destPath -Cmdlet $PSCmdlet))
 }
 
 return , @($results)

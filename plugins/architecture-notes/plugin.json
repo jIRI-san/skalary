@@ -21,6 +21,18 @@
       "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
     },
     {
+      "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
+      "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
+    },
+    {
+      "src": "skills/architecture-notes/assets/templates/architecture-note.template.md",
+      "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md"
+    },
+    {
+      "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
+      "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
+    },
+    {
       "src": "scripts/Copy-ArchScaffold.ps1",
       "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1"
     }
