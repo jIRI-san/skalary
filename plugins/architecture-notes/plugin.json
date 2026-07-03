@@ -6,6 +6,7 @@
   "license": "MIT",
   "tags": [
     "skill",
+    "prompt",
     "architecture",
     "architecture-notes"
   ],
@@ -39,6 +40,14 @@
     {
       "src": "scripts/Test-ArchContract.ps1",
       "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1"
+    },
+    {
+      "src": "prompts/can.prompt.md",
+      "dest": "prompts/can.prompt.md"
+    },
+    {
+      "src": "prompts/uan.prompt.md",
+      "dest": "prompts/uan.prompt.md"
     }
   ],
   "evals": {

@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-03T21:05:53.9850073Z",
+  "generatedAt": "2026-07-03T21:18:05.0872685Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -14,6 +14,16 @@
         "status": "none"
       },
       "files": [
+        {
+          "dest": "prompts/can.prompt.md",
+          "sha256": "c736df34c2c4fcca09d43d2c4f3856321b94b362274a6e1e8cb81a6f91ec7a94",
+          "src": "prompts/can.prompt.md"
+        },
+        {
+          "dest": "prompts/uan.prompt.md",
+          "sha256": "11355fdfebe9ae5c99ffbd73d3327184692f2acb7d24e5fee66001bd5300ee19",
+          "src": "prompts/uan.prompt.md"
+        },
         {
           "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
           "sha256": "244a08544ea95be17b5cfc6f3c74ff352ee4e53c093a162808199be77a769695",
@@ -46,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "f060a73489f1333c54018ba89e7f91e4bb7a93d44fa462ffa68bd095825a4685",
+          "sha256": "7492621dec84e8b507bcd3c5a2a9371cc6f6df91eeb9fe3e429f71c27d9a27ac",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
@@ -56,6 +66,7 @@
       "tags": [
         "architecture",
         "architecture-notes",
+        "prompt",
         "skill"
       ],
       "version": "1.0.0"

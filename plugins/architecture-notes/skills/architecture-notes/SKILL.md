@@ -29,9 +29,13 @@ context: fork
 - Tier index: `docs/architecture-notes/.architecture-notes.md`.
 - Contracts: JSON files under `schemas/` validated by `schemas/architecture-contract.schema.json`
   (scaffolded on init; falls back to the shipped asset).
-- Scripts (script-mediated mutation — resolve relative to this skill's `scripts/`):
+- Scripts (script-mediated mutation). In an installed plugin and the dogfood mirror these live
+  next to the skill at `skills/architecture-notes/scripts/`; in the plugin source tree they live
+  at `plugins/architecture-notes/scripts/`. Resolve `<scripts>` to whichever exists. **If neither
+  resolves, HALT** — never hand-roll validation or write a contract past a missing gate.
   - `Copy-ArchScaffold.ps1` — scaffolds schema + tier index into the repo, never overwriting.
-  - `Test-ArchContract.ps1` — validates a contract file against the schema (the write gate).
+  - `Test-ArchContract.ps1` — validates a contract file against the schema (the write gate). It
+    checks *shape* only; it does **not** authorize a lock (see Step 4).
 
 ## Step 1: Select operation
 
@@ -64,7 +68,9 @@ context: fork
 5. Add a **terse** arch note from `assets/templates/architecture-note.template.md` describing the
    boundary and referencing the contract id(s). Keep it context-cheap; no implementation detail.
 6. Update the index tables (Contracts / Architecture Notes) in `.architecture-notes.md`.
-7. Regenerate the human-readable doc (via `/uan`); it is a derived artifact.
+7. Regenerate the human-readable doc — a derived artifact produced by the human-doc generator
+   (a dedicated step; **not** the `/uan` contract-update path). Until that generator ships, note
+   the doc as stale rather than editing a contract to refresh it.
 
 ## Step 3: Update a contract
 
@@ -75,7 +81,7 @@ context: fork
      a locked body.
 3. Re-validate with `Test-ArchContract.ps1` (Step 2.4). Keep `maturity` unchanged unless a human
    is promoting/demoting.
-4. Update the note and index rows; regenerate the human doc.
+4. Update the note and index rows; regenerate the human doc (the generator step, not `/uan`).
 
 ## Step 4: Promote a contract to locked (human-only)
 
@@ -104,7 +110,8 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
    When present, follow `assets/interview-guide.md` for the question set; otherwise ask these
    inline. (The guide ships with the greenfield-seed step.)
 3. Seed **1–2 `draft` contracts** (Step 2) and the human-doc skeleton. Nothing is `locked`.
-4. Thereafter `/cip` grows the tier one contract at a time.
+4. Thereafter `/can` grows the tier one contract at a time (with `/cip` planning driving which
+   boundaries to add).
 
 ## Step 7: Harvest an existing project (brownfield)
 
@@ -122,6 +129,9 @@ Imports inferred architecture from an existing repo for human review. **Everythi
 - **Script-mediated mutation.** Scaffold via `Copy-ArchScaffold.ps1`; gate every contract write
   with `Test-ArchContract.ps1`. Do not hand-roll validation.
 - **Draft by default.** New and harvested contracts are `draft`. Never self-promote to `locked`.
+- **Maturity levels.** `draft` = new/unreviewed, warn-only. `provisional` = human-reviewed and
+  intended but not yet enforced (warn-only; a staging step toward `locked`). `locked` = blocking,
+  human-committed, body-hash pinned. Only a human moves a contract up or down these levels.
 - **Terse AI tier.** Keep notes and contracts context-cheap; push prose/diagrams to the
   human-readable doc, which stays excluded from AI auto-load.
 - **No-overwrite.** Scaffolding never overwrites existing files; respect the human's edits.

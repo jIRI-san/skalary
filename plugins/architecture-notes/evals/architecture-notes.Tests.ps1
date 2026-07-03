@@ -287,3 +287,26 @@ Describe 'architecture contract validation gate evals' {
         }
     }
 }
+
+Describe 'architecture-notes prompt wrapper evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:promptsDir = Join-Path $script:repoRoot 'plugins/architecture-notes/prompts'
+    }
+
+    It 'Prompts-DeferToSkill: /can and /uan exist and defer to the architecture-notes skill' {
+        $opMap = @{ can = 'create'; uan = 'update' }
+        foreach ($name in @('can', 'uan')) {
+            $path = Join-Path $script:promptsDir "$name.prompt.md"
+            Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
+            $body = Get-Content -LiteralPath $path -Raw
+            $namePattern = '(?m)^name:\s*' + $name
+            $body | Should -Match $namePattern
+            # Thin wrapper: must reference the skill it defers to.
+            $body | Should -Match 'architecture-notes'
+            $body | Should -Match 'skill'
+            # Must preset the correct operation (guards against wrapper copy-paste mixups).
+            $body | Should -Match ('operation \*\*' + $opMap[$name] + '\*\*')
+        }
+    }
+}
