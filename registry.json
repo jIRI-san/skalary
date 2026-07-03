@@ -4,8 +4,57 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-06-28T13:23:17.9176729Z",
+  "generatedAt": "2026-07-03T20:40:12.8751755Z",
   "plugins": [
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
+          "sha256": "244a08544ea95be17b5cfc6f3c74ff352ee4e53c093a162808199be77a769695",
+          "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
+          "sha256": "af749af73fb11f5cb2a5258ccc32d1a9fa0a4c92ed0515f7ea0f0df7d09fe975",
+          "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
+          "sha256": "9b69581c5b61833a0e32730c0291ab78d3192b00832bb7fc9b00f286e7d28549",
+          "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
+          "sha256": "6a7e60465668f1cf1cd14a401d996818c35291aea0f5a2a0c5b0686552b0e2e1",
+          "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
+          "sha256": "013d3cd09ee92e5e83952827f13cbd5c33c23c09728c588227e4b0a0cb1d5dce",
+          "src": "scripts/Copy-ArchScaffold.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/SKILL.md",
+          "sha256": "9c39ddfaca6f480348820908f7c373d0c756bb742e244d57e6ee47e7da93c9e4",
+          "src": "skills/architecture-notes/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "architecture-notes",
+      "status": "partial",
+      "tags": [
+        "architecture",
+        "architecture-notes",
+        "skill"
+      ],
+      "version": "1.0.0"
+    },
     {
       "author": "jIRI-san",
       "dependencies": [],
