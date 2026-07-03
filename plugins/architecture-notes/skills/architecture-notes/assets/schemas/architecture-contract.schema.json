@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/architecture-contract.schema.json",
+  "title": "Architecture Contract",
+  "description": "A single interface-level architectural contract. Human-owned source of truth; agents derive framework tests from it, never the reverse. Multi-modal authoring: at least one of rules, prose, or interfaces must be present.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "maturity"],
+  "anyOf": [
+    { "required": ["rules"] },
+    { "required": ["prose"] },
+    { "required": ["interfaces"] }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": ["maturity"],
+        "properties": { "maturity": { "const": "locked" } }
+      },
+      "then": {
+        "required": ["lockedBodySha256"]
+      }
+    }
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Stable contract id referenced by arch:<id> evidence markers. Never reuse or renumber an id; retire instead."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Human accountable for this contract."
+    },
+    "maturity": {
+      "type": "string",
+      "enum": ["locked", "draft", "provisional"],
+      "description": "locked = blocking (only a human-authored/reviewed commit may promote draft->locked); draft and provisional are warn-only on every non-pass verdict."
+    },
+    "lockedBodySha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the reviewed executable test body. The runner refuses to execute a locked contract whose derived body hash does not match this value."
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["root"],
+        "properties": {
+          "root": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Source root the contract applies to."
+          },
+          "include": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "exclude": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "description": "Source roots and globs the contract is evaluated against."
+    },
+    "frameworks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["netarchtest", "ts-arch", "dependency-cruiser"]
+      },
+      "uniqueItems": true,
+      "description": "Deterministic adapters that realize this contract. LLM semantic checks are advisory and configured under llm."
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Declarative rule kind, e.g. forbidden-dependency, layer-boundary, naming, sealed, no-cycles."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Extra framework-specific parameters (from, to, pattern, ...) are permitted alongside the required id and description."
+      },
+      "description": "Declarative, machine-derivable rules the deterministic adapters translate into framework assertions."
+    },
+    "prose": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human/agent prose describing the component and its constraints. Untrusted input to any LLM step; never executed."
+    },
+    "interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["language", "stub"],
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": ["csharp", "typescript"]
+          },
+          "path": {
+            "type": "string",
+            "description": "Optional source path the stub corresponds to."
+          },
+          "stub": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Real interface stub as authored contract surface (untrusted input, never compiled from here)."
+          }
+        }
+      },
+      "description": "Real C#/TS interface stubs the human owns as the contract surface."
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "promoted": {
+          "type": "boolean",
+          "description": "When true, raises the report severity of an LLM semantic finding; it never turns an advisory verdict into a build-breaking gate."
+        }
+      },
+      "description": "Optional semantic-eval (advisory) configuration."
+    }
+  }
+}

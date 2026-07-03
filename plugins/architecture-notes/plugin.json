@@ -15,6 +15,14 @@
     {
       "src": "skills/architecture-notes/SKILL.md",
       "dest": "skills/architecture-notes/SKILL.md"
+    },
+    {
+      "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
+      "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
+    },
+    {
+      "src": "scripts/Copy-ArchScaffold.ps1",
+      "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1"
     }
   ],
   "evals": {
