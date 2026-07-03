@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-03T20:40:12.8751755Z",
+  "generatedAt": "2026-07-03T21:05:53.9850073Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -40,8 +40,13 @@
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
+          "sha256": "ea14efb9e361d2260525b71c46eca5fe732fc301f66f3ac8064e15ab1c8706f8",
+          "src": "scripts/Test-ArchContract.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "9c39ddfaca6f480348820908f7c373d0c756bb742e244d57e6ee47e7da93c9e4",
+          "sha256": "f060a73489f1333c54018ba89e7f91e4bb7a93d44fa462ffa68bd095825a4685",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],

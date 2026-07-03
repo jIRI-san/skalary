@@ -35,6 +35,10 @@
     {
       "src": "scripts/Copy-ArchScaffold.ps1",
       "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1"
+    },
+    {
+      "src": "scripts/Test-ArchContract.ps1",
+      "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1"
     }
   ],
   "evals": {

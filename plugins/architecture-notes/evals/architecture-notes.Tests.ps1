@@ -203,3 +203,87 @@ Describe 'architecture-notes tier template evals' {
         }
     }
 }
+
+Describe 'architecture contract validation gate evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:validateScript = Join-Path $script:pluginRoot 'scripts/Test-ArchContract.ps1'
+        $script:schemaPath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/schemas/architecture-contract.schema.json'
+    }
+
+    It 'ArchContract-Validate: accepts a valid draft contract and rejects an invalid one' {
+        Test-Path -LiteralPath $script:validateScript -PathType Leaf | Should -BeTrue
+        $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-contract-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $dir -Force)
+        try {
+            $goodPath = Join-Path $dir 'good.json'
+            @{
+                id       = 'ARCH-Good-1'
+                title    = 'Good draft contract'
+                maturity = 'draft'
+                prose    = 'A valid component boundary description.'
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $goodPath
+
+            $good = & $script:validateScript -ContractPath $goodPath -SchemaPath $script:schemaPath
+            $good.Valid | Should -BeTrue
+
+            $badPath = Join-Path $dir 'bad.json'
+            @{
+                id       = 'ARCH-Bad-1'
+                title    = 'Locked without hash'
+                maturity = 'locked'
+                prose    = 'Locked but missing lockedBodySha256.'
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $badPath
+
+            $bad = & $script:validateScript -ContractPath $badPath -SchemaPath $script:schemaPath
+            $bad.Valid | Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'ArchContract-Validate: resolves the schema from a scaffolded schemas/ dir without -SchemaPath' {
+        $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-repo-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path (Join-Path $repo 'schemas') -Force)
+        Copy-Item -LiteralPath $script:schemaPath -Destination (Join-Path $repo 'schemas/architecture-contract.schema.json')
+        try {
+            $contractPath = Join-Path $repo 'contract.json'
+            @{
+                id       = 'ARCH-Resolve-1'
+                title    = 'Resolved via walk-up'
+                maturity = 'draft'
+                prose    = 'A valid boundary.'
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $contractPath
+
+            $result = & $script:validateScript -ContractPath $contractPath
+            $result.Valid | Should -BeTrue
+            $result.SchemaPath | Should -Match 'architecture-contract\.schema\.json$'
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'ArchContract-Validate: CLI (pwsh -File) invocation exits 1 and reports errors on invalid input' {
+        $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-cli-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $dir -Force)
+        try {
+            $badPath = Join-Path $dir 'bad.json'
+            @{
+                id       = 'ARCH-Cli-1'
+                title    = 'Locked without hash'
+                maturity = 'locked'
+                prose    = 'Locked but missing lockedBodySha256.'
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $badPath
+
+            $out = pwsh -NoProfile -File $script:validateScript -ContractPath $badPath -SchemaPath $script:schemaPath 2>&1
+            $LASTEXITCODE | Should -Be 1
+            ($out -join "`n") | Should -Match 'invalid'
+        }
+        finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
