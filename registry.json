@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T14:41:58.6646095Z",
+  "generatedAt": "2026-07-04T19:16:31.4621399Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -377,17 +377,17 @@
       "files": [
         {
           "dest": "prompts/cdn.prompt.md",
-          "sha256": "049d803a0e1d4b63e0d8e877f42b900639fd44f11e6dff595ca013e99351abfc",
+          "sha256": "adf4314cd46c0588c10596b68d53fed3f1771998bbe978d2d57dff9c53f3f241",
           "src": "prompts/cdn.prompt.md"
         },
         {
           "dest": "prompts/design-notes.prompt.md",
-          "sha256": "e1ad3d31834b2482b1aa60ce74f439c7361fae4e5f149f6366f5a0fae87454a5",
+          "sha256": "36d3c0fcea806fefd10f25ac048611f0b79c1b13545f341728c7704318170a9b",
           "src": "prompts/design-notes.prompt.md"
         },
         {
           "dest": "prompts/udn.prompt.md",
-          "sha256": "fb542ffe87cf63a95549f25827e32b3a4edaac4080de06e3310002422f1a5ff7",
+          "sha256": "bac3923fe755b06ecc8bc914e1db5990c2815b183cb069b5527fcbe5690be46c",
           "src": "prompts/udn.prompt.md"
         },
         {
@@ -402,7 +402,7 @@
         },
         {
           "dest": "skills/design-notes/SKILL.md",
-          "sha256": "f822e057f994d60c9d9a1ff5c40fb7683176a213a778e7a3b31ac2f0798147ed",
+          "sha256": "97ad0fd364299c88ec1477aaf57319010c94e8a9ad3ae27b0cab1549e4183f71",
           "src": "skills/design-notes/SKILL.md"
         }
       ],
