@@ -77,6 +77,44 @@ Verified autonomously in support of the gate:
 |---|---|
 | `cr`/`dr` CLI fidelity | `cr`/`dr` are VS Code-hosted orchestrators; headless `copilot --agent` may not reproduce full subagent fan-out/model-vendor resolution. Tier-2 rubrics for these plugins target observable orchestrator behavior (e.g., injection-safe handling and structured findings), not exact multi-model consensus output. |
 
+## Waza Behavior
+
+The Tier-2 backend is migrating from bespoke `EvalLlm.psm1` to **waza** (Microsoft Go CLI, pinned `0.38.0`, `copilot-sdk` executor). Specs live at `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`). This section records the live-verified behavior that the shipped conventions depend on. Confidence is per-**claim**, not per-row: **verified** = observed on this box against the real `cr` bundle; **inferred** = not yet observed, extrapolated from related evidence (must be observed before a grader depends on it); **schema** = confirmed from waza's own embedded JSON schema but not executed; **deferred** = characterized, live-fire left to Phase 2.
+
+### Hard gates (a failing answer blocks the affected cases)
+
+| Gate | Answer | Convention | Confidence |
+|---|---|---|---|
+| (a) Workspace isolation / absolute-path containment | **Partial.** Each task runs in a fresh temp workspace (`%TEMP%\waza-<id>`) with agent cwd = that dir; fixtures are copied in. **Relative** writes are contained there; an agent instructed to write an **absolute** repo path **escapes** and mutates the live tree — waza has **no** OS-level/container executor. A read-only `cr` run (tools resolved to `glob`+`view`) left the live tree byte-clean; a relative-write probe stayed inside the temp workspace. | **Read-only cases** run as-is on the live box. **Write-enabled and adversarial cases are BLOCKED in Phase 2 from running against the live worktree** — they must run in a disposable checkout/throwaway clone or behind a path-rejecting tool layer (reject absolute / `..`-escaping paths), with the `container` boundary (Phase 3 ADO) as the durable control. `test:live-tree-clean` is a post-hoc **tripwire**, not the primary containment control. Never `--allow-all` for a case that does not need writes. | verified |
+| (b) Injection harness + judge content | **(i) Judge content — verified:** the **independent** `prompt` judge (`continue_session: false`, waza's default — a fresh judge session that never ingests the fixture) receives the agent's final text and grades it; a task prompt that elicits a final text turn suffices, and `inputs.follow_up_prompts: [ ... ]` injects a forcing user turn (observed: `user.message` 1→2, `assistant.turn_end` 4, judge `pass_rate` still 100%) for agents that tend to end on a tool call. **(ii) Detector — verified on its own goldens only:** waza's built-in `adversarial` `prompt-injection` pack fires offline (mock smoke detected all 4 golden tasks incl. native credential-leak strings), but that validates waza's detector against waza's goldens — it says **nothing** about whether the real `cr` produces a detectable unsafe outcome. **`cr` injection-resistance is UNVERIFIED** until the 2.1 live-fire (`waza adversarial --on-unsafe-outcome fail`); a failing live-fire **BLOCKS** the injection cases per the hard-gate rule (first-contact integration risk). | Independent judge everywhere for injection cases (RISK-11); route adversarial-diff cases through the `adversarial:` block (`schemaVersion: "1.2"`), carry the verdict on a deterministic `program`/`text` grader as a non-LLM control; `test:injection-guard` gates 2.1. | (i) verified · (ii) deferred |
+| (b′) Durable-token exclusion (token segregation) | **Verified (mechanism):** `waza run --otel-include-payloads` defaults to **redacted** (sha256 + length only) so a durable token is not captured into artifacts; the runner (1.5) already segregates env — adversarial specs receive the **short-lived `gh` OAuth token**, never the Cred-Manager PAT, in the copilot-sdk child env. **Deferred:** proving a fixture in the `--allow-all` child cannot read the token is left to the 2.1 live-fire. | Adversarial child env carries only the short-lived token + default-deny env snapshot + redacted OTEL; the PAT path is used only for non-adversarial runs; `test:token-segregation` gates 2.1 against this convention. | verified (mech) · deferred (live) |
+| (g) copilot-sdk tool-name mapping | cr's frontmatter declares VS Code names `read, search, execute, agent, todo`, but copilot-sdk surfaces its **own** identifiers. **Observed:** `search`→`glob`, `read`→`view`; the single `execute` capability fans out into `create` (write file), `edit` (in-place edit), and the **OS-dependent shell** — `powershell` on Windows, `bash` on Linux (matters: autopilot/CI containers are Linux). The auto-injected `tool_constraint` (keyed off the frontmatter names) therefore can **never** match and spuriously fails (Gotcha A: seen as `agent_tools_implicit: Expected tool not used: execute`). | Real `tool_constraint`/`tool_calls`/`behavior` graders must use the **observed copilot-sdk** names, not the frontmatter names, and must branch the shell name on OS (`powershell`/`bash`) — critical for 2.4's build/test-before-commit grader. A reject-only `tool_constraint` override is permitted **only** on tasks with no tool-behavior requirement (see Gotcha-A rule below). | verified |
+
+### Soft gates (recorded, proceed with the convention)
+
+| Gate | Answer / convention | Confidence |
+|---|---|---|
+| (c) `skill_directories` resolution base | Resolved **relative to the `eval.yaml` file**. For a shipped `plugins/<name>/evals/waza/eval.yaml`, the real agent bundle is `../../agents` (skills: the skill dir). | verified |
+| (d) grader merge-vs-replace | Top-level `graders` are **global and merge** with per-task graders (not replace): the spike's 1 global `tool_constraint` + 2 per-task graders all fired on the task. | verified |
+| (e) `SKILL.md`/`.agent.md` execution | `inject_skill_body: true` (default) injects the target body into the system prompt. Set `false` to measure whether the agent *invokes* a skill (keeps the `<available_skills>` summary; lets `behavior`/`skill_invocation` graders observe the `skill` tool). **Needs one-shot live confirmation before 2.4/2.5 build a `skill_invocation`/`behavior` grader on it.** | schema |
+| (f) binary ↔ `schemaVersion` compat | `0.38.0` accepts `schemaVersion "1.2"` (needed for `adversarial:`/`mcp_mocks`). **Fail-open hazard:** an unknown/misplaced field on a same-major artifact **warns and is ignored, not rejected** — so a grader whose field is misplaced silently never fires and yields a **false PASS**. `waza migrate` upgrades artifacts. | verified |
+| (h) model-slug placement | waza requires `config.model` in `eval.yaml` (a model family slug, not a secret), overridable with `--model`; `judge_model` likewise. The pinned slug stays in the committed YAML; `.eval.config.json` retains only judge/threshold tuning. | verified |
+| (i) cr/dr fan-out headless | **No fan-out.** The `cr` run was a single copilot-sdk session (one `session.start`, no subagent/child-session or `agent`-tool events); the specialist `cr-opus`/`cr-codex`/`cr-gemini` subagents are not reproduced headless. Rubrics target observable single-agent orchestrator output (RISK-7). | verified |
+
+### Conventions that guard the fail-open behavior
+
+- **Fail-closed spec shape (guards f + Gotcha A):** because waza ignores misplaced fields silently, `test:waza-spec-shape` must assert **exact field placement** and the runner/lint must assert **every declared grader actually executed** (non-zero grader-eval count per task) so a silently-dropped grader fails loudly instead of passing.
+- **Gotcha-A suppression rule (guards g):** a reject-only `tool_constraint` override (which suppresses the auto-injected constraint by never matching) is permitted **only** on tasks with **no** tool-behavior requirement. Any `behavior`/`tool_calls`/`tool_constraint` grader that asserts behavior must use a **real** constraint with the observed copilot-sdk names — never the suppression trick.
+
+### Field-placement corrections (learned from the spike)
+
+| Field | Correct placement | Note |
+|---|---|---|
+| `follow_up_prompts` | **`inputs.follow_up_prompts`** (array of strings), mutually exclusive with `inputs.responder` (schema) | A task **top-level** `follow_up_prompts` emits a warning (`unknown schema field ignored ... type models.TestCase`) and has **no effect** — it must be nested under `inputs`. This is the fail-open behavior of gate (f) in miniature. |
+| `continue_session` | `prompt` grader `config.continue_session` | Default `false` = independent judge; `true` resumes the agent session (judge sees full context but also the fixture — avoid for injection cases). |
+
+
+
 ## Judge Contract and Injection Guard
 
 | Aspect | Contract |
