@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-06-28T13:23:17.9176729Z",
+  "generatedAt": "2026-07-04T20:20:09.1600053Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -454,6 +454,100 @@
         "prompt"
       ],
       "version": "1.0.0"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/install-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/install-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
+          "sha256": "4d37509ecad6231356a4faa151af9ed1cee6868e460d0832668e78a1052e7da1",
+          "src": "skills/install-plugin/scripts/Install-Plugin.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "c4d9eff9d9e087867a4024d73581352b0698ebe8d82600eb665a1d7386a7577c",
+          "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/SKILL.md",
+          "sha256": "1fc5a6495c41bf82acbbb0b839af3dcf33aaea4313d453ec197d11d93357944c",
+          "src": "skills/install-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/list-plugins/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Find-Plugin.ps1",
+          "sha256": "267c03d27080f3e188ee75a96c850d4a3e1c62bd49169401243a4751f764727b",
+          "src": "skills/list-plugins/scripts/Find-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Get-Plugin.ps1",
+          "sha256": "a98c34af324457688264d84ca8596dbbdb071eb5c3d665a443f730400658e6cd",
+          "src": "skills/list-plugins/scripts/Get-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/SKILL.md",
+          "sha256": "451981626236f769319c1d0e97404fad47b99128a581932634fa0443aae84b39",
+          "src": "skills/list-plugins/SKILL.md"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/uninstall-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
+          "sha256": "6e2a3839196446aaccdaaf8db367974d33e4d2b55c71d7c1890637da2df75be7",
+          "src": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "c4d9eff9d9e087867a4024d73581352b0698ebe8d82600eb665a1d7386a7577c",
+          "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/SKILL.md",
+          "sha256": "69f25338a051fa0847718395e50cd57898afaee00837caa6099242933b612e35",
+          "src": "skills/uninstall-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/update-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
+          "sha256": "577249571f8280c1af70c53bfdf0fdd979c1b959533ed9ee4a178c4a5faf4780",
+          "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/SKILL.md",
+          "sha256": "9f01aba46c69b6cf1897011a2d53a2698b26a22065fe21b1086980af9a367a04",
+          "src": "skills/update-plugin/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "plugin-manager",
+      "status": "stable",
+      "tags": [
+        "meta",
+        "plugin-management",
+        "skill"
+      ],
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",
