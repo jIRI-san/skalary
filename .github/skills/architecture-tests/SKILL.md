@@ -50,7 +50,11 @@ strict result contract `{ status; ran; findings[]; artifacts[] }` (status ∈ `p
 `Invoke-ArchTestAdapter` runs the lock gate first, so only a locked, hash-verified body ever reaches an
 adapter; draft bodies skip and a mutated locked body errors. The NetArchTest (C#) adapter runs a reviewed
 `dotnet test` project and parses its TRX into the result contract; it emits `skip-absent-toolchain` when the
-dotnet toolchain is absent. New adapters need no dispatcher change.
+dotnet toolchain is absent. The ts-arch (TypeScript) adapter runs a reviewed `vitest` spec via
+`npm exec --no-install --offline -- vitest run --reporter=junit` (installing deterministically with
+`npm ci --ignore-scripts` from a **committed** `package-lock.json`; a project without one skips rather than
+running unpinned) and parses the JUnit result; a `<skipped>`/`it.todo` assertion or an abnormal vitest exit is
+never a green. It emits `skip-absent-toolchain` when npm/node is absent. New adapters need no dispatcher change.
 
 ## Config
 

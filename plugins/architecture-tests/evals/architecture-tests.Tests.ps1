@@ -679,5 +679,104 @@ function Invoke-LiarAdapter {
             @($res.findings).Count | Should -BeGreaterThan 0
             ($res.findings | ForEach-Object { [string]$_.message }) -join ' ' | Should -Match 'Sample\.Domain\.Order'
         }
+
+        It 'Adapter-TsArch-Pluggable: the ts-arch alias resolves to the TsArch adapter without a dispatcher change' {
+            $tsArch = Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1'
+            Test-Path -LiteralPath $tsArch -PathType Leaf | Should -BeTrue
+            # The dispatcher's alias table + entrypoint-name derivation must line up with the adapter file.
+            (Resolve-ArchAdapterBase -AdapterName 'ts-arch') | Should -Be 'TsArch'
+            . $tsArch
+            Get-Command 'Invoke-TsArchAdapter' -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Adapter-TsArch-CommandDeterministic: the vitest command line is pure, deterministic string construction scoped to the reviewed spec' {
+            . (Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1')
+            $cmd = Get-TsArchCommand -SpecPath 'src/arch.spec.ts' -JUnitPath 'out.xml'
+            $cmd[0] | Should -Be 'exec'
+            $cmd | Should -Contain 'vitest'
+            $cmd | Should -Contain 'run'
+            $cmd | Should -Contain 'src/arch.spec.ts'
+            # Never auto-fetch a tool from the registry at run time (determinism): --no-install must be present.
+            $cmd | Should -Contain '--no-install'
+            ($cmd -join ' ') | Should -Match '--reporter=junit'
+            ($cmd -join ' ') | Should -Match 'out\.xml'
+        }
+
+        It 'Adapter-TsArch-ParsesJUnit: the ts-arch adapter parses a vitest JUnit doc into the strict result contract (passing allow-list)' {
+            . (Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1')
+
+            $passXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="Domain isolates Infrastructure"/></testsuite></testsuites>'
+            $pass = ConvertFrom-VitestJUnit -Xml $passXml
+            $pass.status | Should -Be 'pass'
+            $pass.ran | Should -BeTrue
+
+            $failXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="Domain isolates Infrastructure"><failure message="Domain depends on Infrastructure">at x</failure></testcase></testsuite></testsuites>'
+            $fail = ConvertFrom-VitestJUnit -Xml $failXml
+            $fail.status | Should -Be 'fail'
+            $fail.ran | Should -BeTrue
+            @($fail.findings).Count | Should -BeGreaterThan 0
+            ($fail.findings | ForEach-Object { [string]$_.message }) -join ' ' | Should -Match 'Infrastructure'
+
+            $errXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="boom"><error message="module not found"/></testcase></testsuite></testsuites>'
+            (ConvertFrom-VitestJUnit -Xml $errXml).status | Should -Be 'error'
+
+            # Zero testcases is never a green (a locked run that executed nothing must not pass).
+            $emptyXml = '<?xml version="1.0"?><testsuites></testsuites>'
+            (ConvertFrom-VitestJUnit -Xml $emptyXml).status | Should -Be 'error'
+
+            # A locked assertion turned into it.skip/it.todo (a <skipped> testcase) must never be a green.
+            $skipXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="Domain isolates Infrastructure"><skipped/></testcase></testsuite></testsuites>'
+            (ConvertFrom-VitestJUnit -Xml $skipXml).status | Should -Be 'error'
+            # Even a mix of a real pass and a skipped assertion is not a green (the skipped assertion is disarmed).
+            $passPlusSkipXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="a"/><testcase name="b"><skipped/></testcase></testsuite></testsuites>'
+            (ConvertFrom-VitestJUnit -Xml $passPlusSkipXml).status | Should -Be 'error'
+
+            # A mixed suite with any failure is a fail, never a pass.
+            $mixedXml = '<?xml version="1.0"?><testsuites><testsuite name="s"><testcase name="a"/><testcase name="b"><failure message="nope"/></testcase></testsuite></testsuites>'
+            (ConvertFrom-VitestJUnit -Xml $mixedXml).status | Should -Be 'fail'
+        }
+
+        It 'Adapter-TsArch-ResolvesProjectRoot: the nearest ancestor package.json is the project root of a reviewed spec' {
+            . (Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1')
+            $root = Join-Path $TestDrive 'tsproj'
+            $specDir = Join-Path $root 'tests/arch'
+            [void](New-Item -ItemType Directory -Path $specDir -Force)
+            Set-Content -LiteralPath (Join-Path $root 'package.json') -Value '{"name":"fixture"}' -NoNewline
+            $spec = Join-Path $specDir 'arch.spec.ts'
+            Set-Content -LiteralPath $spec -Value '// spec' -NoNewline
+
+            (Resolve-TsArchProjectRoot -StartPath $spec) | Should -Be ((Resolve-Path -LiteralPath $root).Path)
+            # No package.json anywhere -> null (the adapter then reports a hard error, never a false pass).
+            $orphan = Join-Path $TestDrive 'orphan/x.spec.ts'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $orphan) -Force)
+            Set-Content -LiteralPath $orphan -Value '// spec' -NoNewline
+            (Resolve-TsArchProjectRoot -StartPath $orphan) | Should -BeNullOrEmpty
+        }
+
+        It 'Adapter-TsArch-SkipsWithoutToolchain: absent npm yields skip-absent-toolchain, never a fail or false pass' {
+            . (Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1')
+            if (Get-Command npm -ErrorAction SilentlyContinue) {
+                Set-ItResult -Skipped -Because 'npm is present; real-run detection is covered by the 5.2 fixture'
+                return
+            }
+            $ctx = @{ ContractId = 'ARCH-Ts-1'; TargetRoot = $TestDrive; RepoRoot = $TestDrive; BodyPaths = @((Join-Path $TestDrive 'arch.spec.ts')) }
+            $res = Invoke-TsArchAdapter -Context $ctx
+            $res.status | Should -Be 'skip-absent-toolchain'
+            $res.ran | Should -BeFalse
+        }
+
+        It 'Adapter-TsArch-EnforcedByLockGate: the dispatcher never loads the ts-arch adapter for a non-locked contract' {
+            # A draft ts-arch check must skip (skip-not-locked) without ever invoking npm/vitest.
+            $root = Join-Path $TestDrive 'tsdraft'
+            [void](New-Item -ItemType Directory -Path $root -Force)
+            $spec = Join-Path $root 'arch.spec.ts'
+            Set-Content -LiteralPath $spec -Value '// spec' -NoNewline
+            $contract = [pscustomobject]@{ id = 'ARCH-Ts-Draft'; maturity = 'draft' }
+            $adapterRoot = Join-Path $script:pluginRoot 'scripts/adapters'
+            $res = Invoke-ArchTestAdapter -AdapterName 'ts-arch' -Contract $contract -BodyPaths @($spec) -RepoRoot $root -AdapterRoot $adapterRoot
+            $res.decision | Should -Be 'skip-not-locked'
+            $res.status | Should -Be 'skip-absent-toolchain'
+            $res.ran | Should -BeFalse
+        }
     }
 }

@@ -147,7 +147,11 @@ function Invoke-NetArchTestAdapter {
         }
     }
 
-    $trxPath = Join-Path ([System.IO.Path]::GetTempPath()) ("netarchtest-$($Context.ContractId)-$([System.Guid]::NewGuid().ToString('N')).trx")
+    # Sanitize ContractId before embedding it in a filesystem path (path-traversal defense: / \ or .. in an id
+    # would let --logger escape the temp dir). Restrict to a safe charset.
+    $safeId = ([string]$Context.ContractId) -replace '[^A-Za-z0-9._-]', '_'
+    if ([string]::IsNullOrWhiteSpace($safeId)) { $safeId = 'contract' }
+    $trxPath = Join-Path ([System.IO.Path]::GetTempPath()) ("netarchtest-$safeId-$([System.Guid]::NewGuid().ToString('N')).trx")
 
     # When the project commits a lock file, restore it deterministically in --locked-mode FIRST and then run
     # `dotnet test --no-restore`, so the executed run uses exactly the pinned packages (a stale/missing lock

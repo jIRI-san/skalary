@@ -75,3 +75,13 @@ Phase: 4
 - [4.3] [src:code-review] [sev:Low] Relative-path Substring assumed Resolve-Path and GetChildItem FullName share identical length which breaks on symlinks short names and subst. Switched to System.IO.Path GetRelativePath from a single base.
 - [4.3] [src:code-review] [sev:Low] SKILL doc still described deterministic adapters as not wired. Updated to state the NetArchTest adapter is wired and runs a real dotnet test against the committed fixture.
 - [4.3] [src:note] [sev:Low] CR finding 5 (TRX absolute LogFileName honored and Sample.Domain.Order surfaces in the TRX message) validated empirically by the passing opt-in real run; no code change needed.
+
+## CR Capture
+Phase: 5
+
+- [5.1] [src:code-review] [sev:Critical] ts-arch adapter counted skipped vitest testcases as passes; a locked assertion turned into it.skip or it.todo greened the contract. Fixed ConvertFrom-VitestJUnit to detect skipped nodes and route them to error; added all-skipped and pass-plus-skip eval cases.
+- [5.1] [src:code-review] [sev:Critical] npm exec would auto-install vitest from the registry at run time defeating pinned determinism. Added --no-install --offline to Get-TsArchCommand so a missing pinned tool fails loudly instead of fetching.
+- [5.1] [src:code-review] [sev:High] ts-arch adapter ran against a pre-existing node_modules when no lockfile was committed which is unpinned and machine-dependent. Now requires a committed package-lock.json and returns skip-absent-toolchain otherwise.
+- [5.1] [src:code-review] [sev:Med] ContractId was interpolated into the JUnit temp path without sanitization allowing path traversal via --outputFile. Sanitized ContractId to a safe charset in both the TsArch and NetArchTest adapters.
+- [5.1] [src:code-review] [sev:Med] No LASTEXITCODE check after the vitest run; outcome was inferred from JUnit presence alone. Now an abnormal vitest exit that still parses as passing is treated as error.
+- [5.1] [src:code-review] [sev:Low] Removed the unused errored counter and renamed trxDir to junitDir in the ts-arch adapter for clarity.

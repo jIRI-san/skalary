@@ -107,7 +107,7 @@
 ## Phase 5: TS adapter + fixtures + LLM semantic layer
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 5.1 ts-arch (TS) adapter — plugin-owned spec template, invoke `npm`/`vitest`, parse the result contract, emit the REQ-17 receipt, hard-gate only on deterministic `fail`; conform to the adapter interface + lock-before-execute gate (REQ-9, REQ-17, REQ-18, RISK-1) [after: 4.2] `M`
+- [x] 5.1 ts-arch (TS) adapter — plugin-owned spec template, invoke `npm`/`vitest`, parse the result contract, emit the REQ-17 receipt, hard-gate only on deterministic `fail`; conform to the adapter interface + lock-before-execute gate (REQ-9, REQ-17, REQ-18, RISK-1) [after: 4.2] `M`
 - [ ] 5.2 TS fixture project with intentional violations — committed `package-lock.json` + integrity, `npm ci --ignore-scripts`, eval wiring proving a real ts-arch run in the **documented non-containing sandbox** (REQ-14, RISK-1, RISK-2, RISK-9, RISK-10) [after: 5.1] `M`
 - [ ] 5.3 LLM semantic layer behind a **concrete** semantic-eval provider seam (`Invoke-SemanticEvalProvider` → strict JSON `{provider,status,findings,artifacts}`) — ship default `custom` provider + a trivial `mock`/`null` provider (proves swappability with two impls; dedicated credential target, skip-not-error), define the `waza` provider contract as documentation until its YAML schema is pinned; **advisory in the gate always** (never hard-blocks); harden untrusted text (boundary-token neutralization + GUID fences + strict-JSON verdicts) (REQ-10, RISK-5, RISK-7, RISK-8) [after: 4.1] `L`
 
