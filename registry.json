@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T07:32:48.0942235Z",
+  "generatedAt": "2026-07-04T07:56:53.9267571Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -116,12 +116,12 @@
         },
         {
           "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
-          "sha256": "ac128020b14f893766d708f1377cf4024dcf02d2076ab3645ed240ea50ef7a1e",
+          "sha256": "33df9cec3de1e7c53a0ae1702d3dd7d27bcc3f5e1958ad64ded391cff5928c44",
           "src": "scripts/adapters/NetArchTest.Adapter.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
-          "sha256": "249d8a2377fbdeb5789a28ecf78ba0c62971e743e9846c7ef2217f5a3db2e54a",
+          "sha256": "7a64bcfd9c5775703aef9a37a4b68587ee0e772e83d89a52f8e75e677e1cbd87",
           "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1"
         },
         {
@@ -141,7 +141,7 @@
         },
         {
           "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "8dec4f32538a5be5793a628e9672524b213918432b758b040a4493f0933d97f1",
+          "sha256": "f924bf8a98adf55fa6ae920a39d20d8b81303feea61b2602d37fbf1a150cfb63",
           "src": "skills/architecture-tests/SKILL.md"
         }
       ],
@@ -154,7 +154,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.7"
     },
     {
       "author": "jIRI-san",

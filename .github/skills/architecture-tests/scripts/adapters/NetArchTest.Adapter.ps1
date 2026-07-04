@@ -8,7 +8,7 @@ NetArchTest (C#) deterministic adapter (REQ-9). Runs a human-owned, reviewed Net
 Only reached for a locked contract whose body hash the dispatcher already verified. Never derives, compiles,
 or generates test code from a contract — it runs the reviewed test PROJECT the human owns. When the dotnet
 toolchain is absent it returns skip-absent-toolchain (never a false pass, never a hard fail). Real execution
-is opt-in (needs a committed fixture; delivered in step 4.3); structural validation never shells dotnet.
+is opt-in (a committed fixture lives under evals/fixtures/netarchtest); structural validation never shells dotnet.
 
 Entrypoint: Invoke-NetArchTestAdapter -Context @{ ContractId; TargetRoot; RepoRoot; BodyPaths }.
 BodyPaths[0] is the reviewed test project (csproj/dir). TargetRoot is the source root under test.
@@ -23,19 +23,22 @@ function Get-NetArchTestCommand {
     <#
     .SYNOPSIS
     Deterministic `dotnet test` command line for a NetArchTest project. Pure string construction (testable
-    without a toolchain).
+    without a toolchain). With -NoRestore the executed run reuses a prior (locked-mode) restore instead of
+    performing its own implicit, unpinned restore.
     #>
     param(
         [Parameter(Mandatory)][string]$TestProject,
-        [Parameter(Mandatory)][string]$TrxPath
+        [Parameter(Mandatory)][string]$TrxPath,
+        [switch]$NoRestore
     )
-    return @(
-        'test'
-        $TestProject
-        '--nologo'
-        '--logger'
-        "trx;LogFileName=$TrxPath"
-    )
+    $cmd = [System.Collections.Generic.List[string]]::new()
+    $cmd.Add('test')
+    $cmd.Add($TestProject)
+    $cmd.Add('--nologo')
+    if ($NoRestore) { $cmd.Add('--no-restore') }
+    $cmd.Add('--logger')
+    $cmd.Add("trx;LogFileName=$TrxPath")
+    return , $cmd.ToArray()
 }
 
 function ConvertFrom-NetArchTestTrx {
@@ -145,7 +148,27 @@ function Invoke-NetArchTestAdapter {
     }
 
     $trxPath = Join-Path ([System.IO.Path]::GetTempPath()) ("netarchtest-$($Context.ContractId)-$([System.Guid]::NewGuid().ToString('N')).trx")
-    $dotnetArgs = Get-NetArchTestCommand -TestProject $testProject -TrxPath $trxPath
+
+    # When the project commits a lock file, restore it deterministically in --locked-mode FIRST and then run
+    # `dotnet test --no-restore`, so the executed run uses exactly the pinned packages (a stale/missing lock
+    # fails here instead of silently regenerating packages under an implicit test-time restore).
+    $projDir = Split-Path -Parent $testProject
+    $lockFile = if ($projDir) { Join-Path $projDir 'packages.lock.json' } else { $null }
+    $useNoRestore = $false
+    if ($lockFile -and (Test-Path -LiteralPath $lockFile -PathType Leaf)) {
+        & dotnet restore $testProject --locked-mode 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            return [pscustomobject]@{
+                status    = 'error'
+                ran       = $false
+                findings  = @([pscustomobject]@{ severity = 'error'; message = 'locked-mode restore failed (packages.lock.json stale or out of sync)' })
+                artifacts = @()
+            }
+        }
+        $useNoRestore = $true
+    }
+
+    $dotnetArgs = Get-NetArchTestCommand -TestProject $testProject -TrxPath $trxPath -NoRestore:$useNoRestore
     & dotnet @dotnetArgs 2>&1 | Out-Null
 
     if (-not (Test-Path -LiteralPath $trxPath)) {

@@ -29,10 +29,12 @@ Contract-derived test bodies are **never** executed until the contract is human-
 - **Body hash** — `Get-ArchLockedBodyHash` computes the canonical `lockedBodySha256` over the reviewed test
   body. For a `.csproj`/`.vbproj`/`.fsproj` test project the whole project **directory** is hashed (the full
   source closure `dotnet test` compiles), so rewriting a reviewed `.cs` assertion after lock invalidates it;
-  a single `ts-arch`/`dependency-cruiser` spec file is hashed as a leaf. The lock gate re-verifies by
-  RECOMPUTE (never hex-presence) immediately before execution. A locked contract whose recomputed body hash
-  does not match its recorded `lockedBodySha256` — or whose body resolves to zero files — enters an explicit
-  `lock-invalidated` state that **blocks** and that review flags as drift.
+  a single `ts-arch`/`dependency-cruiser` spec file is hashed as a leaf. Never-committed build outputs and
+  VCS folders (`bin`, `obj`, `node_modules`, `.vs`, `.git`) are excluded (case-insensitive directory-segment
+  match) so a build run after lock time does not invalidate the lock. The lock gate re-verifies by RECOMPUTE (never
+  hex-presence) immediately before execution. A locked contract whose recomputed body hash does not match its
+  recorded `lockedBodySha256` — or whose body resolves to zero files — enters an explicit `lock-invalidated`
+  state that **blocks** and that review flags as drift.
 - **Human-only transitions** — every maturity transition touching `locked` (draft→locked promotion,
   locked→draft demotion) is honored only from a human context. Autonomy is detected by a **concrete signal**
   (`SKALARY_ARCH_AUTONOMOUS`/`SKALARY_AUTOPILOT`/`COPILOT_AUTOPILOT` env var, or an explicit flag), never
@@ -75,8 +77,11 @@ For each check the runner:
 1. Computes the canonical `sourcesHash` over the contract definition, its binding fields, and the target
    sources (add/edit/delete-sensitive; repointing an adapter/spec/testProject also invalidates it).
 2. Records the parent commit (`git rev-parse HEAD`).
-3. Runs the bound adapter. Until a deterministic adapter or `semantic-eval` provider is wired, the check
-   resolves to `skip-absent-toolchain` (`ran: false`) — which is **never** a pass for a locked contract.
+3. Runs the bound adapter behind the lock gate. The **NetArchTest** (C#) deterministic adapter is wired: a
+   `locked`, hash-verified body runs a real `dotnet test` (see `evals/fixtures/netarchtest/` for a committed
+   example). When the adapter's toolchain is absent, or no deterministic adapter / `semantic-eval` provider is
+   configured, the check resolves to `skip-absent-toolchain` (`ran: false`) — which is **never** a pass for a
+   locked contract.
 4. Emits a receipt (`schemas/arch-test-receipt.schema.json`) under `docs/architecture-notes/receipts/`.
 
 ## Verdict taxonomy and gate

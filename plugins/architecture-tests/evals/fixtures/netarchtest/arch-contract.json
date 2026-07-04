@@ -1,0 +1,18 @@
+{
+  "id": "ARCH-Fixture-Layering",
+  "title": "Domain must not depend on Infrastructure",
+  "owner": "architecture-tests fixture",
+  "maturity": "locked",
+  "description": "The Domain layer is the pure core of the fixture and must not take a compile-time dependency on the Infrastructure layer. The reviewed NetArchTest project tests/Sample.ArchTests is the executable body this locked contract hashes; the fixture ships an intentional violation (Sample.Domain.Order references Sample.Infrastructure.Database) so a real adapter run reports fail. lockedBodySha256 is the canonical Get-ArchLockedBodyHash digest over tests/Sample.ArchTests (build outputs excluded).",
+  "frameworks": ["netarchtest"],
+  "rules": [
+    {
+      "id": "domain-no-infrastructure",
+      "kind": "forbidden-dependency",
+      "description": "Types in namespace Sample.Domain must not have a dependency on namespace Sample.Infrastructure.",
+      "from": "Sample.Domain",
+      "to": "Sample.Infrastructure"
+    }
+  ],
+  "lockedBodySha256": "97266d704ea8cb633e435a812adfc9b2e29741f5b4f1208df15b7713e10073e4"
+}

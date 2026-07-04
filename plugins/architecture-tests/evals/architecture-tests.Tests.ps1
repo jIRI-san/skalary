@@ -286,6 +286,7 @@ Describe 'architecture-tests structural evals' {
     Context 'lock-before-execute gate (REQ-18) and pluggable adapters (REQ-9)' {
         BeforeAll {
             $script:netArchAdapter = Join-Path $script:pluginRoot 'scripts/adapters/NetArchTest.Adapter.ps1'
+            $script:netArchFixture = Join-Path $script:pluginRoot 'evals/fixtures/netarchtest'
         }
 
         It 'Lockgate-BodyHashCanonicalComputeVerify: one canonical body hash, deterministic and add/edit/delete-sensitive' {
@@ -613,13 +614,70 @@ function Invoke-LiarAdapter {
                 [System.Environment]::SetEnvironmentVariable($name, '1')
                 # No -Autonomous param supplied: the env var alone must force refusal.
                 { Assert-ArchLockTransition -ContractId 'ARCH-Env-1' -FromMaturity 'draft' -ToMaturity 'locked' } | Should -Throw
-                # An explicit $false must NOT clear an env-detected autonomous context.
+                # An explicit $false must NOT clear an env-detected autonomous context (anti-self-promotion fail-safe).
                 { Assert-ArchLockTransition -ContractId 'ARCH-Env-1' -FromMaturity 'draft' -ToMaturity 'locked' -Autonomous $false } | Should -Throw
                 Test-ArchLockWriteAllowed -Maturity 'locked' -Autonomous $false | Should -BeFalse
             }
             finally {
                 [System.Environment]::SetEnvironmentVariable($name, $old)
             }
+        }
+
+        It 'Lockgate-BuildOutputsExcludedFromBodyHash: bin/obj/node_modules never affect a locked body hash' {
+            # A real build writes bin/obj into a csproj directory AFTER lock time. Those must not invalidate the lock.
+            $root = Join-Path $TestDrive 'buildout'
+            $proj = Join-Path $root 'tests/Arch'
+            [void](New-Item -ItemType Directory -Path $proj -Force)
+            Set-Content -LiteralPath (Join-Path $proj 'Arch.csproj') -Value '<Project/>' -NoNewline
+            Set-Content -LiteralPath (Join-Path $proj 'Rules.cs') -Value 'class Rules {}' -NoNewline
+
+            $before = Get-ArchLockedBodyHash -Paths @('tests/Arch') -RepoRoot $root
+
+            foreach ($d in @('bin/Debug/net9.0', 'obj', 'node_modules/pkg')) {
+                $od = Join-Path $proj $d
+                [void](New-Item -ItemType Directory -Path $od -Force)
+                Set-Content -LiteralPath (Join-Path $od 'artifact.dll') -Value 'BINARY' -NoNewline
+            }
+
+            $after = Get-ArchLockedBodyHash -Paths @('tests/Arch') -RepoRoot $root
+            $after | Should -Be $before
+
+            # Editing a committed source under the same directory still invalidates it.
+            Set-Content -LiteralPath (Join-Path $proj 'Rules.cs') -Value 'class Rules { void M() {} }' -NoNewline
+            (Get-ArchLockedBodyHash -Paths @('tests/Arch') -RepoRoot $root) | Should -Not -Be $before
+        }
+
+        It 'Adapter-NetArchTest-DetectsViolation: a real NetArchTest run against the committed fixture reports a deterministic fail (opt-in)' {
+            # Opt-in only: real toolchain runs are gated so structural evals / npm test stay hermetic (never shell dotnet).
+            $optIn = $script:ArchLockTruthy -contains ([string][System.Environment]::GetEnvironmentVariable('SKALARY_ARCH_REAL_RUN')).ToLowerInvariant()
+            if (-not $optIn) {
+                Set-ItResult -Skipped -Because 'SKALARY_ARCH_REAL_RUN not set; the real dotnet run is opt-in (see evals/fixtures/netarchtest/README.md)'
+                return
+            }
+            if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+                Set-ItResult -Skipped -Because 'dotnet toolchain absent'
+                return
+            }
+            . $script:netArchAdapter
+
+            $fixture = (Resolve-Path -LiteralPath $script:netArchFixture).Path
+            $proj = Join-Path $fixture 'tests/Sample.ArchTests/Sample.ArchTests.csproj'
+
+            # Deterministic restore from the committed lock files proves reproducibility before executing.
+            & dotnet restore $proj --locked-mode 2>&1 | Out-Null
+            $LASTEXITCODE | Should -Be 0
+
+            # The lock gate must green (execute) against the committed contract before the adapter runs.
+            $contract = Get-Content -LiteralPath (Join-Path $fixture 'arch-contract.json') -Raw | ConvertFrom-Json
+            $decision = Get-ArchLockExecutionDecision -Contract $contract -BodyPaths @('tests/Sample.ArchTests') -RepoRoot $fixture
+            $decision.Decision | Should -Be 'execute'
+
+            $ctx = @{ ContractId = 'ARCH-Fixture-Layering'; TargetRoot = (Join-Path $fixture 'src'); RepoRoot = $fixture; BodyPaths = @($proj) }
+            $res = Invoke-NetArchTestAdapter -Context $ctx
+            $res.status | Should -Be 'fail'
+            $res.ran | Should -BeTrue
+            @($res.findings).Count | Should -BeGreaterThan 0
+            ($res.findings | ForEach-Object { [string]$_.message }) -join ' ' | Should -Match 'Sample\.Domain\.Order'
         }
     }
 }

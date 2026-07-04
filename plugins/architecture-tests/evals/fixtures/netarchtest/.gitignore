@@ -1,0 +1,3 @@
+# NetArchTest fixture build artifacts (never committed). packages.lock.json is committed.
+bin/
+obj/

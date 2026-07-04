@@ -31,6 +31,15 @@ $script:ArchLockTruthy = @('1', 'true', 'yes', 'on')
 # Documented, concrete autonomous-context signals. Presence of any truthy value means "autonomous run".
 $script:ArchLockAutonomousEnvVars = @('SKALARY_ARCH_AUTONOMOUS', 'SKALARY_AUTOPILOT', 'COPILOT_AUTOPILOT')
 
+# Directory segment names excluded from a recursively-expanded body: transient build outputs and VCS
+# internals that are never committed sources. Without this, a real `dotnet test` / `npm` build writes
+# bin|obj|node_modules into a csproj/spec directory AFTER lock time and would invalidate the lock on first
+# build. Matching is case-insensitive on directory SEGMENTS (never the filename). Kept deliberately narrow to
+# never-committed dirs so committed sources always stay in the hash; committed config dirs such as
+# .vscode/.idea are intentionally NOT excluded. Committed lock files (packages.lock.json / package-lock.json)
+# remain part of the hash — only never-committed artifacts are dropped.
+$script:ArchLockExcludedDirSegments = @('bin', 'obj', 'node_modules', '.vs', '.git')
+
 function Get-ArchLockedBodyHash {
     <#
     .SYNOPSIS
@@ -98,7 +107,17 @@ function Resolve-ArchLockedBodyFile {
 
         $resolved = @()
         if (Test-Path -LiteralPath $full -PathType Container) {
-            $resolved = @(Get-ChildItem -LiteralPath $full -Recurse -File -ErrorAction SilentlyContinue)
+            $containerFull = (Resolve-Path -LiteralPath $full).Path
+            $resolved = @(Get-ChildItem -LiteralPath $full -Recurse -File -ErrorAction SilentlyContinue |
+                    Where-Object {
+                        # Drop files under any excluded build-output/VCS directory segment so a build that
+                        # runs after lock time cannot invalidate the lock. The filename itself is never matched.
+                        # GetRelativePath derives the child path from a single base (symlink/short-name safe).
+                        $relToContainer = [System.IO.Path]::GetRelativePath($containerFull, $_.FullName)
+                        $segs = @($relToContainer -split '[\\/]')
+                        $dirSegs = if ($segs.Count -gt 1) { $segs[0..($segs.Count - 2)] } else { @() }
+                        -not (@($dirSegs | Where-Object { $script:ArchLockExcludedDirSegments -contains $_ }).Count -gt 0)
+                    })
         }
         elseif (Test-Path -LiteralPath $full -PathType Leaf) {
             $resolved = @(Get-Item -LiteralPath $full -ErrorAction SilentlyContinue)
