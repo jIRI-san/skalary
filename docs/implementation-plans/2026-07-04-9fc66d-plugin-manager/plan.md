@@ -96,7 +96,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 4.1 Update `scripts/skalary/bootstrap.ps1`: add `Set-ScriptApproval.ps1` to `$scriptFiles`; auto-install `plugin-manager` after the download (state that install clones the remote sources at the pinned `-Ref`, not the flat files; print the install plan first; then print usage next steps); offer `Set-ScriptApproval.ps1` for `plugin-manager`'s **read-only** scripts only (prompt or `-AutoApprove` switch) (REQ-4, REQ-12, RISK-3, RISK-9) [after: 2.3] `M`
-- [ ] 4.2 Run `Set-ScriptApproval.ps1 -All` on this repo to auto-approve the read-only bundled scripts of every plugin (incl. `plugin-manager`); verify `.vscode/settings.json` stays valid JSONC with prior keys + comments intact and mutating scripts excluded (REQ-13, RISK-6) [after: 2.3] `S`
+- [x] 4.2 Run `Set-ScriptApproval.ps1 -All` on this repo to auto-approve the read-only bundled scripts of every plugin (incl. `plugin-manager`); verify `.vscode/settings.json` stays valid JSONC with prior keys + comments intact and mutating scripts excluded (REQ-13, RISK-6) [after: 2.3] `S`
 
 ## Phase 5: Evals
 <!-- worktree: (recorded by /ci when worktree is created) -->

@@ -73,9 +73,10 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `create-implementation-plan` | 1.0.2 | stable | design-review | 12 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.0.0 | stable | — | 5 | Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes. |
 | `design-review` | 1.0.0 | stable | — | 5 | Design review orchestrator with specialist model agents. |
-| `plugin-manager` | 1.0.1 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
+| `plugin-manager` | 1.0.2 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 <!-- END SKALARY PLUGIN CATALOG -->
+
 
 
 

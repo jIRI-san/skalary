@@ -27,6 +27,8 @@ Describe 'Set-ScriptApproval' {
                 Set-Content -LiteralPath (Join-Path $lpScripts $f) -Value '# stub' -Encoding utf8NoBOM
             }
             Set-Content -LiteralPath (Join-Path $ipScripts 'Install-Plugin.ps1') -Value '# stub' -Encoding utf8NoBOM
+            # A read-only verb whose name suggests it emits secrets — must never be approved.
+            Set-Content -LiteralPath (Join-Path $lpScripts 'Get-Credential.ps1') -Value '# stub' -Encoding utf8NoBOM
 
             $registry = [ordered]@{
                 plugins = @(
@@ -39,6 +41,7 @@ Describe 'Set-ScriptApproval' {
                             @{ src = 'c'; dest = 'skills/lp/scripts/_Common.ps1' }
                             @{ src = 'd'; dest = 'skills/ip/scripts/Install-Plugin.ps1' }
                             @{ src = 'e'; dest = 'skills/lp/SKILL.md' }
+                            @{ src = 'f'; dest = 'skills/lp/scripts/Get-Credential.ps1' }
                         )
                     }
                 )
@@ -93,6 +96,7 @@ Describe 'Set-ScriptApproval' {
         $keys | Should -Contain '.github/skills/lp/scripts/Find-Plugin.ps1'
         $keys | Should -Not -Contain '.github/skills/ip/scripts/Install-Plugin.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/_Common.ps1'
+        $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-Credential.ps1'
         $keys | Should -Contain 'git add'  # pre-existing key preserved
     }
 
@@ -174,4 +178,33 @@ Describe 'Set-ScriptApproval' {
         [System.IO.File]::ReadAllText($settings) | Should -Be $before
     }
 }
+
+Describe 'Repo settings auto-approval' {
+    BeforeAll {
+        $script:repoSettings = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path '.vscode/settings.json'
+    }
+
+    It 'test:RepoSettings.PluginScriptsApproved approves read-only plugin scripts and excludes mutating ones' {
+        Test-Path -LiteralPath $repoSettings -PathType Leaf | Should -BeTrue
+        $text = [System.IO.File]::ReadAllText($repoSettings)
+
+        # Valid JSONC.
+        $opts = [System.Text.Json.JsonDocumentOptions]::new()
+        $opts.CommentHandling = [System.Text.Json.JsonCommentHandling]::Skip
+        $opts.AllowTrailingCommas = $true
+        { [System.Text.Json.JsonDocument]::Parse($text, $opts).Dispose() } | Should -Not -Throw
+
+        # Read-only plugin scripts approved.
+        $text | Should -Match 'list-plugins/scripts/Get-Plugin\.ps1'
+        $text | Should -Match 'list-plugins/scripts/Find-Plugin\.ps1'
+
+        # Mutating / secret-bearing scripts never approved.
+        $text | Should -Not -Match 'scripts/Install-Plugin\.ps1'
+        $text | Should -Not -Match 'scripts/Remove-Plugin\.ps1'
+        $text | Should -Not -Match 'scripts/Update-Plugin\.ps1'
+        $text | Should -Not -Match 'scripts/Set-ScriptApproval\.ps1'
+        $text | Should -Not -Match 'get-credential\.ps1'
+    }
+}
+
 

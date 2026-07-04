@@ -26,6 +26,10 @@ $ErrorActionPreference = 'Stop'
 # Set/New/Add/Build/Sync/Repair/bootstrap ...) is deliberately excluded so a
 # prompt-injected argument cannot ride an approval into a silent install.
 $script:ReadOnlyVerbs = @('Get', 'Find', 'Test', 'Validate')
+# Never auto-approve a script whose name suggests it emits secrets, even if its
+# verb is read-only (e.g. `get-credential.ps1`) — auto-running it unprompted could
+# surface a token into the session.
+$script:SensitiveNameFragments = @('credential', 'secret', 'token', 'password', 'passphrase')
 $script:SettingKey = 'chat.tools.terminal.autoApprove'
 
 function Test-ReadOnlyScript {
@@ -36,6 +40,11 @@ function Test-ReadOnlyScript {
     )
 
     $base = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
+    foreach ($fragment in $script:SensitiveNameFragments) {
+        if ($base -match [regex]::Escape($fragment)) {
+            return $false
+        }
+    }
     $dashIndex = $base.IndexOf('-')
     if ($dashIndex -lt 1) {
         return $false

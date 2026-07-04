@@ -1,6 +1,6 @@
 {
   "name": "plugin-manager",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
   "author": "jIRI-san",
   "license": "MIT",

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T20:20:09.1600053Z",
+  "generatedAt": "2026-07-04T20:28:17.9961622Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -475,7 +475,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "c4d9eff9d9e087867a4024d73581352b0698ebe8d82600eb665a1d7386a7577c",
+          "sha256": "c629bc8fd33fff9cff871371338c78d691e094e8cc197fd3b6cb116b451357bf",
           "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -515,7 +515,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "c4d9eff9d9e087867a4024d73581352b0698ebe8d82600eb665a1d7386a7577c",
+          "sha256": "c629bc8fd33fff9cff871371338c78d691e094e8cc197fd3b6cb116b451357bf",
           "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -547,7 +547,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",
