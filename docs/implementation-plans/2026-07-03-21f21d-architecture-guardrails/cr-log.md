@@ -22,3 +22,12 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] New-ArchSeed.ps1: missing/null boundaries bypassed the <1 guard (@(null).Count==1) and scaffolded before failing. Fixed: explicit null-reject before counting.
 - [2.3] [src:code-review] [sev:Med] New-ArchSeed.ps1: no uniqueness guard on boundary ids -> case-insensitive collision silently dropped a boundary via no-overwrite. Fixed: pre-loop case-insensitive duplicate-id reject.
 - [2.3] [src:code-review] [sev:Low] New-ArchSeed.ps1: id could shadow scaffolded artifact basenames / Windows reserved device names. Fixed: reserved-basename reject list. Also resolve -TargetRoot to absolute (CWD vs PWD divergence). Skipped Test-ArchContract -PassThru mode (no functional defect on pwsh 7, verified).
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:High] Import-ArchHarvest.ps1: empty/no-boundary repo crashed under StrictMode ($ordered.Count on $null from empty pipeline), so HARVEST.md was never written. Fixed: wrap Sort-Object in @() so Count is always valid; added empty-repo eval asserting a reviewed:false manifest is still emitted.
+- [3.1] [src:code-review] [sev:High] Import-ArchHarvest.ps1: staged notes retained the note template's globs:(<scope>) path-scoped auto-attach front-matter, so quarantined harvested prose could be glob-matched into agent context before human review (RISK-5 leak). Fixed: neutralize front-matter in staged notes (globs -> quarantined:true + stagedScope), restored at promotion; added eval asserting no active globs in staged notes.
+- [3.1] [src:code-review] [sev:Low] Import-ArchHarvest.ps1: untrusted package.json name / paths interpolated raw into HARVEST.md table + note body could corrupt/inject markdown. Fixed: ConvertTo-MarkdownCell escapes pipes/newlines for Name/Source.
+- [3.1] [src:code-review] [sev:Low] Import-ArchHarvest.ps1: no Windows reserved device-name guard on derived ids (deviation from New-ArchSeed). Fixed: reserved-basename set; ConvertTo-BoundaryId prefixes CON/PRN/AUX/NUL/COM#/LPT# with 'B-'.
+- [3.1] [src:code-review] [sev:Low] SKILL Step 7 claimed 'solution files' but only *.csproj scanned. Fixed: broadened .NET scan to *.csproj/*.fsproj/*.vbproj and corrected SKILL wording to match actual scan surface.

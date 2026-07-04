@@ -46,6 +46,10 @@
       "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1"
     },
     {
+      "src": "scripts/Import-ArchHarvest.ps1",
+      "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1"
+    },
+    {
       "src": "skills/architecture-notes/assets/interview-guide.md",
       "dest": "skills/architecture-notes/assets/interview-guide.md"
     },

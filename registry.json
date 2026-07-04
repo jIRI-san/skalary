@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T04:07:24.9193298Z",
+  "generatedAt": "2026-07-04T04:20:53.3214829Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -55,6 +55,11 @@
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
+          "sha256": "f91ff5b79e45ff6395343189077b7c16010bd103420bb987d6cfaad37b3ba049",
+          "src": "scripts/Import-ArchHarvest.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
           "sha256": "d707efa9fe17c0de3af1743060837f28e2164448704ec5363acdd82d54883a46",
           "src": "scripts/New-ArchSeed.ps1"
@@ -66,7 +71,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "38f2c39805e3bb11d5623042574a1645eea352079eb2e0224e59f0d9f9dc6768",
+          "sha256": "056ae99d0a9ff011c66ed8e91119c2f6a58846eb4400990256f9672d64938cfd",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
