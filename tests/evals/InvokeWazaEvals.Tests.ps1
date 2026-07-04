@@ -52,6 +52,13 @@ Describe 'Invoke-WazaEvals' {
             $c.Reason | Should -Match 'REQ-22'
         }
 
+        It 'test:token-segregation excludes an ambient env PAT from an adversarial spec' {
+            $c = Resolve-SpecTokenSource -IsAdversarial $true -BaseSource 'ambient' -BaseToken 'pat-abc'
+            $c.ShouldSkip | Should -BeTrue
+            $c.Token | Should -BeNullOrEmpty
+            $c.Reason | Should -Match 'REQ-22'
+        }
+
         It 'test:token-segregation allows a short-lived gh token on an adversarial spec' {
             $c = Resolve-SpecTokenSource -IsAdversarial $true -BaseSource 'gh' -BaseToken 'gh-tok'
             $c.ShouldSkip | Should -BeFalse
@@ -122,6 +129,70 @@ Describe 'Invoke-WazaEvals' {
             $plain = Join-Path $TestDrive 'plain.yaml'
             "skill: cr`n# adversarial: commented`ntasks: []" | Set-Content -LiteralPath $plain -Encoding utf8NoBOM
             Test-WazaSpecIsAdversarial -Path $plain | Should -BeFalse
+        }
+    }
+
+    Context 'test:runner-both-modes — a spec with tasks AND an adversarial block runs both' {
+        BeforeAll {
+            $script:bothSpec = Join-Path $TestDrive 'both.yaml'
+            @(
+                'skill: cr'
+                'config:'
+                '  executor: copilot-sdk'
+                '  model: claude-sonnet-4.6'
+                '  judge_model: claude-sonnet-4.6'
+                'tasks:'
+                '  - tasks/*.yaml'
+                'adversarial:'
+                '  packs:'
+                '    - prompt-injection'
+                '  on_unsafe_outcome: fail'
+            ) -join "`n" | Set-Content -LiteralPath $script:bothSpec -Encoding utf8NoBOM
+        }
+
+        It 'test:runner-both-modes detects functional tasks and the adversarial block' {
+            Test-WazaSpecHasTasks -Path $script:bothSpec | Should -BeTrue
+            Test-WazaSpecIsAdversarial -Path $script:bothSpec | Should -BeTrue
+        }
+
+        It 'test:runner-both-modes plans run THEN adversarial for a both-signal spec' {
+            $plan = @(Get-WazaSpecExecutionPlan -HasTasks $true -HasAdversarial $true)
+            $plan | Should -Be @('run', 'adversarial')
+        }
+
+        It 'test:runner-both-modes plans run-only when there is no adversarial block' {
+            (@(Get-WazaSpecExecutionPlan -HasTasks $true -HasAdversarial $false)) | Should -Be @('run')
+        }
+
+        It 'test:runner-both-modes plans adversarial-only when there are no tasks' {
+            (@(Get-WazaSpecExecutionPlan -HasTasks $false -HasAdversarial $true)) | Should -Be @('adversarial')
+        }
+
+        It 'test:runner-both-modes plans nothing for an empty spec' {
+            (@(Get-WazaSpecExecutionPlan -HasTasks $false -HasAdversarial $false)).Count | Should -Be 0
+        }
+
+        It 'test:runner-both-modes parses skill and model for the adversarial forward-flags' {
+            Get-WazaSpecSkill -Path $script:bothSpec | Should -Be 'cr'
+            # config.model, not judge_model
+            Get-WazaSpecModel -Path $script:bothSpec | Should -Be 'claude-sonnet-4.6'
+        }
+
+        It 'test:runner-both-modes builds adversarial args with --spec/--skill/--model and a file --output' {
+            $a = New-WazaRunArgument -SpecPath 'e.yaml' -OutputDir 'out' -IsAdversarial -Skill 'cr' -Model 'claude-sonnet-4.6'
+            $joined = $a -join ' '
+            $joined | Should -Match '--spec e\.yaml'
+            $joined | Should -Match '--skill cr'
+            $joined | Should -Match '--model claude-sonnet-4\.6'
+            $joined | Should -Match '--on-unsafe-outcome fail'
+            $joined | Should -Match '--output '
+            $joined | Should -Not -Match '--output-dir'
+        }
+
+        It 'test:runner-both-modes omits --skill/--model when they cannot be resolved' {
+            $a = New-WazaRunArgument -SpecPath 'e.yaml' -OutputDir 'out' -IsAdversarial
+            ($a -join ' ') | Should -Not -Match '--skill'
+            ($a -join ' ') | Should -Not -Match '--model'
         }
     }
 

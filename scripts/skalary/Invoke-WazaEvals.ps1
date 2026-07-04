@@ -9,13 +9,17 @@
       1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
       2. Resolve-EvalToken — source a Copilot token into the process env for the waza child.
       3. Discover plugins/<name>/evals/waza/eval.yaml (optionally filtered by -Plugin /
-         -ChangedOnly) and run each: `waza run --output-dir <stamp>` for normal specs, or
-         `waza adversarial --on-unsafe-outcome fail` for specs declaring an `adversarial:` block.
+         -ChangedOnly). For each spec, run every applicable MODE: a functional `waza run`
+         when the spec declares `tasks:`, AND a safety `waza adversarial --spec ... --skill
+         <name> --model <model> --on-unsafe-outcome fail` when it declares an `adversarial:`
+         block. A spec with both runs BOTH (they are separate signals and must not share a
+         results column).
       4. Aggregate exit codes and print a summary + rough token/wall-clock estimate.
 
-    Durable-token exclusion (REQ-22): an adversarial spec is only run with a SHORT-LIVED token
-    (gh source). A durable Credential-Manager PAT is never exposed to an adversarial/injection
-    run — such specs are skipped with a clear message when only a PAT is available.
+    Durable-token exclusion (REQ-22): the ADVERSARIAL mode runs only with a provably short-lived
+    token (the `gh` OAuth source). Any other source — an ambient env PAT or a durable
+    Credential-Manager PAT — is never exposed to an adversarial/injection run; that mode is
+    skipped with a clear message, while the spec's functional mode still runs normally.
 
     Executed-count invariant (REQ-18): a requested run that executed ZERO evals (everything
     skipped or empty discovery) is a distinct non-green outcome (exit 3), never a green exit 0.
@@ -111,6 +115,92 @@ function Test-WazaSpecIsAdversarial {
     return $false
 }
 
+function Test-WazaSpecHasTasks {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $false
+    }
+
+    # A top-level `tasks:` (inline list or block) or `tasks_from:` marks functional tasks.
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^tasks:\s*($|\S|\[)') {
+            return $true
+        }
+        if ($line -match '^tasks_from:\s*\S') {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-WazaSpecExecutionPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [bool]$HasTasks,
+
+        [Parameter(Mandatory)]
+        [bool]$HasAdversarial
+    )
+
+    # Functional and adversarial are distinct signals; a spec declaring both runs both.
+    $modes = [System.Collections.Generic.List[string]]::new()
+    if ($HasTasks) { $modes.Add('run') }
+    if ($HasAdversarial) { $modes.Add('adversarial') }
+    return @($modes)
+}
+
+function Get-WazaSpecSkill {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+
+    # Top-level `skill: <name>` — needed because `waza adversarial --spec` does NOT inherit
+    # the spec's skill (it defaults to the `adversarial-target` stub) and must be told `--skill`.
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^skill:\s*(?<v>\S.*?)\s*$') {
+            return [string]$Matches.v.Trim().Trim('"', "'")
+        }
+    }
+    return $null
+}
+
+function Get-WazaSpecModel {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+
+    # `config.model` — `waza adversarial --spec` does NOT inherit it (defaults to its own
+    # pinned model), so the runner forwards it via `--model` to keep the adversarial run on
+    # the same pinned model as the functional run. `judge_model:` is deliberately not matched.
+    $inConfig = $false
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^config:\s*$') { $inConfig = $true; continue }
+        if ($inConfig -and $line -match '^\S') { $inConfig = $false }
+        if ($inConfig -and $line -match '^\s+model:\s*(?<v>\S.*?)\s*$') {
+            return [string]$Matches.v.Trim().Trim('"', "'")
+        }
+    }
+    return $null
+}
+
 function Resolve-SpecTokenSource {
     [CmdletBinding()]
     param(
@@ -130,10 +220,13 @@ function Resolve-SpecTokenSource {
         return [pscustomobject]@{ Source = $BaseSource; Token = $null; ShouldSkip = $true; Reason = 'no token resolved' }
     }
 
-    # REQ-22: durable Credential-Manager PATs must never reach an adversarial/injection run.
-    if ($IsAdversarial -and ($BaseSource -like 'credmanager*')) {
-        $reason = 'adversarial spec excluded: only a durable Credential-Manager PAT is available; ' +
-        "supply a short-lived token via 'gh auth login' (REQ-22)."
+    # REQ-22: adversarial/injection runs must only ever use a provably short-lived token.
+    # `gh` (OAuth, auto-refresh) is the only source we can prove is short-lived. `ambient`
+    # ($env:COPILOT_GITHUB_TOKEN / $env:GH_TOKEN) is commonly a durable PAT, and `credmanager*`
+    # is always a durable PAT — so this is an ALLOW-LIST (gh only), not a credmanager deny-list.
+    if ($IsAdversarial -and ($BaseSource -ne 'gh')) {
+        $reason = "adversarial spec excluded: token source '$BaseSource' is not a provably " +
+        "short-lived 'gh' token; supply one via 'gh auth login' (REQ-22)."
         return [pscustomobject]@{ Source = $BaseSource; Token = $null; ShouldSkip = $true; Reason = $reason }
     }
 
@@ -183,12 +276,34 @@ function New-WazaRunArgument {
 
         [switch]$Quick,
 
-        [string]$Case
+        [string]$Case,
+
+        [string]$Skill,
+
+        [string]$Model
     )
 
     if ($IsAdversarial) {
-        # Adversarial packs gate on unsafe outcomes; --trials/--task do not apply.
-        return @('adversarial', $SpecPath, '--on-unsafe-outcome', 'fail', '--output-dir', $OutputDir)
+        # `waza adversarial --spec` reads packs + on_unsafe_outcome from the spec but does NOT
+        # inherit its skill or model, so forward them explicitly. Output is a single JSON file
+        # (no --output-dir on adversarial). --trials/--task do not apply.
+        $advArgs = [System.Collections.Generic.List[string]]::new()
+        $advArgs.Add('adversarial')
+        $advArgs.Add('--spec')
+        $advArgs.Add($SpecPath)
+        if (-not [string]::IsNullOrWhiteSpace($Skill)) {
+            $advArgs.Add('--skill')
+            $advArgs.Add($Skill)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($Model)) {
+            $advArgs.Add('--model')
+            $advArgs.Add($Model)
+        }
+        $advArgs.Add('--on-unsafe-outcome')
+        $advArgs.Add('fail')
+        $advArgs.Add('--output')
+        $advArgs.Add((Join-Path $OutputDir 'adversarial.json'))
+        return $advArgs.ToArray()
     }
 
     $runArgs = [System.Collections.Generic.List[string]]::new()
@@ -308,40 +423,58 @@ function Invoke-WazaEvals {
 
     foreach ($spec in $specs) {
         $pluginName = Get-PluginFromSpecPath -Path $spec
-        $isAdversarial = Test-WazaSpecIsAdversarial -Path $spec
-        $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
+        $hasTasks = Test-WazaSpecHasTasks -Path $spec
+        $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
+        $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
 
-        if ($tokenChoice.ShouldSkip) {
+        if (@($modes).Count -eq 0) {
             $skipped++
-            Write-Host ("  SKIP {0}: {1}" -f $pluginName, $tokenChoice.Reason) -ForegroundColor Yellow
+            Write-Host ("  SKIP {0}: spec declares neither tasks nor an adversarial block." -f $pluginName) -ForegroundColor Yellow
             continue
         }
 
-        # Segregated child-process token for this spec only.
-        $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
-        $env:GH_TOKEN = $tokenChoice.Token
+        $specSkill = Get-WazaSpecSkill -Path $spec
+        $specModel = Get-WazaSpecModel -Path $spec
 
-        $specOut = Join-Path $runDir $pluginName
-        [void](New-Item -ItemType Directory -Path $specOut -Force)
-        $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case
+        foreach ($mode in $modes) {
+            $isAdversarial = ($mode -eq 'adversarial')
+            $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
 
-        Write-Host ("  RUN  {0} ({1})" -f $pluginName, ($(if ($isAdversarial) { 'adversarial' } else { 'run' })))
-        # A non-zero waza exit is an expected outcome (failing evals, adversarial --on-unsafe-outcome fail).
-        # Guard against $PSNativeCommandUseErrorActionPreference turning that into a terminating error
-        # under $ErrorActionPreference='Stop', which would abort the REQ-18 aggregation loop.
-        $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
-        $PSNativeCommandUseErrorActionPreference = $false
-        try {
-            & waza @wazaArgs
-            $exit = $LASTEXITCODE
-        }
-        finally {
-            $PSNativeCommandUseErrorActionPreference = $prevNativePref
-        }
-        $executed++
-        if ($exit -ne 0) {
-            $failed++
-            Write-Host ("  FAIL {0}: waza exit {1}" -f $pluginName, $exit) -ForegroundColor Red
+            if ($tokenChoice.ShouldSkip) {
+                $skipped++
+                Write-Host ("  SKIP {0} ({1}): {2}" -f $pluginName, $mode, $tokenChoice.Reason) -ForegroundColor Yellow
+                continue
+            }
+
+            # Segregated child-process token for this run only.
+            $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
+            $env:GH_TOKEN = $tokenChoice.Token
+
+            $specOut = Join-Path $runDir (Join-Path $pluginName $mode)
+            [void](New-Item -ItemType Directory -Path $specOut -Force)
+            $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case -Skill $specSkill -Model $specModel
+
+            Write-Host ("  RUN  {0} ({1})" -f $pluginName, $mode)
+            # A non-zero waza exit is an expected outcome (failing evals, adversarial --on-unsafe-outcome fail).
+            # Guard against $PSNativeCommandUseErrorActionPreference turning that into a terminating error
+            # under $ErrorActionPreference='Stop', which would abort the REQ-18 aggregation loop.
+            $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
+            $PSNativeCommandUseErrorActionPreference = $false
+            try {
+                # Merge waza's streams to the host so its console output does NOT leak into
+                # this function's output stream (which would make the returned object an array
+                # and break `$result.ExitCode` at the call site).
+                & waza @wazaArgs 2>&1 | Out-Host
+                $exit = $LASTEXITCODE
+            }
+            finally {
+                $PSNativeCommandUseErrorActionPreference = $prevNativePref
+            }
+            $executed++
+            if ($exit -ne 0) {
+                $failed++
+                Write-Host ("  FAIL {0} ({1}): waza exit {2}" -f $pluginName, $mode, $exit) -ForegroundColor Red
+            }
         }
     }
 
