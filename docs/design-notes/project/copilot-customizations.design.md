@@ -13,11 +13,12 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | File | Type | Purpose |
 |---|---|---|
 | `.github/copilot-instructions.md` | Workspace Instructions | Always-on project context; single `<instruction>` entry loads `.design-notes.md` as the discovery layer for all contextual design notes |
-| `.github/prompts/design-notes.prompt.md` | Prompt (`/design-notes`) | `/design-notes init` (or `bootstrap`) scaffolds `docs/design-notes/` from the bundled templates; canonical bootstrap path |
-| `.github/prompts/cdn.prompt.md` | Prompt (`/cdn`) | Creates a new design note file from a name argument; defers to `/design-notes init` when the scaffold is missing |
-| `.github/prompts/udn.prompt.md` | Prompt (`/udn`) | Updates design notes from the current chat session; defers to `/design-notes init` when the scaffold is missing |
-| `.github/prompts/design-notes/templates/design-notes-index.template.md` | Template asset | Generic `.design-notes.md` index copied to `docs/design-notes/.design-notes.md` by `/design-notes init` |
-| `.github/prompts/design-notes/templates/design-note-writing-style.template.md` | Template asset | Writing-style guide copied to `docs/design-notes/project/design-note-writing-style.design.md` by `/design-notes init` |
+| `.github/skills/design-notes/SKILL.md` | Skill (`design-notes`) | Design-notes toolkit — `init`/`bootstrap` scaffolds `docs/design-notes/` from bundled templates; `create <name>` adds a note; `update` syncs notes from the session. Dispatches by argument; the tested Tier-2 artifact |
+| `.github/prompts/design-notes.prompt.md` | Prompt (`/design-notes`) | Thin shortcut over the `design-notes` skill; routes the argument to the skill's Init/Create/Update workflow |
+| `.github/prompts/cdn.prompt.md` | Prompt (`/cdn`) | Thin shortcut over the `design-notes` skill's Create workflow (creates a new design note from a name argument) |
+| `.github/prompts/udn.prompt.md` | Prompt (`/udn`) | Thin shortcut over the `design-notes` skill's Update workflow (updates design notes from the current chat session) |
+| `.github/skills/design-notes/assets/templates/design-notes-index.template.md` | Template asset | Generic `.design-notes.md` index copied to `docs/design-notes/.design-notes.md` by the skill's Init workflow |
+| `.github/skills/design-notes/assets/templates/design-note-writing-style.template.md` | Template asset | Writing-style guide copied to `docs/design-notes/project/design-note-writing-style.design.md` by the skill's Init workflow |
 | `.github/prompts/cr.prompt.md` | Prompt (`/cr`) | Code review entry point |
 | `.github/prompts/dr.prompt.md` | Prompt (`/dr`) | Design review entry point |
 | `.github/agents/dr.agent.md` | Agent (`dr`) | Design review orchestrator — reviews a plan using three specialist models |
@@ -143,9 +144,9 @@ See [autopilot-skill.design.md](../architecture/autopilot-skill.design.md) for t
 
 ## Design-Notes Bootstrap (`design-notes` plugin)
 
-The `design-notes` plugin ships three prompts — `/design-notes` (init/bootstrap), `/cdn`, `/udn` — plus two template assets installed under `.github/prompts/design-notes/templates/` (the former standalone `create-design-notes` / `update-design-notes` plugins were consolidated into it).
+The `design-notes` plugin ships one **skill** — `design-notes` (`.github/skills/design-notes/SKILL.md`) — plus three thin **prompt** shortcuts (`/design-notes`, `/cdn`, `/udn`) and two template assets installed under `.github/skills/design-notes/assets/templates/` (the former standalone `create-design-notes` / `update-design-notes` plugins were consolidated into it). The skill owns the real logic in three argument-dispatched workflows — **Init** (`init`/`bootstrap`), **Create** (`create <name>`), and **Update** (`update`); the prompts are pure shortcuts that route to it (so `/cdn foo` runs the skill's Create workflow). The skill is the single Tier-2-testable artifact (prompts cannot run under the Copilot-CLI eval executor, so they stay excluded from LLM evals).
 
-Because the installer is hard-confined to `.github/` (it cannot write to `docs/`), the `docs/design-notes/` scaffold is created **on demand by `/design-notes init`**, not at install time. `/design-notes init` (alias `bootstrap`) checks whether `docs/design-notes/.design-notes.md` exists; if missing, it creates `docs/design-notes/` + `docs/design-notes/project/` and copies the two bundled templates (index → `.design-notes.md`, writing-style → `project/design-note-writing-style.design.md`), never overwriting existing files. `/cdn` and `/udn` carry a Step 0 that defers to `/design-notes init` when the scaffold is absent, so `/design-notes init` is the single canonical bootstrap path. In a repo that already has design notes (like this one), all of these are no-ops.
+Because the installer is hard-confined to `.github/` (it cannot write to `docs/`), the `docs/design-notes/` scaffold is created **on demand by the skill's Init workflow**, not at install time. Init checks whether `docs/design-notes/.design-notes.md` exists; if missing, it creates `docs/design-notes/` + `docs/design-notes/project/` and copies the two bundled templates (index → `.design-notes.md`, writing-style → `project/design-note-writing-style.design.md`), never overwriting existing files. Create and Update carry a scaffold check that defers to Init when the scaffold is absent, so Init is the single canonical bootstrap path. In a repo that already has design notes (like this one), all of these are no-ops.
 
 The writing-style template mirrors this repo's `docs/design-notes/project/design-note-writing-style.design.md`; keep them in sync when the canonical guide changes.
 
