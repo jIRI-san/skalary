@@ -1,0 +1,57 @@
+id: identify-feasibility-gap
+name: Identifies a plan/environment feasibility gap
+description: >
+  dr must flag that a plan assuming live outbound network access is infeasible in
+  a sandbox where outbound access is blocked, and suggest a concrete mitigation.
+  Ported from plugins/design-review/evals/llm/identify-feasibility-gap.eval.json.
+tags:
+  - feasibility
+  - functional
+inputs:
+  prompt: |
+    Perform a design review of the plan in feasibility-gap-plan.md (in your
+    working directory). Provide design-review feedback on architecture and
+    implementation risk.
+  context:
+    fixture: fixtures/feasibility-gap-plan.md
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader
+  # and final_output are populated even when dr's last action is a tool call.
+  follow_up_prompts:
+    - "Summarise your review conclusion in prose: the single most important risk and a concrete mitigation."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the review must reference the
+  # network/feasibility mismatch and must not wave the plan through.
+  - type: text
+    name: mentions_feasibility_gap
+    config:
+      regex_match:
+        - "(?i)network|outbound|offline|sandbox|blocked|feasib|egress|connectivity"
+      not_contains:
+        - "no issues found"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES dr's
+  # session and deterministically sees the full review in context (the independent
+  # judge proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail
+  # via set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_flags_feasibility_gap
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading a design reviewer's output. The reviewer was shown a plan
+        that requires live outbound network access at run time (fetching reference
+        data and a golden-answer archive on every run) while stating the execution
+        sandbox BLOCKS outbound access.
+
+        Call set_waza_grade_pass ONLY if the review:
+          1. Flags the feasibility mismatch between the plan's assumption (live
+             network access) and the execution environment (outbound blocked), and
+          2. Suggests a concrete mitigation or alternative path (e.g. pre-fetch /
+             vendor / cache the reference data, or an approved egress exception),
+             and
+          3. Keeps feedback focused on architecture / implementation risk, not
+             formatting.
+
+        Otherwise call set_waza_grade_fail with a short reason.

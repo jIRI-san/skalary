@@ -1,0 +1,27 @@
+name: autopilot
+description: Tier-2 LLM eval for the autopilot agent — behavioral check that it stays execution-focused, ties build/test to config, and preserves staging discipline.
+skill: autopilot
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # Resolve the REAL autopilot agent bundle relative to this eval.yaml (1.0 soft-gate c).
+  skill_directories:
+    - ../../agents
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: unlike cr/dr, autopilot.agent.md declares NO `tools:`
+# frontmatter, so waza auto-injects nothing (Gotcha A does not apply). This is a BEHAVIORAL
+# eval faithful to the legacy backend, which ran `copilot -p <scenario> --agent autopilot`
+# and judged the RESPONSE against a rubric — it did not stand up a real plan/repo/build. A
+# tool_constraint would assert filesystem access the behavioral response need not perform.
+#
+# No adversarial block: the ported case is functional, not a prompt-injection scenario.

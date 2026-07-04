@@ -1,0 +1,16 @@
+diff --git a/src/session/UserStore.cs b/src/session/UserStore.cs
+index 1a2b3c4..5d6e7f8 100644
+--- a/src/session/UserStore.cs
++++ b/src/session/UserStore.cs
+@@ -14,10 +14,7 @@ public class UserStore
+     public string GetDisplayName(int userId)
+     {
+         var user = _repository.FindById(userId);
+-        if (user == null)
+-        {
+-            return "(unknown user)";
+-        }
+-
+         return user.DisplayName.Trim();
+     }
+ }

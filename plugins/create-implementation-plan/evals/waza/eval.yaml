@@ -1,0 +1,36 @@
+name: create-implementation-plan
+description: Tier-2 LLM evals for the cip (create-implementation-plan) skill — phased plan quality with explicit REQ/RISK tables + pushing back on under-specified scope.
+skill: cip
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # cip is a SKILL (plugins/create-implementation-plan/skills/cip/SKILL.md). Resolve the
+  # REAL skill bundle relative to this eval.yaml (1.0 soft-gate c: skill_directories
+  # resolves from the spec file). ../../skills is plugins/create-implementation-plan/skills,
+  # which contains the `cip` skill dir discovered by the `skill:` name above.
+  skill_directories:
+    - ../../skills
+  # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
+  # system prompt so the agent carries cip's planning discipline (resolve ambiguity in the
+  # interview, phase-aware structure, REQ/RISK evidence). cip declares
+  # disable-model-invocation: true, so the body injection — not a `skill` tool call — is what
+  # exercises the behaviour; these cases measure the planning OUTPUT, not tool invocation.
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: cip's SKILL.md frontmatter declares NO `tools:` field, so
+# waza auto-injects nothing to suppress (contrast cr/dr, whose agent frontmatter lists VS
+# Code tool names). Both ported cip cases are describe-only reasoning scenarios graded on the
+# response, so no positive tool_calls assertion applies either (contrast ci's
+# execute-step-atomically).
+
+# No adversarial block: both ported cip cases are functional planning-quality scenarios, not
+# prompt-injection cases.

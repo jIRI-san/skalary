@@ -1,10 +1,11 @@
 {
   "name": "design-notes",
-  "version": "1.0.0",
-  "description": "Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes.",
+  "version": "1.1.0",
+  "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
+    "skill",
     "prompt",
     "documentation",
     "design-notes"
@@ -25,12 +26,16 @@
       "dest": "prompts/udn.prompt.md"
     },
     {
-      "src": "prompts/design-notes/templates/design-notes-index.template.md",
-      "dest": "prompts/design-notes/templates/design-notes-index.template.md"
+      "src": "skills/design-notes/SKILL.md",
+      "dest": "skills/design-notes/SKILL.md"
     },
     {
-      "src": "prompts/design-notes/templates/design-note-writing-style.template.md",
-      "dest": "prompts/design-notes/templates/design-note-writing-style.template.md"
+      "src": "skills/design-notes/assets/templates/design-notes-index.template.md",
+      "dest": "skills/design-notes/assets/templates/design-notes-index.template.md"
+    },
+    {
+      "src": "skills/design-notes/assets/templates/design-note-writing-style.template.md",
+      "dest": "skills/design-notes/assets/templates/design-note-writing-style.template.md"
     }
   ],
   "evals": {

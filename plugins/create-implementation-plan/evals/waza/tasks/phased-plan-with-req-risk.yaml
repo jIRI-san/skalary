@@ -1,0 +1,65 @@
+id: phased-plan-with-req-risk
+name: Produces a phased plan with explicit REQ and RISK tables
+description: >
+  cip must turn a reasonably-scoped feature brief into an implementation plan with
+  phased, ordered steps and explicit REQ (requirements) and RISK tables whose entries
+  are concrete and testable, with steps that map back to those requirements/risks.
+  Ported from plugins/create-implementation-plan/evals/llm/phased-plan-with-req-risk.eval.json.
+tags:
+  - planning-quality
+  - functional
+inputs:
+  prompt: |
+    Draft an implementation plan for this feature: "Add Tier-2 LLM eval cases for a
+    handful of Copilot plugins — each plugin gets one or two scenario cases with a
+    rubric, the cases run headlessly, and results feed a pass/fail gate that must not
+    block the normal build." Assume a typical repo with a plugins/ tree and an existing
+    test runner; where a detail is genuinely unspecified, state a reasonable assumption
+    and proceed.
+
+    Produce the plan directly as your response: phased steps with clear execution
+    ordering, an explicit REQ (requirements) table and an explicit RISK table with
+    concrete, testable entries, and steps that reference the requirements/risks they
+    satisfy.
+
+    IMPORTANT — for this exercise respond in prose/markdown in THIS conversation. Do NOT
+    run Test-Plan.ps1, Set-PlanStage.ps1, launch.ps1, or any other repository scripts,
+    and do NOT create or write any files.
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even if the last action is a tool call.
+  follow_up_prompts:
+    - "State the plan plainly: list the phases in order, and confirm your response contains both a REQ table and a RISK table with concrete entries."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the plan must reference phases and both
+  # a REQ and a RISK table.
+  - type: text
+    name: mentions_phases_req_and_risk
+    config:
+      regex_match:
+        - "(?i)phase"
+        - "(?i)\\breq\\b|requirement"
+        - "(?i)\\brisk\\b"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full plan in context (the independent judge proved
+  # FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_phased_plan_with_req_risk
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading an implementation-planning agent's plan for adding Tier-2 LLM
+        eval cases across a few plugins.
+
+        Call set_waza_grade_pass ONLY if the plan:
+          1. Presents phased steps with a clear execution ordering (not a flat,
+             unordered dump), and
+          2. Includes BOTH a REQ (requirements) table AND a RISK table, each with
+             concrete, testable entries (not placeholders or vague prose), and
+          3. Has actionable steps that map back to the listed requirements/risks
+             (a reader can see which requirement/risk each step serves).
+
+        Otherwise call set_waza_grade_fail with a short reason.

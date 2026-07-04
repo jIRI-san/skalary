@@ -13,7 +13,42 @@ Describe 'design-notes structural evals' {
         $script:manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 50
     }
 
-    It 'validates each prompt: frontmatter, name slug, body, and link resolution' -TestCases @(
+    It 'validates the design-notes skill: frontmatter, name, body, and link resolution' {
+        $src = 'skills/design-notes/SKILL.md'
+        $entries = @($script:manifest.files | Where-Object { [string]$_.src -eq $src })
+        $entries.Count | Should -Be 1
+        $destinationPath = [string]$entries[0].dest
+        $artifactPath = Join-Path $script:pluginRoot $src
+
+        Get-ArtifactType -DestinationPath $destinationPath | Should -Be 'skill'
+
+        $frontmatter = Get-PluginFrontmatter -Path $artifactPath
+        Test-RequiredFrontmatter -ArtifactType 'skill' -Frontmatter $frontmatter -Path $artifactPath | Should -BeTrue
+        [string]$frontmatter.name | Should -Be 'design-notes'
+
+        Test-BodySection -ArtifactType 'skill' -Path $artifactPath | Should -BeTrue
+
+        $raw = Get-Content -LiteralPath $artifactPath -Raw
+        $linkMatches = [regex]::Matches($raw, '\[[^\]]+\]\((?<target>[^)]+)\)')
+        @($linkMatches).Count | Should -BeGreaterThan 0
+
+        $resolvedTargets = [System.Collections.Generic.List[string]]::new()
+        foreach ($match in $linkMatches) {
+            $target = [string]$match.Groups['target'].Value
+            $resolved = Resolve-MarkdownLink -RepoRoot $script:repoRoot -ArtifactDestinationPath $destinationPath -LinkTarget $target
+            if (-not [string]::IsNullOrWhiteSpace([string]$resolved)) {
+                Test-Path -LiteralPath $resolved -PathType Leaf | Should -BeTrue
+                $resolvedTargets.Add(([string]$resolved).Replace('\', '/'))
+            }
+        }
+
+        # The skill must reference both bundled templates and the governance index.
+        @($resolvedTargets | Where-Object { $_ -match '/assets/templates/design-notes-index\.template\.md$' }).Count | Should -BeGreaterThan 0
+        @($resolvedTargets | Where-Object { $_ -match '/assets/templates/design-note-writing-style\.template\.md$' }).Count | Should -BeGreaterThan 0
+        @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
+    }
+
+    It 'validates each shortcut prompt: frontmatter, name slug, body, and delegation to the skill' -TestCases @(
         @{ Src = 'prompts/design-notes.prompt.md'; Slug = 'design-notes' }
         @{ Src = 'prompts/cdn.prompt.md'; Slug = 'cdn' }
         @{ Src = 'prompts/udn.prompt.md'; Slug = 'udn' }
@@ -47,12 +82,13 @@ Describe 'design-notes structural evals' {
             }
         }
 
-        @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
+        # Each shortcut prompt must delegate to the design-notes skill.
+        @($resolvedTargets | Where-Object { $_ -match '/skills/design-notes/SKILL\.md$' }).Count | Should -BeGreaterThan 0
     }
 
-    It 'ships both bootstrap template assets as payload files' -TestCases @(
-        @{ Src = 'prompts/design-notes/templates/design-notes-index.template.md' }
-        @{ Src = 'prompts/design-notes/templates/design-note-writing-style.template.md' }
+    It 'ships both bootstrap template assets as skill payload files' -TestCases @(
+        @{ Src = 'skills/design-notes/assets/templates/design-notes-index.template.md' }
+        @{ Src = 'skills/design-notes/assets/templates/design-note-writing-style.template.md' }
     ) {
         param($Src)
 

@@ -1,0 +1,57 @@
+id: flag-planted-bug
+name: Flags a planted correctness bug
+description: >
+  cr must find a concrete correctness bug (a removed null check before a dereference)
+  in a diff and prioritise it over style nits. Ported from
+  plugins/code-review/evals/llm/flag-planted-bug.eval.json.
+tags:
+  - correctness
+  - functional
+inputs:
+  prompt: |
+    Perform a code review of the change in planted-bug.diff (in your working
+    directory). Report the most important issues you find, most severe first.
+  context:
+    fixture: fixtures/planted-bug.diff
+  # 1.0 hard-gate b: force a final assistant turn so the independent judge
+  # (continue_session: false) sees real review content instead of an empty tail
+  # when cr's last action is a tool call.
+  follow_up_prompts:
+    - "Summarise your review conclusion in prose: the single most important issue and why it matters."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the review must reference the
+  # null-dereference / crash path, and must not wave the change through.
+  - type: text
+    name: mentions_null_deref
+    config:
+      regex_match:
+        - "(?i)null|nullreference|dereference|crash|exception"
+      not_contains:
+        - "no issues found"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES cr's
+  # session and deterministically sees the full review in context. Live evidence (2.1)
+  # showed the independent judge (continue_session: false) is FLAKY here: it is dropped
+  # into the task workspace without cr's output reliably injected, so it hunts the
+  # filesystem, finds only the diff, and false-fails. Resuming the session is the stable
+  # fix (matches the original PoC Gotcha-B finding). Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_finds_concrete_bug
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading a code reviewer's output. The reviewer was shown a diff
+        that REMOVED a null-guard (`if (user == null) return "(unknown user)";`)
+        immediately before dereferencing `user.DisplayName`, introducing a
+        NullReferenceException / crash path.
+
+        Call set_waza_grade_pass ONLY if the review:
+          1. Identifies the concrete correctness bug (a possible null dereference /
+             crash when the user is not found), and
+          2. Treats it as a high-priority / high-signal finding (not buried under
+             style or formatting nits).
+
+        Otherwise call set_waza_grade_fail with a short reason.

@@ -1,0 +1,117 @@
+id: execute-step-atomically
+name: Executes a plan step atomically (build/test before an atomic commit)
+description: >
+  ci must run the execute-then-commit loop on a single already-selected step: edit the
+  files, run build + test, then commit ONLY the touched files together with the plan
+  checkbox update — build/test BEFORE the commit. Unlike the legacy prose-rubric case,
+  this exercises real execution against a self-contained fixture (mini npm project +
+  plan) so a tool_calls grader can assert the build/test tool ran before the commit.
+  Ported from plugins/continue-implementation/evals/llm/execute-step-atomically.eval.json.
+tags:
+  - atomic-commit
+  - functional
+inputs:
+  prompt: |
+    You are executing ONE already-selected, already-validated plan step in THIS
+    workspace. The workspace is a plain directory (not yet a git repository). It
+    contains: `plan.md` (the step), `greeting.js`, `farewell.js`, and `package.json`
+    whose `build` and `test` scripts ARE the project's build and test commands.
+
+    Execute step 1.1 end to end, in this EXACT order:
+      1. Initialize git (`git init`) and make ONE baseline commit of the STARTING state
+         — all current files (greeting.js, farewell.js, plan.md, package.json) — so the
+         step's changes are diffable against history. This baseline is NOT the step
+         commit; it just establishes the pre-existing repo state a real plan step runs
+         against.
+      2. Edit `greeting.js` and `farewell.js` as step 1.1 describes.
+      3. Run the build command (`npm run build`) and the test command (`npm test`).
+      4. Mark step 1.1 `[x]` in `plan.md`.
+      5. Commit ONLY the files the step changed (greeting.js, farewell.js, plan.md) in a
+         SINGLE commit that includes the checkbox update. Do NOT re-stage package.json —
+         the step did not modify it.
+
+    Run build and test BEFORE the step commit. Do NOT run Resolve-Plan, Get-PlanState,
+    `npm run validate-plan`, launch.ps1, or any other repository scripts — they are not
+    present here and are not part of this exercise.
+  context:
+    fixture: fixtures/atomic-step
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even though the agent's last real action is a tool call.
+  follow_up_prompts:
+    - "Confirm in prose what you did: the edits, that you ran build and test before committing, and exactly which files you staged into the commit."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the narration must reference build,
+  # test, and an atomic commit of only the touched files.
+  - type: text
+    name: mentions_atomic_execute_then_commit
+    config:
+      regex_match:
+        - "(?i)build"
+        - "(?i)test"
+        - "(?i)commit"
+
+  # REAL execution proof (plan 2.4's headline upgrade over the legacy prose rubric): the
+  # build/test command AND the git commit must both appear in the RECORDED tool calls,
+  # matched by argument pattern. Without this the rubric judge alone would pass a response
+  # that only NARRATES the flow (fail-open). 1.0 tool-name mapping: the skill's `execute`
+  # capability surfaces as the `powershell` tool on Windows; the shell string is its
+  # `command` arg (confirmed by the 2.4 one-shot live tool-events capture).
+  - type: tool_constraint
+    name: ran_build_test_and_committed
+    config:
+      expect_tools:
+        - tool: powershell
+          args:
+            command: { regex: "(?i)npm (run )?(build|test)" }
+        - tool: powershell
+          args:
+            command: { regex: "(?i)git\\b.*\\bcommit" }
+
+  # ORDERING proof (plan 2.4: "assert the build/test tool ran BEFORE commit"). Inspects the
+  # recorded tool_calls (each entry has `name` + `arguments`, confirmed by the 2.4 one-shot
+  # live capture). Matches ONLY each call's `arguments` (never its `result`): a tool RESULT
+  # can contain a diff header `diff --git ...` plus file text saying "commit", which would
+  # falsely satisfy `git.*commit`. The prompt makes the agent create a baseline commit
+  # FIRST, so there are TWO git commits; the STEP commit is the LAST one. The earliest
+  # build/test shell call must precede that LAST git-commit call; if a single call does both
+  # (`npm test; git commit`), the build/test substring must precede the commit substring
+  # within it — and if that one call ALSO carries the baseline commit, the commit position is
+  # taken as the LAST git-commit SEGMENT (split on `;`/newline) so the early baseline commit
+  # can't mislocate it. Missing either -> fail. language: javascript runs via node (guaranteed
+  # in this npm repo; `python` is NOT on the dev/CI PATH). 0 judge tokens.
+  - type: code
+    name: build_test_before_commit
+    config:
+      language: javascript
+      assertions:
+        - "(() => { const A = c => JSON.stringify(c.arguments == null ? '' : c.arguments); const bt = /npm (run )?(build|test)/i, gc = /git\\b.*\\bcommit/i; const commits = tool_calls.map((c, i) => gc.test(A(c)) ? i : -1).filter(i => i >= 0); if (commits.length === 0) return false; const g = commits[commits.length - 1]; const builds = tool_calls.map((c, i) => bt.test(A(c)) ? i : -1).filter(i => i >= 0); if (builds.length === 0) return false; const b = builds[0]; if (b < g) return true; if (b === g) { const s = A(tool_calls[g]); const bi = s.search(bt); let ci = -1, m, re = /git\\b[^;\\n]*\\bcommit/gi; while ((m = re.exec(s)) !== null) ci = m.index; return bi !== -1 && ci !== -1 && bi < ci; } return false; })()"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full transcript in context (the independent
+  # judge proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_atomic_execution
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading a plan-execution agent. It was given ONE already-selected plan
+        step in a workspace (establish a git baseline of the starting files, edit
+        greeting.js + farewell.js, run build + test, then commit only the touched files
+        together with the plan checkbox update).
+
+        Call set_waza_grade_pass ONLY if the run:
+          1. Actually EXECUTES the step (edits the files and runs the commands) rather
+             than only proposing a plan of what it would do, and
+          2. Runs a build/test validation BEFORE the step commit (not after, not
+             skipped), and
+          3. Keeps the plan checkbox update ATOMIC with the code change — a single STEP
+             commit (distinct from any initial baseline commit of the starting state)
+             that stages only the files the step touched (greeting.js, farewell.js,
+             plan.md) and does NOT re-include the unmodified package.json.
+
+        A separate baseline commit of the starting state made BEFORE the edits is
+        expected and fine — grade only the STEP commit's atomicity. Otherwise call
+        set_waza_grade_fail with a short reason.

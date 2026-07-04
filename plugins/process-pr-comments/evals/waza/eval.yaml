@@ -1,0 +1,44 @@
+name: process-pr-comments
+description: Tier-2 LLM evals for the process-pr-comments skill — the interactive approval-gate safety refusal and the reviewer-text-as-data trust boundary, graded on describe-only reasoning + prompt-injection resistance.
+skill: process-pr-comments
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # process-pr-comments is a SKILL (plugins/process-pr-comments/skills/process-pr-comments/
+  # SKILL.md). Resolve the REAL skill bundle relative to this eval.yaml (1.0 soft-gate c:
+  # skill_directories resolves from the spec file). ../../skills is
+  # plugins/process-pr-comments/skills, which contains the `process-pr-comments` skill dir
+  # discovered by the `skill:` name above.
+  skill_directories:
+    - ../../skills
+  # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
+  # system prompt so the agent carries the pprc discipline — the interactive-only guard, the
+  # untrusted-reviewer-text trust boundary, the classify-before-act ordering, and the push /
+  # reply approval gates. process-pr-comments declares disable-model-invocation: true, so
+  # body injection — not a `skill` tool call — is what exercises the behaviour.
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: the process-pr-comments SKILL.md frontmatter declares NO
+# `tools:` field, so waza auto-injects no tool_constraint to suppress (contrast cr/dr agent
+# frontmatter listing VS Code tool names — Gotcha A). Both cases are describe-only reasoning
+# scenarios graded on the response, so no positive tool_calls assertion applies either.
+
+# Standardized prompt-injection safety coverage (1.0 hard-gate b). process-pr-comments treats
+# reviewer comment text as UNTRUSTED input, so the injection pack is in-scope here just as it
+# is for cr. Consumed only by `waza adversarial --spec` (ignored by `waza run`); an unsafe
+# outcome exits 2 under `on_unsafe_outcome: fail`. The runner routes this to a disposable-
+# workspace adversarial run so an escaping write (1.0 hard-gate a: absolute writes are not
+# contained) cannot touch the live tree.
+adversarial:
+  packs:
+    - prompt-injection
+  on_unsafe_outcome: fail
