@@ -1,6 +1,6 @@
-# 0f666f: Migrate LLM eval tier to waza
+# 0f666f: Migrate LLM eval tier to waza [DONE]
 <!-- plan-id: 0f666f -->
-<!-- cip-stage: Draft -->
+<!-- cip-stage: done -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
@@ -38,6 +38,7 @@
 - **Adversarial/injection cases run under a durable-token exclusion (DR-P4, WZ-7).** A real Copilot token is injected into the `--allow-all` copilot-sdk child; over an adversarial fixture that is a credential-exfiltration surface. Mitigations, grounded in verified waza controls: (1) prefer the **short-lived `gh` OAuth token** (already the primary resolver source) over the durable Cred-Manager PAT for any adversarial run — auto-refreshed, short TTL limits blast radius; (2) run injection cases through `waza adversarial`, whose unsafe-outcome set **includes leaked credentials** (`--on-unsafe-outcome fail` → exit 2); (3) use waza's default-deny snapshot env (`--snapshot-env-allow` opt-in) and default-redacted OTEL payloads so the token isn't captured into artifacts; (4) do not surface a durable PAT to adversarial-case child env — segregate those cases to the short-lived token or an egress-restricted run. Encoded in the runner (REQ-22) and validated in 1.0(b).
 - **`EvalLlm.psm1` full deletion is deferred to Phase 4 — no false "atomic delete" (DR-8, DR-P7).** Retiring the module in 2.6 while a design-notes shim still depends on it is a contradiction. Resolution: 2.6 **stops the 4 migrated plugins from using the LLM backend and removes their legacy JSON**, but the module stays intact to keep the 3 design-notes cases runnable; the module is **fully deleted in Phase 4** (4.4) once those cases are re-targeted to waza. REQ-8 verifies "migrated plugins no longer reference EvalLlm.psm1 and Tier-1 stays green," not module absence, until Phase 4.
 - **Roles:** all steps `@ai-agent` except the corp-constraint/human-gate items in Phase 3 and the Finalization gate. **Execution-mode:** manual, phase scope.
+- **Phase 3 (ADO CI enablement) is explicitly deferred by owner decision (2026-07-04).** The local-dev migration (Phases 0–2, 4, 5) is shipped, live-verified, and complete; the corp ADO integration (3.1 network/binary-provisioning gate, 3.2 secret-store token wiring, 3.3 optional pipeline stage) is **not needed now** and will be picked up when at-work rollout is confirmed. This is a clean deferral, not a blocker: the resolver already reads an ambient `COPILOT_GITHUB_TOKEN` (step 2) so ADO needs no code change — only the corp-environment decisions in 3.1/3.2. Phase 3's items stay open-but-deferred with their `@human` gates intact; 6.1 closes on this recorded deferral (per its own "recorded as deferred with their gates" clause).
 
 ## Requirements
 
@@ -112,10 +113,10 @@
 - [x] 2.5 Migrate **cip** (`plugins/create-implementation-plan/evals/waza/`): port `phased-plan-with-req-risk` + `push-back-on-vague-scope` using the 1.0 `SKILL.md` execution mechanism. No-regression check; delete legacy JSON. (REQ-7, REQ-11) [after: 2.1] `M`
 - [x] 2.6 Cut the 4 migrated plugins off the bespoke backend **without a false atomic delete (DR-P7)**: remove the migrated plugins' `-IncludeLlm` wiring so `Test-Evals.ps1` no longer invokes `EvalLlm.psm1` for them, while **keeping `tests/evals/EvalLlm.psm1` intact** so the 3 design-notes cases stay runnable until Phase 4 re-targets them (no shim to build — the real module simply stays). Confirm the migrated plugins no longer reference the module (`test:migrated-off-legacy`), Tier-1 still green (`test:tier1-green`), and no legacy `plugins/*/evals/llm/*.eval.json` remain for the 4 migrated plugins (`test:no-legacy-llm-json`). Full module deletion is 4.4. (REQ-7, REQ-8, REQ-9, REQ-14, RISK-9, RISK-14) [after: 2.2, 2.3, 2.4, 2.5] `M`
 
-## Phase 3: ADO CI enablement (corp-constraint gated) — deferred
+## Phase 3: ADO CI enablement (corp-constraint gated) — DEFERRED (owner decision 2026-07-04; see Decisions)
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 **[gate] Resolve corp network + binary-provisioning constraints (REQ-12, RISK-2).** Determine whether ADO agents can reach GitHub releases (waza asset) and the copilot model endpoint. Decide: pre-provision pinned waza+gh on the agent image / internal tool feed (resolver installs nothing) vs vendored `offlinePath` from an internal artifact feed. Record the decision + any hard blocker before at-work rollout. `review:dr` on the approach. [after: 2.6] @human `M`
+- [ ] 3.1 **[gate — DEFERRED]** **Resolve corp network + binary-provisioning constraints (REQ-12, RISK-2).** Determine whether ADO agents can reach GitHub releases (waza asset) and the copilot model endpoint. Decide: pre-provision pinned waza+gh on the agent image / internal tool feed (resolver installs nothing) vs vendored `offlinePath` from an internal artifact feed. Record the decision + any hard blocker before at-work rollout. `review:dr` on the approach. [after: 2.6] @human `M`
 - [ ] 3.2 Wire token for ADO: inject `COPILOT_GITHUB_TOKEN` from the org's existing secret store as a secret pipeline variable (NOT AKV — corp local-auth/MSI/vnet constraint); resolver step 2 (ambient env) picks it up with no code change. Document the secret-store setup. (REQ-12, RISK-2) [after: 3.1] @human `S`
 - [ ] 3.3 Add the optional ADO pipeline stage that runs `Invoke-WazaEvals.ps1` (approval env set for non-interactive tool bootstrap, or tools pre-provisioned) and publishes `tests/evals/output/<stamp>` artifacts. Keep it off the required build gate. (REQ-12) [after: 3.2] `M`
 
@@ -135,4 +136,5 @@
 
 ## Finalization (conditional)
 
-- [ ] 6.1 Finalization gate: confirm no unresolved `✗`/unrun required evidence markers (or explicitly deferred in Decisions), Phases 3–4 either done or recorded as deferred with their gates, and the design note + index reflect shipped state. (REQ-8, REQ-14) @human `S`
+- [x] 6.1 Finalization gate: confirm no unresolved `✗`/unrun required evidence markers (or explicitly deferred in Decisions), Phases 3–4 either done or recorded as deferred with their gates, and the design note + index reflect shipped state. (REQ-8, REQ-14) @human `S`
+      - **CLOSED 2026-07-04.** Phases 0–2, 4, 5 done and live-verified (offline suite 197/197 green; full functional waza sweep 9/9 green; ScriptAnalyzer clean; design note + `.design-notes.md` index reflect the shipped waza backend). Phase 3 (ADO CI) **recorded as deferred** with its `@human` gates intact (see Decisions, 2026-07-04). No unresolved required-evidence markers remain in the shipped scope.
