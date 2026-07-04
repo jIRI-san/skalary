@@ -42,6 +42,14 @@
       "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1"
     },
     {
+      "src": "scripts/New-ArchSeed.ps1",
+      "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1"
+    },
+    {
+      "src": "skills/architecture-notes/assets/interview-guide.md",
+      "dest": "skills/architecture-notes/assets/interview-guide.md"
+    },
+    {
       "src": "prompts/can.prompt.md",
       "dest": "prompts/can.prompt.md"
     },

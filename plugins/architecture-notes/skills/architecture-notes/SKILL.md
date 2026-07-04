@@ -105,11 +105,14 @@ context: fork
 
 Runs a **short** interview and seeds a light architecture (no big design upfront).
 
-1. Scaffold the tier: `Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>`.
+1. Scaffold the tier: `Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>` (also run by the seed script).
 2. Run a short seeding interview (system type, top-level layers, primary module boundaries).
-   When present, follow `assets/interview-guide.md` for the question set; otherwise ask these
-   inline. (The guide ships with the greenfield-seed step.)
-3. Seed **1–2 `draft` contracts** (Step 2) and the human-doc skeleton. Nothing is `locked`.
+   Follow `assets/interview-guide.md` for the canonical question set. Record the answers into a
+   temporary seed-spec JSON (shape documented in the guide).
+3. Materialize the seed: `pwsh -NoProfile -File <scripts>/New-ArchSeed.ps1 -TargetRoot <repoRoot>
+   -SeedSpecPath <seed.json>`. It writes **1–2 `draft` contracts** (validated by the write gate),
+   a terse arch note each, and the human-doc skeleton — never a `locked` contract, never
+   overwriting existing files.
 4. Thereafter `/can` grows the tier one contract at a time (with `/cip` planning driving which
    boundaries to add).
 

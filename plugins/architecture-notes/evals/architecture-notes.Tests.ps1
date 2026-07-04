@@ -310,3 +310,96 @@ Describe 'architecture-notes prompt wrapper evals' {
         }
     }
 }
+
+Describe 'architecture-notes greenfield seeding evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:seedScript = Join-Path $script:pluginRoot 'scripts/New-ArchSeed.ps1'
+        $script:guidePath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/interview-guide.md'
+    }
+
+    It 'Greenfield-SeedsDraftContracts: interview guide ships and seed produces valid draft contracts + human doc' {
+        Test-Path -LiteralPath $script:guidePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:seedScript -PathType Leaf | Should -BeTrue
+
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-seed-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $target -Force)
+        try {
+            $specPath = Join-Path $target 'seed.json'
+            @{
+                project    = 'SeedApp'
+                systemType = 'web service'
+                boundaries = @(
+                    @{ id = 'ARCH-Domain-Isolation'; title = 'Domain isolation'; prose = 'Domain owns rules; never references Api or Infrastructure.'; scope = 'src/Domain/**' },
+                    @{ id = 'ARCH-Api-Boundary'; title = 'API boundary'; prose = 'Api is the only inbound surface; it must not contain business rules.'; scope = 'src/Api/**' }
+                )
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $specPath
+
+            $result = & $script:seedScript -TargetRoot $target -SeedSpecPath $specPath
+
+            @($result.Contracts).Count | Should -Be 2
+            foreach ($c in $result.Contracts) {
+                $c.Maturity | Should -Be 'draft'
+                $c.Valid | Should -BeTrue
+                Test-Path -LiteralPath $c.Path -PathType Leaf | Should -BeTrue
+            }
+            # No locked contract is ever seeded.
+            @($result.Contracts | Where-Object { $_.Maturity -eq 'locked' }).Count | Should -Be 0
+
+            # Human doc skeleton exists and is excluded from the auto-loaded index.
+            Test-Path -LiteralPath $result.HumanDoc.Path -PathType Leaf | Should -BeTrue
+            $indexPath = Join-Path $target 'docs/architecture-notes/.architecture-notes.md'
+            (Get-Content -LiteralPath $indexPath -Raw) | Should -Not -Match 'architecture\.human\.md'
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Greenfield-SeedsDraftContracts: rejects a seed-spec with more than 2 boundaries' {
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-seed-rej-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $target -Force)
+        try {
+            $specPath = Join-Path $target 'seed.json'
+            @{
+                project    = 'TooMany'
+                boundaries = @(
+                    @{ id = 'ARCH-A'; title = 'A'; prose = 'a' },
+                    @{ id = 'ARCH-B'; title = 'B'; prose = 'b' },
+                    @{ id = 'ARCH-C'; title = 'C'; prose = 'c' }
+                )
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $specPath
+
+            { & $script:seedScript -TargetRoot $target -SeedSpecPath $specPath } | Should -Throw
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Greenfield-SeedsDraftContracts: rejects missing boundaries and duplicate ids without scaffolding' {
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-seed-guard-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $target -Force)
+        try {
+            $missingSpec = Join-Path $target 'missing.json'
+            @{ project = 'NoBoundaries' } | ConvertTo-Json | Set-Content -LiteralPath $missingSpec
+            { & $script:seedScript -TargetRoot $target -SeedSpecPath $missingSpec } | Should -Throw
+            # Nothing should have been scaffolded on invalid input.
+            Test-Path -LiteralPath (Join-Path $target 'schemas') | Should -BeFalse
+
+            $dupSpec = Join-Path $target 'dup.json'
+            @{
+                project    = 'Dup'
+                boundaries = @(
+                    @{ id = 'ARCH-Auth'; title = 'A'; prose = 'a' },
+                    @{ id = 'arch-auth'; title = 'B'; prose = 'b' }
+                )
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $dupSpec
+            { & $script:seedScript -TargetRoot $target -SeedSpecPath $dupSpec } | Should -Throw
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

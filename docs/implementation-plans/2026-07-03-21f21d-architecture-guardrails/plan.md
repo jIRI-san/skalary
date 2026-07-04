@@ -88,7 +88,7 @@
 
 - [x] 2.1 Author `SKILL.md` core workflow — create/update/review arch notes + contracts, fully CLI-standalone; orchestration-only, script-mediated mutation (REQ-4) `L`
 - [x] 2.2 Add `/can` + `/uan` prompts as thin wrappers deferring to the skill (REQ-4) [after: 2.1] `S`
-- [ ] 2.3 Greenfield init — short seeding interview producing 1–2 `draft` contracts + human-doc skeleton; scaffolds the tier without overwriting (REQ-5, REQ-2) [after: 2.1] `M`
+- [x] 2.3 Greenfield init — short seeding interview producing 1–2 `draft` contracts + human-doc skeleton; scaffolds the tier without overwriting (REQ-5, REQ-2) [after: 2.1] `M`
 
 ## Phase 3: brownfield harvest + dual representation
 <!-- worktree: (recorded by /ci when worktree is created) -->

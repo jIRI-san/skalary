@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-03T21:18:05.0872685Z",
+  "generatedAt": "2026-07-04T04:07:24.9193298Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -23,6 +23,11 @@
           "dest": "prompts/uan.prompt.md",
           "sha256": "11355fdfebe9ae5c99ffbd73d3327184692f2acb7d24e5fee66001bd5300ee19",
           "src": "prompts/uan.prompt.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/interview-guide.md",
+          "sha256": "d831ef65defd05cda74e75e68f9793e920ac71464aec4458a13e5833d26faca9",
+          "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
           "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
@@ -50,13 +55,18 @@
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
+          "sha256": "d707efa9fe17c0de3af1743060837f28e2164448704ec5363acdd82d54883a46",
+          "src": "scripts/New-ArchSeed.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
           "sha256": "ea14efb9e361d2260525b71c46eca5fe732fc301f66f3ac8064e15ab1c8706f8",
           "src": "scripts/Test-ArchContract.ps1"
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "7492621dec84e8b507bcd3c5a2a9371cc6f6df91eeb9fe3e429f71c27d9a27ac",
+          "sha256": "38f2c39805e3bb11d5623042574a1645eea352079eb2e0224e59f0d9f9dc6768",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
