@@ -1,0 +1,75 @@
+id: execute-phase-step
+name: Executes a phase step (action-oriented, build/test from config, staging discipline)
+description: >
+  Behavioral port of the legacy autopilot case. The legacy backend ran
+  `copilot -p <scenario> --agent autopilot` and judged the RESPONSE against a
+  rubric — it did not stand up a real plan/repo/build. This reproduces that: the
+  agent is given the execute-a-phase-step scenario and must respond in an
+  execution-focused way. Ported from
+  plugins/autopilot/evals/llm/execute-phase-step.eval.json.
+tags:
+  - execution
+  - functional
+inputs:
+  prompt: |
+    You are asked to execute phase 2, step 1 of an implementation plan. The step
+    applies a concrete code change; the project's build and test commands come
+    from its config (`.autopilot.json`: `build` and `test` fields); and only the
+    files you touch should be committed.
+
+    IMPORTANT — for this exercise, DO NOT run any shell commands, invoke any tools,
+    or modify/create any files. There is no plan file or repository to act on.
+    Instead, describe precisely and concretely how you would carry out this step
+    end to end.
+  # No context.fixture and a describe-only prompt: this is a BEHAVIORAL response
+  # eval, faithful to the legacy scenario-only backend. It also KEEPS the
+  # execution-biased autopilot agent in-band: given an empty workspace + --allow-all,
+  # an un-constrained agent tries to really execute against a non-existent plan,
+  # hunts the filesystem, runs npm test, and times out mid-run (observed live in 2.3:
+  # 47 premium requests, flaky 33%). Describe-only makes it a single cheap turn. The
+  # forced final turn keeps the deterministic text grader + final_output populated.
+  follow_up_prompts:
+    - "Summarise your execution approach in prose: the concrete code change you would make, exactly when and how you would run the build and test commands (and where those commands come from), and your staging/commit discipline (which files you would stage)."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the response must reference
+  # build, test, and staging/commit — the load-bearing execution behaviours.
+  - type: text
+    name: mentions_execution_discipline
+    config:
+      regex_match:
+        - "(?i)build"
+        - "(?i)test"
+        - "(?i)stage|staging|commit"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the
+  # agent's session and deterministically sees the full response in context (the
+  # independent judge proved FLAKY against a real agent in the 2.1 live-fire).
+  # This is a BEHAVIORAL eval (matching the legacy scenario-only backend): the judge
+  # grades the RESPONSE's execution discipline, NOT whether files physically changed.
+  # The real "build/test actually ran before commit" tool_calls grader is scoped to
+  # the ci migration (plan 2.4), not here. Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_execution_focused
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading an autonomous execution agent's RESPONSE to being asked to
+        execute phase 2, step 1 of an implementation plan: apply a concrete code
+        change, run the build/test commands from project config, and commit only
+        the touched files. This is a BEHAVIORAL eval — grade the execution approach
+        the response commits to, not whether files physically changed on disk.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Is action-oriented and execution-focused — it commits to concretely
+             performing the step (naming the specific code change and walking
+             through carrying it out), rather than offering only high-level advice,
+             options, or caveats, and
+          2. Ties build and test execution to the project config (the
+             `.autopilot.json` build/test commands) before concluding, and
+          3. Preserves explicit staging discipline — it stages/commits only the
+             files it modified (no wildcard `git add -A` / add-everything).
+
+        Otherwise call set_waza_grade_fail with a short reason.
