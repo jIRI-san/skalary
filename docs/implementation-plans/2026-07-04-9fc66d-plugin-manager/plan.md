@@ -58,13 +58,13 @@
 | RISK-10 | A repo where `plugin-manager` arrived only via native `copilot plugin install` has no `registry.json` on any surface, so `list-plugins`/`uninstall-plugin`'s dependent check hit a raw `throw`. | Low | Low | Treat skalary-managed operations as requiring a skalary-managed repo; `-RegistryPath` resolution emits a friendly "not a skalary-managed repo" message instead of a raw throw. | 1.2 |
 
 ## Phase 1: Foundations (script-level changes)
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: feature/create-plugin-manager-plugin -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget advisory cap: 6) -->
 
-- [ ] 1.1 Extend `scripts/skalary/Sync-PluginScripts.ps1` so its `Get-ModuleClosure` BFS follows `.ps1` dot-source closures — widen the module-closure regex from `\.psm1` to `\.psm?1` (already `\$`-escaped and BFS-integrated) so discovered `.ps1` (e.g. `_Common.ps1`) are enqueued and their own closures walked; confirm none of the five wrapped scripts invoke a sibling `.ps1` via the `&` call operator (which a dot-source match would miss) (REQ-3, RISK-1) `M`
+- [x] 1.1 Extend `scripts/skalary/Sync-PluginScripts.ps1` so its `Get-ModuleClosure` BFS follows `.ps1` dot-source closures — widen the module-closure regex from `\.psm1` to `\.psm?1` **and** the leading char class to `[A-Za-z0-9_]` (so `_Common.ps1` matches) so discovered `.ps1` are enqueued and their own closures walked; confirmed none of the five wrapped scripts invoke a sibling `.ps1` via the `&` call operator (which a dot-source match would miss) (REQ-3, RISK-1) `M`
 - [ ] 1.2 Add a `-RegistryPath` parameter (falling back to `scripts/skalary/registry.json`) to `Find-Plugin.ps1`, `Get-Plugin.ps1`, and the uninstall dependent check so "available" listing and the dependent guard work in a bootstrapped repo without a root `registry.json`; when no registry is found on any surface (e.g. a Copilot-CLI-only repo), emit a clear "not a skalary-managed repo" message instead of a raw `throw` (REQ-8, REQ-9, RISK-2, RISK-10) `M`
 - [ ] 1.3 Create `scripts/skalary/Set-ScriptApproval.ps1` — JSONC-aware writer (preserves comments + trailing commas), regex-escaped + both-end-anchored (`^…$`) approval patterns whose argument tail is a shell-metacharacter-free character class (never `.*`, so `; curl … | sh` cannot ride an approval), deny-list taking precedence, **read-only allowlist** (`list`/`find`/`get`/`test`/`validate`; never `Install`/`Uninstall`/`Update`/`Remove`/`bootstrap`), `-Remove`/`-All` modes, path confinement to `.github/`, idempotent, emits a post-write diff of changed keys (REQ-11, RISK-6, RISK-7) `M`
 

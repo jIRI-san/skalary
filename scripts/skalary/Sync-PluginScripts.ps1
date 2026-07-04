@@ -21,8 +21,10 @@ if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
 # `.github/skills/ci/scripts/Test-Plan.ps1`. The <skill> segment selects the
 # per-plugin bundle destination; the <name> is resolved against scripts/skalary/.
 $refRegex = [regex]'\.github/skills/(?<skill>[a-z0-9][a-z0-9-]*)/scripts/(?<name>[A-Za-z0-9][A-Za-z0-9._-]*\.psm?1)'
-# PowerShell module imports of the form `Join-Path $PSScriptRoot 'PlanState.psm1'`.
-$moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9][A-Za-z0-9._-]*\.psm1)'''
+# PowerShell module/script imports of the form `Join-Path $PSScriptRoot 'PlanState.psm1'`
+# or `. (Join-Path $PSScriptRoot '_Common.ps1')`. `.psm?1` covers both `.psm1` modules
+# and `.ps1` dot-source siblings; the leading `_` allows `_Common.ps1`.
+$moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9_][A-Za-z0-9._-]*\.psm?1)'''
 $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 
 function Get-ModuleClosure {
