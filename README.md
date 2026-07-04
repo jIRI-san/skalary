@@ -68,7 +68,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.0 | partial | — | 14 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `architecture-tests` | 1.0.3 | partial | — | 5 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
+| `architecture-tests` | 1.0.5 | partial | — | 8 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.1.1 | partial | — | 20 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.0 | stable | — | 11 | Code review orchestrator with specialist subagents and git diff helpers. |
 | `continue-implementation` | 1.0.2 | stable | autopilot, code-review | 13 | Code implementation workflow skill with autonomous execution guidance. |
@@ -77,6 +77,8 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `design-review` | 1.0.0 | stable | — | 5 | Design review orchestrator with specialist model agents. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 <!-- END SKALARY PLUGIN CATALOG -->
+
+
 
 
 

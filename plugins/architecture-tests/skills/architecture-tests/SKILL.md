@@ -21,6 +21,35 @@ authors or promotes a contract — it only executes checks and records evidence.
 - Freshness binds to `sourcesHash` (contract + target sources), not raw HEAD equality — so committing a
   receipt does not self-invalidate it.
 
+## Lock-before-execute gate
+
+Contract-derived test bodies are **never** executed until the contract is human-reviewed and `locked`.
+`Assert-ArchLock.ps1` is the single canonical authority for lock state:
+
+- **Body hash** — `Get-ArchLockedBodyHash` computes the canonical `lockedBodySha256` over the reviewed test
+  body. For a `.csproj`/`.vbproj`/`.fsproj` test project the whole project **directory** is hashed (the full
+  source closure `dotnet test` compiles), so rewriting a reviewed `.cs` assertion after lock invalidates it;
+  a single `ts-arch`/`dependency-cruiser` spec file is hashed as a leaf. The lock gate re-verifies by
+  RECOMPUTE (never hex-presence) immediately before execution. A locked contract whose recomputed body hash
+  does not match its recorded `lockedBodySha256` — or whose body resolves to zero files — enters an explicit
+  `lock-invalidated` state that **blocks** and that review flags as drift.
+- **Human-only transitions** — every maturity transition touching `locked` (draft→locked promotion,
+  locked→draft demotion) is honored only from a human context. Autonomy is detected by a **concrete signal**
+  (`SKALARY_ARCH_AUTONOMOUS`/`SKALARY_AUTOPILOT`/`COPILOT_AUTOPILOT` env var, or an explicit flag), never
+  agent self-assessment. An autonomous run may only record a promotion **proposal**
+  (`New-ArchPromotionProposal`); it may not mutate lock state.
+- **Write-gate** — a `locked` write lacking a verified human signal is refused (`Test-ArchLockWriteAllowed`).
+
+## Adapters
+
+Deterministic adapters are pluggable behind `Invoke-ArchAdapter.ps1`. Each adapter is a
+`scripts/adapters/<Name>.Adapter.ps1` exposing `Invoke-<Name>Adapter -Context @{...}` and returning the
+strict result contract `{ status; ran; findings[]; artifacts[] }` (status ∈ `pass`/`fail`/`skip-absent-toolchain`/`error`).
+`Invoke-ArchTestAdapter` runs the lock gate first, so only a locked, hash-verified body ever reaches an
+adapter; draft bodies skip and a mutated locked body errors. The NetArchTest (C#) adapter runs a reviewed
+`dotnet test` project and parses its TRX into the result contract; it emits `skip-absent-toolchain` when the
+dotnet toolchain is absent. New adapters need no dispatcher change.
+
 ## Config
 
 Checks live in an `arch-test-config.json` validated against
@@ -36,6 +65,10 @@ Invoke the runner (bundled at its installed path):
 ```
 pwsh -NoProfile -File .github/skills/architecture-tests/scripts/Invoke-ArchTests.ps1 -ConfigPath <arch-test-config.json> -RepoRoot .
 ```
+
+The runner bundles two canonical helpers beside it — the lock authority
+`.github/skills/architecture-tests/scripts/Assert-ArchLock.ps1` and the adapter dispatcher
+`.github/skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1` — and dot-sources them automatically.
 
 For each check the runner:
 
@@ -64,4 +97,6 @@ Grow one locked contract at a time; demotion and re-lock are human-only transiti
 Receipts are the sole source of truth the `arch:<ContractId>` evidence marker pure-parses. They live
 under `docs/architecture-notes/receipts/<contractId>.arch-receipt.json` and carry `contractId`,
 `maturity`, `adapter`, `verdict`, `ran`, `parentCommit` (40/64-hex), `sourcesHash` (64-hex), and
-`generatedAt`. Do not hand-edit receipts; regenerate them by re-running the runner.
+`generatedAt`, plus optional `findings`, `artifacts`, and `lockDecision`
+(`execute`/`skip-not-locked`/`lock-invalidated`) so review can distinguish a deliberate draft skip from an
+absent toolchain and see lock drift. Do not hand-edit receipts; regenerate them by re-running the runner.

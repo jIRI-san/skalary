@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T07:02:20.1765061Z",
+  "generatedAt": "2026-07-04T07:32:48.0942235Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -111,12 +111,27 @@
         },
         {
           "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
-          "sha256": "df7b4277e5bd02e7661e30833469b51fb0902efa5d92621a302f9831184f5597",
+          "sha256": "cd19c840bdd6f180a9a491c4920025a67b2c5a63014d1a252926f8dfc33f86a7",
           "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
         },
         {
+          "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
+          "sha256": "ac128020b14f893766d708f1377cf4024dcf02d2076ab3645ed240ea50ef7a1e",
+          "src": "scripts/adapters/NetArchTest.Adapter.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
+          "sha256": "249d8a2377fbdeb5789a28ecf78ba0c62971e743e9846c7ef2217f5a3db2e54a",
+          "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1",
+          "sha256": "c5fdaa402ae5c5448fe7ab0031d30721b69cdeceee64a5635db865759ae7714c",
+          "src": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1"
+        },
+        {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
-          "sha256": "3a4b9d5daad288bf300c437a631443939b882c5ec92466fdbf6b3e31644f0f5d",
+          "sha256": "3155a7500acad6e0cc320127ecc0039ad7954dc38c15e5e5ac02463bf37b8bab",
           "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
         },
         {
@@ -126,7 +141,7 @@
         },
         {
           "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "8d7a80eb6fcfa6b456ccfc12c6497a3a29743e2c753177b32624dd86898509f3",
+          "sha256": "8dec4f32538a5be5793a628e9672524b213918432b758b040a4493f0933d97f1",
           "src": "skills/architecture-tests/SKILL.md"
         }
       ],
@@ -139,7 +154,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.3"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",

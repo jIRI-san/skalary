@@ -59,6 +59,11 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Optional paths to raw adapter output (TRX/JUnit/JSON)."
+    },
+    "lockDecision": {
+      "type": "string",
+      "enum": ["execute", "skip-not-locked", "lock-invalidated"],
+      "description": "Lock-gate outcome that produced this verdict. Distinguishes a deliberate draft/provisional skip ('skip-not-locked') from an absent toolchain, and surfaces 'lock-invalidated' drift (a locked body whose recomputed hash no longer matches lockedBodySha256) so review can flag it."
     }
   },
   "allOf": [

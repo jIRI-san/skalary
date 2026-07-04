@@ -33,6 +33,8 @@ param(
     [string]$RepoRoot,
     # Directory receipts are written to. Defaults to <RepoRoot>/docs/architecture-notes/receipts.
     [string]$ReceiptDir,
+    # Directory the pluggable adapters live in. Defaults beside the adapter dispatcher (installed layout).
+    [string]$AdapterRoot,
     # Compute + report without writing receipt files.
     [switch]$WhatIf
 )
@@ -46,6 +48,12 @@ $script:ArchTestMaturities = @('locked', 'draft', 'provisional')
 $script:ArchTestIdPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*$'
 # git OID: SHA-1 (40 hex) or SHA-256 (64 hex).
 $script:ArchTestCommitPattern = '^[a-f0-9]{40}([a-f0-9]{24})?$'
+
+# The lock authority (REQ-18) and the pluggable adapter interface (REQ-9) are bundled beside this runner
+# (canonical: scripts/skalary/; installed: skills/architecture-tests/scripts/). Dot-source them so both a
+# direct run and a dot-source of this file expose their functions.
+. (Join-Path $PSScriptRoot 'Assert-ArchLock.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-ArchAdapter.ps1')
 
 function Get-ArchTestSourcesHash {
     <#
@@ -243,6 +251,7 @@ function New-ArchTestReceipt {
         [Parameter(Mandatory)][string]$SourcesHash,
         [object[]]$Findings,
         [string[]]$Artifacts,
+        [ValidateSet('execute', 'skip-not-locked', 'lock-invalidated')][string]$LockDecision,
         [string]$GeneratedAt
     )
 
@@ -275,6 +284,7 @@ function New-ArchTestReceipt {
     }
     if ($PSBoundParameters.ContainsKey('Findings')) { $receipt.findings = @($Findings) }
     if ($PSBoundParameters.ContainsKey('Artifacts')) { $receipt.artifacts = @($Artifacts) }
+    if ($PSBoundParameters.ContainsKey('LockDecision') -and $LockDecision) { $receipt.lockDecision = $LockDecision }
 
     return [pscustomobject]$receipt
 }
@@ -310,6 +320,7 @@ function Invoke-ArchTests {
         [Parameter(Mandatory)][string]$ConfigPath,
         [Parameter(Mandatory)][string]$RepoRoot,
         [string]$ReceiptDir,
+        [string]$AdapterRoot,
         [switch]$WhatIf
     )
 
@@ -338,9 +349,34 @@ function Invoke-ArchTests {
             throw "Invalid contractId '$contractId' (must match $($script:ArchTestIdPattern)); refusing to derive a receipt path from it."
         }
         $adapter = [string]$check.adapter
-        $maturity = if (($check.PSObject.Properties.Name -contains 'maturity') -and $check.maturity) { [string]$check.maturity } else { 'draft' }
+
+        # Load the human-owned contract first: it is the AUTHORITATIVE source of maturity + lockedBodySha256.
+        # The runner config only binds a contract to an adapter/targets; it must not be able to downgrade the
+        # reviewed maturity, so a config maturity that disagrees with the contract is a hard error.
+        $contractObj = $null
+        if (($check.PSObject.Properties.Name -contains 'contractPath') -and $check.contractPath) {
+            $cp = [string]$check.contractPath
+            $cpFull = if ([System.IO.Path]::IsPathRooted($cp)) { $cp } else { Join-Path $rootFull $cp }
+            if (Test-Path -LiteralPath $cpFull -PathType Leaf) {
+                try { $contractObj = Get-Content -LiteralPath $cpFull -Raw | ConvertFrom-Json } catch { $contractObj = $null }
+            }
+        }
+
+        $configMaturity = if (($check.PSObject.Properties.Name -contains 'maturity') -and $check.maturity) { [string]$check.maturity } else { $null }
+        $contractMaturity = if ($contractObj -and ($contractObj.PSObject.Properties.Name -contains 'maturity') -and $contractObj.maturity) { [string]$contractObj.maturity } else { $null }
+        if ($configMaturity -and $contractMaturity -and ($configMaturity -ne $contractMaturity)) {
+            throw "Maturity mismatch for contract '$contractId': runner config says '$configMaturity' but the human-owned contract says '$contractMaturity'. The contract governs; refusing to run with a divergent config (it could silently downgrade enforcement)."
+        }
+        $maturity = if ($contractMaturity) { $contractMaturity } elseif ($configMaturity) { $configMaturity } else { 'draft' }
         if ($script:ArchTestMaturities -notcontains $maturity) {
             throw "Invalid maturity '$maturity' for contract '$contractId'."
+        }
+        if (-not $contractObj) {
+            $contractObj = [pscustomobject]@{ id = $contractId; maturity = $maturity }
+        }
+        else {
+            # The lock gate must see the same effective maturity the gate outcome uses (contract governs).
+            $contractObj | Add-Member -NotePropertyName maturity -NotePropertyValue $maturity -Force
         }
 
         $hashPaths = [System.Collections.Generic.List[string]]::new()
@@ -359,12 +395,51 @@ function Invoke-ArchTests {
             Write-Warning "Contract '$contractId' declares sources but none resolved to files; freshness is bound to the binding only."
         }
 
-        # No adapter is wired at 4.1 -> honestly report an absent toolchain (never a false-green).
-        $verdict = 'skip-absent-toolchain'
-        $ran = $false
+        # Body paths the lock hash and adapter execute. A .csproj/.vbproj/.fsproj testProject compiles and runs
+        # EVERY source file in its project directory, so the lock must hash that whole directory (not just the
+        # project-file leaf) — otherwise an agent could rewrite the reviewed .cs assertions without invalidating
+        # lockedBodySha256. A single spec file (ts-arch/dependency-cruiser) is hashed as a leaf.
+        $bodyPaths = [System.Collections.Generic.List[string]]::new()
+        if (($check.PSObject.Properties.Name -contains 'testProject') -and $check.testProject) {
+            $tp = [string]$check.testProject
+            if ($tp -match '\.(cs|vb|fs|es)proj$') {
+                $tpDir = Split-Path -Parent $tp
+                if ([string]::IsNullOrWhiteSpace($tpDir)) { $bodyPaths.Add($tp) } else { $bodyPaths.Add($tpDir) }
+            }
+            else {
+                $bodyPaths.Add($tp)
+            }
+        }
+        if (($check.PSObject.Properties.Name -contains 'spec') -and $check.spec) {
+            $bodyPaths.Add([string]$check.spec)
+        }
 
-        $receipt = New-ArchTestReceipt -ContractId $contractId -Maturity $maturity -Adapter $adapter `
-            -Verdict $verdict -Ran $ran -ParentCommit $parentCommit -SourcesHash $hash.Digest
+        # Dispatch behind the lock-before-execute gate. Only a locked contract whose body hash verifies runs;
+        # draft bodies skip (never a false-green); a mutated locked body is lock-invalidated -> error (blocks).
+        $adapterResult = Invoke-ArchTestAdapter -AdapterName $adapter -Contract $contractObj `
+            -BodyPaths @($bodyPaths) -RepoRoot $rootFull -TargetRoot $rootFull -AdapterRoot $AdapterRoot
+        $verdict = $adapterResult.status
+        $ran = $adapterResult.ran
+        $lockDecision = if ($adapterResult.PSObject.Properties.Name -contains 'decision') { [string]$adapterResult.decision } else { $null }
+
+        # Persist the adapter findings and lock-gate decision so review can flag lock-invalidated drift and
+        # distinguish a deliberate draft skip from an absent toolchain.
+        $receiptArgs = @{
+            ContractId   = $contractId
+            Maturity     = $maturity
+            Adapter      = $adapter
+            Verdict      = $verdict
+            Ran          = $ran
+            ParentCommit = $parentCommit
+            SourcesHash  = $hash.Digest
+        }
+        $rFindings = @($adapterResult.findings)
+        if ($rFindings.Count -gt 0) { $receiptArgs.Findings = $rFindings }
+        $rArtifacts = @($adapterResult.artifacts)
+        if ($rArtifacts.Count -gt 0) { $receiptArgs.Artifacts = $rArtifacts }
+        if ($lockDecision) { $receiptArgs.LockDecision = $lockDecision }
+
+        $receipt = New-ArchTestReceipt @receiptArgs
         $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $verdict -Ran $ran
 
         $receiptPath = Join-Path $receiptRoot ("$contractId.arch-receipt.json")
@@ -399,7 +474,7 @@ function Invoke-ArchTests {
 if ($MyInvocation.InvocationName -ne '.') {
     if ([string]::IsNullOrWhiteSpace($ConfigPath)) { throw 'ConfigPath is required when running this script directly.' }
     if ([string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path }
-    $summary = Invoke-ArchTests -ConfigPath $ConfigPath -RepoRoot $RepoRoot -ReceiptDir $ReceiptDir -WhatIf:$WhatIf
+    $summary = Invoke-ArchTests -ConfigPath $ConfigPath -RepoRoot $RepoRoot -ReceiptDir $ReceiptDir -AdapterRoot $AdapterRoot -WhatIf:$WhatIf
     $summary | ConvertTo-Json -Depth 12
     if ($summary.Blocked -gt 0) { exit 1 }
     exit 0
