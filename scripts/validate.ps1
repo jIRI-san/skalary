@@ -74,6 +74,21 @@ foreach ($plan in $planPaths) {
 }
 Write-Host "  Checked $($planPaths.Count) plan file(s)."
 
+Write-Host '== Validating architecture human-doc freshness =='
+$freshnessGate = Join-Path $repoRoot 'scripts/skalary/Test-ArchDocFreshness.ps1'
+try {
+    & $freshnessGate -RepoRoot $repoRoot *> $null
+    if ($LASTEXITCODE -ne 0) {
+        $errors.Add('Architecture human doc is stale; regenerate it with New-ArchHumanDoc.ps1 (/uan).')
+    }
+    else {
+        Write-Host '  Architecture human doc fresh (or tier not seeded).'
+    }
+}
+catch {
+    $errors.Add("Architecture doc freshness check failed: $($_.Exception.Message)")
+}
+
 if ($errors.Count -gt 0) {
     Write-Host ''
     Write-Host "VALIDATION FAILED ($($errors.Count) error(s)):" -ForegroundColor Red

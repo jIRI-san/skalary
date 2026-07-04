@@ -629,3 +629,132 @@ Describe 'architecture-notes human-doc generation evals' {
         }
     }
 }
+
+Describe 'architecture-notes human-doc staleness gate evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:seedScript = Join-Path $script:pluginRoot 'scripts/New-ArchSeed.ps1'
+        $script:humanDocScript = Join-Path $script:pluginRoot 'scripts/New-ArchHumanDoc.ps1'
+        $script:freshnessScript = Join-Path $script:repoRoot 'scripts/skalary/Test-ArchDocFreshness.ps1'
+    }
+
+    It 'Staleness-FlagsDrift: file:scripts/skalary/Test-ArchDocFreshness.ps1#exists' {
+        Test-Path -LiteralPath $script:freshnessScript -PathType Leaf | Should -BeTrue
+    }
+
+    It 'Staleness-FlagsDrift: passes when fresh, fails after a contract edit, passes again after regen' {
+        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-fresh-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $fx -Force)
+        try {
+            $spec = Join-Path $fx 'seed.json'
+            @{ project = 'FreshApp'; boundaries = @(
+                    @{ id = 'ARCH-Domain'; title = 'Domain core'; prose = 'Owns rules.' }
+                ) } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
+            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            [void](& $script:humanDocScript -RepoRoot $fx)
+
+            # Freshly generated doc -> pass, exit 0.
+            $pass = & $script:freshnessScript -RepoRoot $fx 2>$null
+            $passExit = $LASTEXITCODE
+            $pass.Status | Should -Be 'pass'
+            $passExit | Should -Be 0
+
+            # Add a contract WITHOUT regenerating the doc -> drift, fail, exit 1.
+            @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Only inbound.' } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/ARCH-Api.json')
+            $drift = & $script:freshnessScript -RepoRoot $fx 2>$null
+            $driftExit = $LASTEXITCODE
+            $drift.Status | Should -Be 'fail'
+            $drift.Expected | Should -Not -Be $drift.Actual
+            $driftExit | Should -Be 1
+
+            # Regenerate the doc -> fresh again, exit 0.
+            [void](& $script:humanDocScript -RepoRoot $fx)
+            $pass2 = & $script:freshnessScript -RepoRoot $fx 2>$null
+            $pass2Exit = $LASTEXITCODE
+            $pass2.Status | Should -Be 'pass'
+            $pass2Exit | Should -Be 0
+        }
+        finally {
+            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Staleness-FlagsDrift: skips (no-op) when the architecture-notes tier is not seeded' {
+        $empty = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-noseed-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $empty -Force)
+        try {
+            $r = & $script:freshnessScript -RepoRoot $empty 2>$null
+            $rExit = $LASTEXITCODE
+            $r.Status | Should -Be 'skip'
+            $rExit | Should -Be 0
+        }
+        finally {
+            Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Staleness-FlagsDrift: fails when the digest marker is missing from the doc' {
+        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-nomarker-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $fx -Force)
+        try {
+            $spec = Join-Path $fx 'seed.json'
+            @{ project = 'NoMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
+            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            [void](& $script:humanDocScript -RepoRoot $fx)
+
+            $docPath = Join-Path $fx 'docs/architecture-notes/architecture.human.md'
+            $doc = Get-Content -LiteralPath $docPath -Raw
+            $doc = [regex]::Replace($doc, '<!--\s*arch-contracts-sha256:[^>]*-->', '')
+            Set-Content -LiteralPath $docPath -Value $doc -NoNewline
+
+            $r = & $script:freshnessScript -RepoRoot $fx 2>$null
+            $rExit = $LASTEXITCODE
+            $r.Status | Should -Be 'fail'
+            $rExit | Should -Be 1
+            # Pin the missing-marker branch (not the stale-digest branch, which shares Status/exit):
+            # its message names the missing marker and it never computed an Expected digest.
+            $r.Message | Should -Match 'missing the arch-contracts-sha256 marker'
+            $r.Expected | Should -BeNullOrEmpty
+
+            # Fail-path stderr diagnostics (the CLI/CI side-channel the dual-mode pattern exists for)
+            # must be emitted. [Console]::Error.WriteLine bypasses PowerShell streams, so capture it
+            # out-of-process where 2>&1 merges the child's real stderr into stdout.
+            $err = pwsh -NoProfile -File $script:freshnessScript -RepoRoot $fx 2>&1
+            ($err -join "`n") | Should -Match '\[arch-doc-freshness\] FAIL'
+        }
+        finally {
+            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Staleness-FlagsDrift: fails when a duplicate/stray digest marker could mask staleness' {
+        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-dupmarker-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $fx -Force)
+        try {
+            $spec = Join-Path $fx 'seed.json'
+            @{ project = 'DupMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
+            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            [void](& $script:humanDocScript -RepoRoot $fx)
+
+            # Inject a second, stray marker into the hand-authored narrative. A first-match reader
+            # could latch onto it and false-green; the gate must reject the duplicate outright.
+            $docPath = Join-Path $fx 'docs/architecture-notes/architecture.human.md'
+            $doc = Get-Content -LiteralPath $docPath -Raw
+            $stray = '<!-- arch-contracts-sha256: ' + ('0' * 64) + ' -->'
+            Set-Content -LiteralPath $docPath -Value ($stray + "`n" + $doc) -NoNewline
+
+            $r = & $script:freshnessScript -RepoRoot $fx 2>$null
+            $rExit = $LASTEXITCODE
+            $r.Status | Should -Be 'fail'
+            $rExit | Should -Be 1
+            $r.Message | Should -Match 'markers'
+        }
+        finally {
+            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
