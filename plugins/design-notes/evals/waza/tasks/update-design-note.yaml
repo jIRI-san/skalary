@@ -1,0 +1,56 @@
+id: update-design-note
+name: Updates an existing note for sandboxed evals, calling out a trade-off
+description: >
+  The design-notes skill's Update workflow must produce an update-oriented response (edits to
+  an existing note, not a new unrelated doc), call out at least one limitation or trade-off of
+  sandboxed eval execution, and stay focused on design-note content rather than code. Ported
+  from plugins/design-notes/evals/llm/update-design-note.eval.json.
+tags:
+  - design-notes-quality
+  - functional
+inputs:
+  prompt: |
+    A change just introduced sandboxed LLM evals: each eval now runs in a disposable,
+    isolated workspace. Following the design-notes skill's Update workflow, update an EXISTING
+    design note section to reflect the new contracts, constraints, and known limitations this
+    introduces.
+
+    IMPORTANT — for this exercise respond with the proposed edits / updated section in THIS
+    conversation. Do NOT create or write any files, do NOT run any repository scripts, and do
+    NOT output implementation code.
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even if the last action is a tool call.
+  follow_up_prompts:
+    - "Confirm your response is update-oriented (edits to an existing note, not a brand-new unrelated doc), calls out at least one limitation or trade-off of sandboxed eval execution, and stays focused on design-note content rather than code."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the update must engage with the sandbox
+  # change and a limitation/trade-off.
+  - type: text
+    name: mentions_sandbox_and_tradeoff
+    config:
+      regex_match:
+        - "(?i)sandbox"
+        - "(?i)limitation|trade-?off"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full update in context. Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_update_design_note
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the design-notes skill's Update workflow output — an update to an
+        existing design note reflecting newly-introduced sandboxed LLM evals.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Is UPDATE-oriented — edits/changes to an existing note — not a brand-new,
+             unrelated document, and
+          2. Calls out at least one limitation or trade-off introduced by sandboxed eval
+             execution, and
+          3. Stays focused on design-note content (contracts, constraints, limitations)
+             rather than implementation code.
+
+        Otherwise call set_waza_grade_fail with a short reason.

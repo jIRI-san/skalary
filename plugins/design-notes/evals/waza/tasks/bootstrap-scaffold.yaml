@@ -1,0 +1,56 @@
+id: bootstrap-scaffold
+name: Bootstraps the design-notes scaffold from the bundled templates
+description: >
+  The design-notes skill's Init workflow must scaffold docs/design-notes/ from the two
+  bundled templates, never overwrite existing files (report already-initialized instead),
+  and point the user at the create/update workflows next. Ported from
+  plugins/design-notes/evals/llm/bootstrap-scaffold.eval.json.
+tags:
+  - design-notes-quality
+  - functional
+inputs:
+  prompt: |
+    A fresh repository has NO docs/design-notes/ directory yet. Following the design-notes
+    skill's Init (bootstrap) workflow, explain exactly what you would do to initialize the
+    design-notes scaffold: which files you create, from which bundled templates, what happens
+    if a target file already exists, and what the user should do next.
+
+    IMPORTANT — for this exercise respond in prose/markdown in THIS conversation. Do NOT
+    create or write any files, and do NOT run any repository scripts.
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even if the last action is a tool call.
+  follow_up_prompts:
+    - "State it plainly: name the two files you create and the templates they come from, say what happens when a target file already exists, and name what the user should run next."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the answer must reference the index file
+  # and the bundled templates.
+  - type: text
+    name: mentions_index_and_templates
+    config:
+      regex_match:
+        - "(?i)\\.design-notes\\.md"
+        - "(?i)template"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full answer in context. Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_bootstrap_scaffold
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the design-notes skill's Init (bootstrap) behaviour, described by
+        the agent for a fresh repository with no design notes.
+
+        Call set_waza_grade_pass ONLY if the answer:
+          1. Creates docs/design-notes/.design-notes.md AND
+             docs/design-notes/project/design-note-writing-style.design.md from the two
+             bundled templates, and
+          2. Never overwrites existing files — it reports already-initialized (or skips)
+             when the scaffold is already present, and
+          3. Points the user at the create and update workflows next (e.g. /cdn and /udn,
+             or /design-notes create <name> and /design-notes update).
+
+        Otherwise call set_waza_grade_fail with a short reason.

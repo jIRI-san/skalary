@@ -8,8 +8,9 @@ $ErrorActionPreference = 'Stop'
 # runner (Invoke-WazaEvals.ps1) discovers plugins/*/evals/waza/eval.yaml. So a plugin is "on
 # waza" exactly when it has a waza spec and NO legacy llm JSON — deleting the JSON is the
 # cut-off. These tests lock that state so a migrated plugin can never silently regress back
-# onto the legacy backend, while KEEPING EvalLlm.psm1 + the deferred design-notes cases intact
-# until Phase 4 (DR-P7: no false atomic delete; RISK-14: design-notes coverage not orphaned).
+# onto the legacy backend. Phase 4.2 migrated design-notes onto waza (its legacy llm JSON is
+# deleted), so the deferred set is now EMPTY; EvalLlm.psm1 is kept intact until Phase 4.4
+# deletes it (DR-P7: no false atomic delete).
 
 Describe 'legacy backend cutover (plan 2.6)' {
     BeforeAll {
@@ -18,10 +19,10 @@ Describe 'legacy backend cutover (plan 2.6)' {
         $script:repoDir = $repoDir
         $script:pluginsRoot = Join-Path $repoDir 'plugins'
 
-        # Plugins deliberately still on the legacy backend (Tier-2 not yet migrated). design-notes
-        # ships 3 prompt-artifact cases excluded from waza until the prompts->skills workstream
-        # (plan §7 / Phase 4). Keep this set TIGHT — anything else with legacy JSON is a regression.
-        $script:deferredPlugins = @('design-notes')
+        # No plugins remain on the legacy backend: Phase 4.2 migrated design-notes (the last
+        # deferred plugin) onto waza. Keep this set EMPTY — anything with legacy JSON is now a
+        # regression.
+        $script:deferredPlugins = @()
 
         $script:pluginDirs = @(Get-ChildItem -LiteralPath $script:pluginsRoot -Directory | Sort-Object Name)
 
@@ -66,8 +67,8 @@ Describe 'legacy backend cutover (plan 2.6)' {
             $offenders -join ' | ' | Should -BeExactly ''
         }
 
-        It 'test:migrated-off-legacy the 5 migrated plugins each ship a waza spec' {
-            foreach ($name in @('code-review', 'design-review', 'autopilot', 'continue-implementation', 'create-implementation-plan')) {
+        It 'test:migrated-off-legacy the 6 migrated plugins each ship a waza spec' {
+            foreach ($name in @('code-review', 'design-review', 'autopilot', 'continue-implementation', 'create-implementation-plan', 'design-notes')) {
                 (Script:Test-HasWazaSpec -PluginDir (Join-Path $script:pluginsRoot $name)) | Should -BeTrue -Because "plugin $name should be migrated to waza"
             }
         }
@@ -87,14 +88,9 @@ Describe 'legacy backend cutover (plan 2.6)' {
         }
     }
 
-    Context 'test:legacy-module-intact — EvalLlm.psm1 + deferred coverage survive (DR-P7 / RISK-14; full delete is 4.4)' {
+    Context 'test:legacy-module-intact — EvalLlm.psm1 survives until the Phase 4.4 delete (DR-P7: no false atomic delete)' {
         It 'test:legacy-module-intact tests/evals/EvalLlm.psm1 still exists (no false atomic delete)' {
             Test-Path -LiteralPath (Join-Path $script:repoDir 'tests/evals/EvalLlm.psm1') -PathType Leaf | Should -BeTrue
-        }
-
-        It 'test:legacy-module-intact the deferred design-notes plugin still carries its legacy llm cases (coverage not orphaned)' {
-            $json = @(Script:Get-LegacyLlmJson -PluginName 'design-notes')
-            $json.Count | Should -BeGreaterThan 0
         }
     }
 }

@@ -26,3 +26,4 @@ Phase: 2
 Phase: 4
 
 - [4.1] [src:code-review] [sev:High] Prompt->skill conversion regenerated .github dogfood but missed the derived registry.json + README catalog (version/tags/description/file drift). Fixed by running Build-Registry.ps1; Test-Registry now passes. Lesson: any plugin.json change (version/tags/files) must re-run Build-Registry AND Sync-Dogfood.
+- [4.2] [src:code-review] [sev:Low] design-notes waza migration reviewed clean; one Low fixed: LegacyCutover migrated-plugin list updated 5->6 to include design-notes. Parity with deleted llm JSON confirmed 1:1; no adversarial/tool_constraint (SKILL.md has no tools:). Spec parse-validated via waza run --task __none__ (0 model calls). 174 Tier-1 tests green.
