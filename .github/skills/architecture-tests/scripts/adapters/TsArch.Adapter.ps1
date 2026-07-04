@@ -1,17 +1,21 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-ts-arch (TypeScript) deterministic adapter (REQ-9). Runs a human-owned, reviewed vitest architecture spec via
-`npm exec -- vitest run` and parses its JUnit result into the strict adapter result contract.
+ts-arch (TypeScript) deterministic adapter (REQ-9). Runs a human-owned, reviewed vitest architecture spec by
+invoking the locally-installed vitest binary directly via node, and parses its JUnit result into the strict
+adapter result contract.
 
 .DESCRIPTION
 Only reached for a locked contract whose body hash the dispatcher already verified. Never derives, compiles,
 or generates test code from a contract — it runs the reviewed spec the human owns. When the node/npm toolchain
 is absent it returns skip-absent-toolchain (never a false pass, never a hard fail). Real execution is opt-in
-(a committed fixture lives under evals/fixtures/ts-arch); structural validation never shells npm.
+(a committed fixture lives under evals/fixtures/tsarch); structural validation never shells node/npm.
 
-Determinism: when the project commits a package-lock.json the adapter installs with `npm ci --ignore-scripts`
-(exact, lockfile-pinned, no lifecycle scripts) before running, so the executed run uses only pinned packages.
+Determinism: the project MUST commit a package-lock.json; the adapter installs with `npm ci --ignore-scripts`
+(exact, lockfile-pinned + integrity-checked, no lifecycle scripts) and then runs vitest by invoking
+node_modules/vitest/vitest.mjs DIRECTLY (never `npm exec`, which can auto-fetch from the registry and mangles the
+--outputFile arg), so the vitest EXECUTION uses only pinned packages and never reaches the network. The one-time
+`npm ci` install is integrity-pinned by the lockfile but may fetch tarballs from the registry on a cache miss.
 
 Entrypoint: Invoke-TsArchAdapter -Context @{ ContractId; TargetRoot; RepoRoot; BodyPaths }.
 BodyPaths[0] is the reviewed spec file. The project root is the nearest ancestor directory with a package.json.
@@ -25,28 +29,38 @@ $ErrorActionPreference = 'Stop'
 function Get-TsArchCommand {
     <#
     .SYNOPSIS
-    Deterministic `npm exec -- vitest run` argument list scoped to a single reviewed spec, emitting JUnit to a
-    fixed path. Pure string construction (testable without a toolchain); the deterministic install is a separate
-    step performed by the caller (Invoke-TsArchAdapter) before these args run.
+    Pure vitest argument list scoped to a single reviewed spec, emitting JUnit to a fixed path. The launcher
+    (node + the locally-installed vitest binary) is resolved separately by Invoke-TsArchAdapter; these are only
+    the args vitest itself receives. Pure string construction (testable without a toolchain).
+
+    .DESCRIPTION
+    Uses the `--outputFile=<path>` '=' form deliberately: vitest ignores a space-separated outputFile value, so
+    the junit reporter would silently write nothing. The reviewed spec is the only test file vitest runs.
     #>
     param(
         [Parameter(Mandatory)][string]$SpecPath,
         [Parameter(Mandatory)][string]$JUnitPath
     )
     $cmd = [System.Collections.Generic.List[string]]::new()
-    $cmd.Add('exec')
-    # --no-install --offline: never auto-fetch a tool from the registry at run time; a missing pinned vitest
-    # must fail loudly (error/skip) rather than silently install an unpinned version (determinism).
-    $cmd.Add('--no-install')
-    $cmd.Add('--offline')
-    $cmd.Add('--')
-    $cmd.Add('vitest')
     $cmd.Add('run')
     $cmd.Add($SpecPath)
     $cmd.Add('--reporter=junit')
-    $cmd.Add('--outputFile')
-    $cmd.Add($JUnitPath)
+    $cmd.Add("--outputFile=$JUnitPath")
     return , $cmd.ToArray()
+}
+
+function Resolve-TsArchVitest {
+    <#
+    .SYNOPSIS
+    Resolves the locally-installed vitest entrypoint (node_modules/vitest/vitest.mjs) under a project root.
+    Returns $null when vitest is not installed. The adapter invokes this binary DIRECTLY via node (never
+    `npm exec`, which can auto-fetch from the registry and mangles args) so the vitest execution never reaches
+    the network.
+    #>
+    param([Parameter(Mandatory)][string]$ProjectRoot)
+    $entry = Join-Path $ProjectRoot 'node_modules/vitest/vitest.mjs'
+    if (Test-Path -LiteralPath $entry -PathType Leaf) { return (Resolve-Path -LiteralPath $entry).Path }
+    return $null
 }
 
 function Resolve-TsArchProjectRoot {
@@ -167,11 +181,11 @@ function Invoke-TsArchAdapter {
         $spec = Join-Path $repoRoot $spec
     }
 
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
         return [pscustomobject]@{
             status    = 'skip-absent-toolchain'
             ran       = $false
-            findings  = @([pscustomobject]@{ severity = 'info'; message = 'npm/node toolchain not present; ts-arch run skipped' })
+            findings  = @([pscustomobject]@{ severity = 'info'; message = 'node/npm toolchain not present; ts-arch run skipped' })
             artifacts = @()
         }
     }
@@ -202,6 +216,10 @@ function Invoke-TsArchAdapter {
     $junitDir = [System.IO.Path]::GetTempPath()
     $junitPath = Join-Path $junitDir ("ts-arch-$safeId-$([System.Guid]::NewGuid().ToString('N')).xml")
 
+    # vitest resolves the spec relative to its cwd (the project root); pass it relative so an absolute path on a
+    # different drive/root cannot confuse resolution.
+    $specRel = [System.IO.Path]::GetRelativePath($projectRoot, $spec)
+
     Push-Location $projectRoot
     try {
         # Deterministic install from the committed lock file (exact versions, no lifecycle scripts) before run.
@@ -226,8 +244,21 @@ function Invoke-TsArchAdapter {
             }
         }
 
-        $npmArgs = Get-TsArchCommand -SpecPath $spec -JUnitPath $junitPath
-        & npm @npmArgs 2>&1 | Out-Null
+        # Invoke the locally-installed vitest binary DIRECTLY via node (never `npm exec`, which can auto-fetch
+        # from the registry and mangles the --outputFile arg). A missing vitest after a locked install is a hard
+        # config error, never a false pass.
+        $vitest = Resolve-TsArchVitest -ProjectRoot $projectRoot
+        if (-not $vitest) {
+            return [pscustomobject]@{
+                status    = 'error'
+                ran       = $false
+                findings  = @([pscustomobject]@{ severity = 'error'; message = 'vitest is not installed under the project (package-lock.json does not pin vitest)' })
+                artifacts = @()
+            }
+        }
+
+        $vitestArgs = Get-TsArchCommand -SpecPath $specRel -JUnitPath $junitPath
+        & node $vitest @vitestArgs 2>&1 | Out-Null
         $vitestExit = $LASTEXITCODE
     }
     finally {

@@ -1,0 +1,18 @@
+{
+  "id": "ARCH-TsFixture-Layering",
+  "title": "Domain must not depend on Infrastructure (TypeScript)",
+  "owner": "architecture-tests fixture",
+  "maturity": "locked",
+  "description": "The Domain layer is the pure core of the TypeScript fixture and must not take a compile-time dependency on the Infrastructure layer. The reviewed ts-arch vitest spec tests/arch.spec.ts is the executable body this locked contract hashes (a single leaf spec); the fixture ships an intentional violation (src/domain/order.ts imports src/infrastructure/database.ts) so a real adapter run reports fail. lockedBodySha256 is the canonical Get-ArchLockedBodyHash digest over tests/arch.spec.ts.",
+  "frameworks": ["ts-arch"],
+  "rules": [
+    {
+      "id": "domain-no-infrastructure",
+      "kind": "forbidden-dependency",
+      "description": "Files in the domain folder must not depend on files in the infrastructure folder.",
+      "from": "domain",
+      "to": "infrastructure"
+    }
+  ],
+  "lockedBodySha256": "a07c5a29a4d020fb8c7a1afd9bb0ef5851e07fb6430118005c30d3a51393b9f5"
+}

@@ -287,6 +287,8 @@ Describe 'architecture-tests structural evals' {
         BeforeAll {
             $script:netArchAdapter = Join-Path $script:pluginRoot 'scripts/adapters/NetArchTest.Adapter.ps1'
             $script:netArchFixture = Join-Path $script:pluginRoot 'evals/fixtures/netarchtest'
+            $script:tsArchAdapter = Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1'
+            $script:tsArchFixture = Join-Path $script:pluginRoot 'evals/fixtures/tsarch'
         }
 
         It 'Lockgate-BodyHashCanonicalComputeVerify: one canonical body hash, deterministic and add/edit/delete-sensitive' {
@@ -691,15 +693,14 @@ function Invoke-LiarAdapter {
 
         It 'Adapter-TsArch-CommandDeterministic: the vitest command line is pure, deterministic string construction scoped to the reviewed spec' {
             . (Join-Path $script:pluginRoot 'scripts/adapters/TsArch.Adapter.ps1')
-            $cmd = Get-TsArchCommand -SpecPath 'src/arch.spec.ts' -JUnitPath 'out.xml'
-            $cmd[0] | Should -Be 'exec'
-            $cmd | Should -Contain 'vitest'
-            $cmd | Should -Contain 'run'
-            $cmd | Should -Contain 'src/arch.spec.ts'
-            # Never auto-fetch a tool from the registry at run time (determinism): --no-install must be present.
-            $cmd | Should -Contain '--no-install'
+            $cmd = Get-TsArchCommand -SpecPath 'tests/arch.spec.ts' -JUnitPath 'out.xml'
+            $cmd[0] | Should -Be 'run'
+            $cmd | Should -Contain 'tests/arch.spec.ts'
             ($cmd -join ' ') | Should -Match '--reporter=junit'
-            ($cmd -join ' ') | Should -Match 'out\.xml'
+            # The '=' form is required: vitest silently ignores a space-separated --outputFile value.
+            $cmd | Should -Contain '--outputFile=out.xml'
+            # The launcher (node + local vitest bin) is resolved separately; these are pure vitest args, never npm exec.
+            ($cmd -join ' ') | Should -Not -Match 'exec'
         }
 
         It 'Adapter-TsArch-ParsesJUnit: the ts-arch adapter parses a vitest JUnit doc into the strict result contract (passing allow-list)' {
@@ -777,6 +778,51 @@ function Invoke-LiarAdapter {
             $res.decision | Should -Be 'skip-not-locked'
             $res.status | Should -Be 'skip-absent-toolchain'
             $res.ran | Should -BeFalse
+        }
+
+        It 'Adapter-TsArch-DetectsViolation: a real ts-arch/vitest run against the committed fixture reports a deterministic fail (opt-in)' {
+            $optIn = $script:ArchLockTruthy -contains ([string][System.Environment]::GetEnvironmentVariable('SKALARY_ARCH_REAL_RUN')).ToLowerInvariant()
+            if (-not $optIn) {
+                Set-ItResult -Skipped -Because 'SKALARY_ARCH_REAL_RUN not set; the real vitest run is opt-in (see evals/fixtures/tsarch/README.md)'
+                return
+            }
+            if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+                Set-ItResult -Skipped -Because 'node/npm toolchain absent'
+                return
+            }
+            . $script:tsArchAdapter
+
+            $fixture = (Resolve-Path -LiteralPath $script:tsArchFixture).Path
+
+            # The lock gate must green (execute) against the committed contract before the adapter runs.
+            $contract = Get-Content -LiteralPath (Join-Path $fixture 'arch-contract.json') -Raw | ConvertFrom-Json
+            $decision = Get-ArchLockExecutionDecision -Contract $contract -BodyPaths @('tests/arch.spec.ts') -RepoRoot $fixture
+            $decision.Decision | Should -Be 'execute'
+
+            $ctx = @{ ContractId = 'ARCH-TsFixture-Layering'; TargetRoot = (Join-Path $fixture 'src'); RepoRoot = $fixture; BodyPaths = @('tests/arch.spec.ts') }
+            $res = Invoke-TsArchAdapter -Context $ctx
+            $res.status | Should -Be 'fail'
+            $res.ran | Should -BeTrue
+            @($res.findings).Count | Should -BeGreaterThan 0
+            ($res.findings | ForEach-Object { [string]$_.message }) -join ' ' | Should -Match 'src/domain/order\.ts'
+        }
+
+        It 'Fixture-FrozenNoScripts: both fixtures commit lock files and their adapters install frozen with lifecycle scripts disabled' {
+            # Structural only (never shells a toolchain): asserts the committed supply-chain posture REQ-14 requires.
+            $tsFixture = (Resolve-Path -LiteralPath $script:tsArchFixture).Path
+            $csFixture = (Resolve-Path -LiteralPath $script:netArchFixture).Path
+
+            # Committed lock files pin the dependency graph deterministically.
+            Test-Path -LiteralPath (Join-Path $tsFixture 'package-lock.json') -PathType Leaf | Should -BeTrue
+            @(Get-ChildItem -LiteralPath $csFixture -Recurse -File -Filter 'packages.lock.json').Count | Should -BeGreaterThan 0
+
+            # Installed packages are never committed (excluded from git and from the locked body hash).
+            (Get-Content -LiteralPath (Join-Path $tsFixture '.gitignore') -Raw) | Should -Match 'node_modules'
+
+            # The adapters install frozen (lockfile-pinned + integrity-checked) and disable lifecycle scripts;
+            # the vitest/dotnet execution then runs only pinned, reviewed code.
+            (Get-Content -LiteralPath $script:tsArchAdapter -Raw) | Should -Match 'npm ci --ignore-scripts'
+            (Get-Content -LiteralPath $script:netArchAdapter -Raw) | Should -Match 'dotnet restore [^\n]*--locked-mode'
         }
     }
 }

@@ -44,7 +44,9 @@ $jsonFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.jso
     Where-Object { $_.FullName -notmatch $skip }
 foreach ($file in $jsonFiles) {
     try {
-        $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
+        # -AsHashtable so standard npm lock files (which use an empty-string root package key under
+        # "packages") still validate as well-formed; the check only asserts the JSON parses.
+        $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
     }
     catch {
         $errors.Add("$($file.FullName): invalid JSON - $($_.Exception.Message)")
