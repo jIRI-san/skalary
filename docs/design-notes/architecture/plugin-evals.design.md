@@ -55,6 +55,22 @@ Credential resolution is skip-not-error: an unset `credentialTarget` falls back 
 
 On first `-IncludeLlm` run, a missing `.eval.config.json` is bootstrapped from the example; the scaffolded file keeps the `<slug>` placeholder so the run skips with a note pointing at the new file to fill in.
 
+### gh-token Copilot entitlement (1.4 gate)
+
+waza's embedded copilot-sdk requires a `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`; `Resolve-EvalToken` prefers `gh auth token` because gh's OAuth token auto-refreshes and so sidesteps the corp 7-day PAT cap. Whether a `gh auth token` OAuth token actually **carries the Copilot entitlement** copilot-sdk accepts depends on the account/org (GitHub app grant + SSO) and must be confirmed live before gh is committed as the single seamless source.
+
+**Live-probe status (2026-07-04, personal dev machine): UNVERIFIED — pending interactive auth.** The probe (`gh auth login` → resolve via `Resolve-EvalToken` → `waza models` + one `cr` task) needs a human browser OAuth flow, so it cannot be run unattended; this is why the gate is `@human`.
+
+Verified autonomously in support of the gate:
+
+| Check | Result |
+|---|---|
+| Token-resolver precedence (`gh` → ambient → Cred-Manager → skip) | Passing (`test:resolvetoken-precedence`, step 1.3) |
+| Proven token source in use | Cred-Manager `copilot-eval` PAT present and resolvable; PoC ran 2/2 green against the real `cr` bundle on this token |
+| gh provisioning (`Ensure-EvalTools`) | winget resolves the pinned `GitHub.cli 2.96.0` and verifies the installer hash, but the MSI **requires elevation** — a non-elevated install aborts (winget exit `1602`). gh must therefore be pre-installed or installed from an elevated context on dev/CI machines (feeds the Phase 3 ADO rollout). |
+
+**Decision pending the live result:** the Cred-Manager `copilot-eval` PAT stays the real token source and the migration proceeds on it — this gate is non-blocking for Phase 2. gh is promoted to the seamless source (and the at-work rollout) only once the live probe confirms entitlement. **Affected corp orgs are PENDING** a work-machine run of the same probe under corp SSO; the entitled orgs are to be recorded in this table when known.
+
 ## Known Limitations
 
 | Limitation | Current handling |
