@@ -56,6 +56,12 @@ function Get-ResolvedSourceContext {
             throw "Unable to resolve git remote 'origin' for '$TargetRepoRoot'."
         }
     }
+    else {
+        $remote = $remote.Trim()
+        if ($remote -match '^[^/\s:@]+/[^/\s:@]+$') {
+            $remote = "https://github.com/$remote.git"
+        }
+    }
 
     $resolvedRef = if ([string]::IsNullOrWhiteSpace($SourceRef)) { 'HEAD' } else { $SourceRef }
     $resolvedRefs = @(git ls-remote $remote $resolvedRef)
