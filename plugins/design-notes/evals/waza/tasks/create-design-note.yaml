@@ -18,20 +18,31 @@ inputs:
     structure and sections) in THIS conversation. Do NOT create or write any files, and do
     NOT run any repository scripts.
   # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
-  # final_output are populated even if the last action is a tool call.
+  # final_output are populated even if the last action is a tool call. Like the bootstrap
+  # task, the follow-up asks the agent to RESTATE the graded concepts by name so the
+  # deterministic text pre-check reliably matches the final turn (the substantive draft in
+  # turn 1 always contains these terms, but a generic "confirm" reply can paraphrase them
+  # away — see 5.1 live-sweep finding).
   follow_up_prompts:
-    - "Confirm your response is a design-note draft (structured sections, not a generic summary), names at least one concrete architectural decision about the eval harness, and states a transcript-capture constraint for headless runs."
+    - "State it plainly in a sentence or two: summarize the concrete eval-harness decision your draft makes, and the transcript-capture constraint you specified for headless runs."
+
+# Deterministic pre-check (0 judge tokens) graded at the DRAFT turn (after_turn: 1), BEFORE the
+# follow-up confirmation. The structured draft always names these concepts verbatim, but the
+# terse final confirmation paraphrases them ("eval" -> "harness", "transcript" -> "capture"), so
+# grading final_output flaked run-to-run. Grading the draft turn is deterministic. on_failure:
+# continue so the judge still runs at the final turn. See 5.1 live-sweep finding.
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_eval_and_transcript
+        config:
+          regex_match:
+            - "(?i)eval"
+            - "(?i)transcript"
 
 graders:
-  # Cheap deterministic pre-check (0 judge tokens): the draft must engage with eval harness
-  # behaviour and transcript capture.
-  - type: text
-    name: mentions_eval_and_transcript
-    config:
-      regex_match:
-        - "(?i)eval"
-        - "(?i)transcript"
-
   # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
   # session and deterministically sees the full draft in context. Binary pass/fail via
   # set_waza_grade_pass/fail.

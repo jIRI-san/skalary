@@ -175,19 +175,37 @@ function Get-InstalledToolVersion {
         [Parameter(Mandatory)]
         [string]$Command,
 
-        [string[]]$VersionArgs = @('--version')
+        [string[]]$VersionArgs = @('--version'),
+
+        # Known install locations to probe when the command is not on PATH
+        # (design §4: resolve via PATH / known install dir / offlinePath). The
+        # first existing candidate is used so repeat runs skip re-provisioning.
+        [string[]]$CandidatePath = @()
     )
 
+    $source = $null
     $resolved = Get-Command -Name $Command -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    if ($null -eq $resolved) {
+    if ($null -ne $resolved) {
+        $source = $resolved.Source
+    }
+    else {
+        foreach ($candidate in $CandidatePath) {
+            if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+                $source = $candidate
+                break
+            }
+        }
+    }
+
+    if ($null -eq $source) {
         return $null
     }
 
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $raw = & $resolved.Source @VersionArgs 2>&1 | Out-String
+        $raw = & $source @VersionArgs 2>&1 | Out-String
     }
     catch {
         $raw = ''
@@ -197,9 +215,50 @@ function Get-InstalledToolVersion {
     }
 
     return [pscustomobject]@{
-        Path = $resolved.Source
+        Path = $source
         Version = ConvertFrom-ToolVersionOutput -Text $raw
     }
+}
+
+function Get-ToolCandidatePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Tool,
+
+        [Parameter(Mandatory)]
+        [string]$PlatformKey
+    )
+
+    $name = [string]$Tool.Name
+    $candidates = [System.Collections.Generic.List[string]]::new()
+
+    if ($name -eq 'waza') {
+        $asset = $Tool.Assets[$PlatformKey]
+        if ($null -ne $asset) {
+            $dir = Expand-InstallDir -Token ([string]$asset.InstallDir)
+            $candidates.Add((Join-Path $dir ([string]$asset.BinaryName)))
+        }
+    }
+    elseif ($name -eq 'gh') {
+        if ($IsWindows) {
+            foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+                if (-not [string]::IsNullOrWhiteSpace($root)) {
+                    $candidates.Add((Join-Path $root 'GitHub CLI\gh.exe'))
+                }
+            }
+            if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+                $candidates.Add((Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\gh.exe'))
+            }
+        }
+        else {
+            foreach ($p in @('/opt/homebrew/bin/gh', '/usr/local/bin/gh', '/usr/bin/gh')) {
+                $candidates.Add($p)
+            }
+        }
+    }
+
+    return $candidates.ToArray()
 }
 
 function Resolve-EvalToolDecision {
@@ -467,9 +526,9 @@ function Install-GhTool {
     }
 
     switch ($manager) {
-        'winget' { & winget install --exact --id $id --accept-source-agreements --accept-package-agreements }
-        'apt' { & sudo apt-get install -y $id }
-        'brew' { & brew install $id }
+        'winget' { & winget install --exact --id $id --accept-source-agreements --accept-package-agreements 2>&1 | Out-Host }
+        'apt' { & sudo apt-get install -y $id 2>&1 | Out-Host }
+        'brew' { & brew install $id 2>&1 | Out-Host }
         default { throw "Unsupported package manager '$manager'." }
     }
 }
@@ -505,7 +564,8 @@ function Invoke-EnsureEvalTools {
     foreach ($tool in $manifest.Tools) {
         $name = [string]$tool.Name
         $versionArgs = if ($name -eq 'gh') { @('--version') } else { @('--version') }
-        $installed = Get-InstalledToolVersion -Command $name -VersionArgs $versionArgs
+        $candidatePaths = Get-ToolCandidatePath -Tool $tool -PlatformKey $platformKey
+        $installed = Get-InstalledToolVersion -Command $name -VersionArgs $versionArgs -CandidatePath $candidatePaths
         $installedVersion = if ($installed) { $installed.Version } else { $null }
         $decision = Resolve-EvalToolDecision -Tool $tool -InstalledVersion $installedVersion
 

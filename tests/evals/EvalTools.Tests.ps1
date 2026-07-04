@@ -134,6 +134,36 @@ Describe 'Ensure-EvalTools' {
         }
     }
 
+    Context 'test:evaltools-resolve — known-install-dir fallback (design §4)' {
+        It 'test:evaltools-resolve builds a waza candidate path under the expanded install dir' {
+            $key = Get-EvalPlatformKey
+            $cands = @(Get-ToolCandidatePath -Tool $script:waza -PlatformKey $key)
+            $cands.Count | Should -BeGreaterThan 0
+            $cands[0] | Should -Match ([regex]::Escape($script:waza.Assets[$key].BinaryName) + '$')
+            $cands[0] | Should -Not -Match '%'
+        }
+
+        It 'test:evaltools-resolve offers platform-appropriate gh candidate paths' {
+            $key = Get-EvalPlatformKey
+            $cands = @(Get-ToolCandidatePath -Tool $script:gh -PlatformKey $key)
+            $cands.Count | Should -BeGreaterThan 0
+            foreach ($c in $cands) { $c | Should -Match '([\\/])gh(\.exe)?$' }
+        }
+
+        It 'test:evaltools-resolve resolves a not-on-PATH tool via an existing candidate path' {
+            $fake = Join-Path $TestDrive 'faketool.bin'
+            Set-Content -LiteralPath $fake -Value 'stub' -NoNewline
+            $r = Get-InstalledToolVersion -Command 'definitely-not-a-real-command-xyz' -CandidatePath @($fake)
+            $r | Should -Not -BeNullOrEmpty
+            $r.Path | Should -Be $fake
+        }
+
+        It 'test:evaltools-resolve returns null when neither PATH nor candidates resolve' {
+            $missing = Join-Path $TestDrive 'does-not-exist.bin'
+            Get-InstalledToolVersion -Command 'definitely-not-a-real-command-xyz' -CandidatePath @($missing) | Should -BeNullOrEmpty
+        }
+    }
+
     Context 'ConvertFrom-ToolVersionOutput' {
         It 'parses the waza version banner' {
             ConvertFrom-ToolVersionOutput -Text 'waza version 0.38.0' | Should -Be '0.38.0'

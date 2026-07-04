@@ -7,8 +7,16 @@ $ErrorActionPreference = 'Stop'
 # misplaced or misspelled field is warned-and-ignored, so a silently-dropped grader would read
 # as a false PASS. These tests assert EXACT field placement offline. All three ported
 # design-notes cases are describe-only REASONING scenarios graded on the response (bootstrap
-# scaffold, create a design note, update notes), so — like cip/autopilot — each task is a text
-# pre-check + resume-session judge with NO tool_constraint / code grader.
+# scaffold, create a design note, update notes), so — like cip/autopilot — each task pairs a
+# resume-session judge with a deterministic text pre-check and NO tool_constraint / code grader.
+#
+# 5.1 live-sweep refinement: the deterministic text pre-check is graded at the DRAFT turn via a
+# `checkpoints: after_turn: 1` block, NOT against final_output. The structured draft names the
+# graded concepts verbatim, but the terse follow-up confirmation paraphrases them ("eval" ->
+# "harness", "transcript" -> "capture"), which made a final_output text grader flake run-to-run.
+# Grading the draft turn is deterministic; the judge still runs (continue_session) at the final
+# turn. The update task also copies an EXISTING note fixture into the workspace so its Update
+# workflow has a real file to edit (otherwise the empty workspace makes the judge flake).
 
 Describe 'design-notes waza convention' {
     BeforeAll {
@@ -88,12 +96,26 @@ Describe 'design-notes waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape each task has a deterministic text pre-check grader in the graders block' {
+        It 'test:waza-spec-shape each task grades a deterministic text pre-check at the draft turn (checkpoints after_turn: 1)' {
+            foreach ($f in $script:taskFiles) {
+                $raw = Get-Content -LiteralPath $f.FullName -Raw
+                # The checkpoints block sits between the inputs and the (final-turn) graders block.
+                $cp = [regex]::Match($raw, '(?ms)^checkpoints:\s*\n(?<cp>.*?)^graders:\s*\n')
+                $cp.Success | Should -BeTrue
+                $cpBlock = $cp.Groups['cp'].Value
+                # Assert the exact nesting after_turn -> graders -> text -> regex_match in sequence.
+                # waza fails OPEN on a misplaced/misspelled field, so a dropped nested `graders:`
+                # key would silently drop the pre-check yet still leave `- type: text` textually
+                # present; anchoring on the nested `graders:` key guards that false-PASS mode.
+                $cpBlock | Should -Match '(?ms)^\s+-\s*after_turn:\s*1\s*\n.*?^\s+graders:\s*$.*?^\s+-\s*type:\s*text\b.*?^\s+regex_match:'
+            }
+        }
+
+        It 'test:waza-spec-shape the final-turn graders block has NO text grader (the pre-check moved to the draft-turn checkpoint)' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $graders | Should -Match '(?m)^\s+-\s*type:\s*text'
-                $graders | Should -Match '(?m)^\s+regex_match:'
+                $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*text'
             }
         }
 
@@ -104,6 +126,16 @@ Describe 'design-notes waza convention' {
                 $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*tool_constraint'
                 $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*code'
             }
+        }
+
+        It 'test:waza-spec-shape the update task copies an existing-note fixture so its Update workflow has a real file to edit' {
+            $updateFile = @($script:taskFiles | Where-Object { $_.BaseName -eq 'update-design-note' })[0]
+            $updateFile | Should -Not -BeNullOrEmpty
+            $raw = Get-Content -LiteralPath $updateFile.FullName -Raw
+            $raw | Should -Match '(?m)^\s+context:'
+            $raw | Should -Match '(?m)^\s+fixture:\s*fixtures/existing-eval-note\.design\.md'
+            $fixture = Join-Path $script:dnDir 'fixtures/existing-eval-note.design.md'
+            Test-Path -LiteralPath $fixture | Should -BeTrue
         }
     }
 

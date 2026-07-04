@@ -22,16 +22,21 @@ inputs:
   follow_up_prompts:
     - "State it plainly: name the two files you create and the templates they come from, say what happens when a target file already exists, and name what the user should run next."
 
-graders:
-  # Cheap deterministic pre-check (0 judge tokens): the answer must reference the index file
-  # and the bundled templates.
-  - type: text
-    name: mentions_index_and_templates
-    config:
-      regex_match:
-        - "(?i)\\.design-notes\\.md"
-        - "(?i)template"
+# Deterministic pre-check (0 judge tokens) graded at the DRAFT turn (after_turn: 1), BEFORE the
+# follow-up confirmation, so the check is robust to paraphrase in the terse final turn (5.1
+# live-sweep finding). on_failure: continue so the judge still runs at the final turn.
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_index_and_templates
+        config:
+          regex_match:
+            - "(?i)\\.design-notes\\.md"
+            - "(?i)template"
 
+graders:
   # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
   # session and deterministically sees the full answer in context. Binary pass/fail via
   # set_waza_grade_pass/fail.

@@ -9,30 +9,42 @@ tags:
   - design-notes-quality
   - functional
 inputs:
+  # An EXISTING design note is copied into the disposable workspace so the Update workflow has a
+  # real file to edit. Without it the agent finds an empty workspace and drafts a brand-new note,
+  # which the judge (correctly) fails on criterion 1 — the 5.1 live-sweep flake root cause.
+  context:
+    fixture: fixtures/existing-eval-note.design.md
   prompt: |
     A change just introduced sandboxed LLM evals: each eval now runs in a disposable,
-    isolated workspace. Following the design-notes skill's Update workflow, update an EXISTING
-    design note section to reflect the new contracts, constraints, and known limitations this
-    introduces.
+    isolated workspace. Following the design-notes skill's Update workflow, update the EXISTING
+    design note existing-eval-note.design.md (in your working directory) — edit its relevant
+    section(s) to reflect the new contracts, constraints, and known limitations this introduces.
 
-    IMPORTANT — for this exercise respond with the proposed edits / updated section in THIS
-    conversation. Do NOT create or write any files, do NOT run any repository scripts, and do
-    NOT output implementation code.
-  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
-  # final_output are populated even if the last action is a tool call.
+    IMPORTANT — for this exercise reason about the note shown in the file and respond with the
+    proposed edits / updated section in THIS conversation. You may READ the file, but do NOT
+    create or write any files, do NOT run any repository scripts, and do NOT output
+    implementation code.
+  # 1.0 hard-gate b: force a final assistant turn so final_output is populated even if the last
+  # action is a tool call. The deterministic text pre-check is graded at the draft turn (see
+  # checkpoints); the judge resumes the session at the final turn.
   follow_up_prompts:
-    - "Confirm your response is update-oriented (edits to an existing note, not a brand-new unrelated doc), calls out at least one limitation or trade-off of sandboxed eval execution, and stays focused on design-note content rather than code."
+    - "State it plainly in a sentence or two: name which existing section you updated for the new sandboxed/isolated eval workspace, and the one limitation or trade-off of sandboxed eval execution you called out."
+
+# Deterministic pre-check (0 judge tokens) graded at the DRAFT turn (after_turn: 1), robust to
+# paraphrase in the terse final turn (5.1 live-sweep finding). on_failure: continue so the judge
+# still runs at the final turn.
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_sandbox_and_tradeoff
+        config:
+          regex_match:
+            - "(?i)sandbox|isolat|disposable|throwaway|ephemeral|clone|workspace"
+            - "(?i)limitation|trade-?off|caveat|constraint|risk|downside"
 
 graders:
-  # Cheap deterministic pre-check (0 judge tokens): the update must engage with the sandbox
-  # change and a limitation/trade-off.
-  - type: text
-    name: mentions_sandbox_and_tradeoff
-    config:
-      regex_match:
-        - "(?i)sandbox"
-        - "(?i)limitation|trade-?off"
-
   # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
   # session and deterministically sees the full update in context. Binary pass/fail via
   # set_waza_grade_pass/fail.
