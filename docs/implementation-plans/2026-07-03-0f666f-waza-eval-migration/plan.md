@@ -124,7 +124,7 @@
 
 - [x] 4.1 Convert each `design-notes` prompt (`design-notes`/`cdn`/`udn`) to a `SKILL.md`, or confirm it is a pure alias over an existing skill and eval the skill directly. `review:cr` on the conversion. (REQ-13) [after: 2.6] `L`
 - [x] 4.2 Re-target the 3 `design-notes` cases (`create-design-note`, `update-design-note`, `bootstrap-scaffold`) at the skill and migrate to `plugins/design-notes/evals/waza/`; delete the legacy `plugins/design-notes/evals/llm/*.eval.json`. (REQ-13) [after: 4.1] `M`
-- [ ] 4.3 Add the currently-missing eval for `process-pr-comments`: author `plugins/process-pr-comments/evals/waza/eval.yaml` + ≥1 task. (REQ-13) [after: 2.1] `M`
+- [x] 4.3 Add the currently-missing eval for `process-pr-comments`: author `plugins/process-pr-comments/evals/waza/eval.yaml` + ≥1 task. (REQ-13) [after: 2.1] `M`
 - [ ] 4.4 Delete `tests/evals/EvalLlm.psm1` and remove its remaining `-IncludeLlm` wiring now that design-notes runs on waza (4.2): confirm the module is unreferenced and `Test-Evals.ps1` runs clean with it absent (`test:evalllm-retired`), Tier-1 still green. (REQ-8) [after: 4.2] `S`
 
 ## Phase 5: Verification + docs
