@@ -35,6 +35,8 @@ param(
     [string]$ReceiptDir,
     # Directory the pluggable adapters live in. Defaults beside the adapter dispatcher (installed layout).
     [string]$AdapterRoot,
+    # Directory the semantic-eval provider seam lives in. Defaults to <PSScriptRoot>/providers (installed layout).
+    [string]$ProviderRoot,
     # Compute + report without writing receipt files.
     [switch]$WhatIf
 )
@@ -224,12 +226,23 @@ function Get-ArchGateOutcome {
     contracts hard-gate: ONLY a real pass greens; anything else (fail, error, skip-absent-toolchain, or a
     pass that did not run) blocks — skip is never a false-green. Draft/provisional contracts warn on any
     non-pass so evolving contracts inform without blocking. Returns 'pass', 'warn', or 'block'.
+
+    The `semantic-eval` (LLM) adapter is ADVISORY IN THE GATE ALWAYS (REQ-10/REQ-16): its verdict never
+    blocks regardless of maturity — a non-pass warns, so a hijacked or flaky LLM cannot fail CI. Only the
+    deterministic adapters honour the locked hard-gate.
     #>
     param(
         [Parameter(Mandatory)][ValidateSet('locked', 'draft', 'provisional')][string]$Maturity,
         [Parameter(Mandatory)][ValidateSet('pass', 'fail', 'skip-absent-toolchain', 'error')][string]$Verdict,
-        [Parameter(Mandatory)][bool]$Ran
+        [Parameter(Mandatory)][bool]$Ran,
+        [ValidateSet('netarchtest', 'ts-arch', 'dependency-cruiser', 'semantic-eval')][string]$Adapter
     )
+
+    if ($Adapter -eq 'semantic-eval') {
+        # LLM verdicts are advisory only: a real pass greens the row, anything else warns; never block.
+        if ($Verdict -eq 'pass' -and $Ran) { return 'pass' }
+        return 'warn'
+    }
 
     if ($Verdict -eq 'pass' -and $Ran) { return 'pass' }
     if ($Maturity -eq 'locked') { return 'block' }
@@ -321,6 +334,7 @@ function Invoke-ArchTests {
         [Parameter(Mandatory)][string]$RepoRoot,
         [string]$ReceiptDir,
         [string]$AdapterRoot,
+        [string]$ProviderRoot,
         [switch]$WhatIf
     )
 
@@ -416,11 +430,74 @@ function Invoke-ArchTests {
 
         # Dispatch behind the lock-before-execute gate. Only a locked contract whose body hash verifies runs;
         # draft bodies skip (never a false-green); a mutated locked body is lock-invalidated -> error (blocks).
-        $adapterResult = Invoke-ArchTestAdapter -AdapterName $adapter -Contract $contractObj `
-            -BodyPaths @($bodyPaths) -RepoRoot $rootFull -TargetRoot $rootFull -AdapterRoot $AdapterRoot
-        $verdict = $adapterResult.status
-        $ran = $adapterResult.ran
-        $lockDecision = if ($adapterResult.PSObject.Properties.Name -contains 'decision') { [string]$adapterResult.decision } else { $null }
+        # The semantic-eval (LLM) adapter is a separate ADVISORY path: it reads UNTRUSTED contract prose (never
+        # an executable body), so it bypasses the lock-body gate and its verdict never blocks (see the gate).
+        if ($adapter -eq 'semantic-eval') {
+            $providerName = [string]$check.provider
+            $credentialTarget = if (($check.PSObject.Properties.Name -contains 'credentialTarget') -and $check.credentialTarget) { [string]$check.credentialTarget } else { $null }
+            $contractForProvider = if (($check.PSObject.Properties.Name -contains 'contractPath') -and $check.contractPath) {
+                $cp2 = [string]$check.contractPath
+                if ([System.IO.Path]::IsPathRooted($cp2)) { $cp2 } else { Join-Path $rootFull $cp2 }
+            }
+            else { $null }
+
+            if ([string]::IsNullOrWhiteSpace($contractForProvider)) {
+                # No contract to evaluate: advisory error (never a false pass), no provider call.
+                $verdict = 'error'
+                $ran = $false
+                $adapterResult = [pscustomobject]@{ status = 'error'; ran = $false; findings = @([pscustomobject]@{ severity = 'error'; message = "semantic-eval check '$contractId' declares no contractPath to evaluate." }); artifacts = @() }
+            }
+            else {
+                # dr: confine contractPath to the repo. A rooted / '..'-escaping path would let a config point
+                # the semantic-eval provider at a host-local secret and exfiltrate it to the LLM. Reject as
+                # advisory error (never read) before any provider call.
+                $resolvedContract = [System.IO.Path]::GetFullPath($contractForProvider)
+                $repoPrefix = [System.IO.Path]::GetFullPath($rootFull)
+                if (-not $repoPrefix.EndsWith([System.IO.Path]::DirectorySeparatorChar)) { $repoPrefix += [System.IO.Path]::DirectorySeparatorChar }
+                if (-not ($resolvedContract + [System.IO.Path]::DirectorySeparatorChar).StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $verdict = 'error'
+                    $ran = $false
+                    $adapterResult = [pscustomobject]@{ status = 'error'; ran = $false; findings = @([pscustomobject]@{ severity = 'error'; message = "semantic-eval check '$contractId': contractPath escapes the repository root; refusing to read '$contractForProvider'." }); artifacts = @() }
+                }
+                else {
+                    $seamRoot = if (-not [string]::IsNullOrWhiteSpace($ProviderRoot)) { $ProviderRoot } else { Join-Path $PSScriptRoot 'providers' }
+                    $seamPath = Join-Path $seamRoot 'SemanticEvalProvider.ps1'
+                    if (-not (Test-Path -LiteralPath $seamPath -PathType Leaf)) {
+                        # Advisory-always: a missing seam degrades to skip (never a throw that would abort sibling
+                        # checks), mirroring the deterministic dispatcher's missing-adapter handling.
+                        $verdict = 'skip-absent-toolchain'
+                        $ran = $false
+                        $adapterResult = [pscustomobject]@{ status = 'skip-absent-toolchain'; ran = $false; findings = @([pscustomobject]@{ severity = 'info'; message = "semantic-eval provider seam not found: $seamPath" }); artifacts = @() }
+                    }
+                    else {
+                        try {
+                            # dr: a seam that fails to dot-source/run (parse error, bad provider load) must NOT
+                            # abort sibling checks — convert any throw here into an advisory error row.
+                            . $seamPath
+                            $prov = Invoke-SemanticEvalProvider -ProviderName $providerName -ContractPath $contractForProvider `
+                                -TargetRoot $rootFull -ConfigPath $ConfigPath -CredentialTarget $credentialTarget
+                            $verdict = $prov.status
+                            # A verdict only counts as "ran" when the LLM actually produced pass/fail; skip/error did not run.
+                            $ran = ($verdict -eq 'pass' -or $verdict -eq 'fail')
+                            $adapterResult = [pscustomobject]@{ status = $verdict; ran = $ran; findings = @($prov.findings); artifacts = @($prov.artifacts) }
+                        }
+                        catch {
+                            $verdict = 'error'
+                            $ran = $false
+                            $adapterResult = [pscustomobject]@{ status = 'error'; ran = $false; findings = @([pscustomobject]@{ severity = 'error'; message = "semantic-eval seam failed to load/run: $($_.Exception.Message)" }); artifacts = @() }
+                        }
+                    }
+                }
+            }
+            $lockDecision = $null
+        }
+        else {
+            $adapterResult = Invoke-ArchTestAdapter -AdapterName $adapter -Contract $contractObj `
+                -BodyPaths @($bodyPaths) -RepoRoot $rootFull -TargetRoot $rootFull -AdapterRoot $AdapterRoot
+            $verdict = $adapterResult.status
+            $ran = $adapterResult.ran
+            $lockDecision = if ($adapterResult.PSObject.Properties.Name -contains 'decision') { [string]$adapterResult.decision } else { $null }
+        }
 
         # Persist the adapter findings and lock-gate decision so review can flag lock-invalidated drift and
         # distinguish a deliberate draft skip from an absent toolchain.
@@ -440,7 +517,7 @@ function Invoke-ArchTests {
         if ($lockDecision) { $receiptArgs.LockDecision = $lockDecision }
 
         $receipt = New-ArchTestReceipt @receiptArgs
-        $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $verdict -Ran $ran
+        $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $verdict -Ran $ran -Adapter $adapter
 
         $receiptPath = Join-Path $receiptRoot ("$contractId.arch-receipt.json")
         if (-not $WhatIf) {
@@ -474,7 +551,7 @@ function Invoke-ArchTests {
 if ($MyInvocation.InvocationName -ne '.') {
     if ([string]::IsNullOrWhiteSpace($ConfigPath)) { throw 'ConfigPath is required when running this script directly.' }
     if ([string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path }
-    $summary = Invoke-ArchTests -ConfigPath $ConfigPath -RepoRoot $RepoRoot -ReceiptDir $ReceiptDir -AdapterRoot $AdapterRoot -WhatIf:$WhatIf
+    $summary = Invoke-ArchTests -ConfigPath $ConfigPath -RepoRoot $RepoRoot -ReceiptDir $ReceiptDir -AdapterRoot $AdapterRoot -ProviderRoot $ProviderRoot -WhatIf:$WhatIf
     $summary | ConvertTo-Json -Depth 12
     if ($summary.Blocked -gt 0) { exit 1 }
     exit 0

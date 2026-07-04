@@ -57,6 +57,32 @@ from the registry and mangles the `--outputFile` arg), after a deterministic `np
 JUnit result; a `<skipped>`/`it.todo` assertion or an abnormal vitest exit is never a green. It emits
 `skip-absent-toolchain` when node/npm is absent. New adapters need no dispatcher change.
 
+## Semantic-eval provider seam (advisory LLM)
+
+The `semantic-eval` adapter is an **advisory** LLM layer behind a concrete, name-dispatched provider seam
+(`scripts/providers/SemanticEvalProvider.ps1`):
+
+```
+Invoke-SemanticEvalProvider -ProviderName <custom|mock|null|waza> -ContractPath <p> -TargetRoot <p> [-ConfigPath <p>] [-CredentialTarget <name>]
+  -> { provider; status; findings[]; artifacts[] }   # status ∈ pass/fail/skip-absent-toolchain/error
+```
+
+- **Advisory in the gate ALWAYS.** An LLM verdict never hard-blocks CI regardless of maturity — a
+  `semantic-eval` check maps to `pass` (real pass) or `warn` (anything else), never `block`. Deterministic
+  adapters keep the locked hard-gate; the LLM only informs.
+- **Swappable, two implementations ship.** `custom` (copilot-CLI judge, dedicated credential target) and
+  `mock`/`null` (deterministic, no credential, no LLM) prove the seam is backend-agnostic. `waza` is
+  **documented but not implemented** (its `eval.yaml` schema is not yet pinned) and reports
+  `skip-absent-toolchain`; adding it is a drop-in `Waza.Provider.ps1` + `provider: waza`, not a runner change.
+- **Dedicated credential, skip-not-error.** The provider reads its token from a dedicated Credential Manager
+  target (`credentialTarget`, default `skalary-arch-semantic-eval`) isolated from the eval harness. An unset
+  or missing credential, or an absent copilot CLI, yields `skip-absent-toolchain` — never `error`, never a
+  false pass.
+- **Untrusted-text hardening.** Contract prose is UNTRUSTED. Before it reaches a model it is wrapped in
+  per-invocation **GUID-suffixed boundary fences**, **boundary-token neutralized** (any sentinel — even a
+  guessed guid — is stripped), and the model must return **STRICT JSON only**; any non-JSON, out-of-taxonomy,
+  or unparseable verdict collapses to advisory `error`. Contract text is never executed.
+
 ## Config
 
 Checks live in an `arch-test-config.json` validated against

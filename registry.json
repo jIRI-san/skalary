@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T14:59:35.4367975Z",
+  "generatedAt": "2026-07-04T16:54:23.7168457Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -106,7 +106,7 @@
       "files": [
         {
           "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
-          "sha256": "b6220c1e60a2188d0a7b30269c39ee227b7022986aa9f82388f9af6ca7c1598a",
+          "sha256": "16df2d3479876636cee9b814fc68d7485e9807360406689bea00ea01bd523816",
           "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
         },
         {
@@ -136,17 +136,27 @@
         },
         {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
-          "sha256": "3155a7500acad6e0cc320127ecc0039ad7954dc38c15e5e5ac02463bf37b8bab",
+          "sha256": "ae5f88da6a3f95be2f33ff7a370851afc0eeb3918885830a3acf4dba294f6085",
           "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
         },
         {
+          "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
+          "sha256": "ef72a281f007c33a6cd6ef31da3f00f1ca4fcd79c2f53d81c04de085ec83f9a2",
+          "src": "scripts/providers/Custom.Provider.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/providers/Mock.Provider.ps1",
+          "sha256": "28366e23a346594a3ecbe0ea9a6efd4be2947edd0cd93b01f4359617d161bec4",
+          "src": "scripts/providers/Mock.Provider.ps1"
+        },
+        {
           "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
-          "sha256": "5460f232a98d779d7c9aa2c0e6178a9884f4cbee8b62f16f45f8f1b40742f497",
+          "sha256": "fd19d018dbb77ffc03d64cfd36f3bef439003e715bf4a724982c6f79441c2292",
           "src": "scripts/providers/SemanticEvalProvider.ps1"
         },
         {
           "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "2915796a574dc0a0448640e53601045ea627c26b0e0af096d5b84a71b8bd5052",
+          "sha256": "5c51365ba1e58c54a024fdfa4375727b9c207258b64faa39692ce0593060f53c",
           "src": "skills/architecture-tests/SKILL.md"
         }
       ],
@@ -159,7 +169,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.9"
+      "version": "1.0.13"
     },
     {
       "author": "jIRI-san",

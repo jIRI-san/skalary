@@ -23,7 +23,7 @@ Two test kinds, one runner, with a strict separation between **executing** tests
    structural frameworks cannot express (intent, naming semantics, layering rationale).
    Runs behind a **semantic-eval provider seam** so the LLM backend is swappable:
    - **Concrete provider interface** (`SemanticEvalProvider.ps1`):
-     `Invoke-SemanticEvalProvider -ProviderName -ContractPath -TargetRoot -ConfigPath` →
+     `Invoke-SemanticEvalProvider -ProviderName -ContractPath -TargetRoot -ConfigPath -CredentialTarget` →
      strict JSON `{ provider, status: pass|fail|skip-absent-toolchain|error, findings[],
      artifacts[] }`. The runner core depends only on this interface.
    - **`custom` provider (ships now):** reuses the eval-harness patterns with a **dedicated**
@@ -34,8 +34,11 @@ Two test kinds, one runner, with a strict separation between **executing** tests
      [Waza](https://microsoft.github.io/waza/) YAML `eval.yaml`, LLM-as-judge `prompt` graders,
      `mock`/`copilot-sdk` executors. A drop-in adapter against an external tool's evolving schema
      — treated as a planned contract, not a shipped one.
-   - **Never hard-blocks CI.** Per-contract "promotion" only raises the report severity of an
-     LLM finding; it does not turn a non-deterministic verdict into a build-breaking gate.
+   - **Never hard-blocks CI.** The semantic-eval gate outcome is **flat advisory regardless of
+     contract maturity** — `Get-ArchGateOutcome` maps a `semantic-eval` verdict to `pass` (a real,
+     ran pass) or `warn` (anything else), never `block`, so a non-deterministic verdict can never
+     break the build. Maturity does not elevate an LLM finding in the gate; the locked hard-gate
+     applies only to the deterministic adapters.
 
    > Decoupling rationale: the eval backend is under active evaluation (custom → Waza). The
    > runner must not hard-depend on `.eval.config.json`/`Test-Evals.ps1`; a thin provider seam

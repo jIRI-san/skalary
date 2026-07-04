@@ -58,7 +58,13 @@
           "provider": {
             "type": "string",
             "minLength": 1,
-            "description": "Semantic-eval provider name (required when adapter=semantic-eval)."
+            "enum": ["custom", "mock", "null", "waza"],
+            "description": "Semantic-eval provider name (required when adapter=semantic-eval). One of: custom, mock, null, waza."
+          },
+          "credentialTarget": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional dedicated Windows Credential Manager target the semantic-eval provider reads its LLM token from. Isolated from the plugin eval harness credential; skip-not-error when unset or missing."
           }
         },
         "allOf": [
