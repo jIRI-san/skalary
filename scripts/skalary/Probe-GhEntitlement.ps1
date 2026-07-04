@@ -201,10 +201,19 @@ function Get-WazaModelCount {
         return 0
     }
     if ($null -eq $parsed) { return 0 }
-    # `waza models --json` may emit a bare array or an object wrapping a `models` array.
+    # `waza models --json` emits EITHER a bare array OR an object wrapping a `models` array.
+    # Anything else (an error/status object like {"error":...}, a scalar, or {}) is NOT a model
+    # list and must count as 0 — a fail-CLOSED fallback. A permissive `@($parsed).Count` would
+    # score a bogus error object as "1 model", which in -SkipTask mode (no live-task backstop)
+    # would falsely report a non-entitled token as ENTITLED.
     if ($parsed -is [System.Array]) { return @($parsed).Count }
-    if ($parsed.PSObject.Properties.Name -contains 'models') { return @($parsed.models).Count }
-    return @($parsed).Count
+    # StrictMode-safe member probe: indexer returns $null when absent, and a scalar
+    # (string/number/bool from ConvertFrom-Json) is not a PSCustomObject so it can't wrap models.
+    if ($parsed -is [System.Management.Automation.PSCustomObject]) {
+        $modelsProp = $parsed.PSObject.Properties['models']
+        if ($null -ne $modelsProp) { return @($modelsProp.Value).Count }
+    }
+    return 0
 }
 
 function Invoke-GhEntitlementProbe {

@@ -57,19 +57,26 @@ On first `-IncludeLlm` run, a missing `.eval.config.json` is bootstrapped from t
 
 ### gh-token Copilot entitlement (1.4 gate)
 
-waza's embedded copilot-sdk requires a `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`; `Resolve-EvalToken` prefers `gh auth token` because gh's OAuth token auto-refreshes and so sidesteps the corp 7-day PAT cap. Whether a `gh auth token` OAuth token actually **carries the Copilot entitlement** copilot-sdk accepts depends on the account/org (GitHub app grant + SSO) and must be confirmed live before gh is committed as the single seamless source.
+waza's embedded copilot-sdk requires a `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`; `Resolve-EvalToken` prefers `gh auth token` because gh's OAuth token auto-refreshes and so sidesteps the corp 7-day PAT cap. Whether a `gh auth token` OAuth token actually **carries the Copilot entitlement** copilot-sdk accepts depends on the account/org (GitHub app grant + SSO) and must be confirmed live before gh is committed as the single seamless source. The confirmation is a repeatable one-per-machine script, `scripts/skalary/Probe-GhEntitlement.ps1` (pure decision helpers covered by `tests/evals/ProbeGhEntitlement.Tests.ps1`): it pre-seeds PATH with an installed-but-not-on-PATH gh/waza, runs `gh auth login` if needed, resolves via `Resolve-EvalToken` asserting `Source = gh`, then confirms entitlement with `waza models` (decisive, ~0 cost) and one live `cr flag-planted-bug` task; it writes a gitignored result JSON + a table row and never prints the token.
 
-**Live-probe status (2026-07-04, personal dev machine): UNVERIFIED — pending interactive auth.** The probe (`gh auth login` → resolve via `Resolve-EvalToken` → `waza models` + one `cr` task) needs a human browser OAuth flow, so it cannot be run unattended; this is why the gate is `@human`.
+**Live-probe status (2026-07-04, personal dev machine `jIRI-san @ github.com`): VERIFIED — ENTITLED.** `Probe-GhEntitlement.ps1` resolved the token from **gh** (not the Cred-Manager fallback), `waza models` listed **16 models**, and the live `cr flag-planted-bug` task passed 100% (score 1.00, 1 premium request, exit 0). So a personal `gh auth token` OAuth token carries the Copilot entitlement copilot-sdk accepts. The gate remains `@human` only because the browser OAuth step cannot run unattended.
+
+Live-probe entitlement record (account @ host | source | models | task | verdict):
+
+| Account @ host | Source | Models | Live `cr` task | Verdict |
+|---|---|---|---|---|
+| `jIRI-san @ github.com` (personal dev) | gh | 16 | PASS | **ENTITLED** |
+| _corp work machine under SSO_ | — | — | — | **PENDING** (re-run the same probe at work) |
 
 Verified autonomously in support of the gate:
 
 | Check | Result |
 |---|---|
 | Token-resolver precedence (`gh` → ambient → Cred-Manager → skip) | Passing (`test:resolvetoken-precedence`, step 1.3) |
-| Proven token source in use | Cred-Manager `copilot-eval` PAT present and resolvable; PoC ran 2/2 green against the real `cr` bundle on this token |
+| Fallback token source | Cred-Manager `copilot-eval` PAT present and resolvable; PoC ran 2/2 green against the real `cr` bundle on this token — retained as the CI/unattended fallback |
 | gh provisioning (`Ensure-EvalTools`) | winget resolves the pinned `GitHub.cli 2.96.0` and verifies the installer hash, but the MSI **requires elevation** — a non-elevated install aborts (winget exit `1602`). gh must therefore be pre-installed or installed from an elevated context on dev/CI machines (feeds the Phase 3 ADO rollout). |
 
-**Decision pending the live result:** the Cred-Manager `copilot-eval` PAT stays the real token source and the migration proceeds on it — this gate is non-blocking for Phase 2. gh is promoted to the seamless source (and the at-work rollout) only once the live probe confirms entitlement. **Affected corp orgs are PENDING** a work-machine run of the same probe under corp SSO; the entitled orgs are to be recorded in this table when known.
+**Decision:** on a machine where a human can auth, **gh is the promoted seamless source** — the personal-box probe confirms a gh OAuth token is entitled and auto-refreshes, sidestepping the 7-day PAT regen. The Cred-Manager `copilot-eval` PAT stays the unattended/CI fallback (resolver precedence already prefers gh when present). **Corp orgs remain PENDING** a work-machine run of the same probe under corp SSO; record the entitled orgs in the table above when known.
 
 ## Known Limitations
 

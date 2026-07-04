@@ -60,6 +60,19 @@ Describe 'Probe-GhEntitlement pure helpers' {
             Get-WazaModelCount -JsonText '' | Should -Be 0
             Get-WazaModelCount -JsonText 'not json' | Should -Be 0
         }
+
+        It 'returns 0 (fail-closed) for valid JSON that is NOT a model list' {
+            # An error/status object, an empty object, and scalars must never count as models —
+            # otherwise -SkipTask (no live-task backstop) could report a bad token as ENTITLED.
+            Get-WazaModelCount -JsonText '{"error":"unauthorized"}' | Should -Be 0
+            Get-WazaModelCount -JsonText '{}' | Should -Be 0
+            Get-WazaModelCount -JsonText '"hi"' | Should -Be 0
+            Get-WazaModelCount -JsonText '0' | Should -Be 0
+        }
+
+        It 'counts 0 for an empty models wrapper' {
+            Get-WazaModelCount -JsonText '{"models":[]}' | Should -Be 0
+        }
     }
 
     Context 'Format-GhEntitlementTableRow — renders the design-note row' {
