@@ -101,8 +101,8 @@
 ## Phase 5: Evals
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 5.1 Complete the four structural evals (`.Tests.ps1`) — frontmatter/required-keys/body/link checks per skill, plus assertions that `_Common.ps1` (and each skill's read-only scripts) are present in `registry.json` and the installed tree (REQ-3, REQ-7, REQ-11) [after: 2.3] `M`
-- [ ] 5.2 Complete at least one LLM `.eval.json` per skill (install/uninstall/list/update scenarios with judge rubrics) validated by `Test-Evals.ps1` (REQ-7) [after: 2.2] `M`
+- [x] 5.1 Complete the four structural evals (`.Tests.ps1`) — frontmatter/required-keys/body/link checks per skill, plus assertions that `_Common.ps1` (and each skill's read-only scripts) are present in `registry.json` and the installed tree (REQ-3, REQ-7, REQ-11) [after: 2.3] `M`
+- [x] 5.2 Complete at least one LLM `.eval.json` per skill (install/uninstall/list/update scenarios with judge rubrics) validated by `Test-Evals.ps1` (REQ-7) [after: 2.2] `M`
 
 ## Phase 6: Docs
 <!-- worktree: (recorded by /ci when worktree is created) -->

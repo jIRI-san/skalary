@@ -1,0 +1,9 @@
+{
+  "artifact": "skills/list-plugins/SKILL.md",
+  "scenario": "Show every available plugin and which are installed, then search for plugins matching 'review'.",
+  "rubric": [
+    "Runs Get-Plugin.ps1 for the full available-plus-installed listing and Find-Plugin.ps1 for the search.",
+    "Invokes the scripts directly with -RepoRoot . and relies on the registry-path fallback instead of assuming a root registry.json.",
+    "Presents name, version, and installed/modified/outdated status and mutates nothing."
+  ]
+}

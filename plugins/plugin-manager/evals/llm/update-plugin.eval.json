@@ -1,0 +1,9 @@
+{
+  "artifact": "skills/update-plugin/SKILL.md",
+  "scenario": "Update the installed 'code-review' plugin to the latest version from the default source.",
+  "rubric": [
+    "Invokes Update-Plugin.ps1 directly with -RepoRoot . and the default jIRI-san/skalary@main source unless overridden.",
+    "Preserves locally-modified files unless the user confirms -Force after being shown which files differ.",
+    "Reports the old-to-new version change from the script output."
+  ]
+}
