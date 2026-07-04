@@ -1,8 +1,8 @@
 {
   "bootstrap": {
-    "oneLiner": "irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1 | iex",
-    "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
-    "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
+    "oneLiner": "irm https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1 | iex",
+    "ref": "main",
+    "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
   "generatedAt": "2026-06-28T13:23:17.9176729Z",
   "plugins": [

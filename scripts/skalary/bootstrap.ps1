@@ -5,7 +5,7 @@ param(
 
     [string]$Repository = 'jIRI-san/skalary',
 
-    [string]$Ref = 'c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd'
+    [string]$Ref = 'main'
 )
 
 Set-StrictMode -Version Latest

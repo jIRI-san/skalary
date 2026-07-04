@@ -7,7 +7,7 @@ Plugin-based GitHub Copilot customizations for prompts, skills, and agents.
 Bootstrap scripts and registry into a target repository:
 
 ```powershell
-irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1 | iex
 ```
 
 `bootstrap.ps1` downloads `scripts/skalary/*.ps1` and `registry.json` into `scripts/skalary/`, creates `.github/.skalary/`, and does not execute plugin payload.
@@ -15,9 +15,9 @@ irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080
 ### Review Guidance
 
 Before running the one-liner:
-1. Review `scripts/skalary/bootstrap.ps1` at the pinned ref.
+1. Review `scripts/skalary/bootstrap.ps1` at the ref you intend to install.
 2. Confirm the repo/ref pair is the source you trust.
-3. Prefer pinning immutable SHAs (not moving branches).
+3. Pin an immutable SHA instead of `main` if you need a reproducible install.
 
 ## Usage
 
