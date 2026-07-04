@@ -133,6 +133,19 @@ function Find-AutoApproveInnerSpan {
             elseif ($ch -eq '"') { $inString = $false }
             continue
         }
+        # Skip JSONC comments so braces inside them never miscount depth.
+        if ($ch -eq '/' -and ($i + 1) -lt $Text.Length -and $Text[$i + 1] -eq '/') {
+            $nl = $Text.IndexOf("`n", $i)
+            if ($nl -lt 0) { break }
+            $i = $nl
+            continue
+        }
+        if ($ch -eq '/' -and ($i + 1) -lt $Text.Length -and $Text[$i + 1] -eq '*') {
+            $end = $Text.IndexOf('*/', $i + 2)
+            if ($end -lt 0) { throw 'Malformed .vscode/settings.json: unterminated block comment.' }
+            $i = $end + 1
+            continue
+        }
         if ($ch -eq '"') { $inString = $true; continue }
         if ($ch -eq '{') { $depth++ }
         elseif ($ch -eq '}') {
@@ -169,6 +182,10 @@ function Set-ApprovalKeys {
     $span = Find-AutoApproveInnerSpan -Text $Text
 
     if ($null -eq $span) {
+        # Nothing to remove when there is no block; never fabricate an empty one.
+        if ($Add.Count -eq 0) {
+            return $Text
+        }
         # No autoApprove block yet: create one at the top of the root object.
         $rootBrace = $Text.IndexOf('{')
         if ($rootBrace -lt 0) {

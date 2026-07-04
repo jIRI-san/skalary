@@ -143,4 +143,35 @@ Describe 'Set-ScriptApproval' {
         $keys | Should -Contain 'git add'
         $keys | Should -Contain 'dotnet build'
     }
+
+    It 'test:SetScriptApproval.Jsonc survives braces inside comments' {
+        $jsonc = @'
+{
+  // a brace in a comment: { should not break the scan }
+  "chat.tools.terminal.autoApprove": {
+    /* another } brace { here */
+    "git add": true
+  },
+  "editor.tabSize": 2
 }
+'@
+        $root = New-ApprovalFixture -SettingsContent $jsonc
+        $settings = Join-Path $root '.vscode/settings.json'
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+        $keys = Get-ApproveKeys -Path $settings
+        $keys | Should -Contain '.github/skills/lp/scripts/Get-Plugin.ps1'
+        $keys | Should -Contain 'git add'
+        ([System.IO.File]::ReadAllText($settings)) | Should -Match '"editor\.tabSize": 2'
+    }
+
+    It 'test:SetScriptApproval.MergeRemove -Remove is a no-op when there is no autoApprove block' {
+        $root = New-ApprovalFixture -SettingsContent "{`n  `"editor.tabSize`": 2`n}"
+        $settings = Join-Path $root '.vscode/settings.json'
+        $before = [System.IO.File]::ReadAllText($settings)
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root -Remove *> $null
+        [System.IO.File]::ReadAllText($settings) | Should -Be $before
+    }
+}
+
