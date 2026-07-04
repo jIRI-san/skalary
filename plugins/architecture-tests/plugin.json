@@ -1,6 +1,6 @@
 {
   "name": "architecture-tests",
-  "version": "1.0.13",
+  "version": "1.0.15",
   "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -28,6 +28,10 @@
     {
       "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
       "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
+    },
+    {
+      "src": "skills/architecture-tests/scripts/ArchReceipt.psm1",
+      "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1"
     },
     {
       "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",

@@ -8,6 +8,7 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 - `test:<TestId>` -> run only the named Pester test and fail if it is missing or failing.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
+- `arch:<ContractId>` -> verified by the same validator: `Invoke-PlanArchEvidence` PURE-PARSES the contract's integrity/freshness receipt (never runs a toolchain), rejecting a missing/stale/malformed receipt and mapping the recorded verdict through the taxonomy x maturity gate (`locked`: only a real `pass` greens; `fail`/`error`/`skip` block; `draft`/`provisional` warn; `semantic-eval` advisory-always).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.

@@ -562,4 +562,68 @@ function Get-NextStep {
     }
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep
+function Get-TypedEvidenceMarkers {
+    <#
+    .SYNOPSIS
+    Extracts the closed-vocabulary typed evidence markers from an acceptance-criteria cell.
+
+    .DESCRIPTION
+    The closed vocabulary is `test:<TestId>`, `file:<path>#<assertion>`, `review:cr|dr`, and
+    `arch:<ContractId>`. Pure string parsing (no execution). A `·`-separated segment that is marker-SHAPED
+    (`<prefix>:<value>`) but whose prefix is NOT in the closed set is surfaced VERBATIM so the evaluator
+    fails loud on it — a stale installed bundle that does not recognize `arch:` must BLOCK rather than
+    silently drop the marker and false-green (RISK-12).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$AcceptanceCriteria
+    )
+
+    $markers = [System.Collections.Generic.List[string]]::new()
+    $segments = $AcceptanceCriteria.Split('·')
+    foreach ($segment in $segments) {
+        $trimmed = $segment.Trim().Trim('`').Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) {
+            continue
+        }
+
+        $matched = $false
+
+        foreach ($testMatch in [regex]::Matches($trimmed, 'test:[^\s`|·]+')) {
+            $markers.Add($testMatch.Value.Trim())
+            $matched = $true
+        }
+
+        foreach ($reviewMatch in [regex]::Matches($trimmed, 'review:(?:cr|dr)')) {
+            $markers.Add($reviewMatch.Value.Trim())
+            $matched = $true
+        }
+
+        foreach ($archMatch in [regex]::Matches($trimmed, 'arch:[^\s`|·#]+')) {
+            $markers.Add($archMatch.Value.Trim())
+            $matched = $true
+        }
+
+        foreach ($fileMatch in [regex]::Matches($trimmed, 'file:[^#\s`|·]+#.+$')) {
+            $value = $fileMatch.Value.Trim().Trim('`').Trim()
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+                $markers.Add($value)
+                $matched = $true
+            }
+        }
+
+        # Fail-loud on an unrecognized typed-marker prefix: a marker-shaped token (`<prefix>:<value>`) that no
+        # known extractor matched is surfaced verbatim so the evaluator flags it as unknown. Unanchored (like the
+        # known extractors) so an unknown marker with surrounding text is still caught, never silently dropped.
+        if (-not $matched) {
+            foreach ($unknownMatch in [regex]::Matches($trimmed, '[a-z][a-z-]*:[^\s`|·]+')) {
+                $markers.Add($unknownMatch.Value.Trim())
+            }
+        }
+    }
+
+    return , $markers.ToArray()
+}
+
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers

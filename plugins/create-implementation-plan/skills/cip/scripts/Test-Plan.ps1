@@ -26,39 +26,8 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
-function Get-TypedEvidenceMarkers {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$AcceptanceCriteria
-    )
-
-    $markers = [System.Collections.Generic.List[string]]::new()
-    $segments = $AcceptanceCriteria.Split('·')
-    foreach ($segment in $segments) {
-        $trimmed = $segment.Trim().Trim('`').Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed)) {
-            continue
-        }
-
-        foreach ($testMatch in [regex]::Matches($trimmed, 'test:[^\s`|·]+')) {
-            $markers.Add($testMatch.Value.Trim())
-        }
-
-        foreach ($reviewMatch in [regex]::Matches($trimmed, 'review:(?:cr|dr)')) {
-            $markers.Add($reviewMatch.Value.Trim())
-        }
-
-        foreach ($fileMatch in [regex]::Matches($trimmed, 'file:[^#\s`|·]+#.+$')) {
-            $value = $fileMatch.Value.Trim().Trim('`').Trim()
-            if (-not [string]::IsNullOrWhiteSpace($value)) {
-                $markers.Add($value)
-            }
-        }
-    }
-
-    return , $markers.ToArray()
-}
+# Get-TypedEvidenceMarkers now lives in PlanState.psm1 (the shared parser) so the closed vocabulary and its
+# fail-loud-on-unknown-prefix behavior are single-sourced; it is imported below and called by this validator.
 
 function Get-StepPoints {
     [CmdletBinding()]
@@ -337,6 +306,31 @@ function Test-PlanMetadata {
             if ($marker.StartsWith('file:')) {
                 try {
                     $result = Invoke-PlanFileEvidence -RepoRoot $Metadata.RepoRoot -Marker $marker -Stage $Stage
+                    if (-not $result.Success) {
+                        if ($result.Blocking -and $isOptedIn) {
+                            $errors.Add("$($requirement.Id): $($result.Message) [$marker]")
+                        }
+                        else {
+                            $warnings.Add("$($requirement.Id): $($result.Message) [$marker]")
+                        }
+                    }
+                }
+                catch {
+                    if ($isOptedIn) {
+                        $errors.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
+                    }
+                    else {
+                        $warnings.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
+                    }
+                }
+                continue
+            }
+
+            if ($marker.StartsWith('arch:')) {
+                # Verified by PURE-PARSING the integrity/freshness receipt (no toolchain execution). A missing/
+                # stale/malformed receipt fails loud; the taxonomy x maturity gate decides blocking vs advisory.
+                try {
+                    $result = Invoke-PlanArchEvidence -RepoRoot $Metadata.RepoRoot -Marker $marker -Stage $Stage
                     if (-not $result.Success) {
                         if ($result.Blocking -and $isOptedIn) {
                             $errors.Add("$($requirement.Id): $($result.Message) [$marker]")

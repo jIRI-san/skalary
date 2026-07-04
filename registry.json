@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T16:54:23.7168457Z",
+  "generatedAt": "2026-07-04T21:50:10.5871154Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -125,6 +125,11 @@
           "src": "scripts/adapters/TsArch.Adapter.ps1"
         },
         {
+          "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
+          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "src": "skills/architecture-tests/scripts/ArchReceipt.psm1"
+        },
+        {
           "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
           "sha256": "7a64bcfd9c5775703aef9a37a4b68587ee0e772e83d89a52f8e75e677e1cbd87",
           "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1"
@@ -136,7 +141,7 @@
         },
         {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
-          "sha256": "ae5f88da6a3f95be2f33ff7a370851afc0eeb3918885830a3acf4dba294f6085",
+          "sha256": "9a039e95470cdf600ed7a5706c0ae72f4d4673cd5768e3e3f993941aa97ff8e3",
           "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
         },
         {
@@ -169,7 +174,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.13"
+      "version": "1.0.15"
     },
     {
       "author": "jIRI-san",
@@ -378,7 +383,7 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "0e4117866978a7be64b479ce80af83819b9f5abd2b37d261d1f3adae64bcf535",
+          "sha256": "fbf1dd952b6dbd24fa1d4f0e791fb10fbbec87c15742b7147eb77fc99d964a81",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -397,6 +402,11 @@
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
+          "dest": "skills/ci/scripts/ArchReceipt.psm1",
+          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "src": "skills/ci/scripts/ArchReceipt.psm1"
+        },
+        {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
           "sha256": "d9d9b6f09640613a77ca4652a6b0f941c7be97596526e292f13d0bd3ca11f08d",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
@@ -408,12 +418,12 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
+          "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "082371f3863ab73edc583ec687495864cfc25a32bc8b66201f16b1f0864c01f7",
+          "sha256": "0825f2c07ca79c5766bb91499230581163ae2fa6e32336ed202d55e88f07ad04",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -433,7 +443,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
-          "sha256": "650eba90f186b1d2e1ac279603d65598d91fc8d2d3f0bad7b31454a3b3d26e31",
+          "sha256": "b7d273a59a59f6a3225c674895aee3d6f46ff2fd15d970569983b627517b7697",
           "src": "skills/ci/scripts/Test-Plan.ps1"
         },
         {
@@ -450,7 +460,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",
@@ -488,18 +498,23 @@
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
+          "dest": "skills/cip/scripts/ArchReceipt.psm1",
+          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "src": "skills/cip/scripts/ArchReceipt.psm1"
+        },
+        {
           "dest": "skills/cip/scripts/New-Plan.ps1",
           "sha256": "ea4ebea608d06f12e92050ac56116d5d2a5a3aafcc8893cf061c16e026e3d5db",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
+          "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "082371f3863ab73edc583ec687495864cfc25a32bc8b66201f16b1f0864c01f7",
+          "sha256": "0825f2c07ca79c5766bb91499230581163ae2fa6e32336ed202d55e88f07ad04",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -514,7 +529,7 @@
         },
         {
           "dest": "skills/cip/scripts/Test-Plan.ps1",
-          "sha256": "650eba90f186b1d2e1ac279603d65598d91fc8d2d3f0bad7b31454a3b3d26e31",
+          "sha256": "b7d273a59a59f6a3225c674895aee3d6f46ff2fd15d970569983b627517b7697",
           "src": "skills/cip/scripts/Test-Plan.ps1"
         },
         {
@@ -530,7 +545,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",
