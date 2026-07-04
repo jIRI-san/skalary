@@ -1,0 +1,406 @@
+#requires -Version 7.0
+<#
+.SYNOPSIS
+Architecture-tests runner: computes freshness-bound receipts for architecture-contract checks.
+
+.DESCRIPTION
+Canonical source of the arch-tests runner. It is BUNDLED into the architecture-tests plugin via
+Sync-PluginScripts (the plugin references .github/skills/architecture-tests/scripts/Invoke-ArchTests.ps1);
+there is intentionally NO plugin-local authored copy so the drift gate keeps a single source of truth.
+
+Responsibilities (Phase 4.1):
+  * Read a runner config (arch-test-config.schema.json) that binds each contract to an adapter + sources.
+  * Compute a canonical tree/content hash over each contract's definition, binding, and target sources
+    (add/edit/delete-sensitive; repointing an adapter/spec/testProject also invalidates it).
+  * Record the parent commit (HEAD SHA) at run time.
+  * Emit one receipt per check (arch-test-receipt.schema.json) under docs/architecture-notes/receipts.
+  * Map the failure-taxonomy verdict to a gate outcome honouring contract maturity.
+
+Deterministic and semantic adapters land in Phase 4.2/5.3. Until an adapter is wired, a check that
+cannot execute yields verdict 'skip-absent-toolchain' (ran=false) — which is NEVER a pass for a locked
+contract. This script performs NO real toolchain execution and NEVER shells dotnet/npm/vitest; it is
+safe to dot-source (functions only) and safe to run structurally.
+
+The trust anchor is the human-authored git commit + review, NOT this receipt: the receipt attests that a
+run happened at a recorded tree-state, and freshness compares sourcesHash (contract + binding + targets)
+rather than raw HEAD equality, so committing the receipt does not self-invalidate it.
+#>
+[CmdletBinding()]
+param(
+    # Runner config validated against arch-test-config.schema.json.
+    [string]$ConfigPath,
+    # Repository root that source paths and receipt locations resolve against.
+    [string]$RepoRoot,
+    # Directory receipts are written to. Defaults to <RepoRoot>/docs/architecture-notes/receipts.
+    [string]$ReceiptDir,
+    # Compute + report without writing receipt files.
+    [switch]$WhatIf
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$script:ArchTestAdapters = @('netarchtest', 'ts-arch', 'dependency-cruiser', 'semantic-eval')
+$script:ArchTestVerdicts = @('pass', 'fail', 'skip-absent-toolchain', 'error')
+$script:ArchTestMaturities = @('locked', 'draft', 'provisional')
+$script:ArchTestIdPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+# git OID: SHA-1 (40 hex) or SHA-256 (64 hex).
+$script:ArchTestCommitPattern = '^[a-f0-9]{40}([a-f0-9]{24})?$'
+
+function Get-ArchTestSourcesHash {
+    <#
+    .SYNOPSIS
+    Canonical tree/content hash of a contract's source paths plus optional synthetic binding records.
+
+    .DESCRIPTION
+    Order- and encoding-stable, add/edit/delete-sensitive. Each resolved file is addressed by its
+    case-preserving relative path (forward slashes) relative to RepoRoot; content is BOM-stripped and
+    CRLF/CR normalized to LF; records are fed as UTF8(relPath)+NUL+UTF8(content)+NUL in ordinal-sorted
+    relative-path order. -ExtraContent injects synthetic records (e.g. the check's binding fields) keyed
+    by a NUL-prefixed name that can never collide with a real relative path, so changing an adapter/spec
+    /testProject/provider invalidates the digest even when no file content changed.
+
+    Editing, adding, or deleting any resolved source (or any binding field) changes the digest;
+    reordering the filesystem does not. Returns the lower-hex SHA-256, the ordered real-file paths, and
+    the resolved real-file count (excluding synthetic records).
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Paths,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [hashtable]$ExtraContent
+    )
+
+    $rootFull = (Resolve-Path -LiteralPath $RepoRoot).Path
+    $rootPrefix = $rootFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $records = [System.Collections.Generic.List[object]]::new()
+    $fileCount = 0
+
+    foreach ($p in @($Paths)) {
+        if ([string]::IsNullOrWhiteSpace($p)) { continue }
+        $full = if ([System.IO.Path]::IsPathRooted($p)) { $p } else { Join-Path $rootFull $p }
+
+        # Expand directories and globs to a stable file set. Literal existing paths are read as-is;
+        # only genuinely non-existent paths fall through to wildcard resolution.
+        $resolved = @()
+        if (Test-Path -LiteralPath $full -PathType Container) {
+            $resolved = @(Get-ChildItem -LiteralPath $full -Recurse -File -ErrorAction SilentlyContinue)
+        }
+        elseif (Test-Path -LiteralPath $full -PathType Leaf) {
+            $resolved = @(Get-Item -LiteralPath $full -ErrorAction SilentlyContinue)
+        }
+        elseif ($full -match '[\*\?\[\]]') {
+            $resolved = @(Get-ChildItem -Path $full -File -ErrorAction SilentlyContinue)
+        }
+        else {
+            # A declared literal target that does not exist: leave $resolved empty so its absence is
+            # add/delete-sensitive (deleting a listed file changes the digest by removing its record).
+            $resolved = @()
+        }
+
+        foreach ($f in $resolved) {
+            $fp = $f.FullName
+            if (-not $seen.Add($fp)) { continue }
+            $rel = $fp
+            if ($fp.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $rel = $fp.Substring($rootPrefix.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+            }
+            # Case-preserving so a case-only rename is visible and two case-distinct files on a
+            # case-sensitive filesystem never collapse to one record (which would make the sort unstable).
+            $rel = $rel.Replace('\', '/')
+            $records.Add([pscustomobject]@{ Rel = $rel; FullName = $fp; Synthetic = $false })
+            $fileCount++
+        }
+    }
+
+    if ($ExtraContent) {
+        foreach ($key in $ExtraContent.Keys) {
+            $records.Add([pscustomobject]@{ Rel = [string]$key; Content = [string]$ExtraContent[$key]; Synthetic = $true })
+        }
+    }
+
+    # Ordinal sort so the canonical record order is identical across OSes/ICU versions.
+    $records.Sort([System.Comparison[object]] { param($a, $b) [string]::CompareOrdinal($a.Rel, $b.Rel) })
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $buffer = [System.IO.MemoryStream]::new()
+        $utf8 = [System.Text.UTF8Encoding]::new($false)
+        foreach ($r in $records) {
+            $raw = if ($r.Synthetic) { [string]$r.Content } else { [System.IO.File]::ReadAllText($r.FullName) }
+            $raw = $raw -replace "`r`n", "`n" -replace "`r", "`n"
+            $relBytes = $utf8.GetBytes($r.Rel)
+            $contentBytes = $utf8.GetBytes($raw)
+            $buffer.Write($relBytes, 0, $relBytes.Length)
+            $buffer.WriteByte(0)
+            $buffer.Write($contentBytes, 0, $contentBytes.Length)
+            $buffer.WriteByte(0)
+        }
+        $buffer.Position = 0
+        $hashBytes = $sha.ComputeHash($buffer)
+        $buffer.Dispose()
+    }
+    finally {
+        $sha.Dispose()
+    }
+
+    $hex = -join ($hashBytes | ForEach-Object { $_.ToString('x2') })
+    return [pscustomobject]@{
+        Digest = $hex
+        Files  = @($records | Where-Object { -not $_.Synthetic } | ForEach-Object { $_.Rel })
+        Count  = $fileCount
+    }
+}
+
+function Resolve-ArchTestParentCommit {
+    <#
+    .SYNOPSIS
+    Resolves the parent commit (HEAD SHA) recorded in a receipt.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $sha = (& git -C $RepoRoot rev-parse HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sha)) {
+        throw "Unable to resolve parent commit (git rev-parse HEAD) under: $RepoRoot"
+    }
+    return ([string]$sha).Trim()
+}
+
+function Get-ArchTestCheckBinding {
+    <#
+    .SYNOPSIS
+    Canonical, order-stable JSON of a check's identity/binding fields for the freshness digest.
+
+    .DESCRIPTION
+    Folds the fields that change WHAT a contract enforces (adapter, spec, testProject, provider,
+    maturity, contractId, contractPath, sorted targets) into the hash so repointing any of them
+    invalidates prior receipts even when no target file content changed.
+    #>
+    param(
+        [Parameter(Mandatory)]$Check,
+        [Parameter(Mandatory)][string]$Maturity
+    )
+
+    $get = {
+        param($name)
+        if (($Check.PSObject.Properties.Name -contains $name) -and $null -ne $Check.$name) { [string]$Check.$name } else { '' }
+    }
+    $targets = @()
+    if (($Check.PSObject.Properties.Name -contains 'targets') -and $Check.targets) {
+        $targets = @($Check.targets | ForEach-Object { [string]$_ } | Sort-Object -Culture ([System.Globalization.CultureInfo]::InvariantCulture))
+    }
+
+    $binding = [ordered]@{
+        adapter      = (& $get 'adapter')
+        contractId   = (& $get 'contractId')
+        contractPath = (& $get 'contractPath')
+        maturity     = $Maturity
+        provider     = (& $get 'provider')
+        spec         = (& $get 'spec')
+        targets      = $targets
+        testProject  = (& $get 'testProject')
+    }
+    return ($binding | ConvertTo-Json -Compress -Depth 6)
+}
+
+function Get-ArchGateOutcome {
+    <#
+    .SYNOPSIS
+    Maps a taxonomy verdict to a gate outcome honouring contract maturity.
+
+    .DESCRIPTION
+    A verdict is only treated as a pass when the adapter actually ran ('pass' with Ran=$true). Locked
+    contracts hard-gate: ONLY a real pass greens; anything else (fail, error, skip-absent-toolchain, or a
+    pass that did not run) blocks — skip is never a false-green. Draft/provisional contracts warn on any
+    non-pass so evolving contracts inform without blocking. Returns 'pass', 'warn', or 'block'.
+    #>
+    param(
+        [Parameter(Mandatory)][ValidateSet('locked', 'draft', 'provisional')][string]$Maturity,
+        [Parameter(Mandatory)][ValidateSet('pass', 'fail', 'skip-absent-toolchain', 'error')][string]$Verdict,
+        [Parameter(Mandatory)][bool]$Ran
+    )
+
+    if ($Verdict -eq 'pass' -and $Ran) { return 'pass' }
+    if ($Maturity -eq 'locked') { return 'block' }
+    return 'warn'
+}
+
+function New-ArchTestReceipt {
+    <#
+    .SYNOPSIS
+    Builds a receipt object conforming to arch-test-receipt.schema.json.
+    #>
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')][string]$ContractId,
+        [Parameter(Mandatory)][ValidateSet('locked', 'draft', 'provisional')][string]$Maturity,
+        [Parameter(Mandatory)][ValidateSet('netarchtest', 'ts-arch', 'dependency-cruiser', 'semantic-eval')][string]$Adapter,
+        [Parameter(Mandatory)][ValidateSet('pass', 'fail', 'skip-absent-toolchain', 'error')][string]$Verdict,
+        [Parameter(Mandatory)][bool]$Ran,
+        [Parameter(Mandatory)][string]$ParentCommit,
+        [Parameter(Mandatory)][string]$SourcesHash,
+        [object[]]$Findings,
+        [string[]]$Artifacts,
+        [string]$GeneratedAt
+    )
+
+    # A pass that never executed is a false-green: refuse to mint it at the source of truth.
+    if ($Verdict -eq 'pass' -and -not $Ran) {
+        throw "Refusing to emit a 'pass' receipt with ran=false for contract '$ContractId' (would be a false-green)."
+    }
+    if ($ParentCommit -notmatch $script:ArchTestCommitPattern) {
+        throw "ParentCommit must be a 40- or 64-hex git SHA: $ParentCommit"
+    }
+    if ($SourcesHash -notmatch '^[0-9a-f]{64}$') {
+        throw "SourcesHash must be a 64-hex SHA-256: $SourcesHash"
+    }
+
+    $stamp = if ([string]::IsNullOrWhiteSpace($GeneratedAt)) {
+        (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    }
+    else { $GeneratedAt }
+
+    $receipt = [ordered]@{
+        schemaVersion = '1'
+        contractId    = $ContractId
+        maturity      = $Maturity
+        adapter       = $Adapter
+        verdict       = $Verdict
+        ran           = [bool]$Ran
+        parentCommit  = $ParentCommit
+        sourcesHash   = $SourcesHash
+        generatedAt   = $stamp
+    }
+    if ($PSBoundParameters.ContainsKey('Findings')) { $receipt.findings = @($Findings) }
+    if ($PSBoundParameters.ContainsKey('Artifacts')) { $receipt.artifacts = @($Artifacts) }
+
+    return [pscustomobject]$receipt
+}
+
+function Write-ArchTestReceiptFile {
+    <#
+    .SYNOPSIS
+    Writes a receipt to disk with reproducible bytes (BOM-free UTF-8, LF newlines, single trailing LF).
+    #>
+    param(
+        [Parameter(Mandatory)]$Receipt,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $json = ($Receipt | ConvertTo-Json -Depth 12)
+    $json = ($json -replace "`r`n", "`n" -replace "`r", "`n").TrimEnd("`n") + "`n"
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText($Path, $json, $utf8NoBom)
+}
+
+function Invoke-ArchTests {
+    <#
+    .SYNOPSIS
+    Runs each configured check and emits a receipt per contract.
+
+    .DESCRIPTION
+    Phase 4.1 behaviour: no adapter is wired, so every check resolves to 'skip-absent-toolchain'
+    (ran=false). It still computes a real, binding-aware sources hash and parent commit so receipts are
+    freshness-bound and the gate mapping is exercised. Returns a summary object; writes receipts unless
+    -WhatIf.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$ConfigPath,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$ReceiptDir,
+        [switch]$WhatIf
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
+        throw "Config not found: $ConfigPath"
+    }
+    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    if (-not ($config.PSObject.Properties.Name -contains 'checks')) {
+        throw "Config has no 'checks' array: $ConfigPath"
+    }
+
+    $rootFull = (Resolve-Path -LiteralPath $RepoRoot).Path
+    $receiptRoot = if (-not [string]::IsNullOrWhiteSpace($ReceiptDir)) { $ReceiptDir }
+    else { Join-Path $rootFull 'docs/architecture-notes/receipts' }
+
+    $parentCommit = Resolve-ArchTestParentCommit -RepoRoot $rootFull
+
+    if (-not $WhatIf) {
+        [void](New-Item -ItemType Directory -Path $receiptRoot -Force)
+    }
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($check in @($config.checks)) {
+        $contractId = [string]$check.contractId
+        if ($contractId -notmatch $script:ArchTestIdPattern) {
+            throw "Invalid contractId '$contractId' (must match $($script:ArchTestIdPattern)); refusing to derive a receipt path from it."
+        }
+        $adapter = [string]$check.adapter
+        $maturity = if (($check.PSObject.Properties.Name -contains 'maturity') -and $check.maturity) { [string]$check.maturity } else { 'draft' }
+        if ($script:ArchTestMaturities -notcontains $maturity) {
+            throw "Invalid maturity '$maturity' for contract '$contractId'."
+        }
+
+        $hashPaths = [System.Collections.Generic.List[string]]::new()
+        if (($check.PSObject.Properties.Name -contains 'contractPath') -and $check.contractPath) {
+            $hashPaths.Add([string]$check.contractPath)
+        }
+        if (($check.PSObject.Properties.Name -contains 'targets') -and $check.targets) {
+            foreach ($t in @($check.targets)) { $hashPaths.Add([string]$t) }
+        }
+
+        $binding = Get-ArchTestCheckBinding -Check $check -Maturity $maturity
+        $extra = @{ ("$([char]0)binding") = $binding }
+        $hash = Get-ArchTestSourcesHash -Paths @($hashPaths) -RepoRoot $rootFull -ExtraContent $extra
+
+        if ($hashPaths.Count -gt 0 -and $hash.Count -eq 0) {
+            Write-Warning "Contract '$contractId' declares sources but none resolved to files; freshness is bound to the binding only."
+        }
+
+        # No adapter is wired at 4.1 -> honestly report an absent toolchain (never a false-green).
+        $verdict = 'skip-absent-toolchain'
+        $ran = $false
+
+        $receipt = New-ArchTestReceipt -ContractId $contractId -Maturity $maturity -Adapter $adapter `
+            -Verdict $verdict -Ran $ran -ParentCommit $parentCommit -SourcesHash $hash.Digest
+        $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $verdict -Ran $ran
+
+        $receiptPath = Join-Path $receiptRoot ("$contractId.arch-receipt.json")
+        if (-not $WhatIf) {
+            Write-ArchTestReceiptFile -Receipt $receipt -Path $receiptPath
+        }
+
+        $results.Add([pscustomobject]@{
+                ContractId  = $contractId
+                Adapter     = $adapter
+                Maturity    = $maturity
+                Verdict     = $verdict
+                Outcome     = $outcome
+                SourcesHash = $hash.Digest
+                ReceiptPath = $receiptPath
+                Wrote       = (-not $WhatIf)
+            })
+    }
+
+    return [pscustomobject]@{
+        ParentCommit = $parentCommit
+        ReceiptDir   = $receiptRoot
+        Checks       = @($results)
+        Blocked      = @($results | Where-Object { $_.Outcome -eq 'block' }).Count
+        Warned       = @($results | Where-Object { $_.Outcome -eq 'warn' }).Count
+        Passed       = @($results | Where-Object { $_.Outcome -eq 'pass' }).Count
+    }
+}
+
+# Run main only when invoked directly (not dot-sourced for its functions). When a script is dot-sourced
+# ('. script.ps1') PowerShell sets InvocationName to '.', which reliably distinguishes it from -File/&.
+if ($MyInvocation.InvocationName -ne '.') {
+    if ([string]::IsNullOrWhiteSpace($ConfigPath)) { throw 'ConfigPath is required when running this script directly.' }
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path }
+    $summary = Invoke-ArchTests -ConfigPath $ConfigPath -RepoRoot $RepoRoot -ReceiptDir $ReceiptDir -WhatIf:$WhatIf
+    $summary | ConvertTo-Json -Depth 12
+    if ($summary.Blocked -gt 0) { exit 1 }
+    exit 0
+}

@@ -1,0 +1,42 @@
+{
+  "name": "architecture-tests",
+  "version": "1.0.3",
+  "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "architecture",
+    "architecture-tests",
+    "fitness-functions"
+  ],
+  "dependencies": [],
+  "status": "partial",
+  "files": [
+    {
+      "src": "skills/architecture-tests/SKILL.md",
+      "dest": "skills/architecture-tests/SKILL.md"
+    },
+    {
+      "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
+      "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
+    },
+    {
+      "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
+      "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
+    },
+    {
+      "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
+      "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
+    },
+    {
+      "src": "scripts/providers/SemanticEvalProvider.ps1",
+      "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/arch-test-receipt.schema.json",
+  "title": "Architecture Test Receipt",
+  "description": "Integrity/freshness receipt for one architecture-contract check, committed alongside evidence.md. It is the sole source of truth the arch:<ContractId> marker pure-parses. It proves a real run happened at a recorded tree-state and carries the taxonomy verdict; it is NOT an anti-forgery signature (the trust anchor is the human-authored commit + git review). Freshness binds to sourcesHash (contract + target sources), not raw HEAD equality, so committing the receipt does not self-invalidate it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "contractId", "maturity", "adapter", "verdict", "ran", "parentCommit", "sourcesHash", "generatedAt"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1",
+      "description": "Receipt format version."
+    },
+    "contractId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Id of the contract this receipt attests."
+    },
+    "maturity": {
+      "type": "string",
+      "enum": ["locked", "draft", "provisional"],
+      "description": "Contract maturity at run time. Governs the taxonomy-to-gate mapping."
+    },
+    "adapter": {
+      "type": "string",
+      "enum": ["netarchtest", "ts-arch", "dependency-cruiser", "semantic-eval"],
+      "description": "Enforcement backend that produced the verdict."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "fail", "skip-absent-toolchain", "error"],
+      "description": "Failure-taxonomy outcome. For a locked contract only 'pass' greens; 'skip-absent-toolchain' never counts as pass (no false-green)."
+    },
+    "ran": {
+      "type": "boolean",
+      "description": "True only when the adapter actually executed. False for skip-absent-toolchain / pre-execution errors."
+    },
+    "parentCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$",
+      "description": "Recorded parent-commit SHA (HEAD at run time; 40-hex SHA-1 or 64-hex SHA-256), treated as the parent commit for freshness reasoning."
+    },
+    "sourcesHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Canonical tree/content hash of the contract + target sources. Freshness compares this, so adding/editing/deleting a source invalidates the receipt while committing the receipt itself does not."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Receipt emission timestamp."
+    },
+    "findings": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Optional structured violations reported by the adapter."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional paths to raw adapter output (TRX/JUnit/JSON)."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "verdict": { "const": "pass" } }, "required": ["verdict"] },
+      "then": { "properties": { "ran": { "const": true } } }
+    }
+  ]
+}

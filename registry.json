@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T05:12:26.3463247Z",
+  "generatedAt": "2026-07-04T07:02:20.1765061Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -95,6 +95,51 @@
         "skill"
       ],
       "version": "1.0.0"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
+          "sha256": "b6220c1e60a2188d0a7b30269c39ee227b7022986aa9f82388f9af6ca7c1598a",
+          "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
+        },
+        {
+          "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
+          "sha256": "df7b4277e5bd02e7661e30833469b51fb0902efa5d92621a302f9831184f5597",
+          "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
+          "sha256": "3a4b9d5daad288bf300c437a631443939b882c5ec92466fdbf6b3e31644f0f5d",
+          "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
+          "sha256": "5460f232a98d779d7c9aa2c0e6178a9884f4cbee8b62f16f45f8f1b40742f497",
+          "src": "scripts/providers/SemanticEvalProvider.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/SKILL.md",
+          "sha256": "8d7a80eb6fcfa6b456ccfc12c6497a3a29743e2c753177b32624dd86898509f3",
+          "src": "skills/architecture-tests/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "architecture-tests",
+      "status": "partial",
+      "tags": [
+        "architecture",
+        "architecture-tests",
+        "fitness-functions",
+        "skill"
+      ],
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",
