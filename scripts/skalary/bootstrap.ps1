@@ -5,7 +5,9 @@ param(
 
     [string]$Repository = 'jIRI-san/skalary',
 
-    [string]$Ref = 'main'
+    [string]$Ref = 'main',
+
+    [switch]$AutoApprove
 )
 
 Set-StrictMode -Version Latest
@@ -89,6 +91,7 @@ $scriptFiles = @(
     'Get-Plugin.ps1',
     'Install-Plugin.ps1',
     'Remove-Plugin.ps1',
+    'Set-ScriptApproval.ps1',
     'Sync-Dogfood.ps1',
     'Test-Registry.ps1',
     'Update-Plugin.ps1'
@@ -116,5 +119,32 @@ Set-Content -LiteralPath (Join-Path $scriptsRoot 'registry.json') -Value $regist
 
 Write-Host "Bootstrapped skalary scripts to '$scriptsRoot' from '$Repository' at ref '$Ref'."
 Write-Host "Created skalary state directory '$skalaryStateRoot'."
-Write-Host "Next: review downloaded scripts and run:"
-Write-Host "  pwsh -NoProfile -File scripts/skalary/Install-Plugin.ps1 -Name <plugin-name> -Repository $Repository -Ref $Ref"
+
+# Install the plugin-manager plugin so its install/uninstall/list/update skills
+# are available immediately. Install clones the pinned source and copies payload
+# files into .github/; it does not execute plugin code.
+$installScript = Join-Path $scriptsRoot 'Install-Plugin.ps1'
+Write-Host ''
+Write-Host "Installing the 'plugin-manager' plugin from '$Repository' at ref '$Ref' (payload copy only, no code execution)..."
+& $installScript -Name 'plugin-manager' -RepoRoot $targetRoot -Repository $Repository -Ref $Ref
+
+# Offer to auto-approve plugin-manager's read-only scripts. Bootstrap is
+# non-interactive, so this is opt-in via -AutoApprove; otherwise print the command.
+$approvalScript = Join-Path $scriptsRoot 'Set-ScriptApproval.ps1'
+if ($AutoApprove) {
+    Write-Host ''
+    Write-Host "Auto-approving plugin-manager's read-only scripts in .vscode/settings.json..."
+    & $approvalScript -Name 'plugin-manager' -RepoRoot $targetRoot
+}
+else {
+    Write-Host ''
+    Write-Host 'Optional: auto-approve plugin-manager read-only scripts (list/find/get) so they run without a prompt:'
+    Write-Host '  scripts/skalary/Set-ScriptApproval.ps1 -Name plugin-manager -RepoRoot .'
+}
+
+Write-Host ''
+Write-Host 'Done. Use the plugin-manager skills to manage plugins:'
+Write-Host '  /list-plugins             browse available + installed plugins'
+Write-Host '  /install-plugin <name>    install a plugin'
+Write-Host '  /update-plugin <name>     update a plugin'
+Write-Host '  /uninstall-plugin <name>  remove a plugin'
