@@ -94,7 +94,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Brownfield harvest — scan repo structure/deps/interfaces, emit initial arch notes + human doc all `draft`/warn-only into a **quarantine staging area (or `reviewed:false` flag) excluded from the `.architecture-notes.md` auto-load path**; promote into the auto-loaded tier only after explicit human review (REQ-6, RISK-5) `L`
-- [ ] 3.2 Human-doc generation — Mermaid diagrams, resource links, prose, hierarchy-capable; excluded from both index auto-load paths; **concrete regen trigger** via the `/uan` update flow (REQ-7, RISK-3, RISK-4) `M`
+- [x] 3.2 Human-doc generation — Mermaid diagrams, resource links, prose, hierarchy-capable; excluded from both index auto-load paths; **concrete regen trigger** via the `/uan` update flow (REQ-7, RISK-3, RISK-4) `M`
 - [ ] 3.3 Staleness gate — `scripts/skalary/Test-ArchDocFreshness.ps1` binds a **canonical content-hash of contract sources** into the generated doc (enumerate by normalized relative path, exclude generated docs, normalize UTF-8 + line endings, hash `(path + NUL + content)` sorted; add/delete-sensitive, not mtimes) and flags drift deterministically (REQ-7, RISK-3) [after: 3.2] `S`
 
 ## Phase 4: architecture-tests plugin + receipt + C# adapter + fixtures

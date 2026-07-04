@@ -17,6 +17,9 @@
 
 <!-- Narrative: what the system is, its top-level goals, and the boundaries it maintains. -->
 
+<!-- Do not hand-edit the generated region below; edit the contracts and regenerate. -->
+<!-- BEGIN GENERATED: contracts -->
+
 ## System Diagram
 
 ```mermaid
@@ -38,6 +41,8 @@ graph TD
 - **Responsibility:** <what it owns>
 - **Governing contracts:** `<CONTRACT_ID>` (<maturity>)
 - **Rationale:** <why this boundary exists>
+
+<!-- END GENERATED: contracts -->
 
 ## Decision Records
 

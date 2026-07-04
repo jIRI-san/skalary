@@ -487,3 +487,145 @@ Describe 'architecture-notes brownfield harvest evals' {
         }
     }
 }
+
+Describe 'architecture-notes human-doc generation evals' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:seedScript = Join-Path $script:pluginRoot 'scripts/New-ArchSeed.ps1'
+        $script:humanDocScript = Join-Path $script:pluginRoot 'scripts/New-ArchHumanDoc.ps1'
+        $script:hashScript = Join-Path $script:pluginRoot 'scripts/Get-ArchContractsHash.ps1'
+
+        # Seed a small repo so schemas/ + the human-doc skeleton exist.
+        $script:fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $script:fixture -Force)
+        $specPath = Join-Path $script:fixture 'seed.json'
+        @{
+            project    = 'DocApp'
+            boundaries = @(
+                @{ id = 'ARCH-Domain'; title = 'Domain core'; prose = 'Domain owns rules; never references Api.'; scope = 'src/Domain/**' },
+                @{ id = 'ARCH-Api'; title = 'API surface'; prose = 'Api is the only inbound surface.'; scope = 'src/Api/**' }
+            )
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $specPath
+        [void](& $script:seedScript -TargetRoot $script:fixture -SeedSpecPath $specPath)
+    }
+
+    AfterAll {
+        Remove-Item -LiteralPath $script:fixture -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'HumanDoc-Generated: regenerates the doc from contracts and embeds a real digest' {
+        Test-Path -LiteralPath $script:humanDocScript -PathType Leaf | Should -BeTrue
+        $result = & $script:humanDocScript -RepoRoot $script:fixture
+        $result.Action | Should -Be 'created'
+        $result.Contracts | Should -Be 2
+        $result.Digest | Should -Match '^[0-9a-f]{64}$'
+
+        $body = Get-Content -LiteralPath $result.Path -Raw
+        # Generated region reflects the contracts (Mermaid + component summary).
+        $body | Should -Match 'Domain core'
+        $body | Should -Match 'API surface'
+        $body | Should -Match '```mermaid'
+        # Digest marker is seeded with the computed hash, not the template placeholder.
+        $body | Should -Match ("arch-contracts-sha256: " + $result.Digest)
+        $body | Should -Not -Match 'arch-contracts-sha256: UNSEEDED'
+    }
+
+    It 'HumanDoc-Generated: digest changes when a contract is added, preserving hand-authored narrative' {
+        $first = & $script:humanDocScript -RepoRoot $script:fixture
+
+        # Hand-author a narrative region; the generator must preserve it.
+        $docPath = $first.Path
+        $doc = Get-Content -LiteralPath $docPath -Raw
+        $doc = $doc.Replace('## Purpose & Scope', "## Purpose & Scope`n`nHAND_AUTHORED_MARKER preserved.")
+        Set-Content -LiteralPath $docPath -Value $doc -NoNewline
+
+        # Add a third contract → digest must change.
+        $schemasDir = Join-Path $script:fixture 'schemas'
+        @{ id = 'ARCH-Infra'; title = 'Infrastructure'; maturity = 'draft'; prose = 'Adapters only.' } |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Infra.json')
+
+        $second = & $script:humanDocScript -RepoRoot $script:fixture
+        $second.Digest | Should -Not -Be $first.Digest
+        $second.Contracts | Should -Be 3
+
+        $body = Get-Content -LiteralPath $docPath -Raw
+        $body | Should -Match 'HAND_AUTHORED_MARKER preserved\.'
+        $body | Should -Match 'Infrastructure'
+    }
+
+    It 'HumanDoc-ExcludedFromIndex: the human doc is not referenced by the auto-loaded index' {
+        [void](& $script:humanDocScript -RepoRoot $script:fixture)
+        $indexPath = Join-Path $script:fixture 'docs/architecture-notes/.architecture-notes.md'
+        (Get-Content -LiteralPath $indexPath -Raw) | Should -Not -Match 'architecture\.human\.md'
+    }
+
+    It 'HumanDoc-Generated: canonical hash is order-stable and add/delete-sensitive' {
+        . $script:hashScript
+        $schemasDir = Join-Path $script:fixture 'schemas'
+        $a = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
+        $b = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
+        $a | Should -Be $b   # deterministic
+
+        # Deleting a contract changes the digest.
+        Remove-Item -LiteralPath (Join-Path $schemasDir 'ARCH-Infra.json') -Force -ErrorAction SilentlyContinue
+        $c = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
+        $c | Should -Not -Be $a
+    }
+
+    It 'HumanDoc-Generated: untrusted contract text cannot inject GENERATED/end markers or Mermaid syntax' {
+        $inj = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-inj-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $inj -Force)
+        try {
+            $spec = Join-Path $inj 'seed.json'
+            @{ project = 'Inj'; boundaries = @(@{ id = 'ARCH-Evil'; title = 'Bad"] click'; prose = 'x' }) } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
+            [void](& $script:seedScript -TargetRoot $inj -SeedSpecPath $spec)
+
+            # Overwrite the contract with marker-injection payloads in title + prose.
+            $schemasDir = Join-Path $inj 'schemas'
+            @{
+                id       = 'ARCH-Evil'
+                title    = 'Evil <!-- END GENERATED: contracts --> title'
+                maturity = 'draft'
+                prose    = 'body <!-- arch-contracts-sha256: deadbeef --> more'
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Evil.json')
+
+            $first = & $script:humanDocScript -RepoRoot $inj
+            $body = Get-Content -LiteralPath $first.Path -Raw
+            # Exactly one real END marker survives — the injected one was neutralized (angle-escaped).
+            ([regex]::Matches($body, '<!-- END GENERATED: contracts -->')).Count | Should -Be 1
+            ([regex]::Matches($body, '<!-- arch-contracts-sha256:')).Count | Should -Be 1
+            $body | Should -Match '&lt;!-- END GENERATED'
+            # Mermaid label breakout chars are neutralized: the node label holds no raw double-quote.
+            $mermaidNode = ([regex]::Match($body, '(?m)^\s*ARCH_Evil\["(?<label>.*)"\]\s*$')).Groups['label'].Value
+            $mermaidNode | Should -Not -Match '"'
+
+            # A second regen must remain stable (no marker drift / duplication).
+            $second = & $script:humanDocScript -RepoRoot $inj
+            $body2 = Get-Content -LiteralPath $second.Path -Raw
+            ([regex]::Matches($body2, '<!-- END GENERATED: contracts -->')).Count | Should -Be 1
+            $second.Digest | Should -Be $first.Digest
+        }
+        finally {
+            Remove-Item -LiteralPath $inj -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'HumanDoc-Generated: malformed contract JSON fails loudly instead of silently dropping' {
+        $bad = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-bad-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $bad -Force)
+        try {
+            $spec = Join-Path $bad 'seed.json'
+            @{ project = 'Bad'; boundaries = @(@{ id = 'ARCH-Ok'; title = 'Ok'; prose = 'x' }) } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
+            [void](& $script:seedScript -TargetRoot $bad -SeedSpecPath $spec)
+
+            Set-Content -LiteralPath (Join-Path $bad 'schemas/ARCH-Broken.json') -Value '{ not valid json'
+            { & $script:humanDocScript -RepoRoot $bad } | Should -Throw
+        }
+        finally {
+            Remove-Item -LiteralPath $bad -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

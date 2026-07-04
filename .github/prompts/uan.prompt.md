@@ -13,3 +13,4 @@ Thin shortcut. The full, CLI-standalone workflow lives in the **architecture-not
 2. Pass the text after `/uan` as the contract/note to update: `${input}`.
 3. Follow the skill's Step 3 (update a contract) — never silently rewrite a `locked` contract
    body; propose changes for human review. Re-validate with `Test-ArchContract.ps1`.
+4. Regenerate the human-readable doc (skill Step 8, `New-ArchHumanDoc.ps1`) so it stays in sync.

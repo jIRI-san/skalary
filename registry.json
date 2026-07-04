@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T04:20:53.3214829Z",
+  "generatedAt": "2026-07-04T05:12:26.3463247Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -21,7 +21,7 @@
         },
         {
           "dest": "prompts/uan.prompt.md",
-          "sha256": "11355fdfebe9ae5c99ffbd73d3327184692f2acb7d24e5fee66001bd5300ee19",
+          "sha256": "e5a8d870ff7b2550c375606ab24527158af636b63a1d8e4dc024a5b4502127cd",
           "src": "prompts/uan.prompt.md"
         },
         {
@@ -36,7 +36,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-          "sha256": "af749af73fb11f5cb2a5258ccc32d1a9fa0a4c92ed0515f7ea0f0df7d09fe975",
+          "sha256": "5820c6e56ed6368fbcc9dd87455c1d80134604161808df87ba818dad5c77a2f4",
           "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
         },
         {
@@ -55,9 +55,19 @@
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
+          "sha256": "592aa1e67443cd75b302a53d27159d08755fa5d6c8c9872f449f000ae4e7cf00",
+          "src": "scripts/Get-ArchContractsHash.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
           "sha256": "f91ff5b79e45ff6395343189077b7c16010bd103420bb987d6cfaad37b3ba049",
           "src": "scripts/Import-ArchHarvest.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
+          "sha256": "6020a1931451aab4eac3cda7eeffff99943d4351b6878d64c86b60a8d5f72d6e",
+          "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
@@ -71,7 +81,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "056ae99d0a9ff011c66ed8e91119c2f6a58846eb4400990256f9672d64938cfd",
+          "sha256": "3002918938a862fab32ca41445fc3cb0542b0e0f71e4109bdee11a5398afc5e9",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],

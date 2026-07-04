@@ -36,6 +36,10 @@ context: fork
   - `Copy-ArchScaffold.ps1` — scaffolds schema + tier index into the repo, never overwriting.
   - `Test-ArchContract.ps1` — validates a contract file against the schema (the write gate). It
     checks *shape* only; it does **not** authorize a lock (see Step 4).
+  - `New-ArchHumanDoc.ps1` — regenerates the human-readable doc from the contracts and embeds the
+    canonical freshness digest (the human-doc generator; see Step 8).
+  - `Get-ArchContractsHash.ps1` — computes the canonical contract-sources digest (shared by the
+    generator and the freshness gate). Not called directly.
 
 ## Step 1: Select operation
 
@@ -68,9 +72,8 @@ context: fork
 5. Add a **terse** arch note from `assets/templates/architecture-note.template.md` describing the
    boundary and referencing the contract id(s). Keep it context-cheap; no implementation detail.
 6. Update the index tables (Contracts / Architecture Notes) in `.architecture-notes.md`.
-7. Regenerate the human-readable doc — a derived artifact produced by the human-doc generator
-   (a dedicated step; **not** the `/uan` contract-update path). Until that generator ships, note
-   the doc as stale rather than editing a contract to refresh it.
+7. Regenerate the human-readable doc via the generator (Step 8):
+   `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
 
 ## Step 3: Update a contract
 
@@ -81,7 +84,8 @@ context: fork
      a locked body.
 3. Re-validate with `Test-ArchContract.ps1` (Step 2.4). Keep `maturity` unchanged unless a human
    is promoting/demoting.
-4. Update the note and index rows; regenerate the human doc (the generator step, not `/uan`).
+4. Update the note and index rows; regenerate the human doc via the generator (Step 8):
+   `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
 
 ## Step 4: Promote a contract to locked (human-only)
 
@@ -134,6 +138,24 @@ text is untrusted, so nothing reaches agent context or the build until a human p
    reviewed contracts/notes into the auto-loaded tier (`schemas/` + `docs/architecture-notes/`),
    add index rows, then lock incrementally (Step 4). Flip `reviewed: true` (or delete `.staging/`)
    once promotion is complete.
+
+## Step 8: Regenerate the human-readable doc
+
+The human doc (`docs/architecture-notes/architecture.human.md`) is a **derived artifact** — a
+human-facing companion (Mermaid diagram, per-component summary, decision-record narrative, links)
+that is **excluded from AI auto-load** so it never pollutes agent context. Regenerate it on every
+architecture change (Steps 2, 3, 6) rather than hand-editing the generated region.
+
+1. Run the generator: `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
+   It materializes the doc from the template on first run, then rebuilds only the region between
+   the `BEGIN/END GENERATED: contracts` markers (diagram + component summary) from the contract
+   sources, preserving the hand-authored Purpose / Decision Records / Resources sections.
+2. It embeds the **canonical contract-sources digest** in the `arch-contracts-sha256` marker. The
+   freshness gate (`scripts/skalary/Test-ArchDocFreshness.ps1`) recomputes that digest and flags
+   drift when contracts changed without a regen. Treat a stale doc as a definition-of-done gap.
+3. Hand-author the narrative regions (Purpose & Scope, Decision Records, Resources) directly; the
+   generator never overwrites them. For larger projects the doc may grow into a per-subsystem
+   hierarchy — keep the overview here and link out.
 
 ## Guardrails
 

@@ -50,6 +50,14 @@
       "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1"
     },
     {
+      "src": "scripts/Get-ArchContractsHash.ps1",
+      "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1"
+    },
+    {
+      "src": "scripts/New-ArchHumanDoc.ps1",
+      "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1"
+    },
+    {
       "src": "skills/architecture-notes/assets/interview-guide.md",
       "dest": "skills/architecture-notes/assets/interview-guide.md"
     },
