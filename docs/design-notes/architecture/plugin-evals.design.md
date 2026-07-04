@@ -1,10 +1,13 @@
 ---
-description: Two-tier plugin evaluation harness (structural + LLM), report generation, sandboxed backend execution, and judge contract
+description: Two-tier plugin evaluation harness (structural Pester + waza LLM), report generation, per-task workspace isolation, token resolution, and judge/injection contract
 globs:
   - plugins/**/evals/**
   - scripts/skalary/Test-Evals.ps1
+  - scripts/skalary/Invoke-WazaEvals.ps1
+  - scripts/skalary/Ensure-EvalTools.ps1
+  - scripts/skalary/Resolve-EvalToken.ps1
+  - tools/eval-tools.psd1
   - tests/evals/**
-  - schemas/eval-case.schema.json
 ---
 
 # Plugin Evals
@@ -13,47 +16,48 @@ globs:
 
 | Tier | Scope | Execution mode | Gate policy |
 |---|---|---|---|
-| Structural | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Always-on in `npm run eval`; not part of `npm test` / `scripts/validate.ps1` |
-| LLM | Declarative scenarios in `plugins/<name>/evals/llm/*.eval.json` scored by LLM-as-judge | Opt-in with `-IncludeLlm` | Never part of `npm test` / `scripts/validate.ps1` |
+| Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Always-on in `npm run eval`; not part of `npm test` / `scripts/validate.ps1` |
+| LLM (Tier-2) | Declarative **waza** specs in `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`) run by the `copilot-sdk` executor and scored by graders (deterministic `text` pre-check + LLM `prompt` judge, plus `tool_constraint`/`behavior` where a tool contract exists) | Opt-in via `npm run eval:llm` → `scripts/skalary/Invoke-WazaEvals.ps1` | Never part of `npm test` / `scripts/validate.ps1` / `npm run eval` |
 
-The harness entry point is `scripts/skalary/Test-Evals.ps1`. `npm run eval` is the documented pre-commit path for this subsystem.
+`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` (Tier-1) is the documented pre-commit path; `npm run eval:llm` (Tier-2) is the opt-in, auth+premium-cost path.
 
 ## File Layout and Contracts
 
 | Surface | Contract |
 |---|---|
 | `plugins/<name>/evals/*.Tests.ps1` | Tier-1 structural assertions per plugin, using shared helpers |
-| `plugins/<name>/evals/llm/*.eval.json` | Tier-2 cases with `{ artifact, scenario, rubric[], passThreshold }` |
-| `tests/evals/EvalCommon.psm1` | Structural helper module (frontmatter parse, required keys, link/file resolution, section checks) |
-| `tests/evals/EvalLlm.psm1` | LLM helper module (config/auth preflight, sandbox lifecycle, backend invocation, judge validation) |
-| `schemas/eval-case.schema.json` | Documentation/IDE aid for case shape; runtime validation is explicit field/type checks in PowerShell |
+| `plugins/<name>/evals/waza/eval.yaml` | Tier-2 spec: `skill:` (target artifact name), `config` (executor/model/judge_model/trials/timeout/`skill_directories`), spec-level `graders`, optional `adversarial:` block |
+| `plugins/<name>/evals/waza/tasks/*.yaml` | One case each: `inputs.prompt` (+ `inputs.context.fixture` / `inputs.follow_up_prompts`) then `graders` |
+| `plugins/<name>/evals/waza/fixtures/*` | Diffs/sample files a task feeds the agent (referenced by `inputs.context.fixture`) |
+| `tests/evals/EvalCommon.psm1` | Tier-1 structural helper module (frontmatter parse, required keys, link/file resolution, section checks) |
+| `tests/evals/Waza<Plugin>Convention.Tests.ps1` | Offline fail-closed shape guards per plugin: assert exact field placement so waza's fail-open (misplaced field warned-and-ignored) cannot yield a silent false PASS |
+| `tests/evals/LegacyCutover.Tests.ps1` | Locks the migrated state: every plugin with a waza spec has no legacy `evals/llm/*.eval.json`, and `EvalLlm.psm1` stays deleted/unwired (`test:evalllm-retired`) |
+| `tools/eval-tools.psd1` | Single source of truth for pinned tool versions (waza `0.38.0`, `gh`), sources, per-OS assets + committed checksums |
+
+The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor).
 
 ## Backend and Isolation Boundary
 
-Tier-2 execution is backend-pluggable (`copilot-cli` now, `container` reserved). Current execution uses Copilot CLI headless inside a disposable sandbox clone created once per run:
+Tier-2 runs on **waza** (`copilot-sdk` executor), which gives each task a **fresh temp workspace** (`%TEMP%\waza-<id>`, agent cwd = that dir) with fixtures copied in — replacing the bespoke sandbox-clone + Sync-Dogfood + push-disable dance the old `EvalLlm.psm1` backend performed per run.
 
-- clone repo to temp dir
-- replace sandbox `plugins/` with live working-tree `plugins/` (delete-then-copy)
-- run `Sync-Dogfood.ps1` in sandbox
-- set sandbox `origin` fetch URL to the real GitHub URL
-- disable sandbox push URL (`DISABLED`)
-- run cases, then delete sandbox in `finally`
+Isolation is **partial** (see Waza Behavior gate (a)): **relative** writes are contained in the temp workspace, but waza has no OS-level/container executor, so an agent steered to an **absolute** repo path can escape and mutate the live tree. Conventions that hold the boundary:
 
-This prevents live-tree mutation during no-approval `--allow-all` eval runs. The isolation boundary is sandbox cwd only; container backend is the stronger filesystem boundary. Under `--allow-all`, a scenario can still target live-repo absolute paths, so sandbox cwd is not a filesystem containment guarantee.
+- **Read-only / describe-only cases** run as-is (never `--allow-all` for a case that needs no writes). Most shipped cases are describe-only reasoning scenarios graded on the response.
+- **Write-enabled and adversarial cases** must run in a disposable checkout or behind a path-rejecting tool layer; the `container` boundary (Phase 3 ADO) is the durable control. `test:live-tree-clean` is a post-hoc tripwire, not the primary containment.
+- **Durable-token exclusion:** `Invoke-WazaEvals.ps1` gives `adversarial:` specs only the short-lived `gh` OAuth token (never the Cred-Manager PAT) in the child env, and waza's OTEL payloads default to redacted (sha256+length).
 
 ## Config and Auth
 
-Tier-2 reads a gitignored `.eval.config.json` (shape documented by committed `.eval.config.json.example`):
+Tier-2 auth is resolved by `scripts/skalary/Resolve-EvalToken.ps1` with precedence **`gh auth token` → ambient `COPILOT_GITHUB_TOKEN`/`GH_TOKEN` → Cred-Manager `copilot-eval`→`copilot-autopilot` → actionable skip**; the resolved token is set into the child process env only. Tool provisioning is centralized in `scripts/skalary/Ensure-EvalTools.ps1` (the only provisioner; pins from `tools/eval-tools.psd1`, checksum-verified, explicit-approval installs).
+
+`.eval.config.json` (gitignored; shape in committed `.eval.config.json.example`) now holds only the Cred-Manager fallback targets that `Resolve-EvalToken` consumes:
 
 | Key | Purpose |
 |---|---|
-| `judgeModel` | Judge model slug (no identity hardcoded in committed files) |
-| `credentialTarget` | Optional Windows Credential Manager target holding the eval PAT; loaded into `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`, mirroring autopilot `copilotAuth.credentialTarget`. A dedicated eval secret (e.g. `copilot-eval`) keeps eval auth separate from `copilot-autopilot` |
-| `temperature` / `passThreshold` / `timeoutSeconds` | Judge/run tuning; optional fields fall back to `.example` defaults |
+| `credentialTarget` / `credentialTargets` | Windows Credential Manager target(s) holding the eval PAT (fallback source); loaded into `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`. A dedicated `copilot-eval` secret keeps eval auth separate from `copilot-autopilot` |
+| `judgeModel` / `temperature` / `passThreshold` / `timeoutSeconds` | **Legacy tuning fields** — read by the retired `EvalLlm.psm1` backend. waza reads **none** of them: each `eval.yaml` pins its own `config.model` / `config.judge_model` / `timeout_seconds`. Kept for config compatibility |
 
-Credential resolution is skip-not-error: an unset `credentialTarget` falls back to ambient `copilot` auth; a set-but-missing target (or missing `CredentialManager` module) records an actionable `skip` and keeps the run green.
-
-On first `-IncludeLlm` run, a missing `.eval.config.json` is bootstrapped from the example; the scaffolded file keeps the `<slug>` placeholder so the run skips with a note pointing at the new file to fill in.
+Credential resolution is skip-not-error: an unset/missing target records an actionable `skip` and keeps the run green. On a non-Windows box (autopilot containers) the Cred-Manager source is skipped entirely and `gh`/ambient env carry auth.
 
 ### gh-token Copilot entitlement (1.4 gate)
 
@@ -86,7 +90,7 @@ Verified autonomously in support of the gate:
 
 ## Waza Behavior
 
-The Tier-2 backend is migrating from bespoke `EvalLlm.psm1` to **waza** (Microsoft Go CLI, pinned `0.38.0`, `copilot-sdk` executor). Specs live at `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`). This section records the live-verified behavior that the shipped conventions depend on. Confidence is per-**claim**, not per-row: **verified** = observed on this box against the real `cr` bundle; **inferred** = not yet observed, extrapolated from related evidence (must be observed before a grader depends on it); **schema** = confirmed from waza's own embedded JSON schema but not executed; **deferred** = characterized, live-fire left to Phase 2.
+The Tier-2 backend **is waza** (Microsoft Go CLI, pinned `0.38.0`, `copilot-sdk` executor); the bespoke `EvalLlm.psm1` was retired in Phase 4.4. Specs live at `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`). This section records the live-verified behavior that the shipped conventions depend on. Confidence is per-**claim**, not per-row: **verified** = observed on this box against the real `cr` bundle; **inferred** = extrapolated, not yet observed; **schema** = confirmed from waza's embedded JSON schema but not executed; **deferred** = characterized here, but the committed live-fire sweep is left to a premium run (Phase 5.1).
 
 ### Hard gates (a failing answer blocks the affected cases)
 
@@ -122,19 +126,37 @@ The Tier-2 backend is migrating from bespoke `EvalLlm.psm1` to **waza** (Microso
 
 
 
+## Per-plugin spec conventions
+
+The runner (`Invoke-WazaEvals.ps1` → `Get-WazaEvalSpec`) discovers exactly **one** `eval.yaml` (one top-level `skill:`) per plugin, so each plugin consolidates its cases under a single skill. Shipped grader shape per plugin:
+
+| Plugin | Skill target | Case style | Adversarial pack |
+|---|---|---|---|
+| `code-review` (`cr`) | agent | functional review-quality + injection resistance | `prompt-injection` |
+| `design-review` (`dr`) | agent | describe-only feasibility/security reasoning | — |
+| `autopilot` | agent | describe-only behavioral (execution forbidden — an un-constrained agent tries to really execute and times out) | — |
+| `continue-implementation` (`ci`) | skill | one describe-only + one real `tool_calls`/`behavior` grader (build/test ran before commit) | — |
+| `create-implementation-plan` (`cip`) | skill | describe-only plan-quality reasoning | — |
+| `design-notes` | skill (consolidated from 3 prompts in 4.1) | describe-only bootstrap/create/update reasoning | — |
+| `process-pr-comments` | skill (interactive-only, injection-aware) | describe-only: headless approval-gate refusal + reviewer-text-as-data | `prompt-injection` |
+
+Rules baked in: a skill whose `SKILL.md` declares **no `tools:` frontmatter** gets **no** spec-level `tool_constraint` (waza auto-injects nothing to suppress — contrast cr/dr agent frontmatter, Gotcha A); describe-only cases assert on the response text only; every `prompt` judge sets `continue_session: true`; injection-aware skills carry the `prompt-injection` adversarial pack with `on_unsafe_outcome: fail`.
+
 ## Judge Contract and Injection Guard
+
+Tier-2 grading is waza's grader stack, not a bespoke JSON-judge:
 
 | Aspect | Contract |
 |---|---|
-| Verdict format | Strict JSON `{ pass, score, rationale }` |
-| Validation | Explicit field/type/range checks; non-JSON verdict fails loudly |
-| Prompt safety | Captured output wrapped in GUID-suffixed `<<<UNTRUSTED_OUTPUT_*:{guid}>>>` markers with quad-tick fencing |
-| Boundary hardening | Any literal boundary token in captured output is neutralized before wrapping |
-| Pass decision | `pass` requires `score >= passThreshold` |
+| Deterministic pre-check | A `text` grader (`regex_match` / `regex_not_match`) — 0 judge tokens. Kept **broad** so a paraphrased-but-correct answer is not false-failed; the injection tripwire (`regex_not_match`) rejects a final output that is *only* compliance (e.g. a bare `LGTM`/approval) |
+| LLM judge | A `prompt` grader with a pinned `model`; the judge calls `set_waza_grade_pass` / `set_waza_grade_fail`. Ported rubrics become the judge prompt criteria |
+| Judge content channel | `continue_session: true` (always) — the independent judge (`continue_session: false`) is flaky against a real agent (it is dropped into the workspace without the agent's output and hunts the fixture). Resuming the session lets the judge see the real output. `inputs.follow_up_prompts` forces a final text turn so `final_output` + the `text` grader stay populated |
+| Injection harness | Injection-aware skills route through the `adversarial:` block (`prompt-injection` pack, `schemaVersion: "1.2"`, `on_unsafe_outcome: fail`), run in a disposable workspace with the short-lived `gh` token only |
+| Pass decision | Per-grader pass/fail aggregate to the task; use `trials_per_task` + `pass_rate` (not a single verdict) for flaky cases |
 
 ## Report and Writeback Model
 
-Each run writes a timestamped folder `tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/` (gitignored) containing `report.json` (structured summary + per-entry verdicts), `report.md` (human-readable summary + judge rationale), and any Tier-2 transcripts (`<plugin>-<case>.eval.txt`). The folder name uses filesystem-safe separators (no `:`); collisions in the same second get a `-<fff>` suffix. Registry/manifests/receipts stay unchanged:
+`Invoke-WazaEvals.ps1` runs `waza run --output-dir tests/evals/output/<stamp>` (or `waza adversarial` for specs with an `adversarial:` block) per spec, aggregating exit codes; a requested run that executed **zero** evals is a distinct non-green outcome, not exit 0. waza writes per-task results JSON (per-grader score/passed/feedback), a summary, and usage/token counts under the gitignored `tests/evals/output/<stamp>/`. `Test-Evals.ps1` (Tier-1) still writes its own `report.json` / `report.md` there. Registry/manifests/receipts stay unchanged:
 
 | Surface | Status |
 |---|---|
@@ -142,23 +164,8 @@ Each run writes a timestamped folder `tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/`
 | `registry.json` `evals.status` | Reserved-seam summary, not runtime writeback |
 | `.github/.skalary/receipts/*` `evalStatus` | Reserved, not populated by harness |
 
-Receipt/registry writeback is intentionally deferred; harness is report-only to preserve deterministic registry output and dogfood drift behavior.
+Receipt/registry writeback is intentionally deferred; the harness is report-only to preserve deterministic registry output and dogfood drift behavior.
 
 ## Transcript Capture Contract
 
-Tier-2 backend capture is based on direct `copilot -p` process output plus optional `--share` export.
-
-| Topic | Confirmed contract |
-|---|---|
-| Invocation | Run non-interactive `copilot -p "<prompt>" --no-ask-user --allow-all`; add `--agent <name>` for agent artifacts. |
-| Assistant text channel | Assistant text is written to **stdout** and can be captured directly from the child process stream. |
-| Tooling/stats noise | Usage stats and export notices are written to **stderr** (`Changes`, `AI Credits`, `Tokens`, `Session exported to...`), so stdout remains parseable assistant prose. |
-| Completion signal | Process completion is the contract boundary: wait for exit, then consume full stdout buffer. Exit code `0` indicates normal completion. |
-| Share transcript | `--share <path>` writes a markdown transcript file after completion; this is useful for debugging but not required for runtime extraction. |
-| Timeout behavior | External timeout termination yields non-zero exit (observed `124` via `timeout`), with no guaranteed transcript payload; treat as backend failure/skip per policy. |
-| Size behavior | Large outputs (observed ~5.4 KB content) are delivered on stdout without truncation in these probes; harness still enforces an input-size ceiling before invocation. |
-| Cleanup | Harness owns temp transcript artifacts and deletes sandbox state in `finally`; only copied-out `.eval-artifacts/*.txt` files persist. |
-
-### Off-ramp outcome (DR2-#8)
-
-Off-ramp was **not required** in this spike: both a prompt-only invocation and an agent invocation produced parseable stdout assistant text.
+waza owns transcript capture for Tier-2. Today `Invoke-WazaEvals.ps1` only passes `--output-dir tests/evals/output/<stamp>`; the per-task results JSON written there already carries per-grader score/feedback, which covers routine triage, so the runner captures no separate transcript. waza's own richer capture/replay surfaces (per-task transcript + snapshot for `waza replay`) are available to invoke ad-hoc when debugging a specific task, but are **not** wired into the runner and are not part of the committed contract. waza redacts OTEL payloads by default (sha256 + length), so a durable token cannot leak into captured artifacts. All Tier-2 output lands under the gitignored `tests/evals/output/`.
