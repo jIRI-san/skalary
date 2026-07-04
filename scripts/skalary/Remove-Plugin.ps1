@@ -6,6 +6,8 @@ param(
 
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
 
+    [string]$RegistryPath,
+
     [switch]$Force
 )
 
@@ -44,13 +46,12 @@ function Assert-NoInstalledDependent {
         [string]$RepoRootPath,
 
         [Parameter(Mandatory)]
-        [string]$PluginName
+        [string]$PluginName,
+
+        [string]$RegistryPath
     )
 
-    $registryPath = Join-Path $RepoRootPath 'registry.json'
-    if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
-        throw "registry.json not found at '$RepoRootPath'."
-    }
+    $registryPath = Resolve-RegistryPath -RepoRoot $RepoRootPath -RegistryPath $RegistryPath
     $registry = Read-JsonFile -Path $registryPath
     $registryByName = @{}
     foreach ($plugin in @($registry.plugins)) {
@@ -130,7 +131,7 @@ if ($null -eq $receipt) {
 }
 
 if (-not $Force) {
-    Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name
+    Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name -RegistryPath $RegistryPath
 }
 
 $removedCount = 0

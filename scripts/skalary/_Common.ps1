@@ -37,6 +37,37 @@ function Resolve-RepoRoot {
     }
 }
 
+function Resolve-RegistryPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [string]$RegistryPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($RegistryPath)) {
+        $explicit = [System.IO.Path]::GetFullPath($RegistryPath)
+        if (-not (Test-Path -LiteralPath $explicit -PathType Leaf)) {
+            throw "registry.json not found at -RegistryPath '$RegistryPath'."
+        }
+        return $explicit
+    }
+
+    $rootRegistry = Join-Path $RepoRoot 'registry.json'
+    if (Test-Path -LiteralPath $rootRegistry -PathType Leaf) {
+        return $rootRegistry
+    }
+
+    # Bootstrapped repos have no root registry.json; bootstrap.ps1 writes it here.
+    $bootstrapRegistry = Join-Path $RepoRoot 'scripts/skalary/registry.json'
+    if (Test-Path -LiteralPath $bootstrapRegistry -PathType Leaf) {
+        return $bootstrapRegistry
+    }
+
+    throw "No skalary registry found under '$RepoRoot' (looked for registry.json and scripts/skalary/registry.json). This is not a skalary-managed repo - run scripts/skalary/bootstrap.ps1 first, or pass -RegistryPath."
+}
+
 function Test-GithubRelativePath {
     [CmdletBinding()]
     param(

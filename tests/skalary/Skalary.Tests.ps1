@@ -352,6 +352,45 @@ Describe 'skalary plugin registry scripts' {
         @($search.name) | Should -Contain 'design-review'
     }
 
+    It 'Skalary.RegistryPath.Fallback resolves scripts/skalary/registry.json when the root registry is absent' {
+        $repo = New-RepoClone
+        # Simulate a bootstrapped repo: registry lives only under scripts/skalary/.
+        Copy-Item -LiteralPath (Join-Path $repo 'registry.json') -Destination (Join-Path $repo 'scripts/skalary/registry.json') -Force
+        Remove-Item -LiteralPath (Join-Path $repo 'registry.json') -Force
+
+        $plugins = Invoke-SkalaryScript -RepoRoot $repo -ScriptName 'Get-Plugin.ps1'
+        @($plugins.name) | Should -Contain 'code-review'
+
+        $search = Invoke-SkalaryScript -RepoRoot $repo -ScriptName 'Find-Plugin.ps1' -Parameters @{ Query = 'review' }
+        @($search.name) | Should -Contain 'code-review'
+    }
+
+    It 'Skalary.RegistryPath.Missing throws a skalary-managed-repo message when no registry exists anywhere' {
+        $repo = New-RepoClone
+        Remove-Item -LiteralPath (Join-Path $repo 'registry.json') -Force
+        Remove-Item -LiteralPath (Join-Path $repo 'scripts/skalary/registry.json') -Force -ErrorAction SilentlyContinue
+
+        {
+            Invoke-SkalaryScript -RepoRoot $repo -ScriptName 'Get-Plugin.ps1'
+        } | Should -Throw -ExpectedMessage '*not a skalary-managed repo*'
+    }
+
+    It 'Skalary.RegistryPath.DependentGuard blocks removal via the fallback registry' {
+        $source = New-RepoClone
+        $target = New-RepoClone
+
+        $install = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'continue-implementation', '-Source', $source, '-Ref', 'HEAD')
+        $install.ExitCode | Should -Be 0
+
+        # Bootstrapped layout: registry only under scripts/skalary/.
+        Copy-Item -LiteralPath (Join-Path $target 'registry.json') -Destination (Join-Path $target 'scripts/skalary/registry.json') -Force
+        Remove-Item -LiteralPath (Join-Path $target 'registry.json') -Force
+
+        {
+            Invoke-SkalaryScript -RepoRoot $target -ScriptName 'Remove-Plugin.ps1' -Parameters @{ Name = 'code-review' }
+        } | Should -Throw -ExpectedMessage '*installed dependent plugin(s): continue-implementation*'
+    }
+
     It 'Skalary.Registry.NoDrift keeps Build-Registry idempotent across repeated runs' {
         $repo = New-RepoClone
         $registryPath = Join-Path $repo 'registry.json'

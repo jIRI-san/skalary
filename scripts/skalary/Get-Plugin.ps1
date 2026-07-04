@@ -3,6 +3,8 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
 
+    [string]$RegistryPath,
+
     [switch]$Installed
 )
 
@@ -66,10 +68,7 @@ function Test-ReceiptModified {
 }
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$registryPath = Join-Path $repoRootPath 'registry.json'
-if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
-    throw "registry.json not found at '$repoRootPath'."
-}
+$registryPath = Resolve-RegistryPath -RepoRoot $repoRootPath -RegistryPath $RegistryPath
 
 $registry = Read-JsonFile -Path $registryPath
 $receiptByName = Get-ReceiptMap -RepoRootPath $repoRootPath

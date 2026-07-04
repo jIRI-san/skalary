@@ -4,7 +4,9 @@ param(
     [Parameter(Mandatory)]
     [string]$Query,
 
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+
+    [string]$RegistryPath
 )
 
 Set-StrictMode -Version Latest
@@ -13,10 +15,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_Common.ps1')
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$registryPath = Join-Path $repoRootPath 'registry.json'
-if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
-    throw "registry.json not found at '$repoRootPath'."
-}
+$registryPath = Resolve-RegistryPath -RepoRoot $repoRootPath -RegistryPath $RegistryPath
 
 $needle = $Query.Trim()
 if ([string]::IsNullOrWhiteSpace($needle)) {
