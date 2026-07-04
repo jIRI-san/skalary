@@ -9,8 +9,9 @@ $ErrorActionPreference = 'Stop'
 # waza" exactly when it has a waza spec and NO legacy llm JSON — deleting the JSON is the
 # cut-off. These tests lock that state so a migrated plugin can never silently regress back
 # onto the legacy backend. Phase 4.2 migrated design-notes onto waza (its legacy llm JSON is
-# deleted), so the deferred set is now EMPTY; EvalLlm.psm1 is kept intact until Phase 4.4
-# deletes it (DR-P7: no false atomic delete).
+# deleted), so the deferred set is now EMPTY; Phase 4.4 then DELETED tests/evals/EvalLlm.psm1
+# and removed its -IncludeLlm wiring from Test-Evals.ps1 (DR-P7: the delete followed the full
+# migration, not a premature atomic drop).
 
 Describe 'legacy backend cutover (plan 2.6)' {
     BeforeAll {
@@ -88,9 +89,28 @@ Describe 'legacy backend cutover (plan 2.6)' {
         }
     }
 
-    Context 'test:legacy-module-intact — EvalLlm.psm1 survives until the Phase 4.4 delete (DR-P7: no false atomic delete)' {
-        It 'test:legacy-module-intact tests/evals/EvalLlm.psm1 still exists (no false atomic delete)' {
-            Test-Path -LiteralPath (Join-Path $script:repoDir 'tests/evals/EvalLlm.psm1') -PathType Leaf | Should -BeTrue
+    Context 'test:evalllm-retired — the bespoke Tier-2 backend is deleted and unwired (Phase 4.4)' {
+        It 'test:evalllm-retired tests/evals/EvalLlm.psm1 no longer exists' {
+            Test-Path -LiteralPath (Join-Path $script:repoDir 'tests/evals/EvalLlm.psm1') -PathType Leaf | Should -BeFalse
+        }
+
+        It 'test:evalllm-retired Test-Evals.ps1 no longer wires the legacy LLM backend' {
+            $testEvals = Get-Content -LiteralPath (Join-Path $script:repoDir 'scripts/skalary/Test-Evals.ps1') -Raw
+            $testEvals | Should -Not -Match 'IncludeLlm'
+            $testEvals | Should -Not -Match 'EvalLlm'
+            $testEvals | Should -Not -Match 'Invoke-LlmEvalSuite'
+        }
+
+        It 'test:evalllm-retired no repo script still imports or calls the deleted module' {
+            $scriptFiles = @(Get-ChildItem -LiteralPath (Join-Path $script:repoDir 'scripts') -Recurse -Filter '*.ps1' -ErrorAction SilentlyContinue)
+            $offenders = @()
+            foreach ($f in $scriptFiles) {
+                $raw = Get-Content -LiteralPath $f.FullName -Raw
+                if ($raw -match 'Invoke-LlmEvalSuite' -or $raw -match 'EvalLlm\.psm1') {
+                    $offenders += $f.FullName
+                }
+            }
+            $offenders -join ' | ' | Should -BeExactly ''
         }
     }
 }

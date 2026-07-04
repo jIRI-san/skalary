@@ -1,6 +1,6 @@
 {
-  "_comment": "Copy to .eval.config.json (gitignored) and set real values for local LLM eval runs.",
-  "_waza": "For waza specs the agent model + judge model slugs live in each plugins/<name>/evals/waza/eval.yaml (config.model / config.judge_model); tool version pins live in tools/eval-tools.psd1. This file holds only judge/threshold tuning + Credential Manager auth targets. 'judgeModel' below applies to the legacy EvalLlm.psm1 backend still used by the design-notes cases until Phase 4.",
+  "_comment": "Copy to .eval.config.json (gitignored) and set real values for local eval runs.",
+  "_waza": "For waza specs the agent model + judge model slugs live in each plugins/<name>/evals/waza/eval.yaml (config.model / config.judge_model); tool version pins live in tools/eval-tools.psd1. The bespoke EvalLlm.psm1 backend was retired in Phase 4.4, so waza reads none of judgeModel/temperature/passThreshold/timeoutSeconds (each eval.yaml pins its own). Only credentialTarget / credentialTargets are still consumed here — by Resolve-EvalToken.ps1 as the Credential Manager auth fallback. The remaining tuning fields are kept for config compatibility.",
   "judgeModel": "<slug>",
   "credentialTarget": "copilot-eval",
   "credentialTargets": ["copilot-eval", "copilot-autopilot"],
