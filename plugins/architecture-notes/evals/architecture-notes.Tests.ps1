@@ -758,3 +758,139 @@ Describe 'architecture-notes human-doc staleness gate evals' {
         }
     }
 }
+
+Describe 'architecture ADR loop evals (REQ-13)' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
+        $script:adrScript = Join-Path $script:pluginRoot 'scripts/Import-ArchAdr.ps1'
+        $script:adrTemplate = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/adr-template.md'
+        $script:indexTemplate = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/templates/architecture-notes-index.template.md'
+        $script:skillPath = Join-Path $script:pluginRoot 'skills/architecture-notes/SKILL.md'
+        $script:cipDraftingGuide = Join-Path $script:repoRoot 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
+        $script:ciCrosscheckGuide = Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+
+        function New-AdrFixture {
+            $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-adr-" + [guid]::NewGuid().ToString('N'))
+            $planDir = Join-Path $repo 'docs/implementation-plans/2026-01-01-abc123-sample'
+            $decisions = Join-Path $planDir 'decisions'
+            [void](New-Item -ItemType Directory -Path $decisions -Force)
+            $decisionBody = "# Decision: Sample Choice`n`n## Context`nSome forces at play.`n`n## Decision`nWe chose X over Y.`n"
+            Set-Content -LiteralPath (Join-Path $decisions 'sample-choice.md') -Value $decisionBody -NoNewline
+            return [pscustomobject]@{ Repo = $repo; PlanDir = $planDir }
+        }
+    }
+
+    It 'Adr-CapturedDuringPlanning: a planning decision record is recognized and turned into a proposed ADR' {
+        Test-Path -LiteralPath $script:adrTemplate -PathType Leaf | Should -BeTrue
+        $tpl = Get-Content -LiteralPath $script:adrTemplate -Raw
+        $tpl | Should -Match '(?m)^status:\s*proposed'
+        $tpl | Should -Match '(?m)^reviewed:\s*false'
+        # /cip capture guidance points planning decisions at the ADR harvest (the capture -> ADR chain).
+        (Get-Content -LiteralPath $script:cipDraftingGuide -Raw) | Should -Match '(?i)adr'
+
+        $fx = New-AdrFixture
+        try {
+            $r = & $script:adrScript -PlanDir $fx.PlanDir -RepoRoot $fx.Repo
+            @($r.Adrs).Count | Should -Be 1
+            $r.Adrs[0].Id | Should -Be 'ADR-sample-choice'
+            $r.Adrs[0].Title | Should -Be 'Sample Choice'
+            $r.Adrs[0].Source | Should -Match 'decisions/sample-choice\.md$'
+            $r.Adrs[0].Action | Should -Be 'created'
+        }
+        finally {
+            Remove-Item -LiteralPath $fx.Repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Adr-HarvestedAtFinalization: ADRs land quarantined (reviewed:false) under .staging, no-overwrite, index untouched' {
+        $fx = New-AdrFixture
+        try {
+            $r = & $script:adrScript -PlanDir $fx.PlanDir -RepoRoot $fx.Repo
+            $r.Reviewed | Should -BeFalse
+
+            $adrPath = Join-Path $fx.Repo 'docs/architecture-notes/.staging/adr/ADR-sample-choice.md'
+            Test-Path -LiteralPath $adrPath -PathType Leaf | Should -BeTrue
+            $adr = Get-Content -LiteralPath $adrPath -Raw
+            $adr | Should -Match '(?m)^reviewed:\s*false'
+            $adr | Should -Match '(?m)^status:\s*proposed'
+            $adr | Should -Match 'ADR-sample-choice: Sample Choice'
+            # The harvested decision prose is preserved under ## Source (provenance).
+            $adr | Should -Match 'We chose X over Y'
+
+            # The manifest is the promotion gate (reviewed:false).
+            $manifest = Join-Path $fx.Repo 'docs/architecture-notes/.staging/ADR-HARVEST.md'
+            Test-Path -LiteralPath $manifest -PathType Leaf | Should -BeTrue
+            (Get-Content -LiteralPath $manifest -Raw) | Should -Match '(?m)^reviewed:\s*false'
+
+            # Harvest NEVER writes the auto-loaded index — promotion is a separate human action.
+            Test-Path -LiteralPath (Join-Path $fx.Repo 'docs/architecture-notes/.architecture-notes.md') -PathType Leaf | Should -BeFalse
+
+            # No-overwrite: a second run leaves an edited staged ADR untouched.
+            Set-Content -LiteralPath $adrPath -Value 'SENTINEL' -NoNewline
+            $r2 = & $script:adrScript -PlanDir $fx.PlanDir -RepoRoot $fx.Repo
+            $r2.Adrs[0].Action | Should -Be 'skipped'
+            (Get-Content -LiteralPath $adrPath -Raw) | Should -Be 'SENTINEL'
+        }
+        finally {
+            Remove-Item -LiteralPath $fx.Repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Adr-AutoLoadedNextRun: harvested ADRs are gated out of auto-load until promoted into the index Decision Records table' {
+        # The index (the auto-load surface) carries the Decision Records (active) table — the promotion target.
+        (Get-Content -LiteralPath $script:indexTemplate -Raw) | Should -Match '## Decision Records \(active\)'
+
+        $fx = New-AdrFixture
+        try {
+            [void](& $script:adrScript -PlanDir $fx.PlanDir -RepoRoot $fx.Repo)
+            $adrPath = Join-Path $fx.Repo 'docs/architecture-notes/.staging/adr/ADR-sample-choice.md'
+            # A harvested ADR lives under .staging (NOT referenced by the index) and carries no globs,
+            # so it cannot be auto-loaded or glob-attached into context before human promotion.
+            Test-Path -LiteralPath $adrPath -PathType Leaf | Should -BeTrue
+            $adr = Get-Content -LiteralPath $adrPath -Raw
+            # Scope the globs check to the top-of-file frontmatter block only: a body that merely
+            # discusses "globs:" must not false-red the containment assertion.
+            $fm = if ($adr -match '(?s)^---\r?\n(.*?)\r?\n---') { $Matches[1] } else { '' }
+            $fm | Should -Not -Match '(?m)^\s*globs:'
+        }
+        finally {
+            Remove-Item -LiteralPath $fx.Repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        # The SKILL documents promotion-before-auto-load and the superseded-ADR lifecycle bounding.
+        $skill = Get-Content -LiteralPath $script:skillPath -Raw
+        $skill | Should -Match 'adr-harvest'
+        $skill | Should -Match '(?i)auto-loaded by .*/cip'
+        $skill | Should -Match '(?i)superseded'
+        # /ci finalization wires the (gated) harvest so decisions are recorded on the next run.
+        (Get-Content -LiteralPath $script:ciCrosscheckGuide -Raw) | Should -Match 'Import-ArchAdr\.ps1'
+    }
+
+    It 'Adr-RejectsFrontmatterEscape: an untrusted decision body that embeds its own globs frontmatter cannot escape into the ADR frontmatter' {
+        $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-adr-esc-" + [guid]::NewGuid().ToString('N'))
+        $planDir = Join-Path $repo 'docs/implementation-plans/2026-01-01-abc123-sample'
+        $decisions = Join-Path $planDir 'decisions'
+        [void](New-Item -ItemType Directory -Path $decisions -Force)
+        # Hostile decision body: leads with its own YAML frontmatter fence declaring a broad glob.
+        $hostile = "---`nglobs:`n  - `"**`"`n---`n# Decision: Hostile`n`n## Decision`nDo the thing.`n"
+        Set-Content -LiteralPath (Join-Path $decisions 'hostile.md') -Value $hostile -NoNewline
+        try {
+            [void](& $script:adrScript -PlanDir $planDir -RepoRoot $repo)
+            $adrPath = Join-Path $repo 'docs/architecture-notes/.staging/adr/ADR-hostile.md'
+            Test-Path -LiteralPath $adrPath -PathType Leaf | Should -BeTrue
+            $adr = Get-Content -LiteralPath $adrPath -Raw
+            # The ADR's own top frontmatter is the template's (reviewed:false, NO globs) — the hostile
+            # fence never became the file's frontmatter (it was substituted end-of-file under ## Source).
+            $fm = if ($adr -match '(?s)^---\r?\n(.*?)\r?\n---') { $Matches[1] } else { '' }
+            $fm | Should -Match '(?m)^reviewed:\s*false'
+            $fm | Should -Not -Match '(?m)^\s*globs:'
+            # The hostile globs block survives only as inert data under ## Source.
+            $sourceSection = ($adr -split '(?m)^## Source\s*$', 2)[-1]
+            $sourceSection | Should -Match 'globs:'
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

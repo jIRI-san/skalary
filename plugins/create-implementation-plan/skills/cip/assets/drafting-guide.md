@@ -69,6 +69,8 @@ pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capt
 
 Initialize the section and commit `capture.md` by explicit filename at phase start even if empty; commit again when entries are appended. Missing required sections/placeholders fail loud; an intentionally empty `No entries for this phase.` stays valid.
 
+Architecturally-significant decisions also belong in the plan-folder `decisions/*.md` records. When the `architecture-notes` plugin is installed, those decisions are harvested into proposed ADRs at plan finalization (via `/uan` / the arch-notes **adr-harvest** operation) — quarantined `reviewed: false` until a human promotes accepted ones into the auto-loaded architecture tier.
+
 ## `ledger-consult` (on-demand, before drafting)
 
 When a plan folder includes `docs/review-ledger/`, consult only the small category files relevant to the current change; never auto-load the full ledger.

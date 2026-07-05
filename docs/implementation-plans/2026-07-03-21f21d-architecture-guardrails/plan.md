@@ -120,7 +120,7 @@
 ## Phase 7: ADR loop + docs + finalization
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 7.1 ADR feedback loop — capture decisions in `/cip` + `/ci`, ADR template + entries under `docs/architecture-notes/`, harvest at finalization via `/uan`; auto-load next run only after human review (harvested content containment); **ADR lifecycle** keeps only active decisions in the auto-loaded tier (superseded ADRs archived/summarized to bound token cost) (REQ-13, RISK-4, RISK-5, RISK-6) `L`
+- [x] 7.1 ADR feedback loop — capture decisions in `/cip` + `/ci`, ADR template + entries under `docs/architecture-notes/`, harvest at finalization via `/uan`; auto-load next run only after human review (harvested content containment); **ADR lifecycle** keeps only active decisions in the auto-loaded tier (superseded ADRs archived/summarized to bound token cost) (REQ-13, RISK-4, RISK-5, RISK-6) `L`
 - [ ] 7.2 Design notes — add `architecture-notes.design.md` + `architecture-tests.design.md`, update `plan-workflow` / `copilot-customizations` / `plugin-registry` notes, add both index rows, load both indexes in `copilot-instructions.md` and **document the intentional two-index divergence** in `copilot-customizations.design.md`, sync README (REQ-15, RISK-4) [after: 7.1] `M`
 
 ## Finalization (conditional)

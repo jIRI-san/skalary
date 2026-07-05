@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -50,6 +50,10 @@
       "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1"
     },
     {
+      "src": "scripts/Import-ArchAdr.ps1",
+      "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1"
+    },
+    {
       "src": "scripts/Get-ArchContractsHash.ps1",
       "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1"
     },
@@ -60,6 +64,10 @@
     {
       "src": "skills/architecture-notes/assets/interview-guide.md",
       "dest": "skills/architecture-notes/assets/interview-guide.md"
+    },
+    {
+      "src": "skills/architecture-notes/assets/adr-template.md",
+      "dest": "skills/architecture-notes/assets/adr-template.md"
     },
     {
       "src": "prompts/can.prompt.md",

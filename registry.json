@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T08:21:16.9798555Z",
+  "generatedAt": "2026-07-05T08:46:43.4658580Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -21,8 +21,13 @@
         },
         {
           "dest": "prompts/uan.prompt.md",
-          "sha256": "e5a8d870ff7b2550c375606ab24527158af636b63a1d8e4dc024a5b4502127cd",
+          "sha256": "be38888880c7c08f892b35a520f6a2e8cf6cf7f670178291673379de7ab56d10",
           "src": "prompts/uan.prompt.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/adr-template.md",
+          "sha256": "851bb5e58954e9216a384d2dc62920f1ce765c2f19ebc5907025b9ad4e15fb33",
+          "src": "skills/architecture-notes/assets/adr-template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/interview-guide.md",
@@ -60,6 +65,11 @@
           "src": "scripts/Get-ArchContractsHash.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
+          "sha256": "20e525f0bbb8e2d14f03673c137e8ef351b135b18f53eae269cc3a75f481d2d3",
+          "src": "scripts/Import-ArchAdr.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
           "sha256": "f91ff5b79e45ff6395343189077b7c16010bd103420bb987d6cfaad37b3ba049",
           "src": "scripts/Import-ArchHarvest.ps1"
@@ -81,7 +91,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "bfd59497f4858c98198accd547cbb57ea90ccef7fa4902c373113976e2d4bf81",
+          "sha256": "8db871ad95cb4846e6eb8bac0dc29f5a4d3a6f74cd777f8ddcc7686ebd5def17",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
@@ -94,7 +104,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",
@@ -393,7 +403,7 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "2e5f443433ed88fd410873cf63bcf03188dbcc09792771160c7d66ce326e5a9d",
+          "sha256": "75d667cc60d91a311954969d0a246176bc895dc280406f30b08b23c7dd525682",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -470,7 +480,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "author": "jIRI-san",
@@ -489,7 +499,7 @@
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "faa0754ab3e63dd5ed8c6e500520089f0d65d69cf4bc3a2e43a474e8b2d25e22",
+          "sha256": "b01880e5b67e99ecc0857cf27708826e84ebf2bd6395b2a0466adab38bfd5acd",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -555,7 +565,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",

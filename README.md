@@ -67,16 +67,17 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 <!-- BEGIN SKALARY PLUGIN CATALOG -->
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
-| `architecture-notes` | 1.0.1 | partial | — | 14 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
+| `architecture-notes` | 1.0.2 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `architecture-tests` | 1.0.17 | partial | — | 14 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.1.1 | partial | — | 20 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.1 | stable | — | 11 | Code review orchestrator with specialist subagents and git diff helpers. |
-| `continue-implementation` | 1.0.5 | stable | autopilot, code-review | 14 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.4 | stable | design-review | 13 | Implementation plan generation skill for coding workflows. |
+| `continue-implementation` | 1.0.6 | stable | autopilot, code-review | 14 | Code implementation workflow skill with autonomous execution guidance. |
+| `create-implementation-plan` | 1.0.5 | stable | design-review | 13 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.0.0 | stable | — | 5 | Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes. |
 | `design-review` | 1.0.1 | stable | — | 5 | Design review orchestrator with specialist model agents. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 <!-- END SKALARY PLUGIN CATALOG -->
+
 
 
 
