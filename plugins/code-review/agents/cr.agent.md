@@ -54,9 +54,10 @@ Note: this scope reviews full file contents (not git diffs). The reviewers shoul
 
 ## Step 3: Load Design Context
 
-1. Read `docs/design-notes/.design-notes.md` to get the index.
-2. Map each changed file path against the `globs` entries in the Available Skills table to identify which subsystems are touched.
-3. Load the design notes for all matched subsystems.
+1. If `docs/architecture-notes/.architecture-notes.md` exists, read it first and load the contracts the changed files touch. These are interface/contract-level and sit **above** design notes: a change that violates a `locked` contract is an architectural finding.
+2. Read `docs/design-notes/.design-notes.md` to get the index.
+3. Map each changed file path against the `globs` entries in the Available Skills table to identify which subsystems are touched.
+4. Load the design notes for all matched subsystems.
 
 ## Step 4: Determine Review Mode
 

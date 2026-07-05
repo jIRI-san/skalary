@@ -25,9 +25,10 @@ If no plan can be located, ask the user to provide one before continuing.
 
 ## Step 2: Load Design Context
 
-1. Read `docs/design-notes/.design-notes.md` to get the index.
-2. Identify subsystem names, folder paths, or class names referenced in the plan.
-3. Load the relevant design notes from the index table.
+1. If `docs/architecture-notes/.architecture-notes.md` exists, read it first and load the contracts the plan touches. These are interface/contract-level and sit **above** design notes: a plan that violates a `locked` contract is an architectural finding, not a suggestion.
+2. Read `docs/design-notes/.design-notes.md` to get the index.
+3. Identify subsystem names, folder paths, or class names referenced in the plan.
+4. Load the relevant design notes from the index table.
 
 ## Step 3: Handle Large Plans
 

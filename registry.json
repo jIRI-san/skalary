@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T08:05:09.7829001Z",
+  "generatedAt": "2026-07-05T08:21:16.9798555Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -316,22 +316,22 @@
       "files": [
         {
           "dest": "agents/cr-codex.agent.md",
-          "sha256": "b7c868f8966a1dda48b88d63605b1058b55cd68725c98e9c0d43c988afe28305",
+          "sha256": "28c22f567d98242ae198694236f8f3cd797ffe1ed37000e9cfb8f3191ea58492",
           "src": "agents/cr-codex.agent.md"
         },
         {
           "dest": "agents/cr-gemini.agent.md",
-          "sha256": "5f0899e1aaf0196d8955b5853a9cc1f17536589efa736331a9e1af9cf5239991",
+          "sha256": "fa0a98d40a7716199805a680f36288fd174b7f694d47b07586d2150324fda0db",
           "src": "agents/cr-gemini.agent.md"
         },
         {
           "dest": "agents/cr-opus.agent.md",
-          "sha256": "ca43528838a35a0b9ab1d69725891724a19ce2597b256c98c96b067dd43f9665",
+          "sha256": "4ac7ca094ee4ca3257a99e1edf8611dd55ea2d02560e7e58bf0c50449ecf875d",
           "src": "agents/cr-opus.agent.md"
         },
         {
           "dest": "agents/cr.agent.md",
-          "sha256": "504336fb27216f6066597afc750f4da7e72ecbb6f0ed1d01fa98b6ffe80550b4",
+          "sha256": "e357b9c0cf958f1b68d2fbc97c4d74e9ca75c4657cf06a0ce930111cfdb9a2ef",
           "src": "agents/cr.agent.md"
         },
         {
@@ -378,7 +378,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",
@@ -611,22 +611,22 @@
       "files": [
         {
           "dest": "agents/dr-codex.agent.md",
-          "sha256": "c9f22f93b74bd6de959a53c1fc767ebe8433f8c08922af100ffef90ca47178b9",
+          "sha256": "6e9bdaeddf0cdd5f1a41729c14bbecc2531f33be7ea90b91a013f0476421c16e",
           "src": "agents/dr-codex.agent.md"
         },
         {
           "dest": "agents/dr-gemini.agent.md",
-          "sha256": "bd88b18257c256cb2138694eda79c8966146ccb66d66ac7fb648a2ac2b22a7f7",
+          "sha256": "ac883033cedee50b896585b2ed36dfe628380e6b2e7430fdeda18fbc4e10e7db",
           "src": "agents/dr-gemini.agent.md"
         },
         {
           "dest": "agents/dr-opus.agent.md",
-          "sha256": "8cb02d62c3c03e646b45161c411b5c53e859c2d64d323d979fce9582e9c2d5e1",
+          "sha256": "38566d4734b05a12d4408463886a5deb86e725c3589b7552c7a07a246c720abd",
           "src": "agents/dr-opus.agent.md"
         },
         {
           "dest": "agents/dr.agent.md",
-          "sha256": "99f51dd5eafa97f6b76cbfa584d7c285612946bdc81d300caa4d7f8f6418470c",
+          "sha256": "3d9428fab8851f04b1acf92b2244be067b32c87ea6ed412b52cf6301e2938f17",
           "src": "agents/dr.agent.md"
         },
         {
@@ -643,7 +643,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",

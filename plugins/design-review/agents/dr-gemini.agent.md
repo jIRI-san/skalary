@@ -32,8 +32,9 @@ Review comprehensively across all important aspects:
 
 ## Context Loading
 
-1. Read `docs/design-notes/.design-notes.md` to get the index
-2. Load design notes for subsystems referenced in the plan to understand the performance and operational context before reviewing
+1. If `docs/architecture-notes/.architecture-notes.md` exists, read it first and load the contracts referenced by the plan — interface/contract-level, above design notes; a plan that violates a `locked` contract is a finding
+2. Read `docs/design-notes/.design-notes.md` to get the index
+3. Load design notes for subsystems referenced in the plan to understand the performance and operational context before reviewing
 
 ## Output Format
 

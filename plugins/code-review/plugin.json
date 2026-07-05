@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Code review orchestrator with specialist subagents and git diff helpers.",
   "author": "jIRI-san",
   "license": "MIT",

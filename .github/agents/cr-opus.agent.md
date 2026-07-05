@@ -35,9 +35,10 @@ Review comprehensively across all important aspects:
 
 ## Context Loading
 
-1. Read `docs/design-notes/.design-notes.md` to get the index
-2. Map the changed file paths against the globs column in the Available Skills table
-3. Load the relevant design notes for matched subsystems before reviewing
+1. If `docs/architecture-notes/.architecture-notes.md` exists, read it first and load the contracts the changed files touch — interface/contract-level, above design notes; a change that violates a `locked` contract is a finding
+2. Read `docs/design-notes/.design-notes.md` to get the index
+3. Map the changed file paths against the globs column in the Available Skills table
+4. Load the relevant design notes for matched subsystems before reviewing
 
 ## Output Format
 
