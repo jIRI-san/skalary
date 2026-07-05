@@ -16,5 +16,10 @@
 .eval-artifacts/
 tests/evals/output/
 
+# waza local cache + session logs (never committed)
+.waza-cache/
+.waza/
+tests/evals/**/result*.json
+
 # Pester CI test output
 testResults.xml

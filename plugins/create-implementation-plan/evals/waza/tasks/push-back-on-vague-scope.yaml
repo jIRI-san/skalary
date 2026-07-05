@@ -1,0 +1,61 @@
+id: push-back-on-vague-scope
+name: Pushes back on vague scope instead of fabricating a plan
+description: >
+  Given an under-specified brief with no subsystem boundaries or acceptance criteria,
+  cip must recognise the ambiguity, request the concrete missing information, and refuse
+  to fabricate detailed implementation steps before scope is clarified. Ported from
+  plugins/create-implementation-plan/evals/llm/push-back-on-vague-scope.eval.json.
+tags:
+  - scope-discipline
+  - functional
+inputs:
+  prompt: |
+    Create an implementation plan for this request: "improve reliability."
+
+    That is the entire brief — there are no subsystem boundaries, no target components,
+    no acceptance criteria, and no definition of what "reliability" means here.
+
+    Respond in prose in THIS conversation. Do NOT run Test-Plan.ps1, Set-PlanStage.ps1,
+    launch.ps1, or any other repository scripts, and do NOT create or write any files.
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even if the last action is a tool call.
+  follow_up_prompts:
+    - "State plainly what specific information you need before you can produce a reliable plan, and confirm you are NOT fabricating detailed implementation steps yet."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): a genuine push-back declines to plan yet
+  # (pattern 1: "information needed" / "before ... plan" / "not fabricating") AND names at
+  # least one concrete missing scope dimension cip must gather (pattern 2: measurable success
+  # criteria / scope / constraints / failure mode / target component). A response that just
+  # fabricated a plan would satisfy neither. Vocabulary widened from the 2.5 live capture (the
+  # agent says "Information needed before planning" / "not fabricating", not "ambiguous").
+  - type: text
+    name: flags_ambiguity_and_requests_scope
+    config:
+      regex_match:
+        - "(?i)information needed|not\\b.{0,15}fabricat|before .{0,40}plan|need .{0,25}(before|more|detail)|too (broad|vague)|under-?specified|ambig"
+        - "(?i)measurable|success (metric|criteri|outcome)|acceptance|scope|constraint|requirement|failure (mode|definition)|which (system|codebase|component)|clarif"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full response in context (the independent judge
+  # proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_pushes_back_on_vague_scope
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading an implementation-planning agent's response to a deliberately
+        vague brief ("improve reliability" with no boundaries or acceptance criteria).
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Identifies the ambiguity and does NOT pretend the requirements are already
+             complete, and
+          2. Requests the specific missing information needed to produce a reliable plan
+             (e.g. target components, what reliability means here, acceptance criteria),
+             and
+          3. Avoids fabricating detailed implementation steps before scope is clarified
+             (a short illustrative example is fine; a full pretend plan is NOT).
+
+        Otherwise call set_waza_grade_fail with a short reason.

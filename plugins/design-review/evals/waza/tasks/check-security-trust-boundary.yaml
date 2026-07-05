@@ -1,0 +1,52 @@
+id: check-security-trust-boundary
+name: Identifies a trust-boundary/security risk
+description: >
+  dr must identify the trust-boundary risk in executing untrusted model output as
+  shell commands, recommend safer handling, and rate it as material. Ported from
+  plugins/design-review/evals/llm/check-security-trust-boundary.eval.json.
+tags:
+  - security
+  - functional
+inputs:
+  prompt: |
+    Perform a design review of the plan in trust-boundary-plan.md (in your working
+    directory). Provide critical design feedback on security and trust boundaries.
+  context:
+    fixture: fixtures/trust-boundary-plan.md
+  follow_up_prompts:
+    - "Summarise your review conclusion in prose: the single most important risk, its impact rating, and a safer alternative."
+
+graders:
+  # Cheap deterministic pre-check (0 judge tokens): the review must reference the
+  # trust/security/execution risk and must not wave the plan through.
+  - type: text
+    name: mentions_trust_boundary
+    config:
+      regex_match:
+        - "(?i)trust|security|untrusted|inject|execut|arbitrary|rce|sandbox|validat"
+      not_contains:
+        - "no issues found"
+
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES dr's
+  # session and deterministically sees the full review in context (the independent
+  # judge proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail
+  # via set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_flags_trust_boundary
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading a design reviewer's output. The reviewer was shown a plan
+        that takes model-produced output strings verbatim and executes them as
+        shell commands (`bash -c "$modelOutput"`) during evaluation, with no
+        validation or sandboxing.
+
+        Call set_waza_grade_pass ONLY if the review:
+          1. Identifies the trust-boundary / security risk of executing untrusted
+             output (arbitrary command execution), and
+          2. Recommends safer handling (string-only handling, explicit validation
+             / allow-listing, or not executing the output at all), and
+          3. Rates the issue as material / high impact rather than minor.
+
+        Otherwise call set_waza_grade_fail with a short reason.

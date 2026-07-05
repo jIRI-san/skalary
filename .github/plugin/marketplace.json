@@ -60,7 +60,7 @@
       "version": "1.0.2"
     },
     {
-      "description": "Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes.",
+      "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
       "license": "MIT",
       "name": "design-notes",
       "source": "plugins/design-notes",
@@ -68,9 +68,10 @@
       "tags": [
         "design-notes",
         "documentation",
-        "prompt"
+        "prompt",
+        "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "description": "Design review orchestrator with specialist model agents.",

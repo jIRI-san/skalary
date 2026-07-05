@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-04T20:28:17.9961622Z",
+  "generatedAt": "2026-07-05T07:40:20.3500474Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -370,35 +370,40 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes.",
+      "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
       "evals": {
         "status": "none"
       },
       "files": [
         {
           "dest": "prompts/cdn.prompt.md",
-          "sha256": "33fe6ea511f8faf283d92e7867e97d5bf77184bc8ea45ebe683becde53c31d8f",
+          "sha256": "adf4314cd46c0588c10596b68d53fed3f1771998bbe978d2d57dff9c53f3f241",
           "src": "prompts/cdn.prompt.md"
         },
         {
           "dest": "prompts/design-notes.prompt.md",
-          "sha256": "c5b3d3500d1535a3fd1489a34654726ad4f9abf89301d6194bded2c2f5ecae91",
+          "sha256": "36d3c0fcea806fefd10f25ac048611f0b79c1b13545f341728c7704318170a9b",
           "src": "prompts/design-notes.prompt.md"
         },
         {
-          "dest": "prompts/design-notes/templates/design-note-writing-style.template.md",
-          "sha256": "b48f49bfd89cdbdac90e0b90c5a0ac47b11662ed26c2dc3376cdda97c692f913",
-          "src": "prompts/design-notes/templates/design-note-writing-style.template.md"
-        },
-        {
-          "dest": "prompts/design-notes/templates/design-notes-index.template.md",
-          "sha256": "40070a4a0651ea12b517309c443c3000cc0b2fe2de1e692f925e3bc44ee15a92",
-          "src": "prompts/design-notes/templates/design-notes-index.template.md"
-        },
-        {
           "dest": "prompts/udn.prompt.md",
-          "sha256": "1e1da638515d1add966cf16ec08ef1b81ecbfab313f615e5ca89b10097a1d536",
+          "sha256": "bac3923fe755b06ecc8bc914e1db5990c2815b183cb069b5527fcbe5690be46c",
           "src": "prompts/udn.prompt.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-note-writing-style.template.md",
+          "sha256": "b48f49bfd89cdbdac90e0b90c5a0ac47b11662ed26c2dc3376cdda97c692f913",
+          "src": "skills/design-notes/assets/templates/design-note-writing-style.template.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-notes-index.template.md",
+          "sha256": "40070a4a0651ea12b517309c443c3000cc0b2fe2de1e692f925e3bc44ee15a92",
+          "src": "skills/design-notes/assets/templates/design-notes-index.template.md"
+        },
+        {
+          "dest": "skills/design-notes/SKILL.md",
+          "sha256": "97ad0fd364299c88ec1477aaf57319010c94e8a9ad3ae27b0cab1549e4183f71",
+          "src": "skills/design-notes/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -407,9 +412,10 @@
       "tags": [
         "design-notes",
         "documentation",
-        "prompt"
+        "prompt",
+        "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "author": "jIRI-san",

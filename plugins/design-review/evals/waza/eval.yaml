@@ -1,0 +1,40 @@
+name: design-review
+description: Tier-2 LLM evals for the dr (design-review) agent — feasibility and trust-boundary review quality.
+skill: dr
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # Resolve the REAL dr agent bundle (orchestrator + specialist subagents) relative
+  # to this eval.yaml (1.0 soft-gate c: skill_directories resolves from the spec file).
+  skill_directories:
+    - ../../agents
+
+tasks:
+  - tasks/*.yaml
+
+# Spec-level graders MERGE with per-task graders (1.0 soft-gate d) and apply to every
+# task.
+#
+# dr.agent.md declares VS Code tool names (read/search/agent/todo). waza auto-injects a
+# tool_constraint from that frontmatter, but the copilot-sdk executor surfaces its OWN
+# identifiers (1.0 hard-gate g: read->view, search->glob), so the auto-injected constraint
+# can never match and spuriously fails (Gotcha A). Providing our own tool_constraint here
+# suppresses the auto-injected one AND makes a REAL assertion using the mapped name: dr
+# must read the plan under review (the `view` tool).
+graders:
+  - type: tool_constraint
+    name: dr_reads_plan
+    config:
+      expect_tools:
+        - tool: view
+
+# No adversarial block: both ported dr cases are functional design-review scenarios, not
+# prompt-injection cases (contrast cr's treat-injection-as-data). An adversarial pack is
+# added only when a plugin has an injection/adversarial-diff case to route through it.

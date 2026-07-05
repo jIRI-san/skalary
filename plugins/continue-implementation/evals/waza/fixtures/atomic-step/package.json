@@ -1,0 +1,9 @@
+{
+  "name": "atomic-step-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "test": "node -e \"process.exit(0)\""
+  }
+}

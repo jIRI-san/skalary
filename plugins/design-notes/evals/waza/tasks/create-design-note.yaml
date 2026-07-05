@@ -1,0 +1,65 @@
+id: create-design-note
+name: Drafts a real design note with a concrete decision and transcript constraints
+description: >
+  The design-notes skill's Create workflow must produce an actual design-note draft (not a
+  generic summary) that includes at least one concrete architectural decision tied to eval
+  harness behaviour and names transcript-capture constraints for headless runs. Ported from
+  plugins/design-notes/evals/llm/create-design-note.eval.json.
+tags:
+  - design-notes-quality
+  - functional
+inputs:
+  prompt: |
+    Following the design-notes skill's Create workflow, draft a new design note for a plugin
+    eval harness that runs BOTH structural checks and LLM checks. Include concrete
+    architecture decisions and concrete constraints for transcript capture in headless runs.
+
+    IMPORTANT — for this exercise respond with the design-note draft (frontmatter-style
+    structure and sections) in THIS conversation. Do NOT create or write any files, and do
+    NOT run any repository scripts.
+  # 1.0 hard-gate b: force a final assistant turn so the deterministic text grader and
+  # final_output are populated even if the last action is a tool call. Like the bootstrap
+  # task, the follow-up asks the agent to RESTATE the graded concepts by name so the
+  # deterministic text pre-check reliably matches the final turn (the substantive draft in
+  # turn 1 always contains these terms, but a generic "confirm" reply can paraphrase them
+  # away — see 5.1 live-sweep finding).
+  follow_up_prompts:
+    - "State it plainly in a sentence or two: summarize the concrete eval-harness decision your draft makes, and the transcript-capture constraint you specified for headless runs."
+
+# Deterministic pre-check (0 judge tokens) graded at the DRAFT turn (after_turn: 1), BEFORE the
+# follow-up confirmation. The structured draft always names these concepts verbatim, but the
+# terse final confirmation paraphrases them ("eval" -> "harness", "transcript" -> "capture"), so
+# grading final_output flaked run-to-run. Grading the draft turn is deterministic. on_failure:
+# continue so the judge still runs at the final turn. See 5.1 live-sweep finding.
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_eval_and_transcript
+        config:
+          regex_match:
+            - "(?i)eval"
+            - "(?i)transcript"
+
+graders:
+  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
+  # session and deterministically sees the full draft in context. Binary pass/fail via
+  # set_waza_grade_pass/fail.
+  - type: prompt
+    name: rubric_create_design_note
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the design-notes skill's Create workflow output — a new design note
+        for a plugin eval harness that runs structural + LLM checks.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Is an actual design-note DRAFT (structured sections / frontmatter-style), not a
+             generic summary or meta-description, and
+          2. Includes at least one CONCRETE architectural decision tied to eval-harness
+             behaviour (not a vague platitude), and
+          3. Names at least one transcript-capture constraint specific to headless runs.
+
+        Otherwise call set_waza_grade_fail with a short reason.
