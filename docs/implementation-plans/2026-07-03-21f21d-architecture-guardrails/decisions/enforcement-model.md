@@ -122,8 +122,18 @@ of maturity.
 ## Runner ownership (single source of truth)
 The runner's **canonical source is `scripts/skalary/Invoke-ArchTests.ps1`** — the single source
 of truth the bundling model requires, so `Sync-PluginScripts.ps1` (the sole writer of bundled
-copies) bundles it into ci/cip like every other shared script. A plugin-owned canonical home
+copies) bundles it into its **owning `architecture-tests` plugin**. A plugin-owned canonical home
 would create a second source of truth the drift gate cannot cover.
+
+`/ci` does **not** carry a duplicate of the runner: it **invokes the `architecture-tests` install**
+via a **gated bare reference** (`requires the architecture-tests plugin installed`), mirroring the
+`architecture-notes` review's gated call to `Get-ArchReviewReport.ps1`. This is deliberate — the
+runner's real-run closure (the deterministic NetArchTest/ts-arch adapters, the semantic-eval
+providers, and the lock authority) is **`architecture-tests`-plugin-owned** under
+`plugins/architecture-tests/scripts/` (NOT `scripts/skalary/`), so bundling the runner into `ci`
+would fork a second source of truth for that closure the drift gate cannot cover. REQ-8's
+`test:Runner-CanonicalSourceBundled` accordingly asserts byte-identical bundling into
+`architecture-tests` **and forbids a plugin-local second source** — never bundling into `ci`.
 
 ## Untrusted input hardening
 Arch-note text into any LLM step must:

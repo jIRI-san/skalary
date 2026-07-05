@@ -227,3 +227,81 @@ Describe 'arch evidence marker' {
         }
     }
 }
+
+Describe 'ci arch-runner integration (REQ-12)' {
+    BeforeAll {
+        $script:ciRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $script:runnerCanonical = Join-Path $script:ciRepoRoot 'scripts/skalary/Invoke-ArchTests.ps1'
+        # npm test = validate-plan && test:unit && validate.ps1 -> all three legs must stay structural.
+        $script:structuralEntrypoints = @(
+            (Join-Path $script:ciRepoRoot 'scripts/validate.ps1'),
+            (Join-Path $script:ciRepoRoot 'scripts/skalary/Validate-Plan.ps1'),
+            (Join-Path $script:ciRepoRoot 'scripts/skalary/Run-UnitTests.ps1')
+        )
+        $script:packageJsonPath = Join-Path $script:ciRepoRoot 'package.json'
+        $script:ciPluginJsonPath = Join-Path $script:ciRepoRoot 'plugins/continue-implementation/plugin.json'
+        $script:ciCrosscheckGuide = Join-Path $script:ciRepoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+        . $script:runnerCanonical
+    }
+
+    It 'Validate-StructuralOnly-NoToolchainShell: no npm-test structural leg shells a build toolchain' {
+        # Every leg of `npm test` (validate.ps1 + Validate-Plan.ps1 + Run-UnitTests.ps1) is dependency-free:
+        # none may INVOKE dotnet/npm/npx/vitest (real toolchains belong only to the opt-in /ci runner). Match
+        # invocation shapes (call operator, Start-Process, verb sub-commands) rather than incidental prose.
+        foreach ($entry in $script:structuralEntrypoints) {
+            Test-Path -LiteralPath $entry -PathType Leaf | Should -BeTrue -Because "$entry is an npm-test structural leg"
+            $src = Get-Content -LiteralPath $entry -Raw
+            $src | Should -Not -Match '(?im)&\s*(npm|npx|dotnet|vitest|node)\b' -Because "$entry must not shell a toolchain"
+            $src | Should -Not -Match '(?i)\bStart-Process\b' -Because "$entry must not Start-Process a toolchain"
+            $src | Should -Not -Match '(?i)\b(dotnet\s+(test|build|restore|run|msbuild)|npm\s+(ci|install|exec)|npx\s|vitest)\b' -Because "$entry must not run a build sub-command"
+        }
+
+        # Allowlist the `npm test` chain itself: it may only compose pwsh structural scripts, never a toolchain.
+        $pkg = Get-Content -LiteralPath $script:packageJsonPath -Raw | ConvertFrom-Json
+        $pkg.scripts.test | Should -Match 'validate-plan'
+        $pkg.scripts.test | Should -Match 'test:unit'
+        $pkg.scripts.test | Should -Match 'validate\.ps1'
+        $pkg.scripts.test | Should -Not -Match '(?i)\b(dotnet|npx|vitest)\b'
+    }
+
+    It 'Ci-CrosscheckRunsArchRunner: the ci crosscheck guide wires the runner as an opt-in, gated, non-bundled run' {
+        $guide = Get-Content -LiteralPath $script:ciCrosscheckGuide -Raw
+        $guide | Should -Match 'Invoke-ArchTests\.ps1'
+        # Design B: invoked from the architecture-tests install, gated on it being present.
+        $guide | Should -Match '(?i)requires the architecture-tests plugin installed'
+        # Opt-in, and the structural gate is explicitly excluded from real runs.
+        $guide | Should -Match '(?i)opt-in'
+        $guide | Should -Match '(?i)never in ..?scripts/validate\.ps1'
+
+        # The runner must NOT be bundled/forked into the ci plugin: no Invoke-ArchTests.ps1 file entry.
+        $ciFilesJson = (Get-Content -LiteralPath $script:ciPluginJsonPath -Raw | ConvertFrom-Json).files | ConvertTo-Json -Depth 6
+        $ciFilesJson | Should -Not -Match 'Invoke-ArchTests\.ps1'
+    }
+
+    It 'Runner-OptInRealRun: the runner produces the taxonomy receipt the marker reads (deterministic mock = pass/ran)' {
+        $root = Join-Path $TestDrive ("ropt-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $root -Force)
+        git -C $root init --quiet 2>&1 | Out-Null
+        git -C $root config user.email 't@t' 2>&1 | Out-Null
+        git -C $root config user.name 't' 2>&1 | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'arch-contract.json') -Value '{"id":"ARCH-Ci-1","maturity":"draft"}' -NoNewline
+        $cfg = Join-Path $root 'arch-test-config.json'
+        # A semantic-eval mock check produces a receipt with NO real toolchain (advisory). The mock provider is
+        # deterministic (status=pass, ran), so pin the exact verdict -- a taxonomy-membership assertion alone is
+        # tautological (New-ArchTestReceipt's ValidateSet already enforces membership) and would mask a regression.
+        (@{ version = '1'; checks = @(@{ contractId = 'ARCH-Ci-1'; adapter = 'semantic-eval'; provider = 'mock'; maturity = 'draft'; contractPath = 'arch-contract.json'; targets = @('arch-contract.json') }) } | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $cfg -NoNewline
+        git -C $root add -A 2>&1 | Out-Null
+        git -C $root commit -qm init 2>&1 | Out-Null
+
+        $providerRoot = Join-Path $script:ciRepoRoot 'plugins/architecture-tests/scripts/providers'
+        $summary = Invoke-ArchTests -ConfigPath $cfg -RepoRoot $root -ProviderRoot $providerRoot
+        $receiptPath = Join-Path $root 'docs/architecture-notes/receipts/ARCH-Ci-1.arch-receipt.json'
+        Test-Path -LiteralPath $receiptPath -PathType Leaf | Should -BeTrue
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+        $receipt.verdict | Should -Be 'pass'
+        $receipt.ran | Should -BeTrue
+        $receipt.adapter | Should -Be 'semantic-eval'
+        $summary.Checks[0].Adapter | Should -Be 'semantic-eval'
+        $summary.Checks[0].Verdict | Should -Be 'pass'
+    }
+}

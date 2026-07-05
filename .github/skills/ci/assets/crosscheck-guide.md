@@ -28,6 +28,32 @@ Receipt rules:
 - Emit one line per required marker; unexecuted markers emit `✗ … — unrun`.
 - Use the current `HEAD` commit SHA in every emitted line.
 
+## Arch-tests receipts (opt-in real run)
+
+An `arch:<ContractId>` marker pure-parses a receipt; the receipt is produced by the **arch-tests runner**, which
+is the ONLY component that shells a real toolchain (`dotnet test`/`vitest`). Running it is **opt-in**, homed here
+in `/ci` implementation/crosscheck exactly like the eval harness's `-IncludeLlm` — never in `scripts/validate.ps1`
+or `npm test`, which stay dependency-free/structural and only pure-parse the committed receipts.
+
+When a step touches a `locked` contract (or at a crosscheck that must refresh a stale receipt), regenerate the
+receipt with the runner, then commit it alongside `evidence.md`. The runner lives in the **`architecture-tests`
+plugin** (it carries the adapters/providers + lock authority a real run needs, which are plugin-owned and not
+bundled into `ci`); invoke it only when that plugin is installed:
+
+```powershell
+# requires the architecture-tests plugin installed; $archSkill is its installed skill dir,
+# i.e. architecture-tests under the .github/skills install root (NOT bundled into ci).
+$archSkill = Join-Path '.github/skills' 'architecture-tests'
+pwsh -NoProfile -File (Join-Path $archSkill 'scripts/Invoke-ArchTests.ps1') -ConfigPath <arch-test-config.json> -RepoRoot .
+```
+
+The runner installs frozen (`npm ci --ignore-scripts` / `dotnet restore --locked-mode`), runs only human-reviewed
+`locked` bodies behind the lock gate, and writes a taxonomy verdict into `docs/architecture-notes/receipts/`. The
+`arch:` marker (above) then verifies that receipt by pure parse — no toolchain runs at verification time.
+**Containment is honest:** `--ignore-scripts` disables install-lifecycle scripts only — `vitest`/`dotnet test`
+still execute third-party framework/dev-dep code (and MSBuild targets) in-process, so real runs execute in the
+documented **non-containing sandbox**, not a true container.
+
 ## Phase crosscheck
 
 1. Collect REQ IDs referenced by steps in the current phase.

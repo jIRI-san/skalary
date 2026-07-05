@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T05:59:51.7034227Z",
+  "generatedAt": "2026-07-05T08:05:09.7829001Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -393,12 +393,12 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "fbf1dd952b6dbd24fa1d4f0e791fb10fbbec87c15742b7147eb77fc99d964a81",
+          "sha256": "2e5f443433ed88fd410873cf63bcf03188dbcc09792771160c7d66ce326e5a9d",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "e6778e84e531dd8447f1f2e6dab19618b16de53445a3b0cae1296e40b8a9674e",
+          "sha256": "ba0199161c00aa9017ba43831ecb3da8b8648e6caefa5c901315d2e550356ce8",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -470,7 +470,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",
