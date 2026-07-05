@@ -113,7 +113,7 @@
 ## Phase 6: Docs
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 6.1 Create `docs/design-notes/architecture/plugin-manager.design.md` (skills, dual catalog, read-only auto-approval opt-in flow); update `plugin-registry.design.md` (dual catalog, bootstrap auto-install + clone semantics, `.ps1` closure, `-RegistryPath` fallback, `.github/plugin/` dogfood ownership, `Set-ScriptApproval` contract) and `.design-notes.md` index; sync `README.md`/`registry.json` (REQ-10) [after: 3.3, 4.1, 4.2] `M`
+- [x] 6.1 Create `docs/design-notes/architecture/plugin-manager.design.md` (skills, dual catalog, read-only auto-approval opt-in flow); update `plugin-registry.design.md` (dual catalog, bootstrap auto-install + clone semantics, `.ps1` closure, `-RegistryPath` fallback, `.github/plugin/` dogfood ownership, `Set-ScriptApproval` contract) and `.design-notes.md` index; sync `README.md`/`registry.json` (REQ-10) [after: 3.3, 4.1, 4.2] `M`
 
 ## Finalization (conditional)
 
