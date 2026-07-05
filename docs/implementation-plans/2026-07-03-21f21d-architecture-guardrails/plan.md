@@ -1,4 +1,4 @@
-# 21f21d: Architecture Guardrails Plugin Family
+# 21f21d: Architecture Guardrails Plugin Family [DONE]
 <!-- plan-id: 21f21d -->
 <!-- cip-stage: dr-round-2 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
@@ -125,4 +125,4 @@
 
 ## Finalization (conditional)
 
-- [ ] 7.3 Finalization gate — full `scripts/validate.ps1` green (structural, pure-parse receipts), plugin evals green with real C#/TS fixture runs executed **where toolchains are present** (opt-in, separate from always-on `validate.ps1`); toolchain-absent → **block with an actionable "run where dotnet/npm present" note**, never a silent skip-through; `registry.json` rebuilt, evidence receipt clean (REQ-8, REQ-12, REQ-14, REQ-15) @human `S`
+- [x] 7.3 Finalization gate — full `scripts/validate.ps1` green (structural, pure-parse receipts), plugin evals green with real C#/TS fixture runs executed **where toolchains are present** (opt-in, separate from always-on `validate.ps1`); toolchain-absent → **block with an actionable "run where dotnet/npm present" note**, never a silent skip-through; `registry.json` rebuilt, evidence receipt clean (REQ-8, REQ-12, REQ-14, REQ-15) @human `S`

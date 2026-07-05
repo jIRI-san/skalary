@@ -1,6 +1,6 @@
 ---
 name: architecture-tests
-description: 'Run architecture-contract checks and emit freshness-bound receipts. Binds each contract to a deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapter, records a parent-commit + sources hash, and maps the failure-taxonomy verdict to a gate outcome that honours contract maturity (locked blocks, draft/provisional warn). Use when validating that an implementation still obeys the human-owned architecture contracts.'
+description: 'Run architecture-contract checks and emit freshness-bound receipts. Binds each contract to a deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapter, records a parent-commit + sources hash, and maps the failure-taxonomy verdict to a gate outcome that honours contract maturity (locked blocks, draft/provisional warn). Use when validating that an implementation still obeys the human-owned architecture contracts.'
 user-invocable: true
 disable-model-invocation: true
 context: fork

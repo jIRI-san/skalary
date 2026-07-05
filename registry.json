@@ -4,7 +4,7 @@
     "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T08:46:43.4658580Z",
+  "generatedAt": "2026-07-05T10:43:18.5580604Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -109,7 +109,7 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest/ts-arch/dependency-cruiser) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
+      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
       "evals": {
         "status": "none"
       },
@@ -181,7 +181,7 @@
         },
         {
           "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "f42e186496227655199370de16a06c61d29796d593479b4c1fca1ce110b201e3",
+          "sha256": "baf0fdd8be5aaedb66749984ef499ce8664ecb561264634752729ae309119a69",
           "src": "skills/architecture-tests/SKILL.md"
         }
       ],
@@ -194,7 +194,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.17"
+      "version": "1.0.18"
     },
     {
       "author": "jIRI-san",
