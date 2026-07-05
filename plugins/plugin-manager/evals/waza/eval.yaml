@@ -1,0 +1,35 @@
+name: plugin-manager
+description: Tier-2 LLM evals for the plugin-manager install-plugin skill — the plugin's one behaviourally non-trivial workflow (install + opt-in read-only auto-approval), graded on describe-only reasoning quality.
+skill: install-plugin
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # plugin-manager ships FOUR user-invocable skills, but waza injects ONE skill body per spec
+  # (inject_skill_body, 1.0 gate e). We target `install-plugin` — the only skill with genuine
+  # judgment (default-source + direct-invocation discipline, and the opt-in read-only approval
+  # decision). The other three skills (list/uninstall/update) are thin script wrappers whose
+  # contracts are fully covered by the offline structural evals in ../plugin-manager.Tests.ps1.
+  # ../../skills is plugins/plugin-manager/skills, which contains the `install-plugin` skill dir
+  # discovered by the `skill:` name above.
+  skill_directories:
+    - ../../skills
+  # inject_skill_body defaults to true: install-plugin declares disable-model-invocation: true,
+  # so body injection — not a `skill` tool call — is what exercises the behaviour. These cases
+  # measure the described OUTPUT (which script, how invoked, what approval), not tool invocation.
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: the install-plugin SKILL.md frontmatter declares NO `tools:`
+# field, so waza auto-injects nothing to suppress (contrast cr/dr agent frontmatter). Both
+# cases are describe-only reasoning scenarios graded on the response.
+
+# No adversarial block: both ported cases are functional install-workflow scenarios, not
+# prompt-injection cases.

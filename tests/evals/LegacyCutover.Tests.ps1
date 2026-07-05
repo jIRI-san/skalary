@@ -68,8 +68,8 @@ Describe 'legacy backend cutover (plan 2.6)' {
             $offenders -join ' | ' | Should -BeExactly ''
         }
 
-        It 'test:migrated-off-legacy the 6 migrated plugins each ship a waza spec' {
-            foreach ($name in @('code-review', 'design-review', 'autopilot', 'continue-implementation', 'create-implementation-plan', 'design-notes')) {
+        It 'test:migrated-off-legacy the 7 migrated plugins each ship a waza spec' {
+            foreach ($name in @('code-review', 'design-review', 'autopilot', 'continue-implementation', 'create-implementation-plan', 'design-notes', 'plugin-manager')) {
                 (Script:Test-HasWazaSpec -PluginDir (Join-Path $script:pluginsRoot $name)) | Should -BeTrue -Because "plugin $name should be migrated to waza"
             }
         }
