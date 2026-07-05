@@ -1,0 +1,81 @@
+{
+  "name": "plugin-manager",
+  "version": "1.0.2",
+  "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "plugin-management",
+    "meta"
+  ],
+  "dependencies": [],
+  "status": "stable",
+  "files": [
+    {
+      "src": "skills/install-plugin/SKILL.md",
+      "dest": "skills/install-plugin/SKILL.md"
+    },
+    {
+      "src": "skills/install-plugin/scripts/Install-Plugin.ps1",
+      "dest": "skills/install-plugin/scripts/Install-Plugin.ps1"
+    },
+    {
+      "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
+      "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
+    },
+    {
+      "src": "skills/install-plugin/scripts/_Common.ps1",
+      "dest": "skills/install-plugin/scripts/_Common.ps1"
+    },
+    {
+      "src": "skills/uninstall-plugin/SKILL.md",
+      "dest": "skills/uninstall-plugin/SKILL.md"
+    },
+    {
+      "src": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
+      "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1"
+    },
+    {
+      "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
+      "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
+    },
+    {
+      "src": "skills/uninstall-plugin/scripts/_Common.ps1",
+      "dest": "skills/uninstall-plugin/scripts/_Common.ps1"
+    },
+    {
+      "src": "skills/list-plugins/SKILL.md",
+      "dest": "skills/list-plugins/SKILL.md"
+    },
+    {
+      "src": "skills/list-plugins/scripts/Get-Plugin.ps1",
+      "dest": "skills/list-plugins/scripts/Get-Plugin.ps1"
+    },
+    {
+      "src": "skills/list-plugins/scripts/Find-Plugin.ps1",
+      "dest": "skills/list-plugins/scripts/Find-Plugin.ps1"
+    },
+    {
+      "src": "skills/list-plugins/scripts/_Common.ps1",
+      "dest": "skills/list-plugins/scripts/_Common.ps1"
+    },
+    {
+      "src": "skills/update-plugin/SKILL.md",
+      "dest": "skills/update-plugin/SKILL.md"
+    },
+    {
+      "src": "skills/update-plugin/scripts/Update-Plugin.ps1",
+      "dest": "skills/update-plugin/scripts/Update-Plugin.ps1"
+    },
+    {
+      "src": "skills/update-plugin/scripts/_Common.ps1",
+      "dest": "skills/update-plugin/scripts/_Common.ps1"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

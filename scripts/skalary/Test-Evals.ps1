@@ -2,7 +2,6 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
-    [switch]$IncludeLlm,
     [string]$OutputRoot
 )
 
@@ -167,7 +166,6 @@ function ConvertTo-EvalMarkdownReport {
     [void]$builder.AppendLine('# Eval Report')
     [void]$builder.AppendLine()
     [void]$builder.AppendLine("- Generated: $($Report.generatedAt)")
-    [void]$builder.AppendLine("- Include LLM: $($Report.includeLlm)")
     [void]$builder.AppendLine()
 
     $summary = $Report.summary
@@ -251,36 +249,6 @@ else {
     Write-Host 'No structural eval tests found under plugins/*/evals/**/*.Tests.ps1.' -ForegroundColor Yellow
 }
 
-if ($IncludeLlm) {
-    $evalLlmModulePath = Join-Path $repoRootPath 'tests/evals/EvalLlm.psm1'
-    if (-not (Test-Path -LiteralPath $evalLlmModulePath -PathType Leaf)) {
-        throw "LLM eval module not found: $evalLlmModulePath"
-    }
-
-    Import-Module $evalLlmModulePath -Force
-    $llmResult = Invoke-LlmEvalSuite -RepoRoot $repoRootPath -OutputDir $runDir -Backend 'copilot-cli'
-    foreach ($llmEntry in @($llmResult.entries)) {
-        $entries.Add($llmEntry)
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace([string]$llmResult.note)) {
-        Write-Host $llmResult.note -ForegroundColor Yellow
-        if (@($llmResult.entries).Count -eq 0) {
-            $entries.Add([ordered]@{
-                    plugin = 'llm-tier'
-                    case = 'preflight'
-                    artifact = '<none>'
-                    tier = 'llm'
-                    outcome = 'skip'
-                    score = $null
-                    threshold = $null
-                    message = [string]$llmResult.note
-                    transcriptPath = $null
-                })
-        }
-    }
-}
-
 $entryArray = @($entries)
 $summary = [ordered]@{
     total = $entryArray.Count
@@ -292,7 +260,6 @@ $summary = [ordered]@{
 
 $report = [ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    includeLlm = [bool]$IncludeLlm
     summary = $summary
     entries = $entryArray
 }

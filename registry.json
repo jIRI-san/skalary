@@ -1,10 +1,10 @@
 {
   "bootstrap": {
-    "oneLiner": "irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1 | iex",
-    "ref": "c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd",
-    "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1"
+    "oneLiner": "irm https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1 | iex",
+    "ref": "main",
+    "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T10:43:18.5580604Z",
+  "generatedAt": "2026-07-05T11:54:06.7599350Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -570,35 +570,40 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes.",
+      "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
       "evals": {
         "status": "none"
       },
       "files": [
         {
           "dest": "prompts/cdn.prompt.md",
-          "sha256": "33fe6ea511f8faf283d92e7867e97d5bf77184bc8ea45ebe683becde53c31d8f",
+          "sha256": "adf4314cd46c0588c10596b68d53fed3f1771998bbe978d2d57dff9c53f3f241",
           "src": "prompts/cdn.prompt.md"
         },
         {
           "dest": "prompts/design-notes.prompt.md",
-          "sha256": "c5b3d3500d1535a3fd1489a34654726ad4f9abf89301d6194bded2c2f5ecae91",
+          "sha256": "36d3c0fcea806fefd10f25ac048611f0b79c1b13545f341728c7704318170a9b",
           "src": "prompts/design-notes.prompt.md"
         },
         {
-          "dest": "prompts/design-notes/templates/design-note-writing-style.template.md",
-          "sha256": "b48f49bfd89cdbdac90e0b90c5a0ac47b11662ed26c2dc3376cdda97c692f913",
-          "src": "prompts/design-notes/templates/design-note-writing-style.template.md"
-        },
-        {
-          "dest": "prompts/design-notes/templates/design-notes-index.template.md",
-          "sha256": "40070a4a0651ea12b517309c443c3000cc0b2fe2de1e692f925e3bc44ee15a92",
-          "src": "prompts/design-notes/templates/design-notes-index.template.md"
-        },
-        {
           "dest": "prompts/udn.prompt.md",
-          "sha256": "1e1da638515d1add966cf16ec08ef1b81ecbfab313f615e5ca89b10097a1d536",
+          "sha256": "bac3923fe755b06ecc8bc914e1db5990c2815b183cb069b5527fcbe5690be46c",
           "src": "prompts/udn.prompt.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-note-writing-style.template.md",
+          "sha256": "b48f49bfd89cdbdac90e0b90c5a0ac47b11662ed26c2dc3376cdda97c692f913",
+          "src": "skills/design-notes/assets/templates/design-note-writing-style.template.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-notes-index.template.md",
+          "sha256": "40070a4a0651ea12b517309c443c3000cc0b2fe2de1e692f925e3bc44ee15a92",
+          "src": "skills/design-notes/assets/templates/design-notes-index.template.md"
+        },
+        {
+          "dest": "skills/design-notes/SKILL.md",
+          "sha256": "97ad0fd364299c88ec1477aaf57319010c94e8a9ad3ae27b0cab1549e4183f71",
+          "src": "skills/design-notes/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -607,9 +612,10 @@
       "tags": [
         "design-notes",
         "documentation",
-        "prompt"
+        "prompt",
+        "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "author": "jIRI-san",
@@ -654,6 +660,100 @@
         "prompt"
       ],
       "version": "1.0.1"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/install-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/install-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
+          "sha256": "4d37509ecad6231356a4faa151af9ed1cee6868e460d0832668e78a1052e7da1",
+          "src": "skills/install-plugin/scripts/Install-Plugin.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "cb15b8d830181baf98118772c2e285b0804d04916ec6334b22ceb0f3547b3919",
+          "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/SKILL.md",
+          "sha256": "cec4d665494caf72a1064130c170a24776cf98930f3d2397c14a25b3ac1d223e",
+          "src": "skills/install-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/list-plugins/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Find-Plugin.ps1",
+          "sha256": "267c03d27080f3e188ee75a96c850d4a3e1c62bd49169401243a4751f764727b",
+          "src": "skills/list-plugins/scripts/Find-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Get-Plugin.ps1",
+          "sha256": "a98c34af324457688264d84ca8596dbbdb071eb5c3d665a443f730400658e6cd",
+          "src": "skills/list-plugins/scripts/Get-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/SKILL.md",
+          "sha256": "bf5a1e82a88b0cf1a90c8e49db16178bd903ec290082b72bef12dffcf5169ca9",
+          "src": "skills/list-plugins/SKILL.md"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/uninstall-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
+          "sha256": "6e2a3839196446aaccdaaf8db367974d33e4d2b55c71d7c1890637da2df75be7",
+          "src": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "cb15b8d830181baf98118772c2e285b0804d04916ec6334b22ceb0f3547b3919",
+          "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/SKILL.md",
+          "sha256": "4f93051e88432b164d8b993f46a00c7827ed9c8e167526bfa9b1cc1d6d1ea0d7",
+          "src": "skills/uninstall-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/_Common.ps1",
+          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
+          "src": "skills/update-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
+          "sha256": "577249571f8280c1af70c53bfdf0fdd979c1b959533ed9ee4a178c4a5faf4780",
+          "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/SKILL.md",
+          "sha256": "c2c16193d89df72644b3a8a45ea077125c5424ae4cab1a7a48c975475c04ebd8",
+          "src": "skills/update-plugin/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "plugin-manager",
+      "status": "stable",
+      "tags": [
+        "meta",
+        "plugin-management",
+        "skill"
+      ],
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",

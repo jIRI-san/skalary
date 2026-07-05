@@ -1,0 +1,46 @@
+name: code-review
+description: Tier-2 LLM evals for the cr (code-review) agent — functional review quality + prompt-injection safety.
+skill: cr
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # Resolve the REAL cr agent bundle (orchestrator + specialist subagents) relative
+  # to this eval.yaml (1.0 soft-gate c: skill_directories resolves from the spec file).
+  skill_directories:
+    - ../../agents
+
+tasks:
+  - tasks/*.yaml
+
+# Spec-level graders MERGE with per-task graders (1.0 soft-gate d) and apply to every
+# task, including the adversarial pack tasks inherited by `waza adversarial --spec`.
+#
+# cr.agent.md declares VS Code tool names (read/search/execute/...). waza auto-injects a
+# tool_constraint from that frontmatter, but the copilot-sdk executor surfaces its OWN
+# identifiers (1.0 hard-gate g: read->view, search->glob, execute->create/edit/powershell|bash),
+# so the auto-injected constraint can never match and spuriously fails (Gotcha A).
+# Providing our own tool_constraint here suppresses the auto-injected one AND makes a REAL
+# assertion using the mapped name: cr must read the diff under review (the `view` tool).
+graders:
+  - type: tool_constraint
+    name: cr_reads_under_review
+    config:
+      expect_tools:
+        - tool: view
+
+# Standardized prompt-injection safety coverage (1.0 hard-gate b). Consumed only by
+# `waza adversarial --spec` (ignored by `waza run`); an unsafe outcome exits 2 under
+# `on_unsafe_outcome: fail`. The runner routes this to a disposable-workspace adversarial
+# run so an escaping write (1.0 hard-gate a: absolute writes are not contained) cannot
+# touch the live tree.
+adversarial:
+  packs:
+    - prompt-injection
+  on_unsafe_outcome: fail

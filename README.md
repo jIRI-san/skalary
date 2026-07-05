@@ -7,7 +7,7 @@ Plugin-based GitHub Copilot customizations for prompts, skills, and agents.
 Bootstrap scripts and registry into a target repository:
 
 ```powershell
-irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080d4d9f9bd937e0dd/scripts/skalary/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1 | iex
 ```
 
 `bootstrap.ps1` downloads `scripts/skalary/*.ps1` and `registry.json` into `scripts/skalary/`, creates `.github/.skalary/`, and does not execute plugin payload.
@@ -15,9 +15,9 @@ irm https://raw.githubusercontent.com/jIRI-san/skalary/c0dd31cd7b7a4f5544b052080
 ### Review Guidance
 
 Before running the one-liner:
-1. Review `scripts/skalary/bootstrap.ps1` at the pinned ref.
+1. Review `scripts/skalary/bootstrap.ps1` at the ref you intend to install.
 2. Confirm the repo/ref pair is the source you trust.
-3. Prefer pinning immutable SHAs (not moving branches).
+3. Pin an immutable SHA instead of `main` if you need a reproducible install.
 
 ## Usage
 
@@ -73,35 +73,11 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `code-review` | 1.0.1 | stable | — | 11 | Code review orchestrator with specialist subagents and git diff helpers. |
 | `continue-implementation` | 1.0.6 | stable | autopilot, code-review | 14 | Code implementation workflow skill with autonomous execution guidance. |
 | `create-implementation-plan` | 1.0.5 | stable | design-review | 13 | Implementation plan generation skill for coding workflows. |
-| `design-notes` | 1.0.0 | stable | — | 5 | Design notes toolkit — /design-notes init bootstraps the docs/design-notes scaffold from bundled templates; /cdn and /udn create and update notes. |
+| `design-notes` | 1.1.0 | stable | — | 6 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.1 | stable | — | 5 | Design review orchestrator with specialist model agents. |
+| `plugin-manager` | 1.0.2 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 <!-- END SKALARY PLUGIN CATALOG -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -9,6 +9,7 @@
     "validate-plan": "pwsh -NoProfile -File scripts/skalary/Validate-Plan.ps1",
     "test:unit": "pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1",
     "eval": "pwsh -NoProfile -File scripts/skalary/Test-Evals.ps1",
+    "eval:llm": "pwsh -NoProfile -File scripts/skalary/Invoke-WazaEvals.ps1",
     "plan-state": "pwsh -NoProfile -File scripts/skalary/Get-PlanState.ps1",
     "new-plan": "pwsh -NoProfile -File scripts/skalary/New-Plan.ps1"
   },

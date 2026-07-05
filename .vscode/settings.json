@@ -14,6 +14,13 @@
     ".github/agents/scripts/get-diff-paths.ps1": true,
     ".github/agents/scripts/get-diff-smart-default.ps1": true,
     ".github/agents/scripts/get-diff-uncommitted.ps1": true,
-    "./plugins/autopilot/scripts/launch.ps1": true
+    "./plugins/autopilot/scripts/launch.ps1": true,
+    ".github/skills/autopilot/scripts/validate-auth.ps1": true,
+    ".github/skills/ci/scripts/Get-PlanState.ps1": true,
+    ".github/skills/ci/scripts/Test-DependencyPlan006.ps1": true,
+    ".github/skills/ci/scripts/Test-Plan.ps1": true,
+    ".github/skills/cip/scripts/Test-Plan.ps1": true,
+    ".github/skills/list-plugins/scripts/Find-Plugin.ps1": true,
+    ".github/skills/list-plugins/scripts/Get-Plugin.ps1": true,
   }
 }

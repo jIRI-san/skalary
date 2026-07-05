@@ -1,0 +1,146 @@
+{
+  "metadata": {
+    "description": "skalary plugins for GitHub Copilot CLI. Add with `copilot plugin marketplace add jIRI-san/skalary`, then `copilot plugin install <name>@skalary`."
+  },
+  "name": "skalary",
+  "owner": {
+    "name": "jIRI-san"
+  },
+  "plugins": [
+    {
+      "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
+      "license": "MIT",
+      "name": "architecture-notes",
+      "source": "plugins/architecture-notes",
+      "strict": false,
+      "tags": [
+        "architecture",
+        "architecture-notes",
+        "prompt",
+        "skill"
+      ],
+      "version": "1.0.2"
+    },
+    {
+      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
+      "license": "MIT",
+      "name": "architecture-tests",
+      "source": "plugins/architecture-tests",
+      "strict": false,
+      "tags": [
+        "architecture",
+        "architecture-tests",
+        "fitness-functions",
+        "skill"
+      ],
+      "version": "1.0.18"
+    },
+    {
+      "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
+      "license": "MIT",
+      "name": "autopilot",
+      "source": "plugins/autopilot",
+      "strict": false,
+      "tags": [
+        "agent",
+        "automation",
+        "autopilot",
+        "skill"
+      ],
+      "version": "1.1.1"
+    },
+    {
+      "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+      "license": "MIT",
+      "name": "code-review",
+      "source": "plugins/code-review",
+      "strict": false,
+      "tags": [
+        "agent",
+        "prompt",
+        "review"
+      ],
+      "version": "1.0.1"
+    },
+    {
+      "description": "Code implementation workflow skill with autonomous execution guidance.",
+      "license": "MIT",
+      "name": "continue-implementation",
+      "source": "plugins/continue-implementation",
+      "strict": false,
+      "tags": [
+        "autopilot",
+        "implementation",
+        "skill"
+      ],
+      "version": "1.0.6"
+    },
+    {
+      "description": "Implementation plan generation skill for coding workflows.",
+      "license": "MIT",
+      "name": "create-implementation-plan",
+      "source": "plugins/create-implementation-plan",
+      "strict": false,
+      "tags": [
+        "planning",
+        "skill"
+      ],
+      "version": "1.0.5"
+    },
+    {
+      "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
+      "license": "MIT",
+      "name": "design-notes",
+      "source": "plugins/design-notes",
+      "strict": false,
+      "tags": [
+        "design-notes",
+        "documentation",
+        "prompt",
+        "skill"
+      ],
+      "version": "1.1.0"
+    },
+    {
+      "description": "Design review orchestrator with specialist model agents.",
+      "license": "MIT",
+      "name": "design-review",
+      "source": "plugins/design-review",
+      "strict": false,
+      "tags": [
+        "agent",
+        "design-review",
+        "prompt"
+      ],
+      "version": "1.0.1"
+    },
+    {
+      "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
+      "license": "MIT",
+      "name": "plugin-manager",
+      "source": "plugins/plugin-manager",
+      "strict": false,
+      "tags": [
+        "meta",
+        "plugin-management",
+        "skill"
+      ],
+      "version": "1.0.2"
+    },
+    {
+      "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",
+      "license": "MIT",
+      "name": "process-pr-comments",
+      "source": "plugins/process-pr-comments",
+      "strict": false,
+      "tags": [
+        "github",
+        "pr",
+        "review",
+        "skill"
+      ],
+      "version": "1.0.0"
+    }
+  ]
+}
+
