@@ -78,7 +78,13 @@
 ## Phase 3: Copilot CLI marketplace compatibility
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Feasibility spike — prove `copilot plugin install` accepts a representative skalary `plugin.json`/`marketplace.json` and confirm `strict: false` exists and suppresses unknown-field rejection; if the shared file is rejected, decide the Copilot-native `plugin.json` split before building the generator (REQ-6, RISK-4) @human `S`
+- [x] 3.1 Feasibility spike — prove `copilot plugin install` accepts a representative skalary `plugin.json`/`marketplace.json` and confirm `strict: false` exists and suppresses unknown-field rejection; if the shared file is rejected, decide the Copilot-native `plugin.json` split before building the generator (REQ-6, RISK-4) @human `S`
+  <details><summary>Result (2026-07-05)</summary>
+
+  `copilot plugin install ./plugins/plugin-manager` → **"Plugin plugin-manager installed successfully. Installed 4 skills."** `copilot plugin list` shows `plugin-manager (v1.0.2)`. The shared `plugin.json` (with skalary-only `files`/`dependencies`/`status`/`evals`) is accepted with **no** field rejection; `strict: false` was not required for a direct install. The CLI warns that direct installs are deprecated, so the marketplace route (`plugin@marketplace`) is the supported path — validating REQ-5. Marketplace entries will set `strict: false` as a safeguard.
+
+  </details>
+
 - [ ] 3.2 Add `schemas/marketplace.schema.json` (mirroring the documented Copilot CLI `marketplace.json` field set) and a `scripts/skalary/Build-Marketplace.ps1` generator that emits `.github/plugin/marketplace.json` from `plugins/*/plugin.json` (source = `plugins/<name>`); add an explicit `Sync-Dogfood.ps1` ownership/exclusion rule for `.github/plugin/` (REQ-5, RISK-8) [after: 3.1] `M`
 - [ ] 3.3 Generate `.github/plugin/marketplace.json`; wire generation + `-WhatIf` drift check + schema validation + the automated `Marketplace.CopilotFields` field-conformance test into `scripts/validate.ps1` / `Test-Registry.ps1` (REQ-5, REQ-6) [after: 3.2] `M`
 - [ ] 3.4 `@human` `copilot plugin install jIRI-san/skalary:plugins/plugin-manager` smoke test confirming the four skills load (REQ-6, RISK-4) @human [after: 3.3] `S`
