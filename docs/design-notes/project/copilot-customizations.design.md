@@ -12,7 +12,7 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 
 | File | Type | Purpose |
 |---|---|---|
-| `.github/copilot-instructions.md` | Workspace Instructions | Always-on project context; single `<instruction>` entry loads `.design-notes.md` as the discovery layer for all contextual design notes |
+| `.github/copilot-instructions.md` | Workspace Instructions | Always-on project context; one `<instruction>` loads `.design-notes.md` as the design-note discovery layer, and a second loads the architecture-notes tier index (`.architecture-notes.md`) — the documented two-index divergence |
 | `.github/prompts/design-notes.prompt.md` | Prompt (`/design-notes`) | `/design-notes init` (or `bootstrap`) scaffolds `docs/design-notes/` from the bundled templates; canonical bootstrap path |
 | `.github/prompts/cdn.prompt.md` | Prompt (`/cdn`) | Creates a new design note file from a name argument; defers to `/design-notes init` when the scaffold is missing |
 | `.github/prompts/udn.prompt.md` | Prompt (`/udn`) | Updates design notes from the current chat session; defers to `/design-notes init` when the scaffold is missing |
@@ -33,6 +33,9 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/agents/scripts/get-diff-*.ps1` | Helper scripts | Git diff helpers used by `cr` for discovery (branch, commits, files, paths, smart default, uncommitted) |
 | `.github/skills/cip/SKILL.md` | Skill (`/cip`) | Create Implementation Plan — requirements interview, phased plan with step tracking, iterative `dr` review, saves to `docs/implementation-plans/` |
 | `.github/skills/ci/SKILL.md` | Skill (`/ci`) | Continue Implementation — executes a plan step-by-step, manages git worktrees, build/test iteration, `cr` review, explicit commit gate |
+| `.github/skills/architecture-notes/SKILL.md` | Skill (`architecture-notes`) | Interface-contract tier authoring — create/update/promote/review contracts, seed/harvest, human doc, ADR harvest; `/can` + `/uan` are thin wrappers |
+| `.github/prompts/{can,uan}.prompt.md` | Prompts (`/can`, `/uan`) | Thin wrappers deferring to the architecture-notes skill (create / update; `/uan` also runs finalization ADR harvest) |
+| `.github/skills/architecture-tests/SKILL.md` + scripts | Skill (`architecture-tests`) + runner | Freshness-bound receipts, taxonomy × maturity gate, human-only lock gate, adapters/providers; see [architecture-tests.design.md](../architecture/architecture-tests.design.md) |
 | `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Two-tier plugin eval runner (`npm run eval`) for structural + opt-in LLM evals |
 
 ## Design Note Loading Strategy
@@ -43,6 +46,8 @@ This approach:
 - Keeps `copilot-instructions.md` stable when design notes are added or renamed
 - Eliminates duplication between the instructions file and the index
 - Makes `.design-notes.md` the single source of truth for what context to load
+
+**Two-index divergence (intentional).** `copilot-instructions.md` also loads a **second** always-on index, `docs/architecture-notes/.architecture-notes.md` — the interface-level contract + active-ADR tier that sits **above** design notes (see [architecture-notes.design.md](../architecture/architecture-notes.design.md)). This is a deliberate divergence from the single-index rule above: always-on architecture context materially improves reasoning over complex codebases, and the per-run token cost is an accepted tradeoff (bounded by the terse arch-note format + ADR lifecycle retirement, not by note count). The divergence is owned here rather than left as silent drift. The arch tier is scaffolded on demand; its instruction is a no-op until the tier exists.
 
 ## Adding a New Customization
 
@@ -75,6 +80,8 @@ All three subagents perform a **comprehensive review** across every important di
 > This qualified `Model Name (vendor)` format applies to **VS Code-hosted agents** (dr/cr and their subagents). The `autopilot` agent runs under **Copilot CLI**, which expects a bare model slug instead (e.g. `gpt-5.3-codex`) — see [autopilot-execution.design.md](../architecture/autopilot-execution.design.md). Do not normalize the two to a single format.
 
 **Batching threshold:** > 15 changed files triggers batch mode for `cr`; > 200 lines triggers batch mode for `dr`. Batches are split by subsystem (mapped from design note globs) to keep related files together and avoid false findings from split context.
+
+**Architecture-notes-aware context loading.** Both orchestrators and all six specialists load `docs/architecture-notes/.architecture-notes.md` (when it exists) and the relevant contracts **before** design notes — contracts are interface-level and rank above implementation-level notes, so a plan/change that violates a `locked` contract is an architectural finding.
 
 **Severity consensus rule:** if all three models independently flag the same issue, severity is elevated one level.
 

@@ -27,9 +27,15 @@ When the user says **"update docs"**:
 
 Detailed patterns and implementation guidance in `docs/design-notes/`. The root index file is always loaded first.
 
+The **architecture-notes** tier (`docs/architecture-notes/`) is a deliberate second always-on index, sitting **above** design notes: interface-level, unbreakable contracts + active ADRs (the *what* and the boundaries), versus implementation-level design notes. Loading **both** indexes is an intentional, documented divergence from the single-index strategy — the per-run token cost is accepted because always-on architecture context materially improves reasoning over complex codebases. The architecture-notes tier is scaffolded on demand; its instruction is a no-op until the tier exists. See `docs/design-notes/project/copilot-customizations.design.md`.
+
 <instructions>
 <instruction>
   <description>Always load first — root design-note index, governance rules, and directory of all available design notes with their scopes. Load before any implementation, documentation, or design work.</description>
   <file>docs/design-notes/.design-notes.md</file>
+</instruction>
+<instruction>
+  <description>Architecture-notes tier index (interface-level contracts + active ADRs, above design notes). Load when it exists, before implementation or design work that touches architectural boundaries; a plan/change that violates a locked contract is an architectural finding.</description>
+  <file>docs/architecture-notes/.architecture-notes.md</file>
 </instruction>
 </instructions>
