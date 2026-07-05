@@ -136,3 +136,24 @@ under `docs/architecture-notes/receipts/<contractId>.arch-receipt.json` and carr
 `generatedAt`, plus optional `findings`, `artifacts`, and `lockDecision`
 (`execute`/`skip-not-locked`/`lock-invalidated`) so review can distinguish a deliberate draft skip from an
 absent toolchain and see lock drift. Do not hand-edit receipts; regenerate them by re-running the runner.
+
+## Review report
+
+The `architecture-notes` **review** operation folds these receipts into its tier report via
+`.github/skills/architecture-tests/scripts/Get-ArchReviewReport.ps1` (bundled with this plugin) — a
+**read-only pure-parse** report (never executes a toolchain). For every contract in the config it reuses the
+SAME verifier the `arch:` evidence marker uses (`Invoke-PlanArchEvidence`), so the review is **never laxer
+than the CI gate** (it can never false-green; being opt-in-agnostic and always at crosscheck strictness, it
+may be stricter): a **locked** contract whose receipt is missing / stale / malformed / non-`pass` surfaces as
+a **blocking** finding (a schema-only review can never false-green a failing or absent locked contract), while
+`draft`/`provisional` and `semantic-eval` are advisory **only once a receipt exists and passes freshness**; a
+`lock-invalidated` receipt is flagged as drift.
+
+```
+pwsh -NoProfile -File .github/skills/architecture-tests/scripts/Get-ArchReviewReport.ps1 -RepoRoot .
+```
+
+Exit is non-zero when any locked contract has a blocking finding. Locked promotions must still be audited
+against the promoting commit's **authorship** (human-authored, per the write-gate) and every locked contract
+reconciled against a config check (an unchecked locked contract has no fitness function) — the on-disk
+`maturity` field is not trusted on its own.

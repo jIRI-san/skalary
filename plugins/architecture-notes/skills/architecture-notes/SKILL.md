@@ -103,7 +103,21 @@ context: fork
 2. Validate each contract file with `Test-ArchContract.ps1`; report any invalid ones.
 3. Report drift: contracts without notes, notes without contracts, and (once available) human-doc
    staleness. Summarize `locked` vs `draft`/`provisional` counts.
-4. Report only; do not mutate. Recommend the next incremental lock.
+4. **Surface the runner-receipt verdict per contract** — a schema-valid contract is not a passing one.
+   When the `architecture-tests` plugin is installed, run its `Get-ArchReviewReport.ps1` (pure-parse, no
+   toolchain) against the repo: it reuses the `arch:` gate verifier so a **locked** contract whose receipt is
+   missing / stale / malformed / non-`pass` is a **blocking** finding (a schema-only review can never
+   false-green a failing or absent locked contract; `draft`/`provisional` and `semantic-eval` are advisory
+   **only once a receipt exists and passes freshness**), and a `lock-invalidated` receipt is flagged as drift.
+   Fold its findings into the report.
+5. **Reconcile locked contracts against fitness coverage.** Cross-check every `locked` contract against the
+   arch-test config's `checks[].contractId`; a locked contract with **no** check has no fitness function and
+   must be flagged as a **blocking coverage gap** (an unchecked locked contract would otherwise green by omission).
+6. **Audit locked promotions by authorship, not the on-disk field.** For each `locked` contract, verify the
+   commit that promoted it (`draft -> locked`) was **human-authored/reviewed** — do not trust `maturity: locked`
+   alone (an autonomous run may only *propose* a lock). Flag any locked contract whose promoting commit cannot
+   be confirmed human as pending re-review.
+7. Report only; do not mutate. Recommend the next incremental lock.
 
 ## Step 6: Seed a greenfield project (init)
 

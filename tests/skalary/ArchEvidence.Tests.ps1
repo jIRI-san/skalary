@@ -13,6 +13,8 @@ Describe 'arch evidence marker' {
         # own session state (-PassThru), which is robust to another test file re-importing PlanEvidence -Force
         # (whose nested ArchReceipt import would otherwise clobber a bare session-level import).
         $script:archReceiptModule = Import-Module (Join-Path $repoRoot 'scripts/skalary/ArchReceipt.psm1') -Force -DisableNameChecking -PassThru
+        # Dot-source the review-report generator (its own imports load PlanEvidence then ArchReceipt last).
+        . (Join-Path $repoRoot 'scripts/skalary/Get-ArchReviewReport.ps1')
 
         # Builds a self-contained repo with a contract + config + a FRESH receipt for the given maturity/verdict.
         # The receipt's sourcesHash is computed with the same canonical hasher the runner uses, so it is fresh.
@@ -189,6 +191,39 @@ Describe 'arch evidence marker' {
             $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
             $r.Success | Should -BeFalse
             $r.Blocking | Should -BeFalse
+        }
+    }
+
+    Context 'SKILL review surfaces the runner taxonomy (REQ-16)' {
+        It 'Review-SurfacesRunnerTaxonomy: the review report surfaces each contract''s receipt verdict; a locked non-pass or absent receipt is a blocking finding' {
+            # A locked contract whose receipt FAILED must surface as a blocking finding -- a schema-only review
+            # (contract file is valid) must never false-green it.
+            $lf = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail' }
+            $repLf = Get-ArchReviewReport -RepoRoot $lf.Root
+            $repLf.Blocking | Should -Be 1
+            $repLf.LockedCount | Should -Be 1
+            $repLf.Contracts[0].ContractId | Should -Be $lf.ContractId
+            $repLf.Contracts[0].Success | Should -BeFalse
+            $repLf.Contracts[0].Blocking | Should -BeTrue
+
+            # A locked PASS greens (no blocking finding).
+            $lp = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'pass' }
+            $repLp = Get-ArchReviewReport -RepoRoot $lp.Root
+            $repLp.Blocking | Should -Be 0
+            $repLp.Contracts[0].Success | Should -BeTrue
+
+            # A locked contract with NO receipt is unrun -> blocking (a schema-only review cannot false-green it).
+            $lm = Use-ArchFixture @{ Maturity = 'locked'; NoReceipt = $true }
+            (Get-ArchReviewReport -RepoRoot $lm.Root).Blocking | Should -Be 1
+
+            # A draft fail is advisory -> no blocking finding.
+            $df = Use-ArchFixture @{ Maturity = 'draft'; Verdict = 'fail' }
+            (Get-ArchReviewReport -RepoRoot $df.Root).Blocking | Should -Be 0
+
+            # A draft contract with NO receipt is unrun: the missing-receipt path is maturity-blind and blocks
+            # at crosscheck (safe direction -- over-strict, never a false-green). Pinned so any change is deliberate.
+            $dn = Use-ArchFixture @{ Maturity = 'draft'; NoReceipt = $true }
+            (Get-ArchReviewReport -RepoRoot $dn.Root).Blocking | Should -Be 1
         }
     }
 }
