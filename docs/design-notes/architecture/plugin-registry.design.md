@@ -4,9 +4,9 @@ globs:
   - plugins/**
   - registry.json
   - scripts/skalary/**
-  - schemas/plugin.schema.json
-  - schemas/registry.schema.json
-  - schemas/receipt.schema.json
+  - schemas/plugin/plugin.schema.json
+  - schemas/registry/registry.schema.json
+  - schemas/receipt/receipt.schema.json
   - .github/.skalary/**
 ---
 
@@ -28,9 +28,9 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 
 | Schema | Contract |
 |---|---|
-| `schemas/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, reserved `evals` block. |
-| `schemas/registry.schema.json` | Generated catalog embeds per-file `sha256` and bootstrap metadata (`ref`, script URL, one-liner). |
-| `schemas/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
+| `schemas/plugin/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, reserved `evals` block. |
+| `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256` and bootstrap metadata (`ref`, script URL, one-liner). |
+| `schemas/receipt/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
 
 Design choice: per-plugin receipts replace a shared lock file to avoid cross-branch merge conflicts.
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jIRI-san/skalary/schemas/marketplace.schema.json",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/marketplace/marketplace.schema.json",
   "title": "GitHub Copilot CLI Plugin Marketplace",
   "description": "Generated Copilot CLI marketplace manifest at .github/plugin/marketplace.json. Mirrors the documented GitHub Copilot CLI marketplace.json field set. Written only by scripts/skalary/Build-Marketplace.ps1.",
   "type": "object",

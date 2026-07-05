@@ -27,7 +27,7 @@ context: fork
 
 - Operate on the current git worktree and branch.
 - Tier index: `docs/architecture-notes/.architecture-notes.md`.
-- Contracts: JSON files under `schemas/` validated by `schemas/architecture-contract.schema.json`
+- Contracts: JSON files under `schemas/architecture/` validated by `schemas/architecture/architecture-contract.schema.json`
   (scaffolded on init; falls back to the shipped asset).
 - Scripts (script-mediated mutation). In an installed plugin and the dogfood mirror these live
   next to the skill at `skills/architecture-notes/scripts/`; in the plugin source tree they live
@@ -61,7 +61,7 @@ context: fork
 ## Step 2: Create a contract
 
 1. Confirm the tier is scaffolded (Step 1.2). The schema lives at
-   `schemas/architecture-contract.schema.json`.
+   `schemas/architecture/architecture-contract.schema.json`.
 2. Choose a **stable contract id** (`^[A-Za-z0-9][A-Za-z0-9._-]*$`) that will be referenced by
    `arch:<id>` evidence markers. Never reuse or renumber an id.
 3. Author the contract JSON at **`maturity: draft`**. Use one or more authoring modes:

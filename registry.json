@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T13:12:31.7747492Z",
+  "generatedAt": "2026-07-05T14:42:20.3504514Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -36,7 +36,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-          "sha256": "a078327e4cc22dc7a3e5bfea95cdacf81b8617d7fbd914df3bcfd2e757d81c07",
+          "sha256": "2ee7b24548076cdcb077ef4ef29cd218c4641a91cbe6e41bd587a2ed3ad9067d",
           "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
         },
         {
@@ -56,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
-          "sha256": "70c37c8985c3ca4cefa725d8b63c6e56fa476b8f4213c238a717aefd8eb75e30",
+          "sha256": "b4c96660f2cd2395afc08a70f3795e68d072ba07f77988d5b96c183084f855ab",
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
@@ -76,22 +76,22 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
-          "sha256": "565dee816f19241bcbc878b3a7dd2f846ff44347ad39d64df96e4ec5e7b4adf1",
+          "sha256": "7437738525cae495db840c400a987e3952dfd7498625a87fa3959262b05e15b8",
           "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "1ebb3df74bb9ea984903a3351017f3b049781c44a7c6a49b6cd56a55f700aec2",
+          "sha256": "7fe1703eae35fcebbe6cc217a4e49b696ca07ac2e6627a30ff1908ee15250739",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "eb98628a71b49617c5ce9377a22c5e7ca3beb9cdbfc06cf7cb8a08bca6bd4d1c",
+          "sha256": "12422975f6020935f774f9564aa8ef5c4e7b2961bb16c22d39ef2303d5872dbe",
           "src": "scripts/Test-ArchContract.ps1"
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "25b04519f5bb4f677a864498727bccfe289a111ef17ea86fa89878daa019e7d3",
+          "sha256": "779a0e968ef88f7838002768cde64bab528449e74e6220161d426e94732c5ec0",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],

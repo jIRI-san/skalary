@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jIRI-san/skalary/schemas/plugin.schema.json",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/plugin/plugin.schema.json",
   "title": "Skalary Plugin Manifest",
   "description": "Manifest for a single plugin bundle under plugins/<name>/plugin.json.",
   "type": "object",

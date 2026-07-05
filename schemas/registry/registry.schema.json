@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jIRI-san/skalary/schemas/registry.schema.json",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/registry/registry.schema.json",
   "title": "Skalary Plugin Registry",
   "description": "Generated plugin catalog with file hashes.",
   "type": "object",

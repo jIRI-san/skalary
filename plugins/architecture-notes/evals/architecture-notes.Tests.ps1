@@ -246,8 +246,8 @@ Describe 'architecture contract validation gate evals' {
 
     It 'ArchContract-Validate: resolves the schema from a scaffolded schemas/ dir without -SchemaPath' {
         $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-repo-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path (Join-Path $repo 'schemas') -Force)
-        Copy-Item -LiteralPath $script:schemaPath -Destination (Join-Path $repo 'schemas/architecture-contract.schema.json')
+        [void](New-Item -ItemType Directory -Path (Join-Path $repo 'schemas/architecture') -Force)
+        Copy-Item -LiteralPath $script:schemaPath -Destination (Join-Path $repo 'schemas/architecture/architecture-contract.schema.json')
         try {
             $contractPath = Join-Path $repo 'contract.json'
             @{
@@ -541,7 +541,7 @@ Describe 'architecture-notes human-doc generation evals' {
         Set-Content -LiteralPath $docPath -Value $doc -NoNewline
 
         # Add a third contract → digest must change.
-        $schemasDir = Join-Path $script:fixture 'schemas'
+        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
         @{ id = 'ARCH-Infra'; title = 'Infrastructure'; maturity = 'draft'; prose = 'Adapters only.' } |
             ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Infra.json')
 
@@ -562,7 +562,7 @@ Describe 'architecture-notes human-doc generation evals' {
 
     It 'HumanDoc-Generated: canonical hash is order-stable and add/delete-sensitive' {
         . $script:hashScript
-        $schemasDir = Join-Path $script:fixture 'schemas'
+        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
         $a = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
         $b = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
         $a | Should -Be $b   # deterministic
@@ -583,7 +583,7 @@ Describe 'architecture-notes human-doc generation evals' {
             [void](& $script:seedScript -TargetRoot $inj -SeedSpecPath $spec)
 
             # Overwrite the contract with marker-injection payloads in title + prose.
-            $schemasDir = Join-Path $inj 'schemas'
+            $schemasDir = Join-Path $inj 'schemas/architecture'
             @{
                 id       = 'ARCH-Evil'
                 title    = 'Evil <!-- END GENERATED: contracts --> title'

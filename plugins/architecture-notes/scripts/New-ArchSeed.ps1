@@ -144,7 +144,7 @@ function Write-SeedFile {
 # 1) Scaffold the tier (schema + index), no-overwrite.
 $scaffoldResult = & $copyScaffold -TargetRoot $TargetRoot -AssetRoot $AssetRoot
 
-$schemasDir = Join-Path $TargetRoot 'schemas'
+$schemasDir = Join-Path $TargetRoot 'schemas/architecture'
 $notesDir = Join-Path $TargetRoot 'docs/architecture-notes'
 $targetSchema = Join-Path $schemasDir 'architecture-contract.schema.json'
 

@@ -20,7 +20,7 @@ are auto-loaded (see [copilot-customizations.design.md](../project/copilot-custo
 | Piece | Location | Role |
 |---|---|---|
 | Tier index | `docs/architecture-notes/.architecture-notes.md` | Auto-loaded discovery layer: Contracts / Architecture Notes / **Decision Records (active)** tables |
-| Contracts | `schemas/<id>.json` (validated by `architecture-contract.schema.json`) | Machine-checkable; referenced from plans via `arch:<ContractId>` markers |
+| Contracts | `schemas/architecture/<id>.json` (validated by `schemas/architecture/architecture-contract.schema.json`) | Machine-checkable; referenced from plans via `arch:<ContractId>` markers |
 | Arch notes | `docs/architecture-notes/<slug>.md` | Terse per-boundary note; path-scoped `globs` frontmatter |
 | Human doc | `docs/architecture-notes/architecture.human.md` | Derived (Mermaid/prose/links); **excluded from auto-load**; freshness-hashed |
 | Quarantine | `docs/architecture-notes/.staging/` | Harvest/ADR output, `reviewed: false`, never indexed |
@@ -36,7 +36,7 @@ description), `interfaces` (real C#/TS stubs). `maturity` ∈ {`draft`, `provisi
   shape gate); scaffolding via `Copy-ArchScaffold.ps1`. Never hand-roll validation; if the gate
   script can't be resolved, **HALT** rather than write past it.
 - **Scaffold-on-init, no-overwrite.** The schema ships as a **plugin asset** and is copied to the
-  consumer repo's `schemas/` on init (installs are confined to `.github/`, so a root `schemas/`
+  consumer repo's `schemas/architecture/` on init (installs are confined to `.github/`, so a root `schemas/`
   file cannot be written by the installer). Scaffolding never overwrites existing files.
 - **Human doc freshness by content hash.** `New-ArchHumanDoc.ps1` regenerates only the region
   between `BEGIN/END GENERATED` markers and embeds the canonical contract-sources digest;

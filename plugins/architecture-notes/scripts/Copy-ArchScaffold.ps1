@@ -5,7 +5,7 @@ Scaffolds architecture-notes assets into a target repository, never overwriting 
 
 .DESCRIPTION
 On init the architecture-notes skill copies its shipped schema assets (and, in later
-steps, templates) into the consuming repo's own tree — e.g. schemas/architecture-contract.schema.json.
+steps, templates) into the consuming repo's own tree — e.g. schemas/architecture/architecture-contract.schema.json.
 Installers cannot write outside .github/, so this runtime helper performs the copy.
 
 The copy is strictly no-overwrite: an existing target file is left untouched and reported as
@@ -59,7 +59,7 @@ if (-not (Test-Path -LiteralPath $AssetRoot -PathType Container)) {
 # current flat asset layout; nested subtrees would need -Recurse with dest-path
 # reconstruction.
 $scaffoldMap = @(
-    [pscustomobject]@{ SourceDir = 'schemas'; DestDir = 'schemas' }
+    [pscustomobject]@{ SourceDir = 'schemas'; DestDir = 'schemas/architecture' }
 )
 
 # Individual asset files scaffolded to a renamed destination (e.g. the tier index template

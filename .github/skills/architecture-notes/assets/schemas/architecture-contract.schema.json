@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jIRI-san/skalary/schemas/architecture-contract.schema.json",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/architecture/architecture-contract.schema.json",
   "title": "Architecture Contract",
   "description": "A single interface-level architectural contract. Human-owned source of truth; agents derive framework tests from it, never the reverse. Multi-modal authoring: at least one of rules, prose, or interfaces must be present.",
   "type": "object",

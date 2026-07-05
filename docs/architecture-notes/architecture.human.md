@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: 08d36217dae0fa86c856406e29c3fcef83ec17b56470c080dc4b26aab54e92d2 -->
+<!-- arch-contracts-sha256: f429c5142c6fc749a1b7a7a92bf725e722b888132e665cdab59f7ac590ef6045 -->
 
 # Skalary — Architecture Overview
 
@@ -26,11 +26,6 @@
 graph TD
   ARCH_Eval_Gate_Separation["Two-tier eval gate separation"]
   ARCH_Install_Confinement["Installer .github confinement"]
-  ["Skalary LLM Eval Case"]
-  ["GitHub Copilot CLI Plugin Marketplace"]
-  ["Skalary Plugin Manifest"]
-  ["Skalary Plugin Receipt"]
-  ["Skalary Plugin Registry"]
 ```
 
 ## Components
@@ -44,31 +39,6 @@ graph TD
 
 - **Governing contract:** `ARCH-Install-Confinement` (provisional)
 - **Boundary:** Security boundary: a plugin manifest (untrusted for this purpose) can never cause a write outside .github/. Enforced by Resolve-GithubConstrainedPath and Test-Registry; covered by install/remove tests.
-
-### Skalary LLM Eval Case
-
-- **Governing contract:** `` (draft)
-- **Boundary:** Documentation/IDE aid for plugins/&lt;name&gt;/evals/llm/*.eval.json. Runtime validation is implemented in PowerShell (no schema engine dependency).
-
-### GitHub Copilot CLI Plugin Marketplace
-
-- **Governing contract:** `` (draft)
-- **Boundary:** Generated Copilot CLI marketplace manifest at .github/plugin/marketplace.json. Mirrors the documented GitHub Copilot CLI marketplace.json field set. Written only by scripts/skalary/Build-Marketplace.ps1.
-
-### Skalary Plugin Manifest
-
-- **Governing contract:** `` (draft)
-- **Boundary:** Manifest for a single plugin bundle under plugins/&lt;name&gt;/plugin.json.
-
-### Skalary Plugin Receipt
-
-- **Governing contract:** `` (draft)
-- **Boundary:** Per-plugin installation tracking stored in .github/.skalary/receipts/&lt;name&gt;.json.
-
-### Skalary Plugin Registry
-
-- **Governing contract:** `` (draft)
-- **Boundary:** Generated plugin catalog with file hashes.
 
 <!-- END GENERATED: contracts -->
 

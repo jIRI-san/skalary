@@ -69,7 +69,7 @@ if (-not (Test-Path -LiteralPath $humanDocTemplate -PathType Leaf)) {
     throw "Required template missing: $humanDocTemplate"
 }
 
-$schemasDir = Join-Path $RepoRoot 'schemas'
+$schemasDir = Join-Path $RepoRoot 'schemas/architecture'
 $notesDir = Join-Path $RepoRoot 'docs/architecture-notes'
 $docPath = Join-Path $notesDir 'architecture.human.md'
 

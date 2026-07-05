@@ -4,7 +4,7 @@ globs:
   - plugins/plugin-manager/**
   - scripts/skalary/Set-ScriptApproval.ps1
   - scripts/skalary/Build-Marketplace.ps1
-  - schemas/marketplace.schema.json
+  - schemas/marketplace/marketplace.schema.json
   - .github/plugin/**
 ---
 

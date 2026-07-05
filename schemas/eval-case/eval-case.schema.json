@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jIRI-san/skalary/schemas/eval-case.schema.json",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/eval-case/eval-case.schema.json",
   "title": "Skalary LLM Eval Case",
   "description": "Documentation/IDE aid for plugins/<name>/evals/llm/*.eval.json. Runtime validation is implemented in PowerShell (no schema engine dependency).",
   "type": "object",

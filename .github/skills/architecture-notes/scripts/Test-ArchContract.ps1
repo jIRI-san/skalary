@@ -33,7 +33,7 @@ if (-not $SchemaPath) {
     # 1) Prefer a scaffolded schema found by walking up from the contract toward the repo root.
     $dir = Split-Path -Parent (Resolve-Path -LiteralPath $ContractPath).Path
     while ($dir) {
-        $candidate = Join-Path $dir 'schemas/architecture-contract.schema.json'
+        $candidate = Join-Path $dir 'schemas/architecture/architecture-contract.schema.json'
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
             $SchemaPath = (Resolve-Path -LiteralPath $candidate).Path
             break

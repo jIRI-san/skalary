@@ -129,7 +129,7 @@ if ($embedded -notmatch '^[0-9a-f]{64}$') {
 # --- Recompute the current digest and compare ---------------------------------------------------
 # Compute the schemas path AFTER dot-sourcing: the helper's own `$SchemasDir` param would otherwise
 # clobber a pre-set local (PowerShell variable names are case-insensitive).
-$contractsDir = Join-Path $RepoRoot 'schemas'
+$contractsDir = Join-Path $RepoRoot 'schemas/architecture'
 $current = (Get-ArchContractsHash -SchemasDir $contractsDir).Digest
 
 if ([string]::Equals($embedded, $current, [System.StringComparison]::Ordinal)) {
