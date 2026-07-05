@@ -9,6 +9,11 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_Common.ps1')
 
+# Ownership boundary: this sync is copy-only (it writes exactly the files each
+# plugin.json enumerates in files[] and never prunes). `.github/plugin/marketplace.json`
+# is a *generated* Copilot CLI catalog owned solely by Build-Marketplace.ps1 — it is
+# not a plugin payload, so it is intentionally not synced here and, because this
+# script never removes unlisted files, it is left untouched (no drift conflict).
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 

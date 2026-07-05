@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/marketplace.schema.json",
+  "title": "GitHub Copilot CLI Plugin Marketplace",
+  "description": "Generated Copilot CLI marketplace manifest at .github/plugin/marketplace.json. Mirrors the documented GitHub Copilot CLI marketplace.json field set. Written only by scripts/skalary/Build-Marketplace.ps1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "owner", "plugins"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "maxLength": 64,
+      "description": "Kebab-case marketplace name."
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string" },
+        "version": { "type": "string" },
+        "pluginRoot": { "type": "string" }
+      }
+    },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "maxLength": 64
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the plugin directory relative to the repository root."
+          },
+          "description": { "type": "string", "maxLength": 1024 },
+          "version": { "type": "string" },
+          "author": { "type": "object" },
+          "homepage": { "type": "string" },
+          "repository": { "type": "string" },
+          "license": { "type": "string" },
+          "keywords": { "type": "array", "items": { "type": "string" } },
+          "category": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "commands": { "type": ["string", "array"] },
+          "agents": { "type": ["string", "array"] },
+          "skills": { "type": ["string", "array"] },
+          "hooks": { "type": ["string", "object"] },
+          "mcpServers": { "type": ["string", "object"] },
+          "lspServers": { "type": ["string", "object"] },
+          "strict": {
+            "type": "boolean",
+            "description": "When false, relaxed validation is used so skalary-specific plugin.json fields do not fail Copilot CLI validation."
+          }
+        }
+      }
+    }
+  }
+}
