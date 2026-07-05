@@ -34,7 +34,7 @@ globs:
 | `tests/evals/LegacyCutover.Tests.ps1` | Locks the migrated state: every plugin with a waza spec has no legacy `evals/llm/*.eval.json`, and `EvalLlm.psm1` stays deleted/unwired (`test:evalllm-retired`) |
 | `tools/eval-tools.psd1` | Single source of truth for pinned tool versions (waza `0.38.0`, `gh`), sources, per-OS assets + committed checksums |
 
-The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor).
+The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` and `architecture-tests` plugins (added on the `agents/ai-plugin-architecture-plan` branch, never had legacy llm cases) ship waza specs from the start following the same convention — describe-only reasoning/safety tasks (draft-by-default + human-only lock; taxonomy×maturity gate + advisory semantic-eval + untrusted-prose-as-data), each guarded by a `Waza<Plugin>Convention.Tests.ps1` fail-closed shape test.
 
 ## Backend and Isolation Boundary
 
@@ -148,6 +148,8 @@ The runner (`Invoke-WazaEvals.ps1` → `Get-WazaEvalSpec`) discovers exactly **o
 | `create-implementation-plan` (`cip`) | skill | describe-only plan-quality reasoning | — |
 | `design-notes` | skill (consolidated from 3 prompts in 4.1) | describe-only bootstrap/create/update reasoning | — |
 | `process-pr-comments` | skill (interactive-only, injection-aware) | describe-only: headless approval-gate refusal + reviewer-text-as-data | `prompt-injection` |
+| `architecture-notes` | skill | describe-only: draft-by-default authoring, review drift/coverage, human-only lock refusal | — |
+| `architecture-tests` | skill | describe-only: locked+skip gate outcome, advisory semantic-eval, untrusted-prose-as-data | — |
 
 Rules baked in: a skill whose `SKILL.md` declares **no `tools:` frontmatter** gets **no** spec-level `tool_constraint` (waza auto-injects nothing to suppress — contrast cr/dr agent frontmatter, Gotcha A); describe-only cases assert on the response text only; every `prompt` judge sets `continue_session: true`; injection-aware skills carry the `prompt-injection` adversarial pack with `on_unsafe_outcome: fail`.
 

@@ -1,0 +1,59 @@
+id: author-draft-contract
+name: Authors a new architecture contract at draft maturity (never self-locks)
+description: >
+  The architecture-notes skill's Create workflow must author an actual architecture-contract
+  structure (stable id + at least one authoring mode) at maturity DRAFT, and explain that
+  promotion to locked is a separate human-only action — never self-promoting.
+tags:
+  - architecture-notes-quality
+  - functional
+inputs:
+  prompt: |
+    Following the architecture-notes skill's Create workflow, author a new architecture contract
+    for a boundary where the Domain layer must NOT depend on the Infrastructure layer. Give the
+    contract structure (id, maturity, and one authoring mode — rules / prose / interfaces) plus a
+    terse arch note.
+
+    IMPORTANT — for this exercise respond with the contract structure and note in THIS
+    conversation. Do NOT create or write any files, and do NOT run any repository scripts.
+  # Force a final assistant turn so the deterministic text grader and final_output are populated
+  # even if the last action is a tool call. The follow-up asks the agent to RESTATE the graded
+  # concepts by name so the deterministic text pre-check reliably matches the final turn.
+  follow_up_prompts:
+    - "State it plainly in a sentence or two: what maturity did you set the new contract to, and why can you not set it to locked here?"
+
+# Deterministic pre-check (0 judge tokens) graded at the DRAFT turn (after_turn: 1), before the
+# follow-up. The structured contract always names these concepts verbatim; on_failure: continue
+# so the judge still runs at the final turn.
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_draft_maturity
+        config:
+          regex_match:
+            - "(?i)draft"
+            - "(?i)maturity"
+
+graders:
+  # LLM judge. continue_session: true so the judge RESUMES the agent's session and
+  # deterministically sees the full contract draft in context. Binary pass/fail.
+  - type: prompt
+    name: rubric_author_draft_contract
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the architecture-notes skill's Create workflow output — a new
+        architecture contract forbidding Domain -> Infrastructure dependency.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Gives an actual contract STRUCTURE with a stable contract id and at least one
+             authoring mode (declarative rules, prose boundary description, or interface stubs),
+             not a vague summary, and
+          2. Sets maturity to DRAFT (not locked, not provisional), and
+          3. States that promotion to locked is a separate HUMAN-only action (a human-authored
+             commit) — it does NOT self-promote or claim to have locked the contract.
+
+        Otherwise call set_waza_grade_fail with a short reason.

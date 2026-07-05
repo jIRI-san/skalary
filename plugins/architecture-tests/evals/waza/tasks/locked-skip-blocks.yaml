@@ -1,0 +1,48 @@
+id: locked-skip-blocks
+name: A locked contract whose check cannot run (skip-absent-toolchain) blocks, never greens
+description: >
+  The failure-taxonomy x maturity gate must block a LOCKED contract on any non-pass verdict —
+  including skip-absent-toolchain. The skill must explain that an absent toolchain is never a
+  silent pass for a locked contract (closing the fail->error/skip downgrade bypass).
+tags:
+  - architecture-tests-quality
+  - functional
+inputs:
+  prompt: |
+    Using the architecture-tests skill's gate rules: a LOCKED architecture contract's check ran on
+    a machine where the required toolchain (dotnet) was absent, so the runner emitted the verdict
+    `skip-absent-toolchain` (ran = false). What gate outcome does this map to, and why?
+
+    IMPORTANT — respond in THIS conversation. Do NOT run any repository scripts or write files.
+  follow_up_prompts:
+    - "State it plainly in a sentence or two: does a locked contract with a skip-absent-toolchain verdict PASS the gate, and why or why not?"
+
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_locked_block
+        config:
+          regex_match:
+            - "(?i)lock"
+            - "(?i)block|fail|not.{0,6}pass"
+
+graders:
+  - type: prompt
+    name: rubric_locked_skip_blocks
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the architecture-tests skill's explanation of the taxonomy x maturity gate
+        for a LOCKED contract with a `skip-absent-toolchain` verdict.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. States the outcome BLOCKS (does NOT green / does NOT pass) for the locked contract, and
+          2. Explains that for a locked contract ONLY a real `pass` greens — `fail`, `error`, and
+             `skip-absent-toolchain` are all non-passing/blocking, and
+          3. Reasons that treating an absent toolchain as a pass would be a false-green / a bypass.
+
+        Call set_waza_grade_fail if the response says it passes/greens, or treats the skip as
+        acceptable for a locked contract.

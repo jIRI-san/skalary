@@ -1,0 +1,52 @@
+id: review-tier-drift
+name: Reviews the tier and flags a locked contract with no fitness check as a blocking gap
+description: >
+  The architecture-notes skill's Review workflow must surface drift and, critically, flag a
+  locked contract with NO configured fitness check as a blocking coverage gap (it would
+  otherwise green by omission) while treating draft contracts as warn-only.
+tags:
+  - architecture-notes-quality
+  - functional
+inputs:
+  prompt: |
+    Following the architecture-notes skill's Review workflow, review an architecture tier with
+    three contracts:
+      - ARCH-A: locked, with a fresh passing runner receipt.
+      - ARCH-B: locked, with NO configured fitness check (no arch-test-config entry).
+      - ARCH-C: draft, with no receipt.
+    Report what you would flag and how each maps to a blocking vs advisory finding.
+
+    IMPORTANT — respond in THIS conversation. Do NOT run any repository scripts or write files.
+  follow_up_prompts:
+    - "State it plainly in a sentence or two: which contract is a BLOCKING finding, and why is a locked contract with no fitness check dangerous?"
+
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_lock_and_coverage
+        config:
+          regex_match:
+            - "(?i)lock"
+            - "(?i)coverage|check|gap"
+
+graders:
+  - type: prompt
+    name: rubric_review_tier_drift
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the architecture-notes skill's Review workflow output over a tier with a
+        locked+passing contract (ARCH-A), a locked+UNCHECKED contract (ARCH-B), and a draft
+        contract (ARCH-C).
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. Flags ARCH-B (locked with NO fitness check) as a BLOCKING coverage gap — an
+             unchecked locked contract would otherwise green by omission, and
+          2. Treats ARCH-C (draft) as warn-only / advisory, not blocking, and
+          3. Does NOT false-green a locked contract on schema validity alone (a valid contract is
+             not a passing one — a locked contract needs a fresh passing receipt).
+
+        Otherwise call set_waza_grade_fail with a short reason.

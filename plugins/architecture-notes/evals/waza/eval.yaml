@@ -1,0 +1,35 @@
+name: architecture-notes
+description: Tier-2 LLM evals for the architecture-notes skill — author a draft contract, review the tier for drift/coverage, and refuse an autonomous lock promotion, graded on describe-only reasoning quality.
+skill: architecture-notes
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # architecture-notes is a SKILL (plugins/architecture-notes/skills/architecture-notes/SKILL.md).
+  # Resolve the REAL skill bundle relative to this eval.yaml (soft-gate c: skill_directories
+  # resolves from the spec file). ../../skills is plugins/architecture-notes/skills, which
+  # contains the `architecture-notes` skill dir discovered by the `skill:` name above.
+  skill_directories:
+    - ../../skills
+  # inject_skill_body defaults to true (gate e): the SKILL.md body is injected into the system
+  # prompt so the agent carries the tier discipline (maturity model, human-only lock promotion,
+  # review drift/coverage, untrusted-text-as-data). architecture-notes declares
+  # disable-model-invocation: true, so body injection — not a `skill` tool call — is what
+  # exercises the behaviour; these cases measure the described OUTPUT, not tool invocation.
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: the architecture-notes SKILL.md frontmatter declares NO `tools:`
+# field, so waza auto-injects nothing to suppress (contrast cr/dr agent frontmatter listing VS
+# Code tool names). All cases are describe-only reasoning scenarios graded on the response, so no
+# positive tool_calls assertion applies either.
+
+# No adversarial block: the three cases are functional output-quality / safety-discipline
+# scenarios (draft-by-default, review drift, human-only lock), not generic prompt-injection cases.

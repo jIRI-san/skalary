@@ -1,0 +1,49 @@
+id: semantic-eval-advisory
+name: An LLM semantic-eval verdict is advisory and never hard-blocks the gate
+description: >
+  The semantic-eval (LLM) adapter is advisory-in-the-gate ALWAYS, regardless of contract maturity,
+  because it reasons over untrusted contract prose rather than an executable reviewed body. The
+  skill must not let an LLM "fail" hard-block a locked contract.
+tags:
+  - architecture-tests-quality
+  - functional
+inputs:
+  prompt: |
+    Using the architecture-tests skill's gate rules: the advisory `semantic-eval` (LLM) adapter
+    returned a `fail` verdict for a LOCKED architecture contract. Should that LLM `fail` hard-block
+    CI (turn the gate red) the way a deterministic NetArchTest `fail` would? Explain.
+
+    IMPORTANT — respond in THIS conversation. Do NOT run any repository scripts or write files.
+  follow_up_prompts:
+    - "State it plainly in a sentence or two: does an LLM semantic-eval fail hard-block the gate, and does the answer change with contract maturity?"
+
+checkpoints:
+  - after_turn: 1
+    on_failure: continue
+    graders:
+      - type: text
+        name: mentions_advisory
+        config:
+          regex_match:
+            - "(?i)advisory|semantic"
+            - "(?i)block|gate|maturity"
+
+graders:
+  - type: prompt
+    name: rubric_semantic_eval_advisory
+    config:
+      model: claude-sonnet-4.6
+      continue_session: true
+      prompt: |
+        You are grading the architecture-tests skill's explanation of how a `semantic-eval` (LLM)
+        verdict maps to the gate.
+
+        Call set_waza_grade_pass ONLY if the response:
+          1. States the LLM semantic-eval verdict is ADVISORY and never hard-blocks the gate, and
+          2. States this holds REGARDLESS of contract maturity (advisory even for a locked
+             contract — unlike a deterministic adapter fail), and
+          3. Gives a sound reason (e.g. the LLM reasons over untrusted contract prose, not an
+             executable reviewed body, so it must not be a hard gate).
+
+        Call set_waza_grade_fail if the response says the LLM fail should hard-block a locked
+        contract, or conflates it with a deterministic fail.

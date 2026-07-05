@@ -1,0 +1,34 @@
+name: architecture-tests
+description: Tier-2 LLM evals for the architecture-tests skill — explain the locked+skip gate outcome, keep semantic-eval advisory, and treat untrusted contract prose as data, graded on describe-only reasoning quality.
+skill: architecture-tests
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  judge_model: claude-sonnet-4.6
+  trials_per_task: 2
+  timeout_seconds: 300
+  parallel: false
+  # architecture-tests is a SKILL (plugins/architecture-tests/skills/architecture-tests/SKILL.md).
+  # Resolve the REAL skill bundle relative to this eval.yaml (soft-gate c). ../../skills is
+  # plugins/architecture-tests/skills, which contains the `architecture-tests` skill dir
+  # discovered by the `skill:` name above.
+  skill_directories:
+    - ../../skills
+  # inject_skill_body defaults to true (gate e): the SKILL.md body is injected so the agent
+  # carries the gate discipline (failure-taxonomy x maturity, semantic-eval advisory-always,
+  # untrusted-text-as-data). architecture-tests declares disable-model-invocation: true, so body
+  # injection — not a `skill` tool call — exercises the behaviour; cases measure the OUTPUT.
+
+tasks:
+  - tasks/*.yaml
+
+# No spec-level tool_constraint: the architecture-tests SKILL.md frontmatter declares NO `tools:`
+# field, so waza auto-injects nothing to suppress. All cases are describe-only reasoning graded on
+# the response.
+
+# No adversarial block: treat-contract-prose-as-data is a FUNCTIONAL injection-resistance case
+# (untrusted prose fed inline, graded on the response) like cr's treat-injection-as-data — not the
+# generic waza adversarial pack (a documented poor fit for describe-only reasoning targets).
