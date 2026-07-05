@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: 814fb04681bf76c3328764f429c458f8816097f31fa5119e16ebb91d6c44b9a7 -->
+<!-- arch-contracts-sha256: 08d36217dae0fa86c856406e29c3fcef83ec17b56470c080dc4b26aab54e92d2 -->
 
 # Skalary — Architecture Overview
 
@@ -37,12 +37,12 @@ graph TD
 
 ### Two-tier eval gate separation
 
-- **Governing contract:** `ARCH-Eval-Gate-Separation` (draft)
+- **Governing contract:** `ARCH-Eval-Gate-Separation` (provisional)
 - **Boundary:** Keeps CI deterministic and offline: no premium-cost, auth-dependent, non-deterministic LLM call can enter the always-on gate. Enforced by Test-Evals.ps1 (Tier-1 only) vs Invoke-WazaEvals.ps1 (Tier-2 only).
 
 ### Installer .github confinement
 
-- **Governing contract:** `ARCH-Install-Confinement` (draft)
+- **Governing contract:** `ARCH-Install-Confinement` (provisional)
 - **Boundary:** Security boundary: a plugin manifest (untrusted for this purpose) can never cause a write outside .github/. Enforced by Resolve-GithubConstrainedPath and Test-Registry; covered by install/remove tests.
 
 ### Skalary LLM Eval Case

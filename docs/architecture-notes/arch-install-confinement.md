@@ -16,7 +16,7 @@ resolved destination is validated before any write; it must never write to `docs
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|
-| `ARCH-Install-Confinement` | draft | Every install/update write path is confined to `.github/`; escaping dests are rejected |
+| `ARCH-Install-Confinement` | provisional | Every install/update write path is confined to `.github/`; escaping dests are rejected |
 
 ## Invariants
 

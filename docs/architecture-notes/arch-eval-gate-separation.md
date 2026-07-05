@@ -16,7 +16,7 @@ zero-cost; the premium, auth-dependent LLM tier is strictly opt-in.
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|
-| `ARCH-Eval-Gate-Separation` | draft | No waza/LLM run may enter `npm test` / `validate.ps1` / `npm run eval`; Tier-2 is `eval:llm` only |
+| `ARCH-Eval-Gate-Separation` | provisional | No waza/LLM run may enter `npm test` / `validate.ps1` / `npm run eval`; Tier-2 is `eval:llm` only |
 
 ## Invariants
 

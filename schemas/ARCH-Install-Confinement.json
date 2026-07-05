@@ -1,7 +1,7 @@
 {
   "id": "ARCH-Install-Confinement",
   "title": "Installer .github confinement",
-  "maturity": "draft",
+  "maturity": "provisional",
   "prose": "The plugin installer must write only inside the consuming repo's .github/ tree. Every resolved destination passes Resolve-GithubConstrainedPath, which rejects any dest that escapes .github (traversal, rooted, or absolute). No install path may touch docs/, scripts/, schemas/, or any tree outside .github/.",
   "description": "Security boundary: a plugin manifest (untrusted for this purpose) can never cause a write outside .github/. Enforced by Resolve-GithubConstrainedPath and Test-Registry; covered by install/remove tests."
 }
