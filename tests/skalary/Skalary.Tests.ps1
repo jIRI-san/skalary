@@ -281,14 +281,14 @@ Describe 'skalary plugin registry scripts' {
         [System.IO.File]::WriteAllText((Join-Path $updatedSource 'plugins/code-review/prompts/cr.prompt.md'), "upstream update`n")
         $manifestPath = Join-Path $updatedSource 'plugins/code-review/plugin.json'
         $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-        $manifest.version = '1.0.1'
+        $manifest.version = '1.0.2'
         Set-Content -LiteralPath $manifestPath -Value (($manifest | ConvertTo-Json -Depth 100) + "`n") -Encoding utf8
         Invoke-SkalaryScript -RepoRoot $updatedSource -ScriptName 'Build-Registry.ps1'
         git -C $updatedSource add plugins/code-review registry.json README.md
         if ($LASTEXITCODE -ne 0) {
             throw "git add failed in '$updatedSource' (exit $LASTEXITCODE)."
         }
-        git -C $updatedSource commit -m 'test: bump code-review to 1.0.1' | Out-Null
+        git -C $updatedSource commit -m 'test: bump code-review to 1.0.2' | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "git commit failed in '$updatedSource' (exit $LASTEXITCODE)."
         }
@@ -298,7 +298,7 @@ Describe 'skalary plugin registry scripts' {
 
         $receipt = Get-Content -LiteralPath (Join-Path $target '.github/.skalary/receipts/code-review.json') -Raw | ConvertFrom-Json -Depth 100
         [bool]$receipt.degraded | Should -BeTrue
-        [string]$receipt.version | Should -Be '1.0.0'
+        [string]$receipt.version | Should -Be '1.0.1'
         @($receipt.files | Where-Object { [string]$_.outcome -eq 'skipped-modified' }).Count | Should -BeGreaterThan 0
     }
 
