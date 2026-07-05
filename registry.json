@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T11:54:06.7599350Z",
+  "generatedAt": "2026-07-05T13:12:31.7747492Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -16,82 +16,82 @@
       "files": [
         {
           "dest": "prompts/can.prompt.md",
-          "sha256": "c736df34c2c4fcca09d43d2c4f3856321b94b362274a6e1e8cb81a6f91ec7a94",
+          "sha256": "218e281a8286ed4b5a37f28f177921a50a2b48d9408cbb4335e176bd4c6f9ede",
           "src": "prompts/can.prompt.md"
         },
         {
           "dest": "prompts/uan.prompt.md",
-          "sha256": "be38888880c7c08f892b35a520f6a2e8cf6cf7f670178291673379de7ab56d10",
+          "sha256": "f1d5a1dbd8136df4991620cbb5de1f22eec068bf58314eaffaae09b667c10389",
           "src": "prompts/uan.prompt.md"
         },
         {
           "dest": "skills/architecture-notes/assets/adr-template.md",
-          "sha256": "851bb5e58954e9216a384d2dc62920f1ce765c2f19ebc5907025b9ad4e15fb33",
+          "sha256": "eb94447df39a5ee5e802edaed09541d3d47488a4f792e3cafd930457f3d9a7c5",
           "src": "skills/architecture-notes/assets/adr-template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/interview-guide.md",
-          "sha256": "d831ef65defd05cda74e75e68f9793e920ac71464aec4458a13e5833d26faca9",
+          "sha256": "541ec610cbec59d74a6ba54991f144ff2604207ea8c84ca5f5b650bc00d2b33e",
           "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
           "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-          "sha256": "244a08544ea95be17b5cfc6f3c74ff352ee4e53c093a162808199be77a769695",
+          "sha256": "a078327e4cc22dc7a3e5bfea95cdacf81b8617d7fbd914df3bcfd2e757d81c07",
           "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-          "sha256": "5820c6e56ed6368fbcc9dd87455c1d80134604161808df87ba818dad5c77a2f4",
+          "sha256": "3131df4a3ecee757de98d1073b7b1efa2fa8dbecae7dc53a983010aaf80a6ef4",
           "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
-          "sha256": "9b69581c5b61833a0e32730c0291ab78d3192b00832bb7fc9b00f286e7d28549",
+          "sha256": "b69631687d77d72d168af528d01f7db80553cf9a9e4828b45e1c91a8fa123cd9",
           "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "6a7e60465668f1cf1cd14a401d996818c35291aea0f5a2a0c5b0686552b0e2e1",
+          "sha256": "8a468358a32261e46c120220aaaa1ea22d674e47b80feea1b2d3ea9687fc5254",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
-          "sha256": "013d3cd09ee92e5e83952827f13cbd5c33c23c09728c588227e4b0a0cb1d5dce",
+          "sha256": "70c37c8985c3ca4cefa725d8b63c6e56fa476b8f4213c238a717aefd8eb75e30",
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
-          "sha256": "592aa1e67443cd75b302a53d27159d08755fa5d6c8c9872f449f000ae4e7cf00",
+          "sha256": "bcf90454ef982d409c864690adf1510530c84dc721582868b94ca8117109a2e5",
           "src": "scripts/Get-ArchContractsHash.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
-          "sha256": "20e525f0bbb8e2d14f03673c137e8ef351b135b18f53eae269cc3a75f481d2d3",
+          "sha256": "a6cbeeaca3fc7c33a1ca8be6725553f4e490d43676b6388e69bbed77ce19323c",
           "src": "scripts/Import-ArchAdr.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
-          "sha256": "f91ff5b79e45ff6395343189077b7c16010bd103420bb987d6cfaad37b3ba049",
+          "sha256": "c0ecc7af5580cc993582d3a203826e4ef8614079b67ddf0be78268299205a454",
           "src": "scripts/Import-ArchHarvest.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
-          "sha256": "6020a1931451aab4eac3cda7eeffff99943d4351b6878d64c86b60a8d5f72d6e",
+          "sha256": "565dee816f19241bcbc878b3a7dd2f846ff44347ad39d64df96e4ec5e7b4adf1",
           "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "d707efa9fe17c0de3af1743060837f28e2164448704ec5363acdd82d54883a46",
+          "sha256": "1ebb3df74bb9ea984903a3351017f3b049781c44a7c6a49b6cd56a55f700aec2",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "ea14efb9e361d2260525b71c46eca5fe732fc301f66f3ac8064e15ab1c8706f8",
+          "sha256": "eb98628a71b49617c5ce9377a22c5e7ca3beb9cdbfc06cf7cb8a08bca6bd4d1c",
           "src": "scripts/Test-ArchContract.ps1"
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "8db871ad95cb4846e6eb8bac0dc29f5a4d3a6f74cd777f8ddcc7686ebd5def17",
+          "sha256": "25b04519f5bb4f677a864498727bccfe289a111ef17ea86fa89878daa019e7d3",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
@@ -116,47 +116,47 @@
       "files": [
         {
           "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
-          "sha256": "16df2d3479876636cee9b814fc68d7485e9807360406689bea00ea01bd523816",
+          "sha256": "ea948ec9ad4d006749aba6ec244a41ed79b8bf5a2a7c50b8764bbc54148367f1",
           "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
         },
         {
           "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
-          "sha256": "cd19c840bdd6f180a9a491c4920025a67b2c5a63014d1a252926f8dfc33f86a7",
+          "sha256": "87e7338ea8b803e130607e0746c953d40617a5bb5196e78f70e93ee69f25d0de",
           "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
         },
         {
           "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
-          "sha256": "f4416f16088c1a82bef171668bf24328498ae87de624bb08399c73560de578fe",
+          "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5",
           "src": "scripts/adapters/NetArchTest.Adapter.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
-          "sha256": "24ee72c35ed15d6b6037639ccdc7a2c06f3827064d1fbb086e9c580a851c74c1",
+          "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e",
           "src": "scripts/adapters/TsArch.Adapter.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
-          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
           "src": "skills/architecture-tests/scripts/ArchReceipt.psm1"
         },
         {
           "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
-          "sha256": "7a64bcfd9c5775703aef9a37a4b68587ee0e772e83d89a52f8e75e677e1cbd87",
+          "sha256": "b067c8d92c3cde5d7560d8d87a889bb92affefda718df23c9779f69db1098fa1",
           "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1",
-          "sha256": "cedc1663d426d8259689786524c807a7a70feb631cf76fe5bcf58686ca0c95dc",
+          "sha256": "af4cc3736f182a0bec80bc4f3043ced862e3dd4b98bda65684c6f074d5e0adca",
           "src": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1",
-          "sha256": "c5fdaa402ae5c5448fe7ab0031d30721b69cdeceee64a5635db865759ae7714c",
+          "sha256": "d1231dd0a5064d287e5b1827492f801e40a306351600d0c93c8e6b29dd193d7e",
           "src": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
-          "sha256": "9a039e95470cdf600ed7a5706c0ae72f4d4673cd5768e3e3f993941aa97ff8e3",
+          "sha256": "0d901b437007efa0ceb060c9877cd194deb67b13e59d4c8d0cf617731f31266f",
           "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
         },
         {
@@ -166,22 +166,22 @@
         },
         {
           "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
-          "sha256": "ef72a281f007c33a6cd6ef31da3f00f1ca4fcd79c2f53d81c04de085ec83f9a2",
+          "sha256": "28e747b9bce41ed79bec15be20f0e1960e2c9233b67e15fc55ed05f6ec911327",
           "src": "scripts/providers/Custom.Provider.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/providers/Mock.Provider.ps1",
-          "sha256": "28366e23a346594a3ecbe0ea9a6efd4be2947edd0cd93b01f4359617d161bec4",
+          "sha256": "928fa754aa45fceed8982c6843f9856c737403fb14cb73626a1bb8042f365c5b",
           "src": "scripts/providers/Mock.Provider.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
-          "sha256": "fd19d018dbb77ffc03d64cfd36f3bef439003e715bf4a724982c6f79441c2292",
+          "sha256": "a1eb60dddbe662c5a089b4adb74afbafc49327ce88a30b8342c1005e04120b4b",
           "src": "scripts/providers/SemanticEvalProvider.ps1"
         },
         {
           "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "baf0fdd8be5aaedb66749984ef499ce8664ecb561264634752729ae309119a69",
+          "sha256": "76b617bae5d61e60df566dc77c7e11d187d9cf7e824908685f6274f804e9df34",
           "src": "skills/architecture-tests/SKILL.md"
         }
       ],
@@ -423,7 +423,7 @@
         },
         {
           "dest": "skills/ci/scripts/ArchReceipt.psm1",
-          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
           "src": "skills/ci/scripts/ArchReceipt.psm1"
         },
         {
@@ -519,7 +519,7 @@
         },
         {
           "dest": "skills/cip/scripts/ArchReceipt.psm1",
-          "sha256": "bc3452c6e78034a67b12a92e60283653c55ee5b092ec680025cb9aa0b4df1376",
+          "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
           "src": "skills/cip/scripts/ArchReceipt.psm1"
         },
         {
