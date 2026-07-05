@@ -62,6 +62,16 @@ catch {
     $errors.Add("Plugin script bundle drift: $($_.Exception.Message)")
 }
 
+Write-Host '== Validating Copilot CLI marketplace =='
+$marketplaceBuild = Join-Path $repoRoot 'scripts/skalary/Build-Marketplace.ps1'
+try {
+    & $marketplaceBuild -RepoRoot $repoRoot -WhatIf *> $null
+    Write-Host '  .github/plugin/marketplace.json in sync with plugins/ sources.'
+}
+catch {
+    $errors.Add("Marketplace drift: $($_.Exception.Message)")
+}
+
 Write-Host '== Validating implementation plans (Draft stage) =='
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |
