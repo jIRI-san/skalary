@@ -87,7 +87,7 @@
 
 - [x] 3.2 Add `schemas/marketplace.schema.json` (mirroring the documented Copilot CLI `marketplace.json` field set) and a `scripts/skalary/Build-Marketplace.ps1` generator that emits `.github/plugin/marketplace.json` from `plugins/*/plugin.json` (source = `plugins/<name>`); add an explicit `Sync-Dogfood.ps1` ownership/exclusion rule for `.github/plugin/` (REQ-5, RISK-8) [after: 3.1] `M`
 - [x] 3.3 Generate `.github/plugin/marketplace.json`; wire generation + `-WhatIf` drift check + schema validation + the automated `Marketplace.CopilotFields` field-conformance test into `scripts/validate.ps1` / `Test-Registry.ps1` (REQ-5, REQ-6) [after: 3.2] `M`
-- [ ] 3.4 `@human` `copilot plugin install jIRI-san/skalary:plugins/plugin-manager` smoke test confirming the four skills load (REQ-6, RISK-4) @human [after: 3.3] `S`
+- [x] 3.4 `@human` `copilot plugin install jIRI-san/skalary:plugins/plugin-manager` smoke test confirming the four skills load (REQ-6, RISK-4) @human [after: 3.3] `S`
   <details><summary>Details</summary>
 
   **Steps:**
@@ -117,4 +117,4 @@
 
 ## Finalization (conditional)
 
-- [ ] 7.1 Run `scripts/validate.ps1` (registry + marketplace drift, bundle drift, schema) and `Test-Evals.ps1`; confirm zero drift, green structural evals, and that `.vscode/settings.json` is valid JSONC with mutating scripts excluded (REQ-1, REQ-5, REQ-7, REQ-11, REQ-13) @human `S`
+- [x] 7.1 Run `scripts/validate.ps1` (registry + marketplace drift, bundle drift, schema) and `Test-Evals.ps1`; confirm zero drift, green structural evals, and that `.vscode/settings.json` is valid JSONC with mutating scripts excluded (REQ-1, REQ-5, REQ-7, REQ-11, REQ-13) @human `S`
