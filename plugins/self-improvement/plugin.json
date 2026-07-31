@@ -1,6 +1,6 @@
 {
   "name": "self-improvement",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Post-plan feedback loop — /pfb compares delivered work against the plan's captured intent, records the operator's verdict, and can scaffold a correction plan.",
   "author": "jIRI-san",
   "license": "MIT",

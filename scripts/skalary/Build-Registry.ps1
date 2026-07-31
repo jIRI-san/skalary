@@ -199,7 +199,9 @@ function Update-ReadmeCatalog {
     }
 
     if ($updated -ne $readmeContent) {
-        Set-Content -LiteralPath $ReadmePath -Value $updated -Encoding utf8
+        # Set-Content appends its own terminator, so writing content that already ends in one grows
+        # the file by a blank line on every catalog change.
+        Set-Content -LiteralPath $ReadmePath -Value ($updated.TrimEnd("`r", "`n")) -Encoding utf8
     }
 }
 

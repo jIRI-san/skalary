@@ -106,10 +106,21 @@ Describe 'Post-plan feedback queue' {
             $skill = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/self-improvement/skills/pfb/SKILL.md'))
 
             $guide | Should -Match 'AUTOPILOT_CONTAINER'
-            $guide | Should -Match '-Action Queue'
+            $guide | Should -Match "'-Action', 'Queue'"
+            # Untrusted plan text reaches this call, so the array form is part of the contract.
+            $guide | Should -Match 'never as a shell-interpolated string'
             $skill | Should -Match 'assets/queue-guide\.md'
             # Non-blocking is the whole point of the queue: an autopilot run must reach its PR.
             $skill | Should -Match 'queues the question instead of prompting'
+        }
+
+        It 'test:pfb-queues-marker-under-autopilot is the documented autopilot harvest behaviour' {
+            # The autopilot agent is the only headless finalization path, so the queue-instead-of-ask
+            # rule has to be stated where that run reads it, not only in the skill it may skip.
+            $agent = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/autopilot/agents/autopilot.agent.md'))
+            $agent | Should -Match '/pfb'
+            $agent | Should -Match 'queues the question instead of prompting'
+            $agent | Should -Match 'never blocking'
         }
     }
 
@@ -200,7 +211,18 @@ Describe 'Post-plan feedback queue' {
         It 'test:pfb-consumes-queued-marker is documented as the interactive entry point' {
             $guide = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/self-improvement/skills/pfb/assets/queue-guide.md'))
             $guide | Should -Match '-Action List -Section Pending'
-            $guide | Should -Match '-Action Record -Id'
+            $guide | Should -Match "'-Id', \`$markerId"
+        }
+
+        It 'test:pfb-consumes-queued-marker is offered at the ci archival gate without gating it' {
+            $crosscheck = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'))
+
+            $crosscheck | Should -Match '/pfb'
+            $crosscheck | Should -Match 'never blocking'
+            # A recorded verdict is not evidence: it must never stand in for a failing marker, and a
+            # declined offer must never hold up the archive commit.
+            $crosscheck | Should -Match 'never substitutes for a'
+            $crosscheck | Should -Match 'skips it silently'
         }
     }
 }

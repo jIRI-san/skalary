@@ -23,9 +23,20 @@ looks empty, and never treat an unanswered question as `full` alignment.
 Queue one entry per question you would have asked, then continue. Queueing never fails the run,
 never blocks archival, and never gates a PR.
 
+**Pass every argument as an array element, never as a shell-interpolated string.** The question is
+composed from the plan's own content, which is untrusted: a quote inside it would otherwise close
+the argument and turn the rest into command text. The script's sanitization runs *after* the shell
+has already parsed the line, so it cannot save you here.
+
 ```powershell
-pwsh -NoProfile -File .github/skills/pfb/scripts/Update-FeedbackQueue.ps1 `
-  -Action Queue -Plan <plan-id> -Question '<the question, including the intent section it targets>' -RepoRoot .
+$queueArgs = @(
+    '-NoProfile', '-File', '.github/skills/pfb/scripts/Update-FeedbackQueue.ps1',
+    '-Action', 'Queue',
+    '-Plan', $planId,
+    '-Question', $question,
+    '-RepoRoot', '.'
+)
+pwsh @queueArgs
 ```
 
 Entries are content-addressed, so re-running the same plan re-queues nothing: the script returns
@@ -46,11 +57,19 @@ pwsh -NoProfile -File .github/skills/pfb/scripts/Update-FeedbackQueue.ps1 `
 ```
 
 For each pending entry, run the normal comparison for **that** entry's plan (it is authoritative
-about which plan the question belongs to), then record the answer against the marker id:
+about which plan the question belongs to), then record the answer against the marker id — again with
+array arguments, because the operator's correction is free text:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/pfb/scripts/Update-FeedbackQueue.ps1 `
-  -Action Record -Id <marker-id> -Alignment <full|partial|missed> -Response '<operator correction>' -RepoRoot .
+$recordArgs = @(
+    '-NoProfile', '-File', '.github/skills/pfb/scripts/Update-FeedbackQueue.ps1',
+    '-Action', 'Record',
+    '-Id', $markerId,
+    '-Alignment', $alignment,
+    '-Response', $correction,
+    '-RepoRoot', '.'
+)
+pwsh @recordArgs
 ```
 
 Recording with `-Id` moves the entry out of `## Pending` in the same write, so a marker is asked

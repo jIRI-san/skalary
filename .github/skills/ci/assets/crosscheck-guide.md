@@ -79,6 +79,23 @@ Before archive/PR completion, require:
 
 If the gate is not satisfied, block archival/completion.
 
+### Post-plan feedback (`/pfb`) — offered, never blocking
+
+Typed evidence proves the requirements were met; only the operator can say whether the delivered work
+met the point. Archiving is the last moment anyone looks at the plan, so offer `/pfb` here — and only
+offer it. It is not a gate condition: a declined or unanswered `/pfb` never blocks archival or the PR,
+and a recorded verdict never substitutes for a `✗` marker.
+
+1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/pfb/SKILL.md`).
+2. Interactive completion: offer the `/pfb` run before the archive commit. If the operator accepts,
+   read `.github/skills/pfb/SKILL.md` by path and run it against the completing plan, then commit
+   `docs/feedback/queue.md` by explicit path where harvest item 4 places it — before branch
+   selection, so the `@human` escalation branch (which never makes an archive commit) still commits
+   it. If they decline, continue.
+3. Headless completion has no operator to ask: the autopilot mirror queues the question instead of
+   prompting, and the next interactive session consumes the queued marker. Never answer on the
+   operator's behalf in either direction.
+
 ## Dependency preflight (hard start-gate)
 
 For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pester check at plan start and again immediately before any interactive harvest/finalization branch:
@@ -104,13 +121,14 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
 3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
-4. Branch after the append commit:
+4. **Post-plan feedback (`/pfb`), offered before archiving and never blocking.** Offer the `/pfb` run against the completing plan; on acceptance, read `.github/skills/pfb/SKILL.md` by path, run it, and commit `docs/feedback/queue.md` by explicit path. A decline, or a `self-improvement` plugin that is not installed, skips it silently. See the `archival-gate` section above — the offer never gates archival or the PR.
+5. Branch after the append commit:
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.
    - `/udn` contract: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft-PR + marker path (no archive).
    - Prune preconditions: `Test-Path .github/skills/ci/scripts/Remove-LedgerEntry.ps1` and `Test-Path docs/review-ledger/.archive`; if missing, skip prune and continue direct draft escalation.
    - Invoke `Remove-LedgerEntry.ps1` via argument arrays / `ArgumentList` only; always pass `-Category`, `-CurrentPlan`, and full-line candidate match payload (`-Match`/`-MatchBase64`) — never substring/regex targeting.
-5. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
+6. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
 
 Fail-loud behavior: error only when expected log sections/placeholders are missing; `No entries for this phase.` is valid and must not fail harvest.
 

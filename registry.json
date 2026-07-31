@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T21:36:40.1132260Z",
+  "generatedAt": "2026-07-31T21:59:05.9710176Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -206,7 +206,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "a2e7309d6fe0181a24305493b2663c3244258ff15a103b7f3261140a02be9edc",
+          "sha256": "7c87248f24a0cd694ff54d7cec023165f0cb923ee5029e2b7745dc996b9549db",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -314,7 +314,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.0"
+      "version": "1.2.1"
     },
     {
       "author": "jIRI-san",
@@ -428,7 +428,7 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "49ae9f208a17d5cce1631c8e657ef1a95c3dd706344ab28479d0e373256d6ec2",
+          "sha256": "88836c1f3e4cf42d8b93df288080bbe270b36852587775868e539e5dd7a43dcd",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -505,7 +505,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.14"
+      "version": "1.0.15"
     },
     {
       "author": "jIRI-san",
@@ -892,7 +892,7 @@
         },
         {
           "dest": "skills/pfb/assets/queue-guide.md",
-          "sha256": "cb0262f0f4e5730158af64555a7dc4c55ff44c4a39d685fee787dfedccc3a913",
+          "sha256": "c91d6b7b149ed9614532cd3fde6159ee4150c196bf4fc750a985dc5df1e3ea56",
           "src": "skills/pfb/assets/queue-guide.md"
         },
         {
@@ -907,7 +907,7 @@
         },
         {
           "dest": "skills/pfb/SKILL.md",
-          "sha256": "838c84420f086a97598b76ceadc2e8fd16518a1b1448011b95f164d583e25d99",
+          "sha256": "c7fd78e8c2efaec686d0d500509c24095ec6c7daa799f3afaeadcb767b8a8eeb",
           "src": "skills/pfb/SKILL.md"
         }
       ],
@@ -920,7 +920,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     }
   ]
 }

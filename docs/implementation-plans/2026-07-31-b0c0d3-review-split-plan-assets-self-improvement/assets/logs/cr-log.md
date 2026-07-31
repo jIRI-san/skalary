@@ -65,3 +65,6 @@ Phase: 7
 - [7.2] [src:code-review] [sev:High] Record -Id hard-failed every correction after the first because the marker was already consumed; it now falls back to the recorded entry and only fails on an id that belongs to no marker.
 - [7.2] [src:code-review] [sev:Med] Marker-id and content-id key spaces do not intersect, so the same verdict could be recorded twice; dedup now matches on plan plus text as well as id.
 - [7.2] [src:code-review] [sev:Med] List dropped its array guard so an empty section returned null under StrictMode; restored the unary comma and asserted the empty case in tests.
+- [7.3] [src:code-review] [sev:High] The queued question is composed from untrusted plan text but the guides showed a shell-interpolated call; both guides and the autopilot rule now mandate argument arrays.
+- [7.3] [src:code-review] [sev:Med] Update-FeedbackQueue was missing from the autopilot finalization carve-out and the queue commit was pinned to an archive commit the escalation branch never makes; both fixed.
+- [7.3] [src:code-review] [sev:Med] Build-Registry appended a blank line to README on every catalog change; the write now trims the trailing newline and 33 accumulated blank lines were dropped.
