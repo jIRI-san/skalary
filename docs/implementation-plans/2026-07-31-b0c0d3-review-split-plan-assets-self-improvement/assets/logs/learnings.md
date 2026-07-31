@@ -18,3 +18,9 @@ No entries for this phase.
 Phase: 4
 
 - [4.6] [trigger:reusable-pattern] Deterministic formatters need a composite ordinal sort key: PowerShell Sort-Object is neither stable nor ordinal, so multi-property sorts leak input order and locale.
+
+## Learnings Capture
+Phase: 5
+
+- [5.1] [trigger:reusable-pattern] PowerShell functions unroll single-element arrays: return , @(...) whenever a caller indexes or counts the result
+- [5.1] [trigger:reusable-pattern] Any git file-list consumed by a script must use -z: the default output C-quotes non-ASCII paths and silently loses them

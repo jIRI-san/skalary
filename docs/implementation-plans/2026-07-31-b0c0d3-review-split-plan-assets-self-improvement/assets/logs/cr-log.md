@@ -34,3 +34,13 @@ Phase: 4
 - [4.1] [src:code-review] [sev:High] Test-ModelAllowlist enumerated agents without -Force, silently skipping every hidden .github/agents dogfood copy; fixed and pinned with a hidden-path fixture.
 - [4.6] [src:code-review] [sev:High] Build-ReviewReport sort had no total order (unstable, culture-sensitive Sort-Object), so tied entries followed reviewer return order; replaced with a composite ordinal key and pinned by a tie fixture.
 - [4.4] [src:code-review] [sev:Med] Dispatch roster lived only in the guide, outside the allowlist gate; Test-ModelAllowlist now validates guide roster rows, the Pro-tier fallback, and denied vendors.
+
+## CR Capture
+Phase: 5
+
+- [5.1] [src:code-review] [sev:High] Test helper returned an unrolled array: a one-file scope became a string and .Count threw under StrictMode; fixed with comma-wrapped return
+- [5.1] [src:code-review] [sev:High] git --name-only C-quoted non-ASCII/quoted paths, so those files were silently dropped from the scope; all file-list calls now use -z with NUL splitting
+- [5.1] [src:code-review] [sev:Med] Sort-Object -Unique deduped case-insensitively, losing distinct files on case-sensitive filesystems; replaced with an ordinal SortedSet
+- [5.1] [src:code-review] [sev:Med] paths mode accepted paths outside the repo root and emitted a mangled relative path that resolved to nothing; now rejected loudly
+- [5.1] [src:code-review] [sev:Med] Get-ChildItem without -Force skipped dot-prefixed files on Unix, making paths mode platform-dependent
+- [5.1] [src:code-review] [sev:Med] smart mode resolved the default branch before checking for a first commit, so a fresh repo failed instead of listing untracked files

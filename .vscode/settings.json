@@ -8,6 +8,7 @@
     "git commit": true,
     "git push": true,
     "git rev-parse": true,
+    ".github/agents/scripts/Get-ReviewScope.ps1": true,
     ".github/agents/scripts/get-diff-branch.ps1": true,
     ".github/agents/scripts/get-diff-commits.ps1": true,
     ".github/agents/scripts/get-diff-files.ps1": true,

@@ -24,3 +24,8 @@ No entries for this phase.
 Phase: 4
 
 No entries for this phase.
+
+## Capture
+Phase: 5
+
+- [-] Registry/marketplace must be rebuilt after every payload edit: a stale sha256 fails Install-Plugin but validate.ps1 does not catch it

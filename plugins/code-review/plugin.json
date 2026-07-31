@@ -57,6 +57,10 @@
       "dest": "agents/cr-operability-observability.agent.md"
     },
     {
+      "src": "agents/scripts/Get-ReviewScope.ps1",
+      "dest": "agents/scripts/Get-ReviewScope.ps1"
+    },
+    {
       "src": "agents/scripts/get-diff-branch.ps1",
       "dest": "agents/scripts/get-diff-branch.ps1"
     },
