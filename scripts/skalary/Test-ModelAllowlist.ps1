@@ -195,12 +195,67 @@ foreach ($file in $agentFiles) {
     $violations.Add($detail)
 }
 
+# The models actually dispatched by `/cr` and `/dr` are named in the dispatch guide, not in an
+# agent frontmatter — the concern agents are deliberately model-agnostic. Without this scan the
+# roster would sit entirely outside the gate, and the "declared-model preflight" the guide tells
+# the orchestrator to run could not see the drift it exists to catch.
+$guideFiles = @(
+    Get-ChildItem -LiteralPath $repoRootPath -Recurse -File -Force -Filter 'dispatch-guide.md' -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch $skipRegex } |
+        Sort-Object FullName
+)
+
+foreach ($file in $guideFiles) {
+    $relative = [System.IO.Path]::GetRelativePath($repoRootPath, $file.FullName).Replace('\', '/')
+    $content = [System.IO.File]::ReadAllText($file.FullName)
+
+    foreach ($pattern in $deniedPatterns) {
+        if ($content -match $pattern) {
+            $violations.Add("$relative references a denied model/vendor (pattern '$pattern').")
+        }
+    }
+
+    $section = [regex]::Match($content, '(?ms)^##\s+[\d.]*\s*Model roster[^\n]*\n(?<body>.*?)(?=^##\s|\z)')
+    if (-not $section.Success) {
+        $violations.Add("$relative has no '## Model roster' section, so its dispatch roster cannot be validated.")
+        continue
+    }
+
+    $rows = [regex]::Matches($section.Groups['body'].Value, '(?m)^\|\s*(?<role>[^|`]+?)\s*\|\s*`(?<model>[^`]+)`\s*\|')
+    if ($rows.Count -eq 0) {
+        $violations.Add("$relative declares no dispatch roster rows under '## Model roster'.")
+        continue
+    }
+
+    $fallbackModel = [string]$allowlist.Fallback['VSCode']
+    $sawFallback = $false
+    foreach ($row in $rows) {
+        $role = $row.Groups['role'].Value
+        $model = $row.Groups['model'].Value
+
+        # Dispatch guides drive VS Code-hosted subagents, so the qualified list applies.
+        if ($modelsByHost['VSCode'] -notcontains $model) {
+            $violations.Add("$relative dispatches model '$model' (row '$role'), which is not in the VSCode allowlist.")
+        }
+
+        if ($role -match '(?i)fallback') {
+            $sawFallback = $true
+            if ($model -ne $fallbackModel) {
+                $violations.Add("$relative names Pro-tier fallback '$model' but the allowlist declares '$fallbackModel'.")
+            }
+        }
+    }
+
+    if (-not $sawFallback) {
+        $violations.Add("$relative names no Pro-tier fallback row, so the degradation path is undeclared.")
+    }
+}
+
 $configFiles = @(
     Get-ChildItem -LiteralPath $repoRootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
         Where-Object { $configNames -contains $_.Name -and $_.FullName -notmatch $skipRegex } |
         Sort-Object FullName
 )
-
 foreach ($file in $configFiles) {
     $relative = [System.IO.Path]::GetRelativePath($repoRootPath, $file.FullName).Replace('\', '/')
 
@@ -235,6 +290,6 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host "Test-ModelAllowlist passed: $($agentFiles.Count) agent file(s), $($configFiles.Count) autopilot config(s)." -ForegroundColor Green
+Write-Host "Test-ModelAllowlist passed: $($agentFiles.Count) agent file(s), $($guideFiles.Count) dispatch guide(s), $($configFiles.Count) autopilot config(s)." -ForegroundColor Green
 if ($PassThru) { @() }
 exit 0

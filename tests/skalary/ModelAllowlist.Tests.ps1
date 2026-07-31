@@ -224,6 +224,97 @@ Describe 'model allowlist validator' {
         }
     }
 
+    Context 'dispatch roster' {
+        BeforeAll {
+            $script:newGuide = {
+                param(
+                    [Parameter(Mandatory)][string]$Root,
+                    [string]$ReviewerModel = 'Claude Opus 5 (copilot)',
+                    [string]$FallbackModel = 'Claude Sonnet 4.6 (copilot)',
+                    [switch]$OmitRosterSection
+                )
+
+                $dir = Join-Path $Root 'plugins/sample/skills/cr/assets'
+                New-Item -ItemType Directory -Path $dir -Force | Out-Null
+                $heading = if ($OmitRosterSection) { '## 2. Models we like' } else { '## 2. Model roster and per-invocation override' }
+                $text = @"
+# Reviewer dispatch guide
+
+$heading
+
+| Role | Model | Notes |
+|---|---|---|
+| Reviewer A | ``$ReviewerModel`` | GA |
+| Pro-tier fallback | ``$FallbackModel`` | GA |
+
+## 3. Something else
+"@
+                Set-Content -LiteralPath (Join-Path $dir 'dispatch-guide.md') -Value $text -Encoding utf8NoBOM
+            }
+        }
+
+        It 'test:model-allowlist-rejects-unknown covers the dispatched roster, not just agent frontmatter' {
+            $root = & $script:newFixtureRoot
+            try {
+                # The concern agents are model-agnostic on purpose, so the roster in the dispatch
+                # guide is the only place the dispatched model names exist.
+                & $script:newGuide -Root $root -ReviewerModel 'Claude Opus 4.8 (copilot)'
+                $result = & $script:invoke -Root $root
+                $result.ExitCode | Should -Be 1
+                $result.Output | Should -Match "dispatches model 'Claude Opus 4\.8 \(copilot\)'"
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'fails when the guide fallback diverges from the allowlist fallback' {
+            $root = & $script:newFixtureRoot
+            try {
+                & $script:newGuide -Root $root -FallbackModel 'GPT-5.6 Sol (copilot)'
+                $result = & $script:invoke -Root $root
+                $result.ExitCode | Should -Be 1
+                $result.Output | Should -Match 'Pro-tier fallback'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'fails when the roster section is renamed away instead of silently skipping the file' {
+            $root = & $script:newFixtureRoot
+            try {
+                & $script:newGuide -Root $root -OmitRosterSection
+                $result = & $script:invoke -Root $root
+                $result.ExitCode | Should -Be 1
+                $result.Output | Should -Match "no '## Model roster' section"
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:no-gemini-references applies the denied vendors to dispatch guides too' {
+            $root = & $script:newFixtureRoot
+            try {
+                & $script:newGuide -Root $root -ReviewerModel 'Gemini 3.1 Pro (Preview) (copilot)'
+                $result = & $script:invoke -Root $root
+                $result.ExitCode | Should -Be 1
+                $result.Output | Should -Match 'denied model/vendor'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'accepts the shipped guides' {
+            $result = & $script:invoke -Root $script:repoRoot
+            if ($result.ExitCode -ne 0) { Write-Host $result.Output }
+            $result.ExitCode | Should -Be 0
+            $result.Output | Should -Match 'dispatch guide\(s\)'
+        }
+    }
+
     Context 'hidden dogfood copies' {
         It 'scans .github/agents/ too, where the dogfood copies actually load from' {
             $root = & $script:newFixtureRoot

@@ -17,4 +17,4 @@ No entries for this phase.
 ## Learnings Capture
 Phase: 4
 
-No entries for this phase.
+- [4.6] [trigger:reusable-pattern] Deterministic formatters need a composite ordinal sort key: PowerShell Sort-Object is neither stable nor ordinal, so multi-property sorts leak input order and locale.
