@@ -24,3 +24,8 @@ Phase: 5
 
 - [5.1] [trigger:reusable-pattern] PowerShell functions unroll single-element arrays: return , @(...) whenever a caller indexes or counts the result
 - [5.1] [trigger:reusable-pattern] Any git file-list consumed by a script must use -z: the default output C-quotes non-ASCII paths and silently loses them
+
+## Learnings Capture
+Phase: 6
+
+No entries for this phase.

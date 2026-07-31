@@ -47,3 +47,8 @@ Phase: 5
 - [5.2] [src:code-review] [sev:Med] Orchestrator Steps 5-6 still re-derive the merge/dedup/elevation/sort rules in prose while the dispatch guide forbids it; deferred to step 6.5, which repoints both orchestrators at Build-ReviewReport.ps1
 - [5.2] [src:code-review] [sev:Med] Build-ReviewReport.ps1 is not bundled by either review plugin, so the guide step resolves to nothing in a consumer install; that bundling is step 6.5 (REQ-18)
 - [5.3] [src:code-review] [sev:Low] Design note still described cr/dr as three per-model reviewers and listed the six deleted agents; corrected to the seven-concern split in this step
+
+## CR Capture
+Phase: 6
+
+No entries for this phase.

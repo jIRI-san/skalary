@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T20:05:22.2105758Z",
+  "generatedAt": "2026-07-31T20:25:56.9238975Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -375,6 +375,11 @@
           "src": "prompts/cr.prompt.md"
         },
         {
+          "dest": "skills/cr/assets/collation-guide.md",
+          "sha256": "edb4823cbb617464f0cdcfb47c86eaf1d5f808be08e31ddeedd7cea3d0b6e91d",
+          "src": "skills/cr/assets/collation-guide.md"
+        },
+        {
           "dest": "skills/cr/assets/concern-ledger-map.md",
           "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
           "src": "skills/cr/assets/concern-ledger-map.md"
@@ -383,6 +388,21 @@
           "dest": "skills/cr/assets/dispatch-guide.md",
           "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
           "src": "skills/cr/assets/dispatch-guide.md"
+        },
+        {
+          "dest": "skills/cr/assets/scope-guide.md",
+          "sha256": "359acedcbda3badbd038bb95ffcccdc8abbacd661c212fd299223a94632d0214",
+          "src": "skills/cr/assets/scope-guide.md"
+        },
+        {
+          "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
+          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/SKILL.md",
+          "sha256": "c8c97fd7aafd662e88ef4ea49889c770765a36bbdf59f5225722d9bf8f4973ef",
+          "src": "skills/cr/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -393,7 +413,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",

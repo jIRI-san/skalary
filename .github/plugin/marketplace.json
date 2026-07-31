@@ -60,7 +60,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",

@@ -9,6 +9,7 @@
     "git push": true,
     "git rev-parse": true,
     ".github/agents/scripts/Get-ReviewScope.ps1": true,
+    ".github/skills/cr/scripts/Build-ReviewReport.ps1": true,
     "./plugins/autopilot/scripts/launch.ps1": true,
     ".github/skills/autopilot/scripts/validate-auth.ps1": true,
     ".github/skills/ci/scripts/Get-PlanState.ps1": true,
