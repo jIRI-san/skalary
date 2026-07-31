@@ -90,6 +90,21 @@ if ($Config.reasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
     exit 1
 }
 
+# planTimeout is the whole-run cap; timeout is per phase. A run cap below a single
+# phase's budget would kill every run mid-phase, so reject that combination loudly.
+$planTimeoutMinutes = 1440
+if ($Config.PSObject.Properties.Name -contains 'planTimeout') {
+    $planTimeoutMinutes = [int]$Config.planTimeout
+    if ($planTimeoutMinutes -lt 1) {
+        Write-Error "Invalid planTimeout '$($Config.planTimeout)' in .autopilot.json (must be >= 1)"
+        exit 1
+    }
+    if ($planTimeoutMinutes -lt [int]$Config.timeout) {
+        Write-Error "planTimeout ($planTimeoutMinutes m) is below the per-phase timeout ($($Config.timeout) m) in .autopilot.json"
+        exit 1
+    }
+}
+
 # --- Validate build/test commands against allowlist ---
 $buildPrefixes = @('dotnet build', 'dotnet publish', 'npm run', 'yarn run', 'pnpm run', 'make', 'cargo build', 'gradle ', 'mvn ')
 $testPrefixes = @('dotnet test', 'npm test', 'npm run test', 'yarn test', 'pnpm test', 'make test', 'cargo test', 'gradle test', 'mvn test')

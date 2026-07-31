@@ -161,7 +161,8 @@ Key fields:
 - `context`: Copilot CLI context tier (`default` or `long_context`)
 - `reasoningEffort`: Copilot CLI reasoning depth (`low`, `medium`, `high`, `xhigh`, or `max`)
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
-- `timeout`: Minutes per phase before force-kill
+- `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
+- `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
 - `maxIterationsPerStep`: Fix-retry cap
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
 
@@ -283,6 +284,8 @@ Sandbox is disposable — closing the window destroys all state. Re-running pick
 | "Failed to retrieve token" | Credential Manager entry missing | Run `New-StoredCredential` setup |
 | "Build command does not match allowed prefixes" | `.autopilot.json` has unrecognized command | Use a prefix from the schema's pattern |
 | Container/sandbox timeout | Phase too large for timeout window | Increase `timeout` in config or split phase |
+| Container stops mid-plan, exit 143 | Whole-run cap (`planTimeout`) reached | Raise `planTimeout`; work up to the last step is already pushed |
+| Container stops mid-plan, exit 124 | A single phase exceeded `timeout` | Raise `timeout` or split the phase; the truncated phase is pushed, later phases are not started |
 | "Auth validation failed" | Token expired or insufficient scope | Regenerate PAT / re-run `az login` |
 | "Host key verification failed" (sandbox) | Remote URL uses SSH | SSH→HTTPS auto-conversion handles this |
 | "Plan not found" (sandbox) | Clone used `--no-checkout` | Full checkout is used — verify clone step |

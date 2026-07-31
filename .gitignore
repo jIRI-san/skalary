@@ -2,6 +2,10 @@
 .autopilot-halt
 .autopilot-finalize-needed
 .autopilot-rebundle-needed
+# Copilot CLI --share output written into the container work tree; the host
+# extracts these to the plan folder. Ignored so the termination handler's
+# `git add -A` cannot sweep megabytes of transcript into a recovery commit.
+session-transcript-*.md
 
 # Plugin install runtime state (receipts, tmp staging) — never committed
 .github/.skalary/

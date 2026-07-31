@@ -44,7 +44,9 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = git rev-parse --show-toplevel
 $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
 $ContainerName = "autopilot-run-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-$TimeoutMinutes = $Config.timeout
+# Whole-run cap. `timeout` is the PER-PHASE budget and is enforced inside the
+# container, which is the only place phase boundaries are visible.
+$TimeoutMinutes = if ($Config.PSObject.Properties.Name -contains 'planTimeout') { [int]$Config.planTimeout } else { 1440 }
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 $TranscriptsDir = Join-Path $PlanFolder 'transcripts'
 $EnvFilePath = $null
@@ -138,8 +140,8 @@ try {
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     while (-not $dockerProcess.HasExited) {
         if ((Get-Date) -gt $deadline) {
-            Write-Warning "Container timed out after $TimeoutMinutes minutes."
-            Write-Host "Sending SIGTERM (docker stop)..."
+            Write-Warning "Container exceeded the whole-run cap of $TimeoutMinutes minutes (planTimeout)."
+            Write-Host "Sending SIGTERM (docker stop) — the entrypoint commits and pushes in-flight work before exiting..."
             docker stop --time 30 $ContainerName 2>$null
             # Wait briefly for graceful shutdown
             if (-not $dockerProcess.HasExited) {
