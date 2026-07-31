@@ -63,6 +63,30 @@ Describe 'Test-Plan validator' {
         $result.Output | Should -Match 'phase-budget points'
     }
 
+    It 'test:phase-budget-defaults-to-6 uses a cap of 6 when the marker is absent' {
+        $result = & $invokeTestPlan -PlanPath (Join-Path $fixturesRoot 'plan-budget-overflow.md')
+        $result.ExitCode | Should -Be 0
+        $result.Output | Should -Match 'uses 8 phase-budget points \(advisory cap is 6\)'
+    }
+
+    It 'test:phase-budget-defaults-to-6 warns and falls back on an out-of-range marker' {
+        $result = & $invokeTestPlan -PlanPath (Join-Path $fixturesRoot 'plan-budget-marker-invalid.md')
+        # Plan text is untrusted: an unparseable cap must warn and default, never crash the validator.
+        $result.ExitCode | Should -Be 0
+        $result.Output | Should -Match 'Invalid <!-- phase-budget-points: 99999999999999 --> marker'
+        $result.Output | Should -Match 'uses 8 phase-budget points \(advisory cap is 6\)'
+    }
+
+    It 'test:phase-budget-marker-honored reads the declared phase-budget-points cap' {
+        $result = & $invokeTestPlan -PlanPath (Join-Path $fixturesRoot 'plan-budget-marker.md')
+        $result.ExitCode | Should -Be 0
+        # Phase 1 is 8 points and the plan declares a cap of 8, so the override must silence it.
+        $result.Output | Should -Not -Match 'Phase 1: Within the declared budget uses'
+        # Phase 2 is 9 points, so it still warns — and against the declared cap, not the default.
+        $result.Output | Should -Match 'Phase 2: Over the declared budget uses 9 phase-budget points \(advisory cap is 8\)'
+        $result.Output | Should -Not -Match 'advisory cap is 6'
+    }
+
     It 'warns when plan is oversize' {
         $tempPlan = Join-Path ([System.IO.Path]::GetTempPath()) ("plan-oversize-" + [System.Guid]::NewGuid().ToString('N') + '.md')
         $oversizeContent = @(

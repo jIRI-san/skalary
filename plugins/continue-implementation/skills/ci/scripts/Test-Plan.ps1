@@ -361,14 +361,29 @@ function Test-PlanMetadata {
         }
     }
 
+    $budgetCap = 6
+    $headerMarkers = Get-PlanHeaderMarkers -Content $Metadata.Content
+    if ($headerMarkers.All.Contains('phase-budget-points')) {
+        $budgetRaw = [string]$headerMarkers.All['phase-budget-points']
+        $budgetParsed = 0
+        # TryParse, not a [int] cast: plan text is untrusted, and an out-of-range digit string must take
+        # the warn-and-default branch instead of throwing out of a check that never blocks.
+        if ([int]::TryParse($budgetRaw, [ref]$budgetParsed) -and $budgetParsed -gt 0) {
+            $budgetCap = $budgetParsed
+        }
+        else {
+            $warnings.Add("Invalid <!-- phase-budget-points: $budgetRaw --> marker; using the default cap of $budgetCap.")
+        }
+    }
+
     foreach ($phaseName in $Metadata.PhaseSteps.Keys) {
         $total = 0
         foreach ($step in $Metadata.PhaseSteps[$phaseName]) {
             $total += Get-StepPoints -Size $step.Size
         }
 
-        if ($total -gt 6) {
-            $warnings.Add("$phaseName uses $total phase-budget points (advisory cap is 6).")
+        if ($total -gt $budgetCap) {
+            $warnings.Add("$phaseName uses $total phase-budget points (advisory cap is $budgetCap).")
         }
     }
 

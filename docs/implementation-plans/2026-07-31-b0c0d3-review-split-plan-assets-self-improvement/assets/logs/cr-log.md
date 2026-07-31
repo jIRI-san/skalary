@@ -1,0 +1,9 @@
+## CR Capture
+Phase: 1
+
+- [1.7] [src:code-review] [sev:High] New-Plan -Force silently overwrote authored assets/ files: the -and -not $Force guard was dead code because the folder-exists throw already required -Force
+- [1.7] [src:code-review] [sev:High] Get-PlanLayout flipped a legacy plan to the assets layout on mere assets/ directory presence, orphaning root logs/receipt mid-run
+- [1.7] [src:code-review] [sev:Med] autopilot.agent.md archival gate and log fail-loud contract still read plan-root evidence.md/capture.md while writers moved to assets/
+- [1.7] [src:code-review] [sev:Med] Test-Plan phase-budget-points marker threw on an out-of-range integer instead of taking the warn-and-default branch
+- [1.7] [src:code-review] [sev:Med] Resolve-PlanSection malformed check accepted rows the requirement parser discards, so an asset could resolve with zero requirements
+- [1.7] [src:code-review] [sev:Low] Migration-invariant tests could pass with zero assertions executed once the plan set changes

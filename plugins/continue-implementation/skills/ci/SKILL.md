@@ -15,10 +15,23 @@ context: fork
 
 ## Step 1: Select plan and load context
 
-1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` and any sibling `evolution-log.md` / `decisions/*.md`.
-2. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-3. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
-4. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
+1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` — in the current layout it carries only the header markers, the asset index, and the phases/steps.
+2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
+
+   | Asset | Read it when |
+   |---|---|
+   | `assets/intent.md` | before implementing a step, and at phase crosscheck to re-anchor |
+   | `assets/requirements.md` | validating the acceptance criteria of the step's `REQ-N` refs |
+   | `assets/risks.md` | the step references a `RISK-N` |
+   | `assets/decisions.md`, `assets/decisions/<topic>.md` | a trade-off call needs prior rationale |
+   | `assets/references.md`, `assets/evolution-log.md` | reconciling against prior review rounds or consulted sources |
+   | `assets/evidence.md` | phase/plan crosscheck and the archival gate |
+   | `assets/logs/{capture,cr-log,learnings}.md` | harvest at plan completion (written only via `Add-WorkflowNote`) |
+
+   Never read the whole `assets/` tree "for context". Legacy plans keep these files at the plan-folder root; resolve the path with `Resolve-PlanAssetPath` (in `PlanState.psm1`) rather than assuming either location.
+3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
+4. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
+5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
 pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>

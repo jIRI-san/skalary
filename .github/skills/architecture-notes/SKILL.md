@@ -40,7 +40,8 @@ context: fork
     canonical freshness digest (the human-doc generator; see Step 8).
   - `Get-ArchContractsHash.ps1` — computes the canonical contract-sources digest (shared by the
     generator and the freshness gate). Not called directly.
-  - `Import-ArchAdr.ps1` — harvests a finalized plan's `decisions/*.md` into proposed, quarantined
+  - `Import-ArchAdr.ps1` — harvests a finalized plan's decision records (`assets/decisions/*.md`, or
+    legacy `decisions/*.md`) into proposed, quarantined
     ADRs (`reviewed: false`) for human review (the ADR-harvest operation; see Step 9).
 
 ## Step 1: Select operation
@@ -178,7 +179,9 @@ architecture change (Steps 2, 3, 6) rather than hand-editing the generated regio
 
 At **plan finalization** (typically via `/uan` after `/ci` completes a plan), turn the
 architecturally-significant decisions captured during `/cip` + `/ci` into **proposed** Architecture
-Decision Records. The plan folder's `decisions/*.md` are the source of truth; each becomes one ADR.
+Decision Records. The plan's decision records — `assets/decisions/*.md` in the current plan layout,
+`decisions/*.md` for legacy plan folders — are the source of truth; each becomes one ADR. Pass the plan
+folder to `-PlanDir`; the script resolves which of the two locations is in use.
 
 1. Run the harvest: `pwsh -NoProfile -File <scripts>/Import-ArchAdr.ps1 -PlanDir <plan-folder>
    -RepoRoot <repoRoot>`. It writes one **proposed** ADR per decision under

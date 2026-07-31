@@ -14,7 +14,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## Execution Loop
 
-1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Also check if the plan folder contains `evolution-log.md` or `decisions/*.md` — if so, read them for additional context.
+1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Then load only the assets the phase needs (`assets/intent.md` before implementing, plus requirements/risks/decisions/references as referenced); legacy plans keep these at the plan-folder root. Never read the whole `assets/` tree.
    - **Resolve the canonical plan id** from the `<!-- plan-id: ... -->` anchor via `scripts/skalary/PlanState.psm1` (`Resolve-Plan`). This id is dual-format (`<6hex>` for new plans, legacy `NNN` for old ones). Use this resolved id — never a raw `NNN` parsed from the folder name — everywhere a plan id is referenced: harvest `-Plan`, archive movement, and commit/PR body text.
 2. **Read config** — open `.autopilot.json` in the repo root. Extract `build`, `test`, and `maxIterationsPerStep`.
 3. **Identify phase** — find the phase number from the prompt (e.g. "phase 3"). Only work on steps in that phase.
@@ -26,7 +26,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Exception: conditional Finalization step** → do not stop immediately. Run the canonical harvest finalization flow (append harvest first, then autonomous vs escalation branch), then continue per branch outcome.
    - `[discovery]` → treat as exploratory. Acceptance criteria are softer; iterate until the step's intent is satisfied rather than a strict pass/fail.
 8. **Mark in-progress** — change `- [ ]` to `- [~]` for the current step.
-9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize `cr-log.md`, `learnings.md`, and `capture.md` for the active phase through `Add-WorkflowNote.ps1` (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the 10-entry learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
+9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize the `cr-log` / `learnings` / `capture` logs for the active phase through `Add-WorkflowNote.ps1` (it resolves `assets/logs/<file>.md` for the current layout and the plan-folder root for legacy plans via `Resolve-PlanAssetPath`, so pass `-PlanDir` and never a file path) (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the 10-entry learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
 
    ```powershell
    pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog     -PlanDir <plan-folder> -Phase <N>
@@ -82,7 +82,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## On Phase Completion
 
-1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the plan-folder `evidence.md` receipt. Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1`, which emits the shared golden grammar (`✓/✗ REQ-N — evidence — result — commit`, full HEAD SHA, `✗`/unrun preserved) — never hand-format the line:
+1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root for legacy plans). Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir` and write to the returned `.ReceiptPath`), which emits the shared golden grammar (`✓/✗ REQ-N — evidence — result — commit`, full HEAD SHA, `✗`/unrun preserved) — never hand-format the line:
    ```
    Phase N Crosscheck:
    ✓ REQ-1 — test:TestId — passed — <commit>
@@ -94,8 +94,8 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - `test:<TestId>`: run the named Pester test only; missing or failing test = fail.
    - `file:<path>#<assertion>`: verify through `scripts/skalary/Test-Plan.ps1 -EvidenceMarker ...` (PlanEvidence callable), never in-chat parsing.
    - `review:cr|dr`: require a review result proving the claimed finding class is absent; no review result = unrun evidence.
-   - Rebuild `evidence.md` from scratch on each run (one line per required marker; unexecuted markers are `✗ ... — unrun`).
-   - If `evidence.md` changed during crosscheck, stage and commit it before phase push so receipt state is durable across invocations.
+   - Rebuild the receipt from scratch on each run (one line per required marker; unexecuted markers are `✗ ... — unrun`), writing it to the path `Build-EvidenceReceipt` returns as `.ReceiptPath`.
+   - If the receipt changed during crosscheck, stage and commit it before phase push so receipt state is durable across invocations.
    If any criterion fails, fix, re-run build/test, and commit the fix before proceeding.
 
 2. **Push** — `git push origin <current-branch>` (regular push, never force-push).
@@ -104,7 +104,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## On Plan Completion
 
-1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to `evidence.md` via `scripts/skalary/Build-EvidenceReceipt.ps1` (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
+1. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to the layout-resolved receipt via `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir`, write to `.ReceiptPath`) (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
    ```
    Plan <plan-id> Final Crosscheck:
    Requirements: X/Y satisfied
@@ -121,19 +121,19 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    `PlanCrosscheck` stage (blocking target resolution) runs only at true finalization.
    If any requirement or risk is unresolved, attempt to fix. If unfixable autonomously, note it in the PR body.
 
-2. **archival-gate** — read `evidence.md` and refuse archival/PR on any `✗` or `unrun` REQ marker unless explicitly deferred in Decisions (REQ ID + rationale). If the gate is not satisfied, do not archive.
+2. **archival-gate** — read the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root `evidence.md` for legacy plans — resolve it, never hard-code it) and refuse archival/PR on any `✗` or `unrun` REQ marker unless explicitly deferred in Decisions (REQ ID + rationale). If the gate is not satisfied, do not archive.
 
 3. **Harvest finalization (canonical)**:
    - Run append-harvest when append infra exists:
      - `if (Test-Path scripts/skalary/Add-LedgerEntry.ps1)` and `if (Test-Path docs/review-ledger)`.
      - Also require `Test-Path docs/review-ledger/security.md` and `Test-Path docs/review-ledger/testing.md` before invoking `Add`.
      - If append infra is missing, skip append harvest and follow existing branch policy without infra scripts: autonomous completion may continue standard archive/push/PR; `@human` completion must still use draft-PR + marker + exit 42 (no archive).
-   - **Fail-loud contract for ephemeral logs by name**:
-     - Require `capture.md` to contain `## Capture`.
-     - Require `cr-log.md` and `learnings.md` to contain either a phase section or `No entries for this phase.`.
+   - **Fail-loud contract for ephemeral logs by name** (resolve each log the same way `Add-WorkflowNote` writes it — `assets/logs/<file>.md` in the current layout, plan-folder root for legacy plans; checking the unresolved path would fail a well-formed plan):
+     - Require the capture log to contain `## Capture`.
+     - Require the cr-log and learnings logs to contain either a phase section or `No entries for this phase.`.
      - Fail only when the required section/placeholder is missing; an intentionally empty phase is valid.
    - **Append harvest phase (always before branch):**
-     - Distill one-line lessons from `capture.md` capture entries, `cr-log.md`, and `learnings.md`.
+     - Distill one-line lessons from the layout-resolved logs (`assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans). Reading the wrong location yields a silently empty harvest.
      - Deterministic mapping into `Add-LedgerEntry` arguments:
        - `-Category`: selected from the 7-category taxonomy by keyword/REQ scope (same rubric as `ledger-consult`).
        - `-Plan`: the canonical plan id resolved via `Resolve-Plan` from the executing plan's `plan-id` anchor (dual-format `<6hex>`/legacy `NNN`), not a raw folder `NNN`.

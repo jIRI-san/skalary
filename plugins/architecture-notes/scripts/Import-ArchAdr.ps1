@@ -165,7 +165,16 @@ function ConvertTo-MarkdownCell {
 }
 
 # --- Enumerate the plan's decision records ----------------------------------------------------
-$decisionsDir = Join-Path $PlanDir 'decisions'
+# Layout-aware: the `plan.md` + `assets/` layout homes decision records at `assets/decisions/`; legacy
+# plan folders keep them at the plan root. Reading the wrong one would harvest zero ADRs silently.
+$decisionsRelative = 'decisions'
+$decisionsDir = Join-Path $PlanDir 'assets/decisions'
+if (Test-Path -LiteralPath $decisionsDir -PathType Container) {
+    $decisionsRelative = 'assets/decisions'
+}
+else {
+    $decisionsDir = Join-Path $PlanDir 'decisions'
+}
 $decisionFiles = @()
 if (Test-Path -LiteralPath $decisionsDir -PathType Container) {
     $decisionFiles = @(Get-ChildItem -LiteralPath $decisionsDir -File -Filter '*.md' -ErrorAction SilentlyContinue |
@@ -197,7 +206,7 @@ foreach ($file in $decisionFiles) {
     $rawBody = Get-Content -LiteralPath $file.FullName -Raw
     $title = Get-AdrTitle -Body $rawBody -Fallback $slug
     $sourceBody = Remove-FirstH1 -Body $rawBody
-    $source = "$planId/decisions/$($file.Name)"
+    $source = "$planId/$decisionsRelative/$($file.Name)"
     # Emit source as a double-quoted YAML scalar: a filename can carry YAML-significant characters
     # (':', '#', quotes) that would otherwise corrupt or extend the frontmatter block.
     $sourceYaml = '"' + ($source -replace '\\', '\\\\' -replace '"', '\"') + '"'

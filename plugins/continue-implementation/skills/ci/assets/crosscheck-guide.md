@@ -13,18 +13,19 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
 
-Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into `evidence.md` (the script itself does not read or write `evidence.md`):
+Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into the receipt (the script itself does not read or write the receipt file). Pass `-PlanDir` and write to the returned `.ReceiptPath` — it resolves through `Resolve-PlanAssetPath` to `assets/evidence.md` in the current layout and to the plan-folder root `evidence.md` for legacy plans, so the receipt is never written where the archival gate does not look:
 
 ```powershell
 # $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Success=$true; Note='' } ...
-$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N>
-Set-Content -LiteralPath <plan-folder>/evidence.md -Value $receipt.Text -Encoding utf8NoBOM
+$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
+Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
 `Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>` (`✓` pass, `✗` fail/unrun); a REQ passes only when all its markers pass, and failed/unrun markers are preserved.
 
 Receipt rules:
-- Rebuild `evidence.md` on each phase/plan crosscheck run (never append to stale results from old commits).
+- The receipt path is layout-resolved (`assets/evidence.md`, or the plan-folder root for legacy plans) — always take it from `$receipt.ReceiptPath`, never hard-code it.
+- Rebuild the receipt on each phase/plan crosscheck run (never append to stale results from old commits).
 - Emit one line per required marker; unexecuted markers emit `✗ … — unrun`.
 - Use the current `HEAD` commit SHA in every emitted line.
 
@@ -58,7 +59,7 @@ documented **non-containing sandbox**, not a true container.
 
 1. Collect REQ IDs referenced by steps in the current phase.
 2. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
-3. Rebuild `evidence.md` via `Build-EvidenceReceipt` with the current commit SHA.
+3. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
 4. Fail phase completion if blocking criteria are unsatisfied.
 
 ## Plan crosscheck
@@ -70,7 +71,7 @@ documented **non-containing sandbox**, not a true container.
 ## archival-gate
 
 Before archive/PR completion, require:
-- `evidence.md` exists and is current.
+- The layout-resolved receipt (`assets/evidence.md`, or root `evidence.md` for legacy plans) exists and is current.
 - No unrun or failing required evidence (`✗`) remains unless explicitly deferred in Decisions (defer by REQ ID with rationale).
 - This step wires the gate only; run `PlanCrosscheck` blocking target resolution only at true plan finalization (after all phases).
 
@@ -95,12 +96,12 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
 1. Run dependency preflight (`Test-DependencyPlan006.ps1`) before entering harvest/finalization.
 2. If append infra is present (`Test-Path .github/skills/ci/scripts/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
    - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
-   - Distill entries from `capture.md` (`## Capture`), `cr-log.md`, and `learnings.md`.
+   - Distill entries from the layout-resolved logs — `assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans. Resolve with `Resolve-PlanAssetPath`; reading the wrong location yields a silently empty harvest.
    - Map candidates deterministically into `Add-LedgerEntry` inputs: `-Category` from the 7-category rubric, `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
    - Invoke `Add-LedgerEntry.ps1` via argument arrays / `ArgumentList` only (no shell-string interpolation).
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
-3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's `decisions/*.md` into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
+3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
 4. Branch after the append commit:
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.
@@ -127,7 +128,7 @@ Rules: exclude `docs/review-ledger/.archive/`; read only categories implied by t
 
 ## Ephemeral capture (`cr-log.md` / `learnings.md`, mid-run only)
 
-Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote.ps1` — do not hand-edit these files and do not write `docs/review-ledger/*` during capture:
+Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote.ps1` — do not hand-edit these files and do not write `docs/review-ledger/*` during capture. `Add-WorkflowNote` resolves the log path itself (`assets/logs/<file>` in the current layout, plan-folder root for legacy plans), so pass `-PlanDir` and never a file path:
 
 - Initialize a phase section (header + `No entries for this phase.` placeholder) by calling `Add-WorkflowNote` with no `-Message`.
 - `cr-log.md` (`-Kind CrLog`): interactive `ci` persists `@cr` report + triage; autopilot persists `code-review`/`rubber-duck` findings with `-Src code-review`; standalone `cr` persists nothing.

@@ -49,6 +49,288 @@ function Split-MarkdownTableCells {
     return , $cells
 }
 
+$script:PlanAssetMap = [ordered]@{
+    Intent          = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
+    Requirements    = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
+    Risks           = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
+    Decisions       = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
+    References      = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
+    Evidence        = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
+    EvolutionLog    = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
+    DecisionRecords = [pscustomobject]@{ Asset = 'decisions'; Legacy = 'decisions' }
+    CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
+    Learnings       = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
+    Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
+}
+
+function Get-PlanLayout {
+    <#
+    .SYNOPSIS
+    Reports whether a plan folder uses the `plan.md` + `assets/` layout or the legacy flat layout.
+
+    .DESCRIPTION
+    The layout is anchored on `assets/requirements.md` — the one asset every plan has and that both
+    `New-Plan` (scaffold) and migration write. Keying off mere `assets/` directory presence would flip a
+    legacy plan the moment it grew any `assets/` subfolder, orphaning the logs and receipt already written
+    at the plan root. An `assets/` folder that holds no recognized section file therefore stays `legacy`,
+    which resolves per section rather than switching the whole plan into a broken mode.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir
+    )
+
+    $anchor = Join-Path (Join-Path $PlanDir 'assets') 'requirements.md'
+    if (Test-Path -LiteralPath $anchor -PathType Leaf) {
+        return 'assets'
+    }
+
+    return 'legacy'
+}
+
+function Resolve-PlanAssetPath {
+    <#
+    .SYNOPSIS
+    Resolves the on-disk path of a plan asset for the plan folder's layout.
+
+    .DESCRIPTION
+    Single source of truth so writers (`Add-WorkflowNote`, `Build-EvidenceReceipt`, `/ci`) and readers
+    (harvest, archival gate) never disagree about where logs and receipts live. Sections that only ever
+    exist as assets (requirements/risks/decisions/references) always resolve under `assets/`; their legacy
+    form lives inside `plan.md`, not in a sibling file.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture')]
+        [string]$Kind,
+
+        [ValidateSet('assets', 'legacy')]
+        [string]$Layout
+    )
+
+    $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
+    if (-not $Layout) {
+        $Layout = Get-PlanLayout -PlanDir $planDirFull
+    }
+
+    $entry = $script:PlanAssetMap[$Kind]
+    if (-not $entry.Legacy) {
+        # Section assets have no sibling-file legacy form — their legacy home is inside plan.md.
+        return [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
+    }
+
+    $assetPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
+    $legacyPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull $entry.Legacy))
+
+    # Fail loud on genuine split-brain: the same logical file existing at both locations means writers and
+    # readers have already diverged, and silently preferring one would orphan real content.
+    if ((Test-Path -LiteralPath $assetPath) -and (Test-Path -LiteralPath $legacyPath)) {
+        throw "Plan folder '$planDirFull' holds '$Kind' at both '$assetPath' and '$legacyPath'. Move the legacy copy under assets/ so writers and readers cannot disagree."
+    }
+
+    if ($Layout -eq 'assets') {
+        return $assetPath
+    }
+
+    return $legacyPath
+}
+
+function Get-PlanSectionRecord {
+    <#
+    .SYNOPSIS
+    Normalizes a plan section's lines into a comparable record set (not raw text), so divergence checks
+    ignore cosmetic drift such as column padding, heading prose, blank lines, and row order.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string[]]$Lines,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Table', 'List')]
+        [string]$Kind,
+
+        [string]$IdPattern,
+
+        [int]$MinCell = 2
+    )
+
+    $records = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in @($Lines)) {
+        if ($null -eq $line) { continue }
+        $trimmed = $line.Trim()
+
+        if ($Kind -eq 'Table') {
+            if (-not $trimmed.StartsWith('|')) { continue }
+            $cells = Split-MarkdownTableCells -Row $trimmed
+            # Match the consumer parsers' minimum column count exactly: a row they would discard must not
+            # count as a well-formed record here, or a short-columned asset resolves to zero requirements.
+            if ($cells.Count -lt $MinCell) { continue }
+            if ($IdPattern -and $cells[0] -notmatch $IdPattern) { continue }
+            $normalizedCells = @($cells | ForEach-Object { ($_ -replace '\s+', ' ').Trim() })
+            $records.Add(($normalizedCells -join ' | '))
+            continue
+        }
+
+        if ($trimmed -notmatch '^[-*]\s+') { continue }
+        $body = (($trimmed -replace '^[-*]\s+', '') -replace '\s+', ' ').Trim()
+        if (-not [string]::IsNullOrWhiteSpace($body)) {
+            $records.Add($body)
+        }
+    }
+
+    return , $records.ToArray()
+}
+
+function Resolve-PlanSection {
+    <#
+    .SYNOPSIS
+    Resolves one plan section (Requirements / Risks / Decisions) from either `assets/<section>.md` or the
+    legacy in-`plan.md` table, per the documented state table.
+
+    .DESCRIPTION
+    | Asset absent                          | fall back to the in-plan.md section |
+    | Asset present, non-empty, well-formed | asset wins |
+    | Asset present but empty or malformed  | fail loud (never silently resolve to zero records) |
+    | Both present                          | asset wins; divergence over the normalized record set errors |
+
+    Fenced code blocks are stripped from asset files exactly as they are from `plan.md`.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Requirements', 'Risks', 'Decisions')]
+        [string]$Section,
+
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string[]]$LegacyLine
+    )
+
+    $kind = if ($Section -eq 'Decisions') { 'List' } else { 'Table' }
+    $idPattern = switch ($Section) {
+        'Requirements' { '^REQ-\d+$' }
+        'Risks' { '^RISK-\d+$' }
+        default { $null }
+    }
+    # Mirror the consumer parsers' column requirements so "well-formed" here means "parseable there".
+    $minCell = switch ($Section) {
+        'Requirements' { 4 }
+        default { 2 }
+    }
+
+    $legacyLines = @($LegacyLine)
+    $legacyRecords = Get-PlanSectionRecord -Lines $legacyLines -Kind $kind -IdPattern $idPattern -MinCell $minCell
+
+    $assetPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind $Section
+    if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+        $source = if ($legacyRecords.Count -gt 0) { 'legacy' } else { 'none' }
+        return [pscustomobject]@{
+            Section = $Section
+            Source  = $source
+            Path    = $null
+            Lines   = $legacyLines
+            Records = $legacyRecords
+        }
+    }
+
+    $raw = Get-Content -LiteralPath $assetPath -Raw
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        throw "Plan asset '$assetPath' is present but empty; $Section must never silently resolve to zero records. Author the file or delete it to fall back to plan.md."
+    }
+
+    $assetLines = Remove-FencedCodeBlocks -Lines (($raw -replace "`r`n", "`n").Split("`n"))
+    $assetRecords = Get-PlanSectionRecord -Lines $assetLines -Kind $kind -IdPattern $idPattern -MinCell $minCell
+    if ($assetRecords.Count -eq 0) {
+        $expected = if ($kind -eq 'Table') { "table rows with at least $minCell columns whose first cell matches $idPattern" } else { 'bullet list entries' }
+        throw "Plan asset '$assetPath' is malformed: no $Section records found (expected $expected)."
+    }
+
+    if ($legacyRecords.Count -gt 0) {
+        $assetKey = (@($assetRecords) | Sort-Object) -join "`n"
+        $legacyKey = (@($legacyRecords) | Sort-Object) -join "`n"
+        if ($assetKey -cne $legacyKey) {
+            throw "Plan asset '$assetPath' diverges from the legacy '## $Section' section in plan.md. Remove the legacy table (the asset is authoritative) or reconcile the two."
+        }
+    }
+
+    return [pscustomobject]@{
+        Section = $Section
+        Source  = 'asset'
+        Path    = $assetPath
+        Lines   = $assetLines
+        Records = $assetRecords
+    }
+}
+
+function ConvertFrom-PlanRequirementLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string[]]$Lines
+    )
+
+    $requirements = @{}
+    foreach ($line in @($Lines)) {
+        if ($null -eq $line -or -not $line.Trim().StartsWith('|')) { continue }
+        $cells = Split-MarkdownTableCells -Row $line
+        if ($cells.Count -lt 4 -or $cells[0] -eq 'ID' -or $cells[0] -eq '----') {
+            continue
+        }
+
+        if ($cells[0] -match '^REQ-(?<id>\d+)$') {
+            $requirements[$cells[0]] = [pscustomobject]@{
+                Id = $cells[0]
+                Number = [int]$Matches.id
+                AcceptanceCriteria = $cells[2]
+            }
+        }
+    }
+
+    return $requirements
+}
+
+function ConvertFrom-PlanRiskLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string[]]$Lines
+    )
+
+    $risks = @{}
+    foreach ($line in @($Lines)) {
+        if ($null -eq $line -or -not $line.Trim().StartsWith('|')) { continue }
+        $cells = Split-MarkdownTableCells -Row $line
+        if ($cells.Count -lt 2 -or $cells[0] -eq 'ID' -or $cells[0] -eq '----') {
+            continue
+        }
+
+        if ($cells[0] -match '^RISK-(?<id>\d+)$') {
+            $risks[$cells[0]] = [int]$Matches.id
+        }
+    }
+
+    return $risks
+}
+
 function Get-PlanMetadata {
     [CmdletBinding()]
     param(
@@ -60,37 +342,32 @@ function Get-PlanMetadata {
     )
 
     $fullPath = (Resolve-Path -LiteralPath $Path).Path
+    $planDir = Split-Path -Parent $fullPath
     $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
     $content = Get-Content -LiteralPath $fullPath -Raw
     $normalized = $content -replace "`r`n", "`n"
     $allLines = $normalized.Split("`n")
     $lines = Remove-FencedCodeBlocks -Lines $allLines
 
-    $inRequirements = $false
-    $inRisks = $false
     $currentPhase = ''
+    $currentSection = $null
     $phaseSteps = @{}
-    $requirements = @{}
-    $risks = @{}
+    $sectionLines = @{
+        Requirements = [System.Collections.Generic.List[string]]::new()
+        Risks        = [System.Collections.Generic.List[string]]::new()
+        Decisions    = [System.Collections.Generic.List[string]]::new()
+    }
     $steps = [System.Collections.Generic.List[object]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
 
     foreach ($line in $lines) {
-        if ($line -match '^\s*##\s+Requirements\b') {
-            $inRequirements = $true
-            $inRisks = $false
-            continue
-        }
-
-        if ($line -match '^\s*##\s+Risks\b') {
-            $inRequirements = $false
-            $inRisks = $true
+        if ($line -match '^\s*##\s+(?<section>Requirements|Risks|Decisions)\b') {
+            $currentSection = [string]$Matches.section
             continue
         }
 
         if ($line -match '^\s*##\s+') {
-            $inRequirements = $false
-            $inRisks = $false
+            $currentSection = $null
             $currentPhase = $line.Trim()
             if ($currentPhase -match '^##\s+Phase\s+\d+:\s+') {
                 $phaseSteps[$currentPhase] = [System.Collections.Generic.List[object]]::new()
@@ -98,32 +375,9 @@ function Get-PlanMetadata {
             continue
         }
 
-        if ($inRequirements -and $line.Trim().StartsWith('|')) {
-            $cells = Split-MarkdownTableCells -Row $line
-            if ($cells.Count -lt 4 -or $cells[0] -eq 'ID' -or $cells[0] -eq '----') {
-                continue
-            }
-
-            if ($cells[0] -match '^REQ-(?<id>\d+)$') {
-                $requirements[$cells[0]] = [pscustomobject]@{
-                    Id = $cells[0]
-                    Number = [int]$Matches.id
-                    AcceptanceCriteria = $cells[2]
-                }
-            }
-            continue
-        }
-
-        if ($inRisks -and $line.Trim().StartsWith('|')) {
-            $cells = Split-MarkdownTableCells -Row $line
-            if ($cells.Count -lt 2 -or $cells[0] -eq 'ID' -or $cells[0] -eq '----') {
-                continue
-            }
-
-            if ($cells[0] -match '^RISK-(?<id>\d+)$') {
-                $risks[$cells[0]] = [int]$Matches.id
-            }
-            continue
+        if ($currentSection) {
+            $sectionLines[$currentSection].Add($line)
+            if ($line.Trim().StartsWith('|')) { continue }
         }
 
         if ($line -match '^\s*-\s\[(?<status>[ x~])\]\s+(?<step>\d+\.\d+[a-z]?)\s+(?<body>.+)$') {
@@ -178,6 +432,19 @@ function Get-PlanMetadata {
         }
     }
 
+    $resolvedSections = [ordered]@{}
+    foreach ($section in @('Requirements', 'Risks', 'Decisions')) {
+        $resolvedSections[$section] = Resolve-PlanSection -PlanDir $planDir -Section $section -LegacyLine $sectionLines[$section].ToArray()
+    }
+
+    $requirements = ConvertFrom-PlanRequirementLine -Lines $resolvedSections['Requirements'].Lines
+    $risks = ConvertFrom-PlanRiskLine -Lines $resolvedSections['Risks'].Lines
+
+    $sectionSources = [ordered]@{}
+    foreach ($section in $resolvedSections.Keys) {
+        $sectionSources[$section] = $resolvedSections[$section].Source
+    }
+
     $sizeBytes = [System.Text.Encoding]::UTF8.GetByteCount($content)
     if ($sizeBytes -ge 20480 -or $allLines.Length -ge 400) {
         $warnings.Add("Plan size warning: ${sizeBytes} bytes / $($allLines.Length) lines (warn threshold 20KB/400).")
@@ -188,12 +455,16 @@ function Get-PlanMetadata {
 
     return [pscustomobject]@{
         PlanPath = $fullPath
+        PlanDir = $planDir
+        Layout = (Get-PlanLayout -PlanDir $planDir)
         RepoRoot = $repoRootPath
         Content = $content
         Lines = $lines
         AllLines = $allLines
         Requirements = $requirements
         Risks = $risks
+        Decisions = @($resolvedSections['Decisions'].Records)
+        SectionSources = $sectionSources
         Steps = @($steps)
         PhaseSteps = $phaseSteps
         Warnings = $warnings
@@ -626,4 +897,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks

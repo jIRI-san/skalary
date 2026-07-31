@@ -9,11 +9,19 @@ param(
 
     [int]$Phase,
 
+    [string]$PlanDir,
+
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$receiptPath = $null
+if ($PlanDir) {
+    Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+    $receiptPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Evidence
+}
 
 if (-not $Commit) {
     $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
@@ -93,9 +101,10 @@ foreach ($req in $reqOrder) {
 }
 
 return [pscustomobject]@{
-    Commit    = $Commit
-    Lines     = $lines.ToArray()
-    Text      = ($textLines -join "`n")
-    ReqStatus = $reqStatus
-    AllPassed = ($reqOrder.Count -gt 0 -and $allPassed)
+    Commit      = $Commit
+    Lines       = $lines.ToArray()
+    Text        = ($textLines -join "`n")
+    ReqStatus   = $reqStatus
+    AllPassed   = ($reqOrder.Count -gt 0 -and $allPassed)
+    ReceiptPath = $receiptPath
 }
