@@ -62,3 +62,6 @@ Phase: 7
 - [7.1] [src:code-review] [sev:Critical] Update-FeedbackQueue -Date was unvalidated and interpolated raw into the entry line, so it could forge fields and whole entries; fixed with ValidatePattern plus a round-trip check before write.
 - [7.1] [src:code-review] [sev:High] A zero-byte queue.md bricked every action under StrictMode; fixed with a string cast on the raw read and a temp-file plus Move-Item atomic write.
 - [7.1] [src:code-review] [sev:High] pfb shipped without the PlanState module and cip its own SKILL.md requires; fixed by referencing the bundled module path and declaring the create-implementation-plan dependency.
+- [7.2] [src:code-review] [sev:High] Record -Id hard-failed every correction after the first because the marker was already consumed; it now falls back to the recorded entry and only fails on an id that belongs to no marker.
+- [7.2] [src:code-review] [sev:Med] Marker-id and content-id key spaces do not intersect, so the same verdict could be recorded twice; dedup now matches on plan plus text as well as id.
+- [7.2] [src:code-review] [sev:Med] List dropped its array guard so an empty section returned null under StrictMode; restored the unary comma and asserted the empty case in tests.

@@ -13,13 +13,15 @@
     field or inject structure. `/si` later harvests these entries as untrusted input.
 
     Actions:
-      * Record — append an operator verdict to `## Recorded`.
+      * Queue  — enqueue the question a headless run could not ask, to `## Pending`.
+      * Record — append an operator verdict to `## Recorded`, consuming a pending entry when `-Id`
+                 names one.
       * List   — return the parsed entries of a section (no writes).
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Record', 'List')]
+    [ValidateSet('Queue', 'Record', 'List')]
     [string]$Action,
 
     # Canonical plan id: legacy NNN, the 4-6 hex handle, or a plan date.
@@ -29,7 +31,12 @@ param(
     [ValidateSet('full', 'partial', 'missed')]
     [string]$Alignment,
 
+    [string]$Question,
+
     [string]$Response,
+
+    [ValidatePattern('^[0-9a-f]{8}$')]
+    [string]$Id,
 
     [ValidateSet('Pending', 'Recorded')]
     [string]$Section = 'Recorded',
@@ -221,26 +228,112 @@ switch ($Action) {
     'List' {
         $lines = if ($Section -eq 'Pending') { $document.Pending } else { $document.Recorded }
         $records = @($lines | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } | Where-Object { $null -ne $_ })
+        # Unary comma: callers assign the result and read .Count, so an empty section must still be
+        # an empty array rather than $null under StrictMode.
         return , $records
     }
 
+    'Queue' {
+        if ([string]::IsNullOrWhiteSpace($Plan)) { throw 'Queue requires -Plan.' }
+        if ([string]::IsNullOrWhiteSpace($Question)) { throw 'Queue requires -Question.' }
+
+        $text = ConvertTo-SafeFeedbackText -Text $Question
+        $queueId = Get-FeedbackEntryId -Plan $Plan -Text $text
+
+        # Content-addressed dedup across both sections: a re-run of the same headless plan must not
+        # re-ask a question that is already waiting, and must never re-open one already answered.
+        $known = @(@($document.Pending) + @($document.Recorded) |
+                ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                Where-Object { $null -ne $_ -and $_.Id -eq $queueId })
+        if ($known.Count -gt 0) {
+            $note = if ($known[0].Kind -eq 'recorded') { 'already recorded' } else { 'already pending' }
+            return [pscustomobject]@{ Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $false; Note = $note }
+        }
+
+        $document.Pending.Add((New-FeedbackEntryLine -Id $queueId -Plan $Plan -Kind 'queued' -Date $Date -Text $text))
+        Save-QueueDocument -Path $queuePath -Document $document
+
+        return [pscustomobject]@{ Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $true; Note = '' }
+    }
+
     'Record' {
-        if ([string]::IsNullOrWhiteSpace($Plan)) { throw 'Record requires -Plan.' }
         if ([string]::IsNullOrWhiteSpace($Alignment)) { throw 'Record requires -Alignment (full, partial, or missed).' }
         if ([string]::IsNullOrWhiteSpace($Response)) { throw 'Record requires -Response.' }
 
         $text = ConvertTo-SafeFeedbackText -Text $Response
-        $id = Get-FeedbackEntryId -Plan $Plan -Text $text
+        $pendingRecord = $null
 
-        $existing = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
-                Where-Object { $null -ne $_ -and $_.Id -eq $id })
-        if ($existing.Count -gt 0) {
-            return [pscustomobject]@{ Action = 'Record'; Id = $id; Path = $queuePath; Written = $false; Note = 'already recorded' }
+        if ($Id) {
+            # Consuming a queued marker: the pending entry, not the caller, is the authority on which
+            # plan the answer belongs to.
+            $pendingRecord = @($document.Pending | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                    Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
+            if ($null -ne $pendingRecord) {
+                $resolvedPlan = $pendingRecord.Plan
+            }
+            else {
+                # A verdict is one or more corrections, so the calls after the first find the marker
+                # already consumed. That is the normal flow, not an error — only an id that belongs
+                # to no marker at all is a state error.
+                $answeredRecord = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                        Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
+                if ($null -eq $answeredRecord) {
+                    throw "No feedback marker with id '$Id'."
+                }
+                $resolvedPlan = $answeredRecord.Plan
+            }
+            if ($Plan -and $Plan -ne $resolvedPlan) {
+                throw "Marker '$Id' belongs to plan '$resolvedPlan', not '$Plan'."
+            }
+        }
+        else {
+            if ([string]::IsNullOrWhiteSpace($Plan)) { throw 'Record requires -Plan (or -Id naming a marker).' }
+            $resolvedPlan = $Plan
         }
 
-        $document.Recorded.Add((New-FeedbackEntryLine -Id $id -Plan $Plan -Kind 'recorded' -Date $Date -Text $text -Alignment $Alignment))
+        # The first correction inherits the marker id so the answer stays tied to its question; every
+        # other entry is content-addressed.
+        $contentId = Get-FeedbackEntryId -Plan $resolvedPlan -Text $text
+        $entryId = if ($null -ne $pendingRecord) { $Id } else { $contentId }
+
+        # Dedup on the verdict itself, not just on the id: the marker-id and content-id key spaces
+        # do not intersect, so an id-only guard would record the same correction twice.
+        $existing = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                Where-Object { $null -ne $_ -and ($_.Id -eq $entryId -or ($_.Plan -eq $resolvedPlan -and $_.Text -eq $text)) })
+        if ($existing.Count -gt 0) {
+            # The verdict is already durable; converge the queue anyway so a marker whose answer was
+            # recorded cannot linger as pending and get asked a second time.
+            $consumedStale = $false
+            if ($null -ne $pendingRecord) {
+                [void]$document.Pending.Remove($pendingRecord.Line)
+                Save-QueueDocument -Path $queuePath -Document $document
+                $consumedStale = $true
+            }
+            return [pscustomobject]@{
+                Action   = 'Record'
+                Id       = $entryId
+                Plan     = $resolvedPlan
+                Path     = $queuePath
+                Written  = $false
+                Consumed = $consumedStale
+                Note     = 'already recorded'
+            }
+        }
+
+        if ($null -ne $pendingRecord) {
+            [void]$document.Pending.Remove($pendingRecord.Line)
+        }
+        $document.Recorded.Add((New-FeedbackEntryLine -Id $entryId -Plan $resolvedPlan -Kind 'recorded' -Date $Date -Text $text -Alignment $Alignment))
         Save-QueueDocument -Path $queuePath -Document $document
 
-        return [pscustomobject]@{ Action = 'Record'; Id = $id; Path = $queuePath; Written = $true; Note = '' }
+        return [pscustomobject]@{
+            Action   = 'Record'
+            Id       = $entryId
+            Plan     = $resolvedPlan
+            Path     = $queuePath
+            Written  = $true
+            Consumed = ($null -ne $pendingRecord)
+            Note     = ''
+        }
     }
 }

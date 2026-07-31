@@ -33,4 +33,4 @@ Phase: 6
 ## Learnings Capture
 Phase: 7
 
-No entries for this phase.
+- [7.2] [trigger:reusable-pattern] PowerShell variable names are case-insensitive, so a local $plan silently overwrites the -Plan parameter and its mismatch guard; name locals resolvedX when they derive from a parameter.

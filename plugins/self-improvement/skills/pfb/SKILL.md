@@ -16,6 +16,16 @@ Requirements say what to build; **intent** says what the operator was trying to 
 be green on every typed evidence marker and still miss the point. This skill is the only place that
 asks.
 
+## Step 0: Pick the interactive or headless path
+
+Read [`./assets/queue-guide.md`](assets/queue-guide.md) first. It owns the headless test
+(`AUTOPILOT_CONTAINER=true`, launcher-started, or no question tool), the rule that a headless run
+**queues the question instead of prompting** and never blocks, and the pending-marker consumption
+that opens an interactive run.
+
+Headless: do Steps 1 and 2, queue the question the comparison raises, and stop — Steps 3 to 5 need a
+human. Interactive: consume any pending markers per the guide, then continue.
+
 ## Step 1: Resolve the plan and read its intent
 
 1. Resolve the plan from the argument via `Resolve-Plan` (hash prefix, legacy number, slug, or
@@ -65,8 +75,10 @@ pwsh -NoProfile -File .github/skills/pfb/scripts/Update-FeedbackQueue.ps1 `
   -Action Record -Plan <plan-id> -Alignment <full|partial|missed> -Response '<operator correction>' -RepoRoot .
 ```
 
-One `-Action Record` call per correction. The script owns the entry grammar, sanitization, and the
-pending/recorded sections; the recorded entries are what `/si` later harvests.
+One `-Action Record` call per correction. When the verdict answers a queued marker, pass
+`-Id <marker-id>` instead of `-Plan`: that consumes the pending entry in the same write. The script
+owns the entry grammar, sanitization, and the pending/recorded sections; the recorded entries are
+what `/si` later harvests.
 
 ## Step 5: Offer a correction plan
 

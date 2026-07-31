@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T21:19:09.6866900Z",
+  "generatedAt": "2026-07-31T21:36:40.1132260Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -891,18 +891,23 @@
           "src": "skills/pfb/assets/feedback-guide.md"
         },
         {
+          "dest": "skills/pfb/assets/queue-guide.md",
+          "sha256": "cb0262f0f4e5730158af64555a7dc4c55ff44c4a39d685fee787dfedccc3a913",
+          "src": "skills/pfb/assets/queue-guide.md"
+        },
+        {
           "dest": "skills/pfb/scripts/PlanState.psm1",
           "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-          "sha256": "cc8801452354e07f853c8e52d73251e2b95116666d723384f3e418267894ec94",
+          "sha256": "23ea021c7477251349ffe1d8e55e7ecd0947fbdafbefe26b9faf018f1af0d32b",
           "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
         },
         {
           "dest": "skills/pfb/SKILL.md",
-          "sha256": "8069516a932fd5d2d87ef15f24f44fce530f354928963e30931a550bfa4770f2",
+          "sha256": "838c84420f086a97598b76ceadc2e8fd16518a1b1448011b95f164d583e25d99",
           "src": "skills/pfb/SKILL.md"
         }
       ],
@@ -915,7 +920,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.4"
     }
   ]
 }

@@ -86,7 +86,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 7.1 Create the `self-improvement` plugin with `skills/pfb/SKILL.md` plus assets: compare delivered work against `assets/intent.md`, collect operator corrections, optionally scaffold a correction plan via `/cip` (REQ-13) [after: 2.2] `L`
-- [ ] 7.2 Add the autopilot-safe path: headless runs write a queued feedback marker instead of prompting, and the next interactive session consumes it (REQ-13) [after: 7.1] `M`
+- [x] 7.2 Add the autopilot-safe path: headless runs write a queued feedback marker instead of prompting, and the next interactive session consumes it (REQ-13) [after: 7.1] `M`
 - [ ] 7.3 Wire `/pfb` into the `/ci` archival gate — offered before archiving, never blocking (REQ-13) [after: 7.2] `M`
 
 ## Phase 8: Self-improvement loop
