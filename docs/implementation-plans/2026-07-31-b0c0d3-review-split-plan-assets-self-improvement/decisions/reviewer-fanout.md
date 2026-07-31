@@ -7,7 +7,7 @@
 | Reviewer A | `GPT-5.6 Sol (copilot)` | GA. VS Code ≥ `1.128.0`. Available in Copilot CLI. Supports 1M context + configurable reasoning. |
 | Reviewer B | `Claude Opus 5 (copilot)` | GA. VS Code ≥ `1.128.0`. Available in Copilot CLI. Supports 1M context + configurable reasoning. |
 | Dropped | `Gemini 3.1 Pro (Preview) (copilot)` | Still **Public preview**; not available in Copilot CLI. Removed entirely. |
-| Autopilot | `gpt-5.3-codex` → `GPT-5.6 Sol (copilot)` | Aligns the autonomous runner with the review tier. |
+| Autopilot | `gpt-5.3-codex` → `claude-opus-5` | Changed out-of-band in commit `aa2982c`, with `long_context` + `high` reasoning. This plan validates the slug; it does not repoint it. |
 
 Both chosen models are **excluded from the Copilot Pro plan** (Pro+, Max, Business, Enterprise only). A frontmatter fallback array does **not** solve this: explicit-param dispatch outranks frontmatter, so the array is never consulted and the subagent falls back to the *parent* model instead. The orchestrator therefore detects the tier and passes the GA fallback **as the explicit parameter**. See RISK-2.
 
@@ -26,6 +26,8 @@ The orchestrator therefore dispatches each concern **twice** — once per model 
 The qualified `Model Name (vendor)` form above applies to **VS Code-hosted** agents. The `autopilot` agent runs under **Copilot CLI**, which expects a bare slug (`gpt-5.6-sol`). Writing a qualified name into the CLI agent breaks autonomous execution.
 
 Host is **not inferable** from folder layout — "anything under `plugins/autopilot/` is CLI" silently misclassifies the next CLI agent added elsewhere, reintroducing the exact drift REQ-7 exists to catch. So `tools/model-allowlist.psd1` carries the two lists **plus a closed committed agent→host map**, and the validator fails loud on any agent absent from that map. The failure mode is a hard error, never a silent misclassification.
+
+The runtime model for an autopilot run comes from `.autopilot.json` (`model` → `COPILOT_MODEL` → an explicit `--model` argument), not from the agent frontmatter — so the allowlist check must cover that config field too, and a plan must never repoint autopilot's model from inside a run that autopilot is executing.
 
 ### Tier-cap hazard (RISK-1)
 
