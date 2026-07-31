@@ -69,3 +69,9 @@ Phase 4 Crosscheck:
 ✓ REQ-18 — test:build-reviewreport-deterministic — passed: 3 case(s) passed — 30460e9675b87b7d9697b9cf392e490f5c1e2587
 ✗ REQ-18 — file:plugins/code-review/skills/cr/scripts/Build-ReviewReport.ps1#exists — unrun: deferred to step 6.5 (Sync-PluginScripts bundling) — 30460e9675b87b7d9697b9cf392e490f5c1e2587
 ✗ REQ-18 — file:plugins/design-review/skills/dr/scripts/Build-ReviewReport.ps1#exists — unrun: deferred to step 6.5 (Sync-PluginScripts bundling) — 30460e9675b87b7d9697b9cf392e490f5c1e2587
+
+Phase 5 Crosscheck:
+✓ REQ-11 — file:plugins/code-review/agents/scripts/Get-ReviewScope.ps1#exists — passed — 8cb513f203199e2b763e0f5288e7be448e7d0413
+✓ REQ-11 — file:plugins/code-review/plugin.json#contains:Get-ReviewScope.ps1 — passed — 8cb513f203199e2b763e0f5288e7be448e7d0413
+✓ REQ-11 — test:review-scope-modes — passed: 16 case(s) passed — 8cb513f203199e2b763e0f5288e7be448e7d0413
+✓ REQ-11 — test:no-diff-extraction-refs — passed: 6 case(s) passed — 8cb513f203199e2b763e0f5288e7be448e7d0413
