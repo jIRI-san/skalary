@@ -128,4 +128,109 @@ Describe 'Self-improvement harvest contract' {
             }
         }
     }
+
+    Context 'test:si-offered-at-completion' {
+        BeforeAll {
+            function Script:Get-FlatText {
+                param([Parameter(Mandatory)][string]$RelativePath)
+                # Every guide here is hard-wrapped, so anchored phrases would pass or fail on where
+                # a line happens to break.
+                return [regex]::Replace((Get-SiText -RelativePath $RelativePath), '\s+', ' ')
+            }
+
+            function Script:Get-SectionText {
+                <#
+                    Assertions have to be scoped to the /si text. /pfb sits in the same files and
+                    says most of the same things ("never blocking", "not installed", "manual"), so a
+                    whole-file match passes with the /si rules inverted or deleted outright.
+                #>
+                param(
+                    [Parameter(Mandatory)][string]$RelativePath,
+                    [Parameter(Mandatory)][string]$HeadingPattern
+                )
+                $text = Get-SiText -RelativePath $RelativePath
+                # Single-quoted concatenation: "$(?<body>" in a double-quoted string is parsed as a
+                # PowerShell subexpression, not a regex group.
+                $pattern = '(?ms)^#{2,4}[^\r\n]*' + $HeadingPattern + '[^\r\n]*$(?<body>.*?)(?=^#{2,4} |\z)'
+                $match = [regex]::Match($text, $pattern)
+                $match.Success | Should -BeTrue -Because "$RelativePath must carry a '$HeadingPattern' section"
+                return [regex]::Replace($match.Groups['body'].Value, '\s+', ' ')
+            }
+
+            function Script:Get-HarvestItemText {
+                param([Parameter(Mandatory)][string]$RelativePath)
+                $text = Get-SiText -RelativePath $RelativePath
+                $match = [regex]::Match($text, '(?m)^\d+\.\s+\*\*Self-improvement[^\r\n]*$')
+                $match.Success | Should -BeTrue -Because "$RelativePath harvest list must carry an /si item"
+                return [regex]::Replace($match.Value, '\s+', ' ')
+            }
+
+            $script:ciGuidePaths = @(
+                'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md',
+                '.github/skills/ci/assets/crosscheck-guide.md'
+            )
+            $script:autopilotPaths = @(
+                'plugins/autopilot/agents/autopilot.agent.md',
+                '.github/agents/autopilot.agent.md'
+            )
+        }
+
+        It 'test:si-offered-at-completion offers /si at interactive completion, after harvest runs' {
+            foreach ($path in $script:ciGuidePaths) {
+                $section = Get-SectionText -RelativePath $path -HeadingPattern 'Self-improvement'
+                $item = Get-HarvestItemText -RelativePath $path
+
+                $section | Should -Match '\.github/skills/si/SKILL\.md' -Because "$path must read the skill by its installed path"
+                $item | Should -Match '\.github/skills/si/SKILL\.md' -Because "$path harvest item must name the same path"
+
+                # Offering before harvest would read a ledger one plan out of date — missing exactly
+                # the lessons the finishing plan just wrote. The precondition is ordering, not a
+                # commit: a no-op harvest produces none, and that path must still offer.
+                $section | Should -Match '(?i)after the harvest step has run' -Because "$path must order the offer after harvest"
+                $section | Should -Match '(?i)whether or not it produced an append commit|no-op harvest that produced no append commit' -Because "$path must not gate the offer on a commit that may not exist"
+
+                # An offer that can block completion is a gate, and this one is explicitly not.
+                $section | Should -Match '(?i)blocks neither archival nor the PR' -Because "$path must keep the offer non-blocking"
+                $item | Should -Match '(?i)never blocking' -Because "$path harvest item must keep the offer non-blocking"
+                $section | Should -Match '(?i)skip silently when the .self-improvement. plugin is not installed' -Because "$path must skip silently without the plugin"
+
+                # The guard reads main...HEAD: a branch cut from the plan's branch drags the whole
+                # plan diff into scope and is refused every time.
+                $section | Should -Match 'origin/main' -Because "$path must pin the proposal branch to the base ref"
+            }
+        }
+
+        It 'test:si-offered-at-completion keeps the headless path from proposing' {
+            foreach ($path in @($script:ciGuidePaths + $script:autopilotPaths)) {
+                $flat = Get-FlatText -RelativePath $path
+
+                # /pfb queues its question headless; /si must not queue a *proposal*, because the
+                # end of that flow is a PR against the files that govern every later run.
+                $flat | Should -Match '(?i)(headless|autopilot run) (completion )?does not run (it|`?/si`?)' -Because "$path must not run /si without an operator"
+            }
+
+            foreach ($path in $script:autopilotPaths) {
+                $flat = Get-FlatText -RelativePath $path
+                $flat | Should -Match '(?i)Self-improvement \(`/si`\) . not run headless' -Because "$path must name the rule where the harvest mirror lives"
+                $flat | Should -Match '(?i)queues nothing' -Because "$path must not leave a queued proposal marker behind"
+            }
+        }
+
+        It 'test:si-offered-at-completion documents the consumer-repo flow as manual' {
+            # Scoped to the sections that own the claim: si/SKILL.md says "not manually" in an
+            # unrelated never-merge rule, which a whole-file match would happily accept.
+            foreach ($path in @('plugins/self-improvement/skills/si/SKILL.md', '.github/skills/si/SKILL.md')) {
+                $section = Get-SectionText -RelativePath $path -HeadingPattern 'Step 0'
+                $section | Should -Match '(?i)deliberately manual' -Because "$path must state the upstream round-trip is manual"
+                $section | Should -Match '(?i)by hand' -Because "$path must say the candidate list is carried by hand"
+            }
+
+            foreach ($path in $script:ciGuidePaths) {
+                $section = Get-SectionText -RelativePath $path -HeadingPattern 'Self-improvement'
+                $section | Should -Match '(?i)Consumer repos are manual' -Because "$path must state the consumer-repo flow is manual"
+                $section | Should -Match '(?i)fork .skalary.' -Because "$path must name the fork/upstream round-trip"
+                $section | Should -Match '(?i)not automated' -Because "$path must say the round-trip is not automated"
+            }
+        }
+    }
 }

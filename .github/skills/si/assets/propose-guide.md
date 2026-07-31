@@ -25,14 +25,19 @@ proposal genuinely needs a workflow change, it is a plan, not a `/si` run.
 
 ## Step 4: Isolate the work
 
-Create a worktree and a branch before the first edit. The blast radius of a bad proposal is then a
-directory the operator can delete:
+Create a worktree and a branch before the first edit, **cut from the base ref, not from whatever
+branch you are standing on**:
 
 ```powershell
-git worktree add .worktrees/si-<slug> -b si/<slug>
+git worktree add .worktrees/si-<slug> -b si/<slug> origin/main
 ```
 
-Never propose from the plan's own branch, and never from `main`.
+Two reasons the base matters. The blast radius of a bad proposal becomes a directory the operator
+can delete — and the Step 6 guard reads `main...HEAD`, so a branch cut from a plan's feature branch
+would drag that entire plan diff into the proposal's scope and refuse every time. Use `main` when
+there is no `origin`.
+
+Never propose from the plan's own branch, never commit into it, and never from `main` itself.
 
 ## Step 5: Make only the accepted edits
 

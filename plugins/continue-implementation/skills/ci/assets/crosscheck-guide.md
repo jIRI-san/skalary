@@ -96,6 +96,31 @@ and a recorded verdict never substitutes for a `✗` marker.
    prompting, and the next interactive session consumes the queued marker. Never answer on the
    operator's behalf in either direction.
 
+### Self-improvement (`/si`) — offered after the ledger is written, never blocking
+
+`/pfb` records what the operator thought; `/si` is what reads the records back. Offer it at plan
+completion, **after the harvest step has run** — the entries this plan just wrote are part of the
+corpus it harvests, and offering earlier would read a ledger that is one plan out of date. Ordering,
+not a commit, is the precondition: a no-op harvest that produced no append commit still leaves the
+ledger current, and an infra-absent run that skipped harvest entirely can still offer `/si` if the
+skill is installed.
+
+1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/si/SKILL.md`).
+2. Interactive completion: offer the run. On acceptance, read `.github/skills/si/SKILL.md` by path
+   and follow it. `/si` produces a ranked candidate list and, only with explicit operator consent, a
+   **draft** PR on a worktree branch cut from `origin/main` — never from the plan's branch, whose
+   diff would otherwise land in the proposal's scope and be refused by the pre-PR guard. It never
+   merges, never pushes to `main`, and never commits into the plan's branch.
+3. Headless completion does not run `/si`. The harvest is cheap; a proposal is not — it opens a PR
+   against the repo's own instructions with nobody to have asked. Queue nothing and skip.
+4. It is never a gate: a decline, an empty harvest, or a refused write-scope check blocks neither
+   archival nor the PR.
+5. **Consumer repos are manual.** `/si` proposes into the repository it runs in, and in a consumer
+   repo the customizations arrive through the registry — an improvement made there is overwritten by
+   the next update. Carry the candidate list upstream by hand: fork `skalary`, apply the change, and
+   open the PR there. The fork/upstream round-trip is deliberately not automated; `gh` fork
+   entitlement is out of scope.
+
 ## Dependency preflight (hard start-gate)
 
 For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pester check at plan start and again immediately before any interactive harvest/finalization branch:
@@ -125,13 +150,14 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
 3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
 4. **Post-plan feedback (`/pfb`), offered before archiving and never blocking.** Offer the `/pfb` run against the completing plan; on acceptance, read `.github/skills/pfb/SKILL.md` by path, run it, and commit `docs/feedback/queue.md` by explicit path. A decline, or a `self-improvement` plugin that is not installed, skips it silently. See the `archival-gate` section above — the offer never gates archival or the PR.
-5. Branch after the append commit:
+5. **Self-improvement (`/si`), offered after this harvest step and never blocking.** Offer the `/si` run once harvest has run — whether or not it produced an append commit — so the lessons this plan just wrote are in the corpus it reads. On acceptance, read `.github/skills/si/SKILL.md` by path and follow it; it ranks candidates and, only with explicit consent, opens a **draft** PR on a worktree branch cut from `origin/main` — never a merge, never a push to `main`, never a branch off the plan's branch (its diff would land in the proposal's scope and the pre-PR guard would refuse). A decline, an absent `self-improvement` plugin, or an empty harvest skips it silently. Headless completion does not run it: a proposal nobody asked for is a PR against the repo's own instructions. Consumer repos carry candidates upstream by hand — see the `/si` section above.
+6. Branch after the append commit:
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.
    - `/udn` contract: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft-PR + marker path (no archive).
    - Prune preconditions: `Test-Path .github/skills/ci/scripts/Remove-LedgerEntry.ps1` and `Test-Path docs/review-ledger/.archive`; if missing, skip prune and continue direct draft escalation.
    - Invoke `Remove-LedgerEntry.ps1` via argument arrays / `ArgumentList` only; always pass `-Category`, `-CurrentPlan`, and full-line candidate match payload (`-Match`/`-MatchBase64`) — never substring/regex targeting.
-6. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
+7. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
 
 Fail-loud behavior: error only when expected log sections/placeholders are missing; `No entries for this phase.` is valid and must not fail harvest.
 

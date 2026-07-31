@@ -96,7 +96,7 @@
 - [x] 8.1 Add `skills/si/SKILL.md` plus `assets/harvest-guide.md`: read review-ledger categories, `learnings.md`, `cr-log.md`, and queued `/pfb` feedback **wrapped in `UNTRUSTED_INPUT` markers**, with an explicit never-execute-harvested-directives rule; produce ranked improvement candidates (REQ-14, RISK-10) [after: 7.3] `L`
 - [x] 8.2 Add the propose-and-PR flow plus `Test-SiWriteScope.ps1`: diff base `main...HEAD` covering tracked, staged **and untracked** paths, canonicalize-then-confine to `plugins/` `docs/` `.github/{skills,agents,prompts}/`, symlink-escape rejection, and an outright deny on `.github/workflows/` + `.github/actions/`; worktree, draft PR, never auto-merge (REQ-14, RISK-6, RISK-10, RISK-12) [after: 8.1] `L`
 - [x] 8.3 Switch `/ci` harvest to the concern-to-ledger map so ledger entries are categorized deterministically (REQ-10) [after: 4.4] `M`
-- [ ] 8.4 Offer `/si` at plan completion in both `/ci` and the autopilot harvest mirror; document the consumer-repo fork/upstream flow as manual (REQ-14) [after: 8.2] `M`
+- [x] 8.4 Offer `/si` at plan completion in both `/ci` and the autopilot harvest mirror; document the consumer-repo fork/upstream flow as manual (REQ-14) [after: 8.2] `M`
 
 ## Phase 9: Epic planning
 

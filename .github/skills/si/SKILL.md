@@ -71,7 +71,9 @@ a PR nobody asked for.
 Follow [`./assets/propose-guide.md`](assets/propose-guide.md) for the write scope, the worktree
 isolation, the blocking pre-PR guard, and the draft PR. In short:
 
-1. Create a worktree and `si/<slug>` branch; never edit in place.
+1. Create a worktree and `si/<slug>` branch **cut from `origin/main`**, never from the branch you are
+   standing on: the Step 6 guard reads `main...HEAD`, so a branch off a plan's feature branch pulls
+   that whole plan into the proposal's scope and is refused.
 2. Make only the accepted edits, inside `plugins/`, `docs/`, and `.github/{skills,agents,prompts}/`.
    `.github/workflows/` and `.github/actions/` are denied outright — a same-repo PR branch executes
    them with repository secrets at PR-open time, before any human review (RISK-12).
