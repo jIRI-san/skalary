@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T15:10:15.8439067Z",
+  "generatedAt": "2026-07-31T15:25:33.2797244Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -403,12 +403,12 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "70305bd931a66d581aac0b0f383e3b6d9d18c08a9a9aa05c1c4f2a5b9ad3f45b",
+          "sha256": "49ae9f208a17d5cce1631c8e657ef1a95c3dd706344ab28479d0e373256d6ec2",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "7b2b0ebe7c8deb7da26d2f77e37a6d54fa581632f1002dfbd8445f5ae5e1c644",
+          "sha256": "3d09de50deca446255b4275894418feb513bc70036acd60310f332c25998d227",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -468,7 +468,7 @@
         },
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "57bf7861ff0a898f2a29f2cbb2dc00ada4328f1b0796e938413ea00f93a24b4b",
+          "sha256": "986fca83aebed706a7e245254b78b39aefbc49d5ee66c7ccf4bf0242c11cee5b",
           "src": "skills/ci/SKILL.md"
         }
       ],
@@ -480,7 +480,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.9"
+      "version": "1.0.10"
     },
     {
       "author": "jIRI-san",
@@ -503,8 +503,13 @@
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
+          "dest": "skills/cip/assets/intent-template.md",
+          "sha256": "95a4e9f6e38728436304b98ba39e2c9c51b5997a9da3404baa5749e2ba25f204",
+          "src": "skills/cip/assets/intent-template.md"
+        },
+        {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "24c70257e97f0743263b197852fbf5223531f80316ff50ae95f7ecee6281b434",
+          "sha256": "19faf40b029325aaa51357b9fe6e30b630c0d50663ede69f0e35c3ef51bf60b7",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
@@ -565,7 +570,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.8"
+      "version": "1.0.9"
     },
     {
       "author": "jIRI-san",

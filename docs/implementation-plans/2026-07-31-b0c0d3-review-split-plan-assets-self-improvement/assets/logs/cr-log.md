@@ -14,3 +14,5 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Med] intent gate hard-coded assets/intent.md; reworded to the layout-resolved path via Resolve-PlanAssetPath
 - [2.1] [src:code-review] [sev:Med] guide referenced ./assets/intent-template.md before step 2.2 creates it; template reference deferred to 2.2
 - [2.1] [src:code-review] [sev:Low] test alternation made the anchored branch dead and section list was unbound to the New-Plan scaffold; both fixed
+- [2.2] [src:code-review] [sev:Med] template TBD assertion was satisfied by the instructional comment; now asserted per section body
+- [2.2] [src:code-review] [sev:Low] ci block predicate said TBD-only while cip blocks on any TBD section; predicates aligned and bound by test

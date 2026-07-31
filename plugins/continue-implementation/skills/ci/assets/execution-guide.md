@@ -4,7 +4,7 @@
 
 ## Step loop
 
-1. Implement only the active step scope. Read `assets/intent.md` first (legacy plans: `intent.md` if present) so the step is anchored to the operator's stated outcome, then load only the assets the step needs (`/ci` Step 1 table) — never the whole `assets/` tree.
+1. Implement only the active step scope. Read the plan's intent asset **first** — `assets/intent.md` in the current layout, the plan-folder root `intent.md` for legacy plans, resolved through `Resolve-PlanAssetPath` — so the step is anchored to the operator's stated goal, desired outcome, success signals, non-goals, and definition of done. Then load only the assets the step needs (`/ci` Step 1 table) — never the whole `assets/` tree. If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder, say so and ask rather than inferring intent from the requirements.
 2. Initialize the phase capture files with `Add-WorkflowNote` (no `-Message` writes the `## … Capture` header plus the `No entries for this phase.` placeholder and never truncates prior phases). The script resolves the log path itself via `Resolve-PlanAssetPath` — `assets/logs/{cr-log,learnings,capture}.md` in the current layout, the plan-folder root for legacy plans — so pass `-PlanDir` and never hand-build the path:
 
    ```powershell

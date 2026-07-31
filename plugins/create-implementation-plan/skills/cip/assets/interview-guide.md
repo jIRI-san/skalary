@@ -14,8 +14,9 @@ phase crosscheck, and the yardstick `/pfb` measures the delivered work against.
 
 Ask the **Intent** block in the Question Bank below, then write the answers into the plan's intent asset —
 `assets/intent.md` in the current layout, the plan-folder root `intent.md` for legacy plans. `New-Plan.ps1`
-scaffolds it with a `TBD` placeholder per section; resolve the path with `Resolve-PlanAssetPath` (in
-`PlanState.psm1`) rather than assuming either location. All five sections are required:
+scaffolds it with a `TBD` placeholder per section (the authoring shape, with per-section guidance, is
+`./assets/intent-template.md`); resolve the path with `Resolve-PlanAssetPath` (in `PlanState.psm1`) rather
+than assuming either location. All five sections are required:
 
 | Section | Must answer |
 |---|---|

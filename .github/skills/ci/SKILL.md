@@ -20,7 +20,7 @@ context: fork
 
    | Asset | Read it when |
    |---|---|
-   | `assets/intent.md` | before implementing a step, and at phase crosscheck to re-anchor |
+   | `assets/intent.md` | **always** — before implementing any step, and again at phase crosscheck to re-anchor |
    | `assets/requirements.md` | validating the acceptance criteria of the step's `REQ-N` refs |
    | `assets/risks.md` | the step references a `RISK-N` |
    | `assets/decisions.md`, `assets/decisions/<topic>.md` | a trade-off call needs prior rationale |
@@ -29,6 +29,8 @@ context: fork
    | `assets/logs/{capture,cr-log,learnings}.md` | harvest at plan completion (written only via `Add-WorkflowNote`) |
 
    Never read the whole `assets/` tree "for context". Legacy plans keep these files at the plan-folder root; resolve the path with `Resolve-PlanAssetPath` (in `PlanState.psm1`) rather than assuming either location.
+
+   **Intent is the one non-optional read.** The plan's intent asset states the operator's goal, desired outcome, success signals, non-goals, and definition of done. Read it before implementing any step and re-anchor against it at every phase crosscheck — requirements say what to build, intent says what the operator is trying to achieve, and only intent can tell you a technically-green step missed the point. If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder, the plan did not clear the `/cip` `intent` gate: surface that to the user instead of guessing the intent yourself.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
 4. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
@@ -106,6 +108,7 @@ Use the crosscheck asset for:
 Long runs drift; re-anchor every step instead of trusting context memory:
 
 - **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
+- **Intent authority:** the plan's intent asset — not remembered context — is the anchor for *why* a step exists. Re-read it before each step and at every crosscheck.
 - **Consistency authority:** the `npm run validate-plan` reconcile gate (Step 4) is the only authority on plan/evidence consistency — resolve any divergence by re-running it, not by reasoning from context.
 - **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
 - **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.
