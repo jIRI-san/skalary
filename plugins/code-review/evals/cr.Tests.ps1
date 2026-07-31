@@ -56,7 +56,7 @@ Describe 'cr structural evals' {
     It 'requires each helper referenced by cr.agent.md to exist and be declared in plugin.json' {
         $agentPath = Join-Path $script:pluginRoot 'agents/cr.agent.md'
         $agentBody = Get-Content -LiteralPath $agentPath -Raw
-        $scriptMatches = [regex]::Matches($agentBody, '\.github/agents/scripts/(?<name>get-diff-[a-z-]+\.ps1)')
+        $scriptMatches = [regex]::Matches($agentBody, '\.github/agents/scripts/(?<name>[A-Za-z][A-Za-z0-9._-]*\.ps1)')
         $referencedScripts = @($scriptMatches | ForEach-Object { [string]$_.Groups['name'].Value } | Sort-Object -Unique)
         $referencedScripts.Count | Should -BeGreaterThan 0
 
