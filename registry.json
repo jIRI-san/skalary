@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T23:30:26.0029088Z",
+  "generatedAt": "2026-07-31T23:43:53.9709272Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -518,6 +518,56 @@
       },
       "files": [
         {
+          "dest": "skills/cep/assets/decomposition-guide.md",
+          "sha256": "ca80f950df74b71b5de860ec520a7ff36f1905cd9a0bf4793280d65e48a6e3e9",
+          "src": "skills/cep/assets/decomposition-guide.md"
+        },
+        {
+          "dest": "skills/cep/assets/plan-template.md",
+          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cep/scripts/ArchReceipt.psm1",
+          "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
+          "src": "skills/cep/scripts/ArchReceipt.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/cep/scripts/Get-PlanIndex.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Epic.ps1",
+          "sha256": "d5b5959baa7253ca6cef26624c0c1271d9e03d076d3c45a4cf0c2e72eaa0f456",
+          "src": "skills/cep/scripts/New-Epic.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Plan.ps1",
+          "sha256": "bb6cc64b1d8a9dd159929f811ba40775b4d29409860f5d7a6fdf09ff1efa3a47",
+          "src": "skills/cep/scripts/New-Plan.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/PlanEvidence.psm1",
+          "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f",
+          "src": "skills/cep/scripts/PlanEvidence.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/PlanState.psm1",
+          "sha256": "4055b0d0382530a97efaa91138584c167fdafc3cb8fdcf8502488bab50de2ce7",
+          "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Test-Plan.ps1",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
+          "src": "skills/cep/scripts/Test-Plan.ps1"
+        },
+        {
+          "dest": "skills/cep/SKILL.md",
+          "sha256": "2ce53137f710a854479912e12a566f5ff357b04a9c415826584a0c13a7f09711",
+          "src": "skills/cep/SKILL.md"
+        },
+        {
           "dest": "skills/cip/assets/dr-guide.md",
           "sha256": "d6d2dd11baa2184c6f5f569809b89e182f2db20bfea04ca0fa4e82c87263f65f",
           "src": "skills/cip/assets/dr-guide.md"
@@ -559,7 +609,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "d6fd8cc0887654b033d5fb2f2b5cf8990c468a3646f09d79fbd465f81f96e0ea",
+          "sha256": "bb6cc64b1d8a9dd159929f811ba40775b4d29409860f5d7a6fdf09ff1efa3a47",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -600,7 +650,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.16"
+      "version": "1.0.18"
     },
     {
       "author": "jIRI-san",

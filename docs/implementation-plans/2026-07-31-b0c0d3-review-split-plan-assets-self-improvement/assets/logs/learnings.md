@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
-- [4.6] [trigger:overflow-summary] Folded 4 additional learnings into this summary.
+- [5.1] [trigger:overflow-summary] Folded 5 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 
@@ -14,18 +15,19 @@ Phase: 3
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
 ## Learnings Capture
 Phase: 4
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 5
 
-- [5.1] [trigger:reusable-pattern] PowerShell functions unroll single-element arrays: return , @(...) whenever a caller indexes or counts the result
 - [5.1] [trigger:reusable-pattern] Any git file-list consumed by a script must use -z: the default output C-quotes non-ASCII paths and silently loses them
 
 ## Learnings Capture
@@ -50,3 +52,4 @@ Phase: 8
 Phase: 9
 
 - [9.1] [trigger:reusable-pattern] Generated mirrors of marker state must be rebuilt for every affected owner, not just the invocation target, or the losing side goes stale.
+- [9.2] [trigger:reusable-pattern] A skill's scripts must resolve their assets relative to the installed skill folder; repo-layout paths only work while dogfooding.

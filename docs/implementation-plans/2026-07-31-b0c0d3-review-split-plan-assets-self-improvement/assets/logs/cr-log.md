@@ -90,3 +90,7 @@ Phase: 9
 - [9.1] [src:code-review] [sev:Med] Force re-parent left the losing epic table listing the child; fixed by rebuilding every affected epic table.
 - [9.1] [src:code-review] [sev:Med] Inventory scanned the whole plan for the epic marker while the re-parent guard read header markers; both now use the header-scoped view.
 - [9.1] [src:code-review] [sev:Low] New-Plan did not reserve epic ids; plan and epic ids now collision-check in both directions.
+- [9.2] [src:code-review] [sev:Med] Skill ended by telling the operator to run /ci <epic-id>, which cannot resolve until 9.3; it now points at the first unblocked child ref.
+- [9.2] [src:code-review] [sev:Med] New-Plan defaulted to a plugins/ template path that no installed copy has; it now probes the skill's own assets folder first.
+- [9.2] [src:code-review] [sev:Med] Epic folder was scaffolded in Step 1, before the seams gate that can conclude the goal is one plan; scaffolding moved after cut acceptance.
+- [9.2] [src:code-review] [sev:Med] cep asset pointed at ./assets/drafting-guide.md, which resolves inside cep where that file does not exist; rewritten as the cip installed path.

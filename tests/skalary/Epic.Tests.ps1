@@ -251,3 +251,94 @@ Describe 'New-Epic' {
         }
     }
 }
+
+Describe 'cep skill' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $pluginRoot = Join-Path $repoRoot 'plugins/create-implementation-plan'
+        $skillPath = Join-Path $pluginRoot 'skills/cep/SKILL.md'
+        $guidePath = Join-Path $pluginRoot 'skills/cep/assets/decomposition-guide.md'
+        $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw | ConvertFrom-Json
+        $skillText = Get-Content -LiteralPath $skillPath -Raw
+        $guideText = Get-Content -LiteralPath $guidePath -Raw
+    }
+
+    It 'ships the skill and its decomposition asset from the create-implementation-plan plugin' {
+        Test-Path -LiteralPath $skillPath | Should -BeTrue
+        Test-Path -LiteralPath $guidePath | Should -BeTrue
+        $skillText | Should -Match '(?m)^name:\s*cep\s*$'
+        $skillText | Should -Match '(?m)^user-invocable:\s*true\s*$'
+
+        $declared = @($manifest.files | ForEach-Object { $_.src })
+        $declared | Should -Contain 'skills/cep/SKILL.md'
+        $declared | Should -Contain 'skills/cep/assets/decomposition-guide.md'
+        # /cep scaffolds child plans, so the template New-Plan.ps1 reads must reach an installed copy.
+        @($manifest.files | ForEach-Object { $_.dest }) | Should -Contain 'skills/cep/assets/plan-template.md'
+    }
+
+    It 'declares every installed path it reads, so an installed copy is not missing an asset' {
+        $declaredDest = @($manifest.files | ForEach-Object { $_.dest })
+        $referenced = @()
+        foreach ($text in @($skillText, $guideText)) {
+            foreach ($match in [regex]::Matches($text, '\.github/skills/cep/(?<rel>[A-Za-z0-9._/-]+)')) {
+                $referenced += "skills/cep/$($match.Groups['rel'].Value)"
+            }
+        }
+
+        @($referenced) | Should -Not -BeNullOrEmpty
+        foreach ($ref in ($referenced | Sort-Object -Unique)) {
+            $declaredDest | Should -Contain $ref
+            # The payload source may live under another skill's folder (e.g. the shared plan template),
+            # so resolve through the manifest entry rather than assuming src equals dest.
+            $entry = @($manifest.files | Where-Object { $_.dest -eq $ref })
+            $entry | Should -HaveCount 1
+            Test-Path -LiteralPath (Join-Path $pluginRoot $entry[0].src) | Should -BeTrue
+        }
+    }
+
+    It 'stays thin by pushing decomposition detail into the asset' {
+        # The orchestrator carries the flow; the question bank, gates, and anti-patterns live in the asset.
+        (Get-Item -LiteralPath $skillPath).Length | Should -BeLessOrEqual 8192
+        $guideText | Should -Match 'epic-intent'
+        $guideText | Should -Match 'Independent-executability test'
+        $skillText | Should -Match './assets/decomposition-guide.md'
+        $skillText | Should -Not -Match 'Anti-pattern \|'
+    }
+
+    It 'scaffolds and wires only, delegating child plan content to /cip' {
+        $skillText | Should -Match '/cip'
+        $skillText | Should -Match 'New-Epic\.ps1'
+        $skillText | Should -Match '-DependsOn'
+        # Membership authority has to stay with the child plan marker, not the generated epic table.
+        $skillText | Should -Match '<!-- epic: <id> -->'
+    }
+}
+
+Describe 'New-Plan template resolution' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    }
+
+    It 'resolves the template from the skill assets beside the script when there is no plugins tree' {
+        # An installed copy only has .github/skills/<skill>/{scripts,assets}; the repo layout is absent.
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('newplan-' + [System.Guid]::NewGuid().ToString('N'))
+        try {
+            $scriptDir = Join-Path $tmp '.github/skills/cep/scripts'
+            $assetDir = Join-Path $tmp '.github/skills/cep/assets'
+            New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $tmp 'docs/implementation-plans') -Force | Out-Null
+            foreach ($name in @('New-Plan.ps1', 'PlanState.psm1')) {
+                Copy-Item -LiteralPath (Join-Path $repoRoot "scripts/skalary/$name") -Destination (Join-Path $scriptDir $name)
+            }
+            Copy-Item -LiteralPath (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md') -Destination (Join-Path $assetDir 'plan-template.md')
+
+            $result = & (Join-Path $scriptDir 'New-Plan.ps1') -Title 'Installed copy' -Slug 'installed-copy' -RepoRoot $tmp
+            Test-Path -LiteralPath $result.PlanFile | Should -BeTrue
+            Get-Content -LiteralPath $result.PlanFile -Raw | Should -Match "<!--\s*plan-id: $($result.PlanId)\s*-->"
+        }
+        finally {
+            Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.16",
+  "version": "1.0.18",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -72,6 +72,46 @@
     {
       "src": "skills/cip/scripts/Test-Plan.ps1",
       "dest": "skills/cip/scripts/Test-Plan.ps1"
+    },
+    {
+      "src": "skills/cep/SKILL.md",
+      "dest": "skills/cep/SKILL.md"
+    },
+    {
+      "src": "skills/cep/assets/decomposition-guide.md",
+      "dest": "skills/cep/assets/decomposition-guide.md"
+    },
+    {
+      "src": "skills/cip/assets/plan-template.md",
+      "dest": "skills/cep/assets/plan-template.md"
+    },
+    {
+      "src": "skills/cep/scripts/Get-PlanIndex.ps1",
+      "dest": "skills/cep/scripts/Get-PlanIndex.ps1"
+    },
+    {
+      "src": "skills/cep/scripts/New-Epic.ps1",
+      "dest": "skills/cep/scripts/New-Epic.ps1"
+    },
+    {
+      "src": "skills/cep/scripts/New-Plan.ps1",
+      "dest": "skills/cep/scripts/New-Plan.ps1"
+    },
+    {
+      "src": "skills/cep/scripts/PlanEvidence.psm1",
+      "dest": "skills/cep/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/PlanState.psm1",
+      "dest": "skills/cep/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/ArchReceipt.psm1",
+      "dest": "skills/cep/scripts/ArchReceipt.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/Test-Plan.ps1",
+      "dest": "skills/cep/scripts/Test-Plan.ps1"
     }
   ],
   "evals": {

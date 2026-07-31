@@ -165,7 +165,22 @@ if ((Test-Path -LiteralPath $targetDir) -and -not $Force) {
 }
 
 if (-not $TemplatePath) {
-    $TemplatePath = Join-Path $repoRootPath 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+    # An installed copy has no `plugins/` tree — only `.github/skills/<skill>/…` — so probe the skill's
+    # own assets folder beside this script first and fall back to the source-repo layout.
+    $templateCandidates = @(
+        (Join-Path $PSScriptRoot '..' 'assets' 'plan-template.md')
+        (Join-Path $repoRootPath 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md')
+        (Join-Path $repoRootPath '.github/skills/cip/assets/plan-template.md')
+    )
+    foreach ($candidate in $templateCandidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            $TemplatePath = [System.IO.Path]::GetFullPath($candidate)
+            break
+        }
+    }
+    if (-not $TemplatePath) {
+        throw "Plan template not found; probed: $(($templateCandidates | ForEach-Object { [System.IO.Path]::GetFullPath($_) }) -join ', ')."
+    }
 }
 if (-not (Test-Path -LiteralPath $TemplatePath -PathType Leaf)) {
     throw "Plan template not found: $TemplatePath"
