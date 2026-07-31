@@ -75,6 +75,7 @@ $state = [pscustomobject]@{
         Status         = $next.Status
         IsHuman        = $next.IsHuman
         IsDiscovery    = $next.IsDiscovery
+        Detail         = $next.Detail
         BlockedByAfter = $next.BlockedByAfter
         UnmetAfter     = @($next.UnmetAfter)
         IsComplete     = $next.IsComplete
@@ -106,6 +107,20 @@ else {
     if ($state.NextStep.BlockedByAfter) { $flags += "blocked-by-after: $($state.NextStep.UnmetAfter -join ', ')" }
     $flagText = if ($flags.Count -gt 0) { "  [$($flags -join '; ')]" } else { '' }
     $lines.Add("Next step:  $($state.NextStep.Id) (status '$($state.NextStep.Status)')$flagText")
+
+    # An @human step is an operator handoff: print its full detail block, not just the title, so the
+    # round-trip is single-pass (the same block the human-step-detail gate requires).
+    if ($state.NextStep.IsHuman) {
+        $lines.Add('Handoff:')
+        if ([string]::IsNullOrWhiteSpace($state.NextStep.Detail)) {
+            $lines.Add('  (no <details> block on this step — it does not satisfy the human-step-detail gate)')
+        }
+        else {
+            foreach ($detailLine in ($state.NextStep.Detail -replace "`r`n", "`n").Split("`n")) {
+                $lines.Add("  $detailLine".TrimEnd())
+            }
+        }
+    }
 }
 
 return ($lines -join [Environment]::NewLine)

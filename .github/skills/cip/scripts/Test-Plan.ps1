@@ -44,6 +44,42 @@ function Get-StepPoints {
     }
 }
 
+function Get-HumanStepDetailGap {
+    <#
+    .SYNOPSIS
+    Reports what the `human-step-detail` gate is missing for one `@human` step.
+
+    .DESCRIPTION
+    An `@human` step is an operator round-trip: autopilot exits 42 and a person has to act. Without
+    **Steps**, **Verify**, and **Rollback** spelled out, that round-trip takes several passes. Returns
+    an empty string when the step satisfies the gate, otherwise the reason it does not.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Detail
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Detail)) {
+        return 'has no <details> block'
+    }
+
+    $missing = @()
+    foreach ($section in @('Steps', 'Verify', 'Rollback')) {
+        # Tolerate a list marker before the bold label; the section is what matters, not the bullet.
+        if ($Detail -notmatch "(?im)^\s*(?:[-*+]\s+|\d+\.\s+)?\*\*${section}:?\*\*") {
+            $missing += , $section
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        return "is missing the **$($missing -join '**, **')** section(s) in its <details> block"
+    }
+
+    return ''
+}
+
 function Test-PlanMetadata {
     [CmdletBinding()]
     param(
@@ -127,6 +163,21 @@ function Test-PlanMetadata {
             }
             else {
                 $warnings.Add($message)
+            }
+        }
+
+        if ($step.Role -eq 'human') {
+            $stepDetail = if ($step.PSObject.Properties['Detail']) { [string]$step.Detail } else { '' }
+            $gap = Get-HumanStepDetailGap -Detail $stepDetail
+            if ($gap) {
+                $message = "human-step-detail: step '$($step.Id)' is @human but $gap. Give it **Steps**, **Verify**, and **Rollback** so the operator round-trip is single-pass."
+                $isArchivedPlan = ($Metadata.PSObject.Properties['IsArchived']) -and $Metadata.IsArchived
+                if ($isOptedIn -and -not $isArchivedPlan) {
+                    $errors.Add($message)
+                }
+                else {
+                    $warnings.Add($message)
+                }
             }
         }
 

@@ -360,9 +360,41 @@ function Get-PlanMetadata {
     $steps = [System.Collections.Generic.List[object]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
 
-    foreach ($line in $lines) {
+    # `<details>` blocks under a step (the `@human` handoff detail) are captured here rather than
+    # re-parsed by consumers, so the validator gate and the /ci handoff read the same text. Detail text
+    # is taken from $allLines, not the fence-stripped $lines, because handoffs routinely contain fenced
+    # operator commands and a stripped block would silently lose exactly the part a human needs.
+    # Every `<details>` block under a step is collected: plans also carry Result/evidence blocks, and
+    # keying on the first block (or on its <summary> text) would misread those as the handoff.
+    $currentStep = $null
+    $detailBlocks = $null
+    $detailLines = $null
+    $detailDepth = 0
+
+    $flushDetail = {
+        if ($currentStep) {
+            if ($null -ne $detailLines -and $detailLines.Count -gt 0 -and $null -ne $detailBlocks) {
+                # An unterminated block still carries the operator's text; keep it so the gate reports the
+                # missing sections instead of a misleading "no details block at all".
+                $detailBlocks.Add(($detailLines -join "`n"))
+            }
+            if ($null -ne $detailBlocks -and $detailBlocks.Count -gt 0) {
+                $currentStep.Detail = ($detailBlocks -join "`n`n")
+            }
+        }
+        $currentStep = $null
+        $detailBlocks = $null
+        $detailLines = $null
+        $detailDepth = 0
+    }
+
+    for ($lineIndex = 0; $lineIndex -lt $lines.Length; $lineIndex++) {
+        $line = $lines[$lineIndex]
+        $rawLine = if ($lineIndex -lt $allLines.Length) { $allLines[$lineIndex] } else { $line }
+
         if ($line -match '^\s*##\s+(?<section>Requirements|Risks|Decisions)\b') {
             $currentSection = [string]$Matches.section
+            . $flushDetail
             continue
         }
 
@@ -372,12 +404,30 @@ function Get-PlanMetadata {
             if ($currentPhase -match '^##\s+Phase\s+\d+:\s+') {
                 $phaseSteps[$currentPhase] = [System.Collections.Generic.List[object]]::new()
             }
+            . $flushDetail
             continue
         }
 
         if ($currentSection) {
             $sectionLines[$currentSection].Add($line)
             if ($line.Trim().StartsWith('|')) { continue }
+        }
+
+        # Inside an open block every line belongs to it, including step-shaped lines in example markup —
+        # except an unindented step line, which is structural: an unterminated block must not silently
+        # swallow the rest of the plan's steps. Depth is counted on the fence-stripped line so a fenced
+        # example cannot close the real block, while the captured text comes from the raw line so fenced
+        # operator commands survive.
+        if ($currentStep -and $detailDepth -gt 0 -and $line -notmatch '^-\s\[[ x~]\]\s+\d+\.\d+[a-z]?\s') {
+            $detailLines.Add($rawLine)
+            $detailDepth += ([regex]::Matches($line, '<details\b')).Count
+            $detailDepth -= ([regex]::Matches($line, '</details>')).Count
+            if ($detailDepth -le 0) {
+                $detailBlocks.Add(($detailLines -join "`n"))
+                $detailLines = $null
+                $detailDepth = 0
+            }
+            continue
         }
 
         if ($line -match '^\s*-\s\[(?<status>[ x~])\]\s+(?<step>\d+\.\d+[a-z]?)\s+(?<body>.+)$') {
@@ -423,14 +473,32 @@ function Get-PlanMetadata {
                 After = $afterIds
                 Refs = $refs
                 Phase = $currentPhase
+                Detail = ''
             }
+
+            . $flushDetail
             $steps.Add($step)
             if ($phaseSteps.ContainsKey($currentPhase)) {
                 $phaseSteps[$currentPhase].Add($step)
             }
+            $currentStep = $step
+            $detailBlocks = [System.Collections.Generic.List[string]]::new()
             continue
         }
+
+        if ($currentStep -and $line -match '<details\b') {
+            $detailLines = [System.Collections.Generic.List[string]]::new()
+            $detailLines.Add($rawLine)
+            $detailDepth = ([regex]::Matches($line, '<details\b')).Count - ([regex]::Matches($line, '</details>')).Count
+            if ($detailDepth -le 0) {
+                $detailBlocks.Add(($detailLines -join "`n"))
+                $detailLines = $null
+                $detailDepth = 0
+            }
+        }
     }
+
+    . $flushDetail
 
     $resolvedSections = [ordered]@{}
     foreach ($section in @('Requirements', 'Risks', 'Decisions')) {
@@ -453,10 +521,28 @@ function Get-PlanMetadata {
         $warnings.Add("Plan size warning: ${sizeBytes} bytes / $($allLines.Length) lines (block threshold 35KB/700 is advisory in this validator).")
     }
 
+    # Archived plans are immutable historical records: they are still parsed and validated, but drafting
+    # gates introduced after they were written must not retroactively fail them. Derived from the plan's
+    # own resolved path (an `archived` folder directly under `implementation-plans`) rather than from
+    # $RepoRoot, which may be relative and would then resolve against the wrong base.
+    $isArchived = $false
+    $ancestor = $planDir
+    while ($ancestor) {
+        if ([System.IO.Path]::GetFileName($ancestor) -eq 'archived') {
+            $parentName = [System.IO.Path]::GetFileName((Split-Path -Parent $ancestor))
+            if ($parentName -eq 'implementation-plans') {
+                $isArchived = $true
+                break
+            }
+        }
+        $ancestor = Split-Path -Parent $ancestor
+    }
+
     return [pscustomobject]@{
         PlanPath = $fullPath
         PlanDir = $planDir
         Layout = (Get-PlanLayout -PlanDir $planDir)
+        IsArchived = $isArchived
         RepoRoot = $repoRootPath
         Content = $content
         Lines = $lines
@@ -806,6 +892,7 @@ function Get-NextStep {
             Status                = $null
             IsHuman               = $false
             IsDiscovery           = $false
+            Detail                = ''
             HasUncommittedChanges = [bool]$HasUncommittedChanges
             BlockedByAfter        = $false
             UnmetAfter            = @()
@@ -819,6 +906,7 @@ function Get-NextStep {
     }
 
     $isDiscovery = ($next.Body -match '\[discovery\]')
+    $detail = if ($next.PSObject.Properties['Detail']) { [string]$next.Detail } else { '' }
 
     return [pscustomobject]@{
         Step                  = $next
@@ -826,6 +914,7 @@ function Get-NextStep {
         Status                = $next.Status
         IsHuman               = ($next.Role -eq 'human')
         IsDiscovery           = [bool]$isDiscovery
+        Detail                = $detail
         HasUncommittedChanges = [bool]$HasUncommittedChanges
         BlockedByAfter        = ($unmet.Count -gt 0)
         UnmetAfter            = $unmet

@@ -38,7 +38,8 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Steps:**
   1. Navigate to **Azure Portal > Resource Group > ...**
   2. Run: `az resource ...`
-  3. Verify: expected outcome.
+
+  **Verify:** the concrete, observable condition that proves the step worked.
 
   **Rollback:** Delete the resource / revert the setting to X.
 
@@ -51,4 +52,17 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 ## Finalization (conditional)
 
+<!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
+     Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
+
 - [ ] X.Y Finalization gate (REQ-1) @human `S`
+  <details><summary>Details</summary>
+
+  **Steps:**
+  1. What the operator has to do, in order.
+
+  **Verify:** what proves it worked.
+
+  **Rollback:** how to undo it.
+
+  </details>

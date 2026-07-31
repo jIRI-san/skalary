@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T15:25:33.2797244Z",
+  "generatedAt": "2026-07-31T15:50:52.6721523Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -433,7 +433,7 @@
         },
         {
           "dest": "skills/ci/scripts/Get-PlanState.ps1",
-          "sha256": "c8576035a037e3976a67f978ca101136d0788a4bf97646d72de31ffb82c2b18c",
+          "sha256": "a50923ea0e8c30ca421c415fe6c44c2a1d4496c1d6123fdd878cb64f4a9cd713",
           "src": "skills/ci/scripts/Get-PlanState.ps1"
         },
         {
@@ -443,7 +443,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "3b156d98dc46adff83d6f7aac82998b06b62722c61063ff475f8486c9982c62f",
+          "sha256": "fd8e737371c7f081f5059a1ec3be97c4b61ba8c92cccec1f7e53731040ae6a0e",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -463,7 +463,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
-          "sha256": "b6aec389cb8dfafab4312b7be1717f49060ddc9852cf9c76993379f0f8d5d577",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/ci/scripts/Test-Plan.ps1"
         },
         {
@@ -480,7 +480,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.10"
+      "version": "1.0.12"
     },
     {
       "author": "jIRI-san",
@@ -514,7 +514,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "743cad9f016627750c0212d1fce03b49dcbd0fbfcee75c0c03214123e1c17587",
+          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -539,7 +539,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "3b156d98dc46adff83d6f7aac82998b06b62722c61063ff475f8486c9982c62f",
+          "sha256": "fd8e737371c7f081f5059a1ec3be97c4b61ba8c92cccec1f7e53731040ae6a0e",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -554,7 +554,7 @@
         },
         {
           "dest": "skills/cip/scripts/Test-Plan.ps1",
-          "sha256": "b6aec389cb8dfafab4312b7be1717f49060ddc9852cf9c76993379f0f8d5d577",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/cip/scripts/Test-Plan.ps1"
         },
         {
@@ -570,7 +570,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.9"
+      "version": "1.0.11"
     },
     {
       "author": "jIRI-san",
