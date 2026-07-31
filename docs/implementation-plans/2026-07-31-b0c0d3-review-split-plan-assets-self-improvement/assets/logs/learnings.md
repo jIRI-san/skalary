@@ -1,16 +1,16 @@
 ## Learnings Capture
 Phase: 1
+- [1.4] [trigger:overflow-summary] Folded 2 additional learnings into this summary.
 
-- [1.4] [trigger:reusable-pattern] Pester suites that Import-Module PlanState.psm1 -Force unload it from the calling session, so any crosscheck harness must parse all evidence markers before the first Invoke-Pester call; also, evidence test filters must anchor on the marker boundary or a substring test id (planstate- vs getplanstate-) inflates the case count.
 
 ## Learnings Capture
 Phase: 2
 
-- [2.1] [trigger:reusable-pattern] Structural guide tests must bind the documented contract to the script that produces it (gate section list <-> New-Plan scaffold), otherwise a rename silently disarms the gate.
 - [2.3] [trigger:reusable-pattern] Any new plan.md parsing must read raw lines, not the fence-stripped copy, whenever the captured text is shown to a human or checked for content.
 
 ## Learnings Capture
 Phase: 3
+No entries for this phase.
 
 No entries for this phase.
 
@@ -40,3 +40,4 @@ Phase: 7
 Phase: 8
 
 - [8.1] [trigger:reusable-pattern] A prose injection fence is only as strong as its closing token: storage-time sanitizers strip the entry grammar, not the fence, so any wrapper around model-authored text needs an unpredictable per-read id and a pre-wrap scan for its own marker.
+- [8.2] [trigger:reusable-pattern] Any git-derived path allowlist must pass --no-renames and judge the literal path before resolving symlinks: rename detection hides the source path, and a destination-only verdict turns symlink resolution from a restriction into a laundering channel.

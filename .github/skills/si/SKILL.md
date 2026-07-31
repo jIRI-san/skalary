@@ -56,3 +56,30 @@ to that cap.
 
 Report the ranked list. An empty harvest is a real result: say there are no candidates rather than
 inventing one.
+
+## Step 4: Confirm what to propose
+
+Ask the operator which candidates to act on — one round, the ranked list as the menu. Nothing is
+written before that answer. If they decline all of them, stop: the ranked list is itself a useful
+output, and an unwanted proposal costs a review.
+
+Under a headless run there is no operator to ask. Report the ranked list and stop; `/si` never opens
+a PR nobody asked for.
+
+## Steps 5–7: Propose (`./assets/propose-guide.md`)
+
+Follow [`./assets/propose-guide.md`](assets/propose-guide.md) for the write scope, the worktree
+isolation, the blocking pre-PR guard, and the draft PR. In short:
+
+1. Create a worktree and `si/<slug>` branch; never edit in place.
+2. Make only the accepted edits, inside `plugins/`, `docs/`, and `.github/{skills,agents,prompts}/`.
+   `.github/workflows/` and `.github/actions/` are denied outright — a same-repo PR branch executes
+   them with repository secrets at PR-open time, before any human review (RISK-12).
+3. Run the blocking guard and stop on a refusal:
+
+   ```powershell
+   pwsh -NoProfile -File .github/skills/si/scripts/Test-SiWriteScope.ps1 -RepoRoot . -BaseRef main
+   ```
+
+4. Open a **draft** PR. `/si` proposes and never merges — not manually, not by auto-merge, and never
+   into `main` directly.

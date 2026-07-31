@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T22:21:49.1420150Z",
+  "generatedAt": "2026-07-31T22:40:47.9102972Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -921,13 +921,23 @@
           "src": "skills/si/assets/harvest-guide.md"
         },
         {
+          "dest": "skills/si/assets/propose-guide.md",
+          "sha256": "c69df60fa13a4e423fd3a4957c221c2304ae8bfdb2bab34ba33b025543fa0a7d",
+          "src": "skills/si/assets/propose-guide.md"
+        },
+        {
           "dest": "skills/si/scripts/PlanState.psm1",
           "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
+          "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
+          "sha256": "0983f306e0e12cf6c28f3dc89d5bbd91b96067f0f9d06eb7367797f10fe2503d",
+          "src": "skills/si/scripts/Test-SiWriteScope.ps1"
+        },
+        {
           "dest": "skills/si/SKILL.md",
-          "sha256": "726ecf451ca0a585c606c7788f2421827427d8900fecceda80285a6ca74bdc9c",
+          "sha256": "6f5ff62db69672a02a31c0290719a2dfb767495877b70d7e178c4125e51965dd",
           "src": "skills/si/SKILL.md"
         }
       ],
@@ -940,7 +950,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.6"
+      "version": "1.0.8"
     }
   ]
 }
