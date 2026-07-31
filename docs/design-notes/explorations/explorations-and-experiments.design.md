@@ -24,3 +24,10 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 | File | Area | Parked because |
 |---|---|---|
 | [container-autopilot-watchdog.design.md](container-autopilot-watchdog.design.md) | `plugins/autopilot/scripts/**` | Would restructure autopilot invocation granularity mid-plan; the phase + whole-run caps shipped instead |
+| [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md) | `/cip`, `/cep`, plan `assets/` | Operator notes; builds on `b0c0d3` intent asset, which must land first |
+| [review-standards-tiering.design.md](review-standards-tiering.design.md) | `plugins/{code,design}-review/**`, `docs/review-ledger/**` | Operator notes; depends on the concern split, concern→ledger map and `/si` from `b0c0d3` |
+| [design-rfc-artifacts.design.md](design-rfc-artifacts.design.md) | `/cip`, plan `assets/` | Operator notes; fits the `b0c0d3` assets layout, sequenced after it |
+
+## Scheduled review
+
+The three operator explorations recorded on 2026-07-31 are to be revisited in the **align phase** at `b0c0d3` completion (the `/pfb` loop, REQ-13), pulled into the following plan.
