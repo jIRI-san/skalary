@@ -116,7 +116,10 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
 2. If append infra is present (`Test-Path .github/skills/ci/scripts/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
    - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
    - Distill entries from the layout-resolved logs — `assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans. Resolve with `Resolve-PlanAssetPath`; reading the wrong location yields a silently empty harvest.
-   - Map candidates deterministically into `Add-LedgerEntry` inputs: `-Category` from the 7-category rubric, `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
+   - Resolve `-Category` through the **concern → ledger category map**, keyed by the concern that raised the finding and the review type that produced it (`cr` or `dr`). Probe both installed copies — `.github/skills/cr/assets/concern-ledger-map.md`, then `.github/skills/dr/assets/concern-ledger-map.md` — because the two review plugins ship the same file and either install alone makes the map available. The map is total and deterministic; an unmapped concern is a bug in that table, not a cue to improvise a category.
+   - A candidate that no reviewer produced — a `learnings.md` or `capture.md` lesson — has no concern attached. Name the concern it is about first (the same seven), then route it through the same map. One visible judgment call, not seven invisible ones.
+   - Only when **neither** copy resolves is the map absent: say so and fall back to the `ledger-consult` keyword rubric below, rather than silently inventing categories.
+   - Map the remaining `Add-LedgerEntry` inputs directly: `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
    - Invoke `Add-LedgerEntry.ps1` via argument arrays / `ArgumentList` only (no shell-string interpolation).
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.

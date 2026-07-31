@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T22:40:47.9102972Z",
+  "generatedAt": "2026-07-31T22:50:02.7114050Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -206,7 +206,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "7c87248f24a0cd694ff54d7cec023165f0cb923ee5029e2b7745dc996b9549db",
+          "sha256": "9f09869f9324a89078a958d8bb6da41b4420375b7e72a3ee0961b3e0aaf307df",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -314,7 +314,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.1"
+      "version": "1.2.2"
     },
     {
       "author": "jIRI-san",
@@ -428,7 +428,7 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "88836c1f3e4cf42d8b93df288080bbe270b36852587775868e539e5dd7a43dcd",
+          "sha256": "dde7d39c4d34f7ab37c661f207d00303df6dcacf418f2dc027db2abad565bc86",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -505,7 +505,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.15"
+      "version": "1.0.16"
     },
     {
       "author": "jIRI-san",

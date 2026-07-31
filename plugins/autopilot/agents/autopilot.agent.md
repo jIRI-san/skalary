@@ -136,7 +136,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Append harvest phase (always before branch):**
      - Distill one-line lessons from the layout-resolved logs (`assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans). Reading the wrong location yields a silently empty harvest.
      - Deterministic mapping into `Add-LedgerEntry` arguments:
-       - `-Category`: selected from the 7-category taxonomy by keyword/REQ scope (same rubric as `ledger-consult`).
+       - `-Category`: resolved through the **concern → ledger category map**, keyed by the concern that raised the finding and the review type that produced it (`cr` or `dr`). Probe both installed copies — `.github/skills/cr/assets/concern-ledger-map.md`, then `.github/skills/dr/assets/concern-ledger-map.md` — since either review plugin ships the same file. The map is total; an unmapped concern is a bug in that table, not a cue to improvise. A lesson no reviewer produced (`learnings.md`, `capture.md`) gets its concern named first, then goes through the same map. Only when neither copy resolves is the map absent — say so and fall back to the `ledger-consult` keyword rubric.
        - `-Plan`: the canonical plan id resolved via `Resolve-Plan` from the executing plan's `plan-id` anchor (dual-format `<6hex>`/legacy `NNN`), not a raw folder `NNN`.
        - `-Src`: `autopilot` for autopilot harvest, `ci` for interactive `/ci` harvest.
        - `-Severity`: carried from captured finding severity where present; otherwise default `Med` for reusable process learnings.
