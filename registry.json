@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T18:30:46.3365100Z",
+  "generatedAt": "2026-07-31T18:52:30.5193228Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -325,9 +325,19 @@
       },
       "files": [
         {
+          "dest": "agents/cr-architecture-patterns.agent.md",
+          "sha256": "8a44c7717cf424d73357c802504ee65feb93566bf7b4be7c323aad8c908bcc27",
+          "src": "agents/cr-architecture-patterns.agent.md"
+        },
+        {
           "dest": "agents/cr-codex.agent.md",
           "sha256": "28c22f567d98242ae198694236f8f3cd797ffe1ed37000e9cfb8f3191ea58492",
           "src": "agents/cr-codex.agent.md"
+        },
+        {
+          "dest": "agents/cr-correctness-reliability.agent.md",
+          "sha256": "72594f6231246e178fd9ab96d27854a438e679f5e22152cfa21ee7898619d447",
+          "src": "agents/cr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/cr-gemini.agent.md",
@@ -335,9 +345,34 @@
           "src": "agents/cr-gemini.agent.md"
         },
         {
+          "dest": "agents/cr-maintainability-consistency.agent.md",
+          "sha256": "9b15a4ad8da0bf7e06a8afa1ac93f6fd15667f57b30751414b4ade3a4063f687",
+          "src": "agents/cr-maintainability-consistency.agent.md"
+        },
+        {
+          "dest": "agents/cr-operability-observability.agent.md",
+          "sha256": "4a2a3deec69eae3864b371b0defec927af147e1b974cd2602eca7e55454bd5a2",
+          "src": "agents/cr-operability-observability.agent.md"
+        },
+        {
           "dest": "agents/cr-opus.agent.md",
           "sha256": "4ac7ca094ee4ca3257a99e1edf8611dd55ea2d02560e7e58bf0c50449ecf875d",
           "src": "agents/cr-opus.agent.md"
+        },
+        {
+          "dest": "agents/cr-performance.agent.md",
+          "sha256": "caac386f9c937a0ec0353fb79488299cf5a7b89ef984df4c73767c4fecd51c37",
+          "src": "agents/cr-performance.agent.md"
+        },
+        {
+          "dest": "agents/cr-security.agent.md",
+          "sha256": "721c7914e4c457d21f406ff8cc734e51c4b050c790b48689e5b76262e323cc83",
+          "src": "agents/cr-security.agent.md"
+        },
+        {
+          "dest": "agents/cr-testing-evidence.agent.md",
+          "sha256": "f6324771d18c3817a6330d4ce589cb8a8f9e7721ccc0ea100be08c7350b3fd3c",
+          "src": "agents/cr-testing-evidence.agent.md"
         },
         {
           "dest": "agents/cr.agent.md",

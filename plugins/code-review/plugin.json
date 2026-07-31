@@ -21,6 +21,34 @@
       "dest": "agents/cr.agent.md"
     },
     {
+      "src": "agents/cr-security.agent.md",
+      "dest": "agents/cr-security.agent.md"
+    },
+    {
+      "src": "agents/cr-correctness-reliability.agent.md",
+      "dest": "agents/cr-correctness-reliability.agent.md"
+    },
+    {
+      "src": "agents/cr-architecture-patterns.agent.md",
+      "dest": "agents/cr-architecture-patterns.agent.md"
+    },
+    {
+      "src": "agents/cr-performance.agent.md",
+      "dest": "agents/cr-performance.agent.md"
+    },
+    {
+      "src": "agents/cr-testing-evidence.agent.md",
+      "dest": "agents/cr-testing-evidence.agent.md"
+    },
+    {
+      "src": "agents/cr-maintainability-consistency.agent.md",
+      "dest": "agents/cr-maintainability-consistency.agent.md"
+    },
+    {
+      "src": "agents/cr-operability-observability.agent.md",
+      "dest": "agents/cr-operability-observability.agent.md"
+    },
+    {
       "src": "agents/cr-opus.agent.md",
       "dest": "agents/cr-opus.agent.md"
     },
