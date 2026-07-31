@@ -50,7 +50,7 @@
       "version": "1.2.0"
     },
     {
-      "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+      "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
       "license": "MIT",
       "name": "code-review",
       "source": "plugins/code-review",

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T20:03:03.1408995Z",
+  "generatedAt": "2026-07-31T20:05:22.2105758Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -319,7 +319,7 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+      "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
       "evals": {
         "status": "none"
       },
@@ -363,36 +363,6 @@
           "dest": "agents/cr.agent.md",
           "sha256": "619f45a1937372791dd4a638dcb079656c81886095dd24a9f549f292957b3366",
           "src": "agents/cr.agent.md"
-        },
-        {
-          "dest": "agents/scripts/get-diff-branch.ps1",
-          "sha256": "bb5672b75b32a63c5b31a52650556c978818f0ee9917d4a3219ff3e7ca2f78f6",
-          "src": "agents/scripts/get-diff-branch.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-commits.ps1",
-          "sha256": "36ee380d2494fcf401f922c0c525b1bd304d4c0c0a739f0ad30d1ad689e8fbd2",
-          "src": "agents/scripts/get-diff-commits.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-files.ps1",
-          "sha256": "986f9bb28ee92015ccae23939f64b372de5fc9f28992f557cc96fc51f8f35ed3",
-          "src": "agents/scripts/get-diff-files.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-paths.ps1",
-          "sha256": "a81bb4a759196a67bb3b2d5c74c433ce100108adbca7216f98f5e2dbc1c754dd",
-          "src": "agents/scripts/get-diff-paths.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-smart-default.ps1",
-          "sha256": "810c023fd0f1bca8ba8130f7c2fcf9e37290267ccde838f6088bf73ef2a9a01b",
-          "src": "agents/scripts/get-diff-smart-default.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-uncommitted.ps1",
-          "sha256": "c2df1a5172309b077dfb447c0eace273010eaa8fac0b7e6d13c59434c380bd19",
-          "src": "agents/scripts/get-diff-uncommitted.ps1"
         },
         {
           "dest": "agents/scripts/Get-ReviewScope.ps1",

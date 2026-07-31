@@ -21,17 +21,13 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/skills/design-notes/assets/templates/design-note-writing-style.template.md` | Template asset | Writing-style guide copied to `docs/design-notes/project/design-note-writing-style.design.md` by the skill's Init workflow |
 | `.github/prompts/cr.prompt.md` | Prompt (`/cr`) | Code review entry point |
 | `.github/prompts/dr.prompt.md` | Prompt (`/dr`) | Design review entry point |
-| `.github/agents/dr.agent.md` | Agent (`dr`) | Design review orchestrator — reviews a plan using three specialist models |
-| `.github/agents/dr-opus.agent.md` | Subagent (hidden) | Design reviewer (Claude Opus) — invoked by `dr` only |
-| `.github/agents/dr-codex.agent.md` | Subagent (hidden) | Design reviewer (GPT Codex) — invoked by `dr` only |
-| `.github/agents/dr-gemini.agent.md` | Subagent (hidden) | Design reviewer (Gemini) — invoked by `dr` only |
-| `.github/agents/cr.agent.md` | Agent (`cr`) | Code review orchestrator — reviews git changes using three specialist models |
-| `.github/agents/cr-opus.agent.md` | Subagent (hidden) | Code reviewer (Claude Opus) — invoked by `cr` only |
-| `.github/agents/cr-codex.agent.md` | Subagent (hidden) | Code reviewer (GPT Codex) — invoked by `cr` only |
-| `.github/agents/cr-gemini.agent.md` | Subagent (hidden) | Code reviewer (Gemini) — invoked by `cr` only |
+| `.github/agents/dr.agent.md` | Agent (`dr`) | Design review orchestrator — reviews a plan with the seven concern reviewers, dispatched once per configured model |
+| `.github/agents/dr-<concern>.agent.md` | Subagents (hidden) | The seven model-agnostic design reviewers (`security`, `correctness-reliability`, `architecture-patterns`, `performance`, `testing-evidence`, `maintainability-consistency`, `operability-observability`) — invoked by `dr` only |
+| `.github/agents/cr.agent.md` | Agent (`cr`) | Code review orchestrator — resolves a changed-file list and dispatches the seven concern reviewers once per configured model |
+| `.github/agents/cr-<concern>.agent.md` | Subagents (hidden) | The same seven concerns for code review — invoked by `cr` only |
 | `.github/agents/autopilot.agent.md` | Agent (`autopilot`) | Autonomous plan execution — implements one phase per invocation, builds, tests, commits |
 | `.github/skills/autopilot/SKILL.md` | Skill (`autopilot`, internal) | `/ci` Autonomous-mode handoff — first-run config bootstrap, Host/Container/Sandbox sub-menu, custom host command; read-by-path, not invoked. Co-ships with the autopilot scripts/schemas/devcontainer under `.github/skills/autopilot/**` |
-| `.github/agents/scripts/get-diff-*.ps1` | Helper scripts | Git diff helpers used by `cr` for discovery (branch, commits, files, paths, smart default, uncommitted) |
+| `.github/agents/scripts/Get-ReviewScope.ps1` | Helper script | Single review-scope emitter used by `cr` — prints the repo-relative file list for `smart`/`uncommitted`/`branch`/`commits`/`paths`; reviewers read the files themselves, so no diff is extracted |
 | `.github/skills/cip/SKILL.md` | Skill (`/cip`) | Create Implementation Plan — requirements interview, phased plan with step tracking, iterative `dr` review, saves to `docs/implementation-plans/` |
 | `.github/skills/ci/SKILL.md` | Skill (`/ci`) | Continue Implementation — executes a plan step-by-step, manages git worktrees, build/test iteration, `cr` review, explicit commit gate |
 | `.github/skills/architecture-notes/SKILL.md` | Skill (`architecture-notes`) | Interface-contract tier authoring — create/update/promote/review contracts, seed/harvest, human doc, ADR harvest; `/can` + `/uan` are thin wrappers |
@@ -64,7 +60,7 @@ This approach:
 
 ## Review Agents (dr / cr)
 
-Both `dr` and `cr` use an orchestrator + three specialist subagent pattern. The orchestrator handles discovery, context loading, batching, injection guarding, and synthesis. The subagents are stateless reviewers that know nothing about the orchestration.
+Both `dr` and `cr` use an orchestrator + concern-split subagent pattern: seven model-agnostic reviewers, each dispatched once per configured model. The orchestrator handles discovery, context loading, and synthesis; `cr` passes a changed-file list and the reviewers read the code themselves. The subagents are stateless reviewers that know nothing about the orchestration, and each carries its own data-only directive because no orchestrator-side fence stands in front of them.
 
 **Model assignments:**
 

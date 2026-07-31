@@ -69,7 +69,7 @@
 
 - [x] 5.1 Add `Get-ReviewScope.ps1` collapsing all six diff helpers into one file-list emitter (`uncommitted` · `branch` · `N` · paths · smart default) (REQ-11) `L`
 - [x] 5.2 Rewrite cr orchestration to pass the file list plus the design-note set and let reviewers read code themselves; drop diff extraction and content batching. The orchestrator-side untrusted-content fence is removed only because step 4.2 relocated the equivalent directive into every concern agent — verify that before deleting it (REQ-11, RISK-11) [after: 5.1, 4.4, 4.2] `M`
-- [ ] 5.3 Delete the six `get-diff-*.ps1` scripts, update `plugin.json` `files[]`, and assert no remaining references (REQ-11) [after: 5.2] `M`
+- [x] 5.3 Delete the six `get-diff-*.ps1` scripts, update `plugin.json` `files[]`, and assert no remaining references (REQ-11) [after: 5.2] `M`
 
 ## Phase 6: Review skills and prompt audit
 

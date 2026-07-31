@@ -44,3 +44,6 @@ Phase: 5
 - [5.1] [src:code-review] [sev:Med] paths mode accepted paths outside the repo root and emitted a mangled relative path that resolved to nothing; now rejected loudly
 - [5.1] [src:code-review] [sev:Med] Get-ChildItem without -Force skipped dot-prefixed files on Unix, making paths mode platform-dependent
 - [5.1] [src:code-review] [sev:Med] smart mode resolved the default branch before checking for a first commit, so a fresh repo failed instead of listing untracked files
+- [5.2] [src:code-review] [sev:Med] Orchestrator Steps 5-6 still re-derive the merge/dedup/elevation/sort rules in prose while the dispatch guide forbids it; deferred to step 6.5, which repoints both orchestrators at Build-ReviewReport.ps1
+- [5.2] [src:code-review] [sev:Med] Build-ReviewReport.ps1 is not bundled by either review plugin, so the guide step resolves to nothing in a consumer install; that bundling is step 6.5 (REQ-18)
+- [5.3] [src:code-review] [sev:Low] Design note still described cr/dr as three per-model reviewers and listed the six deleted agents; corrected to the seven-concern split in this step

@@ -29,3 +29,4 @@ No entries for this phase.
 Phase: 5
 
 - [-] Registry/marketplace must be rebuilt after every payload edit: a stale sha256 fails Install-Plugin but validate.ps1 does not catch it
+- [-] Build-Registry appends one trailing blank line to README on every catalog change (unbounded growth, pre-existing); candidate cleanup for a hygiene step

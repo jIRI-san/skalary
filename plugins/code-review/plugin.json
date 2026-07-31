@@ -1,7 +1,7 @@
 {
   "name": "code-review",
   "version": "1.0.1",
-  "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+  "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -59,30 +59,6 @@
     {
       "src": "agents/scripts/Get-ReviewScope.ps1",
       "dest": "agents/scripts/Get-ReviewScope.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-branch.ps1",
-      "dest": "agents/scripts/get-diff-branch.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-commits.ps1",
-      "dest": "agents/scripts/get-diff-commits.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-files.ps1",
-      "dest": "agents/scripts/get-diff-files.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-paths.ps1",
-      "dest": "agents/scripts/get-diff-paths.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-smart-default.ps1",
-      "dest": "agents/scripts/get-diff-smart-default.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-uncommitted.ps1",
-      "dest": "agents/scripts/get-diff-uncommitted.ps1"
     }
   ],
   "evals": {
