@@ -136,6 +136,10 @@ if ($Date -notmatch '^\d{4}-\d{2}-\d{2}$') {
 
 $slugClean = Get-SanitizedSlug -Value $Slug
 
+# Plans and epics share one id space — `/ci` accepts either handle — so both inventories reserve ids,
+# in both directions, and an explicitly supplied id is collision-checked rather than trusted.
+$takenIds = @(Get-PlanInventory -RepoRoot $repoRootPath) + @(Get-EpicInventory -RepoRoot $repoRootPath)
+
 if ($PlanId) {
     $PlanId = $PlanId.Trim().ToLowerInvariant()
     if ($PlanId -notmatch '^[0-9a-f]{6}$') {
@@ -143,7 +147,13 @@ if ($PlanId) {
     }
 }
 else {
-    $PlanId = New-PlanId -RepoRoot $repoRootPath
+    $PlanId = New-PlanId -ExistingId @($takenIds | ForEach-Object { $_.Id })
+}
+
+foreach ($existing in $takenIds) {
+    if ($existing.Id -and $existing.Id.ToLowerInvariant() -eq $PlanId -and $existing.FolderName -ne "$Date-$PlanId-$slugClean") {
+        throw "Plan id '$PlanId' is already taken by '$($existing.FolderName)'."
+    }
 }
 
 $folderName = "$Date-$PlanId-$slugClean"

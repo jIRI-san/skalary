@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
-- [2.3] [trigger:overflow-summary] Folded 3 additional learnings into this summary.
+- [4.6] [trigger:overflow-summary] Folded 4 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 
 
@@ -12,13 +13,14 @@ No entries for this phase.
 Phase: 3
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
 ## Learnings Capture
 Phase: 4
+No entries for this phase.
 
-- [4.6] [trigger:reusable-pattern] Deterministic formatters need a composite ordinal sort key: PowerShell Sort-Object is neither stable nor ordinal, so multi-property sorts leak input order and locale.
 
 ## Learnings Capture
 Phase: 5
@@ -43,3 +45,8 @@ Phase: 8
 - [8.1] [trigger:reusable-pattern] A prose injection fence is only as strong as its closing token: storage-time sanitizers strip the entry grammar, not the fence, so any wrapper around model-authored text needs an unpredictable per-read id and a pre-wrap scan for its own marker.
 - [8.2] [trigger:reusable-pattern] Any git-derived path allowlist must pass --no-renames and judge the literal path before resolving symlinks: rename detection hides the source path, and a destination-only verdict turns symlink resolution from a restriction into a laundering channel.
 - [8.4] [trigger:reusable-pattern] A structural test over a shared guide must be scoped to the section it governs: sibling features in the same file repeat the same stock phrases, so a whole-file match passes with the rule under test deleted.
+
+## Learnings Capture
+Phase: 9
+
+- [9.1] [trigger:reusable-pattern] Generated mirrors of marker state must be rebuilt for every affected owner, not just the invocation target, or the losing side goes stale.

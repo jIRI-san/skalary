@@ -83,3 +83,10 @@ Phase: 8
 - [8.4] [src:code-review] [sev:High] The /si worktree branch was cut from the current branch, so a proposal offered at plan completion carried the whole plan diff into the guard's main...HEAD scope and was refused every time; both the propose guide and the offer now pin the branch to origin/main.
 - [8.4] [src:code-review] [sev:Med] The offer was conditioned on an append commit that a no-op or infra-absent harvest never makes, silently never offering /si; the precondition is now ordering relative to the harvest step.
 - [8.4] [src:code-review] [sev:Med] test:si-offered-at-completion matched whole files, so /pfb's own never-blocking and not-installed wording satisfied the /si assertions; the checks are now scoped to the /si section and harvest item and fail when those rules are inverted.
+
+## CR Capture
+Phase: 9
+
+- [9.1] [src:code-review] [sev:Med] Force re-parent left the losing epic table listing the child; fixed by rebuilding every affected epic table.
+- [9.1] [src:code-review] [sev:Med] Inventory scanned the whole plan for the epic marker while the re-parent guard read header markers; both now use the header-scoped view.
+- [9.1] [src:code-review] [sev:Low] New-Plan did not reserve epic ids; plan and epic ids now collision-check in both directions.

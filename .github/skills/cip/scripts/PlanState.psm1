@@ -610,10 +610,19 @@ function Get-PlanInventory {
 
         $planFile = Join-Path $entry.Dir.FullName 'plan.md'
         $anchorId = $null
+        $epicId = $null
         if (Test-Path -LiteralPath $planFile) {
             $raw = Get-Content -LiteralPath $planFile -Raw
             if ($raw -match '<!--\s*plan-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->') {
                 $anchorId = $Matches.id.ToLowerInvariant()
+            }
+            # Epic membership is carried by the child plan, never by the epic's own table: the marker
+            # travels with the plan folder (including into archived/), so a rollup cannot go stale.
+            # It is read through the same header-scoped view every other marker uses, so a plan that
+            # merely documents the marker in its body is not silently enrolled in that epic.
+            $headerEpicId = (Get-PlanHeaderMarkers -Content $raw).EpicId
+            if ($headerEpicId -and $headerEpicId -match '^[0-9a-fA-F]{3,}$') {
+                $epicId = $headerEpicId.ToLowerInvariant()
             }
         }
 
@@ -623,6 +632,7 @@ function Get-PlanInventory {
             Id = $canonicalId
             FolderId = $folderId
             AnchorId = $anchorId
+            EpicId = $epicId
             Scheme = $scheme
             Slug = $slug
             Date = $date
@@ -760,6 +770,132 @@ function Resolve-Plan {
     return $matches[0]
 }
 
+function Get-EpicInventory {
+    <#
+    .SYNOPSIS
+    Enumerates the epic folders under `docs/implementation-plans/epics/`.
+
+    .DESCRIPTION
+    An epic is an index, not a plan: it holds `epic.md` and no `plan.md`, and its children stay ordinary
+    sibling plan folders so every existing consumer keeps resolving them unchanged. The folder name
+    follows the plan scheme (`<yyyy-mm-dd>-<6hex>-<slug>`); the `<!-- epic-id: ... -->` anchor in
+    `epic.md` is canonical when present, exactly as `plan-id` is for plans.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $epicsRoot = Join-Path $root 'docs/implementation-plans/epics'
+    $inventory = [System.Collections.Generic.List[object]]::new()
+    if (-not (Test-Path -LiteralPath $epicsRoot -PathType Container)) {
+        return $inventory.ToArray()
+    }
+
+    foreach ($dir in (Get-ChildItem -LiteralPath $epicsRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        if ($dir.Name -notmatch '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
+            continue
+        }
+
+        $folderId = $Matches.hash
+        $slug = $Matches.slug
+        $date = $Matches.date
+
+        $epicFile = Join-Path $dir.FullName 'epic.md'
+        $anchorId = $null
+        $title = $null
+        if (Test-Path -LiteralPath $epicFile -PathType Leaf) {
+            $raw = Get-Content -LiteralPath $epicFile -Raw
+            if ($raw -match '<!--\s*epic-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->') {
+                $anchorId = $Matches.id.ToLowerInvariant()
+            }
+            if ($raw -match '(?m)^#\s+(?<title>.+?)\s*$') {
+                $title = $Matches.title.Trim()
+            }
+        }
+
+        $inventory.Add([pscustomobject]@{
+            Id         = if ($anchorId) { $anchorId } else { $folderId }
+            FolderId   = $folderId
+            AnchorId   = $anchorId
+            Slug       = $slug
+            Date       = $date
+            Title      = $title
+            FolderName = $dir.Name
+            Path       = $dir.FullName
+            EpicFile   = $epicFile
+        })
+    }
+
+    return $inventory.ToArray()
+}
+
+function Resolve-Epic {
+    <#
+    .SYNOPSIS
+    Resolves an epic reference (hash prefix, slug, or date) to exactly one epic record.
+
+    .DESCRIPTION
+    Same contract as `Resolve-Plan`: ambiguity is an error, never a silent first-match pick.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Reference,
+
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [object[]]$Inventory
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Reference)) {
+        throw 'Resolve-Epic requires a non-empty -Reference.'
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('Inventory')) {
+        $Inventory = @(Get-EpicInventory -RepoRoot $RepoRoot)
+    }
+
+    $ref = $Reference.Trim()
+    $refLower = $ref.ToLowerInvariant()
+    $epicMatches = @()
+    $kind = $null
+
+    if ($ref -match '^\d{4}-\d{2}-\d{2}$') {
+        $kind = "date '$ref'"
+        $epicMatches = @($Inventory | Where-Object { $_.Date -eq $ref })
+    }
+    elseif ($refLower -match '^[0-9a-f]{4,6}$') {
+        $kind = "hash prefix '$ref'"
+        $epicMatches = @($Inventory | Where-Object { $_.Id -and $_.Id.ToLowerInvariant().StartsWith($refLower) })
+        if ($epicMatches.Count -eq 0) {
+            $kind = "slug '$ref'"
+            $epicMatches = @($Inventory | Where-Object { $_.Slug -eq $ref })
+        }
+    }
+    else {
+        $kind = "slug '$ref'"
+        $epicMatches = @($Inventory | Where-Object { $_.Slug -eq $ref })
+        if ($epicMatches.Count -eq 0) {
+            $epicMatches = @($Inventory | Where-Object { $_.Slug -and $_.Slug.ToLowerInvariant().Contains($refLower) })
+        }
+    }
+
+    if ($epicMatches.Count -eq 0) {
+        throw "No epic matches $kind."
+    }
+
+    if ($epicMatches.Count -gt 1) {
+        $detail = ($epicMatches | ForEach-Object { "$($_.Id) ($($_.FolderName))" }) -join ', '
+        throw "Ambiguous epic reference: $kind matches multiple epics: $detail. Use a longer prefix or the full id."
+    }
+
+    return $epicMatches[0]
+}
+
 function Get-PlanHeaderMarkers {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     param(
@@ -802,6 +938,7 @@ function Get-PlanHeaderMarkers {
 
     return [pscustomobject]@{
         PlanId        = & $getValue 'plan-id'
+        EpicId        = & $getValue 'epic'
         ExecutionMode = & $getValue 'execution-mode'
         Scope         = & $getValue 'scope'
         CipStage      = & $getValue 'cip-stage'
@@ -991,4 +1128,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells

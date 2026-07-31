@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T23:03:21.6720945Z",
+  "generatedAt": "2026-07-31T23:30:26.0029088Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -468,7 +468,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "sha256": "4055b0d0382530a97efaa91138584c167fdafc3cb8fdcf8502488bab50de2ce7",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -505,7 +505,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.17"
+      "version": "1.0.19"
     },
     {
       "author": "jIRI-san",
@@ -559,7 +559,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "3917206eb5d03367586d1ed5a5e618b691a4445a355925854d6a9046a00324b7",
+          "sha256": "d6fd8cc0887654b033d5fb2f2b5cf8990c468a3646f09d79fbd465f81f96e0ea",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -569,7 +569,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "sha256": "4055b0d0382530a97efaa91138584c167fdafc3cb8fdcf8502488bab50de2ce7",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -600,7 +600,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.14"
+      "version": "1.0.16"
     },
     {
       "author": "jIRI-san",
@@ -902,7 +902,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "sha256": "4055b0d0382530a97efaa91138584c167fdafc3cb8fdcf8502488bab50de2ce7",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -927,7 +927,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "sha256": "4055b0d0382530a97efaa91138584c167fdafc3cb8fdcf8502488bab50de2ce7",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
@@ -950,7 +950,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.9"
+      "version": "1.0.11"
     }
   ]
 }
