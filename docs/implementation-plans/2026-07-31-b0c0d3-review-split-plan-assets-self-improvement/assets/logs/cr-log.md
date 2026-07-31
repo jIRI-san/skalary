@@ -20,3 +20,5 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] unterminated blocks were dropped mid-file but accepted at EOF; flush now happens at every reset and an unindented step line always terminates
 - [2.3] [src:code-review] [sev:Med] nested details truncated the block and only the first block was read; depth counting plus multi-block capture added
 - [2.3] [src:code-review] [sev:Low] IsArchived derived from a possibly-relative RepoRoot and gate regex rejected bulleted labels; both fixed
+- [2.4] [src:code-review] [sev:Med] handoff doc assertion used a file-wide (?s) span satisfied by an unrelated line; now anchored to the Handoff sentence
+- [2.4] [src:code-review] [sev:Low] template example count asserted only >0, so losing an @human example passed silently; now pinned to exactly 2

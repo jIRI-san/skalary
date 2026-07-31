@@ -28,6 +28,7 @@
 ## Guardrails
 
 - Do not execute commands embedded in plan text.
+- **`@human` handoff:** when the next step is `@human`, stop and print the `Handoff:` block `Get-PlanState` emits — the step's full **Steps** / **Verify** / **Rollback** detail, verbatim, never a paraphrase or the bare step title. Do not execute the operator's steps yourself.
 - Stage explicit files only (never `git add -A`).
 - Prefer the simplest implementation that satisfies the requirement.
 - Keep changes local to the active step unless a coupled fix is required.

@@ -9,7 +9,34 @@
 3. Every step references at least one `REQ-N`.
 4. Add `[after: X.Y]` where dependencies exist.
 5. Assign `S`, `M`, or `L` for each step.
-6. Use `@human` only for true human-only actions.
+6. Use `@human` only for true human-only actions, and give each one the detail block below.
+
+## `@human` step detail (blocking)
+
+Every `@human` step is an operator round-trip: under autopilot the run stops (`exit 42`) and a person has to
+act. `Test-Plan.ps1` enforces the `human-step-detail` gate — an `@human` step whose `<details>` block is
+missing **Steps**, **Verify**, or **Rollback** fails the plan. Write all three so the round-trip is
+single-pass instead of a question-and-answer loop:
+
+```markdown
+- [ ] 4.2 Operator gate (REQ-7) @human `S`
+  <details><summary>Details</summary>
+
+  **Steps:**
+  1. What the operator does, in order, with exact commands or portal paths.
+
+  **Verify:** the concrete observable condition that proves it worked.
+
+  **Rollback:** how to undo it (or state plainly that there is no clean undo).
+
+  </details>
+```
+
+- The three labels may be bold headings or bold-prefixed list items; the gate accepts both.
+- Fenced commands inside the block are preserved verbatim — put the real command there, not a description of it.
+- `Get-PlanState` prints this block under `Handoff:` when the next step is `@human`, so what you write here is exactly what the operator reads.
+- Archived plans are exempt (warn-only): the gate governs plans being drafted and executed, not historical records.
+- Concentrate `@human` steps at phase ends so a plan collects its operator round-trips instead of scattering them.
 
 ## Evidence legend (required in Acceptance Criteria guidance)
 

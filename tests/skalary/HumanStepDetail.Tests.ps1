@@ -410,4 +410,76 @@ Describe 'human-step-detail gate' {
             }
         }
     }
+
+    Context 'documented shape' {
+        BeforeAll {
+            $draftingGuidePath = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
+            $planTemplatePath = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+            $ciSkillPath = Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md'
+            $executionGuidePath = Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
+
+            $readText = {
+                param([string]$Path)
+                (Get-Content -LiteralPath $Path -Raw) -replace "`r`n", "`n"
+            }
+        }
+
+        It 'test:ci-human-handoff-detail documents the three required sections in the drafting guide' {
+            $guide = & $readText $draftingGuidePath
+            $guide | Should -Match 'human-step-detail'
+            foreach ($section in @('Steps', 'Verify', 'Rollback')) {
+                $guide | Should -Match "\*\*$section\*\*"
+            }
+        }
+
+        It 'test:ci-human-handoff-detail ships a plan template whose @human examples pass the gate' {
+            # The template is the shape every drafted plan copies; an example that fails the gate teaches
+            # the wrong shape and ships in the installed payload.
+            $templateLines = (& $readText $planTemplatePath).Split("`n")
+            $examples = [System.Collections.Generic.List[string]]::new()
+            $current = $null
+            foreach ($line in $templateLines) {
+                if ($line -match '^-\s\[.\]\s+\S+\s') {
+                    if ($null -ne $current) { $examples.Add($current -join "`n") }
+                    # Direct assignment: an empty List returned as an if-expression value gets enumerated
+                    # away to $null by the pipeline.
+                    if ($line -match '@human\b') {
+                        $current = [System.Collections.Generic.List[string]]::new()
+                    }
+                    else {
+                        $current = $null
+                    }
+                    continue
+                }
+                if ($line -match '^##\s') {
+                    if ($null -ne $current) { $examples.Add($current -join "`n") }
+                    $current = $null
+                    continue
+                }
+                if ($null -ne $current) { $current.Add($line) }
+            }
+            if ($null -ne $current) { $examples.Add($current -join "`n") }
+
+            $examples.Count | Should -Be 2 -Because 'the template ships one @human phase example and one @human finalization example'
+            foreach ($detail in $examples) {
+                $detail | Should -Match '<details'
+                foreach ($section in @('Steps', 'Verify', 'Rollback')) {
+                    $detail | Should -Match "(?im)^\s*(?:[-*+]\s+|\d+\.\s+)?\*\*${section}:?\*\*"
+                }
+            }
+        }
+
+        It 'test:ci-human-handoff-detail tells /ci to print the handoff block instead of the bare title' {
+            foreach ($path in @($ciSkillPath, $executionGuidePath)) {
+                $text = & $readText $path
+                # Anchor on the Handoff sentence itself: a file-wide (?s) span would be satisfied by any
+                # unrelated later use of "full"/"verbatim".
+                $handoffLine = @(($text.Split("`n")) | Where-Object { $_ -match 'Handoff:' })
+                $handoffLine.Count | Should -BeGreaterThan 0
+                ($handoffLine -join "`n") | Should -Match 'verbatim'
+                ($handoffLine -join "`n") | Should -Match '\*\*Steps\*\*'
+                ($handoffLine -join "`n") | Should -Match 'title'
+            }
+        }
+    }
 }
