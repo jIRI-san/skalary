@@ -4,7 +4,7 @@
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- execution-mode: container-autopilot -->
-<!-- scope: phase -->
+<!-- scope: plan -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 8 -->
 <!-- expected-packages: dotnet:none; npm:none -->
