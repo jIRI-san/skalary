@@ -1,7 +1,7 @@
 ## Learnings Capture
 Phase: 1
 
-No entries for this phase.
+- [1.4] [trigger:reusable-pattern] Pester suites that Import-Module PlanState.psm1 -Force unload it from the calling session, so any crosscheck harness must parse all evidence markers before the first Invoke-Pester call; also, evidence test filters must anchor on the marker boundary or a substring test id (planstate- vs getplanstate-) inflates the case count.
 
 ## Learnings Capture
 Phase: 2
