@@ -140,6 +140,20 @@
         "skill"
       ],
       "version": "1.0.0"
+    },
+    {
+      "description": "Post-plan feedback loop — /pfb compares delivered work against the plan's captured intent, records the operator's verdict, and can scaffold a correction plan.",
+      "license": "MIT",
+      "name": "self-improvement",
+      "source": "plugins/self-improvement",
+      "strict": false,
+      "tags": [
+        "feedback",
+        "prompt",
+        "self-improvement",
+        "skill"
+      ],
+      "version": "1.0.2"
     }
   ]
 }

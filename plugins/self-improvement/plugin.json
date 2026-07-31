@@ -1,0 +1,44 @@
+{
+  "name": "self-improvement",
+  "version": "1.0.2",
+  "description": "Post-plan feedback loop — /pfb compares delivered work against the plan's captured intent, records the operator's verdict, and can scaffold a correction plan.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "prompt",
+    "feedback",
+    "self-improvement"
+  ],
+  "dependencies": [
+    "create-implementation-plan"
+  ],
+  "status": "stable",
+  "files": [
+    {
+      "src": "prompts/pfb.prompt.md",
+      "dest": "prompts/pfb.prompt.md"
+    },
+    {
+      "src": "skills/pfb/SKILL.md",
+      "dest": "skills/pfb/SKILL.md"
+    },
+    {
+      "src": "skills/pfb/assets/feedback-guide.md",
+      "dest": "skills/pfb/assets/feedback-guide.md"
+    },
+    {
+      "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
+      "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
+    },
+    {
+      "src": "skills/pfb/scripts/PlanState.psm1",
+      "dest": "skills/pfb/scripts/PlanState.psm1"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

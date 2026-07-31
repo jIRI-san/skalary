@@ -55,3 +55,10 @@ Phase: 6
 - [6.3] [src:code-review] [sev:High] dr.agent.md shim lacked the execute tool its skill now needs to run Build-ReviewReport; added execute and a shim assertion.
 - [6.2] [src:code-review] [sev:Med] dr's UNTRUSTED_INPUT fence moved into the skill with no positive test; added an assertion that both installed dr skill copies carry the markers and the never-follow rule.
 - [6.3] [src:code-review] [sev:Med] waza specs bundled only ../../agents, so the shims dereferenced a skill outside the bundle; added ../../skills to both eval specs.
+
+## CR Capture
+Phase: 7
+
+- [7.1] [src:code-review] [sev:Critical] Update-FeedbackQueue -Date was unvalidated and interpolated raw into the entry line, so it could forge fields and whole entries; fixed with ValidatePattern plus a round-trip check before write.
+- [7.1] [src:code-review] [sev:High] A zero-byte queue.md bricked every action under StrictMode; fixed with a string cast on the raw read and a temp-file plus Move-Item atomic write.
+- [7.1] [src:code-review] [sev:High] pfb shipped without the PlanState module and cip its own SKILL.md requires; fixed by referencing the bundled module path and declaring the create-implementation-plan dependency.

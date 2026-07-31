@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T20:53:53.3008792Z",
+  "generatedAt": "2026-07-31T21:19:09.6866900Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -869,6 +869,53 @@
         "skill"
       ],
       "version": "1.0.0"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "create-implementation-plan"
+      ],
+      "description": "Post-plan feedback loop — /pfb compares delivered work against the plan's captured intent, records the operator's verdict, and can scaffold a correction plan.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "prompts/pfb.prompt.md",
+          "sha256": "077fefa01079130bbe04c61887b0c8053eed8ece78f2d1404a65743c30f27b8a",
+          "src": "prompts/pfb.prompt.md"
+        },
+        {
+          "dest": "skills/pfb/assets/feedback-guide.md",
+          "sha256": "4e2cd47b428f6bf979845c674c08637491bfde4047426fdce525225f416848b9",
+          "src": "skills/pfb/assets/feedback-guide.md"
+        },
+        {
+          "dest": "skills/pfb/scripts/PlanState.psm1",
+          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "src": "skills/pfb/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
+          "sha256": "cc8801452354e07f853c8e52d73251e2b95116666d723384f3e418267894ec94",
+          "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
+        },
+        {
+          "dest": "skills/pfb/SKILL.md",
+          "sha256": "8069516a932fd5d2d87ef15f24f44fce530f354928963e30931a550bfa4770f2",
+          "src": "skills/pfb/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "self-improvement",
+      "status": "stable",
+      "tags": [
+        "feedback",
+        "prompt",
+        "self-improvement",
+        "skill"
+      ],
+      "version": "1.0.2"
     }
   ]
 }

@@ -29,3 +29,8 @@ Phase: 5
 Phase: 6
 
 - [6.3] [trigger:reusable-pattern] Plugin payload edits bump plugin.json versions via Sync-PluginScripts, so any test pinning a literal plugin version breaks; assert derived versions instead.
+
+## Learnings Capture
+Phase: 7
+
+No entries for this phase.
