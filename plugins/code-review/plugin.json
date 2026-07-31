@@ -17,6 +17,14 @@
       "dest": "prompts/cr.prompt.md"
     },
     {
+      "src": "skills/cr/assets/dispatch-guide.md",
+      "dest": "skills/cr/assets/dispatch-guide.md"
+    },
+    {
+      "src": "skills/cr/assets/concern-ledger-map.md",
+      "dest": "skills/cr/assets/concern-ledger-map.md"
+    },
+    {
       "src": "agents/cr.agent.md",
       "dest": "agents/cr.agent.md"
     },

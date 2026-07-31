@@ -70,14 +70,15 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `architecture-notes` | 1.0.2 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `architecture-tests` | 1.0.18 | partial | — | 14 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.2.0 | partial | — | 20 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
-| `code-review` | 1.0.1 | stable | — | 15 | Code review orchestrator with specialist subagents and git diff helpers. |
+| `code-review` | 1.0.1 | stable | — | 17 | Code review orchestrator with specialist subagents and git diff helpers. |
 | `continue-implementation` | 1.0.14 | stable | autopilot, code-review | 14 | Code implementation workflow skill with autonomous execution guidance. |
 | `create-implementation-plan` | 1.0.14 | stable | design-review | 15 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.0 | stable | — | 6 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
-| `design-review` | 1.0.1 | stable | — | 9 | Design review orchestrator with specialist model agents. |
+| `design-review` | 1.0.1 | stable | — | 11 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.2 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 <!-- END SKALARY PLUGIN CATALOG -->
+
 
 
 

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T18:57:10.5645374Z",
+  "generatedAt": "2026-07-31T19:04:31.6497420Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -398,6 +398,16 @@
           "dest": "prompts/cr.prompt.md",
           "sha256": "89a23779168194cfc51b50574a1941c8cc64a5917bab459ba38020f651012d6e",
           "src": "prompts/cr.prompt.md"
+        },
+        {
+          "dest": "skills/cr/assets/concern-ledger-map.md",
+          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "src": "skills/cr/assets/concern-ledger-map.md"
+        },
+        {
+          "dest": "skills/cr/assets/dispatch-guide.md",
+          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "src": "skills/cr/assets/dispatch-guide.md"
         }
       ],
       "license": "MIT",
@@ -699,6 +709,16 @@
           "dest": "prompts/dr.prompt.md",
           "sha256": "83b02e04ff69d078c8d6c1cbdec7b313f056e00aaffcb70b3a49f6b88f5f0c2d",
           "src": "prompts/dr.prompt.md"
+        },
+        {
+          "dest": "skills/dr/assets/concern-ledger-map.md",
+          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "src": "skills/dr/assets/concern-ledger-map.md"
+        },
+        {
+          "dest": "skills/dr/assets/dispatch-guide.md",
+          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "src": "skills/dr/assets/dispatch-guide.md"
         }
       ],
       "license": "MIT",
