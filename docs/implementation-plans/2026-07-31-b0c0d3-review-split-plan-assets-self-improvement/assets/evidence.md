@@ -81,3 +81,16 @@ Phase 7 Crosscheck:
 ✓ REQ-13 — file:plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md#contains:pfb — passed — 2f4beb1d62f5b9354ef67d956a9a6a01483f44d7
 ✓ REQ-13 — test:pfb-queues-marker-under-autopilot — passed: 6 case(s) passed — 2f4beb1d62f5b9354ef67d956a9a6a01483f44d7
 ✓ REQ-13 — test:pfb-consumes-queued-marker — passed: 8 case(s) passed — 2f4beb1d62f5b9354ef67d956a9a6a01483f44d7
+
+Phase 8 Crosscheck:
+✓ REQ-10 — file:plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md#contains:concern-ledger-map — passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-10 — test:concern-ledger-map-total — passed: 2 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — file:plugins/self-improvement/skills/si/SKILL.md#exists — passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — file:plugins/self-improvement/skills/si/assets/harvest-guide.md#contains:UNTRUSTED_INPUT — passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — file:scripts/skalary/Test-SiWriteScope.ps1#exists — passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-wraps-harvested-sources — passed: 5 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-write-scope-denies-workflows — passed: 4 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-write-scope-catches-untracked — passed: 5 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-write-scope-rejects-symlink-escape — passed: 5 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-proposes-never-merges — passed: 3 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+✓ REQ-14 — test:si-offered-at-completion — passed: 3 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
