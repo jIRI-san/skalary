@@ -53,11 +53,20 @@ Describe 'cr structural evals' {
         }
     }
 
-    It 'requires each helper referenced by cr.agent.md to exist and be declared in plugin.json' {
-        $agentPath = Join-Path $script:pluginRoot 'agents/cr.agent.md'
-        $agentBody = Get-Content -LiteralPath $agentPath -Raw
-        $scriptMatches = [regex]::Matches($agentBody, '\.github/agents/scripts/(?<name>[A-Za-z][A-Za-z0-9._-]*\.ps1)')
-        $referencedScripts = @($scriptMatches | ForEach-Object { [string]$_.Groups['name'].Value } | Sort-Object -Unique)
+    It 'requires each helper referenced by the cr payload to exist and be declared in plugin.json' {
+        # The orchestration moved from cr.agent.md into the cr skill, so the helper references live
+        # wherever the workflow does; scan every markdown payload file rather than one artifact.
+        $markdownSrcs = @($script:entries | Where-Object { [string]$_.src -match '\.md$' } | ForEach-Object { [string]$_.src })
+        $referencedScripts = [System.Collections.Generic.List[string]]::new()
+        foreach ($src in $markdownSrcs) {
+            $path = Join-Path $script:pluginRoot ($src -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+            $body = Get-Content -LiteralPath $path -Raw
+            foreach ($match in [regex]::Matches($body, '\.github/agents/scripts/(?<name>[A-Za-z][A-Za-z0-9._-]*\.ps1)')) {
+                $referencedScripts.Add([string]$match.Groups['name'].Value)
+            }
+        }
+
+        $referencedScripts = @($referencedScripts | Sort-Object -Unique)
         $referencedScripts.Count | Should -BeGreaterThan 0
 
         foreach ($scriptName in $referencedScripts) {

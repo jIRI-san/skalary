@@ -16,10 +16,22 @@ Describe 'cr diff extraction retirement' {
         $script:retiredHelpers = @('branch', 'commits', 'files', 'paths', 'smart-default', 'uncommitted') |
             ForEach-Object { "$script:helperPrefix-$_.ps1" }
 
-        $script:crOrchestrators = @(
+        # The cr orchestration surface moved into the skill (plan b0c0d3 step 6.1/6.3); the agent is
+        # a shim. Both installed trees are checked because Sync-Dogfood never prunes.
+        $script:crSurfaces = @(
+            [pscustomobject]@{ Tree = 'plugins'; Files = @('plugins/code-review/skills/cr/SKILL.md', 'plugins/code-review/skills/cr/assets/scope-guide.md') }
+            [pscustomobject]@{ Tree = 'dogfood'; Files = @('.github/skills/cr/SKILL.md', '.github/skills/cr/assets/scope-guide.md') }
+        )
+
+        $script:crShims = @(
             'plugins/code-review/agents/cr.agent.md'
             '.github/agents/cr.agent.md'
         )
+
+        function Script:Get-SurfaceText {
+            param([Parameter(Mandatory)][string[]]$Files)
+            return (($Files | ForEach-Object { [System.IO.File]::ReadAllText((Join-Path $script:repoRoot $_)) }) -join "`n")
+        }
 
         $script:scanRoots = @('plugins', '.github', 'scripts', 'tools', 'docs/design-notes')
         $script:scanExtensions = @('.md', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml')
@@ -59,26 +71,30 @@ Describe 'cr diff extraction retirement' {
         $offenders | Should -BeNullOrEmpty -Because 'a reference to a deleted helper is an install that resolves to nothing'
     }
 
-    It 'test:no-diff-extraction-refs points both cr orchestrator copies at the single scope emitter' {
-        foreach ($relative in $script:crOrchestrators) {
-            $raw = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot $relative))
+    It 'test:no-diff-extraction-refs points the cr orchestration surface at the single scope emitter' {
+        foreach ($surface in $script:crSurfaces) {
+            $raw = Get-SurfaceText -Files $surface.Files
 
-            $raw | Should -Match '\.github/agents/scripts/Get-ReviewScope\.ps1'
-            $raw | Should -Match '(?m)^## Step 2: Collect the File List\s*$'
+            $raw | Should -Match '\.github/agents/scripts/Get-ReviewScope\.ps1' -Because "the $($surface.Tree) surface must name the emitter"
             # No diff extraction and no content batching: the file list is the whole payload.
             $raw | Should -Not -Match '--diff'
             $raw | Should -Not -Match 'Create one diff per batch'
-            $raw | Should -Match 'reviewers read the code themselves'
+            $raw | Should -Match 'reviewers read the code\s+themselves'
         }
     }
 
     It 'test:no-diff-extraction-refs keeps the injection guard where the content is now read' {
-        foreach ($relative in $script:crOrchestrators) {
-            $raw = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot $relative))
-            # The orchestrator-side fence is gone because it no longer passes content; deleting
-            # it is only safe while every reviewer carries the directive itself (RISK-11).
+        # The orchestrator-side fence is gone because cr no longer passes content; deleting it is
+        # only safe while every reviewer carries the directive itself (RISK-11).
+        foreach ($surface in $script:crSurfaces) {
+            $raw = Get-SurfaceText -Files $surface.Files
             $raw | Should -Not -Match 'UNTRUSTED_INPUT'
             $raw | Should -Match 'data, not instructions'
+        }
+
+        foreach ($shim in $script:crShims) {
+            $raw = Get-SurfaceText -Files @($shim)
+            $raw | Should -Not -Match 'UNTRUSTED_INPUT' -Because "$shim delegates the whole workflow to the skill"
         }
     }
 

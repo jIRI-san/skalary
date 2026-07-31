@@ -274,6 +274,14 @@ Describe 'skalary plugin registry scripts' {
 
         Set-Content -LiteralPath (Join-Path $target '.github/prompts/cr.prompt.md') -Value "user-edited`n" -Encoding utf8
 
+        # Derive both versions from the manifest under test: pinning literals here makes an
+        # unrelated (and legitimate) version bump in the repo fail this test, while the invariant
+        # being asserted is "a degraded update leaves the receipt on the installed version".
+        $baseManifest = Get-Content -LiteralPath (Join-Path $baseSource 'plugins/code-review/plugin.json') -Raw | ConvertFrom-Json -Depth 100
+        $installedVersion = [string]$baseManifest.version
+        $versionParts = $installedVersion.Split('.')
+        $upstreamVersion = '{0}.{1}.{2}' -f $versionParts[0], $versionParts[1], ([int]$versionParts[2] + 1)
+
         # Write canonical LF: this file is hashed by Build-Registry then committed.
         # The eol=lf gitattribute renormalizes the working tree on commit, so a
         # platform-dependent Set-Content terminator (CRLF on Windows) would make
@@ -281,14 +289,14 @@ Describe 'skalary plugin registry scripts' {
         [System.IO.File]::WriteAllText((Join-Path $updatedSource 'plugins/code-review/prompts/cr.prompt.md'), "upstream update`n")
         $manifestPath = Join-Path $updatedSource 'plugins/code-review/plugin.json'
         $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-        $manifest.version = '1.0.2'
+        $manifest.version = $upstreamVersion
         Set-Content -LiteralPath $manifestPath -Value (($manifest | ConvertTo-Json -Depth 100) + "`n") -Encoding utf8
         Invoke-SkalaryScript -RepoRoot $updatedSource -ScriptName 'Build-Registry.ps1'
         git -C $updatedSource add plugins/code-review registry.json README.md
         if ($LASTEXITCODE -ne 0) {
             throw "git add failed in '$updatedSource' (exit $LASTEXITCODE)."
         }
-        git -C $updatedSource commit -m 'test: bump code-review to 1.0.2' | Out-Null
+        git -C $updatedSource commit -m "test: bump code-review to $upstreamVersion" | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "git commit failed in '$updatedSource' (exit $LASTEXITCODE)."
         }
@@ -298,7 +306,7 @@ Describe 'skalary plugin registry scripts' {
 
         $receipt = Get-Content -LiteralPath (Join-Path $target '.github/.skalary/receipts/code-review.json') -Raw | ConvertFrom-Json -Depth 100
         [bool]$receipt.degraded | Should -BeTrue
-        [string]$receipt.version | Should -Be '1.0.1'
+        [string]$receipt.version | Should -Be $installedVersion
         @($receipt.files | Where-Object { [string]$_.outcome -eq 'skipped-modified' }).Count | Should -BeGreaterThan 0
     }
 
