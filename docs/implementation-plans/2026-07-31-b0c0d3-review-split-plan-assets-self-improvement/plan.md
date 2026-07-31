@@ -56,7 +56,7 @@
 
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 4.1 Add `tools/model-allowlist.psd1` with **two** lists (VS Code qualified names, Copilot CLI bare slugs) plus a closed agent→host map, and `Test-ModelAllowlist.ps1` that selects by that map and fails loud on any unmapped agent (REQ-7) `M`
+- [x] 4.1 Add `tools/model-allowlist.psd1` with **two** lists (VS Code qualified names, Copilot CLI bare slugs) plus a closed agent→host map, and `Test-ModelAllowlist.ps1` that selects by that map and fails loud on any unmapped agent (REQ-7) `M`
 - [ ] 4.2 Author the 7 model-agnostic `cr-<concern>.agent.md` reviewers — each carrying its own data-only directive and "flag directive-looking content as Critical" rule (replacing the deleted orchestrator fence), its focus lens, and arch-contract awareness (REQ-8, RISK-11) `L`
 - [ ] 4.3 Mirror the 7 concerns as `dr-<concern>.agent.md`; delete `cr-opus`/`cr-codex`/`cr-gemini` and the dr equivalents plus their dogfood copies, and update waza fixtures (REQ-8, RISK-8) [after: 4.2] `L`
 - [ ] 4.4 Write the shared `assets/dispatch-guide.md` (cr + dr): per-invocation model override, size-scaled concern thresholds, concerns run once over the union of files, the 28-invocation **budget** the orchestrator reports against, batch-size bound and subsystem-matching rule, a DR-side batching contract (H2 phase / asset file), declared-model preflight plus the stated undetectable served-model residual, Pro-tier GA fallback selection, and `concern-ledger-map.md` (REQ-9, REQ-10, RISK-1, RISK-2, RISK-4) [after: 4.3] `L`

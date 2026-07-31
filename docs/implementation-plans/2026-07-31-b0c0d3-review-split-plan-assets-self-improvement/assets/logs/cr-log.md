@@ -27,3 +27,8 @@ Phase: 2
 Phase: 3
 
 - [3.1] [src:code-review] [sev:Med] Get-PlanIndex resolved a wrong -RepoRoot to an empty index, silently unblocking the prior-art gate; now throws when docs/implementation-plans is absent
+
+## CR Capture
+Phase: 4
+
+- [4.1] [src:code-review] [sev:High] Test-ModelAllowlist enumerated agents without -Force, silently skipping every hidden .github/agents dogfood copy; fixed and pinned with a hidden-path fixture.
