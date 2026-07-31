@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Design review orchestrator with specialist model agents.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -17,8 +17,24 @@
       "dest": "prompts/dr.prompt.md"
     },
     {
+      "src": "skills/dr/SKILL.md",
+      "dest": "skills/dr/SKILL.md"
+    },
+    {
+      "src": "skills/dr/assets/plan-scope-guide.md",
+      "dest": "skills/dr/assets/plan-scope-guide.md"
+    },
+    {
       "src": "skills/dr/assets/dispatch-guide.md",
       "dest": "skills/dr/assets/dispatch-guide.md"
+    },
+    {
+      "src": "skills/dr/assets/collation-guide.md",
+      "dest": "skills/dr/assets/collation-guide.md"
+    },
+    {
+      "src": "skills/dr/scripts/Build-ReviewReport.ps1",
+      "dest": "skills/dr/scripts/Build-ReviewReport.ps1"
     },
     {
       "src": "skills/dr/assets/concern-ledger-map.md",
