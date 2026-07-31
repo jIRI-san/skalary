@@ -119,7 +119,9 @@ function Invoke-CopilotPhase {
         [ValidateSet('exe', 'bat', 'cmd', 'ps1')]
         [string]$CopilotType,
         [string[]]$ExtraArgs,
-        [string]$Model
+        [string]$Model,
+        [string]$ContextTier,
+        [string]$ReasoningEffort
     )
 
     $transcriptName = "session-transcript-phase$PhaseNumber.md"
@@ -139,6 +141,10 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
+            '--context',
+            (ConvertTo-CmdQuotedToken -Token $ContextTier),
+            '--effort',
+            (ConvertTo-CmdQuotedToken -Token $ReasoningEffort),
             (ConvertTo-CmdQuotedToken -Token "--share=./$transcriptName")
         )
         foreach ($arg in $ExtraArgs) {
@@ -164,6 +170,10 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
+            '--context',
+            (ConvertTo-PowerShellQuotedToken -Token $ContextTier),
+            '--effort',
+            (ConvertTo-PowerShellQuotedToken -Token $ReasoningEffort),
             (ConvertTo-PowerShellQuotedToken -Token "--share=./$transcriptName")
         )
         foreach ($arg in $ExtraArgs) {
@@ -181,6 +191,10 @@ function Invoke-CopilotPhase {
         $psi.ArgumentList.Add('autopilot')
         $psi.ArgumentList.Add('--no-ask-user')
         $psi.ArgumentList.Add('--allow-all')
+        $psi.ArgumentList.Add('--context')
+        $psi.ArgumentList.Add($ContextTier)
+        $psi.ArgumentList.Add('--effort')
+        $psi.ArgumentList.Add($ReasoningEffort)
         $psi.ArgumentList.Add("--share=./$transcriptName")
         foreach ($arg in $ExtraArgs) {
             $psi.ArgumentList.Add($arg)
@@ -271,7 +285,9 @@ foreach ($phase in $phaseNumbers) {
         -CopilotPath $hostCommand.Path `
         -CopilotType $hostCommand.Type `
         -ExtraArgs $hostCommand.ExtraArgs `
-        -Model $Config.model
+        -Model $Config.model `
+        -ContextTier $Config.context `
+        -ReasoningEffort $Config.reasoningEffort
 
     $phasesExecuted++
 

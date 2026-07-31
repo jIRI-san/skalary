@@ -1,7 +1,7 @@
 ---
 name: autopilot
 description: Autonomous plan execution agent — implements plan steps, builds, tests, commits.
-model: gpt-5.3-codex
+model: claude-opus-5
 ---
 
 # Autopilot Agent

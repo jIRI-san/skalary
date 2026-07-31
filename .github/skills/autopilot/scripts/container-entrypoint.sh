@@ -149,6 +149,8 @@ for PHASE_NUM in ${PHASE_NUMS}; do
 
     copilot -p "Execute ${PLAN_PATH}, phase ${PHASE_NUM}" \
         "${MODEL_ARGS[@]}" \
+        --context "${COPILOT_CONTEXT}" \
+        --effort "${COPILOT_REASONING_EFFORT}" \
         --agent autopilot \
         --no-ask-user \
         --share="./${TRANSCRIPT}" \

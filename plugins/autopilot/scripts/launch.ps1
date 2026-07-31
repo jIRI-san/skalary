@@ -73,12 +73,21 @@ if (-not (Test-Path $ConfigPath)) {
 $Config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 
 # Validate required fields
-$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'git', 'timeout', 'maxIterationsPerStep', 'build', 'test')
+$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'context', 'reasoningEffort', 'git', 'timeout', 'maxIterationsPerStep', 'build', 'test')
 foreach ($field in $requiredFields) {
     if (-not ($Config.PSObject.Properties.Name -contains $field)) {
         Write-Error "Missing required field '$field' in .autopilot.json"
         exit 1
     }
+}
+
+if ($Config.context -notin @('default', 'long_context')) {
+    Write-Error "Invalid context '$($Config.context)' in .autopilot.json"
+    exit 1
+}
+if ($Config.reasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
+    Write-Error "Invalid reasoningEffort '$($Config.reasoningEffort)' in .autopilot.json"
+    exit 1
 }
 
 # --- Validate build/test commands against allowlist ---

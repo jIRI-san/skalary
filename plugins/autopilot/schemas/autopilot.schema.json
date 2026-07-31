@@ -4,7 +4,20 @@
   "title": "Autopilot Configuration",
   "description": "Per-project configuration for autonomous plan execution via GitHub Copilot CLI.",
   "type": "object",
-  "required": ["runtime", "copilotAuth", "gitProvider", "gitAuth", "model", "git", "timeout", "maxIterationsPerStep", "build", "test"],
+  "required": [
+    "runtime",
+    "copilotAuth",
+    "gitProvider",
+    "gitAuth",
+    "model",
+    "context",
+    "reasoningEffort",
+    "git",
+    "timeout",
+    "maxIterationsPerStep",
+    "build",
+    "test"
+  ],
   "properties": {
     "runtime": {
       "type": "string",
@@ -32,7 +45,26 @@
     },
     "model": {
       "type": "string",
-      "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.3-codex')."
+      "description": "Model identifier for Copilot CLI (e.g. 'claude-opus-5')."
+    },
+    "context": {
+      "type": "string",
+      "enum": [
+        "default",
+        "long_context"
+      ],
+      "description": "Copilot CLI context window tier."
+    },
+    "reasoningEffort": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "description": "Copilot CLI reasoning effort level."
     },
     "git": {
       "type": "object",

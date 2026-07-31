@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-05T14:42:20.3504514Z",
+  "generatedAt": "2026-07-31T12:47:20.1562872Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -206,7 +206,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "357d819e28823698a8b50615ea0868e870bcb391c93ad5fa14c86be64f8eb16b",
+          "sha256": "caeeb31e495193d2a7acb603da210605467571b9ba9bdf91037ee46fc7180bb5",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -216,7 +216,7 @@
         },
         {
           "dest": "skills/autopilot/.autopilot.json.example",
-          "sha256": "c10a9eaccfc53588ed1937d33a4ef1e6a3a3a3cbd48aac323da697bea8d574be",
+          "sha256": "b71ccb1fd3011c9b8445f941d5176c1ba4aff55f5efdbeb40d43229cefb705cc",
           "src": ".autopilot.json.example"
         },
         {
@@ -241,7 +241,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "08c298b14c27171d83732f9a009696ab706352352ae002fad3d518c2316cd132",
+          "sha256": "d8598ab67cc7b373aab5d49d7a4772bfefce2053c7645a4956af9798e4b33bf9",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -261,22 +261,22 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "2b9a8f0596e2e512b0ddbd299f23ff3812c7c4974f39a354ec2ca285db599db3",
+          "sha256": "8c5ee25840f55fe18889313f04267cfe30e8e11184e8289beabc47e11c607435",
           "src": "scripts/launch-host.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "ea26db5c5e3dffeaf9dd042b3e4ce81614f2a35de0ce54719a70a36ba7afbea6",
+          "sha256": "470b884b147353fbfb9588b06b566fc50d648ed4129c13fa0e57767b934334b0",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "a237e585af1f7dfac03163a1d837417eb6ce442b4c0bb7b2ac9ae30a2acdb6e2",
+          "sha256": "b3f0eebdc354ae4b96434fbc21becc16cbe8c27597a920940ed2009641e6a1af",
           "src": "scripts/launch.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
-          "sha256": "f91191f62256c0825b149fed1b4b1057a356a029f8324533af2be3c29404156f",
+          "sha256": "eeb9015191bf1bb7d25d310c5278ed6946bc31a54ca8e342f900a6e42186b8e7",
           "src": "scripts/prepare-env-file.ps1"
         },
         {
@@ -296,12 +296,12 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "2d6616634c5c796eebb9675d18ba86723cfd4377fbe33c616484ded3d0b5a7a8",
+          "sha256": "6c666fafd86984cb432aadeb51ef4e845278c0f41fadbcb079b8f8f942f0b798",
           "src": "schemas/autopilot.schema.json"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "46fa71c9cf03c5bad224b63d7a2508432691ac6f2c49eb4f6cd526bce0890038",
+          "sha256": "b18008db7f554c93ff96aecc1d3bd141f787447acb0a25208b2836ff381b6732",
           "src": "skills/autopilot/SKILL.md"
         }
       ],
@@ -314,7 +314,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.1.1"
+      "version": "1.1.2"
     },
     {
       "author": "jIRI-san",

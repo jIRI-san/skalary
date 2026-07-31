@@ -26,12 +26,12 @@ The launcher is the sole reader of `.autopilot.host.json`. The skill and the aut
 1. Check repo root for `.autopilot.json`.
 2. If file exists, continue.
 3. If file is missing:
-   - Interview for: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `git.name`, `git.email`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
+  - Interview for: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `context`, `reasoningEffort`, `git.name`, `git.email`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
    - Optionally interview for `offlinePackages` when the plan targets the container/sandbox runtime and restores from a private package stream.
    - Start from `.github/skills/autopilot/.autopilot.json.example`.
    - Write `.autopilot.json` at repo root.
 4. Structurally validate `.autopilot.json` (no JSON-Schema validation):
-   - Required fields exist: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `git`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
+  - Required fields exist: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `context`, `reasoningEffort`, `git`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
    - Types: string fields are strings; `timeout` and `maxIterationsPerStep` are numbers; `git` is an object with string `name` and `email`.
    - If `offlinePackages` is present: it is an object with boolean `enabled`; optional `ecosystems` is an array of `dotnet`/`npm`; optional `maxRebundles` is a number ≥ 1.
 5. If validation fails, stop with a loud actionable error. Do not invoke launcher.

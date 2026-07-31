@@ -4,7 +4,9 @@
   "copilotAuth": "pat",
   "gitProvider": "github",
   "gitAuth": "pat-shared",
-  "model": "gpt-5.5",
+  "model": "claude-opus-5",
+  "context": "long_context",
+  "reasoningEffort": "high",
   "git": {
     "name": "your-name",
     "email": "your-email@example.com"
