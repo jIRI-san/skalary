@@ -78,8 +78,8 @@
 - [x] 6.1 Create `plugins/code-review/skills/cr/SKILL.md` plus assets owning the orchestration; keep the base skill thin (REQ-12, REQ-16) [after: 5.2] `L`
 - [x] 6.2 Create `plugins/design-review/skills/dr/SKILL.md` plus assets, reusing the shared dispatch guide (REQ-12, REQ-9, RISK-1) [after: 6.1] `M`
 - [x] 6.3 Reduce `cr.agent.md` / `dr.agent.md` to thin shims that read the skill by path, preserving `handoffs:`; repoint `cr.prompt.md` / `dr.prompt.md` at the skills (REQ-12) [after: 6.2] `M`
-- [ ] 6.4 Audit the remaining five prompts (`cdn`, `udn`, `design-notes`, `can`, `uan`), confirm each is a thin skill shortcut, and add a structural test asserting it (REQ-12) `S`
-- [ ] 6.5 Bundle `Build-ReviewReport.ps1` into both review plugins via `Sync-PluginScripts`, make both orchestrators call it and write its returned text, and assert neither describes the report layout in prose (REQ-18) [after: 6.2, 4.6] `M`
+- [x] 6.4 Audit the remaining five prompts (`cdn`, `udn`, `design-notes`, `can`, `uan`), confirm each is a thin skill shortcut, and add a structural test asserting it (REQ-12) `S`
+- [~] 6.5 Bundle `Build-ReviewReport.ps1` into both review plugins via `Sync-PluginScripts`, make both orchestrators call it and write its returned text, and assert neither describes the report layout in prose (REQ-18) [after: 6.2, 4.6] `M`
 
 ## Phase 7: Post-plan expectation alignment
 
