@@ -49,18 +49,6 @@
       "dest": "agents/cr-operability-observability.agent.md"
     },
     {
-      "src": "agents/cr-opus.agent.md",
-      "dest": "agents/cr-opus.agent.md"
-    },
-    {
-      "src": "agents/cr-codex.agent.md",
-      "dest": "agents/cr-codex.agent.md"
-    },
-    {
-      "src": "agents/cr-gemini.agent.md",
-      "dest": "agents/cr-gemini.agent.md"
-    },
-    {
       "src": "agents/scripts/get-diff-branch.ps1",
       "dest": "agents/scripts/get-diff-branch.ps1"
     },

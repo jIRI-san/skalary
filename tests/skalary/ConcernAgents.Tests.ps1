@@ -24,6 +24,12 @@ Describe 'concern reviewer agents' {
 
         $script:reviewTypes = @(
             @{ Prefix = 'cr'; Plugin = 'code-review' }
+            @{ Prefix = 'dr'; Plugin = 'design-review' }
+        )
+
+        $script:legacyModelAgents = @(
+            'cr-opus', 'cr-codex', 'cr-gemini'
+            'dr-opus', 'dr-codex', 'dr-gemini'
         )
 
         $script:agentPath = {
@@ -103,5 +109,42 @@ Describe 'concern reviewer agents' {
             # Distinct labels are what makes merge-by-concern possible downstream.
             @($sections | Sort-Object -Unique).Count | Should -Be $script:concerns.Count
         }
+    }
+
+    It 'test:legacy-model-agents-removed deletes the per-model reviewers, their dogfood copies, and every reference' {
+        foreach ($agent in $script:legacyModelAgents) {
+            $plugin = if ($agent.StartsWith('cr')) { 'code-review' } else { 'design-review' }
+            foreach ($candidate in @(
+                    (Join-Path $script:repoRoot "plugins/$plugin/agents/$agent.agent.md"),
+                    (Join-Path $script:repoRoot ".github/agents/$agent.agent.md"))) {
+                # Sync-Dogfood is copy-only and never prunes, so the .github copy has to be
+                # removed explicitly or a deleted reviewer keeps loading in VS Code.
+                Test-Path -LiteralPath $candidate | Should -BeFalse -Because "$candidate must be deleted"
+            }
+        }
+
+        $referrers = @(
+            'plugins/code-review/plugin.json'
+            'plugins/design-review/plugin.json'
+            'plugins/code-review/agents/cr.agent.md'
+            'plugins/design-review/agents/dr.agent.md'
+            '.github/agents/cr.agent.md'
+            '.github/agents/dr.agent.md'
+            'registry.json'
+        )
+        foreach ($referrer in $referrers) {
+            $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $referrer) -Raw
+            foreach ($agent in $script:legacyModelAgents) {
+                $raw | Should -Not -Match ([regex]::Escape($agent)) -Because "$referrer must not reference $agent"
+            }
+        }
+    }
+
+    It 'test:legacy-model-agents-removed leaves the shipped agent set clean under the model allowlist' {
+        $validator = Join-Path $script:repoRoot 'scripts/skalary/Test-ModelAllowlist.ps1'
+        $output = & $validator -RepoRoot $script:repoRoot *>&1
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) { Write-Host ($output | Out-String) }
+        $exitCode | Should -Be 0
     }
 }

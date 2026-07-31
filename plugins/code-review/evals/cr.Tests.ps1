@@ -17,9 +17,13 @@ Describe 'cr structural evals' {
     It 'covers orchestrator, subagents, and prompt artifacts with expected types' {
         $artifactSrcs = @($script:entries | Where-Object { [string]$_.src -match '\.(agent|prompt)\.md$' } | ForEach-Object { [string]$_.src })
         $artifactSrcs | Should -Contain 'agents/cr.agent.md'
-        $artifactSrcs | Should -Contain 'agents/cr-opus.agent.md'
-        $artifactSrcs | Should -Contain 'agents/cr-codex.agent.md'
-        $artifactSrcs | Should -Contain 'agents/cr-gemini.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-security.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-correctness-reliability.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-architecture-patterns.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-performance.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-testing-evidence.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-maintainability-consistency.agent.md'
+        $artifactSrcs | Should -Contain 'agents/cr-operability-observability.agent.md'
         $artifactSrcs | Should -Contain 'prompts/cr.prompt.md'
 
         foreach ($entry in @($script:entries | Where-Object { [string]$_.src -match '\.(agent|prompt)\.md$' })) {

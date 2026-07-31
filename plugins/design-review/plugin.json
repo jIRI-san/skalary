@@ -21,16 +21,32 @@
       "dest": "agents/dr.agent.md"
     },
     {
-      "src": "agents/dr-opus.agent.md",
-      "dest": "agents/dr-opus.agent.md"
+      "src": "agents/dr-security.agent.md",
+      "dest": "agents/dr-security.agent.md"
     },
     {
-      "src": "agents/dr-codex.agent.md",
-      "dest": "agents/dr-codex.agent.md"
+      "src": "agents/dr-correctness-reliability.agent.md",
+      "dest": "agents/dr-correctness-reliability.agent.md"
     },
     {
-      "src": "agents/dr-gemini.agent.md",
-      "dest": "agents/dr-gemini.agent.md"
+      "src": "agents/dr-architecture-patterns.agent.md",
+      "dest": "agents/dr-architecture-patterns.agent.md"
+    },
+    {
+      "src": "agents/dr-performance.agent.md",
+      "dest": "agents/dr-performance.agent.md"
+    },
+    {
+      "src": "agents/dr-testing-evidence.agent.md",
+      "dest": "agents/dr-testing-evidence.agent.md"
+    },
+    {
+      "src": "agents/dr-maintainability-consistency.agent.md",
+      "dest": "agents/dr-maintainability-consistency.agent.md"
+    },
+    {
+      "src": "agents/dr-operability-observability.agent.md",
+      "dest": "agents/dr-operability-observability.agent.md"
     }
   ],
   "evals": {

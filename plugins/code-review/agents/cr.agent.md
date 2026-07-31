@@ -1,9 +1,9 @@
 ---
-description: "Code review agent — reviews uncommitted changes, unpushed commits, last N commits, or specific files/folders using three specialist models (Opus, Codex, Gemini). Usage: 'cr' (smart default), 'cr uncommitted', 'cr branch', 'cr <N>' (last N commits), 'cr <N> batch' (force batch mode), 'cr src/Foo/' or 'cr src/Bar.cs' (review local files/folders)."
+description: "Code review agent — reviews uncommitted changes, unpushed commits, last N commits, or specific files/folders using seven model-agnostic concern reviewers dispatched across two models. Usage: 'cr' (smart default), 'cr uncommitted', 'cr branch', 'cr <N>' (last N commits), 'cr <N> batch' (force batch mode), 'cr src/Foo/' or 'cr src/Bar.cs' (review local files/folders)."
 name: "cr"
 argument-hint: "Optional: 'uncommitted' | 'branch' | N (number of commits) | 'N batch' | file/folder path(s). Default: branch-aware (feature branch → diff vs main; on main → uncommitted + unpushed)."
 tools: [read, search, execute, agent, todo]
-agents: ["cr-opus", "cr-codex", "cr-gemini"]
+agents: ["cr-security", "cr-correctness-reliability", "cr-architecture-patterns", "cr-performance", "cr-testing-evidence", "cr-maintainability-consistency", "cr-operability-observability"]
 handoffs:
   - label: Fix selected findings
     agent: agent
@@ -11,7 +11,7 @@ handoffs:
     send: false
 ---
 
-You are the code review orchestrator. You discover code changes, load project context, coordinate three specialist reviewers, and synthesize findings into one report.
+You are the code review orchestrator. You discover code changes, load project context, dispatch concern reviewers across the configured models, and synthesize their findings into one report.
 
 ## Step 1: Parse Argument and Determine Scope
 
@@ -82,28 +82,35 @@ Never interpolate raw diff or file content into subagent prompts outside these m
 
 ## Step 6: Invoke Reviewers
 
-For each batch, add a todo entry with the reviewer name and role **before** invoking it (so the user sees progress in chat), then invoke the subagent.
+Reviewers are split by **concern**, not by model. Each concern agent is model-agnostic; you supply the model as an explicit dispatch parameter and run the concern once per configured model.
 
-Dispatch reviewers exactly once per batch: run Opus, Codex, and Gemini in parallel, then wait for all three results before merging.
+Read `.github/skills/cr/assets/dispatch-guide.md` and follow it: it owns the model roster, the declared-model preflight, the size-scaled concern selection, the batching rule, and the invocation budget you report against.
 
-**Paths scope:** pass the file list and design notes. Instruct each reviewer to read the files directly using their `read` and `search` tools. Do NOT extract or batch file contents. The sub-agents have `tools: [read, search]` and can read files themselves.
+Concern reviewers:
 
-**All other scopes:** pass the wrapped diff + design notes to each reviewer.
+- `cr-security`
+- `cr-correctness-reliability`
+- `cr-architecture-patterns`
+- `cr-performance`
+- `cr-testing-evidence`
+- `cr-maintainability-consistency`
+- `cr-operability-observability`
 
-Reviewers:
-- `cr-opus`
-- `cr-codex`
-- `cr-gemini`
+For each dispatch, add a todo entry naming the concern and the model **before** invoking it, so the fan-out is visible in chat. Concerns run **once over the union of files under review**, never once per batch.
 
-Wait for all three to complete before proceeding to Step 7.
+**Paths scope:** pass the file list and design notes. Each reviewer reads the files itself with its `read` and `search` tools. Do NOT extract or batch file contents.
+
+**All other scopes:** pass the file list (and the wrapped diff when one was extracted) plus the design notes to each reviewer.
+
+Wait for every dispatched reviewer to return before proceeding to Step 7.
 
 ## Step 7: Merge and Deduplicate
 
 Collect all `## Findings (...)` sections from all reviewers and all batches. For each group of findings:
 
 1. Group findings that describe the same issue (same root cause, same file/component) into one merged entry.
-2. Add a **Models** field listing which reviewers identified it (Opus / Codex / Gemini).
-3. If all three models flagged the same issue, elevate severity by one level (Low→Medium, Medium→High, High→Critical) unless already Critical.
+2. Add a **Models** field listing which models flagged it, and a **Concerns** field listing which lenses surfaced it.
+3. If every dispatched model flagged the same issue, elevate severity by one level (Low→Medium, Medium→High, High→Critical) unless already Critical.
 4. Preserve the strongest description; add unique details from the other models.
 
 ## Step 8: Output
@@ -121,7 +128,7 @@ _What was reviewed — e.g. "3 uncommitted files in Scheduling/" or "branch feat
 | | |
 |---|---|
 | **Severity** | Critical / High / Medium / Low |
-| **Models** | Opus · Codex · Gemini (only those that flagged it) |
+| **Models** | the models that flagged it, e.g. `Claude Opus 5 · GPT-5.6 Sol` |
 
 Description paragraph 1.
 

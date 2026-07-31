@@ -74,6 +74,15 @@ catch {
     $errors.Add("Marketplace drift: $($_.Exception.Message)")
 }
 
+Write-Host '== Validating agent model declarations =='
+$modelAllowlistGate = Join-Path $repoRoot 'scripts/skalary/Test-ModelAllowlist.ps1'
+& $modelAllowlistGate -RepoRoot $repoRoot | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    # Re-run visibly so the operator sees which agent or config drifted.
+    & $modelAllowlistGate -RepoRoot $repoRoot
+    $errors.Add('Agent model declarations violate tools/model-allowlist.psd1.')
+}
+
 Write-Host '== Validating implementation plans (Draft stage) =='
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |

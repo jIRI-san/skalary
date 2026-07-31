@@ -17,9 +17,13 @@ Describe 'dr structural evals' {
     It 'covers orchestrator, subagents, and prompt artifacts with expected types' {
         $artifactSrcs = @($script:entries | Where-Object { [string]$_.src -match '\.(agent|prompt)\.md$' } | ForEach-Object { [string]$_.src })
         $artifactSrcs | Should -Contain 'agents/dr.agent.md'
-        $artifactSrcs | Should -Contain 'agents/dr-opus.agent.md'
-        $artifactSrcs | Should -Contain 'agents/dr-codex.agent.md'
-        $artifactSrcs | Should -Contain 'agents/dr-gemini.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-security.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-correctness-reliability.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-architecture-patterns.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-performance.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-testing-evidence.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-maintainability-consistency.agent.md'
+        $artifactSrcs | Should -Contain 'agents/dr-operability-observability.agent.md'
         $artifactSrcs | Should -Contain 'prompts/dr.prompt.md'
 
         foreach ($entry in @($script:entries | Where-Object { [string]$_.src -match '\.(agent|prompt)\.md$' })) {
