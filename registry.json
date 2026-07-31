@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T14:42:40.6137496Z",
+  "generatedAt": "2026-07-31T15:10:15.8439067Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -504,7 +504,7 @@
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "2451ee25c2beeabad3667b2fdbaaba7878765f283e2922ffb3e551e022aa81d3",
+          "sha256": "24c70257e97f0743263b197852fbf5223531f80316ff50ae95f7ecee6281b434",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
@@ -554,7 +554,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "fddff406dea5e0f461e4ed1b13d3c9e17e0a7f7050bb69180582be994a782d18",
+          "sha256": "1680240f30e661ff1e325b69a7f26ac9734c420fe1759ede098bbac0f7e4a523",
           "src": "skills/cip/SKILL.md"
         }
       ],

@@ -40,7 +40,7 @@
 
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add an Intent section to `interview-guide.md` (goal, desired outcome, success signals, non-goals, operator definition of done) plus an `intent` gate that blocks drafting until intent is confirmed (REQ-4) [after: 1.2] `M`
+- [x] 2.1 Add an Intent section to `interview-guide.md` (goal, desired outcome, success signals, non-goals, operator definition of done) plus an `intent` gate that blocks drafting until intent is confirmed (REQ-4) [after: 1.2] `M`
 - [ ] 2.2 Add `assets/intent-template.md`; make `/ci` read `assets/intent.md` before implementing any step and re-anchor against it at phase crosscheck (REQ-4) [after: 2.1, 1.4] `M`
 - [ ] 2.3 Add the `human-step-detail` gate to `Test-Plan.ps1`: an `@human` step without a details block containing **Steps**, **Verify**, and **Rollback** fails the plan (REQ-5, RISK-7) `M`
 - [ ] 2.4 Update the drafting guide and plan template with the required `@human` detail shape, and make `/ci` print the full block at the handoff instead of the bare step title (REQ-5) [after: 2.3] `S`

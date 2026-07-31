@@ -15,6 +15,7 @@ context: fork
 
 ## non-negotiable planning summary
 
+- Capture and confirm operator **intent** before drafting; the plan's `intent.md` is the anchor `/ci` re-reads and `/pfb` measures against.
 - Resolve architecture decisions before drafting; no silent TBDs.
 - Keep steps checklist-style, specific, and implementation-oriented.
 - Every requirement needs machine-checkable evidence markers in acceptance criteria.
@@ -43,9 +44,10 @@ context: fork
 
 ## Step 2: Run interview (`./assets/interview-guide.md`)
 
-1. Follow the full question bank and the `no-tbd`, `evidence`, and `pre-draft` gates from the interview asset.
-2. Do not allow unresolved architecture or evidence-less requirements.
-3. Confirm interview summary with the user before drafting.
+1. Follow the full question bank and the `intent`, `no-tbd`, `evidence`, and `pre-draft` gates from the interview asset.
+2. Capture operator intent **first** into the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`, never a hand-built path); the `intent` gate blocks drafting until it carries no `TBD` and the operator has confirmed it read back.
+3. Do not allow unresolved architecture or evidence-less requirements.
+4. Confirm interview summary with the user before drafting.
 
 ## Step 3: Draft plan (`./assets/drafting-guide.md` + template)
 

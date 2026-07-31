@@ -6,6 +6,32 @@
 
 These gates are blocking. The orchestrator enforces them before drafting.
 
+### `intent` gate
+
+**Intent is captured first and confirmed before anything else.** Requirements answer *what to build*; intent
+answers *what the operator is trying to achieve* — the anchor `/ci` re-reads before every step and at every
+phase crosscheck, and the yardstick `/pfb` measures the delivered work against.
+
+Ask the **Intent** block in the Question Bank below, then write the answers into the plan's intent asset —
+`assets/intent.md` in the current layout, the plan-folder root `intent.md` for legacy plans. `New-Plan.ps1`
+scaffolds it with a `TBD` placeholder per section; resolve the path with `Resolve-PlanAssetPath` (in
+`PlanState.psm1`) rather than assuming either location. All five sections are required:
+
+| Section | Must answer |
+|---|---|
+| Goal | What the operator wants to be true afterwards, in their words. |
+| Desired outcome | The observable end state — what the repo/system looks like when this lands. |
+| Success signals | Concrete signals the operator will look for to judge success. |
+| Non-goals | What this explicitly does not do, so scope creep is refusable later. |
+| Definition of done | The operator's own bar for "finished" — not the validator's. |
+
+The gate **blocks drafting** until:
+1. the resolved `intent.md` exists and carries no `TBD` placeholder in any of the five sections, and
+2. the operator has been read the captured intent back and has explicitly confirmed it.
+
+Never infer intent from the requirements and proceed silently — an unconfirmed intent is a blocked plan.
+Re-run this gate when a resumed plan's intent is still placeholder-only.
+
 ### `no-tbd` gate
 
 Treat every "TBD", "maybe", "we'll figure it out later", or unresolved design choice as a **blocker**. For each one, either:
@@ -25,11 +51,19 @@ A requirement whose acceptance criteria contain **no** typed marker fails this g
 
 ### `pre-draft` gate
 
-Before drafting, enumerate every unresolved item (open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed evidence marker). If the list is non-empty, **refuse to draft**: present the list, resolve each item with the user (or convert it to a `RISK-N`), then re-check. Only when the list is empty may drafting begin.
+Before drafting, enumerate every unresolved item (unconfirmed or placeholder intent, open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed evidence marker). If the list is non-empty, **refuse to draft**: present the list, resolve each item with the user (or convert it to a `RISK-N`), then re-check. Only when the list is empty — including a passing `intent` gate — may drafting begin.
 
 ## Question Bank
 
 Ask follow-ups on vague or incomplete answers — push for specifics.
+
+**Intent** (ask first — feeds the `intent` gate and `assets/intent.md`)
+- **Goal:** what do you want to be true once this is done? Answer in outcome terms, not implementation terms.
+- **Desired outcome:** what does the system or repo look like afterwards? Describe the observable end state.
+- **Success signals:** what will you look at to decide this worked? Name concrete, checkable signals.
+- **Non-goals:** what is explicitly *not* being solved here, so later scope creep can be refused?
+- **Definition of done:** what is *your* bar for finished? (The validator's green is necessary, not sufficient.)
+- Capture the answers into the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`), read them back, and get explicit confirmation before moving on.
 
 **Goals & scope**
 - What behaviour or capability is being added or changed?
@@ -144,4 +178,4 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 
 ## Closing the interview
 
-Once all areas are covered, run the `pre-draft` gate. When it passes, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
+Once all areas are covered, run the `intent` gate (intent captured in `assets/intent.md`, no `TBD` left, operator confirmed) and then the `pre-draft` gate. When both pass, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.

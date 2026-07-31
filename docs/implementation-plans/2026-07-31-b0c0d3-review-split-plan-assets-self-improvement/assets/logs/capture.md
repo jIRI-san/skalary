@@ -9,3 +9,8 @@ Phase: 1
 - [1.6] [src:note] dr: /ci picks the first incomplete step in document order, so step order in the file IS the execution order - a missing after edge means the wrong order runs
 - [10.3] [src:note] dr: registry.schema.json sets additionalProperties false on plugin entries, so any new manifest field needs both schemas plus Build-Registry to reach consumers
 - [4.4] [src:note] dr: recurring defect class - a plan asserting a control that nothing enforces; check every cap, block and threshold against its actual implementation
+
+## Capture
+Phase: 2
+
+No entries for this phase.
