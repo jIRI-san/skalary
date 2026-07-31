@@ -15,6 +15,9 @@ config:
   # to this eval.yaml (1.0 soft-gate c: skill_directories resolves from the spec file).
   skill_directories:
     - ../../agents
+    # The orchestrator is a shim that dereferences skills/dr/SKILL.md, so the skill dir must be
+    # in the bundle too: without it the eval exercises an orchestrator with no workflow.
+    - ../../skills
 
 tasks:
   - tasks/*.yaml

@@ -63,13 +63,23 @@ continuing.
 ## Step 4: Collate the findings
 
 Turn every returned `## Findings (<Concern>)` section into typed finding objects and run the bundled
-formatter:
+formatter. Build the objects and call the script **in one PowerShell session**, using the call
+operator:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cr/scripts/Build-ReviewReport.ps1 `
-  -Finding $findings -Model $roster -Scope '<what was reviewed>' `
-  -ReportTitle 'Code Review' -InvocationCount <n> -InvocationBudget 28
+pwsh -NoProfile -Command @'
+$findings = @(
+  [pscustomobject]@{ Concern = 'security'; Model = 'Claude Opus 5 (copilot)'; Severity = 'High'
+                     Title = '<one-line summary>'; Body = '<reviewer text>'; References = 'src/File.ps1' }
+)
+$roster = @('Claude Opus 5 (copilot)', 'GPT-5.6 Sol (copilot)')
+& .github/skills/cr/scripts/Build-ReviewReport.ps1 -Finding $findings -Model $roster `
+  -Scope '<what was reviewed>' -ReportTitle 'Code Review' -InvocationCount <n> -InvocationBudget 28
+'@
 ```
+
+Never invoke it with `pwsh -File`: that binds every argument as a string, the typed findings arrive
+empty, and the script fails loud on the first one.
 
 The object shape, the roster argument, and the empty-findings case are in
 [`./assets/collation-guide.md`](assets/collation-guide.md). Write the text the script returns

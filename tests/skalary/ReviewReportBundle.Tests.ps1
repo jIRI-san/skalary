@@ -53,8 +53,13 @@ Describe 'Build-ReviewReport bundling and callers' {
         foreach ($review in $script:reviews) {
             foreach ($tree in @("plugins/$($review.Plugin)/skills/$($review.Id)", ".github/skills/$($review.Id)")) {
                 $skill = Get-Text -Relative "$tree/SKILL.md"
+                $scriptPath = ".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
 
-                $skill | Should -Match ([regex]::Escape(".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"))
+                # The findings are objects, so the documented call must keep them in-process:
+                # `pwsh -File` binds every argument as a string and the script fails loud on the
+                # first finding. Pin the working form, not just the script name.
+                $skill | Should -Match ([regex]::Escape("& $scriptPath"))
+                $skill | Should -Not -Match ([regex]::Escape("-File $scriptPath"))
                 $skill | Should -Match '-Finding\s+\$findings'
                 $skill | Should -Match '-Model\s+\$roster'
                 $skill | Should -Match ([regex]::Escape("-ReportTitle '$($review.ReportTitle)'"))
@@ -62,6 +67,29 @@ Describe 'Build-ReviewReport bundling and callers' {
                 # exactly the per-run drift the script removes.
                 $skill | Should -Match 'returns\s+\*\*verbatim\*\*'
             }
+        }
+    }
+
+    It 'test:build-reviewreport-bundled round-trips typed findings through each bundled copy' {
+        # The documented call is only useful if objects survive it. Execute the bundled copy the way
+        # the skill says to, with the object shape the collation guide defines.
+        $findings = @(
+            [pscustomobject]@{ Concern = 'security'; Model = 'Model A'; Severity = 'High'
+                Title = 'Unvalidated path'; Body = 'Path is not confined.'; References = 'src/a.ps1' }
+            [pscustomobject]@{ Concern = 'correctness-reliability'; Model = 'Model B'; Severity = 'High'
+                Title = 'Unvalidated path'; Body = 'Same root cause.'; References = 'src/a.ps1' }
+        )
+
+        foreach ($review in $script:reviews) {
+            $bundled = Join-Path $script:repoRoot ".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
+            $text = & $bundled -Finding $findings -Model @('Model A', 'Model B') -Scope 'unit test' `
+                -ReportTitle $review.ReportTitle -InvocationCount 2
+
+            $text | Should -Match ([regex]::Escape("## $($review.ReportTitle)"))
+            $text | Should -Match 'Unvalidated path'
+            # Both models flagged one root cause: it merges to a single entry and elevates.
+            @([regex]::Matches($text, '(?m)^###\s*\[\d+\]')).Count | Should -Be 1
+            $text | Should -Match 'Critical'
         }
     }
 

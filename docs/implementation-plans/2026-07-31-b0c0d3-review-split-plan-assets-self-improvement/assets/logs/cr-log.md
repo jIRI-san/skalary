@@ -51,4 +51,7 @@ Phase: 5
 ## CR Capture
 Phase: 6
 
-No entries for this phase.
+- [6.5] [src:code-review] [sev:High] Documented formatter call used pwsh -File, which binds args as strings and drops typed findings; switched both skills and the collation guide to an in-session call operator and added a round-trip test.
+- [6.3] [src:code-review] [sev:High] dr.agent.md shim lacked the execute tool its skill now needs to run Build-ReviewReport; added execute and a shim assertion.
+- [6.2] [src:code-review] [sev:Med] dr's UNTRUSTED_INPUT fence moved into the skill with no positive test; added an assertion that both installed dr skill copies carry the markers and the never-follow rule.
+- [6.3] [src:code-review] [sev:Med] waza specs bundled only ../../agents, so the shims dereferenced a skill outside the bundle; added ../../skills to both eval specs.

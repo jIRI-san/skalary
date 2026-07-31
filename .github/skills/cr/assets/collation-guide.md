@@ -31,11 +31,21 @@ models agreed is what drives severity elevation.
 
 ## 2. Run the formatter
 
+The findings are **objects**, so they and the call must live in the same PowerShell session. Use the
+call operator, never `pwsh -File`: `-File` binds every argument as a string, so the typed findings
+arrive empty and the script fails loud on the first one.
+
 ```powershell
-pwsh -NoProfile -File .github/skills/<skill>/scripts/Build-ReviewReport.ps1 `
-  -Finding $findings -Model $roster -Scope '<what was reviewed>' `
-  -ReportTitle '<Code Review|Design Review>' `
+pwsh -NoProfile -Command @'
+$findings = @(
+  [pscustomobject]@{ Concern = '<concern id>'; Model = '<model>'; Severity = 'High'
+                     Title = '<one-line summary>'; Body = '<reviewer text>'; References = '<file or step>' }
+)
+$roster = @('<model A>', '<model B>')
+& .github/skills/<skill>/scripts/Build-ReviewReport.ps1 -Finding $findings -Model $roster `
+  -Scope '<what was reviewed>' -ReportTitle '<Code Review|Design Review>' `
   -InvocationCount <dispatched> -InvocationBudget 28
+'@
 ```
 
 - `-Model` is the roster **actually dispatched**, including a Pro-tier fallback substitution. The

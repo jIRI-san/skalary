@@ -2,7 +2,7 @@
 description: "Design review agent — reviews a plan using seven model-agnostic concern reviewers dispatched across two models, covering architectural gaps, implementation feasibility, security, and performance. Usage: 'dr' (uses session memory plan.md or chat context) or 'dr <file-path>' (reviews a specific repo file)."
 name: "dr"
 argument-hint: "Optional: relative path to plan file (e.g. docs/implementation-plans/005-plugin-eval-harness/plan.md). Omit to use chat context or /memories/session/plan.md."
-tools: [read, search, agent, todo]
+tools: [read, search, execute, agent, todo]
 agents: ["dr-security", "dr-correctness-reliability", "dr-architecture-patterns", "dr-performance", "dr-testing-evidence", "dr-maintainability-consistency", "dr-operability-observability"]
 handoffs:
   - label: Update plan

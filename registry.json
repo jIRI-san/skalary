@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T20:31:15.8832663Z",
+  "generatedAt": "2026-07-31T20:53:53.3008792Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -376,7 +376,7 @@
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "edb4823cbb617464f0cdcfb47c86eaf1d5f808be08e31ddeedd7cea3d0b6e91d",
+          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -401,7 +401,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "c8c97fd7aafd662e88ef4ea49889c770765a36bbdf59f5225722d9bf8f4973ef",
+          "sha256": "8a945fe45cde4adbd1f1ab8e838617c73a6cd9fd0de23e9296f7d941b4daff05",
           "src": "skills/cr/SKILL.md"
         }
       ],
@@ -697,7 +697,7 @@
         },
         {
           "dest": "agents/dr.agent.md",
-          "sha256": "3b1598bd869253949d0134528c93175e19162da9baf86aea2336164ca95c9158",
+          "sha256": "bdff2d07024c69306225c928ad623fcdff80724f62989258f3ad89dc2411e555",
           "src": "agents/dr.agent.md"
         },
         {
@@ -707,7 +707,7 @@
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "edb4823cbb617464f0cdcfb47c86eaf1d5f808be08e31ddeedd7cea3d0b6e91d",
+          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -732,7 +732,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "c024de00a434ed68511a625f666d2a4c9a64583e637013fb84cde44888a89bb5",
+          "sha256": "80d496f3257e1a5ec0f2322d264fd47ab3fcad9041802512f2a19ad9452c81b2",
           "src": "skills/dr/SKILL.md"
         }
       ],
