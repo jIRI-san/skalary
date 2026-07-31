@@ -11,7 +11,8 @@
     "name": "your-name",
     "email": "your-email@example.com"
   },
-  "timeout": 180,
+  "timeout": 240,
+  "planTimeout": 1440,
   "maxIterationsPerStep": 10,
   "build": "npm run build",
   "test": "npm test",

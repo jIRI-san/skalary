@@ -63,6 +63,48 @@ fi
 git config user.name "${GIT_USER_NAME:-autopilot}"
 git config user.email "${GIT_USER_EMAIL:-autopilot@noreply}"
 
+# --- Work preservation on termination ---
+# The host enforces the whole-run cap with `docker stop --time 30`, which sends
+# SIGTERM to this script. Without a handler the run dies holding every commit made
+# since the last push, and those commits vanish with the container. Bash also
+# defers traps while a foreground child runs, so each `copilot` call below is
+# backgrounded and waited on — otherwise this handler could never fire.
+COPILOT_PID=""
+TERMINATING=0
+
+preserve_work() {
+    cd /work 2>/dev/null || return 0
+    git rev-parse --git-dir >/dev/null 2>&1 || return 0
+    # Untracked build/session noise is ignored via .gitignore, so -A here only
+    # sweeps real in-flight work.
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "Committing in-flight work before exit..."
+        git add -A
+        git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]" || true
+    fi
+    echo "Pushing ${WORK_BRANCH}..."
+    git push origin "${WORK_BRANCH}" || echo "WARNING: preservation push failed — commits remain only in this container."
+}
+
+on_terminate() {
+    [ "${TERMINATING}" -eq 1 ] && return
+    TERMINATING=1
+    echo ""
+    echo "=== Termination signal received — preserving work ==="
+    if [ -n "${COPILOT_PID}" ] && kill -0 "${COPILOT_PID}" 2>/dev/null; then
+        kill -TERM "${COPILOT_PID}" 2>/dev/null || true
+        for _ in 1 2 3 4 5; do
+            kill -0 "${COPILOT_PID}" 2>/dev/null || break
+            sleep 1
+        done
+        kill -KILL "${COPILOT_PID}" 2>/dev/null || true
+    fi
+    preserve_work
+    exit 143
+}
+
+trap on_terminate TERM INT
+
 # --- Offline package feed setup ---
 # When the host bundled a package feed (mounted read-only at /feed), copy it to a
 # writable cache and emit OUT-OF-TREE restore config so all restores resolve from
@@ -124,6 +166,14 @@ PHASE_NUMS=$(grep -oE '^## Phase [0-9]+' "${PLAN_PATH}" | grep -oE '[0-9]+' || t
 PHASE_COUNT=$(printf '%s\n' "${PHASE_NUMS}" | grep -c '[0-9]' || echo "0")
 echo "Found ${PHASE_COUNT} phases in plan (numbers: $(echo ${PHASE_NUMS} | tr '\n' ' '))."
 
+PHASE_TIMEOUT_MIN="${AUTOPILOT_PHASE_TIMEOUT_MIN:-0}"
+PHASE_TIMEOUT_SECS=$((PHASE_TIMEOUT_MIN * 60))
+if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
+    echo "Per-phase timeout: ${PHASE_TIMEOUT_MIN}m (whole-run cap is enforced by the host)."
+else
+    echo "Per-phase timeout: disabled (whole-run cap is enforced by the host)."
+fi
+
 # Per-phase copilot invocations
 for PHASE_NUM in ${PHASE_NUMS}; do
     echo ""
@@ -153,25 +203,64 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         --effort "${COPILOT_REASONING_EFFORT}" \
         --agent autopilot \
         --no-ask-user \
-        --share="./${TRANSCRIPT}" \
-        || {
-            EXIT_CODE=$?
-            echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}"
-            if [ ${EXIT_CODE} -eq 42 ]; then
-                echo "@human step encountered — stopping."
+        --share="./${TRANSCRIPT}" &
+    COPILOT_PID=$!
+
+    # Per-phase timeout. The host only enforces the whole-run cap; it cannot see
+    # phase boundaries, so the per-phase budget is enforced here.
+    PHASE_TIMED_OUT=0
+    if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
+        ELAPSED=0
+        while kill -0 "${COPILOT_PID}" 2>/dev/null; do
+            if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
+                echo "Phase ${PHASE_NUM} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating phase."
+                PHASE_TIMED_OUT=1
+                kill -TERM "${COPILOT_PID}" 2>/dev/null || true
+                for _ in 1 2 3 4 5; do
+                    kill -0 "${COPILOT_PID}" 2>/dev/null || break
+                    sleep 1
+                done
+                kill -KILL "${COPILOT_PID}" 2>/dev/null || true
                 break
             fi
-            if [ ${EXIT_CODE} -eq 43 ]; then
-                # Offline rebundle requested: the agent committed the package
-                # manifest (not the lockfile). Push it so the host can regenerate
-                # the lockfile + re-bundle the feed, then signal the launcher.
-                # Exits here, before the unconditional end-of-run push.
-                echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
-                git push origin "${WORK_BRANCH}"
-                exit 43
-            fi
-            # Non-zero but not @human — continue to allow partial progress
-        }
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+        done
+    fi
+
+    set +e
+    wait "${COPILOT_PID}"
+    EXIT_CODE=$?
+    set -e
+    COPILOT_PID=""
+
+    if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
+        # Preserve whatever the phase produced, then stop: continuing into the next
+        # phase after a truncated one would build on an unfinished phase.
+        preserve_work
+        echo "Stopping run after per-phase timeout in phase ${PHASE_NUM}."
+        exit 124
+    fi
+
+    if [ ${EXIT_CODE} -ne 0 ]; then
+        echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}"
+        if [ ${EXIT_CODE} -eq 42 ]; then
+            echo "@human step encountered — stopping."
+            git push origin "${WORK_BRANCH}" || true
+            break
+        fi
+        if [ ${EXIT_CODE} -eq 43 ]; then
+            # Offline rebundle requested: the agent committed the package
+            # manifest (not the lockfile). Push it so the host can regenerate
+            # the lockfile + re-bundle the feed, then signal the launcher.
+            # Exits here, before the unconditional end-of-run push.
+            echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
+            git push origin "${WORK_BRANCH}"
+            exit 43
+        fi
+        # Non-zero but not @human — push what landed, then continue for partial progress
+        git push origin "${WORK_BRANCH}" || true
+    fi
 
     echo "Phase ${PHASE_NUM} complete."
 done

@@ -78,7 +78,8 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 19. **Fix loop** — if build/test/acceptance/code-review fails, fix and retry. Maximum iterations from config.
 20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
-21. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
+21. **Push** — `git push origin <current-branch>` immediately after the step commit (regular push, never force-push). A run killed by a timeout or crash keeps everything already pushed, so pushing per step bounds the loss to the step in flight rather than the whole phase. A rejected or failed push is not fatal to the step: report it and continue — the phase-end push and the entrypoint's termination handler retry.
+22. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
 
 ## On Phase Completion
 
