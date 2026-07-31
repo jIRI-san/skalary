@@ -68,3 +68,10 @@ Phase: 7
 - [7.3] [src:code-review] [sev:High] The queued question is composed from untrusted plan text but the guides showed a shell-interpolated call; both guides and the autopilot rule now mandate argument arrays.
 - [7.3] [src:code-review] [sev:Med] Update-FeedbackQueue was missing from the autopilot finalization carve-out and the queue commit was pinned to an archive commit the escalation branch never makes; both fixed.
 - [7.3] [src:code-review] [sev:Med] Build-Registry appended a blank line to README on every catalog change; the write now trims the trailing newline and 33 accumulated blank lines were dropped.
+
+## CR Capture
+Phase: 8
+
+- [8.1] [src:code-review] [sev:High] si UNTRUSTED_INPUT fence was forgeable: neither Add-LedgerEntry nor Update-FeedbackQueue strips angle brackets, so a harvested record could carry a literal end marker; switched to the repo-standard markers with a fresh per-source id plus a pre-wrap token scan.
+- [8.1] [src:code-review] [sev:Med] Injection findings were routed into the ranked candidate list, whose recurrence-first ordering, cap of 5, and name-a-target rule would discard a one-off attempt; they now report in their own uncapped section at Critical.
+- [8.1] [src:code-review] [sev:Med] An absent source file was an undefined case and docs/feedback/queue.md is created lazily, so the first run could silently harvest nothing; absent is now an empty source and only a headerless present file is fail-loud.

@@ -35,3 +35,8 @@ Phase: 7
 
 - [7.2] [trigger:reusable-pattern] PowerShell variable names are case-insensitive, so a local $plan silently overwrites the -Plan parameter and its mismatch guard; name locals resolvedX when they derive from a parameter.
 - [7.3] [trigger:reusable-pattern] Writing a literal .github/skills/<other-skill>/scripts/<file>.ps1 path into a payload file makes Sync-PluginScripts bundle that script into the referencing plugin; name the script without the installed path when only mentioning it.
+
+## Learnings Capture
+Phase: 8
+
+- [8.1] [trigger:reusable-pattern] A prose injection fence is only as strong as its closing token: storage-time sanitizers strip the entry grammar, not the fence, so any wrapper around model-authored text needs an unpredictable per-read id and a pre-wrap scan for its own marker.

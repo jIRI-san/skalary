@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T21:59:05.9710176Z",
+  "generatedAt": "2026-07-31T22:21:49.1420150Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -875,7 +875,7 @@
       "dependencies": [
         "create-implementation-plan"
       ],
-      "description": "Post-plan feedback loop — /pfb compares delivered work against the plan's captured intent, records the operator's verdict, and can scaffold a correction plan.",
+      "description": "Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves.",
       "evals": {
         "status": "none"
       },
@@ -884,6 +884,11 @@
           "dest": "prompts/pfb.prompt.md",
           "sha256": "077fefa01079130bbe04c61887b0c8053eed8ece78f2d1404a65743c30f27b8a",
           "src": "prompts/pfb.prompt.md"
+        },
+        {
+          "dest": "prompts/si.prompt.md",
+          "sha256": "1be2845f094140ef86e00d1bab7566cee34a1329b70c05bee93dd1b0360fd48f",
+          "src": "prompts/si.prompt.md"
         },
         {
           "dest": "skills/pfb/assets/feedback-guide.md",
@@ -909,6 +914,21 @@
           "dest": "skills/pfb/SKILL.md",
           "sha256": "c7fd78e8c2efaec686d0d500509c24095ec6c7daa799f3afaeadcb767b8a8eeb",
           "src": "skills/pfb/SKILL.md"
+        },
+        {
+          "dest": "skills/si/assets/harvest-guide.md",
+          "sha256": "09abb19a988b165f41144b38410dcbd3de4f98dc4ac8278247bdab48e578e345",
+          "src": "skills/si/assets/harvest-guide.md"
+        },
+        {
+          "dest": "skills/si/scripts/PlanState.psm1",
+          "sha256": "321d16f2260bbeb7862def5c600161ce8a4265af33d04ee5880b91b311015477",
+          "src": "skills/si/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/si/SKILL.md",
+          "sha256": "726ecf451ca0a585c606c7788f2421827427d8900fecceda80285a6ca74bdc9c",
+          "src": "skills/si/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -920,7 +940,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     }
   ]
 }
