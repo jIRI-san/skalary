@@ -198,6 +198,32 @@ Describe 'model allowlist validator' {
         }
     }
 
+    Context 'committed autopilot binding' {
+        It 'test:model-allowlist-covers-autopilot-config accepts the shipped bare-slug binding unchanged' {
+            # This plan validates autopilot's model; it never repoints it. A run must not rewrite
+            # the model of the runtime that is executing it.
+            $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
+            $allowlist.CliModels | Should -Contain 'claude-opus-5'
+
+            foreach ($agent in @('plugins/autopilot/agents/autopilot.agent.md', '.github/agents/autopilot.agent.md')) {
+                $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $agent) -Raw
+                $raw | Should -Match '(?m)^model: claude-opus-5$'
+            }
+
+            foreach ($config in @('plugins/autopilot/.autopilot.json.example', '.github/skills/autopilot/.autopilot.json.example')) {
+                $parsed = Get-Content -LiteralPath (Join-Path $script:repoRoot $config) -Raw | ConvertFrom-Json
+                $parsed.model | Should -Be 'claude-opus-5'
+                $allowlist.CliModels | Should -Contain $parsed.model
+            }
+        }
+
+        It 'passes the whole committed repo, agents and autopilot configs alike' {
+            $result = & $script:invoke -Root $script:repoRoot
+            if ($result.ExitCode -ne 0) { Write-Host $result.Output }
+            $result.ExitCode | Should -Be 0
+        }
+    }
+
     Context 'hidden dogfood copies' {
         It 'scans .github/agents/ too, where the dogfood copies actually load from' {
             $root = & $script:newFixtureRoot
