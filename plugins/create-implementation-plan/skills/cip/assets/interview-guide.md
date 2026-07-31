@@ -33,6 +33,35 @@ The gate **blocks drafting** until:
 Never infer intent from the requirements and proceed silently — an unconfirmed intent is a blocked plan.
 Re-run this gate when a resumed plan's intent is still placeholder-only.
 
+### `prior-art` gate
+
+**Reconcile against what earlier plans already decided, before drafting anything.** Prior requirements,
+risks, and decisions are read from the generated cross-plan index — never by opening the plan corpus, which
+grows without bound and hides the archived plans where most superseded decisions live:
+
+```powershell
+pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
+```
+
+`Get-PlanIndex.ps1` covers active **and** archived plans in both layouts and is deterministic (ordinal
+ordering, repo-relative paths, no timestamps), so the same tree always yields the same index. Use
+`-Format Json` when you need the records structured, and drop `-Filter` only when the topic is genuinely
+repo-wide. An `errors` entry means a plan could not be indexed — say so rather than treating the index as
+complete.
+
+For every prior record the index returns on this topic, state the relationship explicitly:
+
+| Relationship | What to record |
+|---|---|
+| Reuses | Point at the prior decision; do not re-litigate it. |
+| Extends | Note the prior record and what this plan adds on top. |
+| Supersedes | Name the prior plan id + record id in this plan's Decisions, with the reason it no longer holds. |
+| Conflicts | Blocking — resolve with the operator before drafting, then record the outcome as reuse or supersede. |
+
+The gate **blocks drafting** until the index has been consulted for the plan's topic and every returned
+record has one of those four relationships recorded. Silently contradicting a prior decision is the failure
+mode this gate exists to prevent.
+
 ### `no-tbd` gate
 
 Treat every "TBD", "maybe", "we'll figure it out later", or unresolved design choice as a **blocker**. For each one, either:
@@ -52,7 +81,7 @@ A requirement whose acceptance criteria contain **no** typed marker fails this g
 
 ### `pre-draft` gate
 
-Before drafting, enumerate every unresolved item (unconfirmed or placeholder intent, open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed evidence marker). If the list is non-empty, **refuse to draft**: present the list, resolve each item with the user (or convert it to a `RISK-N`), then re-check. Only when the list is empty — including a passing `intent` gate — may drafting begin.
+Before drafting, enumerate every unresolved item (unconfirmed or placeholder intent, unreconciled prior-plan records, open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed evidence marker). If the list is non-empty, **refuse to draft**: present the list, resolve each item with the user (or convert it to a `RISK-N`), then re-check. Only when the list is empty — including passing `intent` and `prior-art` gates — may drafting begin.
 
 ## Question Bank
 
@@ -65,6 +94,11 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 - **Non-goals:** what is explicitly *not* being solved here, so later scope creep can be refused?
 - **Definition of done:** what is *your* bar for finished? (The validator's green is necessary, not sufficient.)
 - Capture the answers into the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`), read them back, and get explicit confirmation before moving on.
+
+**Prior art** (ask right after Intent — feeds the `prior-art` gate)
+- Which earlier plans touched this area? Run `Get-PlanIndex.ps1 -Filter "<topic>"` and read the returned REQ / RISK / decision records back to the operator.
+- For each returned record: does this plan reuse, extend, or supersede it? A supersede must name the prior plan id and record id in this plan's Decisions, with the reason.
+- Does anything the operator wants conflict with a prior decision? Resolve it now — a silent contradiction surfaces as rework mid-execution.
 
 **Goals & scope**
 - What behaviour or capability is being added or changed?
@@ -179,4 +213,4 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 
 ## Closing the interview
 
-Once all areas are covered, run the `intent` gate (intent captured in `assets/intent.md`, no `TBD` left, operator confirmed) and then the `pre-draft` gate. When both pass, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
+Once all areas are covered, run the `intent` gate (intent captured in `assets/intent.md`, no `TBD` left, operator confirmed), the `prior-art` gate (index consulted, every prior record reused/extended/superseded/resolved), and then the `pre-draft` gate. When they pass, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.

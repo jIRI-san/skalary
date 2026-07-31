@@ -16,6 +16,7 @@ context: fork
 ## non-negotiable planning summary
 
 - Capture and confirm operator **intent** before drafting; the plan's `intent.md` is the anchor `/ci` re-reads and `/pfb` measures against.
+- Reconcile against prior plans through `Get-PlanIndex.ps1`, not by reading the plan corpus.
 - Resolve architecture decisions before drafting; no silent TBDs.
 - Keep steps checklist-style, specific, and implementation-oriented.
 - Every requirement needs machine-checkable evidence markers in acceptance criteria.
@@ -34,13 +35,20 @@ context: fork
 ## Step 1: Load context and resolve the plan folder
 
 1. Read `docs/design-notes/.design-notes.md` and load relevant design notes for touched subsystems.
-2. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
+2. **Consult the cross-plan index, never the plan corpus.** Prior requirements, risks, and decisions are read from the generated index — reading the plans themselves does not scale with the archive and misses archived ones:
+
+   ```powershell
+   pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
+   ```
+
+   It covers active **and** archived plans in both layouts, and is deterministic (no timestamps, repo-relative paths). Drop `-Filter` for the whole corpus, add `-Format Json` when you need the records structured. Feed what it returns into the `prior-art` gate in `./assets/interview-guide.md`.
+3. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cip/scripts/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
    ```
-3. **Resume:** resolve the existing plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`.
-4. If legacy loose plan files exist, migrate them with `.github/skills/cip/scripts/Repair-Plans.ps1` — do not hand-migrate.
+4. **Resume:** resolve the existing plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`.
+5. If legacy loose plan files exist, migrate them with `.github/skills/cip/scripts/Repair-Plans.ps1` — do not hand-migrate.
 
 ## Step 2: Run interview (`./assets/interview-guide.md`)
 

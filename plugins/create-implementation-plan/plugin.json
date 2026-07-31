@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.12",
+  "version": "1.0.14",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -40,6 +40,10 @@
     {
       "src": "skills/cip/scripts/Add-WorkflowNote.ps1",
       "dest": "skills/cip/scripts/Add-WorkflowNote.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/Get-PlanIndex.ps1",
+      "dest": "skills/cip/scripts/Get-PlanIndex.ps1"
     },
     {
       "src": "skills/cip/scripts/New-Plan.ps1",

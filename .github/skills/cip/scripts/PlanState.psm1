@@ -297,7 +297,9 @@ function ConvertFrom-PlanRequirementLine {
             $requirements[$cells[0]] = [pscustomobject]@{
                 Id = $cells[0]
                 Number = [int]$Matches.id
+                Text = $cells[1]
                 AcceptanceCriteria = $cells[2]
+                Steps = $cells[3]
             }
         }
     }
@@ -550,6 +552,9 @@ function Get-PlanMetadata {
         Requirements = $requirements
         Risks = $risks
         Decisions = @($resolvedSections['Decisions'].Records)
+        # The resolved section objects themselves (Source/Path/Lines/Records) so cross-plan readers such as
+        # Get-PlanIndex see exactly what the resolver saw, instead of re-deciding layout for themselves.
+        Sections = $resolvedSections
         SectionSources = $sectionSources
         Steps = @($steps)
         PhaseSteps = $phaseSteps
@@ -986,4 +991,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells

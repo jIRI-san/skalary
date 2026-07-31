@@ -22,3 +22,8 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Low] IsArchived derived from a possibly-relative RepoRoot and gate regex rejected bulleted labels; both fixed
 - [2.4] [src:code-review] [sev:Med] handoff doc assertion used a file-wide (?s) span satisfied by an unrelated line; now anchored to the Handoff sentence
 - [2.4] [src:code-review] [sev:Low] template example count asserted only >0, so losing an @human example passed silently; now pinned to exactly 2
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Med] Get-PlanIndex resolved a wrong -RepoRoot to an empty index, silently unblocking the prior-art gate; now throws when docs/implementation-plans is absent

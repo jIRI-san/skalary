@@ -49,8 +49,8 @@
 
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Add `scripts/skalary/Get-PlanIndex.ps1` — deterministic JSON + markdown index of REQ / RISK / decision records across active **and** archived plans, both layouts (REQ-6) [after: 1.4] `L`
-- [ ] 3.2 Make `/cip` Step 1 consult the index (not the plans) and require the interview to reconcile against prior decisions before drafting (REQ-6) [after: 3.1] `S`
+- [x] 3.1 Add `scripts/skalary/Get-PlanIndex.ps1` — deterministic JSON + markdown index of REQ / RISK / decision records across active **and** archived plans, both layouts (REQ-6) [after: 1.4] `L`
+- [x] 3.2 Make `/cip` Step 1 consult the index (not the plans) and require the interview to reconcile against prior decisions before drafting (REQ-6) [after: 3.1] `S`
 
 ## Phase 4: Concern-split reviewers on two models
 
