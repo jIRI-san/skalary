@@ -42,6 +42,39 @@ Common fix direction: give the formatter the *dispatched task set*, not just fin
 
 The 28-invocation budget exists in six ungated places, inside a design note that says *"do not restate those numbers here — a second copy is a second thing to drift."* Plan-size thresholds and the phase-budget default have the same shape. The branch establishes the correct pattern twice (`DesignNotes.Tests.ps1` pins the size cap to the script default by regex; `Test-ModelAllowlist.ps1` validates guide rows against `tools/model-allowlist.psd1`) and then does not apply it here.
 
+## Cluster D — collation passes data as code, and the report has no size budget
+
+Operator-raised 2026-08-01 after watching the gate run.
+
+### The invocation is generated, not invoked
+
+`Build-ReviewReport.ps1` is correctly generic — it owns the merge, dedup, elevation and sort rules. But `-Finding` accepts **PowerShell objects**, so `collation-guide.md` and both `SKILL.md` files instruct the orchestrator to emit `[pscustomobject]` literals inside a `pwsh -NoProfile -Command @'…'@` here-string, and explicitly forbid `-File`. Every run therefore generates a bespoke script whose *body is the data* — 66 KB of it in the gate run.
+
+Three consequences:
+
+| | |
+|---|---|
+| Security | Reviewer text derives from attacker-influenced source, and security reviewers are *required* to quote offending content. One `'` closes the literal; the rest is code. This is gate finding [3], Critical, both models — the orchestrator refused to follow its own skill and said so |
+| Un-approvable | Content differs every run, so it can never be pre-approved. Worse, VS Code prefix-matches sub-commands, so wrapping in `pwsh -Command` makes the matched prefix `pwsh` — the two `Build-ReviewReport.ps1` keys in `.vscode/settings.json` are dead config that reads as working approval |
+| Inconsistent | `queue-guide.md` and `crosscheck-guide.md` both mandate argument arrays, never shell-interpolated strings. Collation is the one place that rule is inverted |
+
+**Direction:** add `-FindingPath <file>`; the orchestrator writes findings as JSON with a file-write tool (never the shell), and the script deserializes and validates. The command shape becomes fixed and `-File` usable, so it is approvable once. Validating on deserialize also closes gate finding [18] — an off-roster `Model` string currently passes silently and suppresses severity elevation.
+
+### The report has no size budget
+
+Measured from the two gate reports: cr 66,093 B over 44 findings (1,502 B each, 16 `_Also noted:_`); dr 70,072 B over 36 findings (1,946 B each, 20 `_Also noted:_`).
+
+Levers, ranked by measured win:
+
+| Lever | Mechanism | Note |
+|---|---|---|
+| Collapse cross-model duplicates | On merge, keep the strongest body; record agreement in `Models` and keep only genuinely-new detail as a short delta | ~36 duplicate bodies across the two reports; the largest single win and a pure formatter change |
+| Severity-tiered detail | Critical/High full body, Medium ~2 sentences, Low title + one line | cr's long tail was 14 Low findings each carrying a full body |
+| Body cap | Formatter truncates at N chars deterministically | Needs no reviewer cooperation, so it cannot be ignored |
+| Per-concern finding cap | Top N by severity | Ranked last — risks discarding real findings to hit a number |
+
+**Direction:** one formatter, two renderings (`-Detail Summary|Full`). The summary goes to chat where context is the scarce resource; the full report is written to `assets/reviews/` where size is free. That takes the win where it costs without losing anything — and the durable artefact is what a later `/si` harvest reads.
+
 ## What the gate also proved works
 
 Recorded so a future reader does not over-correct: the concern split found a real security bug that a single comprehensive reviewer plausibly misses. `Test-SiWriteScope.ps1` carried the same UTF-8 decoding defect as `Get-ReviewScope.ps1`, silently disabling the symlink half of the `/si` write guard — flagged independently by `security` and `correctness-reliability`, on both models. Cross-model unanimity elevated 7 of the 8 Criticals.
