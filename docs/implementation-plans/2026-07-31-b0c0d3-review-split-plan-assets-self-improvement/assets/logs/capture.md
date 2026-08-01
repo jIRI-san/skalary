@@ -56,3 +56,5 @@ Phase: 10
 
 - [-] npm run eval: 116 pass / 2 fail. Both remaining failures (HumanDoc-Generated malformed-JSON, Staleness-FlagsDrift) predate this branch and sit in New-ArchHumanDoc/Test-ArchDocFreshness, which this plan never touches.
 - [-] CRLF re-materialize was a no-op: git ls-files --eol reports i/lf w/lf across plugins/ and .github/, so .gitattributes normalization already holds.
+- [-] Intent re-anchor: plan folders hold only plan.md, cr/dr review by concern over a file list, and pfb/si turn feedback and learnings into never-auto-merged proposals — all three desired outcomes delivered. Non-goals held: no existing or archived plan was migrated, no cross-repo PR automation, no claim to detect a served-model downgrade.
+- [-] Plan crosscheck: 107 markers, 105 pass. The only two non-passing are review:dr (REQ-9) and review:cr (REQ-17), both unrun by construction — step 10.7 is the operator gate that runs them in chat. No marker failed.
