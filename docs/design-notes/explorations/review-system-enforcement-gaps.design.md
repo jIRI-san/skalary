@@ -75,6 +75,29 @@ Levers, ranked by measured win:
 
 **Direction:** one formatter, two renderings (`-Detail Summary|Full`). The summary goes to chat where context is the scarce resource; the full report is written to `assets/reviews/` where size is free. That takes the win where it costs without losing anything — and the durable artefact is what a later `/si` harvest reads.
 
+### Constraint — independent discovery is not negotiable
+
+Considered and **rejected 2026-08-01**: feeding model A's findings to model B with instructions to skip them. It removes duplicate bodies at the source, but destroys the property the whole split exists to produce.
+
+Measured from the two gate runs:
+
+| Report | Findings | Flagged by both models | Elevated |
+|---|---|---|---|
+| cr | 44 | 12 | 11 |
+| dr | 36 | 18 | 18 |
+
+Seven of cr's eight Criticals were Critical *only* because both models found them independently. Severity elevation is defined as "flagged by every dispatched model", so priming B with A's output makes agreement unobservable and the rule inert. The `Test-SiWriteScope` encoding bug — the best catch of the gate — was found by two concerns on both models independently; under primed dispatch whoever ran second would have been told to skip it.
+
+Three further costs: anchoring (the VS Code subagent docs give fresh, unanchored context as the explicit reason for parallel fan-out), serialization (14 parallel invocations become 7 sequential pairs), and injection surface (A's findings become instruction-shaped input to B — the RISK-10 shape).
+
+**Any size optimisation must preserve independent parallel discovery.** Deduplicate at *render* time, never at dispatch time.
+
+### Open option — adversarial triage pass
+
+Sequential feeding is sound *after* collation rather than before it: hand one model the merged report and have it challenge weak findings, merge near-duplicates the keying missed, and prune noise. This is post-hoc critique, not primed discovery, so corroboration and elevation are already computed and cannot be affected.
+
+Attacks the real noise problem — cr's long tail was 14 Low findings. **Undecided**; weigh against the extra invocation and the risk of a triage pass discarding a finding that later proves real. If adopted, the pruned entries must remain in the durable report with a recorded triage verdict, never silently dropped.
+
 ## What the gate also proved works
 
 Recorded so a future reader does not over-correct: the concern split found a real security bug that a single comprehensive reviewer plausibly misses. `Test-SiWriteScope.ps1` carried the same UTF-8 decoding defect as `Get-ReviewScope.ps1`, silently disabling the symlink half of the `/si` write guard — flagged independently by `security` and `correctness-reliability`, on both models. Cross-model unanimity elevated 7 of the 8 Criticals.
