@@ -1,6 +1,6 @@
 {
   "name": "architecture-tests",
-  "version": "1.0.18",
+  "version": "1.0.20",
   "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -68,6 +68,27 @@
     {
       "src": "scripts/adapters/TsArch.Adapter.ps1",
       "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/architecture-notes/arch-test-config.json",
+      "mode": "literal",
+      "owner": "/architecture-tests init",
+      "trigger": "runner init"
+    },
+    {
+      "path": "docs/architecture-notes/receipts",
+      "mode": "literal",
+      "owner": "Invoke-ArchTests.ps1",
+      "trigger": "first runner invocation"
+    },
+    {
+      "path": "docs/architecture-notes/receipts/<contractId>.arch-receipt.json",
+      "mode": "parameterized",
+      "owner": "Invoke-ArchTests.ps1",
+      "trigger": "first runner invocation",
+      "confine": "Resolve-ArchReceiptPath"
     }
   ],
   "evals": {

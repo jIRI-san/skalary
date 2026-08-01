@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -80,6 +80,38 @@
     {
       "src": "prompts/uan.prompt.md",
       "dest": "prompts/uan.prompt.md"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/architecture-notes/.architecture-notes.md",
+      "mode": "literal",
+      "owner": "Copy-ArchScaffold.ps1",
+      "trigger": "tier scaffold on first run"
+    },
+    {
+      "path": "docs/architecture-notes/.staging",
+      "mode": "literal",
+      "owner": "Import-ArchHarvest.ps1",
+      "trigger": "brownfield harvest"
+    },
+    {
+      "path": "docs/architecture-notes/.staging/adr",
+      "mode": "literal",
+      "owner": "Import-ArchAdr.ps1",
+      "trigger": "ADR harvest at plan finalization"
+    },
+    {
+      "path": "docs/architecture-notes/architecture.human.md",
+      "mode": "literal",
+      "owner": "New-ArchHumanDoc.ps1",
+      "trigger": "first human-doc regeneration"
+    },
+    {
+      "path": "schemas/architecture/architecture-contract.schema.json",
+      "mode": "literal",
+      "owner": "Copy-ArchScaffold.ps1",
+      "trigger": "tier scaffold on first run"
     }
   ],
   "evals": {

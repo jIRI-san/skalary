@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -112,6 +112,22 @@
     {
       "src": "skills/cep/scripts/Test-Plan.ps1",
       "dest": "skills/cep/scripts/Test-Plan.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/implementation-plans/<plan>/**",
+      "mode": "parameterized",
+      "owner": "New-Plan.ps1",
+      "trigger": "plan scaffold (plan.md plus assets/)",
+      "confine": "Resolve-ConfinedFolder"
+    },
+    {
+      "path": "docs/implementation-plans/epics/<epic>/**",
+      "mode": "parameterized",
+      "owner": "New-Epic.ps1",
+      "trigger": "epic scaffold",
+      "confine": "Resolve-ConfinedFolder"
     }
   ],
   "evals": {

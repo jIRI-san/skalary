@@ -188,7 +188,10 @@ if (-not (Test-Path -LiteralPath $ledgerPath -PathType Leaf)) {
 
 $archiveDir = Resolve-RepoPath -Root $RepoRoot -RelativePath 'docs/review-ledger/.archive'
 if (-not (Test-Path -LiteralPath $archiveDir -PathType Container)) {
-    throw "Ledger archive directory not found: $archiveDir"
+    # First-use scaffold (declared in the owning plugins' `scaffolds[]`). The installer cannot
+    # write outside `.github/`, so throwing here would permanently disable prune in every
+    # consumer repo — the silent-degradation failure the declaration exists to prevent.
+    [void](New-Item -ItemType Directory -Path $archiveDir -Force)
 }
 $archivePath = Resolve-RepoPath -Root $RepoRoot -RelativePath "docs/review-ledger/.archive/$Category.md"
 if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) {

@@ -43,6 +43,102 @@ $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 #      payload file at all.
 $assetInstalledRegex = [regex]'\.github/(?<dest>(?:skills|agents|prompts)/[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
 $assetRelativeRegex = [regex]'\./assets/(?<rest>[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
+#   3. Scaffold path — a repo-relative runtime path *outside* `.github/`. The installer is
+#      hard-confined to `.github/` (ARCH-Install-Confinement) and there is no post-install
+#      hook, so these are materialized on first use by their owning skill or script and are
+#      declared in `scaffolds[]` instead of `files[]`. Enforcement covers every root some
+#      plugin scaffolds; a root nobody scaffolds is out of grammar, because a repo-relative
+#      path in payload prose that nothing materializes is as likely to be a quoted example or
+#      a composed fragment as a runtime read. That bound is the price of a closed grammar and
+#      is why the declarations below are kept exhaustive for the roots that do get written.
+$assetScaffoldRegex = [regex]'(?<![A-Za-z0-9._/-])(?<path>(?:docs|schemas|tools)/[A-Za-z0-9<][A-Za-z0-9._/<>-]*)'
+
+function Get-ScaffoldRoot {
+    <#
+    .SYNOPSIS
+    First two segments of a repo-relative path, e.g. `docs/review-ledger`. $null when shorter.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $segments = $Path.Trim('/') -split '/'
+    if ($segments.Count -lt 2) { return $null }
+    return "$($segments[0])/$($segments[1])"
+}
+
+function Test-ScaffoldMatch {
+    <#
+    .SYNOPSIS
+    Tests a referenced path against one declared scaffold entry.
+    .DESCRIPTION
+    A literal entry matches on equality. A parameterized entry's template is compiled to a
+    regex: `<name>` matches one segment, `**` matches any subtree. When the entry declares a
+    closed value domain, a *concrete* segment must be a member of it — a reference that is
+    itself the placeholder (`docs/review-ledger/<category>.md`) is the template being quoted,
+    not a value, so it is accepted without a domain check.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)]$Scaffold
+    )
+
+    $template = ([string]$Scaffold.path).Trim('/')
+    $candidate = $Path.Trim('/')
+
+    if ([string]$Scaffold.mode -eq 'literal') {
+        return $candidate -eq $template
+    }
+
+    # A trailing `/**` names the subtree *and* the folder itself: a payload that mentions the
+    # scaffolded folder is naming the same declaration as one that names a file inside it.
+    $subtree = $template.EndsWith('/**')
+    if ($subtree) { $template = $template.Substring(0, $template.Length - 3) }
+
+    # Placeholders are not always whole segments (`<category>.md`), so the template is
+    # tokenized rather than split on '/'.
+    $tokens = [regex]::Split($template, '(<[^<>]+>|\*\*)')
+    $pattern = [System.Text.StringBuilder]::new('^')
+    $groupIndex = 0
+    $groupNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($token in $tokens) {
+        if ([string]::IsNullOrEmpty($token)) { continue }
+        if ($token -eq '**') {
+            [void]$pattern.Append('.*')
+            continue
+        }
+        if ($token -match '^<[^<>]+>$') {
+            $name = "seg$groupIndex"
+            $groupNames.Add($name)
+            $groupIndex++
+            [void]$pattern.Append("(?<$name>[^/]+)")
+            continue
+        }
+        [void]$pattern.Append([regex]::Escape($token))
+    }
+    [void]$pattern.Append($(if ($subtree) { '(?:/.*)?$' } else { '$' }))
+
+    $match = [regex]::Match($candidate, $pattern.ToString())
+    if (-not $match.Success) { return $false }
+
+    $values = @()
+    if ($Scaffold.PSObject.Properties.Name -contains 'values' -and $null -ne $Scaffold.values) {
+        $values = @($Scaffold.values)
+    }
+    if ($values.Count -eq 0) { return $true }
+
+    foreach ($name in $groupNames) {
+        $value = $match.Groups[$name].Value
+        # A quoted placeholder is the template itself, not a value drawn from the domain.
+        if ($value -match '^<[^<>]+>') { continue }
+        if ($values -notcontains $value) { return $false }
+    }
+
+    return $true
+}
+
 
 function Remove-FencedBlocks {
     <#
@@ -155,10 +251,19 @@ $expected = @{}        # managedDirKey -> @{ Dir; Files = @{ name -> sourcePath 
 # asset another plugin owns (the autopilot agent reads the cr/dr concern map), so declaration
 # is checked repo-wide rather than per-plugin.
 $declaredDests = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$declaredScaffolds = [System.Collections.Generic.List[object]]::new()
+$scaffoldRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($manifestPath in $manifestPaths) {
     $manifest = Read-JsonFile -Path $manifestPath.FullName
     foreach ($file in @($manifest.files)) {
         [void]$declaredDests.Add(([string]$file.dest).Replace('\', '/'))
+    }
+
+    if ($manifest.PSObject.Properties.Name -notcontains 'scaffolds' -or $null -eq $manifest.scaffolds) { continue }
+    foreach ($scaffold in @($manifest.scaffolds)) {
+        $declaredScaffolds.Add($scaffold)
+        $root = Get-ScaffoldRoot -Path ([string]$scaffold.path)
+        if ($root) { [void]$scaffoldRoots.Add($root) }
     }
 }
 
@@ -213,6 +318,27 @@ foreach ($manifestPath in $manifestPaths) {
             $referenced = "skills/$($skillMatch.Groups['skill'].Value)/assets/$rest"
             if ($declaredDests.Contains($referenced)) { continue }
             $assetViolations.Add("plugin '$pluginName': '$dest' reads './assets/$rest', which resolves to '$referenced' and is not declared in files[]. Declare it so installation materializes it.")
+        }
+
+        foreach ($match in $assetScaffoldRegex.Matches($prose)) {
+            $referenced = $match.Groups['path'].Value.TrimEnd('.', ',', ')').Trim('/')
+            $root = Get-ScaffoldRoot -Path $referenced
+            if (-not $root -or -not $scaffoldRoots.Contains($root)) { continue }
+            # A payload naming a scaffold's own root folder is naming the declaration.
+            if ($scaffoldRoots.Contains($referenced)) { continue }
+            # A path whose final segment is a bare placeholder names a shape, not a file —
+            # `docs/design-notes/<subfolder>/<derived-filename>` is prose describing where
+            # notes go. A placeholder with a literal suffix (`<category>.md`) is still a real
+            # path template and stays in grammar.
+            if ($referenced -match '/<[^<>/]+>$') { continue }
+
+            $matched = $false
+            foreach ($scaffold in $declaredScaffolds) {
+                if (Test-ScaffoldMatch -Path $referenced -Scaffold $scaffold) { $matched = $true; break }
+            }
+            if ($matched) { continue }
+
+            $assetViolations.Add("plugin '$pluginName': '$dest' reads '$referenced', a runtime path under the scaffolded root '$root' that no scaffolds[] entry declares. Installation cannot write outside .github/, so declare who scaffolds it on first use (or correct the path).")
         }
 
         foreach ($match in $refRegex.Matches($content)) {

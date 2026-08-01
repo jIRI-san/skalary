@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
-- [7.2] [trigger:overflow-summary] Folded 8 additional learnings into this summary.
+- [7.3] [trigger:overflow-summary] Folded 9 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -22,11 +23,13 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
 ## Learnings Capture
 Phase: 4
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -39,18 +42,20 @@ Phase: 5
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 6
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 7
+No entries for this phase.
 
-- [7.3] [trigger:reusable-pattern] Writing a literal .github/skills/<other-skill>/scripts/<file>.ps1 path into a payload file makes Sync-PluginScripts bundle that script into the referencing plugin; name the script without the installed path when only mentioning it.
 
 ## Learnings Capture
 Phase: 8
@@ -71,3 +76,4 @@ Phase: 10
 
 - [10.1] [trigger:reusable-pattern] Any plugin payload edit must regenerate marketplace.json AND registry.json in the same commit; Pester alone does not catch the drift.
 - [10.2] [trigger:reusable-pattern] A content stripper feeding a security/bootstrap gate must fail closed on malformed input; blanking the remainder turns an authoring slip into a silent gate bypass.
+- [10.3] [trigger:reusable-pattern] A machine-readable declaration is only worth its truth: assert the declared owner/helper exists in the declaring plugin's payload, or the manifest becomes prose that passes gates.

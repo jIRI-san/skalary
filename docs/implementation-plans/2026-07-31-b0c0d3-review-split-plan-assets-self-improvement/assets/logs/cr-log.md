@@ -105,3 +105,6 @@ Phase: 10
 - [10.1] [src:code-review] [sev:High] Asset-ships assertion checked plugin.json only; extended to registry.json, which is what consumer installs resolve against.
 - [10.2] [src:code-review] [sev:Med] Scanner skipped every skills/*/scripts/*.ps1 reference; narrowed the skip to scripts/skalary-sourced bundles so plugin-local scripts stay gated.
 - [10.2] [src:code-review] [sev:Med] Unterminated code fence silently blanked the rest of a payload; the stripper now reports it and the gate fails closed.
+- [10.3] [src:code-review] [sev:High] Ledger and archive scaffold declarations claimed a first-use write the scripts never performed; Add-LedgerEntry and Remove-LedgerEntry now create them instead of throwing.
+- [10.3] [src:code-review] [sev:High] Archival scaffold named a confine helper its owner never calls; entry dropped and the confine test now binds the helper to the declaring plugin's own payload.
+- [10.3] [src:code-review] [sev:Med] Scaffold enforcement covered only already-declared roots; declarations expanded to every root a plugin scaffolds and the residual bound documented in the grammar comment.

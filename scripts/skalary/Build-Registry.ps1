@@ -120,6 +120,28 @@ function New-RegistryPluginEntry {
         $entry.status = 'stable'
     }
 
+    # Consumer installs resolve against registry.json, not the source tree, so a scaffold
+    # declaration that stops at plugin.json never reaches the repo that has to honour it.
+    if ($Manifest.PSObject.Properties.Name -contains 'scaffolds' -and $null -ne $Manifest.scaffolds) {
+        $scaffoldEntries = @()
+        foreach ($scaffold in ($Manifest.scaffolds | Sort-Object @{ Expression = 'path'; Ascending = $true })) {
+            $scaffoldEntry = [ordered]@{
+                mode    = [string]$scaffold.mode
+                owner   = [string]$scaffold.owner
+                path    = [string]$scaffold.path
+                trigger = [string]$scaffold.trigger
+            }
+            if ($scaffold.PSObject.Properties.Name -contains 'confine' -and -not [string]::IsNullOrWhiteSpace($scaffold.confine)) {
+                $scaffoldEntry.confine = [string]$scaffold.confine
+            }
+            if ($scaffold.PSObject.Properties.Name -contains 'values' -and $null -ne $scaffold.values) {
+                $scaffoldEntry.values = @($scaffold.values | Sort-Object)
+            }
+            $scaffoldEntries += [pscustomobject]$scaffoldEntry
+        }
+        $entry.scaffolds = $scaffoldEntries
+    }
+
     return [pscustomobject]$entry
 }
 
