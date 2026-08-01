@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-01T01:25:32.2342875Z",
+  "generatedAt": "2026-08-01T08:50:18.3248347Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -288,16 +288,6 @@
           "src": "devcontainer/Dockerfile"
         },
         {
-          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
-          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
-          "src": "schemas/autopilot.host.schema.json"
-        },
-        {
-          "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
-          "src": "schemas/autopilot.schema.json"
-        },
-        {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
           "sha256": "1fbaabd01c08aaefb966d25df66e98a5a1221cc13ffc99faff455a5fea42ca1b",
           "src": "scripts/autopilot-dispatch.ps1"
@@ -356,6 +346,16 @@
           "dest": "skills/autopilot/scripts/validate-auth.ps1",
           "sha256": "6c4f4744600cdfb8bacad1e4fe52b5965a3e3837d540d0451253e74a3042d874",
           "src": "scripts/validate-auth.ps1"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
+          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
+          "src": "schemas/autopilot.host.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.schema.json",
+          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
+          "src": "schemas/autopilot.schema.json"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
@@ -424,7 +424,7 @@
         },
         {
           "dest": "agents/scripts/Get-ReviewScope.ps1",
-          "sha256": "73b95ded18b205fd89b5648a8ffb723f837a9c7b48ecc6b5e9d7bf37adca4a4c",
+          "sha256": "44f70bf0216e6247e581247541cf8a84b24b06349ae405c695236f6da1a2da39",
           "src": "agents/scripts/Get-ReviewScope.ps1"
         },
         {
@@ -471,7 +471,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",

@@ -57,8 +57,20 @@ function Invoke-Git {
         [switch]$NullSeparated
     )
 
-    $output = & git -C $WorkingDirectory @Arguments 2>$null
-    $exitCode = $LASTEXITCODE
+    # git emits path bytes as UTF-8. PowerShell decodes a native command's stdout using
+    # [Console]::OutputEncoding, which on a default Windows console is an OEM codepage
+    # (ibm437) — 'café.md' would decode to 'caf├⌐.md', resolve to no file, and be dropped
+    # from the review scope silently while the run still exits 0.
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        $output = & git -C $WorkingDirectory @Arguments 2>$null
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+
     if ($exitCode -ne 0) {
         if ($AllowFailure) { return , @() }
         throw "git $($Arguments -join ' ') failed with exit code $exitCode in '$WorkingDirectory'."

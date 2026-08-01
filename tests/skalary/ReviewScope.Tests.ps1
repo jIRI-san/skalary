@@ -211,8 +211,11 @@ Describe 'Get-ReviewScope' {
 
     It 'test:review-scope-modes keeps paths that git would C-quote' {
         $work = New-Fixture
-        $quoted = 'quo' + [char]34 + 'te.md'
-        foreach ($name in @('café.md', 'has space.md', $quoted)) {
+        # `"` is a legal filename character on POSIX but illegal in NTFS, so the
+        # embedded-quote case can only be created off Windows.
+        $quoted = if ($IsWindows) { $null } else { 'quo' + [char]34 + 'te.md' }
+        $names = @('café.md', 'has space.md') + @($quoted | Where-Object { $_ })
+        foreach ($name in $names) {
             Set-Content -LiteralPath (Join-Path $work $name) -Value "content`n" -NoNewline
         }
 
@@ -222,10 +225,10 @@ Describe 'Get-ReviewScope' {
         # and the emitter would drop it while still exiting 0.
         $files | Should -Contain 'café.md'
         $files | Should -Contain 'has space.md'
-        $files | Should -Contain $quoted
+        if ($quoted) { $files | Should -Contain $quoted }
     }
 
-    It 'test:review-scope-modes keeps files whose names differ only by case' {
+    It 'test:review-scope-modes keeps files whose names differ only by case' -Skip:($IsWindows) {
         $work = New-Fixture
         foreach ($name in @('Notes.md', 'notes.md')) {
             Set-Content -LiteralPath (Join-Path $work $name) -Value "content`n" -NoNewline
