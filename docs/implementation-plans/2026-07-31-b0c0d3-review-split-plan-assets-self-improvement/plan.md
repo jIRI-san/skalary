@@ -104,7 +104,7 @@
 
 - [x] 9.1 Add `New-Epic.ps1` scaffolding an epic folder plus `epic.md` and stamping `<!-- epic: <id> -->` into child plans (REQ-15) [after: 1.4] `L`
 - [x] 9.2 Add `skills/cep/SKILL.md` to the `create-implementation-plan` plugin: high-level goal → interview → decomposition into independently executable child plans with `depends-on` wiring (REQ-15, REQ-16) [after: 9.1] `L`
-- [ ] 9.3 Teach `/ci` to resolve an epic id, show rollup progress, and select the next unblocked child plan (REQ-15) [after: 9.2] `M`
+- [x] 9.3 Teach `/ci` to resolve an epic id, show rollup progress, and select the next unblocked child plan (REQ-15) [after: 9.2] `M`
 
 ## Phase 10: Hygiene, docs, and finalization
 

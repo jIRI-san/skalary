@@ -69,7 +69,7 @@ pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -C
    pwsh -NoProfile -File .github/skills/cep/scripts/Test-Plan.ps1 -PlanPath <child-plan-path> -RepoRoot . -Stage Draft
    ```
 
-3. Tell the operator which child to start: **"Run `/ci <child-ref>` on the first child with no unmet dependencies."**
+3. Tell the operator: **"Run `/ci <epic-id>` — it reports epic rollup and selects the next unblocked child plan."**
 
 ## Anti-drift contract
 

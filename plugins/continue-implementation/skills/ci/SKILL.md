@@ -16,6 +16,8 @@ context: fork
 ## Step 1: Select plan and load context
 
 1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` — in the current layout it carries only the header markers, the asset index, and the phases/steps.
+
+   **Epic reference:** the argument may be an epic id/slug instead (scaffolded by `/cep` under `docs/implementation-plans/epics/`). Epic ids and plan ids share one id space, so `Get-PlanState` (Step 2) resolves either and reports epic rollup plus the next unblocked child when the reference is an epic. Do not pick a child yourself: take `NextChild`, then continue this skill against that child plan exactly as if it had been named directly. Epic membership is the `<!-- epic: <id> -->` marker in each child plan; `epic.md` is a generated mirror, never the authority.
 2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
 
    | Asset | Read it when |
@@ -46,10 +48,12 @@ If it exits non-zero, stop immediately.
 Surface deterministic state before any work:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-reference> -RepoRoot .
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot .
 ```
 
-`Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
+**Epic references** return `Kind = epic`: child-plan rollup (complete/blocked counts, step totals) plus `NextChild` — the first child, in date/id order, that is neither complete nor blocked by an unmet `depends-on`. A child counts as complete when every step is `[x]` or its plan is archived, and dependency resolution is fail-closed: a `depends-on` token that resolves to no plan (or to several) blocks the child and is reported. If `NextChild` is empty, either every child is complete or a dependency is unresolvable — surface that to the user instead of starting arbitrary work. Re-run against the returned child id to get its plan state, then proceed.
+
+For a plan reference, `Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
 
 - **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
 - **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.

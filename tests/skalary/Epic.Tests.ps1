@@ -342,3 +342,229 @@ Describe 'New-Plan template resolution' {
         }
     }
 }
+
+Describe 'Epic rollup for /ci' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $newEpic = Join-Path $repoRoot 'scripts/skalary/New-Epic.ps1'
+        $planState = Join-Path $repoRoot 'scripts/skalary/Get-PlanState.ps1'
+        Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
+
+        $newTempRoot = {
+            $path = Join-Path ([System.IO.Path]::GetTempPath()) ('epic-rollup-' + [System.Guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Path (Join-Path $path 'docs/implementation-plans/archived') -Force | Out-Null
+            return $path
+        }
+
+        $newChildPlan = {
+            param([string]$Root, [string]$PlanId, [string]$Slug, [int]$Done = 0, [int]$Steps = 2, [switch]$Archived)
+            $parent = if ($Archived) { 'docs/implementation-plans/archived' } else { 'docs/implementation-plans' }
+            $dir = Join-Path $Root "$parent/2026-08-01-$PlanId-$Slug"
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            $stepLines = for ($i = 1; $i -le $Steps; $i++) {
+                $mark = if ($i -le $Done) { 'x' } else { ' ' }
+                "- [$mark] 1.$i Step $i (REQ-1) ``S``"
+            }
+            $content = @(
+                "# ${PlanId}: Child $Slug"
+                "<!-- plan-id: $PlanId -->"
+                ''
+                '## Requirements'
+                ''
+                '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                '|----|-------------|---------------------|--------------|'
+                '| REQ-1 | Child requirement | `test:child-one` | 1.1 |'
+                ''
+                '## Phase 1: Fixture'
+                ''
+            ) + $stepLines
+            Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Value ($content -join "`n") -Encoding utf8NoBOM
+            return $dir
+        }
+    }
+
+    Context 'test:ci-selects-next-child-plan' {
+        It 'test:ci-selects-next-child-plan skips blocked children and picks the first unblocked one' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'core' -Done 2 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 1 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '333ccc' -Slug 'ui' -Done 0 | Out-Null
+
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '111aaa' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '222bbb' -DependsOn '111aaa' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '333ccc' -DependsOn '222bbb' | Out-Null
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+
+                $rollup.ChildCount | Should -Be 3
+                $rollup.CompleteCount | Should -Be 1
+                $rollup.BlockedCount | Should -Be 1
+                $rollup.CompletedSteps | Should -Be 3
+                $rollup.TotalSteps | Should -Be 6
+                $rollup.NextChild.Id | Should -Be '222bbb'
+                $rollup.NextChild.NextStepId | Should -Be '1.2'
+                $blockedChild = @($rollup.Children | Where-Object { $_.Id -eq '333ccc' }) | Select-Object -First 1
+                $blockedChild.UnmetDependsOn | Should -Be @('222bbb')
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan unblocks a dependent once its dependency is complete or archived' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'core' -Done 2 -Archived | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 0 | Out-Null
+
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '111aaa' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '222bbb' -DependsOn '111aaa' | Out-Null
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                (@($rollup.Children | Where-Object { $_.Id -eq '111aaa' }) | Select-Object -First 1).IsComplete | Should -BeTrue
+                $rollup.BlockedCount | Should -Be 0
+                $rollup.NextChild.Id | Should -Be '222bbb'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan skips an earlier blocked child for a later free one' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'core' -Done 0 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 0 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '333ccc' -Slug 'ui' -Done 0 | Out-Null
+
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '222bbb' | Out-Null
+                # The first child in order is blocked; selection must walk past it, not stop at it.
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '111aaa' -DependsOn '333ccc' | Out-Null
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                @($rollup.Children | ForEach-Object { $_.Id }) | Should -Be @('111aaa', '222bbb')
+                (@($rollup.Children | Where-Object { $_.Id -eq '111aaa' }) | Select-Object -First 1).IsBlocked | Should -BeTrue
+                $rollup.NextChild.Id | Should -Be '222bbb'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan judges a non-member dependency by its own state' {
+            $tmp = & $newTempRoot
+            try {
+                # A depends-on may point outside the epic; membership must not decide its completeness.
+                & $newChildPlan -Root $tmp -PlanId '999fff' -Slug 'outside' -Done 2 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 0 | Out-Null
+
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '222bbb' -DependsOn '999fff' | Out-Null
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                $child = @($rollup.Children | Where-Object { $_.Id -eq '222bbb' }) | Select-Object -First 1
+                $child.DependsOn | Should -Be @('999fff')
+                $child.UnmetDependsOn | Should -BeNullOrEmpty
+                $child.IsBlocked | Should -BeFalse
+                $rollup.NextChild.Id | Should -Be '222bbb'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan keeps a plan reference resolving to the plan' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'payments-core' -Done 0 | Out-Null
+                & $newEpic -Title 'Payments rework' -Slug 'payments-rework' -RepoRoot $tmp -EpicId 'ab12cd' -Date '2026-08-01' -ChildPlan '222bbb' | Out-Null
+
+                # A date or slug that both a plan and an epic answer to must keep resolving to the plan.
+                (& $planState '2026-08-01' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
+                (& $planState 'payments' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
+                (& $planState 'payments-rework' -RepoRoot $tmp -Epic -Json | ConvertFrom-Json).Kind | Should -Be 'epic'
+                (& $planState 'ab12cd' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'epic'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan is fail-closed on an unresolvable dependency' {
+            $tmp = & $newTempRoot
+            try {
+                $dir = & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 0
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '222bbb' | Out-Null
+
+                $planFile = Join-Path $dir 'plan.md'
+                $raw = Get-Content -LiteralPath $planFile -Raw
+                Set-Content -LiteralPath $planFile -Encoding utf8NoBOM -Value ($raw -replace '<!-- epic: ab12cd -->', "<!-- epic: ab12cd -->`n<!-- depends-on: deadbe -->")
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                $child = @($rollup.Children | Where-Object { $_.Id -eq '222bbb' }) | Select-Object -First 1
+                $child.UnknownDependsOn | Should -Be @('deadbe')
+                $child.IsBlocked | Should -BeTrue
+                $rollup.NextChild | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan reports the epic through Get-PlanState without hand-picking a child' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'core' -Done 2 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'api' -Done 0 | Out-Null
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '111aaa' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '222bbb' -DependsOn '111aaa' | Out-Null
+
+                $state = & $planState 'ab12cd' -RepoRoot $tmp -Json | ConvertFrom-Json
+                $state.Kind | Should -Be 'epic'
+                $state.NextChild.Id | Should -Be '222bbb'
+                $state.Rollup.ChildCount | Should -Be 2
+                $state.Rollup.CompleteCount | Should -Be 1
+
+                $text = & $planState 'ab12cd' -RepoRoot $tmp
+                $text | Should -Match 'Next child:\s+222bbb'
+
+                # A plan reference must keep returning plan state, and surface its epic membership.
+                $childState = & $planState '222bbb' -RepoRoot $tmp -Json | ConvertFrom-Json
+                $childState.Kind | Should -Be 'plan'
+                $childState.Markers.EpicId | Should -Be 'ab12cd'
+                $childState.NextStep.Id | Should -Be '1.1'
+
+                # -Epic forces epic resolution, so a plan reference fails loud instead of silently
+                # falling back to plan state.
+                { & $planState '222bbb' -RepoRoot $tmp -Epic } | Should -Throw '*No epic matches*'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan reports completion instead of inventing work' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'core' -Done 2 | Out-Null
+                & $newEpic -Title 'Rollup' -Slug 'rollup' -RepoRoot $tmp -EpicId 'ab12cd' -ChildPlan '111aaa' | Out-Null
+
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                $rollup.IsComplete | Should -BeTrue
+                $rollup.NextChild | Should -BeNullOrEmpty
+                (& $planState 'ab12cd' -RepoRoot $tmp) | Should -Match 'every child plan is complete'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:ci-selects-next-child-plan documents epic resolution in the /ci skill' {
+            $skill = Get-Content -LiteralPath (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md') -Raw
+            $skill | Should -Match 'epic'
+            $skill | Should -Match 'NextChild'
+            # The orchestrator must defer selection to the script rather than choosing a child itself.
+            $skill | Should -Match 'Do not pick a child yourself'
+        }
+    }
+}

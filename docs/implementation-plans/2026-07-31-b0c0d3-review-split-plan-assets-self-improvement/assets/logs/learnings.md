@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
-- [5.1] [trigger:overflow-summary] Folded 5 additional learnings into this summary.
+- [5.1] [trigger:overflow-summary] Folded 6 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -16,6 +17,7 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -23,12 +25,13 @@ No entries for this phase.
 Phase: 4
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 5
+No entries for this phase.
 
-- [5.1] [trigger:reusable-pattern] Any git file-list consumed by a script must use -z: the default output C-quotes non-ASCII paths and silently loses them
 
 ## Learnings Capture
 Phase: 6
@@ -53,3 +56,4 @@ Phase: 9
 
 - [9.1] [trigger:reusable-pattern] Generated mirrors of marker state must be rebuilt for every affected owner, not just the invocation target, or the losing side goes stale.
 - [9.2] [trigger:reusable-pattern] A skill's scripts must resolve their assets relative to the installed skill folder; repo-layout paths only work while dogfooding.
+- [9.3] [trigger:reusable-pattern] Pester assertions that read a property off a filtered array fail only under the strict-mode suite runner; pipe through Select-Object -First 1.

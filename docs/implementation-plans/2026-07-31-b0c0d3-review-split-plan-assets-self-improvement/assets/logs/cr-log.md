@@ -94,3 +94,6 @@ Phase: 9
 - [9.2] [src:code-review] [sev:Med] New-Plan defaulted to a plugins/ template path that no installed copy has; it now probes the skill's own assets folder first.
 - [9.2] [src:code-review] [sev:Med] Epic folder was scaffolded in Step 1, before the seams gate that can conclude the goal is one plan; scaffolding moved after cut acceptance.
 - [9.2] [src:code-review] [sev:Med] cep asset pointed at ./assets/drafting-guide.md, which resolves inside cep where that file does not exist; rewritten as the cip installed path.
+- [9.3] [src:code-review] [sev:High] Rollup judged depends-on completeness by epic membership, blocking a child behind a finished non-member plan; completeness now comes from the dependency plan itself.
+- [9.3] [src:code-review] [sev:Med] Epic auto-detection could veto a plan reference on fuzzy date/slug matches; plan resolution now wins and -Epic forces the epic side.
+- [9.3] [src:code-review] [sev:Med] Selection tests placed the blocked child last, so skipping was unverified; added a fixture where an earlier child is blocked and a later one is free.

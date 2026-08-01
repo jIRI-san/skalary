@@ -1064,6 +1064,142 @@ function Get-NextStep {
     }
 }
 
+function Get-EpicRollup {
+    <#
+    .SYNOPSIS
+    Rolls child-plan progress up to the epic and selects the next unblocked child.
+
+    .DESCRIPTION
+    Membership comes from the `<!-- epic: <id> -->` header marker in each child plan (active and
+    archived), ordering from each child's `<!-- depends-on: ... -->` marker. A child counts as complete
+    when every step is `[x]` or the plan has been archived — archival is the terminal state of the
+    workflow, so a dependent must not stay blocked behind it.
+
+    Dependency resolution is fail-closed: a `depends-on` token that resolves to no plan, or to more than
+    one, blocks the child and is reported rather than silently ignored.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$EpicId,
+
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [object[]]$Inventory
+    )
+
+    $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
+    if (-not $PSBoundParameters.ContainsKey('Inventory')) {
+        $Inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
+    }
+
+    $epicIdLower = $EpicId.Trim().ToLowerInvariant()
+    $members = @($Inventory |
+        Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $epicIdLower } |
+        Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
+
+    $records = [System.Collections.Generic.List[object]]::new()
+    # Completion is cached per plan id because a `depends-on` may point at a plan outside the epic; the
+    # dependency's own state decides, never its membership.
+    $completionCache = @{}
+
+    foreach ($member in $members) {
+        $planFile = Join-Path $member.Path 'plan.md'
+        $metadata = Get-PlanMetadata -Path $planFile -RepoRoot $repoRootPath
+        $progress = Get-PlanProgress -Metadata $metadata
+        $markers = Get-PlanHeaderMarkers -Path $planFile
+        $next = Get-NextStep -Metadata $metadata
+        $isComplete = ($progress.IsComplete -or $member.IsArchived)
+        $completionCache[$member.Id.ToLowerInvariant()] = $isComplete
+
+        $records.Add([pscustomobject]@{
+            Id            = $member.Id
+            Slug          = $member.Slug
+            FolderName    = $member.FolderName
+            Path          = $member.Path
+            PlanFile      = $planFile
+            IsArchived    = $member.IsArchived
+            IsComplete    = $isComplete
+            DependsOn     = @($markers.DependsOn)
+            Progress      = $progress
+            NextStepId    = $next.Id
+            NextStepHuman = $next.IsHuman
+        })
+    }
+
+    $resolved = [System.Collections.Generic.List[object]]::new()
+    foreach ($record in $records) {
+        $unmet = [System.Collections.Generic.List[string]]::new()
+        $unknown = [System.Collections.Generic.List[string]]::new()
+        foreach ($token in $record.DependsOn) {
+            $dependency = $null
+            try {
+                $dependency = Resolve-Plan -Reference $token -RepoRoot $repoRootPath -Inventory $Inventory
+            }
+            catch {
+                $unknown.Add($token)
+                continue
+            }
+            $dependencyKey = $dependency.Id.ToLowerInvariant()
+            if (-not $completionCache.ContainsKey($dependencyKey)) {
+                $dependencyPlanFile = Join-Path $dependency.Path 'plan.md'
+                if (-not (Test-Path -LiteralPath $dependencyPlanFile -PathType Leaf)) {
+                    $unknown.Add($token)
+                    continue
+                }
+                $dependencyProgress = Get-PlanProgress -Metadata (Get-PlanMetadata -Path $dependencyPlanFile -RepoRoot $repoRootPath)
+                $completionCache[$dependencyKey] = ($dependencyProgress.IsComplete -or $dependency.IsArchived)
+            }
+            if (-not $completionCache[$dependencyKey]) {
+                $unmet.Add($dependency.Id)
+            }
+        }
+
+        $resolved.Add([pscustomobject]@{
+            Id             = $record.Id
+            Slug           = $record.Slug
+            FolderName     = $record.FolderName
+            Path           = $record.Path
+            PlanFile       = $record.PlanFile
+            IsArchived     = $record.IsArchived
+            IsComplete     = $record.IsComplete
+            DependsOn      = @($record.DependsOn)
+            UnmetDependsOn = $unmet.ToArray()
+            UnknownDependsOn = $unknown.ToArray()
+            IsBlocked      = (-not $record.IsComplete -and ($unmet.Count -gt 0 -or $unknown.Count -gt 0))
+            Progress       = $record.Progress
+            NextStepId     = $record.NextStepId
+            NextStepHuman  = $record.NextStepHuman
+        })
+    }
+
+    $nextChild = $null
+    foreach ($record in $resolved) {
+        if (-not $record.IsComplete -and -not $record.IsBlocked) { $nextChild = $record; break }
+    }
+
+    $totalSteps = 0
+    $completedSteps = 0
+    foreach ($record in $resolved) {
+        $totalSteps += $record.Progress.Total
+        $completedSteps += $record.Progress.Completed
+    }
+
+    return [pscustomobject]@{
+        EpicId          = $epicIdLower
+        Children        = $resolved.ToArray()
+        ChildCount      = $resolved.Count
+        CompleteCount   = @($resolved | Where-Object { $_.IsComplete }).Count
+        BlockedCount    = @($resolved | Where-Object { $_.IsBlocked }).Count
+        TotalSteps      = $totalSteps
+        CompletedSteps  = $completedSteps
+        Percent         = if ($totalSteps -gt 0) { [math]::Round(($completedSteps / $totalSteps) * 100, 1) } else { 0 }
+        NextChild       = $nextChild
+        IsComplete      = ($resolved.Count -gt 0 -and @($resolved | Where-Object { $_.IsComplete }).Count -eq $resolved.Count)
+    }
+}
+
 function Get-TypedEvidenceMarkers {
     <#
     .SYNOPSIS
@@ -1128,4 +1264,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells
