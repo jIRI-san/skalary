@@ -127,6 +127,23 @@ So a reviewer can report verification it did not fully perform, in the same voic
 
 It is also the strongest available argument for cr finding [15] (CI runs one test file, never `validate.ps1` or `npm test`): the one check CI *does* perform caught a real cross-platform defect that two models, seven concerns and a human gate all missed.
 
+## Cluster F — the self-improvement loop has no durable state at either end
+
+Operator-noticed 2026-08-01: *"did we run `/si` on this plan we just finished?"* It had not. `b0c0d3` built the loop and then never closed it on itself.
+
+The skip was **correct by design** — `crosscheck-guide.md` rule 3: *"Headless completion does not run `/si`. The harvest is cheap; a proposal is not — it opens a PR against the repo's own instructions with nobody to have asked. Queue nothing and skip."* `b0c0d3` completed in the container, so `/si` was properly declined.
+
+The gap is the asymmetry with its sibling:
+
+| | Headless behaviour | Durable trace |
+|---|---|---|
+| `/pfb` | writes a queued marker, consumed next interactive session | yes — `docs/feedback/queue.md` |
+| `/si` | *"queue nothing and skip"* | **none** |
+
+So an autopilot run that generates excellent harvest material leaves no record that `/si` was ever due. It ran here only because the operator remembered to ask. Pair that with gate finding [17] — `/si` leaves no committed record of what it proposed or what was declined — and the loop has no state at **either** end: nothing says it is owed, and nothing says what happened when it ran.
+
+**Direction:** headless completion writes an `si-due` marker in the same shape as the `/pfb` queue (content-addressed, refuses duplicates), consumed on the next interactive completion. That preserves rule 3's actual intent — *do not open a PR with nobody to ask* — without losing the signal that a proposal is owed. Pairs naturally with finding [17]'s proposal/decline record; both are the same missing artefact viewed from opposite ends.
+
 ## Sequencing
 
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
