@@ -55,8 +55,19 @@ function Invoke-Git {
         [switch]$NullSeparated
     )
 
-    $output = & git -C $WorkingDirectory @Arguments 2>$null
-    $exitCode = $LASTEXITCODE
+    # git emits path bytes as UTF-8; PowerShell decodes native stdout with
+    # [Console]::OutputEncoding, an OEM codepage on a default Windows console. Mojibake here
+    # would silently bypass the allowlist and symlink checks this guard exists to enforce.
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        $output = & git -C $WorkingDirectory @Arguments 2>$null
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+
     if ($exitCode -ne 0) {
         if ($AllowFailure) { return , @() }
         throw "git $($Arguments -join ' ') failed with exit code $exitCode in '$WorkingDirectory'."
