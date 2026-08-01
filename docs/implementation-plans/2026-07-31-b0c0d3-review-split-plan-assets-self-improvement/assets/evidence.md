@@ -94,3 +94,9 @@ Phase 8 Crosscheck:
 ✓ REQ-14 — test:si-write-scope-rejects-symlink-escape — passed: 5 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
 ✓ REQ-14 — test:si-proposes-never-merges — passed: 3 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
 ✓ REQ-14 — test:si-offered-at-completion — passed: 3 case(s) passed — d14b851003123958e17276efd41cd303603fe19c
+
+Phase 9 Crosscheck:
+✓ REQ-15 — file:plugins/create-implementation-plan/skills/cep/SKILL.md#exists — passed — 65e467d4579976bda96afd7708a9540f8dfee7a2
+✓ REQ-15 — file:scripts/skalary/New-Epic.ps1#exists — passed — 65e467d4579976bda96afd7708a9540f8dfee7a2
+✓ REQ-15 — test:epic-scaffold-links-children — passed: 9 case(s) passed — 65e467d4579976bda96afd7708a9540f8dfee7a2
+✓ REQ-15 — test:ci-selects-next-child-plan — passed: 9 case(s) passed — 65e467d4579976bda96afd7708a9540f8dfee7a2
