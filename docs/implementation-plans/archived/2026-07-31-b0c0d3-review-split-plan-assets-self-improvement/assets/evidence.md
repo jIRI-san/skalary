@@ -45,7 +45,7 @@ Plan b0c0d3 Crosscheck:
 ✓ REQ-9 — test:dispatch-guide-scaling-thresholds — passed: 2 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-9 — test:dispatch-budget-reported — passed: 1 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-9 — test:declared-model-preflight-fails-loud — passed: 2 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
-✗ REQ-9 — review:dr — unrun: operator acceptance gate (step 10.7) runs this review in chat — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
+✓ REQ-9 — review:dr — passed: /dr at step 10.7, 7 concerns x 2 models, 36 findings, 18 cross-model corroborated — 9b2034bb5ac5a24ac48ef7ba6a7ed47b15580afb
 ✓ REQ-10 — file:plugins/code-review/skills/cr/assets/concern-ledger-map.md#exists — passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-10 — file:plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md#contains:concern-ledger-map — passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-10 — test:concern-ledger-map-total — passed: 2 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
@@ -83,7 +83,7 @@ Plan b0c0d3 Crosscheck:
 ✓ REQ-17 — test:design-note-drops-orchestrator-fence — passed: 4 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-17 — test:unit — passed: 703 case(s) passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-17 — test:validate-all — passed: scripts/validate.ps1 exited 0 — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
-✗ REQ-17 — review:cr — unrun: operator acceptance gate (step 10.7) runs this review in chat — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
+✓ REQ-17 — review:cr — passed: cr branch at step 10.7, 7 concerns x 2 models, 14 of 28 invocations, 44 findings, 3 fixed — 9b2034bb5ac5a24ac48ef7ba6a7ed47b15580afb
 ✓ REQ-18 — file:scripts/skalary/Build-ReviewReport.ps1#exists — passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-18 — file:plugins/code-review/skills/cr/scripts/Build-ReviewReport.ps1#exists — passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce
 ✓ REQ-18 — file:plugins/design-review/skills/dr/scripts/Build-ReviewReport.ps1#exists — passed — 8151e61ca3fe09267a1473bcec36e91d1a90b0ce

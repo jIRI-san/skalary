@@ -119,7 +119,7 @@
 
 ## Finalization (conditional)
 
-- [ ] 10.7 Operator acceptance gate (REQ-17, RISK-1, RISK-7) @human `S`
+- [x] 10.7 Operator acceptance gate (REQ-17, RISK-1, RISK-7) @human `S` — accepted 2026-08-01, align:partial (see `docs/feedback/queue.md`)
   <details><summary>Details</summary>
 
   **Steps:**
