@@ -108,3 +108,5 @@ Phase: 10
 - [10.3] [src:code-review] [sev:High] Ledger and archive scaffold declarations claimed a first-use write the scripts never performed; Add-LedgerEntry and Remove-LedgerEntry now create them instead of throwing.
 - [10.3] [src:code-review] [sev:High] Archival scaffold named a confine helper its owner never calls; entry dropped and the confine test now binds the helper to the declaring plugin's own payload.
 - [10.3] [src:code-review] [sev:Med] Scaffold enforcement covered only already-declared roots; declarations expanded to every root a plugin scaffolds and the residual bound documented in the grammar comment.
+- [10.4] [src:code-review] [sev:Med] Design note documented a /cep prompt file that does not exist and claimed an owner-field test that was never written; both corrected.
+- [10.4] [src:code-review] [sev:Med] Model roster names were restated in an ungated design note; replaced with a pointer and the test now asserts no roster literal leaks into prose.

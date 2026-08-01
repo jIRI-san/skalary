@@ -34,8 +34,9 @@ $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 # dynamically composed path, a bare `assets/x.md` that could equally mean a plan folder)
 # is out of grammar and must not appear in a payload as a runtime read.
 #
-#   1. Installed-path literal — `.github/skills/<skill>/assets/<file>`, i.e. the path the
-#      payload would open in an installed repo. Required dest: the same path minus `.github/`.
+#   1. Installed-path literal — `.github/` plus one of the three payload roots (`skills/`,
+#      `agents/`, `prompts/`), i.e. the path the payload would open in an installed repo.
+#      Required dest: the same path minus `.github/`.
 #   2. Skill-relative — `./assets/<file>`, resolved against the *skill root* of the payload
 #      that contains it (not the containing directory), so a guide under `assets/` and its
 #      `SKILL.md` spell the same asset identically. The leading `./` is what separates a
