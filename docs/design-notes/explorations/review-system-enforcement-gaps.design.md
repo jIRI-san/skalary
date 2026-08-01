@@ -26,6 +26,15 @@ Recorded because the findings are systemic rather than incidental: they describe
 | `InvocationCount` unvalidated, defaults to `0` | A run that dispatched half the fan-out prints whatever number the model typed; `Dispatched 0 of 28` renders above a page of findings |
 | Scope size, batch size, tier never measured | The tier that decides between 6 and 14 invocations is eyeballed off an unbounded list |
 | Degradations have no header slot | The dispatch guide instructs recording a Pro-tier fallback "in the review header"; the header is script-generated with exactly two fields and the collation guide forbids adding to it. The instruction is unsatisfiable as written |
+| A captured run has no terminator | An `npm test` capture that stops mid-stage is byte-indistinguishable from one that finished, because the last thing a reader sees is a passing summary |
+
+The last row was observed directly on 2026-08-01. A captured `npm test` ended at 212 lines, mid-way
+through `== Validating plugin script bundles ==`, with no `Validation passed`, no `FAIL`, and no
+`npm ERR`. Skimming the tail shows `Tests Passed: 698, Failed: 0` and reads as success; the
+validator verdict was simply never produced. Re-running `validate.ps1` alone returned `exit=0`, so
+nothing was actually broken — which is the point. The artifact could not distinguish *finished and
+passed* from *interrupted before the verdict*, and the failure mode of that ambiguity is silent
+acceptance. A run capture needs an explicit terminator line carrying the exit code.
 
 Common fix direction: give the formatter the *dispatched task set*, not just findings, and let it derive rather than accept the count.
 
@@ -155,6 +164,27 @@ So an autopilot run that generates excellent harvest material leaves no record t
 **G3 — the guide's own commands do not run as written.** Running `/si` per its documentation failed three times before a single source was read: `Import-Module .github/skills/…` fails without a `./` prefix; `Resolve-Plan -Reference` blocks on a mandatory `-RepoRoot` the guide never passes; `Resolve-PlanAssetPath` takes `-PlanDir`/`-Kind`, not the `-PlanPath` the guide implies. The harvest already knows this defect class — cr-log [9.2] *"repo-layout paths only work while dogfooding"*, [6.5] the `pwsh -File` call that silently dropped typed findings, [5.2] a script no plugin bundles — and operator feedback `[095e99d0]` logs it as a MISS against a success signal. A skill whose documented invocation was never executed is Cluster B in the instructions rather than the tests.
 
 **Declined, recorded so they are not re-raised as new:** the fence-forgery scan has no self-reference exemption and produced two false positives on its first real run (cr-log [6.2], [8.1] — entries *describing* the fence); and the 44-finding step 10.7 gate wrote no cr-log entries at all, so its findings survive only as prose here and can never be counted toward recurrence.
+
+## Cluster H — the gate costs 29 minutes, and one file is 82% of it
+
+Measured from a full `npm test` capture on 2026-08-01: 1741.8s wall clock for 698 passing tests.
+
+| File | Time | Share |
+|---|---|---|
+| `tests/skalary/Skalary.Tests.ps1` | 1419.6s | **81.5%** |
+| `ReviewScope.Tests.ps1` | 44.4s | 2.6% |
+| `Add-LedgerEntry.Tests.ps1` | 40.9s | 2.4% |
+| `Test-Plan.Tests.ps1` | 40.9s | 2.4% |
+| `SiWriteScope.Tests.ps1` | 32.9s | 1.9% |
+| the other 27 files combined | ~163s | 9.4% |
+
+`Skalary.Tests.ps1` is 482 lines and 14 `It` blocks — roughly **101 seconds per test case**. It contains 10 `Install-Plugin` calls, 8 `Build-Registry` calls and a `git clone`, and the run log shows exactly 10 `Bootstrap ref: main` / `Generated registry … with 11 plugin(s)` pairs. So each case performs a genuine end-to-end scratch install from a cloned repo. That is the right thing to test and the wrong thing to do fourteen times per run.
+
+An earlier reading of this data claimed the registry was rebuilt *per test case*; the capture shows 10 rebuilds total, not one per case. Recorded because the corrected number is what makes the fix obvious — the cost is whole scratch installs, not registry generation.
+
+**Why it belongs in this note.** A 29-minute gate is not merely slow; it changes behaviour. It is the autopilot test command and the `test:unit` evidence executor, so every phase pays it, and the pressure to skip it or to trust a stale capture is exactly what produced the Cluster A truncation above. Cluster B already records that this same entry point exits 0 when Pester is absent — a gate that is both expensive and silently skippable is the worst combination available.
+
+**Direction:** share one bootstrapped install fixture across the cases that only read it, keep a small number of genuine end-to-end installs, and consider splitting the slow integration tier out of the default `npm test` so the fast suite stays usable per-step. Any split must not let the slow tier become the thing nobody runs — Cluster B's CI gap is that failure already.
 
 ## Sequencing
 
