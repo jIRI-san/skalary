@@ -1,5 +1,7 @@
 # Testing Ledger
 
+- [2026-08-01] A test whose fixture is overwritten before the only invocation asserts the opposite of its name; check that the arranged state is the state actually exercised. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-16
+- [2026-08-01] An existence assertion scoped to a global namespace passes vacuously; bind it to the unit that declares the dependency and assert use rather than mere definition. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-06-28] Extract launcher dispatch into a side-effect-free dot-sourceable library so loop logic is unit-testable without the launcher's mandatory params avoids Pester mandatory-param prompt hang . Share test state via .GetNewClos (plan-aaf29b, src:ci, sev:Med) #dot-source #pester #testability
 - [2026-06-28] Mock the script's own restore helpers Invoke-NpmRestore/Invoke-DotnetRestore instead of external npm/dotnet: real npm ci runs ~20s and isn't intercepted by Pester mocks. Avoid angle brackets in It names ParseException . (plan-aaf29b, src:ci, sev:Med) #mocking #npm #pester
 
