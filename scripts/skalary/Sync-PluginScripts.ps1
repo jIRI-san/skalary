@@ -27,6 +27,70 @@ $refRegex = [regex]'\.github/skills/(?<skill>[a-z0-9][a-z0-9-]*)/scripts/(?<name
 $moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9_][A-Za-z0-9._-]*\.psm?1)'''
 $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 
+# --- Asset reference grammar (REQ-19) -------------------------------------------------
+# A payload that reads a file installation never materializes fails silently in a consumer
+# repo: the agent reads nothing and degrades instead of erroring. The grammar below is
+# deliberately *closed* — only these two forms are recognized, and anything else (a
+# dynamically composed path, a bare `assets/x.md` that could equally mean a plan folder)
+# is out of grammar and must not appear in a payload as a runtime read.
+#
+#   1. Installed-path literal — `.github/skills/<skill>/assets/<file>`, i.e. the path the
+#      payload would open in an installed repo. Required dest: the same path minus `.github/`.
+#   2. Skill-relative — `./assets/<file>`, resolved against the *skill root* of the payload
+#      that contains it (not the containing directory), so a guide under `assets/` and its
+#      `SKILL.md` spell the same asset identically. The leading `./` is what separates a
+#      skill's own asset from a plan folder's `assets/` (`assets/intent.md`), which is not a
+#      payload file at all.
+$assetInstalledRegex = [regex]'\.github/(?<dest>(?:skills|agents|prompts)/[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
+$assetRelativeRegex = [regex]'\./assets/(?<rest>[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
+
+function Remove-FencedBlocks {
+    <#
+    .SYNOPSIS
+    Blanks out fenced code blocks so illustrative examples never count as runtime reads.
+    .DESCRIPTION
+    Line-oriented rather than regex-oriented: a single multiline regex would swallow the rest
+    of the file at an unbalanced fence. Returns the stripped text plus an `Unterminated` flag —
+    a fence the author never closed blanks every following line, so it can hide a real
+    reference from the gate; the caller fails on it rather than scanning a truncated file.
+    Blank replacement lines keep line numbers usable.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Content
+    )
+
+    $lines = $Content -split "`r?`n"
+    $inFence = $false
+    $fenceMarker = $null
+    $result = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($line in $lines) {
+        $fence = [regex]::Match($line, '^\s*(?<marker>`{3,}|~{3,})')
+        if ($fence.Success) {
+            $marker = $fence.Groups['marker'].Value
+            if (-not $inFence) {
+                $inFence = $true
+                $fenceMarker = $marker[0]
+            }
+            elseif ($marker[0] -eq $fenceMarker) {
+                $inFence = $false
+                $fenceMarker = $null
+            }
+            $result.Add('')
+            continue
+        }
+
+        $result.Add($(if ($inFence) { '' } else { $line }))
+    }
+
+    return [pscustomobject]@{
+        Text         = ($result -join "`n")
+        Unterminated = $inFence
+    }
+}
+
+
 function Get-ModuleClosure {
     param(
         [Parameter(Mandatory)][string]$ScriptName,
@@ -86,6 +150,20 @@ if ($manifestPaths.Count -eq 0) {
 }
 
 $expected = @{}        # managedDirKey -> @{ Dir; Files = @{ name -> sourcePath } }
+
+# Every installed destination across *every* plugin: a payload may legitimately reference an
+# asset another plugin owns (the autopilot agent reads the cr/dr concern map), so declaration
+# is checked repo-wide rather than per-plugin.
+$declaredDests = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($manifestPath in $manifestPaths) {
+    $manifest = Read-JsonFile -Path $manifestPath.FullName
+    foreach ($file in @($manifest.files)) {
+        [void]$declaredDests.Add(([string]$file.dest).Replace('\', '/'))
+    }
+}
+
+$assetViolations = [System.Collections.Generic.List[string]]::new()
+
 foreach ($manifestPath in $manifestPaths) {
     $manifest = Read-JsonFile -Path $manifestPath.FullName
     $pluginName = [string]$manifest.name
@@ -100,6 +178,43 @@ foreach ($manifestPath in $manifestPaths) {
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
 
         $content = [System.IO.File]::ReadAllText($sourcePath)
+
+        $dest = ([string]$file.dest).Replace('\', '/')
+        $stripped = Remove-FencedBlocks -Content $content
+        $prose = $stripped.Text
+
+        if ($stripped.Unterminated) {
+            $assetViolations.Add("plugin '$pluginName': '$dest' has an unterminated code fence. Everything after it is treated as an example, so a runtime asset reference there would slip past this gate — close the fence.")
+        }
+
+        foreach ($match in $assetInstalledRegex.Matches($prose)) {
+            $referenced = $match.Groups['dest'].Value
+            # Bundled scripts whose canonical source is scripts/skalary are materialized by the
+            # script-bundler arm below on this same run, so the asset arm would fail a reference
+            # the sync is in the middle of satisfying. The condition mirrors the bundler's own:
+            # a plugin-local script (no scripts/skalary source) is nobody else's job and stays
+            # subject to the files[] check.
+            $scriptMatch = [regex]::Match($referenced, '^skills/[^/]+/scripts/(?<name>[^/]+\.psm?1)$')
+            if ($scriptMatch.Success -and (Test-Path -LiteralPath (Join-Path $scriptsSource $scriptMatch.Groups['name'].Value) -PathType Leaf)) {
+                continue
+            }
+            if ($declaredDests.Contains($referenced)) { continue }
+            $assetViolations.Add("plugin '$pluginName': '$dest' reads '.github/$referenced', which no plugin declares in files[]. Declare it (dest '$referenced') so installation materializes it.")
+        }
+
+        $skillMatch = [regex]::Match($dest, '^skills/(?<skill>[^/]+)/')
+        foreach ($match in $assetRelativeRegex.Matches($prose)) {
+            $rest = $match.Groups['rest'].Value
+            if (-not $skillMatch.Success) {
+                $assetViolations.Add("plugin '$pluginName': '$dest' uses the skill-relative form './assets/$rest' but is not installed under skills/<skill>/, so the reference has no skill root to resolve against. Use the installed-path literal instead.")
+                continue
+            }
+
+            $referenced = "skills/$($skillMatch.Groups['skill'].Value)/assets/$rest"
+            if ($declaredDests.Contains($referenced)) { continue }
+            $assetViolations.Add("plugin '$pluginName': '$dest' reads './assets/$rest', which resolves to '$referenced' and is not declared in files[]. Declare it so installation materializes it.")
+        }
+
         foreach ($match in $refRegex.Matches($content)) {
             $skill = $match.Groups['skill'].Value
             $name = $match.Groups['name'].Value
@@ -146,6 +261,14 @@ foreach ($manifestPath in $manifestPaths) {
 $changedCount = 0
 $staleCount = 0
 $changedManifests = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+# An undeclared asset reference is not drift the sync can repair — only the plugin author
+# knows whether the file should ship or the reference should go — so it fails in both the
+# -WhatIf gate and a real run rather than being silently bundled.
+if ($assetViolations.Count -gt 0) {
+    $detail = ($assetViolations | Sort-Object) -join "`n  "
+    throw "Undeclared runtime asset reference(s) — installation would not materialize these files:`n  $detail"
+}
 
 foreach ($entry in ($expected.Values | Sort-Object Dir)) {
     if (-not (Test-Path -LiteralPath $entry.Dir -PathType Container) -and -not $WhatIfPreference) {

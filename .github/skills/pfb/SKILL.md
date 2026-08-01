@@ -18,7 +18,7 @@ asks.
 
 ## Step 0: Pick the interactive or headless path
 
-Read [`./assets/queue-guide.md`](assets/queue-guide.md) first. It owns the headless test
+Read [`./assets/queue-guide.md`](./assets/queue-guide.md) first. It owns the headless test
 (`AUTOPILOT_CONTAINER=true`, launcher-started, or no question tool), the rule that a headless run
 **queues the question instead of prompting** and never blocks, and the pending-marker consumption
 that opens an interactive run.
@@ -49,7 +49,7 @@ human. Interactive: consume any pending markers per the guide, then continue.
 
 ## Step 2: Compare delivered work against intent
 
-Follow [`./assets/feedback-guide.md`](assets/feedback-guide.md). It owns the comparison questions,
+Follow [`./assets/feedback-guide.md`](./assets/feedback-guide.md). It owns the comparison questions,
 the closed alignment verdicts (`full` · `partial` · `missed`), and the evidence each answer cites.
 
 Present your own reading first — one line per intent section, each citing the delivered artifact or

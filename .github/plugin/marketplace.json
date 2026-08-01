@@ -19,7 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
@@ -60,7 +60,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -99,7 +99,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "description": "Design review orchestrator with specialist model agents.",
@@ -112,7 +112,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
@@ -153,7 +153,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.13"
+      "version": "1.0.14"
     }
   ]
 }

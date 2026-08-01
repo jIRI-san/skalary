@@ -15,7 +15,7 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
 
 1. Scaffold the tier: `Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>` (also run by the seed script).
 2. Run a short seeding interview (system type, top-level layers, primary module boundaries).
-   Follow `assets/interview-guide.md` for the canonical question set. Record the answers into a
+   Follow `./assets/interview-guide.md` for the canonical question set. Record the answers into a
    temporary seed-spec JSON (shape documented in the guide).
 3. Materialize the seed: `pwsh -NoProfile -File <scripts>/New-ArchSeed.ps1 -TargetRoot <repoRoot>
    -SeedSpecPath <seed.json>`. It writes **1–2 `draft` contracts** (validated by the write gate),
@@ -71,7 +71,7 @@ plan folder to `-PlanDir`; the script resolves which of the two locations is in 
 
 1. Run the harvest: `pwsh -NoProfile -File <scripts>/Import-ArchAdr.ps1 -PlanDir <plan-folder>
    -RepoRoot <repoRoot>`. It writes one **proposed** ADR per decision under
-   `docs/architecture-notes/.staging/adr/` from `assets/adr-template.md`, plus an `ADR-HARVEST.md`
+   `docs/architecture-notes/.staging/adr/` from `./assets/adr-template.md`, plus an `ADR-HARVEST.md`
    manifest carrying `reviewed: false`. It never edits `.architecture-notes.md` and never marks an
    ADR accepted.
 2. **Do not auto-load the staging directory.** `.staging/` is not referenced by

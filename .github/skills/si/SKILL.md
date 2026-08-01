@@ -27,7 +27,7 @@ the customizations themselves.
 
 ## Step 1: Collect the sources
 
-Follow [`./assets/harvest-guide.md`](assets/harvest-guide.md). It owns the four sources
+Follow [`./assets/harvest-guide.md`](./assets/harvest-guide.md). It owns the four sources
 (review-ledger categories, the plan's `learnings.md` and `cr-log.md`, and the `## Recorded` section
 of `docs/feedback/queue.md`), the layout resolution for the plan logs, and the rule that pending
 feedback is not evidence.
@@ -68,7 +68,7 @@ a PR nobody asked for.
 
 ## Steps 5–7: Propose (`./assets/propose-guide.md`)
 
-Follow [`./assets/propose-guide.md`](assets/propose-guide.md) for the write scope, the worktree
+Follow [`./assets/propose-guide.md`](./assets/propose-guide.md) for the write scope, the worktree
 isolation, the blocking pre-PR guard, and the draft PR. In short:
 
 1. Create a worktree and `si/<slug>` branch **cut from `origin/main`**, never from the branch you are

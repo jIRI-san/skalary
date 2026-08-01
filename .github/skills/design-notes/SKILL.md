@@ -34,8 +34,8 @@ Create the initial `docs/design-notes/` structure from the templates bundled wit
    - If it exists, report `design-notes already initialized` and stop. Do **not** overwrite anything.
 2. **Create the folders** `docs/design-notes/` and `docs/design-notes/project/`.
 3. **Copy the bundled templates** (never overwrite an existing target):
-   - [assets/templates/design-notes-index.template.md](assets/templates/design-notes-index.template.md) → `docs/design-notes/.design-notes.md`
-   - [assets/templates/design-note-writing-style.template.md](assets/templates/design-note-writing-style.template.md) → `docs/design-notes/project/design-note-writing-style.design.md`
+   - [./assets/templates/design-notes-index.template.md](./assets/templates/design-notes-index.template.md) → `docs/design-notes/.design-notes.md`
+   - [./assets/templates/design-note-writing-style.template.md](./assets/templates/design-note-writing-style.template.md) → `docs/design-notes/project/design-note-writing-style.design.md`
 4. **Report** the created files and point the user at the next steps: `/design-notes create <name>` and `/design-notes update` (or their `/cdn` and `/udn` shortcuts).
 
 > The templates are repo-agnostic starting points. After init, edit `docs/design-notes/.design-notes.md`

@@ -103,3 +103,5 @@ Phase: 10
 
 - [10.1] [src:code-review] [sev:Critical] Plugin version bump left marketplace.json/registry.json stale; regenerated both so install stays hash-consistent.
 - [10.1] [src:code-review] [sev:High] Asset-ships assertion checked plugin.json only; extended to registry.json, which is what consumer installs resolve against.
+- [10.2] [src:code-review] [sev:Med] Scanner skipped every skills/*/scripts/*.ps1 reference; narrowed the skip to scripts/skalary-sourced bundles so plugin-local scripts stay gated.
+- [10.2] [src:code-review] [sev:Med] Unterminated code fence silently blanked the rest of a payload; the stripper now reports it and the gate fails closed.

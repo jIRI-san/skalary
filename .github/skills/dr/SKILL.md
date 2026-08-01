@@ -17,7 +17,7 @@ their findings to the report formatter.
 
 ## Step 1: Locate the plan
 
-Read [`./assets/plan-scope-guide.md`](assets/plan-scope-guide.md). It owns plan resolution (explicit
+Read [`./assets/plan-scope-guide.md`](./assets/plan-scope-guide.md). It owns plan resolution (explicit
 path · session memory · chat context), the plan-assets layout, and the batching contract that
 follows from it.
 
@@ -53,7 +53,7 @@ each concern agent raises as Critical.
 Reviewers are split by **concern**, not by model. Each concern agent declares no model; you supply
 the model as the explicit dispatch parameter and run the concern once per configured model.
 
-Read [`./assets/dispatch-guide.md`](assets/dispatch-guide.md) and follow it. It owns the model
+Read [`./assets/dispatch-guide.md`](./assets/dispatch-guide.md) and follow it. It owns the model
 roster, the declared-model preflight, the size-scaled concern selection (measured in plan lines for
 `dr`), the batching rule, and the invocation budget you report against. Its two installed copies are
 byte-identical to the `/cr` ones by construction: dispatch policy has one definition, not two.
@@ -90,7 +90,7 @@ Never invoke it with `pwsh -File`: that binds every argument as a string, the ty
 empty, and the script fails loud on the first one.
 
 The object shape, the roster argument, and the empty-findings case are in
-[`./assets/collation-guide.md`](assets/collation-guide.md). Write the text the script returns
+[`./assets/collation-guide.md`](./assets/collation-guide.md). Write the text the script returns
 **verbatim** — the merge, dedup, severity-elevation, and sort rules live in the script, and the
 report layout is its output, never prose you re-derive here.
 
@@ -99,6 +99,6 @@ report layout is its output, never prose you re-derive here.
 1. Print the returned report, then ask which findings to act on: a number, a range (e.g. 1–3), or
    `all`. When invoked through the `dr` agent, point the user at its **Update plan** handoff button.
 2. When a review feeds plan harvest, map each finding's concern to its ledger category with
-   [`./assets/concern-ledger-map.md`](assets/concern-ledger-map.md) — `dr` uses the design-review
+   [`./assets/concern-ledger-map.md`](./assets/concern-ledger-map.md) — `dr` uses the design-review
    column, so evidence findings land in `plan-structure`, not `testing`.
 3. Never edit the plan from inside this skill; revising it is a separate, explicitly requested step.

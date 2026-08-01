@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-01T00:37:53.1657288Z",
+  "generatedAt": "2026-08-01T00:52:21.1037110Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -56,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "2de42f94fd40b51471704321d1b68f84a73bff0ac367353b4114f361b58de297",
+          "sha256": "f35a8d1c69cc108a6bca3d350fb5ea6c6396bf65e81d9fdc2514209b71e665ac",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
@@ -86,7 +86,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "7fe1703eae35fcebbe6cc217a4e49b696ca07ac2e6627a30ff1908ee15250739",
+          "sha256": "ff00e65e11650f866ae82f1acfa47e76793120a4191f79b22b1d09c4bf86820a",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
@@ -96,7 +96,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "2374c5c148da2c2a7e197f70a20c9e597f7f3bc37c0b9c839b6df7371d13f262",
+          "sha256": "f58297c04a191263752829c59f2f09d2592763153f88f0392ca6c09591ffc1e1",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
@@ -109,7 +109,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",
@@ -406,7 +406,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "8a945fe45cde4adbd1f1ab8e838617c73a6cd9fd0de23e9296f7d941b4daff05",
+          "sha256": "dedc919ea0feb52c289b72a0b1dcf4ca74687efc61b45fede5df40076062de00",
           "src": "skills/cr/SKILL.md"
         }
       ],
@@ -418,7 +418,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",
@@ -692,7 +692,7 @@
         },
         {
           "dest": "skills/design-notes/SKILL.md",
-          "sha256": "97ad0fd364299c88ec1477aaf57319010c94e8a9ad3ae27b0cab1549e4183f71",
+          "sha256": "a98d36f9ec39490c0c686aea7235e93475770e2d3e3583ab86a87d7f779a7d3c",
           "src": "skills/design-notes/SKILL.md"
         }
       ],
@@ -705,7 +705,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "author": "jIRI-san",
@@ -787,7 +787,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "80d496f3257e1a5ec0f2322d264fd47ab3fcad9041802512f2a19ad9452c81b2",
+          "sha256": "bf4af88126bed2156a45db07b0296c5b46cd9cc2ef1618a3dcdcff82b9d9e362",
           "src": "skills/dr/SKILL.md"
         }
       ],
@@ -799,7 +799,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",
@@ -967,7 +967,7 @@
         },
         {
           "dest": "skills/pfb/SKILL.md",
-          "sha256": "c7fd78e8c2efaec686d0d500509c24095ec6c7daa799f3afaeadcb767b8a8eeb",
+          "sha256": "6e8febf47c11cd1d3485ac78b383a944214d39f6bdf9319908c35d28fccf2513",
           "src": "skills/pfb/SKILL.md"
         },
         {
@@ -992,7 +992,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "01140830cb67b4bb5dca8fd894f9ad64e32edcd3cd1736422c21a5a1e9bcea59",
+          "sha256": "9dab1115ca6f920df5eb8a0f5a8955d750ae36c56292beb618f4c1845207c2d9",
           "src": "skills/si/SKILL.md"
         }
       ],
@@ -1005,7 +1005,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.13"
+      "version": "1.0.14"
     }
   ]
 }

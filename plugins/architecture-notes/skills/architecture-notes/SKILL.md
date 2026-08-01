@@ -73,7 +73,7 @@ context: fork
 4. **Validate the write (mandatory gate):**
    - `pwsh -NoProfile -File <scripts>/Test-ArchContract.ps1 -ContractPath <file>`
    - Proceed only when `Valid` is true; otherwise fix the reported `Errors` and re-run.
-5. Add a **terse** arch note from `assets/templates/architecture-note.template.md` describing the
+5. Add a **terse** arch note from `./assets/templates/architecture-note.template.md` describing the
    boundary and referencing the contract id(s). Keep it context-cheap; no implementation detail.
 6. Update the index tables (Contracts / Architecture Notes) in `.architecture-notes.md`.
 7. Regenerate the human-readable doc via the generator (Step 8):

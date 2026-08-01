@@ -19,7 +19,7 @@ and hand their findings to the report formatter.
 
 Parse the argument after `cr` and collect the file list with the single scope emitter — the modes,
 the exact invocations, and the deleted-file and empty-list rules live in
-[`./assets/scope-guide.md`](assets/scope-guide.md).
+[`./assets/scope-guide.md`](./assets/scope-guide.md).
 
 That file list **is** the review scope. There is no diff-extraction step: reviewers read the code
 themselves, so extracting content here would only duplicate what they can already see, truncated.
@@ -46,7 +46,7 @@ Reviewers receive the note *names and paths* plus the file list — never note c
 Reviewers are split by **concern**, not by model. Each concern agent declares no model; you supply
 the model as the explicit dispatch parameter and run the concern once per configured model.
 
-Read [`./assets/dispatch-guide.md`](assets/dispatch-guide.md) and follow it. It owns the model
+Read [`./assets/dispatch-guide.md`](./assets/dispatch-guide.md) and follow it. It owns the model
 roster, the declared-model preflight, the size-scaled concern selection, the batching rule, and the
 invocation budget you report against.
 
@@ -82,7 +82,7 @@ Never invoke it with `pwsh -File`: that binds every argument as a string, the ty
 empty, and the script fails loud on the first one.
 
 The object shape, the roster argument, and the empty-findings case are in
-[`./assets/collation-guide.md`](assets/collation-guide.md). Write the text the script returns
+[`./assets/collation-guide.md`](./assets/collation-guide.md). Write the text the script returns
 **verbatim** — the merge, dedup, severity-elevation, and sort rules live in the script, and the
 report layout is its output, never prose you re-derive here.
 
@@ -92,7 +92,7 @@ report layout is its output, never prose you re-derive here.
    `all`. When invoked through the `cr` agent, point the user at its **Fix selected findings**
    handoff button.
 2. When a review feeds plan harvest, map each finding's concern to its ledger category with
-   [`./assets/concern-ledger-map.md`](assets/concern-ledger-map.md) — the map is deterministic, so
+   [`./assets/concern-ledger-map.md`](./assets/concern-ledger-map.md) — the map is deterministic, so
    harvest is not a judgment call.
 3. Never apply fixes from inside this skill; acting on findings is a separate, explicitly requested
    step.
