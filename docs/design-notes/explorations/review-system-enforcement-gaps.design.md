@@ -102,6 +102,32 @@ Attacks the real noise problem — cr's long tail was 14 Low findings. **Undecid
 
 Recorded so a future reader does not over-correct: the concern split found a real security bug that a single comprehensive reviewer plausibly misses. `Test-SiWriteScope.ps1` carried the same UTF-8 decoding defect as `Get-ReviewScope.ps1`, silently disabling the symlink half of the `/si` write guard — flagged independently by `security` and `correctness-reliability`, on both models. Cross-model unanimity elevated 7 of the 8 Criticals.
 
+## Cluster E — generated output is locale-dependent
+
+Found by **CI**, 2026-08-01, on the `b0c0d3` merge attempt — the first time CI produced a meaningful verdict on this work.
+
+`Build-Registry.ps1` sorts `files[]` with bare `Sort-Object`, which is **culture-aware**. On a `cs-CZ` host, `ch` is a single collating letter sorting after `c`, so `skills/autopilot/s·ch·emas/…` sorts *after* `skills/autopilot/s·c·ripts/…`; on an invariant/en-US runner it sorts before.
+
+```
+cs-CZ      compare =  1     schemas AFTER scripts
+en-US      compare = -1     schemas BEFORE scripts
+invariant  compare = -1
+ordinal    compare = -10
+```
+
+`registry.json` ordering therefore depends on the locale of whoever last ran the build, and the freshness gate fails for everyone else. Affected sort sites: `Build-Registry.ps1` lines 21, 81, 96, 101, 127, plus any equivalent in `Build-Marketplace.ps1`. Fix is `-Culture ordinal` / `[StringComparer]::Ordinal`, with a regression test that runs the generator under `cs-CZ` and asserts byte-identical output.
+
+**Operator decision 2026-08-01:** regenerate under invariant culture to unblock the merge; fix the sort properly in the next plan. The latent defect is unchanged — the next person to run `Build-Registry.ps1` on a Czech-locale machine reintroduces the diff.
+
+### Why this one matters beyond itself
+
+The gate-1 `cr` review stated it had verified *"`Build-Registry.ps1` output is byte-identical on regeneration and its `Sort-Object` ordering is stable across en-US/sv-SE/tr-TR/de-DE/cs-CZ."* CI falsified that within the hour. The reviewer evidently exercised the sort but not the `schemas`/`scripts` pair — the single input where the Czech `ch` digraph actually changes the result.
+
+So a reviewer can report verification it did not fully perform, in the same voice it reports verification it did. That is the Cluster A problem one level up: **the review output cannot distinguish a checked claim from an asserted one.** Any fix for reviewer attendance//coverage reporting should consider whether verification claims need the same treatment.
+
+It is also the strongest available argument for cr finding [15] (CI runs one test file, never `validate.ps1` or `npm test`): the one check CI *does* perform caught a real cross-platform defect that two models, seven concerns and a human gate all missed.
+
 ## Sequencing
 
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
+

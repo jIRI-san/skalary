@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-01T09:37:13.1195498Z",
+  "generatedAt": "2026-08-01T15:51:52.6090496Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -288,6 +288,16 @@
           "src": "devcontainer/Dockerfile"
         },
         {
+          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
+          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
+          "src": "schemas/autopilot.host.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.schema.json",
+          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
+          "src": "schemas/autopilot.schema.json"
+        },
+        {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
           "sha256": "1fbaabd01c08aaefb966d25df66e98a5a1221cc13ffc99faff455a5fea42ca1b",
           "src": "scripts/autopilot-dispatch.ps1"
@@ -346,16 +356,6 @@
           "dest": "skills/autopilot/scripts/validate-auth.ps1",
           "sha256": "6c4f4744600cdfb8bacad1e4fe52b5965a3e3837d540d0451253e74a3042d874",
           "src": "scripts/validate-auth.ps1"
-        },
-        {
-          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
-          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
-          "src": "schemas/autopilot.host.schema.json"
-        },
-        {
-          "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
-          "src": "schemas/autopilot.schema.json"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
