@@ -71,6 +71,75 @@
       "enum": ["stable", "partial"],
       "description": "Optional plugin readiness status."
     },
+    "scaffolds": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Runtime paths the installer cannot write. Installation is hard-confined to .github/, so a path outside it is materialized on first use by the owning skill or script instead. Declaring it here is what makes that contract machine-readable — and reaches registry.json, which is what consumer installs resolve against.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "mode", "owner", "trigger"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative path. A literal entry is a fixed path; a parameterized entry uses <name> for a variable segment and ** for a variable subtree."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["literal", "parameterized"],
+            "description": "literal = fixed target, nothing to confine. parameterized = variable segment, which must route through a canonicalize-then-confine helper."
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The skill, prompt, or script that performs the first-use write."
+          },
+          "trigger": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The event that materializes the path."
+          },
+          "confine": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Name of the canonicalize-then-confine helper the owner routes the variable segment through. Required for parameterized entries, forbidden for literal ones."
+          },
+          "values": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Closed value domain for the variable segment, when one exists. Absent means the domain is open and confinement is the only bound."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "mode": { "const": "literal" } },
+              "required": ["mode"]
+            },
+            "then": {
+              "properties": { "path": { "pattern": "^[^<>*]+$" } },
+              "not": { "anyOf": [{ "required": ["confine"] }, { "required": ["values"] }] }
+            }
+          },
+          {
+            "if": {
+              "properties": { "mode": { "const": "parameterized" } },
+              "required": ["mode"]
+            },
+            "then": {
+              "required": ["confine"],
+              "properties": { "path": { "pattern": "[<*]" } }
+            }
+          }
+        ]
+      }
+    },
     "evals": {
       "type": "object",
       "additionalProperties": false,

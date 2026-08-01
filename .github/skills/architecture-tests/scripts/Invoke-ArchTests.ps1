@@ -146,6 +146,37 @@ function Write-ArchTestReceiptFile {
     [System.IO.File]::WriteAllText($Path, $json, $utf8NoBom)
 }
 
+function Resolve-ArchReceiptPath {
+    <#
+    .SYNOPSIS
+    Canonicalize-then-confine helper for a receipt path derived from a contract id.
+    .DESCRIPTION
+    The contract id comes from the runner config, which is a repo file an operator (or a
+    harvested proposal) authors. `docs/architecture-notes/receipts/<contractId>.arch-receipt.json`
+    is a scaffolded path outside `.github/`, so the id is the one variable segment that decides
+    where a write lands: it is pattern-checked, then the resolved path is confined under the
+    receipt root, so an id that escapes the directory fails loud instead of writing outside it.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$ReceiptRoot,
+        [Parameter(Mandatory)][string]$ContractId
+    )
+
+    if ($ContractId -notmatch $script:ArchTestIdPattern) {
+        throw "Invalid contractId '$ContractId' (must match $($script:ArchTestIdPattern)); refusing to derive a receipt path from it."
+    }
+
+    $rootFull = [System.IO.Path]::GetFullPath($ReceiptRoot)
+    $candidate = [System.IO.Path]::GetFullPath((Join-Path $rootFull "$ContractId.arch-receipt.json"))
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $rootWithSeparator = $rootFull.TrimEnd($separator) + $separator
+    if (-not $candidate.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Resolved receipt path '$candidate' escapes receipt root '$rootFull'."
+    }
+
+    return $candidate
+}
+
 function Invoke-ArchTests {
     <#
     .SYNOPSIS
@@ -347,7 +378,7 @@ function Invoke-ArchTests {
         $receipt = New-ArchTestReceipt @receiptArgs
         $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $verdict -Ran $ran -Adapter $adapter
 
-        $receiptPath = Join-Path $receiptRoot ("$contractId.arch-receipt.json")
+        $receiptPath = Resolve-ArchReceiptPath -ReceiptRoot $receiptRoot -ContractId $contractId
         if (-not $WhatIf) {
             Write-ArchTestReceiptFile -Receipt $receipt -Path $receiptPath
         }

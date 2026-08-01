@@ -36,6 +36,8 @@ trust anchor is still the human-authored contract + commit (see
 content hash over contract + binding + targets), `Resolve-ArchEffectiveMaturity`,
 `Get-ArchGateOutcome` (the taxonomy × maturity matrix), and `Read-ArchReceipt` (pure-parse + schema).
 
+**Receipt paths are confine-resolved.** `Resolve-ArchReceiptPath` pattern-checks the `contractId` from the runner config and then confines the resolved path under the receipt root, so a config-supplied id cannot steer a write out of `docs/architecture-notes/receipts/`. That directory is outside `.github/` and is declared as a first-use `scaffolds[]` entry naming this helper (see [plugin-registry.design.md](plugin-registry.design.md) → asset bootstrap).
+
 ## Key Patterns
 
 - **Two distinct integrity mechanisms — don't conflate them.**

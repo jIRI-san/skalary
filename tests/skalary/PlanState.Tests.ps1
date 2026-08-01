@@ -317,8 +317,8 @@ Describe 'PlanState Get-NextStep' {
         Import-Module $modulePath -Force -DisableNameChecking
 
         function New-FullStep {
-            param($Id, $Status, $Role = 'ai-agent', $After = @(), $Body = 'body')
-            [pscustomobject]@{ Id = $Id; Status = $Status; Role = $Role; After = $After; Body = $Body; Phase = '## Phase 1' }
+            param($Id, $Status, $Role = 'ai-agent', $After = @(), $Body = 'body', $Detail = '')
+            [pscustomobject]@{ Id = $Id; Status = $Status; Role = $Role; After = $After; Body = $Body; Phase = '## Phase 1'; Detail = $Detail }
         }
     }
 
@@ -359,12 +359,13 @@ Describe 'PlanState Get-NextStep' {
 
     It 'test:get-nextstep-flags surfaces isHuman, isDiscovery, and hasUncommittedChanges' {
         $meta = [pscustomobject]@{ Steps = @(
-            New-FullStep -Id '1.1' -Status ' ' -Role 'human' -Body 'Manual review [discovery] of X'
+            New-FullStep -Id '1.1' -Status ' ' -Role 'human' -Body 'Manual review [discovery] of X' -Detail '**Steps:** do it'
         ) }
         $next = Get-NextStep -Metadata $meta -HasUncommittedChanges
         $next.IsHuman | Should -BeTrue
         $next.IsDiscovery | Should -BeTrue
         $next.HasUncommittedChanges | Should -BeTrue
+        $next.Detail | Should -Be '**Steps:** do it'
     }
 
     It 'test:get-nextstep-flags reports IsComplete when no step remains' {

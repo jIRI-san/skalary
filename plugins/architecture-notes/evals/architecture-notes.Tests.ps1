@@ -32,8 +32,8 @@ Describe 'architecture-notes structural evals' {
         }
     }
 
-    It 'PluginManifest-ArchNotes: manifest validates against schemas/plugin.schema.json' {
-        $schemaPath = Join-Path $script:repoRoot 'schemas/plugin.schema.json'
+    It 'PluginManifest-ArchNotes: manifest validates against schemas/plugin/plugin.schema.json' {
+        $schemaPath = Join-Path $script:repoRoot 'schemas/plugin/plugin.schema.json'
         Test-Path -LiteralPath $schemaPath -PathType Leaf | Should -BeTrue
         $manifestRaw = Get-Content -LiteralPath $script:manifestPath -Raw
         { $manifestRaw | Test-Json -SchemaFile $schemaPath } | Should -Not -Throw
@@ -859,10 +859,18 @@ Describe 'architecture ADR loop evals (REQ-13)' {
         }
 
         # The SKILL documents promotion-before-auto-load and the superseded-ADR lifecycle bounding.
+        # The rare-operation detail lives in the tier-operations asset the SKILL defers to, so the
+        # contract is read across both — pinning it to SKILL.md alone would fail the moment detail
+        # moves into assets/, which the skill-size cap requires it to do.
         $skill = Get-Content -LiteralPath $script:skillPath -Raw
         $skill | Should -Match 'adr-harvest'
-        $skill | Should -Match '(?i)auto-loaded by .*/cip'
-        $skill | Should -Match '(?i)superseded'
+        $skill | Should -Match 'tier-operations-guide\.md'
+
+        $tierGuidePath = Join-Path (Split-Path -Parent $script:skillPath) 'assets/tier-operations-guide.md'
+        Test-Path -LiteralPath $tierGuidePath -PathType Leaf | Should -BeTrue
+        $adrContract = $skill + "`n" + (Get-Content -LiteralPath $tierGuidePath -Raw)
+        $adrContract | Should -Match '(?i)auto-loaded by .*/cip'
+        $adrContract | Should -Match '(?i)superseded'
         # /ci finalization wires the (gated) harvest so decisions are recorded on the next run.
         (Get-Content -LiteralPath $script:ciCrosscheckGuide -Raw) | Should -Match 'Import-ArchAdr\.ps1'
     }

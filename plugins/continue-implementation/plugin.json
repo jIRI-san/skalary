@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.6",
+  "version": "1.0.24",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -70,6 +70,46 @@
     {
       "src": "skills/ci/scripts/Test-Plan.ps1",
       "dest": "skills/ci/scripts/Test-Plan.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/review-ledger/.archive",
+      "mode": "literal",
+      "owner": "Remove-LedgerEntry.ps1",
+      "trigger": "first ledger prune"
+    },
+    {
+      "path": "docs/review-ledger/.archive/<category>.md",
+      "mode": "parameterized",
+      "owner": "Remove-LedgerEntry.ps1",
+      "trigger": "first ledger prune",
+      "confine": "Resolve-RepoPath",
+      "values": [
+        "consistency",
+        "error-handling",
+        "observability",
+        "performance",
+        "plan-structure",
+        "security",
+        "testing"
+      ]
+    },
+    {
+      "path": "docs/review-ledger/<category>.md",
+      "mode": "parameterized",
+      "owner": "Add-LedgerEntry.ps1",
+      "trigger": "first harvest append",
+      "confine": "Resolve-LedgerPath",
+      "values": [
+        "consistency",
+        "error-handling",
+        "observability",
+        "performance",
+        "plan-structure",
+        "security",
+        "testing"
+      ]
     }
   ],
   "evals": {

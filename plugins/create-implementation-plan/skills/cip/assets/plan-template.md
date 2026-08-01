@@ -10,28 +10,26 @@
 <!-- Offline package bundling (autonomous container/sandbox plans): list expected new third-party packages so they can be batched and the offline rebundle round-trip fires at most once. Use `none` when the plan adds no packages. -->
 <!-- expected-packages: dotnet:<list>; npm:<list> -->
 
-## Decisions
-<!-- Key decisions made during planning — one bullet per decision -->
--
+## Assets
 
-## Requirements
+`plan.md` holds only the markers above, this index, and the phases/steps below. Everything else lives under `assets/` and is loaded on demand — never wholesale.
 
-| ID | Requirement | Acceptance Criteria | Phases/Steps |
-|----|-------------|---------------------|--------------|
-| REQ-1 | | Use typed evidence markers in criteria: `test:<TestId>` · `file:<path>#exists` · `file:<path>#contains:<regex>` · `file:<path>#count>=<N>` · `file:<path>#dircount>=<N>` · `review:cr|dr` | |
+- Intent — [assets/intent.md](assets/intent.md)
+- Requirements — [assets/requirements.md](assets/requirements.md)
+- Risks — [assets/risks.md](assets/risks.md)
+- Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)
+- References — [assets/references.md](assets/references.md)
+- Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
+- Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
 
-## Risks
-
-| ID | Risk | Likelihood | Impact | Mitigation | Steps |
-|----|------|------------|--------|------------|-------|
-| RISK-1 | | Low/Medium/High | Low/Medium/High | | 1.2 |
+A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
 ## Phase 1: Name
 <!-- worktree: (recorded by /ci when worktree is created) -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
-<!-- Point legend: S=1, M=2, L=3 (phase-budget advisory cap: 6) -->
+<!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
 - [ ] 1.1 Step title (REQ-1) `S`
 - [ ] 1.2 Step title (REQ-1, RISK-1) @human `M`
@@ -40,7 +38,8 @@
   **Steps:**
   1. Navigate to **Azure Portal > Resource Group > ...**
   2. Run: `az resource ...`
-  3. Verify: expected outcome.
+
+  **Verify:** the concrete, observable condition that proves the step worked.
 
   **Rollback:** Delete the resource / revert the setting to X.
 
@@ -53,4 +52,17 @@
 
 ## Finalization (conditional)
 
+<!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
+     Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
+
 - [ ] X.Y Finalization gate (REQ-1) @human `S`
+  <details><summary>Details</summary>
+
+  **Steps:**
+  1. What the operator has to do, in order.
+
+  **Verify:** what proves it worked.
+
+  **Rollback:** how to undo it.
+
+  </details>

@@ -16,7 +16,9 @@ Describe 'cip structural evals' {
         $skillEntries.Count | Should -Be 1
         $script:skillEntry = $skillEntries[0]
 
-        $assetEntries = @($manifest.files | Where-Object { [string]$_.src -eq 'skills/cip/assets/plan-template.md' })
+        # The same source template is also installed under skills/cep/, so `src` alone is no
+        # longer unique — the cip install is identified by its destination.
+        $assetEntries = @($manifest.files | Where-Object { [string]$_.dest -eq 'skills/cip/assets/plan-template.md' })
         $assetEntries.Count | Should -Be 1
         $script:assetEntry = $assetEntries[0]
 

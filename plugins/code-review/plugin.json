@@ -1,7 +1,7 @@
 {
   "name": "code-review",
-  "version": "1.0.1",
-  "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+  "version": "1.0.4",
+  "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -17,44 +17,64 @@
       "dest": "prompts/cr.prompt.md"
     },
     {
+      "src": "skills/cr/SKILL.md",
+      "dest": "skills/cr/SKILL.md"
+    },
+    {
+      "src": "skills/cr/assets/scope-guide.md",
+      "dest": "skills/cr/assets/scope-guide.md"
+    },
+    {
+      "src": "skills/cr/assets/dispatch-guide.md",
+      "dest": "skills/cr/assets/dispatch-guide.md"
+    },
+    {
+      "src": "skills/cr/assets/collation-guide.md",
+      "dest": "skills/cr/assets/collation-guide.md"
+    },
+    {
+      "src": "skills/cr/scripts/Build-ReviewReport.ps1",
+      "dest": "skills/cr/scripts/Build-ReviewReport.ps1"
+    },
+    {
+      "src": "skills/cr/assets/concern-ledger-map.md",
+      "dest": "skills/cr/assets/concern-ledger-map.md"
+    },
+    {
       "src": "agents/cr.agent.md",
       "dest": "agents/cr.agent.md"
     },
     {
-      "src": "agents/cr-opus.agent.md",
-      "dest": "agents/cr-opus.agent.md"
+      "src": "agents/cr-security.agent.md",
+      "dest": "agents/cr-security.agent.md"
     },
     {
-      "src": "agents/cr-codex.agent.md",
-      "dest": "agents/cr-codex.agent.md"
+      "src": "agents/cr-correctness-reliability.agent.md",
+      "dest": "agents/cr-correctness-reliability.agent.md"
     },
     {
-      "src": "agents/cr-gemini.agent.md",
-      "dest": "agents/cr-gemini.agent.md"
+      "src": "agents/cr-architecture-patterns.agent.md",
+      "dest": "agents/cr-architecture-patterns.agent.md"
     },
     {
-      "src": "agents/scripts/get-diff-branch.ps1",
-      "dest": "agents/scripts/get-diff-branch.ps1"
+      "src": "agents/cr-performance.agent.md",
+      "dest": "agents/cr-performance.agent.md"
     },
     {
-      "src": "agents/scripts/get-diff-commits.ps1",
-      "dest": "agents/scripts/get-diff-commits.ps1"
+      "src": "agents/cr-testing-evidence.agent.md",
+      "dest": "agents/cr-testing-evidence.agent.md"
     },
     {
-      "src": "agents/scripts/get-diff-files.ps1",
-      "dest": "agents/scripts/get-diff-files.ps1"
+      "src": "agents/cr-maintainability-consistency.agent.md",
+      "dest": "agents/cr-maintainability-consistency.agent.md"
     },
     {
-      "src": "agents/scripts/get-diff-paths.ps1",
-      "dest": "agents/scripts/get-diff-paths.ps1"
+      "src": "agents/cr-operability-observability.agent.md",
+      "dest": "agents/cr-operability-observability.agent.md"
     },
     {
-      "src": "agents/scripts/get-diff-smart-default.ps1",
-      "dest": "agents/scripts/get-diff-smart-default.ps1"
-    },
-    {
-      "src": "agents/scripts/get-diff-uncommitted.ps1",
-      "dest": "agents/scripts/get-diff-uncommitted.ps1"
+      "src": "agents/scripts/Get-ReviewScope.ps1",
+      "dest": "agents/scripts/Get-ReviewScope.ps1"
     }
   ],
   "evals": {

@@ -30,6 +30,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+
 function Get-NoteConfig {
     param([string]$Kind)
     switch ($Kind) {
@@ -101,7 +103,11 @@ $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
 if (-not (Test-Path -LiteralPath $planDirFull -PathType Container)) {
     throw "Plan folder not found: $planDirFull"
 }
-$filePath = Join-Path $planDirFull $config.FileName
+$filePath = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind $Kind
+$fileParent = Split-Path -Parent $filePath
+if (-not (Test-Path -LiteralPath $fileParent -PathType Container)) {
+    New-Item -ItemType Directory -Path $fileParent -Force | Out-Null
+}
 
 if (Test-Path -LiteralPath $filePath -PathType Leaf) {
     $raw = Get-Content -LiteralPath $filePath -Raw

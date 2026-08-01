@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T17:11:35.9903732Z",
+  "generatedAt": "2026-08-01T15:51:52.6090496Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -55,6 +55,11 @@
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
+          "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
+          "sha256": "f35a8d1c69cc108a6bca3d350fb5ea6c6396bf65e81d9fdc2514209b71e665ac",
+          "src": "skills/architecture-notes/assets/tier-operations-guide.md"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
           "sha256": "b4c96660f2cd2395afc08a70f3795e68d072ba07f77988d5b96c183084f855ab",
           "src": "scripts/Copy-ArchScaffold.ps1"
@@ -66,7 +71,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
-          "sha256": "a6cbeeaca3fc7c33a1ca8be6725553f4e490d43676b6388e69bbed77ce19323c",
+          "sha256": "a4eb1e88decc0bd3a57c35759648b1dad59bd2e019410db341fa2237e3ae1b2e",
           "src": "scripts/Import-ArchAdr.ps1"
         },
         {
@@ -81,7 +86,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "7fe1703eae35fcebbe6cc217a4e49b696ca07ac2e6627a30ff1908ee15250739",
+          "sha256": "ff00e65e11650f866ae82f1acfa47e76793120a4191f79b22b1d09c4bf86820a",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
@@ -91,12 +96,44 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "779a0e968ef88f7838002768cde64bab528449e74e6220161d426e94732c5ec0",
+          "sha256": "f58297c04a191263752829c59f2f09d2592763153f88f0392ca6c09591ffc1e1",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
       "license": "MIT",
       "name": "architecture-notes",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Copy-ArchScaffold.ps1",
+          "path": "docs/architecture-notes/.architecture-notes.md",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "Import-ArchHarvest.ps1",
+          "path": "docs/architecture-notes/.staging",
+          "trigger": "brownfield harvest"
+        },
+        {
+          "mode": "literal",
+          "owner": "Import-ArchAdr.ps1",
+          "path": "docs/architecture-notes/.staging/adr",
+          "trigger": "ADR harvest at plan finalization"
+        },
+        {
+          "mode": "literal",
+          "owner": "New-ArchHumanDoc.ps1",
+          "path": "docs/architecture-notes/architecture.human.md",
+          "trigger": "first human-doc regeneration"
+        },
+        {
+          "mode": "literal",
+          "owner": "Copy-ArchScaffold.ps1",
+          "path": "schemas/architecture/architecture-contract.schema.json",
+          "trigger": "tier scaffold on first run"
+        }
+      ],
       "status": "partial",
       "tags": [
         "architecture",
@@ -104,7 +141,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",
@@ -156,7 +193,7 @@
         },
         {
           "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
-          "sha256": "0d901b437007efa0ceb060c9877cd194deb67b13e59d4c8d0cf617731f31266f",
+          "sha256": "849dd5ad51bb7e09749fb426ddbda524fb12fd9aa497590cd7f22b41db369798",
           "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
         },
         {
@@ -187,6 +224,27 @@
       ],
       "license": "MIT",
       "name": "architecture-tests",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "/architecture-tests init",
+          "path": "docs/architecture-notes/arch-test-config.json",
+          "trigger": "runner init"
+        },
+        {
+          "mode": "literal",
+          "owner": "Invoke-ArchTests.ps1",
+          "path": "docs/architecture-notes/receipts",
+          "trigger": "first runner invocation"
+        },
+        {
+          "confine": "Resolve-ArchReceiptPath",
+          "mode": "parameterized",
+          "owner": "Invoke-ArchTests.ps1",
+          "path": "docs/architecture-notes/receipts/<contractId>.arch-receipt.json",
+          "trigger": "first runner invocation"
+        }
+      ],
       "status": "partial",
       "tags": [
         "architecture",
@@ -194,7 +252,7 @@
         "fitness-functions",
         "skill"
       ],
-      "version": "1.0.18"
+      "version": "1.0.20"
     },
     {
       "author": "jIRI-san",
@@ -206,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "e0c11f0c9335726ed8915be5458d5c4fa95869b9dcc53c296b067414a62b3ea1",
+          "sha256": "f01b89f1b39f4f5a295899eb94787dc2dfaa39867de2b34d007534a873d04880",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -228,6 +286,16 @@
           "dest": "skills/autopilot/devcontainer/Dockerfile",
           "sha256": "2acb5fb9a9cdeeb4ef16c7d90b63cd72e32bde811d4be001f4302d9ea0490971",
           "src": "devcontainer/Dockerfile"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
+          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
+          "src": "schemas/autopilot.host.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.schema.json",
+          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
+          "src": "schemas/autopilot.schema.json"
         },
         {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
@@ -290,16 +358,6 @@
           "src": "scripts/validate-auth.ps1"
         },
         {
-          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
-          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
-          "src": "schemas/autopilot.host.schema.json"
-        },
-        {
-          "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "59293a99dc2c96e74c7a3554241b35bb9c14be184f30782a2c306f7eff482853",
-          "src": "schemas/autopilot.schema.json"
-        },
-        {
           "dest": "skills/autopilot/SKILL.md",
           "sha256": "b18008db7f554c93ff96aecc1d3bd141f787447acb0a25208b2836ff381b6732",
           "src": "skills/autopilot/SKILL.md"
@@ -314,70 +372,95 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.0"
+      "version": "1.2.3"
     },
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Code review orchestrator with specialist subagents and git diff helpers.",
+      "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
       "evals": {
         "status": "none"
       },
       "files": [
         {
-          "dest": "agents/cr-codex.agent.md",
-          "sha256": "28c22f567d98242ae198694236f8f3cd797ffe1ed37000e9cfb8f3191ea58492",
-          "src": "agents/cr-codex.agent.md"
+          "dest": "agents/cr-architecture-patterns.agent.md",
+          "sha256": "8a44c7717cf424d73357c802504ee65feb93566bf7b4be7c323aad8c908bcc27",
+          "src": "agents/cr-architecture-patterns.agent.md"
         },
         {
-          "dest": "agents/cr-gemini.agent.md",
-          "sha256": "fa0a98d40a7716199805a680f36288fd174b7f694d47b07586d2150324fda0db",
-          "src": "agents/cr-gemini.agent.md"
+          "dest": "agents/cr-correctness-reliability.agent.md",
+          "sha256": "72594f6231246e178fd9ab96d27854a438e679f5e22152cfa21ee7898619d447",
+          "src": "agents/cr-correctness-reliability.agent.md"
         },
         {
-          "dest": "agents/cr-opus.agent.md",
-          "sha256": "4ac7ca094ee4ca3257a99e1edf8611dd55ea2d02560e7e58bf0c50449ecf875d",
-          "src": "agents/cr-opus.agent.md"
+          "dest": "agents/cr-maintainability-consistency.agent.md",
+          "sha256": "9b15a4ad8da0bf7e06a8afa1ac93f6fd15667f57b30751414b4ade3a4063f687",
+          "src": "agents/cr-maintainability-consistency.agent.md"
+        },
+        {
+          "dest": "agents/cr-operability-observability.agent.md",
+          "sha256": "4a2a3deec69eae3864b371b0defec927af147e1b974cd2602eca7e55454bd5a2",
+          "src": "agents/cr-operability-observability.agent.md"
+        },
+        {
+          "dest": "agents/cr-performance.agent.md",
+          "sha256": "caac386f9c937a0ec0353fb79488299cf5a7b89ef984df4c73767c4fecd51c37",
+          "src": "agents/cr-performance.agent.md"
+        },
+        {
+          "dest": "agents/cr-security.agent.md",
+          "sha256": "721c7914e4c457d21f406ff8cc734e51c4b050c790b48689e5b76262e323cc83",
+          "src": "agents/cr-security.agent.md"
+        },
+        {
+          "dest": "agents/cr-testing-evidence.agent.md",
+          "sha256": "f6324771d18c3817a6330d4ce589cb8a8f9e7721ccc0ea100be08c7350b3fd3c",
+          "src": "agents/cr-testing-evidence.agent.md"
         },
         {
           "dest": "agents/cr.agent.md",
-          "sha256": "e357b9c0cf958f1b68d2fbc97c4d74e9ca75c4657cf06a0ce930111cfdb9a2ef",
+          "sha256": "8a4c229afc77c3be689f456dacb340e4134f0838dff43682eaeac22e79de8321",
           "src": "agents/cr.agent.md"
         },
         {
-          "dest": "agents/scripts/get-diff-branch.ps1",
-          "sha256": "bb5672b75b32a63c5b31a52650556c978818f0ee9917d4a3219ff3e7ca2f78f6",
-          "src": "agents/scripts/get-diff-branch.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-commits.ps1",
-          "sha256": "36ee380d2494fcf401f922c0c525b1bd304d4c0c0a739f0ad30d1ad689e8fbd2",
-          "src": "agents/scripts/get-diff-commits.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-files.ps1",
-          "sha256": "986f9bb28ee92015ccae23939f64b372de5fc9f28992f557cc96fc51f8f35ed3",
-          "src": "agents/scripts/get-diff-files.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-paths.ps1",
-          "sha256": "a81bb4a759196a67bb3b2d5c74c433ce100108adbca7216f98f5e2dbc1c754dd",
-          "src": "agents/scripts/get-diff-paths.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-smart-default.ps1",
-          "sha256": "810c023fd0f1bca8ba8130f7c2fcf9e37290267ccde838f6088bf73ef2a9a01b",
-          "src": "agents/scripts/get-diff-smart-default.ps1"
-        },
-        {
-          "dest": "agents/scripts/get-diff-uncommitted.ps1",
-          "sha256": "c2df1a5172309b077dfb447c0eace273010eaa8fac0b7e6d13c59434c380bd19",
-          "src": "agents/scripts/get-diff-uncommitted.ps1"
+          "dest": "agents/scripts/Get-ReviewScope.ps1",
+          "sha256": "44f70bf0216e6247e581247541cf8a84b24b06349ae405c695236f6da1a2da39",
+          "src": "agents/scripts/Get-ReviewScope.ps1"
         },
         {
           "dest": "prompts/cr.prompt.md",
-          "sha256": "89a23779168194cfc51b50574a1941c8cc64a5917bab459ba38020f651012d6e",
+          "sha256": "ee7b74f7a63508c9ab6c5596c7de1ce7b8de185549eb684fff3e44ca1bd000fa",
           "src": "prompts/cr.prompt.md"
+        },
+        {
+          "dest": "skills/cr/assets/collation-guide.md",
+          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
+          "src": "skills/cr/assets/collation-guide.md"
+        },
+        {
+          "dest": "skills/cr/assets/concern-ledger-map.md",
+          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "src": "skills/cr/assets/concern-ledger-map.md"
+        },
+        {
+          "dest": "skills/cr/assets/dispatch-guide.md",
+          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "src": "skills/cr/assets/dispatch-guide.md"
+        },
+        {
+          "dest": "skills/cr/assets/scope-guide.md",
+          "sha256": "359acedcbda3badbd038bb95ffcccdc8abbacd661c212fd299223a94632d0214",
+          "src": "skills/cr/assets/scope-guide.md"
+        },
+        {
+          "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
+          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/SKILL.md",
+          "sha256": "dedc919ea0feb52c289b72a0b1dcf4ca74687efc61b45fede5df40076062de00",
+          "src": "skills/cr/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -388,7 +471,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.1"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",
@@ -403,22 +486,22 @@
       "files": [
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "75d667cc60d91a311954969d0a246176bc895dc280406f30b08b23c7dd525682",
+          "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "ba0199161c00aa9017ba43831ecb3da8b8648e6caefa5c901315d2e550356ce8",
+          "sha256": "89965ccfee8f02d4c9cdbdf166b0c646d5629f12796ef73d89121fc60afbf3c7",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
           "dest": "skills/ci/scripts/Add-LedgerEntry.ps1",
-          "sha256": "9a0eddc6c06603abca42fc6fb66f8d8ec0e95edb1e1a1a6eb67b6ee1d5836006",
+          "sha256": "2daf1849cfd29f83ceb18ecdb92546766a5e05b64b7cb50cff46305987c0cf05",
           "src": "skills/ci/scripts/Add-LedgerEntry.ps1"
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "39cb1a7b025897413a5015d0c373f82b531d880a1da435a5267ddf88b1bdf97a",
+          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -428,12 +511,12 @@
         },
         {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
-          "sha256": "d9d9b6f09640613a77ca4652a6b0f941c7be97596526e292f13d0bd3ca11f08d",
+          "sha256": "21b9d0f3aa59b258ef8cdaed6e8f7d5903beacde9b95297fc1fb868e0f9ac630",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
         },
         {
           "dest": "skills/ci/scripts/Get-PlanState.ps1",
-          "sha256": "c8576035a037e3976a67f978ca101136d0788a4bf97646d72de31ffb82c2b18c",
+          "sha256": "14d4bf321e34726c4185b67673eaca67d4c59d6a2ed982c784c4e8cefa638b6d",
           "src": "skills/ci/scripts/Get-PlanState.ps1"
         },
         {
@@ -443,12 +526,12 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "0825f2c07ca79c5766bb91499230581163ae2fa6e32336ed202d55e88f07ad04",
+          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/ci/scripts/Remove-LedgerEntry.ps1",
-          "sha256": "6c49008b03176506c4e207c4eff2337977cfec83f422119f00bae9c2657b0695",
+          "sha256": "4cc47c9e3e3db4c3b41de68e2f51f528168c29d94312ace10deb43399916042e",
           "src": "skills/ci/scripts/Remove-LedgerEntry.ps1"
         },
         {
@@ -463,24 +546,64 @@
         },
         {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
-          "sha256": "b7d273a59a59f6a3225c674895aee3d6f46ff2fd15d970569983b627517b7697",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/ci/scripts/Test-Plan.ps1"
         },
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "b318fe1e9815c78eefc46baafa7926f35c0107c3d51502887adab1524fd954f4",
+          "sha256": "6e1984605688debe136d94bf0643fd21b79e0e680da1677799ae0c8da6261306",
           "src": "skills/ci/SKILL.md"
         }
       ],
       "license": "MIT",
       "name": "continue-implementation",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Remove-LedgerEntry.ps1",
+          "path": "docs/review-ledger/.archive",
+          "trigger": "first ledger prune"
+        },
+        {
+          "confine": "Resolve-RepoPath",
+          "mode": "parameterized",
+          "owner": "Remove-LedgerEntry.ps1",
+          "path": "docs/review-ledger/.archive/<category>.md",
+          "trigger": "first ledger prune",
+          "values": [
+            "consistency",
+            "error-handling",
+            "observability",
+            "performance",
+            "plan-structure",
+            "security",
+            "testing"
+          ]
+        },
+        {
+          "confine": "Resolve-LedgerPath",
+          "mode": "parameterized",
+          "owner": "Add-LedgerEntry.ps1",
+          "path": "docs/review-ledger/<category>.md",
+          "trigger": "first harvest append",
+          "values": [
+            "consistency",
+            "error-handling",
+            "observability",
+            "performance",
+            "plan-structure",
+            "security",
+            "testing"
+          ]
+        }
+      ],
       "status": "stable",
       "tags": [
         "autopilot",
         "implementation",
         "skill"
       ],
-      "version": "1.0.6"
+      "version": "1.0.24"
     },
     {
       "author": "jIRI-san",
@@ -493,28 +616,83 @@
       },
       "files": [
         {
+          "dest": "skills/cep/assets/decomposition-guide.md",
+          "sha256": "ca80f950df74b71b5de860ec520a7ff36f1905cd9a0bf4793280d65e48a6e3e9",
+          "src": "skills/cep/assets/decomposition-guide.md"
+        },
+        {
+          "dest": "skills/cep/assets/plan-template.md",
+          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cep/scripts/ArchReceipt.psm1",
+          "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
+          "src": "skills/cep/scripts/ArchReceipt.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/cep/scripts/Get-PlanIndex.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Epic.ps1",
+          "sha256": "d5b5959baa7253ca6cef26624c0c1271d9e03d076d3c45a4cf0c2e72eaa0f456",
+          "src": "skills/cep/scripts/New-Epic.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Plan.ps1",
+          "sha256": "bb6cc64b1d8a9dd159929f811ba40775b4d29409860f5d7a6fdf09ff1efa3a47",
+          "src": "skills/cep/scripts/New-Plan.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/PlanEvidence.psm1",
+          "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f",
+          "src": "skills/cep/scripts/PlanEvidence.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/PlanState.psm1",
+          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Test-Plan.ps1",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
+          "src": "skills/cep/scripts/Test-Plan.ps1"
+        },
+        {
+          "dest": "skills/cep/SKILL.md",
+          "sha256": "55ad12759a39d671df109405b0e61b40fbfeaa88c2bae90b18e2bcbc93df21f1",
+          "src": "skills/cep/SKILL.md"
+        },
+        {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "6699bf7e425e045775fb62dc5bf7c8a9b0f77075881803a87d2b23a14414b31f",
+          "sha256": "d6d2dd11baa2184c6f5f569809b89e182f2db20bfea04ca0fa4e82c87263f65f",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "b01880e5b67e99ecc0857cf27708826e84ebf2bd6395b2a0466adab38bfd5acd",
+          "sha256": "84a93b249e38f20720042737371dff56353bee84f063c9f3ddc8520831353019",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
+          "dest": "skills/cip/assets/intent-template.md",
+          "sha256": "95a4e9f6e38728436304b98ba39e2c9c51b5997a9da3404baa5749e2ba25f204",
+          "src": "skills/cip/assets/intent-template.md"
+        },
+        {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "2451ee25c2beeabad3667b2fdbaaba7878765f283e2922ffb3e551e022aa81d3",
+          "sha256": "30b76e584db9ad92029c21ff33c6221a2d4a91a01fa9e83d5e63c1122f3ee61d",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "4ae86bfe4e3a63751f5f26c46feebe0bf56769e823ed843c7fa89edfa6f91bf9",
+          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "39cb1a7b025897413a5015d0c373f82b531d880a1da435a5267ddf88b1bdf97a",
+          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -523,8 +701,13 @@
           "src": "skills/cip/scripts/ArchReceipt.psm1"
         },
         {
+          "dest": "skills/cip/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/cip/scripts/Get-PlanIndex.ps1"
+        },
+        {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "ea4ebea608d06f12e92050ac56116d5d2a5a3aafcc8893cf061c16e026e3d5db",
+          "sha256": "bb6cc64b1d8a9dd159929f811ba40775b4d29409860f5d7a6fdf09ff1efa3a47",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -534,7 +717,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "0825f2c07ca79c5766bb91499230581163ae2fa6e32336ed202d55e88f07ad04",
+          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -549,23 +732,39 @@
         },
         {
           "dest": "skills/cip/scripts/Test-Plan.ps1",
-          "sha256": "b7d273a59a59f6a3225c674895aee3d6f46ff2fd15d970569983b627517b7697",
+          "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/cip/scripts/Test-Plan.ps1"
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "fddff406dea5e0f461e4ed1b13d3c9e17e0a7f7050bb69180582be994a782d18",
+          "sha256": "543772bc514c068598e897dbabc49e21f0bc6b02611e311741281a5da613b2f7",
           "src": "skills/cip/SKILL.md"
         }
       ],
       "license": "MIT",
       "name": "create-implementation-plan",
+      "scaffolds": [
+        {
+          "confine": "Resolve-ConfinedFolder",
+          "mode": "parameterized",
+          "owner": "New-Plan.ps1",
+          "path": "docs/implementation-plans/<plan>/**",
+          "trigger": "plan scaffold (plan.md plus assets/)"
+        },
+        {
+          "confine": "Resolve-ConfinedFolder",
+          "mode": "parameterized",
+          "owner": "New-Epic.ps1",
+          "path": "docs/implementation-plans/epics/<epic>/**",
+          "trigger": "epic scaffold"
+        }
+      ],
       "status": "stable",
       "tags": [
         "planning",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.21"
     },
     {
       "author": "jIRI-san",
@@ -602,12 +801,32 @@
         },
         {
           "dest": "skills/design-notes/SKILL.md",
-          "sha256": "97ad0fd364299c88ec1477aaf57319010c94e8a9ad3ae27b0cab1549e4183f71",
+          "sha256": "a98d36f9ec39490c0c686aea7235e93475770e2d3e3583ab86a87d7f779a7d3c",
           "src": "skills/design-notes/SKILL.md"
         }
       ],
       "license": "MIT",
       "name": "design-notes",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "/design-notes init",
+          "path": "docs/design-notes/.design-notes.md",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "/design-notes init",
+          "path": "docs/design-notes/project",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "/design-notes init",
+          "path": "docs/design-notes/project/design-note-writing-style.design.md",
+          "trigger": "tier scaffold on first run"
+        }
+      ],
       "status": "stable",
       "tags": [
         "design-notes",
@@ -615,7 +834,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.1.0"
+      "version": "1.1.2"
     },
     {
       "author": "jIRI-san",
@@ -626,29 +845,79 @@
       },
       "files": [
         {
-          "dest": "agents/dr-codex.agent.md",
-          "sha256": "6e9bdaeddf0cdd5f1a41729c14bbecc2531f33be7ea90b91a013f0476421c16e",
-          "src": "agents/dr-codex.agent.md"
+          "dest": "agents/dr-architecture-patterns.agent.md",
+          "sha256": "15f0cbb99920dbd86a9a54ebc8001d324a588fffb398927146dffd371701b266",
+          "src": "agents/dr-architecture-patterns.agent.md"
         },
         {
-          "dest": "agents/dr-gemini.agent.md",
-          "sha256": "ac883033cedee50b896585b2ed36dfe628380e6b2e7430fdeda18fbc4e10e7db",
-          "src": "agents/dr-gemini.agent.md"
+          "dest": "agents/dr-correctness-reliability.agent.md",
+          "sha256": "d4fc9ce23e6690a25c43bff15a177b3382f2207454061f0d71bb225d6cc26d01",
+          "src": "agents/dr-correctness-reliability.agent.md"
         },
         {
-          "dest": "agents/dr-opus.agent.md",
-          "sha256": "38566d4734b05a12d4408463886a5deb86e725c3589b7552c7a07a246c720abd",
-          "src": "agents/dr-opus.agent.md"
+          "dest": "agents/dr-maintainability-consistency.agent.md",
+          "sha256": "a3c15a6106c6aa7bf3ebf758d19e9f082cc9a67f7289929397b1bb468d7fe6a4",
+          "src": "agents/dr-maintainability-consistency.agent.md"
+        },
+        {
+          "dest": "agents/dr-operability-observability.agent.md",
+          "sha256": "c0df01311bba294c5d3a2f400fa9f424a44a3f4252e9f868d63d00c061623004",
+          "src": "agents/dr-operability-observability.agent.md"
+        },
+        {
+          "dest": "agents/dr-performance.agent.md",
+          "sha256": "344b3e743bff6c6fff4142faf11637f336570cdbf678dc902678e9e5f95664ff",
+          "src": "agents/dr-performance.agent.md"
+        },
+        {
+          "dest": "agents/dr-security.agent.md",
+          "sha256": "e83101efa1f82fd8faf367c8be4266928a52e9db9ca7ec722168ddda2dbff2aa",
+          "src": "agents/dr-security.agent.md"
+        },
+        {
+          "dest": "agents/dr-testing-evidence.agent.md",
+          "sha256": "9c9d138421559aa62e2028a60ed74dc0f4b596302e6fe269bb856602990a9865",
+          "src": "agents/dr-testing-evidence.agent.md"
         },
         {
           "dest": "agents/dr.agent.md",
-          "sha256": "3d9428fab8851f04b1acf92b2244be067b32c87ea6ed412b52cf6301e2938f17",
+          "sha256": "bdff2d07024c69306225c928ad623fcdff80724f62989258f3ad89dc2411e555",
           "src": "agents/dr.agent.md"
         },
         {
           "dest": "prompts/dr.prompt.md",
-          "sha256": "83b02e04ff69d078c8d6c1cbdec7b313f056e00aaffcb70b3a49f6b88f5f0c2d",
+          "sha256": "3ffeee64d469b53be40359a059eebea23856923facff1f4660db95c2b739a152",
           "src": "prompts/dr.prompt.md"
+        },
+        {
+          "dest": "skills/dr/assets/collation-guide.md",
+          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
+          "src": "skills/dr/assets/collation-guide.md"
+        },
+        {
+          "dest": "skills/dr/assets/concern-ledger-map.md",
+          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "src": "skills/dr/assets/concern-ledger-map.md"
+        },
+        {
+          "dest": "skills/dr/assets/dispatch-guide.md",
+          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "src": "skills/dr/assets/dispatch-guide.md"
+        },
+        {
+          "dest": "skills/dr/assets/plan-scope-guide.md",
+          "sha256": "03e7570ac56ec86fca140482c0592306bc5187c30ee81696573ad340ff27e411",
+          "src": "skills/dr/assets/plan-scope-guide.md"
+        },
+        {
+          "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
+          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/SKILL.md",
+          "sha256": "bf4af88126bed2156a45db07b0296c5b46cd9cc2ef1618a3dcdcff82b9d9e362",
+          "src": "skills/dr/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -659,7 +928,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.1"
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",
@@ -784,6 +1053,96 @@
         "skill"
       ],
       "version": "1.0.0"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "create-implementation-plan"
+      ],
+      "description": "Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "prompts/pfb.prompt.md",
+          "sha256": "077fefa01079130bbe04c61887b0c8053eed8ece78f2d1404a65743c30f27b8a",
+          "src": "prompts/pfb.prompt.md"
+        },
+        {
+          "dest": "prompts/si.prompt.md",
+          "sha256": "1be2845f094140ef86e00d1bab7566cee34a1329b70c05bee93dd1b0360fd48f",
+          "src": "prompts/si.prompt.md"
+        },
+        {
+          "dest": "skills/pfb/assets/feedback-guide.md",
+          "sha256": "4e2cd47b428f6bf979845c674c08637491bfde4047426fdce525225f416848b9",
+          "src": "skills/pfb/assets/feedback-guide.md"
+        },
+        {
+          "dest": "skills/pfb/assets/queue-guide.md",
+          "sha256": "c91d6b7b149ed9614532cd3fde6159ee4150c196bf4fc750a985dc5df1e3ea56",
+          "src": "skills/pfb/assets/queue-guide.md"
+        },
+        {
+          "dest": "skills/pfb/scripts/PlanState.psm1",
+          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "src": "skills/pfb/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
+          "sha256": "23ea021c7477251349ffe1d8e55e7ecd0947fbdafbefe26b9faf018f1af0d32b",
+          "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
+        },
+        {
+          "dest": "skills/pfb/SKILL.md",
+          "sha256": "6e8febf47c11cd1d3485ac78b383a944214d39f6bdf9319908c35d28fccf2513",
+          "src": "skills/pfb/SKILL.md"
+        },
+        {
+          "dest": "skills/si/assets/harvest-guide.md",
+          "sha256": "09abb19a988b165f41144b38410dcbd3de4f98dc4ac8278247bdab48e578e345",
+          "src": "skills/si/assets/harvest-guide.md"
+        },
+        {
+          "dest": "skills/si/assets/propose-guide.md",
+          "sha256": "200696e0c708f0bb6944ce28b9fca662ad9a986b7fd141bfff24eda9011b1c5e",
+          "src": "skills/si/assets/propose-guide.md"
+        },
+        {
+          "dest": "skills/si/scripts/PlanState.psm1",
+          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "src": "skills/si/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
+          "sha256": "a656313e9034482d7ead0688b541e25c9d9b92ca0914982cd22f12968ebf6625",
+          "src": "skills/si/scripts/Test-SiWriteScope.ps1"
+        },
+        {
+          "dest": "skills/si/SKILL.md",
+          "sha256": "9dab1115ca6f920df5eb8a0f5a8955d750ae36c56292beb618f4c1845207c2d9",
+          "src": "skills/si/SKILL.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "self-improvement",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Update-FeedbackQueue.ps1",
+          "path": "docs/feedback/queue.md",
+          "trigger": "first queued /pfb marker"
+        }
+      ],
+      "status": "stable",
+      "tags": [
+        "feedback",
+        "prompt",
+        "self-improvement",
+        "skill"
+      ],
+      "version": "1.0.17"
     }
   ]
 }

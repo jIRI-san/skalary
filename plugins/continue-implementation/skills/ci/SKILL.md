@@ -15,10 +15,27 @@ context: fork
 
 ## Step 1: Select plan and load context
 
-1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` and any sibling `evolution-log.md` / `decisions/*.md`.
-2. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-3. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
-4. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
+1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` — in the current layout it carries only the header markers, the asset index, and the phases/steps.
+
+   **Epic reference:** the argument may be an epic id/slug instead (scaffolded by `/cep` under `docs/implementation-plans/epics/`). Epic ids and plan ids share one id space, so `Get-PlanState` (Step 2) resolves either and reports epic rollup plus the next unblocked child when the reference is an epic. Do not pick a child yourself: take `NextChild`, then continue this skill against that child plan exactly as if it had been named directly. Epic membership is the `<!-- epic: <id> -->` marker in each child plan; `epic.md` is a generated mirror, never the authority.
+2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
+
+   | Asset | Read it when |
+   |---|---|
+   | `assets/intent.md` | **always** — before implementing any step, and again at phase crosscheck to re-anchor |
+   | `assets/requirements.md` | validating the acceptance criteria of the step's `REQ-N` refs |
+   | `assets/risks.md` | the step references a `RISK-N` |
+   | `assets/decisions.md`, `assets/decisions/<topic>.md` | a trade-off call needs prior rationale |
+   | `assets/references.md`, `assets/evolution-log.md` | reconciling against prior review rounds or consulted sources |
+   | `assets/evidence.md` | phase/plan crosscheck and the archival gate |
+   | `assets/logs/{capture,cr-log,learnings}.md` | harvest at plan completion (written only via `Add-WorkflowNote`) |
+
+   Never read the whole `assets/` tree "for context". Legacy plans keep these files at the plan-folder root; resolve the path with `Resolve-PlanAssetPath` (in `PlanState.psm1`) rather than assuming either location.
+
+   **Intent is the one non-optional read.** The plan's intent asset states the operator's goal, desired outcome, success signals, non-goals, and definition of done. Read it before implementing any step and re-anchor against it at every phase crosscheck — requirements say what to build, intent says what the operator is trying to achieve, and only intent can tell you a technically-green step missed the point. If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder, the plan did not clear the `/cip` `intent` gate: surface that to the user instead of guessing the intent yourself.
+3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
+4. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
+5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
 pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
@@ -31,14 +48,16 @@ If it exits non-zero, stop immediately.
 Surface deterministic state before any work:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-reference> -RepoRoot .
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot .
 ```
 
-`Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
+**Epic references** return `Kind = epic`: child-plan rollup (complete/blocked counts, step totals) plus `NextChild` — the first child, in date/id order, that is neither complete nor blocked by an unmet `depends-on`. A child counts as complete when every step is `[x]` or its plan is archived, and dependency resolution is fail-closed: a `depends-on` token that resolves to no plan (or to several) blocks the child and is reported. If `NextChild` is empty, either every child is complete or a dependency is unresolvable — surface that to the user instead of starting arbitrary work. Re-run against the returned child id to get its plan state, then proceed.
+
+For a plan reference, `Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
 
 - **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
 - **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.
-- **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute.
+- **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute. For `@human`, print the step's full `Handoff:` block from `Get-PlanState` verbatim (**Steps**, **Verify**, **Rollback**), not just the step title: that block is what makes the operator round-trip single-pass. If the block is missing or incomplete, say so — the plan did not clear the `human-step-detail` gate.
 
 ## Step 3: Determine execution mode and branch/worktree
 
@@ -93,6 +112,7 @@ Use the crosscheck asset for:
 Long runs drift; re-anchor every step instead of trusting context memory:
 
 - **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
+- **Intent authority:** the plan's intent asset — not remembered context — is the anchor for *why* a step exists. Re-read it before each step and at every crosscheck.
 - **Consistency authority:** the `npm run validate-plan` reconcile gate (Step 4) is the only authority on plan/evidence consistency — resolve any divergence by re-running it, not by reasoning from context.
 - **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
 - **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.

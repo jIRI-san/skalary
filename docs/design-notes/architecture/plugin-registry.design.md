@@ -28,8 +28,8 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 
 | Schema | Contract |
 |---|---|
-| `schemas/plugin/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, reserved `evals` block. |
-| `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256` and bootstrap metadata (`ref`, script URL, one-liner). |
+| `schemas/plugin/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, optional `scaffolds[]` (first-use runtime paths outside `.github/`), reserved `evals` block. |
+| `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256`, the plugin's `scaffolds[]`, and bootstrap metadata (`ref`, script URL, one-liner). |
 | `schemas/receipt/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
 
 Design choice: per-plugin receipts replace a shared lock file to avoid cross-branch merge conflicts.
@@ -96,6 +96,60 @@ The one deliberate split: the `architecture-tests` **runner** (`Invoke-ArchTests
 
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
+
+## Asset Bootstrap
+
+A skill that reads a file which exists only in this repo's working tree works perfectly when
+dogfooded and fails in every consumer repo — **quietly**. The agent reads nothing, proceeds without
+the guide/map/template, and produces degraded output rather than an error. That failure mode is why
+this is a gate rather than a convention.
+
+| Invariant | Rule |
+|---|---|
+| Installed by default | Every file a payload (`SKILL.md`, `*.agent.md`, `*.prompt.md`, bundled script, or another asset) reads at runtime must appear in some plugin's `files[]` with a `dest` under `.github/`. Installation materializes it, the registry hashes it, install/remove stay transactional. |
+| Scaffolded when installation cannot reach it | `ARCH-Install-Confinement` confines installer writes to `.github/`, and there is no post-install hook. A runtime path outside `.github/` is therefore materialized on **first use** by the owning skill or script and declared in `scaffolds[]`. A post-install hook would be the alternative, and it is precisely what the confinement exists to prevent. |
+| Declarations reach the registry | Consumer installs resolve against `registry.json`, not the source tree, so `Build-Registry.ps1` carries `scaffolds[]` through. A declaration that stops at `plugin.json` never reaches the repo that has to honour it. |
+| Two modes, both explicit | A **literal** entry names a fixed path and forbids a `confine` helper. A **parameterized** entry uses `<name>` (one segment) or `**` (subtree), **requires** a `confine` helper, and may carry a closed `values` domain. The schema enforces both branches, so a variable path cannot be mislabelled as fixed to dodge the helper requirement. |
+| Declarations must be true | The declared `confine` helper has to be shipped **and called** by the declaring plugin's own payload — asserted by test, because a manifest that describes a control nobody implements is worse than no manifest: it passes the gate while the gap stays open. `owner` and `trigger` are **documentation, not assertions**; they name who to go ask, and nothing verifies that the named owner performs the write. |
+
+**The scanner grammar is closed** (`Sync-PluginScripts.ps1`, gated by `validate.ps1` via `-WhatIf`):
+
+1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.
+2. **Skill-relative** — `./assets/<file>`, resolved against the payload's **skill root**, so a guide living under `assets/` spells a sibling exactly as its `SKILL.md` does. The leading `./` is load-bearing: a bare `assets/intent.md` names a *plan folder* asset, which is not a payload file at all.
+3. **Scaffold path** — a `docs/`, `schemas/`, or `tools/` runtime path under a root some plugin scaffolds; it must match a `scaffolds[]` entry.
+
+Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
+fence is an error, because blanking the remainder of a file would silently narrow the gate),
+dynamically composed reads (`Join-Path './assets' $name` — unsupported, must not appear in a
+payload), and a path whose final segment is a bare `<placeholder>` (prose describing a shape).
+
+**Known bound — enforcement is self-referential.** Arm 3 only inspects a reference whose root some
+plugin *already* declares in `scaffolds[]`, because the root set is derived from the declarations
+themselves. A root nobody has declared is not a violation; it is skipped, so the gate cannot see it.
+`docs/review-ledger/` is declared and therefore checked; `docs/design-notes/` is not, so
+`design-notes/SKILL.md` reading `docs/design-notes/.design-notes.md` at runtime — outside `.github/`,
+absent from `files[]` and from every `scaffolds[]` — passes silently, and would degrade in a consumer
+repo that lacks the file. Two paths of the same class, opposite enforcement, decided by which plugin
+happened to declare first.
+
+So the guarantee is narrower than "every runtime path is declared": it is *"declarations are
+exhaustive for roots that already have at least one declaration."* Widening it means rooting the
+closed set in the grammar (`docs`, `schemas`, `tools`) rather than in the declared set, which turns
+every currently-invisible reference into a violation that must be declared or excluded. That is
+tracked, not done — see
+[explorations/asset-scanner-root-bound.design.md](../explorations/asset-scanner-root-bound.design.md).
+
+Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
+script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
+and stays subject to the `files[]` check.
+
+## Skill Size Cap
+
+A `SKILL.md` is loaded in full on every invocation of its skill, so its size is a recurring
+per-invocation context cost, not a one-off. `scripts/skalary/Test-SkillSize.ps1` enforces a
+repo-wide **12 KB cap** (`-MaxBytes 12000`, pinned against this note by test) over both the plugin sources and the `.github/` dogfood mirror (the mirror is
+what the hosts actually load), and is wired into `scripts/validate.ps1`. Detail goes into `assets/`
+and is read on demand — which then makes it subject to the asset-bootstrap gate above.
 
 ## Copilot CLI Marketplace (dual catalog)
 

@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Design review orchestrator with specialist model agents.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -17,20 +17,60 @@
       "dest": "prompts/dr.prompt.md"
     },
     {
+      "src": "skills/dr/SKILL.md",
+      "dest": "skills/dr/SKILL.md"
+    },
+    {
+      "src": "skills/dr/assets/plan-scope-guide.md",
+      "dest": "skills/dr/assets/plan-scope-guide.md"
+    },
+    {
+      "src": "skills/dr/assets/dispatch-guide.md",
+      "dest": "skills/dr/assets/dispatch-guide.md"
+    },
+    {
+      "src": "skills/dr/assets/collation-guide.md",
+      "dest": "skills/dr/assets/collation-guide.md"
+    },
+    {
+      "src": "skills/dr/scripts/Build-ReviewReport.ps1",
+      "dest": "skills/dr/scripts/Build-ReviewReport.ps1"
+    },
+    {
+      "src": "skills/dr/assets/concern-ledger-map.md",
+      "dest": "skills/dr/assets/concern-ledger-map.md"
+    },
+    {
       "src": "agents/dr.agent.md",
       "dest": "agents/dr.agent.md"
     },
     {
-      "src": "agents/dr-opus.agent.md",
-      "dest": "agents/dr-opus.agent.md"
+      "src": "agents/dr-security.agent.md",
+      "dest": "agents/dr-security.agent.md"
     },
     {
-      "src": "agents/dr-codex.agent.md",
-      "dest": "agents/dr-codex.agent.md"
+      "src": "agents/dr-correctness-reliability.agent.md",
+      "dest": "agents/dr-correctness-reliability.agent.md"
     },
     {
-      "src": "agents/dr-gemini.agent.md",
-      "dest": "agents/dr-gemini.agent.md"
+      "src": "agents/dr-architecture-patterns.agent.md",
+      "dest": "agents/dr-architecture-patterns.agent.md"
+    },
+    {
+      "src": "agents/dr-performance.agent.md",
+      "dest": "agents/dr-performance.agent.md"
+    },
+    {
+      "src": "agents/dr-testing-evidence.agent.md",
+      "dest": "agents/dr-testing-evidence.agent.md"
+    },
+    {
+      "src": "agents/dr-maintainability-consistency.agent.md",
+      "dest": "agents/dr-maintainability-consistency.agent.md"
+    },
+    {
+      "src": "agents/dr-operability-observability.agent.md",
+      "dest": "agents/dr-operability-observability.agent.md"
     }
   ],
   "evals": {

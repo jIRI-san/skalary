@@ -39,8 +39,8 @@ Describe 'architecture-tests structural evals' {
         }
     }
 
-    It 'PluginManifest-ArchTests: manifest validates against schemas/plugin.schema.json' {
-        $schemaPath = Join-Path $script:repoRoot 'schemas/plugin.schema.json'
+    It 'PluginManifest-ArchTests: manifest validates against schemas/plugin/plugin.schema.json' {
+        $schemaPath = Join-Path $script:repoRoot 'schemas/plugin/plugin.schema.json'
         Test-Path -LiteralPath $schemaPath -PathType Leaf | Should -BeTrue
         $manifestRaw = Get-Content -LiteralPath $script:manifestPath -Raw
         { $manifestRaw | Test-Json -SchemaFile $schemaPath } | Should -Not -Throw

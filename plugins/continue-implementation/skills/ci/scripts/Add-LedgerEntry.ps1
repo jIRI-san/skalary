@@ -385,7 +385,18 @@ $idempotenceKey = "$Category|$normalizedLesson|$Plan|$Src|$Severity|$sortedTags"
 $recurrenceKey = "$Category|$normalizedLesson|$sortedTags"
 $ledgerPath = Resolve-LedgerPath -Root $RepoRoot -CategorySlug $Category
 if (-not (Test-Path -LiteralPath $ledgerPath -PathType Leaf)) {
-    throw "Ledger category file not found: $ledgerPath"
+    # First-use scaffold (declared as a `scaffolds[]` entry in the owning plugins). Plugin
+    # installation is hard-confined to `.github/`, so nothing materializes this file in a
+    # consumer repo; failing here instead would make the first harvest of every fresh repo
+    # throw. `-Category` is a closed enum and the path is confine-resolved above, so the
+    # write target is bounded.
+    $ledgerDir = Split-Path -Parent $ledgerPath
+    if (-not (Test-Path -LiteralPath $ledgerDir -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $ledgerDir -Force)
+    }
+    $title = (Get-Culture).TextInfo.ToTitleCase($Category.Replace('-', ' '))
+    Set-Content -LiteralPath $ledgerPath -Value "# $title Ledger`n`nNo entries yet.`n" -Encoding utf8NoBOM
+    Write-Host "Scaffolded ledger category file: $ledgerPath" -ForegroundColor Yellow
 }
 
 $normalizedLockRoot = [System.IO.Path]::GetFullPath($RepoRoot)

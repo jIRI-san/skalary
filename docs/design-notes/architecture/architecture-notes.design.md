@@ -30,6 +30,8 @@ Contract schema authoring modes (one or more): `rules` (declarative), `prose` (t
 description), `interfaces` (real C#/TS stubs). `maturity` ∈ {`draft`, `provisional`, `locked`};
 `locked` additionally requires `lockedBodySha256` (the reviewed executable body hash).
 
+**Rare operations live in an asset.** `SKILL.md` keeps create / update / promote / review inline and defers **seed**, **harvest**, **human-doc regen**, and **adr-harvest** to `./assets/tier-operations-guide.md`, read only when one of those four is requested. This is the repo-wide `SKILL.md` size cap in practice (see [plugin-registry.design.md](plugin-registry.design.md) → skill size cap); the guide ships in `files[]`, so a consumer install materializes it.
+
 ## Key Patterns
 
 - **Script-mediated mutation.** Every contract write goes through `Test-ArchContract.ps1` (the

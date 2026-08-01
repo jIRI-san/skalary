@@ -13,18 +13,19 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
 
-Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into `evidence.md` (the script itself does not read or write `evidence.md`):
+Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into the receipt (the script itself does not read or write the receipt file). Pass `-PlanDir` and write to the returned `.ReceiptPath` — it resolves through `Resolve-PlanAssetPath` to `assets/evidence.md` in the current layout and to the plan-folder root `evidence.md` for legacy plans, so the receipt is never written where the archival gate does not look:
 
 ```powershell
 # $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Success=$true; Note='' } ...
-$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N>
-Set-Content -LiteralPath <plan-folder>/evidence.md -Value $receipt.Text -Encoding utf8NoBOM
+$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
+Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
 `Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>` (`✓` pass, `✗` fail/unrun); a REQ passes only when all its markers pass, and failed/unrun markers are preserved.
 
 Receipt rules:
-- Rebuild `evidence.md` on each phase/plan crosscheck run (never append to stale results from old commits).
+- The receipt path is layout-resolved (`assets/evidence.md`, or the plan-folder root for legacy plans) — always take it from `$receipt.ReceiptPath`, never hard-code it.
+- Rebuild the receipt on each phase/plan crosscheck run (never append to stale results from old commits).
 - Emit one line per required marker; unexecuted markers emit `✗ … — unrun`.
 - Use the current `HEAD` commit SHA in every emitted line.
 
@@ -56,25 +57,69 @@ documented **non-containing sandbox**, not a true container.
 
 ## Phase crosscheck
 
-1. Collect REQ IDs referenced by steps in the current phase.
-2. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
-3. Rebuild `evidence.md` via `Build-EvidenceReceipt` with the current commit SHA.
-4. Fail phase completion if blocking criteria are unsatisfied.
+1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction`) before declaring the phase complete.
+2. Collect REQ IDs referenced by steps in the current phase.
+3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
+4. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
+5. Fail phase completion if blocking criteria are unsatisfied.
 
 ## Plan crosscheck
 
-1. Validate all REQ and RISK rows before completion.
-2. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
-3. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
+1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
+2. Validate all REQ and RISK rows before completion.
+3. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
+4. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
 
 ## archival-gate
 
 Before archive/PR completion, require:
-- `evidence.md` exists and is current.
+- The layout-resolved receipt (`assets/evidence.md`, or root `evidence.md` for legacy plans) exists and is current.
 - No unrun or failing required evidence (`✗`) remains unless explicitly deferred in Decisions (defer by REQ ID with rationale).
 - This step wires the gate only; run `PlanCrosscheck` blocking target resolution only at true plan finalization (after all phases).
 
 If the gate is not satisfied, block archival/completion.
+
+### Post-plan feedback (`/pfb`) — offered, never blocking
+
+Typed evidence proves the requirements were met; only the operator can say whether the delivered work
+met the point. Archiving is the last moment anyone looks at the plan, so offer `/pfb` here — and only
+offer it. It is not a gate condition: a declined or unanswered `/pfb` never blocks archival or the PR,
+and a recorded verdict never substitutes for a `✗` marker.
+
+1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/pfb/SKILL.md`).
+2. Interactive completion: offer the `/pfb` run before the archive commit. If the operator accepts,
+   read `.github/skills/pfb/SKILL.md` by path and run it against the completing plan, then commit
+   `docs/feedback/queue.md` by explicit path where harvest item 4 places it — before branch
+   selection, so the `@human` escalation branch (which never makes an archive commit) still commits
+   it. If they decline, continue.
+3. Headless completion has no operator to ask: the autopilot mirror queues the question instead of
+   prompting, and the next interactive session consumes the queued marker. Never answer on the
+   operator's behalf in either direction.
+
+### Self-improvement (`/si`) — offered after the ledger is written, never blocking
+
+`/pfb` records what the operator thought; `/si` is what reads the records back. Offer it at plan
+completion, **after the harvest step has run** — the entries this plan just wrote are part of the
+corpus it harvests, and offering earlier would read a ledger that is one plan out of date. Ordering,
+not a commit, is the precondition: a no-op harvest that produced no append commit still leaves the
+ledger current, and an infra-absent run that skipped harvest entirely can still offer `/si` if the
+skill is installed.
+
+1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/si/SKILL.md`).
+2. Interactive completion: offer the run. On acceptance, read `.github/skills/si/SKILL.md` by path
+   and follow it. `/si` produces a ranked candidate list and, only with explicit operator consent, a
+   **draft** PR on a worktree branch cut from `origin/main` — never from the plan's branch, whose
+   diff would otherwise land in the proposal's scope and be refused by the pre-PR guard. It never
+   merges, never pushes to `main`, and never commits into the plan's branch.
+3. Headless completion does not run `/si`. The harvest is cheap; a proposal is not — it opens a PR
+   against the repo's own instructions with nobody to have asked. Queue nothing and skip.
+4. It is never a gate: a decline, an empty harvest, or a refused write-scope check blocks neither
+   archival nor the PR.
+5. **Consumer repos are manual.** `/si` proposes into the repository it runs in, and in a consumer
+   repo the customizations arrive through the registry — an improvement made there is overwritten by
+   the next update. Carry the candidate list upstream by hand: fork `skalary`, apply the change, and
+   open the PR there. The fork/upstream round-trip is deliberately not automated; `gh` fork
+   entitlement is out of scope.
 
 ## Dependency preflight (hard start-gate)
 
@@ -95,19 +140,24 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
 1. Run dependency preflight (`Test-DependencyPlan006.ps1`) before entering harvest/finalization.
 2. If append infra is present (`Test-Path .github/skills/ci/scripts/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
    - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
-   - Distill entries from `capture.md` (`## Capture`), `cr-log.md`, and `learnings.md`.
-   - Map candidates deterministically into `Add-LedgerEntry` inputs: `-Category` from the 7-category rubric, `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
+   - Distill entries from the layout-resolved logs — `assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans. Resolve with `Resolve-PlanAssetPath`; reading the wrong location yields a silently empty harvest.
+   - Resolve `-Category` through the **concern → ledger category map**, keyed by the concern that raised the finding and the review type that produced it (`cr` or `dr`). Probe both installed copies — `.github/skills/cr/assets/concern-ledger-map.md`, then `.github/skills/dr/assets/concern-ledger-map.md` — because the two review plugins ship the same file and either install alone makes the map available. The map is total and deterministic; an unmapped concern is a bug in that table, not a cue to improvise a category.
+   - A candidate that no reviewer produced — a `learnings.md` or `capture.md` lesson — has no concern attached. Name the concern it is about first (the same seven), then route it through the same map. One visible judgment call, not seven invisible ones.
+   - Only when **neither** copy resolves is the map absent: say so and fall back to the `ledger-consult` keyword rubric below, rather than silently inventing categories.
+   - Map the remaining `Add-LedgerEntry` inputs directly: `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
    - Invoke `Add-LedgerEntry.ps1` via argument arrays / `ArgumentList` only (no shell-string interpolation).
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
-3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's `decisions/*.md` into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
-4. Branch after the append commit:
+3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
+4. **Post-plan feedback (`/pfb`), offered before archiving and never blocking.** Offer the `/pfb` run against the completing plan; on acceptance, read `.github/skills/pfb/SKILL.md` by path, run it, and commit `docs/feedback/queue.md` by explicit path. A decline, or a `self-improvement` plugin that is not installed, skips it silently. See the `archival-gate` section above — the offer never gates archival or the PR.
+5. **Self-improvement (`/si`), offered after this harvest step and never blocking.** Offer the `/si` run once harvest has run — whether or not it produced an append commit — so the lessons this plan just wrote are in the corpus it reads. On acceptance, read `.github/skills/si/SKILL.md` by path and follow it; it ranks candidates and, only with explicit consent, opens a **draft** PR on a worktree branch cut from `origin/main` — never a merge, never a push to `main`, never a branch off the plan's branch (its diff would land in the proposal's scope and the pre-PR guard would refuse). A decline, an absent `self-improvement` plugin, or an empty harvest skips it silently. Headless completion does not run it: a proposal nobody asked for is a PR against the repo's own instructions. Consumer repos carry candidates upstream by hand — see the `/si` section above.
+6. Branch after the append commit:
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.
    - `/udn` contract: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft-PR + marker path (no archive).
    - Prune preconditions: `Test-Path .github/skills/ci/scripts/Remove-LedgerEntry.ps1` and `Test-Path docs/review-ledger/.archive`; if missing, skip prune and continue direct draft escalation.
    - Invoke `Remove-LedgerEntry.ps1` via argument arrays / `ArgumentList` only; always pass `-Category`, `-CurrentPlan`, and full-line candidate match payload (`-Match`/`-MatchBase64`) — never substring/regex targeting.
-5. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
+7. If repo infra is absent, skip harvest and keep branch semantics explicit: autonomous completion may continue standard completion flow, but `@human` completion must still route to draft PR + marker (no archive).
 
 Fail-loud behavior: error only when expected log sections/placeholders are missing; `No entries for this phase.` is valid and must not fail harvest.
 
@@ -127,7 +177,7 @@ Rules: exclude `docs/review-ledger/.archive/`; read only categories implied by t
 
 ## Ephemeral capture (`cr-log.md` / `learnings.md`, mid-run only)
 
-Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote.ps1` — do not hand-edit these files and do not write `docs/review-ledger/*` during capture:
+Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote.ps1` — do not hand-edit these files and do not write `docs/review-ledger/*` during capture. `Add-WorkflowNote` resolves the log path itself (`assets/logs/<file>` in the current layout, plan-folder root for legacy plans), so pass `-PlanDir` and never a file path:
 
 - Initialize a phase section (header + `No entries for this phase.` placeholder) by calling `Add-WorkflowNote` with no `-Message`.
 - `cr-log.md` (`-Kind CrLog`): interactive `ci` persists `@cr` report + triage; autopilot persists `code-review`/`rubber-duck` findings with `-Src code-review`; standalone `cr` persists nothing.

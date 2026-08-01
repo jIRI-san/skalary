@@ -6,7 +6,7 @@ skeleton, scaffolding the tier without overwriting existing files.
 
 .DESCRIPTION
 The seed operation of the architecture-notes skill. An agent runs the interview (see
-assets/interview-guide.md), records the answers into a seed-spec JSON, and hands it here. This
+./assets/interview-guide.md), records the answers into a seed-spec JSON, and hands it here. This
 script is the script-mediated, deterministic materialization step:
 
   1. Scaffolds the tier (schema + index) via Copy-ArchScaffold.ps1 (no-overwrite).
@@ -24,7 +24,7 @@ param(
     # Repository root the seed is materialized into.
     [Parameter(Mandatory)][string]$TargetRoot,
 
-    # Path to the seed-spec JSON produced from the interview (see assets/interview-guide.md).
+    # Path to the seed-spec JSON produced from the interview (see ./assets/interview-guide.md).
     [Parameter(Mandatory)][string]$SeedSpecPath,
 
     # Root of the shipped assets (…/architecture-notes/assets). Auto-detected when omitted.

@@ -1,0 +1,80 @@
+{
+  "name": "self-improvement",
+  "version": "1.0.17",
+  "description": "Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "prompt",
+    "feedback",
+    "self-improvement"
+  ],
+  "dependencies": [
+    "create-implementation-plan"
+  ],
+  "status": "stable",
+  "files": [
+    {
+      "src": "prompts/pfb.prompt.md",
+      "dest": "prompts/pfb.prompt.md"
+    },
+    {
+      "src": "skills/pfb/SKILL.md",
+      "dest": "skills/pfb/SKILL.md"
+    },
+    {
+      "src": "skills/pfb/assets/feedback-guide.md",
+      "dest": "skills/pfb/assets/feedback-guide.md"
+    },
+    {
+      "src": "skills/pfb/assets/queue-guide.md",
+      "dest": "skills/pfb/assets/queue-guide.md"
+    },
+    {
+      "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
+      "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
+    },
+    {
+      "src": "skills/pfb/scripts/PlanState.psm1",
+      "dest": "skills/pfb/scripts/PlanState.psm1"
+    },
+    {
+      "src": "prompts/si.prompt.md",
+      "dest": "prompts/si.prompt.md"
+    },
+    {
+      "src": "skills/si/SKILL.md",
+      "dest": "skills/si/SKILL.md"
+    },
+    {
+      "src": "skills/si/assets/harvest-guide.md",
+      "dest": "skills/si/assets/harvest-guide.md"
+    },
+    {
+      "src": "skills/si/assets/propose-guide.md",
+      "dest": "skills/si/assets/propose-guide.md"
+    },
+    {
+      "src": "skills/si/scripts/PlanState.psm1",
+      "dest": "skills/si/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/si/scripts/Test-SiWriteScope.ps1",
+      "dest": "skills/si/scripts/Test-SiWriteScope.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/feedback/queue.md",
+      "mode": "literal",
+      "owner": "Update-FeedbackQueue.ps1",
+      "trigger": "first queued /pfb marker"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}
