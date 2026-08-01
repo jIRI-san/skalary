@@ -121,9 +121,23 @@ this is a gate rather than a convention.
 Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
 fence is an error, because blanking the remainder of a file would silently narrow the gate),
 dynamically composed reads (`Join-Path './assets' $name` — unsupported, must not appear in a
-payload), a path whose final segment is a bare `<placeholder>` (prose describing a shape), and roots
-no plugin scaffolds. That last bound is real: enforcement covers the roots that actually get
-written, so the declarations are kept exhaustive for those roots rather than sampled.
+payload), and a path whose final segment is a bare `<placeholder>` (prose describing a shape).
+
+**Known bound — enforcement is self-referential.** Arm 3 only inspects a reference whose root some
+plugin *already* declares in `scaffolds[]`, because the root set is derived from the declarations
+themselves. A root nobody has declared is not a violation; it is skipped, so the gate cannot see it.
+`docs/review-ledger/` is declared and therefore checked; `docs/design-notes/` is not, so
+`design-notes/SKILL.md` reading `docs/design-notes/.design-notes.md` at runtime — outside `.github/`,
+absent from `files[]` and from every `scaffolds[]` — passes silently, and would degrade in a consumer
+repo that lacks the file. Two paths of the same class, opposite enforcement, decided by which plugin
+happened to declare first.
+
+So the guarantee is narrower than "every runtime path is declared": it is *"declarations are
+exhaustive for roots that already have at least one declaration."* Widening it means rooting the
+closed set in the grammar (`docs`, `schemas`, `tools`) rather than in the declared set, which turns
+every currently-invisible reference into a violation that must be declared or excluded. That is
+tracked, not done — see
+[explorations/asset-scanner-root-bound.design.md](../explorations/asset-scanner-root-bound.design.md).
 
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
