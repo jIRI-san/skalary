@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-07-31T23:57:50.2184649Z",
+  "generatedAt": "2026-08-01T00:37:53.1657288Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -55,6 +55,11 @@
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
+          "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
+          "sha256": "2de42f94fd40b51471704321d1b68f84a73bff0ac367353b4114f361b58de297",
+          "src": "skills/architecture-notes/assets/tier-operations-guide.md"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
           "sha256": "b4c96660f2cd2395afc08a70f3795e68d072ba07f77988d5b96c183084f855ab",
           "src": "scripts/Copy-ArchScaffold.ps1"
@@ -91,7 +96,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "6558d7292cd87083852d7ca4946839e22fd8d84beaa527d99c36d889b7cfac3c",
+          "sha256": "2374c5c148da2c2a7e197f70a20c9e597f7f3bc37c0b9c839b6df7371d13f262",
           "src": "skills/architecture-notes/SKILL.md"
         }
       ],
@@ -104,7 +109,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",

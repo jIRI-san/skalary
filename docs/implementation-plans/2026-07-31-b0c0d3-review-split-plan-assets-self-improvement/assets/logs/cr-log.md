@@ -97,3 +97,9 @@ Phase: 9
 - [9.3] [src:code-review] [sev:High] Rollup judged depends-on completeness by epic membership, blocking a child behind a finished non-member plan; completeness now comes from the dependency plan itself.
 - [9.3] [src:code-review] [sev:Med] Epic auto-detection could veto a plan reference on fuzzy date/slug matches; plan resolution now wins and -Epic forces the epic side.
 - [9.3] [src:code-review] [sev:Med] Selection tests placed the blocked child last, so skipping was unverified; added a fixture where an earlier child is blocked and a later one is free.
+
+## CR Capture
+Phase: 10
+
+- [10.1] [src:code-review] [sev:Critical] Plugin version bump left marketplace.json/registry.json stale; regenerated both so install stays hash-consistent.
+- [10.1] [src:code-review] [sev:High] Asset-ships assertion checked plugin.json only; extended to registry.json, which is what consumer installs resolve against.

@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
-- [5.1] [trigger:overflow-summary] Folded 6 additional learnings into this summary.
+- [6.3] [trigger:overflow-summary] Folded 7 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -18,6 +19,7 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -26,17 +28,19 @@ Phase: 4
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 5
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
 
-- [6.3] [trigger:reusable-pattern] Plugin payload edits bump plugin.json versions via Sync-PluginScripts, so any test pinning a literal plugin version breaks; assert derived versions instead.
 
 ## Learnings Capture
 Phase: 7
@@ -57,3 +61,8 @@ Phase: 9
 - [9.1] [trigger:reusable-pattern] Generated mirrors of marker state must be rebuilt for every affected owner, not just the invocation target, or the losing side goes stale.
 - [9.2] [trigger:reusable-pattern] A skill's scripts must resolve their assets relative to the installed skill folder; repo-layout paths only work while dogfooding.
 - [9.3] [trigger:reusable-pattern] Pester assertions that read a property off a filtered array fail only under the strict-mode suite runner; pipe through Select-Object -First 1.
+
+## Learnings Capture
+Phase: 10
+
+- [10.1] [trigger:reusable-pattern] Any plugin payload edit must regenerate marketplace.json AND registry.json in the same commit; Pester alone does not catch the drift.

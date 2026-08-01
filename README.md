@@ -67,7 +67,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 <!-- BEGIN SKALARY PLUGIN CATALOG -->
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
-| `architecture-notes` | 1.0.2 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
+| `architecture-notes` | 1.0.3 | partial | — | 17 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `architecture-tests` | 1.0.18 | partial | — | 14 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.2.3 | partial | — | 20 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.2 | stable | — | 16 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |

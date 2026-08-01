@@ -19,7 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",

@@ -83,6 +83,13 @@ if ($LASTEXITCODE -ne 0) {
     $errors.Add('Agent model declarations violate tools/model-allowlist.psd1.')
 }
 
+Write-Host '== Validating skill size cap =='
+$skillSizeGate = Join-Path $repoRoot 'scripts/skalary/Test-SkillSize.ps1'
+& $skillSizeGate -RepoRoot $repoRoot
+if ($LASTEXITCODE -ne 0) {
+    $errors.Add('One or more SKILL.md files exceed the size cap; move detail into the skill''s assets/.')
+}
+
 Write-Host '== Validating implementation plans (Draft stage) =='
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |

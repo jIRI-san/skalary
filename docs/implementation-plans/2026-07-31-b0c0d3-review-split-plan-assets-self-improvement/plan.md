@@ -110,7 +110,7 @@
 
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 10.1 Add `Test-SkillSize.ps1` plus the repo-wide size-cap test; push any over-cap detail into `assets/` (REQ-16) [after: 9.2] `M`
+- [x] 10.1 Add `Test-SkillSize.ps1` plus the repo-wide size-cap test; push any over-cap detail into `assets/` (REQ-16) [after: 9.2] `M`
 - [ ] 10.2 Extend the `Sync-PluginScripts.ps1` reference scanner from `.ps1`-only to every asset a payload file reads, under a **closed grammar** (installed-path literals plus relative `./assets/<file>`), excluding fenced examples and prose links; require each to appear in `files[]`; keep the `-WhatIf` drift gate in `validate.ps1` (REQ-19, RISK-9) [after: 9.2] `L`
 - [ ] 10.3 Add a machine-readable `scaffolds[]` array to the plugin schema **and to the registry schema + `Build-Registry.ps1`** (consumer installs resolve against `registry.json`, and it currently sets `additionalProperties: false`), declaring every runtime path the `.github/`-confined installer cannot write. Each entry is a fixed literal path or an explicitly-flagged parameterized path routed through a confine helper; bind the scanner to it (REQ-19, RISK-9) [after: 10.2] `L`
 - [ ] 10.4 Update design notes `plan-workflow`, `copilot-customizations` (removing the description of the deleted orchestrator fence), and `plugin-evals`; add a note for the `self-improvement` plugin and record the Pro-plan model caveat (REQ-17, RISK-2, RISK-11) [after: 10.3] `L`
