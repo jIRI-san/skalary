@@ -144,7 +144,22 @@ So an autopilot run that generates excellent harvest material leaves no record t
 
 **Direction:** headless completion writes an `si-due` marker in the same shape as the `/pfb` queue (content-addressed, refuses duplicates), consumed on the next interactive completion. That preserves rule 3's actual intent — *do not open a PR with nobody to ask* — without losing the signal that a proposal is owed. Pairs naturally with finding [17]'s proposal/decline record; both are the same missing artefact viewed from opposite ends.
 
+## Cluster G — the first real `/si` run, and what it found
+
+`/si` was run interactively from `main` on 2026-08-01, after `b0c0d3` merged. Four sources harvested: 15 ledger entries, 73 cr-log findings, 10 learnings, 3 recorded operator verdicts. No injection findings. The operator accepted three candidates and directed them here rather than to an `/si` draft PR — **this section is that decision's durable record**, which is precisely the artefact Cluster F says does not exist. It was written by hand; nothing in the loop would have written it.
+
+**G1 — the ledger is only written at the end of a plan.** All 12 `b0c0d3` ledger entries carry `#phase-10` and `src:autopilot`; none come from phases 1–9. The cr-log holds 73 findings across all ten phases, including four Critical and roughly twenty High. So ~61 findings never reached the artifact later CR rounds actually read. The ledger is meant to be curated rather than exhaustive, but zero-from-nine-phases against twelve-from-one is a distribution that means per-phase promotion never fired, not that nine phases taught nothing. Recurrence counting — the harvest's top-weighted ranking axis — is measuring a sample drawn from one phase.
+
+**G2 — two silent data losses at the point the loop captures its most valuable input.** `Update-FeedbackQueue.ps1` sets `$maxEntryLength = 300` and applies a bare `Substring` with no ellipsis and no warning; all three recorded operator verdicts are cut mid-word at exactly 365 characters (`"All three non-goal"`, `"the guides own a"`, `"yet the receip"`). Those are the operator's acceptance judgements — the scarcest and least reproducible input the loop has. Separately, `Add-WorkflowNote.ps1` writes `Folded 10 additional learnings into this summary.` *after deleting the ten lines it names*; the "summary" contains none of them, so it is a tally, and phase 1's ten learnings are unrecoverable. Both are the same bug as Cluster A: the artifact cannot describe its own degradation.
+
+**G3 — the guide's own commands do not run as written.** Running `/si` per its documentation failed three times before a single source was read: `Import-Module .github/skills/…` fails without a `./` prefix; `Resolve-Plan -Reference` blocks on a mandatory `-RepoRoot` the guide never passes; `Resolve-PlanAssetPath` takes `-PlanDir`/`-Kind`, not the `-PlanPath` the guide implies. The harvest already knows this defect class — cr-log [9.2] *"repo-layout paths only work while dogfooding"*, [6.5] the `pwsh -File` call that silently dropped typed findings, [5.2] a script no plugin bundles — and operator feedback `[095e99d0]` logs it as a MISS against a success signal. A skill whose documented invocation was never executed is Cluster B in the instructions rather than the tests.
+
+**Declined, recorded so they are not re-raised as new:** the fence-forgery scan has no self-reference exemption and produced two false positives on its first real run (cr-log [6.2], [8.1] — entries *describing* the fence); and the 44-finding step 10.7 gate wrote no cr-log entries at all, so its findings survive only as prose here and can never be counted toward recurrence.
+
 ## Sequencing
 
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
+
+G1–G3 have a sequencing claim of their own: they degrade the evidence every *later* `/si` run reasons from. G1 biases the recurrence axis, G2 destroys the records outright, G3 means the next operator to invoke the skill hits the same three failures. Fixing them is cheap and is a precondition for trusting any subsequent harvest — including the one that would judge whether the rest of this note's clusters were worth fixing.
+
 
