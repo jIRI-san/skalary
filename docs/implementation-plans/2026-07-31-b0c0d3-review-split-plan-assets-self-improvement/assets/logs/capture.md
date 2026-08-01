@@ -54,4 +54,5 @@ No entries for this phase.
 ## Capture
 Phase: 10
 
-No entries for this phase.
+- [-] npm run eval: 116 pass / 2 fail. Both remaining failures (HumanDoc-Generated malformed-JSON, Staleness-FlagsDrift) predate this branch and sit in New-ArchHumanDoc/Test-ArchDocFreshness, which this plan never touches.
+- [-] CRLF re-materialize was a no-op: git ls-files --eol reports i/lf w/lf across plugins/ and .github/, so .gitattributes normalization already holds.
