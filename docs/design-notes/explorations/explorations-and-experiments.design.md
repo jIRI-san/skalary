@@ -27,7 +27,9 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 | [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md) | `/cip`, `/cep`, plan `assets/` | Operator notes; builds on `b0c0d3` intent asset, which must land first |
 | [review-standards-tiering.design.md](review-standards-tiering.design.md) | `plugins/{code,design}-review/**`, `docs/review-ledger/**` | Operator notes; depends on the concern split, concern→ledger map and `/si` from `b0c0d3` |
 | [design-rfc-artifacts.design.md](design-rfc-artifacts.design.md) | `/cip`, plan `assets/` | Operator notes; fits the `b0c0d3` assets layout, sequenced after it |
+| [asset-scanner-root-bound.design.md](asset-scanner-root-bound.design.md) | `Sync-PluginScripts.ps1`, `schemas/{plugin,registry}/**` | Found mid-`b0c0d3`; widening the scanner grammar is a schema change, not a script fix |
+| [review-system-enforcement-gaps.design.md](review-system-enforcement-gaps.design.md) | `Build-ReviewReport.ps1`, `Build-EvidenceReceipt.ps1`, `plugins/{code,design}-review/**`, `.github/workflows/**` | Sourced from the `b0c0d3` step 10.7 gate; six clusters spanning report, receipt, dispatch and CI — too broad to absorb into the plan being gated |
 
 ## Scheduled review
 
-The three operator explorations recorded on 2026-07-31 are to be revisited in the **align phase** at `b0c0d3` completion (the `/pfb` loop, REQ-13), pulled into the following plan.
+All six explorations above are to be revisited in the **align phase** at `b0c0d3` completion (the `/pfb` loop, REQ-13) and pulled into the following plan. The three operator notes recorded on 2026-07-31 were parked during planning; `asset-scanner-root-bound` and `review-system-enforcement-gaps` were parked during execution and the completion gate respectively, and carry the sharper evidence.

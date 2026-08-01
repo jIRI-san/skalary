@@ -52,3 +52,16 @@ The third never learns from the first two. Closing that loop is the substance of
 ## Interaction with shipped work
 
 Depends on `b0c0d3` REQ-8 (concern agents), REQ-10 (concern→ledger map) and REQ-14 (`/si` PR loop). Best sequenced after that plan lands, since all three are its direct substrate.
+
+## Confirmed as the missed intent at `b0c0d3` acceptance
+
+At the step 10.7 operator gate the plan was accepted with a qualification: the requirements were **met**, but the operator "had slightly different idea about how we will do the CR/DR, and we did not dive into it during the planning, because I scoped it only as a split per concern and model change."
+
+This note is that different idea. It was captured *during execution*, after the scope was already fixed — which is exactly the failure mode it now serves as evidence for. The plan asked *how* to split reviewers and got a correct answer. Nobody asked *why* the split was wanted; had they, declared standards would have surfaced as the actual goal and the concern split as one means to it.
+
+Consequences for the sequencing above:
+
+- This is no longer a speculative enhancement to `b0c0d3`. It is the **unstated requirement** `b0c0d3` was a partial implementation of, which raises its priority in the following plan.
+- The seven-agent split is not wasted — a per-concern standard needs a per-concern reviewer to consume it. But the split shipped without the thing that gives it leverage, so the drift risk noted under *Why this matters* is live now, not hypothetical.
+- Use this case as the **test case for rephrase-and-confirm** in [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md). The concrete bar: would the mechanism have asked *why* the split was wanted, and would that question have surfaced declared standards before the plan was drafted? A mechanism that only echoes back "you want reviewers split by concern and two models" restates the request faithfully and still misses the intent — that is the standard to beat, not a passing grade.
+
