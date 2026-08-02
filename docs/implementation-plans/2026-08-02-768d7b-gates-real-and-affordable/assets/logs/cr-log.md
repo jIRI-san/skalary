@@ -24,3 +24,8 @@ Phase: 6
 - [6.1] [src:code-review] [sev:Med] Get-PlanStageOrder published dr-round but Resolve-PlanStage rejected it, so a caller-supplied floor failed with the plan-blaming RISK-6 error; Test-PlanStageAtLeast now ranks -Minimum against the family list and says the floor is the caller's bug.
 - [6.2] [src:code-review] [sev:Low] No findings on the final state; the cep manifest gap that would have half-scaffolded a plan folder was already fixed and guarded by the widened manifest-coverage test before review completed.
 - [6.3] [src:code-review] [sev:Med] The stage floor was cosmetic: scripts/validate.ps1 re-validated every plan unconditionally, so a below-floor plan was skipped by leg 1 and hard-failed by leg 3 of npm test. Both legs now share Get-PlanValidationDecision.
+
+## CR Capture
+Phase: 7
+
+- [7.2] [src:code-review] [sev:High] Test-Registry.ps1 carried a duplicate New-ReadmeCatalogTable still using culture-sensitive Sort-Object, so the drift gate would reject a correctly generated README on a cs-CZ host. Fixed: gate now shares the ordinal comparer, and CzechCollationFixtureIsStable runs Test-Registry.ps1 under both cultures (verified non-vacuous by reverting the sort).

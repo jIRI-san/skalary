@@ -125,7 +125,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",

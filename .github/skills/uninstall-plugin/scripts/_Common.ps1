@@ -292,6 +292,85 @@ function Compare-SemVer {
     return Compare-PreRelease -Left $leftVersion.PreRelease -Right $rightVersion.PreRelease
 }
 
+function Sort-Ordinal {
+    <#
+    .SYNOPSIS
+        Sorts strings, or objects by string properties, with an explicit comparer.
+    .DESCRIPTION
+        `Sort-Object` compares strings through the current culture, so the order it
+        produces is a property of the host rather than of the input: cs-CZ reads the
+        digraph `ch` as one letter placed after `h`, and sorts accented letters apart
+        from the base letter en-US folds them onto. Generated catalogs are compared
+        byte-for-byte by the drift gates, so any list that reaches a generated file has
+        to be ordered by a comparer the build carries with it (REQ-7, D8).
+    .PARAMETER Property
+        Property names to sort by, most significant first. Omit to sort the inputs
+        themselves as strings.
+    .PARAMETER Comparer
+        Defaults to ordinal. Callers pass it explicitly where the choice is part of the
+        contract the file documents.
+    #>
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [object[]]$InputObject,
+
+        [string[]]$Property,
+
+        [switch]$Descending,
+
+        [System.StringComparer]$Comparer = [System.StringComparer]::Ordinal
+    )
+
+    $items = @($InputObject | Where-Object { $null -ne $_ })
+    if ($items.Count -le 1) {
+        return $items
+    }
+
+    $decorated = [object[]]@(
+        foreach ($item in $items) {
+            # Assigned inside each branch rather than from the `if` statement's value:
+            # statement output is enumerated, so a single-element key array would arrive
+            # as a bare string and index by character.
+            [string[]]$keys = @()
+            if ($Property) {
+                $keys = [string[]]@($Property | ForEach-Object { [string]$item.$_ })
+            }
+            else {
+                $keys = [string[]]@([string]$item)
+            }
+            [pscustomobject]@{ Item = $item; Keys = $keys }
+        }
+    )
+
+    $activeComparer = $Comparer
+    $sign = if ($Descending) { -1 } else { 1 }
+    # Sign-flipped rather than reversed: [array]::Sort with a Comparison is unstable, so
+    # reversing its output would scramble entries whose keys compare equal.
+    $comparison = [System.Comparison[object]] {
+        param($left, $right)
+
+        $leftKeys = $left.Keys
+        $rightKeys = $right.Keys
+        $sharedCount = [Math]::Min($leftKeys.Length, $rightKeys.Length)
+        for ($index = 0; $index -lt $sharedCount; $index++) {
+            $result = $activeComparer.Compare($leftKeys[$index], $rightKeys[$index])
+            if ($result -ne 0) {
+                return ($sign * [Math]::Sign($result))
+            }
+        }
+        return ($sign * [Math]::Sign($leftKeys.Length - $rightKeys.Length))
+    }
+
+    [array]::Sort($decorated, $comparison)
+    # Enumerated rather than returned as one array value: every call site wraps the result
+    # in @(), which would otherwise nest the array inside a single-element array.
+    return @($decorated | ForEach-Object { $_.Item })
+}
+
 function ConvertTo-SortedObject {
     [CmdletBinding()]
     param(
@@ -305,7 +384,7 @@ function ConvertTo-SortedObject {
 
     if ($InputObject -is [System.Collections.IDictionary]) {
         $ordered = [ordered]@{}
-        foreach ($key in ($InputObject.Keys | Sort-Object)) {
+        foreach ($key in (Sort-Ordinal -InputObject @($InputObject.Keys))) {
             $ordered[$key] = ConvertTo-SortedObject -InputObject $InputObject[$key]
         }
         return [pscustomobject]$ordered
@@ -313,7 +392,7 @@ function ConvertTo-SortedObject {
 
     if ($InputObject -is [pscustomobject] -and -not ($InputObject -is [string])) {
         $ordered = [ordered]@{}
-        foreach ($property in ($InputObject.PSObject.Properties.Name | Sort-Object)) {
+        foreach ($property in (Sort-Ordinal -InputObject @($InputObject.PSObject.Properties.Name))) {
             $ordered[$property] = ConvertTo-SortedObject -InputObject $InputObject.$property
         }
         return [pscustomobject]$ordered
