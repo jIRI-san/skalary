@@ -35,7 +35,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 1.1 Instrument `New-RepoClone`, `Install-Plugin`, `Build-Registry`, `Test-Registry` with call counts and aggregate seconds; emit `tools/suite-profile.json` across the whole `tests/` tree (REQ-1) `M`
 - [x] 1.2 Capture the test-name inventory for the whole tree as the coverage baseline (REQ-3) `S`
-- [ ] 1.3 Create `tools/suite-budget.psd1` with `HardCeilingSeconds = 600`, `TargetSeconds = 480`, measured against `npm test`; add the test that rejects any raise without a recorded justification (REQ-2) `M`
+- [x] 1.3 Create `tools/suite-budget.psd1` with `HardCeilingSeconds = 600`, `TargetSeconds = 480`, measured against `npm test`; add the test that rejects any raise without a recorded justification (REQ-2) `M`
 
 ## Phase 2: Shrink the fixture, then copy it
 <!-- worktree: (recorded by /ci when worktree is created) -->
