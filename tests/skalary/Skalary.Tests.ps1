@@ -20,7 +20,8 @@ Describe 'skalary plugin registry scripts' {
                 Synthetic rather than a clone of the project repo: these cases read four
                 payload roots, so paying for the whole history and working tree bought
                 nothing. The fixture carries a tag because Build-Registry resolves the
-                bootstrap ref from tags (RISK-12).
+                bootstrap ref from tags (RISK-12). Each call is a private copy of a
+                template built once, never the template itself (RISK-1).
             #>
             [CmdletBinding()]
             param()
@@ -136,9 +137,14 @@ Describe 'skalary plugin registry scripts' {
     AfterAll {
         foreach ($repo in $tempRepos) {
             if (Test-Path -LiteralPath $repo -PathType Container) {
-                Remove-Item -LiteralPath $repo -Recurse -Force
+                # $ErrorActionPreference is 'Stop' here, so one stubborn fixture would otherwise
+                # abort the cleanup before the template below is reclaimed.
+                Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
+
+        # The template outlives every case fixture, so nothing else would reclaim it.
+        Remove-SkalaryFixtureTemplate
     }
 
     It 'installs transitive dependencies and writes receipts per plugin' {

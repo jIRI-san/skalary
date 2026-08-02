@@ -11,6 +11,8 @@ Phase: 2
 - [2.1] [src:code-review] [sev:High] Per-fixture commits diverged, so Install-Plugin's registry-parity check silently stopped running; fixture commit timestamps pinned so every fixture shares one SHA.
 - [2.1] [src:code-review] [sev:Med] SuiteFixture cases shared one mutable fixture and pinned .github absence as an invariant; each case now builds its own fixture and the allowlist assertion checks tracked files.
 - [2.1] [src:code-review] [sev:Low] New-SkalaryFixtureRepo leaked its temp root when a git step failed mid-build; wrapped in try/catch cleanup.
+- [2.2] [src:code-review] [sev:Med] Copy-SkalaryFixtureTree leaked a half-copied case root on a mid-copy failure; the path is never returned so no AfterAll could reclaim it. Added cleanup-and-rethrow.
+- [2.2] [src:code-review] [sev:Low] Skalary.Tests.ps1 AfterAll removed fixtures without -ErrorAction SilentlyContinue under ErrorActionPreference Stop, so one failure skipped the template cleanup.
 
 ## CR Capture
 Phase: 5

@@ -25,6 +25,8 @@ Describe 'suite fixture' {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
+
+        Remove-SkalaryFixtureTemplate
     }
 
     It 'test:SuiteFixture.CarriesTagsForVersionResolution keeps the tag Build-Registry resolves the bootstrap ref from' {
@@ -90,5 +92,56 @@ Describe 'suite fixture' {
 
         git -C $second cat-file -e "$firstSha^{commit}" 2>$null
         $LASTEXITCODE | Should -Be 0 -Because 'the target repo must be able to read the source commit'
+    }
+
+    It 'test:SuiteFixture.CasesGetPrivateCopies keeps one case''s writes out of the next case''s fixture' {
+        # RISK-1: the saving comes from building the fixture once, so the thing that has to be
+        # proven is that sharing the *construction* did not become sharing the *tree*.
+        $first = New-CaseFixture
+        $second = New-CaseFixture
+        $first | Should -Not -Be $second
+
+        $marker = Join-Path $first 'README.md'
+        Set-Content -LiteralPath $marker -Value 'mutated by the first case' -Encoding utf8NoBOM
+        Remove-Item -LiteralPath (Join-Path $first 'registry.json') -Force
+
+        Get-Content -LiteralPath (Join-Path $second 'README.md') -Raw |
+            Should -Not -Match 'mutated by the first case' -Because 'a case writes into its own copy only'
+        Test-Path -LiteralPath (Join-Path $second 'registry.json') -PathType Leaf |
+            Should -BeTrue -Because 'a deletion in one case cannot reach another'
+
+        # A hardlinked copy would pass the deletion check above and fail this one, because the
+        # in-place write would land on the shared inode.
+        (Get-Item -LiteralPath $marker).LinkType |
+            Should -BeNullOrEmpty -Because 'the copy is a real byte copy, not a link into a shared tree'
+
+        # Third case built after the mutations: the template it copies must still be pristine.
+        $third = New-CaseFixture
+        Get-Content -LiteralPath (Join-Path $third 'README.md') -Raw |
+            Should -Not -Match 'mutated by the first case' -Because 'the template is never handed to a case'
+    }
+
+    It 'test:SuiteFixture.CaseRootIsFresh refuses a root that already exists' {
+        # The guarantee above only holds while a case root is unconditionally new, so the
+        # refusal is asserted rather than assumed.
+        $template = Get-SkalaryFixtureTemplate -ProjectRoot $script:repoRoot
+        $template | Should -Not -BeNullOrEmpty
+
+        $occupied = New-SkalaryFixtureRoot -Prefix 'skalary-tests-occupied'
+        $script:fixtureRoots.Add($occupied)
+        Set-Content -LiteralPath (Join-Path $occupied 'someone-elses-state.txt') -Value 'x' -Encoding utf8NoBOM
+
+        { Copy-SkalaryFixtureTree -Source $template -Destination $occupied } |
+            Should -Throw -ExpectedMessage '*Refusing to reuse an existing fixture root*'
+
+        # The refusal is a refusal, not a partial merge into the occupied tree.
+        Test-Path -LiteralPath (Join-Path $occupied '.git') |
+            Should -BeFalse -Because 'a refused copy writes nothing'
+
+        # Every case root the module hands out is distinct from the template it copied.
+        $case = New-CaseFixture
+        $case | Should -Not -Be $template
+        Test-Path -LiteralPath $template -PathType Container |
+            Should -BeTrue -Because 'the template survives the cases built from it'
     }
 }
