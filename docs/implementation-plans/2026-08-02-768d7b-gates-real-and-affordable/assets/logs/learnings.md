@@ -11,4 +11,4 @@ Phase: 2
 ## Learnings Capture
 Phase: 5
 
-No entries for this phase.
+- [5.2] [trigger:reusable-pattern] Pester splits failures across FailedCount, FailedBlocksCount and FailedContainersCount; any runner that decides on FailedCount alone reports green for a test file that never loaded. Use Pester's own verdict, or sum all three.

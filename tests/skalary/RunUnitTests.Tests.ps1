@@ -87,6 +87,20 @@ Describe 'sandbox' {
     It 'fails twice' { $false | Should -BeTrue }
 }
 '@
+
+        # A discoverable file that declares no test: Pester returns a clean zero-failure
+        # result for it, which is the shape that used to be reported as a pass.
+        $script:noTestsFile = @'
+Describe 'sandbox' {
+}
+'@
+
+        # Unbalanced brace: the file fails to parse during discovery, so Pester counts it as a
+        # failed container and none of its tests exist to be counted anywhere else.
+        $script:undiscoverableTestFile = @'
+Describe 'sandbox' {
+    It 'never loads' { $true | Should -BeTrue }
+'@
     }
 
     AfterAll {
@@ -123,5 +137,48 @@ Describe 'sandbox' {
         $failed.ExitCode | Should -Be 1 -Because "a run with failures reports one failed run, not its failure count: $($failed.Output)"
         $failed.ExitCode |
             Should -Not -Be $withoutPester.ExitCode -Because 'a runner that never ran must not report the same code as one that ran and failed'
+    }
+
+    It 'test:RunUnitTests.ZeroTestsDiscoveredFails fails when Pester is present but discovers nothing' {
+        # REQ-5: the louder half of the same hole. Pester returns a clean zero-failure result
+        # for a tests tree that discovers nothing, so the runner reported a pass having
+        # asserted nothing — and it is the `test:` evidence executor, so that pass was
+        # indistinguishable from a suite that actually ran.
+        $emptyFile = New-RunnerSandbox -TestFileContent $script:noTestsFile
+        $discoveredNothing = Invoke-Runner -SandboxRoot $emptyFile
+        $discoveredNothing.ExitCode |
+            Should -Not -Be 0 -Because "a test file that declares no test asserts nothing: $($discoveredNothing.Output)"
+        $discoveredNothing.Output | Should -Match 'NoTestsDiscovered'
+
+        # The other shape of the same condition: nothing to discover in the first place. Pester
+        # throws here rather than returning a result, so it needs its own answer.
+        $noFiles = New-RunnerSandbox
+        $nothingToDiscover = Invoke-Runner -SandboxRoot $noFiles
+        $nothingToDiscover.ExitCode |
+            Should -Not -Be 0 -Because "an empty tests tree asserts nothing: $($nothingToDiscover.Output)"
+        $nothingToDiscover.Output | Should -Match 'NoTestsDiscovered'
+
+        # Both must stay separable from a run that did test and failed, or the exit code stops
+        # carrying the distinction the requirement exists to make.
+        $failing = New-RunnerSandbox -TestFileContent $script:failingTestFile
+        $ran = Invoke-Runner -SandboxRoot $failing
+        $ran.ExitCode | Should -Be 1 -Because "a run that discovered and failed tests reports a failed run: $($ran.Output)"
+        $discoveredNothing.ExitCode | Should -Not -Be $ran.ExitCode
+        $nothingToDiscover.ExitCode | Should -Not -Be $ran.ExitCode
+    }
+
+    It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
+        # A file that throws during discovery contributes nothing to FailedCount or TotalCount
+        # — Pester counts it separately — so a whole file can silently not run while the suite
+        # reports a pass. That includes this file, which would take the REQ-5 gate down with it.
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Undiscoverable.Tests.ps1') -Value $script:undiscoverableTestFile -Encoding utf8
+
+        $result = Invoke-Runner -SandboxRoot $sandbox
+        $result.ExitCode |
+            Should -Not -Be 0 -Because "a file that never loaded is a gate that never ran: $($result.Output)"
+        $result.Output | Should -Match 'TestFilesNotDiscoverable'
+        $result.Output |
+            Should -Match 'Undiscoverable\.Tests\.ps1' -Because 'the file that did not load has to be nameable from the output'
     }
 }

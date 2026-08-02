@@ -62,7 +62,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 5.1 `Run-UnitTests.ps1` exits non-zero when Pester is absent, with a message naming the install command (REQ-5, RISK-3) `S`
-- [ ] 5.2 Same when Pester is present but zero tests are discovered (REQ-5, RISK-3) [after: 5.1] `M`
+- [x] 5.2 Same when Pester is present but zero tests are discovered (REQ-5, RISK-3) [after: 5.1] `M`
 
 ## Phase 6: Plan stages are a closed, ordered set
 <!-- worktree: (recorded by /ci when worktree is created) -->
