@@ -16,3 +16,10 @@ Phase 5 Crosscheck:
 ✓ REQ-5 — test:RunUnitTests.MissingPesterExitsNonZero — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
 ✓ REQ-5 — test:RunUnitTests.ZeroTestsDiscoveredFails — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
 
+Phase 7 Crosscheck:
+✓ REQ-7 — file:scripts/skalary/Build-Registry.ps1#contains:StringComparer — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-7 — test:BuildRegistry.CzechCollationFixtureIsStable — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-7 — test:BuildRegistry.FixtureIsRedBeforeFix — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-8 — test:Validate.DotPrefixedPayloadEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-8 — test:Validate.GitDirectoryNotEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-8 — test:Validate.FileCountEqualAcrossPlatforms — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
