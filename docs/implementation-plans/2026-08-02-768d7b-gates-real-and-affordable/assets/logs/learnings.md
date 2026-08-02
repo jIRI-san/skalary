@@ -7,3 +7,8 @@ No entries for this phase.
 Phase: 2
 
 - [2.1] [trigger:reusable-pattern] A fixture rewrite loses coverage where the old fixture supplied state implicitly (.github payload, shared commit SHA); assert the precondition is non-empty rather than trusting the loop over it.
+
+## Learnings Capture
+Phase: 5
+
+No entries for this phase.

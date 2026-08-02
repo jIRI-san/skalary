@@ -11,3 +11,8 @@ Phase: 2
 - [2.1] [src:code-review] [sev:High] Per-fixture commits diverged, so Install-Plugin's registry-parity check silently stopped running; fixture commit timestamps pinned so every fixture shares one SHA.
 - [2.1] [src:code-review] [sev:Med] SuiteFixture cases shared one mutable fixture and pinned .github absence as an invariant; each case now builds its own fixture and the allowlist assertion checks tracked files.
 - [2.1] [src:code-review] [sev:Low] New-SkalaryFixtureRepo leaked its temp root when a git step failed mid-build; wrapped in try/catch cleanup.
+
+## CR Capture
+Phase: 5
+
+- [5.1] [src:code-review] [sev:Med] Published exit-code contract was false: Invoke-Pester -CI sets Run.Exit, so Pester exited with the failure count before the script could, making the PesterNotInstalled sentinel 2 indistinguishable from a two-failure run and leaving exit 1 dead. Replaced -CI with an explicit PesterConfiguration (TestResult.Enabled kept, Run.Exit off) and added an assertion that a failing run exits 1 and never collides with the sentinel.

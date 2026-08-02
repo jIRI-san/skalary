@@ -41,7 +41,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 2.1 Replace the full-history clone with a minimal synthetic `git init` fixture carrying `git tag` data for version resolution (REQ-3, REQ-4, RISK-11, RISK-12) [after: 1.1] `L`
-- [ ] 2.2 Give each case its own filesystem copy of that minimal template, under a fresh random root that fails hard if it exists (REQ-4, RISK-1) [after: 2.1] `M`
+- [~] 2.2 Give each case its own filesystem copy of that minimal template, under a fresh random root that fails hard if it exists (REQ-4, RISK-1) [after: 2.1] `M`
 - [ ] 2.3 Record Phase 2's achieved saving against its declared target; escalate rather than continue if missed (REQ-4) [after: 2.2] `S`
 
 ## Phase 3: Reduce the residue
@@ -61,7 +61,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 5: The test command fails when it cannot test
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 5.1 `Run-UnitTests.ps1` exits non-zero when Pester is absent, with a message naming the install command (REQ-5, RISK-3) `S`
+- [x] 5.1 `Run-UnitTests.ps1` exits non-zero when Pester is absent, with a message naming the install command (REQ-5, RISK-3) `S`
 - [ ] 5.2 Same when Pester is present but zero tests are discovered (REQ-5, RISK-3) [after: 5.1] `M`
 
 ## Phase 6: Plan stages are a closed, ordered set
