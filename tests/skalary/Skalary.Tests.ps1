@@ -8,36 +8,41 @@ Describe 'skalary plugin registry scripts' {
         $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $tempRepos = [System.Collections.Generic.List[string]]::new()
 
+        # Cost-model instrumentation; inert unless SKALARY_SUITE_PROFILE names a sink.
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteProfile.psm1') -Force -DisableNameChecking
+
         function New-RepoClone {
             [CmdletBinding()]
             param()
 
-            $path = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-tests-" + [System.Guid]::NewGuid().ToString('N'))
-            git clone --quiet $projectRoot $path | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                throw "Failed to clone test fixture repository to '$path'."
-            }
+            Measure-SuiteOperation -Operation 'New-RepoClone' -Body {
+                $path = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-tests-" + [System.Guid]::NewGuid().ToString('N'))
+                git clone --quiet $projectRoot $path | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to clone test fixture repository to '$path'."
+                }
 
-            git -C $path config user.name 'skalary-tests' | Out-Null
-            git -C $path config user.email 'skalary-tests@example.com' | Out-Null
-            git -C $path remote set-url origin 'https://github.com/jIRI-san/skalary.git' | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                throw "Failed to configure git identity for '$path'."
-            }
+                git -C $path config user.name 'skalary-tests' | Out-Null
+                git -C $path config user.email 'skalary-tests@example.com' | Out-Null
+                git -C $path remote set-url origin 'https://github.com/jIRI-san/skalary.git' | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to configure git identity for '$path'."
+                }
 
-            # Keep fixture repos aligned with uncommitted local changes under test.
-            Copy-Item -LiteralPath (Join-Path $projectRoot 'scripts/skalary') -Destination (Join-Path $path 'scripts') -Recurse -Force
-            Copy-Item -LiteralPath (Join-Path $projectRoot 'plugins') -Destination $path -Recurse -Force
-            Copy-Item -LiteralPath (Join-Path $projectRoot 'registry.json') -Destination $path -Force
-            Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $path -Force
-            git -C $path add scripts/skalary plugins registry.json README.md | Out-Null
-            $staged = @(git -C $path diff --cached --name-only)
-            if ($staged.Count -gt 0) {
-                git -C $path commit -m 'test: sync fixture with local changes' | Out-Null
-            }
+                # Keep fixture repos aligned with uncommitted local changes under test.
+                Copy-Item -LiteralPath (Join-Path $projectRoot 'scripts/skalary') -Destination (Join-Path $path 'scripts') -Recurse -Force
+                Copy-Item -LiteralPath (Join-Path $projectRoot 'plugins') -Destination $path -Recurse -Force
+                Copy-Item -LiteralPath (Join-Path $projectRoot 'registry.json') -Destination $path -Force
+                Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $path -Force
+                git -C $path add scripts/skalary plugins registry.json README.md | Out-Null
+                $staged = @(git -C $path diff --cached --name-only)
+                if ($staged.Count -gt 0) {
+                    git -C $path commit -m 'test: sync fixture with local changes' | Out-Null
+                }
 
-            $tempRepos.Add($path)
-            return $path
+                $tempRepos.Add($path)
+                return $path
+            }
         }
 
         function Invoke-ScriptProcess {
@@ -52,23 +57,25 @@ Describe 'skalary plugin registry scripts' {
                 [string[]]$Arguments = @()
             )
 
-            $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
-            if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
-                throw "Script not found: $scriptPath"
-            }
+            Measure-SuiteOperation -Operation ([System.IO.Path]::GetFileNameWithoutExtension($ScriptName)) -Body {
+                $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
+                if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+                    throw "Script not found: $scriptPath"
+                }
 
-            $argList = @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $RepoRoot) + $Arguments
-            Push-Location -LiteralPath $RepoRoot
-            try {
-                $lines = @(& pwsh @argList 2>&1)
-            }
-            finally {
-                Pop-Location
-            }
+                $argList = @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $RepoRoot) + $Arguments
+                Push-Location -LiteralPath $RepoRoot
+                try {
+                    $lines = @(& pwsh @argList 2>&1)
+                }
+                finally {
+                    Pop-Location
+                }
 
-            return [pscustomobject]@{
-                ExitCode = $LASTEXITCODE
-                Output = ($lines | ForEach-Object { "$_" }) -join "`n"
+                return [pscustomobject]@{
+                    ExitCode = $LASTEXITCODE
+                    Output = ($lines | ForEach-Object { "$_" }) -join "`n"
+                }
             }
         }
 
@@ -84,13 +91,15 @@ Describe 'skalary plugin registry scripts' {
                 [hashtable]$Parameters = @{}
             )
 
-            $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
-            Push-Location -LiteralPath $RepoRoot
-            try {
-                & $scriptPath -RepoRoot $RepoRoot @Parameters
-            }
-            finally {
-                Pop-Location
+            Measure-SuiteOperation -Operation ([System.IO.Path]::GetFileNameWithoutExtension($ScriptName)) -Body {
+                $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
+                Push-Location -LiteralPath $RepoRoot
+                try {
+                    & $scriptPath -RepoRoot $RepoRoot @Parameters
+                }
+                finally {
+                    Pop-Location
+                }
             }
         }
 

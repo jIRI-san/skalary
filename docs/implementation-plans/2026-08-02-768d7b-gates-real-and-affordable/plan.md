@@ -33,7 +33,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Instrument `New-RepoClone`, `Install-Plugin`, `Build-Registry`, `Test-Registry` with call counts and aggregate seconds; emit `tools/suite-profile.json` across the whole `tests/` tree (REQ-1) `M`
+- [x] 1.1 Instrument `New-RepoClone`, `Install-Plugin`, `Build-Registry`, `Test-Registry` with call counts and aggregate seconds; emit `tools/suite-profile.json` across the whole `tests/` tree (REQ-1) `M`
 - [ ] 1.2 Capture the test-name inventory for the whole tree as the coverage baseline (REQ-3) `S`
 - [ ] 1.3 Create `tools/suite-budget.psd1` with `HardCeilingSeconds = 600`, `TargetSeconds = 480`, measured against `npm test`; add the test that rejects any raise without a recorded justification (REQ-2) `M`
 
