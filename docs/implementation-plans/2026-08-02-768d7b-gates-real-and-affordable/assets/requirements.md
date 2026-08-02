@@ -1,22 +1,22 @@
 # Requirements
 
+Revised after DR rounds 1 and 2 (64 then 91 findings; all Critical and High applied).
+
+Budget history: the round-1 draft demanded `< 300s`, which was unreachable — the residue outside the
+targeted file is 322s. Round 2 showed the two-stage replacement bound no value at all (every marker
+passed with `1800` in the file) and that the floor, with fixture cost driven to zero, is **535–819s**.
+The operator therefore set the ceiling at **900s hard / 600s target**, bound now rather than derived
+later, and it may only ever be tightened.
+
 | ID | Requirement | Acceptance Criteria | Phases/Steps |
 |----|-------------|---------------------|--------------|
-| REQ-1 | `Validate-Plan.ps1` distinguishes a scaffolded plan from a drafted one, and does not fail a plan that has not yet been drafted | A plan freshly created by `New-Plan.ps1` passes `validate.ps1` with exit 0; a drafted plan with a genuinely invalid marker still fails. `file:scripts/skalary/Validate-Plan.ps1#contains:Stage` · `test:ValidatePlan.ScaffoldedPlanPasses` | |
-
-<!--
-Seeded 2026-08-02 from the first real /cep run. Validate-Plan.ps1 line 37 invokes the validator at
--Stage Draft unconditionally, and New-Plan.ps1 writes no cip-stage anchor at scaffold time, so the
-validator cannot tell "scaffolded, not yet drafted" from "drafted and broken". Scaffolding this
-epic's seven children turned the repo red before a word was authored.
-
-The immediate symptom -- the marker legend in REQ-1's criteria cell carried the literal `count>=<N>`,
-which Test-Plan rejects as an invalid assertion -- was fixed at the source in
-scripts/skalary/New-Plan.ps1 and synced through the payload pipeline. That makes the placeholder
-valid; it does not give the validator a notion of stage, which is the real gap and belongs here.
-
-Remaining requirements for this child are captured when /cip drafts it: CI running the whole suite
-(Cluster B), host/container -Force parity, locale-deterministic catalog ordering (Cluster E), gated
-constants (Cluster C), and the 29-minute suite cost (Cluster H).
--->
-
+| REQ-1 | The suite's cost model is measured across the whole tree before anything is optimised | Per-operation counts and aggregate seconds for `New-RepoClone`, `Install-Plugin`, `Build-Registry`, `Test-Registry`, emitted machine-readably for all of `tests/`, not one file. `file:tools/suite-profile.json#exists` · `test:SuiteProfile.RecordsPerOperationCosts` · `test:SuiteProfile.CoversWholeTestTree` | 1.1–1.2 |
+| REQ-2 | A bound runtime ceiling exists from the start and can only be tightened | `tools/suite-budget.psd1` declares `HardCeilingSeconds = 900` and `TargetSeconds = 600`, measured against **`npm test`** — not the `test:unit` leg alone. A test rejects any value above the agreed ceiling, so the file cannot be loosened to make a slow run pass. `file:tools/suite-budget.psd1#exists` · `test:SuiteBudget.CeilingCannotBeRaised` · `test:SuiteBudget.MeasuresFullNpmTest` · `test:SuiteBudget.OverBudgetRunFails` | 1.3, 4.1–4.3 |
+| REQ-3 | Coverage is preserved across the rewrite | A test-name inventory captured before the rewrite is a subset afterwards, except an enumerated removal list with a reason per entry. Install-confinement rejection cases are named must-keep. The synthetic fixture carries `git tag` data, since `Build-Registry` resolves versions from tags and the name inventory cannot detect that loss. `test:SuiteCoverage.TestNameInventoryPreserved` · `test:SuiteCoverage.ConfinementCasesRetained` · `test:SuiteFixture.CarriesTagsForVersionResolution` | 1.2, 2.1, 3.3 |
+| REQ-4 | Suite runtime is reduced against a quantified, per-phase target | Phase 2 and Phase 3 each declare a required saving and a stop condition; the achieved figure is recorded after each. A phase that misses its target escalates rather than continuing silently. `test:SuiteBudget.WithinHardCeiling` · `file:tools/suite-profile.json#contains:phase` | 2.1–3.3, 4.1 |
+| REQ-5 | `Run-UnitTests.ps1` fails when it cannot test | Exits non-zero with a message naming the install command when Pester is absent, and when Pester is present but zero tests are discovered. `file:scripts/skalary/Run-UnitTests.ps1#contains:PesterNotInstalled` · `test:RunUnitTests.MissingPesterExitsNonZero` · `test:RunUnitTests.ZeroTestsDiscoveredFails` | 5.1–5.2 |
+| REQ-6 | `Validate-Plan.ps1` distinguishes plan stages against an ordered, closed set | Stage order defined in one place; an unrecognised stage fails loudly rather than resolving to "skip". A scaffolded plan is skipped with a distinguishable signal; a drafted plan with an invalid marker still fails. `file:scripts/skalary/PlanState.psm1#contains:PlanStageOrder` · `test:ValidatePlan.ScaffoldedPlanReportsSkipped` · `test:ValidatePlan.DraftedPlanStillValidated` · `test:ValidatePlan.UnknownStageFailsLoud` | 6.1–6.3 |
+| REQ-7 | Generated catalogs are byte-identical regardless of locale, proven against a genuinely divergent fixture | The fixture contains ids that collate differently between `cs-CZ` and `en-US` (Czech `ch`, accents, mixed case), demonstrated red against pre-fix code. `file:scripts/skalary/Build-Registry.ps1#contains:StringComparer` · `test:BuildRegistry.CzechCollationFixtureIsStable` · `test:BuildRegistry.FixtureIsRedBeforeFix` | 7.1–7.2 |
+| REQ-8 | `validate.ps1` parses the same file set on both platforms | Payload roots enumerated by allowlist; `.git`, `node_modules` and worktrees excluded; parsed file count equal across platforms for the same fixture. `test:Validate.DotPrefixedPayloadEnumerated` · `test:Validate.GitDirectoryNotEnumerated` · `test:Validate.FileCountEqualAcrossPlatforms` | 7.3 |
+| REQ-9 | CI runs every advertised gate on both platforms, under least privilege, diagnosably | The workflow invokes `Run-UnitTests.ps1` (the only place the budget check lives) and `validate.ps1` as separate named steps on both platforms; declares `permissions: contents: read`; sets `persist-credentials: false`; pins actions by SHA and modules by version **without** `-SkipPublisherCheck` or a globally trusted repository; sets `timeout-minutes` above the hard ceiling; sets `concurrency`. NUnit output goes to a deterministic per-OS path and uploads under a per-OS artifact name. A seeded failure returns non-zero. `test:Ci.InvokesRunUnitTests` · `test:Ci.DeclaresLeastPrivilege` · `test:Ci.ActionsAndModulesPinnedWithoutSkipPublisherCheck` · `test:Ci.ArtifactNamePerPlatform` · `test:Ci.SeededFailureIsRed` | 8.1–8.5 |
+| REQ-10 | The gate inventory is checked against the workflow | Every gate listed in the design note maps to a workflow invocation or a typed exclusion id naming the decision that excluded it; the check fails when a gate is added to one side only. `file:docs/design-notes/project/ci-gates.design.md#exists` · `test:CiGates.InventoryMatchesWorkflow` | 9.1–9.2 |
