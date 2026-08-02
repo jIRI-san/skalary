@@ -17,3 +17,8 @@ Phase: 5
 
 - [5.1] [src:code-review] [sev:Med] Published exit-code contract was false: Invoke-Pester -CI sets Run.Exit, so Pester exited with the failure count before the script could, making the PesterNotInstalled sentinel 2 indistinguishable from a two-failure run and leaving exit 1 dead. Replaced -CI with an explicit PesterConfiguration (TestResult.Enabled kept, Run.Exit off) and added an assertion that a failing run exits 1 and never collides with the sentinel.
 - [5.2] [src:code-review] [sev:High] Zero-discovery guard left the other half open: a test file that throws during discovery contributes to neither TotalCount nor FailedCount, so a suite with an unparseable file exited 0 with that file never run - including this file, which would have taken the REQ-5 gate down with it. Added a FailedContainersCount guard (exit 4, TestFilesNotDiscoverable, names the files), folded FailedBlocksCount into the failed-run branch, and landed test:RunUnitTests.UndiscoverableTestFileFails proven red against the pre-fix script.
+
+## CR Capture
+Phase: 6
+
+- [6.1] [src:code-review] [sev:Med] Get-PlanStageOrder published dr-round but Resolve-PlanStage rejected it, so a caller-supplied floor failed with the plan-blaming RISK-6 error; Test-PlanStageAtLeast now ranks -Minimum against the family list and says the floor is the caller's bug.

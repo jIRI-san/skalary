@@ -11,6 +11,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+
 $stageValue = $Stage.Trim()
 if ([string]::IsNullOrWhiteSpace($stageValue)) {
     throw 'Stage must be a non-empty value.'
@@ -18,6 +20,10 @@ if ([string]::IsNullOrWhiteSpace($stageValue)) {
 if ($stageValue -match '[>\r\n]') {
     throw "Stage '$Stage' must not contain '>' or newlines."
 }
+
+# The single writer of the anchor is also the gate on what may be written: a stage that never reaches
+# the file cannot later be misread as "skip every check" (RISK-6). Throws on anything outside the set.
+$stageValue = (Resolve-PlanStage -Stage $stageValue).Stage
 
 $fullPath = (Resolve-Path -LiteralPath $PlanFile).Path
 $raw = Get-Content -LiteralPath $fullPath -Raw

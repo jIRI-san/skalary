@@ -13,3 +13,8 @@ No entries for this phase.
 Phase: 5
 
 - [5.1] Step 2.2 is left in-progress with uncommitted work whose Copy-DirectoryContent resolves cp via Get-Command without taking the first match, so the path becomes two paths joined and 20 cases in Skalary.Tests.ps1/SuiteFixture.Tests.ps1 fail. Pre-existing and unrelated to phase 5; the phase-5 commits do not stage those files.
+
+## Capture
+Phase: 6
+
+No entries for this phase.

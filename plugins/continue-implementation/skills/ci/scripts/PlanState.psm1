@@ -896,6 +896,117 @@ function Resolve-Epic {
     return $epicMatches[0]
 }
 
+# The lifecycle stages a plan's `<!-- cip-stage: ... -->` anchor may carry, lowest first. The set is
+# closed on purpose: a reader that treats "not `drafted`" as "skip validation" turns any typo (`draftd`)
+# into a silent pass that exits 0 while checking nothing (RISK-6). Ordering lives here once so writers
+# (`Set-PlanStage`) and readers (`Validate-Plan`) cannot disagree about what a stage means.
+#
+# `dr-round` is a family rather than a single value: design-review rounds are numbered and open-ended,
+# but every round ranks at the same point in the lifecycle — after drafting, before completion.
+$script:PlanStageOrder = @('scaffolded', 'drafted', 'dr-round', 'done')
+
+# A plan with no anchor at all predates the anchor (RISK-7). It resolves to `drafted` so an older plan
+# keeps being validated exactly as it is today, rather than silently dropping out of validation.
+$script:PlanStageDefault = 'drafted'
+
+function Get-PlanStageOrder {
+    <#
+    .SYNOPSIS
+    The ordered, closed set of plan lifecycle stage families, lowest first.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param()
+
+    return [string[]]$script:PlanStageOrder
+}
+
+function Resolve-PlanStage {
+    <#
+    .SYNOPSIS
+    Resolves a `cip-stage` anchor value to its family and rank in the closed stage order.
+
+    .DESCRIPTION
+    Throws on anything outside the closed set — that loud failure is the whole point, because the
+    alternative is an unrecognised stage quietly disabling every downstream check.
+
+    A null or whitespace value is not an unrecognised stage: it is a plan written before the anchor
+    existed, and resolves to the default (`drafted`) with `IsDefaulted` set so a caller can tell the two
+    apart.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Stage
+    )
+
+    $isDefaulted = [string]::IsNullOrWhiteSpace($Stage)
+    $value = if ($isDefaulted) { $script:PlanStageDefault } else { $Stage.Trim().ToLowerInvariant() }
+
+    $family = $null
+    $round = $null
+    if ($value -match '^dr-round-(?<n>[1-9][0-9]*)$') {
+        $family = 'dr-round'
+        $round = [int]$Matches['n']
+    }
+    elseif ($value -ne 'dr-round') {
+        # A bare `dr-round` names the family, not a stage: a plan under review is always in a numbered
+        # round, so the unnumbered form is as much a typo as `draftd` and is rejected the same way.
+        $family = $value
+    }
+
+    $rank = if ($family) { [array]::IndexOf([string[]]$script:PlanStageOrder, $family) } else { -1 }
+    if ($rank -lt 0) {
+        $known = (@('scaffolded', 'drafted', 'dr-round-<n>', 'done')) -join ', '
+        throw "Unrecognised plan stage '$Stage'. Known stages, in order: $known."
+    }
+
+    return [pscustomobject]@{
+        Stage       = $value
+        Family      = $family
+        Round       = $round
+        Rank        = $rank
+        IsDefaulted = $isDefaulted
+    }
+}
+
+function Test-PlanStageAtLeast {
+    <#
+    .SYNOPSIS
+    True when $Stage ranks at or above $Minimum in the closed stage order.
+
+    .DESCRIPTION
+    `-Stage` is an anchor value read from a plan and is resolved strictly, so a bad marker fails loudly.
+    `-Minimum` is a caller-supplied floor and is ranked against the family list directly, so every value
+    `Get-PlanStageOrder` publishes — including the bare family name `dr-round` — is a usable floor. A bad
+    floor is the caller's bug and says so, rather than blaming the plan under validation.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Stage,
+
+        [Parameter(Mandatory)]
+        [string]$Minimum
+    )
+
+    $floorValue = $Minimum.Trim().ToLowerInvariant()
+    $floorRank = [array]::IndexOf([string[]]$script:PlanStageOrder, $floorValue)
+    if ($floorRank -lt 0) {
+        if ($floorValue -match '^dr-round-[1-9][0-9]*$') {
+            $floorRank = [array]::IndexOf([string[]]$script:PlanStageOrder, 'dr-round')
+        }
+        else {
+            throw "Unknown stage floor '$Minimum'. Use one of: $(($script:PlanStageOrder) -join ', ')."
+        }
+    }
+
+    return (Resolve-PlanStage -Stage $Stage).Rank -ge $floorRank
+}
+
 function Get-PlanHeaderMarkers {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     param(
@@ -1264,4 +1375,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast

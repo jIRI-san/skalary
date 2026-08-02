@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-02T08:32:40.6495174Z",
+  "generatedAt": "2026-08-02T16:50:02.9550607Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -526,7 +526,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -603,7 +603,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.24"
+      "version": "1.0.26"
     },
     {
       "author": "jIRI-san",
@@ -652,7 +652,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
@@ -717,7 +717,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -727,7 +727,7 @@
         },
         {
           "dest": "skills/cip/scripts/Set-PlanStage.ps1",
-          "sha256": "c989201dad4b9731f645e80194298354e76ef513e8666c66646a034a25417dce",
+          "sha256": "3686201bbdfa2776f76d7b261ef4619220d067ccc6aec6f6cbf91c24d2d6fea0",
           "src": "skills/cip/scripts/Set-PlanStage.ps1"
         },
         {
@@ -764,7 +764,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.22"
+      "version": "1.0.24"
     },
     {
       "author": "jIRI-san",
@@ -1086,7 +1086,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1111,7 +1111,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
@@ -1142,7 +1142,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.17"
+      "version": "1.0.19"
     }
   ]
 }
