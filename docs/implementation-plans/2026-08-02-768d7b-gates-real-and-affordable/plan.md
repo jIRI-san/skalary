@@ -35,7 +35,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [ ] 1.1 Instrument `New-RepoClone`, `Install-Plugin`, `Build-Registry`, `Test-Registry` with call counts and aggregate seconds; emit `tools/suite-profile.json` across the whole `tests/` tree (REQ-1) `M`
 - [ ] 1.2 Capture the test-name inventory for the whole tree as the coverage baseline (REQ-3) `S`
-- [ ] 1.3 Create `tools/suite-budget.psd1` with `HardCeilingSeconds = 900`, `TargetSeconds = 600`, measured against `npm test`; add the test that rejects any raise (REQ-2) `M`
+- [ ] 1.3 Create `tools/suite-budget.psd1` with `HardCeilingSeconds = 600`, `TargetSeconds = 480`, measured against `npm test`; add the test that rejects any raise without a recorded justification (REQ-2) `M`
 
 ## Phase 2: Shrink the fixture, then copy it
 <!-- worktree: (recorded by /ci when worktree is created) -->
@@ -55,7 +55,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [ ] 4.1 Measure `npm test` end to end and record the achieved figure with its environment (REQ-2, REQ-4) [after: 3.3] `S`
-- [ ] 4.2 Tighten `tools/suite-budget.psd1` to the achieved figure plus stated headroom; the ceiling may only fall (REQ-2) [after: 4.1] `M`
+- [ ] 4.2 Tighten `tools/suite-budget.psd1` to the achieved figure plus stated headroom. The ceiling may only fall — unless the measured floor makes 600s unreachable, in which case raise it once to at most 900s with the justification written into `assets/decisions.md` (REQ-2, RISK-14) [after: 4.1] `M`
 - [ ] 4.3 `Run-UnitTests.ps1` reads the budget and fails an over-budget `npm test`, reporting measured and budgeted values (REQ-2) [after: 4.2] `M`
 
 ## Phase 5: The test command fails when it cannot test
@@ -102,7 +102,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   <details><summary>Details</summary>
 
   **Steps:**
-  1. Read `tools/suite-budget.psd1`. The ceiling was bound at 900s hard / 600s target before any work started, and step 4.2 may only have tightened it. Confirm the final value is one you accept.
+  1. Read `tools/suite-budget.psd1`. The ceiling was bound at 600s hard / 480s target before any work started, and step 4.2 may only have tightened it. Confirm the final value is one you accept.
   2. Run `npm test` yourself and confirm the reported figure is under the ceiling on comparable hardware.
   3. Confirm `test:SuiteCoverage.TestNameInventoryPreserved` passes, then read the enumerated removal list — every removed test must carry a reason you accept.
   4. Confirm `test:SuiteFixture.CarriesTagsForVersionResolution` passes; the inventory cannot detect that loss on its own.

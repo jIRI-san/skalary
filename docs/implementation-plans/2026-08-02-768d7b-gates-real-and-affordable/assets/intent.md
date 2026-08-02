@@ -14,9 +14,8 @@ introducing bugs.
 The gates the repo already claims to have become real, and cheap. The full unit suite and
 `validate.ps1` run on every PR on both platforms; the test command fails when it cannot test; generated
 catalogs are byte-identical regardless of the contributor's locale; `validate.ps1` parses the same file
-set on Windows and Linux; the validator can tell a scaffolded plan from a broken one; and constants the
-repo asserts in prose are pinned to the gated source. The suite finishes in minutes, not half an hour,
-so running it is never the expensive option.
+set on Windows and Linux; and the validator can tell a scaffolded plan from a broken one. The suite
+finishes in minutes, not half an hour, so running it is never the expensive option.
 
 ## Success signals
 
