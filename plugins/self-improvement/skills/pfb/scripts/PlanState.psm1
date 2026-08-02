@@ -909,6 +909,10 @@ $script:PlanStageOrder = @('scaffolded', 'drafted', 'dr-round', 'done')
 # keeps being validated exactly as it is today, rather than silently dropping out of validation.
 $script:PlanStageDefault = 'drafted'
 
+# The stage a plan must reach before its content is worth validating. Below it a plan is a scaffold of
+# placeholders, so validating it would keep the test command red for the whole drafting session.
+$script:PlanValidationFloor = 'drafted'
+
 function Get-PlanStageOrder {
     <#
     .SYNOPSIS
@@ -1005,6 +1009,51 @@ function Test-PlanStageAtLeast {
     }
 
     return (Resolve-PlanStage -Stage $Stage).Rank -ge $floorRank
+}
+
+function Get-PlanValidationDecision {
+    <#
+    .SYNOPSIS
+    Decides whether a plan file is far enough along to be worth validating, and says so out loud.
+
+    .DESCRIPTION
+    One home for the floor and for the signal both entry points print. `npm test` validates plans twice —
+    `Validate-Plan.ps1` for the working plan, `scripts/validate.ps1` for the whole tree — and if only one
+    of them honours the floor, a below-floor plan is skipped by one leg and hard-failed by the other. The
+    floor then changes nothing except which leg reports the failure.
+
+    An unrecognised stage propagates as a throw, with the offending plan named: a stage nobody recognises
+    must never resolve to "skip", which is the failure the closed set exists to prevent.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $markers = Get-PlanHeaderMarkers -Path $Path
+    try {
+        $stage = Resolve-PlanStage -Stage $markers.CipStage
+    }
+    catch {
+        throw "$($_.Exception.Message) Plan: $Path"
+    }
+
+    $shouldValidate = Test-PlanStageAtLeast -Stage $stage.Stage -Minimum $script:PlanValidationFloor
+    $signal = if ($shouldValidate) {
+        "PLAN-VALIDATION: VALIDATING stage=$($stage.Stage) plan=$Path"
+    }
+    else {
+        "PLAN-VALIDATION: SKIPPED stage=$($stage.Stage) floor=$($script:PlanValidationFloor) plan=$Path"
+    }
+
+    return [pscustomobject]@{
+        Path           = $Path
+        Stage          = $stage.Stage
+        Floor          = $script:PlanValidationFloor
+        ShouldValidate = $shouldValidate
+        Signal         = $signal
+    }
 }
 
 function Get-PlanHeaderMarkers {
@@ -1375,4 +1424,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

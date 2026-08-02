@@ -91,16 +91,37 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host '== Validating implementation plans (Draft stage) =='
+Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |
     Sort-Object FullName
+$checkedCount = 0
+$skippedCount = 0
 foreach ($plan in $planPaths) {
+    # The same decision `Validate-Plan.ps1` makes, from the same place. Both legs of `npm test` validate
+    # plans, so a floor honoured by only one of them changes nothing except which leg reports the
+    # failure. An unrecognised stage is a hard error here, never a skip.
+    try {
+        $decision = Get-PlanValidationDecision -Path $plan.FullName
+    }
+    catch {
+        $errors.Add("$($plan.FullName): $($_.Exception.Message)")
+        continue
+    }
+
+    if (-not $decision.ShouldValidate) {
+        Write-Host "  $($decision.Signal)"
+        $skippedCount++
+        continue
+    }
+
     & $planValidator -PlanPath $plan.FullName -RepoRoot $repoRoot -Stage Draft
+    $checkedCount++
     if ($LASTEXITCODE -ne 0) {
         $errors.Add("$($plan.FullName): Test-Plan failed at Draft stage.")
     }
 }
-Write-Host "  Checked $($planPaths.Count) plan file(s)."
+Write-Host "  Checked $checkedCount plan file(s); skipped $skippedCount below the drafted floor."
 
 Write-Host '== Validating architecture human-doc freshness =='
 $freshnessGate = Join-Path $repoRoot 'scripts/skalary/Test-ArchDocFreshness.ps1'

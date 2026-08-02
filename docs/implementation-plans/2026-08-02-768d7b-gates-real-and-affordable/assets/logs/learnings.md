@@ -17,3 +17,4 @@ Phase: 5
 Phase: 6
 
 - [6.2] [trigger:reusable-pattern] Sync-PluginScripts bundles a new script by closure but plugin.json files() is hand-maintained, so the copy is bundled and never installed; the manifest-coverage test only checked .md and missed it. Extended it to .ps1/.psm1.
+- [6.3] [trigger:reusable-pattern] A gate added at one entry point is not a gate: check every caller that performs the same check before claiming the guarantee, and give them one shared decision rather than two agreeing copies.
