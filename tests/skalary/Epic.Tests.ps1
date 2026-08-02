@@ -328,7 +328,7 @@ Describe 'New-Plan template resolution' {
             New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
             New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
             New-Item -ItemType Directory -Path (Join-Path $tmp 'docs/implementation-plans') -Force | Out-Null
-            foreach ($name in @('New-Plan.ps1', 'PlanState.psm1')) {
+            foreach ($name in @('New-Plan.ps1', 'PlanState.psm1', 'Set-PlanStage.ps1')) {
                 Copy-Item -LiteralPath (Join-Path $repoRoot "scripts/skalary/$name") -Destination (Join-Path $scriptDir $name)
             }
             Copy-Item -LiteralPath (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md') -Destination (Join-Path $assetDir 'plan-template.md')

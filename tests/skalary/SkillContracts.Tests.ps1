@@ -73,7 +73,11 @@ Describe 'Skill contract token guards' {
             $declared = @($manifest.files | ForEach-Object { ($_.src -replace '\\', '/') })
 
             $skillsDir = Join-Path $pluginRoot 'skills'
-            $assets = Get-ChildItem -LiteralPath $skillsDir -Recurse -File -Filter '*.md'
+            # Scripts are bundled by closure (`Sync-PluginScripts`), so a script can appear in the
+            # bundle without anyone editing the manifest — and a bundled-but-unregistered script is
+            # simply absent after install, failing at the moment its caller needs it.
+            $assets = Get-ChildItem -LiteralPath $skillsDir -Recurse -File |
+                Where-Object { $_.Extension -in @('.md', '.ps1', '.psm1') }
             foreach ($asset in $assets) {
                 $rel = ($asset.FullName.Substring($pluginRoot.Length + 1)) -replace '\\', '/'
                 $declared | Should -Contain $rel -Because "asset '$rel' must be registered in $plugin/plugin.json files[]"

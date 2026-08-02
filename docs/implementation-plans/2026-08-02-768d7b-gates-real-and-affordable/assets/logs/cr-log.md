@@ -22,3 +22,4 @@ Phase: 5
 Phase: 6
 
 - [6.1] [src:code-review] [sev:Med] Get-PlanStageOrder published dr-round but Resolve-PlanStage rejected it, so a caller-supplied floor failed with the plan-blaming RISK-6 error; Test-PlanStageAtLeast now ranks -Minimum against the family list and says the floor is the caller's bug.
+- [6.2] [src:code-review] [sev:Low] No findings on the final state; the cep manifest gap that would have half-scaffolded a plan folder was already fixed and guarded by the widened manifest-coverage test before review completed.

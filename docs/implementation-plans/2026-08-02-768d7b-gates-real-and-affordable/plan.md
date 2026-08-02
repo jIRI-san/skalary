@@ -68,7 +68,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 6.1 Define the ordered, closed stage set in `PlanState.psm1`; an unrecognised value fails loudly (REQ-6, RISK-6) `M`
-- [ ] 6.2 `New-Plan.ps1` stamps the scaffold stage through `Set-PlanStage` rather than becoming a second writer of the anchor (REQ-6) [after: 6.1] `S`
+- [x] 6.2 `New-Plan.ps1` stamps the scaffold stage through `Set-PlanStage` rather than becoming a second writer of the anchor (REQ-6) [after: 6.1] `S`
 - [ ] 6.3 `Validate-Plan.ps1` skips below `drafted` with a distinguishable signal; a missing anchor still means `drafted` (REQ-6, RISK-7) [after: 6.2] `M`
 
 ## Phase 7: Determinism and platform parity

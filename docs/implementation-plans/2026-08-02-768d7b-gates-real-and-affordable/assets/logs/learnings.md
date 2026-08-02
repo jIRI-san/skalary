@@ -16,4 +16,4 @@ Phase: 5
 ## Learnings Capture
 Phase: 6
 
-No entries for this phase.
+- [6.2] [trigger:reusable-pattern] Sync-PluginScripts bundles a new script by closure but plugin.json files() is hand-maintained, so the copy is bundled and never installed; the manifest-coverage test only checked .md and missed it. Extended it to .ps1/.psm1.

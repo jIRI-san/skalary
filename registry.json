@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-02T16:50:02.9550607Z",
+  "generatedAt": "2026-08-02T16:59:40.9078791Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -642,7 +642,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "7ad2d7ea956ab5951613bfaf38320a9b75e2ea6cbb341ac15bd69fe56e975d18",
+          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -654,6 +654,11 @@
           "dest": "skills/cep/scripts/PlanState.psm1",
           "sha256": "c1a0d1e090d4ee07c5a4d48eb39898532d38fdf749033c60c946c40aa6633e7b",
           "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Set-PlanStage.ps1",
+          "sha256": "3686201bbdfa2776f76d7b261ef4619220d067ccc6aec6f6cbf91c24d2d6fea0",
+          "src": "skills/cep/scripts/Set-PlanStage.ps1"
         },
         {
           "dest": "skills/cep/scripts/Test-Plan.ps1",
@@ -707,7 +712,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "7ad2d7ea956ab5951613bfaf38320a9b75e2ea6cbb341ac15bd69fe56e975d18",
+          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -737,7 +742,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "543772bc514c068598e897dbabc49e21f0bc6b02611e311741281a5da613b2f7",
+          "sha256": "1dbc561c2ec24ca455242174ac768cb9d5d2921c5c54f8c39db72accb8fad499",
           "src": "skills/cip/SKILL.md"
         }
       ],
@@ -764,7 +769,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.24"
+      "version": "1.0.25"
     },
     {
       "author": "jIRI-san",
