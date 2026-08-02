@@ -76,7 +76,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 7.1 Build a collation fixture that genuinely diverges (Czech `ch`, accents, mixed case); demonstrate it red against pre-fix code (REQ-7) `M`
 - [x] 7.2 Replace every culture-sensitive comparison in `Build-Registry.ps1` and `Build-Marketplace.ps1` with an ordinal comparer; regenerate catalogs in the same change (REQ-7) [after: 7.1] `M`
-- [ ] 7.3 `validate.ps1` enumerates payload roots by allowlist, canonicalises, rejects reparse points; negative test asserts `.git` is not enumerated (REQ-8, RISK-5) `M`
+- [x] 7.3 `validate.ps1` enumerates payload roots by allowlist, canonicalises, rejects reparse points; negative test asserts `.git` is not enumerated (REQ-8, RISK-5) `M`
 
 ## Phase 8: Wire and harden CI
 <!-- worktree: (recorded by /ci when worktree is created) -->

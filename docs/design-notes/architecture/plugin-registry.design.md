@@ -68,6 +68,29 @@ Install/update behavior is implemented in `scripts/skalary/Install-Plugin.ps1` a
 | Destructive overwrite/remove of user edits | Update/remove verify receipt hash and mark modified files as skipped unless `-Force`. |
 | Arbitrary code execution in bootstrap flow | `bootstrap.ps1` downloads scripts + `registry.json` only; it does not execute plugin payload. |
 
+## Catalog Determinism
+
+`registry.json`, `.github/plugin/marketplace.json` and the README catalog table are compared byte for byte by their drift gates, so their ordering must be a property of the build rather than of the host that ran it. PowerShell's `Sort-Object` compares through the current culture: `cs-CZ` reads the digraph `ch` as one letter placed after `h` and sorts accented letters apart from the base letter `en-US` folds them onto.
+
+| Invariant | Rule |
+|---|---|
+| One comparer | Every list reaching a generated catalog is ordered by `Sort-Ordinal` (`_Common.ps1`) with an explicit `[System.StringComparer]::Ordinal`. `Build-Registry.ps1`, `Build-Marketplace.ps1` and `Test-Registry.ps1` each declare `$script:CatalogComparer` and pass it, so the choice is visible where the catalog is owned. |
+| Generator and gate agree | `Test-Registry.ps1` re-derives the README catalog block, so it is a second implementation of the same ordering and must use the same comparer — otherwise the gate rejects a correctly generated README on a differently collating host. |
+| Ordinal equality | Drift and idempotence comparisons use `[string]::Equals(..., [StringComparison]::Ordinal)`, not `-eq`/`-ne`. |
+| Proven, not assumed | `test:BuildRegistry.CzechCollationFixtureIsStable` rebuilds every catalog under `en-US` then `cs-CZ` and requires byte-identical output; `test:BuildRegistry.FixtureIsRedBeforeFix` keeps the fixture's ids genuinely divergent, so the stability assertion cannot pass vacuously. |
+
+## Validation Payload Scope
+
+`scripts/validate.ps1` parses its file set through `scripts/skalary/PayloadScope.psm1` rather than `Get-ChildItem -Recurse`.
+
+| Invariant | Rule |
+|---|---|
+| Allowlist, not denylist | `Get-SkalaryPayloadFile` walks an explicit list of payload roots. A root nobody listed is not scanned, instead of a name nobody thought to exclude being scanned. |
+| Platform parity | Without `-Force` pwsh treats dot-prefixed entries as hidden on Unix and not on Windows, so `.github` was parsed on one platform only. The allowlist walk sees the same set on both. |
+| Pruned subtrees | `.git`, `.skalary`, `.worktrees`, `bin`, `node_modules`, `obj` are pruned wherever they nest. `.github/.skalary` is the installer's gitignored runtime state; parsing it would make the file count a function of local install history. |
+| Reparse points refused | `Path.GetFullPath` normalises `..` and separators but does not resolve links, so directories carrying the reparse-point attribute are not descended into. Unreadable *files* fail loudly rather than vanishing from the set. |
+| No silent empty run | A missing allowlisted root throws under `-RequireRoot`, and a run that enumerated nothing is an error — a gate that parsed nothing has proved nothing. |
+
 ## Autopilot Plugin Bundle
 
 `autopilot` is a self-contained plugin: agent, autonomous skill, launch scripts, schema files, devcontainer assets, and config templates ship from `plugins/autopilot/` and install under `.github/agents/` and `.github/skills/autopilot/**`.
