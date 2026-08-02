@@ -3,3 +3,8 @@ Phase: 1
 
 - [1.1] [src:note] Baseline measured in the autopilot Linux container: Pester leg 102.3s wall clock over 710 tests, 25.7s of it inside the four instrumented operations (New-RepoClone 29 calls/9.7s, Install-Plugin 10/8.4s, Test-Registry 6/6.0s, Build-Registry 10/2.9s). The plan's 1741.8s figure came from a Windows host, so phase 4 must record the platform with the achieved figure.
 - [1.1] [src:note] Costliest files after Skalary.Tests.ps1 (29.6s): Add-LedgerEntry 16.7s, PlanAssets 11.9s, Test-Plan 9.4s, Remove-LedgerEntry 7.8s - the input phase 3.2 asks for.
+
+## Capture
+Phase: 2
+
+No entries for this phase.

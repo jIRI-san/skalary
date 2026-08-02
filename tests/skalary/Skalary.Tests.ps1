@@ -10,36 +10,23 @@ Describe 'skalary plugin registry scripts' {
 
         # Cost-model instrumentation; inert unless SKALARY_SUITE_PROFILE names a sink.
         Import-Module (Join-Path $PSScriptRoot '..' 'SuiteProfile.psm1') -Force -DisableNameChecking
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteFixture.psm1') -Force -DisableNameChecking
 
         function New-RepoClone {
+            <#
+            .SYNOPSIS
+                Returns a fresh minimal skalary repository for one test case.
+            .NOTES
+                Synthetic rather than a clone of the project repo: these cases read four
+                payload roots, so paying for the whole history and working tree bought
+                nothing. The fixture carries a tag because Build-Registry resolves the
+                bootstrap ref from tags (RISK-12).
+            #>
             [CmdletBinding()]
             param()
 
             Measure-SuiteOperation -Operation 'New-RepoClone' -Body {
-                $path = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-tests-" + [System.Guid]::NewGuid().ToString('N'))
-                git clone --quiet $projectRoot $path | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Failed to clone test fixture repository to '$path'."
-                }
-
-                git -C $path config user.name 'skalary-tests' | Out-Null
-                git -C $path config user.email 'skalary-tests@example.com' | Out-Null
-                git -C $path remote set-url origin 'https://github.com/jIRI-san/skalary.git' | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Failed to configure git identity for '$path'."
-                }
-
-                # Keep fixture repos aligned with uncommitted local changes under test.
-                Copy-Item -LiteralPath (Join-Path $projectRoot 'scripts/skalary') -Destination (Join-Path $path 'scripts') -Recurse -Force
-                Copy-Item -LiteralPath (Join-Path $projectRoot 'plugins') -Destination $path -Recurse -Force
-                Copy-Item -LiteralPath (Join-Path $projectRoot 'registry.json') -Destination $path -Force
-                Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $path -Force
-                git -C $path add scripts/skalary plugins registry.json README.md | Out-Null
-                $staged = @(git -C $path diff --cached --name-only)
-                if ($staged.Count -gt 0) {
-                    git -C $path commit -m 'test: sync fixture with local changes' | Out-Null
-                }
-
+                $path = New-SkalaryFixtureRepo -ProjectRoot $projectRoot
                 $tempRepos.Add($path)
                 return $path
             }
@@ -257,6 +244,10 @@ Describe 'skalary plugin registry scripts' {
         $install = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'continue-implementation', '-Source', $source, '-Ref', 'HEAD')
         $install.ExitCode | Should -Not -Be 0
         $install.Output | Should -Match 'Staged hash mismatch'
+
+        # An empty map would make the rollback assertion below pass while checking nothing —
+        # the fixture must carry the pre-existing installed files this test protects.
+        $beforeHashes.Count | Should -BeGreaterThan 0 -Because 'rollback is only proven against files that existed before the install'
 
         foreach ($dest in $beforeHashes.Keys) {
             $targetPath = Join-Path $target ('.github/' + ($dest -replace '/', [System.IO.Path]::DirectorySeparatorChar))
