@@ -29,7 +29,18 @@ param(
 
     [string]$Note = 'Baseline cost model measured before any optimisation.',
 
-    [double]$TargetSavingSeconds = 0
+    [double]$TargetSavingSeconds = 0,
+
+    # What the phase's saving is measured over. 'run' is the whole wall clock; an operation
+    # name scopes it to that operation's aggregate seconds, which is what a phase that
+    # targets one fixture cost actually moves and is measured far more precisely than a
+    # 100-second wall clock.
+    [string]$Scope = 'run',
+
+    # The figure the phase is measured against, read from the profile this phase inherited.
+    # Carried on the row rather than derived, because the document is rewritten each run and
+    # the numbers the phase started from would otherwise be gone.
+    [double]$BaselineSeconds = 0
 )
 
 Set-StrictMode -Version Latest
@@ -140,6 +151,23 @@ foreach ($operation in $allOperations) {
 $instrumentedSeconds = 0.0
 foreach ($entry in $operationReport) { $instrumentedSeconds += [double]$entry.totalSeconds }
 
+$wallClockSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
+
+# The phase's own figure. An operation scope that recorded nothing is a lost measurement,
+# not a 100% saving, so it throws rather than certifying the phase on silence.
+if ($Scope -eq 'run') {
+    $scopeSeconds = $wallClockSeconds
+}
+else {
+    $scoped = @($operationReport | Where-Object { [string]$_.operation -eq $Scope })
+    if ($scoped.Count -ne 1 -or [int]$scoped[0].count -eq 0) {
+        throw "Scope '$Scope' recorded no samples in this run; refusing to score phase $Phase against a measurement that did not happen."
+    }
+    $scopeSeconds = [double]$scoped[0].totalSeconds
+}
+
+$achievedSaving = if ($BaselineSeconds -gt 0) { [math]::Round($BaselineSeconds - $scopeSeconds, 3) } else { 0.0 }
+
 $fileReport = [System.Collections.Generic.List[object]]::new()
 foreach ($container in @($result.Containers)) {
     $path = $null
@@ -174,7 +202,7 @@ $profileDocument = [ordered]@{
     run = [ordered]@{
         command = "Invoke-Pester -Path $($TestPath -replace '\\', '/')"
         budgetCommand = 'npm test'
-        wallClockSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
+        wallClockSeconds = $wallClockSeconds
         instrumentedSeconds = [math]::Round($instrumentedSeconds, 3)
         totalTests = [int]$result.TotalCount
         passed = [int]$result.PassedCount
@@ -187,8 +215,13 @@ $profileDocument = [ordered]@{
         [ordered]@{
             phase = $Phase
             label = $Label
-            targetSavingSeconds = $TargetSavingSeconds
-            achievedSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
+            scope = $Scope
+            baselineSeconds = [math]::Round($BaselineSeconds, 3)
+            scopeSeconds = [math]::Round($scopeSeconds, 3)
+            targetSavingSeconds = [math]::Round($TargetSavingSeconds, 3)
+            achievedSavingSeconds = $achievedSaving
+            metTarget = ($achievedSaving -ge $TargetSavingSeconds)
+            achievedSeconds = $wallClockSeconds
             note = $Note
         }
     )
@@ -202,10 +235,43 @@ if ($outputDirectory -and -not (Test-Path -LiteralPath $outputDirectory -PathTyp
 }
 
 # Preserve phase rows recorded by earlier runs so a later phase appends rather than overwrites.
+# Rows written before the scoring fields existed are filled in with the values they implied —
+# no target, no claimed saving — so every row can be read the same way.
 if (Test-Path -LiteralPath $OutputPath -PathType Leaf) {
     $existing = Get-Content -LiteralPath $OutputPath -Raw | ConvertFrom-Json
     if ($existing.PSObject.Properties.Name -contains 'phases') {
-        $kept = @($existing.phases | Where-Object { [int]$_.phase -ne $Phase })
+        $kept = @($existing.phases | Where-Object { [int]$_.phase -ne $Phase } | ForEach-Object {
+                $row = $_
+                $names = $row.PSObject.Properties.Name
+                $keptTarget = if ($names -contains 'targetSavingSeconds') { [double]$row.targetSavingSeconds } else { 0.0 }
+                $keptAchieved = if ($names -contains 'achievedSeconds') { [double]$row.achievedSeconds } else { 0.0 }
+                $keptScopeSeconds = if ($names -contains 'scopeSeconds') { [double]$row.scopeSeconds } else { $keptAchieved }
+                $keptBaseline = if ($names -contains 'baselineSeconds') { [double]$row.baselineSeconds } else { 0.0 }
+                $keptSaving = if ($names -contains 'achievedSavingSeconds') {
+                    [double]$row.achievedSavingSeconds
+                }
+                elseif ($keptBaseline -gt 0) {
+                    [math]::Round($keptBaseline - $keptScopeSeconds, 3)
+                }
+                else {
+                    # A row with nothing to be measured against claimed no saving. Subtracting
+                    # its own runtime from zero would invent a large negative one.
+                    0.0
+                }
+
+                [ordered]@{
+                    phase = [int]$row.phase
+                    label = [string]$row.label
+                    scope = if ($names -contains 'scope') { [string]$row.scope } else { 'run' }
+                    baselineSeconds = $keptBaseline
+                    scopeSeconds = $keptScopeSeconds
+                    targetSavingSeconds = $keptTarget
+                    achievedSavingSeconds = $keptSaving
+                    metTarget = ($keptSaving -ge $keptTarget)
+                    achievedSeconds = $keptAchieved
+                    note = [string]$row.note
+                }
+            })
         if ($kept.Count -gt 0) {
             $profileDocument.phases = @($kept + $profileDocument.phases | Sort-Object { [int]$_.phase })
         }
@@ -215,6 +281,17 @@ if (Test-Path -LiteralPath $OutputPath -PathType Leaf) {
 Set-Content -LiteralPath $OutputPath -Value (($profileDocument | ConvertTo-Json -Depth 12) + "`n") -Encoding utf8NoBOM
 Write-Host "Suite profile written to $(ConvertTo-RepoRelativePath $OutputPath) ($($profileDocument.run.wallClockSeconds)s wall clock, $($profileDocument.run.instrumentedSeconds)s instrumented)."
 
+if ($TargetSavingSeconds -gt 0) {
+    Write-Host "Phase $Phase ($Scope): baseline $([math]::Round($BaselineSeconds, 3))s, achieved $([math]::Round($scopeSeconds, 3))s, saving $($achievedSaving)s against a target of $([math]::Round($TargetSavingSeconds, 3))s."
+}
+
 if ($result.FailedCount -gt 0) {
     Write-Warning "Profile captured with $($result.FailedCount) failing test(s); the cost model is still valid but the suite is red."
+}
+
+# D4's stop condition. The row is written either way, so a miss is recorded rather than
+# retried until it passes; the non-zero exit is what stops the phase continuing on silence.
+if ($TargetSavingSeconds -gt 0 -and $achievedSaving -lt $TargetSavingSeconds) {
+    Write-Error "Phase $Phase missed its declared target: saved $($achievedSaving)s of a required $([math]::Round($TargetSavingSeconds, 3))s on '$Scope'. Escalate rather than continuing."
+    exit 1
 }

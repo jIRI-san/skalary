@@ -87,4 +87,41 @@ Describe 'suite cost model' {
         [string]$script:suiteProfile.run.budgetCommand | Should -Be 'npm test'
         @($script:suiteProfile.phases).Count | Should -BeGreaterThan 0 -Because 'each reduction phase records its achieved figure here'
     }
+
+    It 'test:SuiteProfile.PhaseTargetsMet fails a reduction phase that missed the saving it declared' {
+        # D4: each reduction phase declares a required saving and a stop condition. A stop
+        # condition recorded only in prose stops nothing, so the recorded rows are the gate.
+        $phases = @($script:suiteProfile.phases)
+        $phases.Count | Should -BeGreaterThan 0
+
+        $misses = [System.Collections.Generic.List[string]]::new()
+        foreach ($row in $phases) {
+            $names = $row.PSObject.Properties.Name
+            foreach ($field in @('phase', 'label', 'scope', 'baselineSeconds', 'scopeSeconds', 'targetSavingSeconds', 'achievedSavingSeconds', 'metTarget', 'note')) {
+                $names | Should -Contain $field -Because "phase row $([int]$row.phase) must record '$field'"
+            }
+
+            $target = [double]$row.targetSavingSeconds
+            $achieved = [double]$row.achievedSavingSeconds
+
+            # metTarget is recomputed from the two figures rather than trusted: a hand-edited
+            # flag would otherwise turn a missed target into a passing gate.
+            [bool]$row.metTarget |
+                Should -Be ($achieved -ge $target) -Because "phase $([int]$row.phase)'s metTarget must follow from its own numbers"
+
+            if ($target -le 0) { continue }
+
+            # A declared target has to be measured against something. A zero baseline would
+            # score the phase against nothing and read as a saving of whatever it cost.
+            [double]$row.baselineSeconds |
+                Should -BeGreaterThan 0 -Because "phase $([int]$row.phase) declared a target, so it must record what it was measured against"
+
+            if ($achieved -lt $target) {
+                $misses.Add("phase $([int]$row.phase) saved $($achieved)s of $($target)s on '$([string]$row.scope)'")
+            }
+        }
+
+        $misses -join '; ' |
+            Should -BeNullOrEmpty -Because 'a phase that misses its declared target escalates rather than continuing'
+    }
 }
