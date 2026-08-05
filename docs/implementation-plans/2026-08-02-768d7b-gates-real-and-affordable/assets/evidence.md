@@ -12,6 +12,14 @@ Phase 1 Crosscheck:
 ✓ REQ-3 — test:SuiteCoverage.ConfinementCasesRetained — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
 ✓ REQ-3 — test:SuiteFixture.CarriesTagsForVersionResolution — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
 
+Phase 2 Crosscheck:
+✓ REQ-3 — test:SuiteCoverage.TestNameInventoryPreserved — passed — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+✓ REQ-3 — test:SuiteCoverage.ConfinementCasesRetained — passed — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+✓ REQ-3 — test:SuiteFixture.CarriesTagsForVersionResolution — passed — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+✓ REQ-4 — file:tools/suite-profile.json#contains:phase — passed: phase 2 row: 8.775s -> 1.827s on New-RepoClone, saving 6.948s against a declared 4.4s — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+✓ REQ-4 — test:SuiteProfile.PhaseTargetsMet — passed: stop condition; targets pinned in tools/suite-budget.psd1 — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+✗ REQ-4 — test:SuiteBudget.WithinHardCeiling — unrun: lands in step 4.3 — 58294c36ff8e5d6b573b57865b3125acb9a8581b
+
 Phase 5 Crosscheck:
 ✓ REQ-5 — file:scripts/skalary/Run-UnitTests.ps1#contains:PesterNotInstalled — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
 ✓ REQ-5 — test:RunUnitTests.MissingPesterExitsNonZero — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
