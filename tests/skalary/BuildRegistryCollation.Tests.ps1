@@ -283,6 +283,10 @@ Set-Location -LiteralPath '$Root'
     }
 
     It 'test:BuildRegistry.FixtureIsRedBeforeFix proves the fixture ids collate differently per culture' {
+        # Recorded before anything sets a culture, so the restore assertion below compares
+        # against what this host actually runs as rather than an assumed default.
+        $ambientCulture = [System.Threading.Thread]::CurrentThread.CurrentCulture.Name
+
         # Without this the stability assertion is vacuous: it would pass against the
         # unfixed, culture-sensitive code simply because the ids never disagreed.
         $idSets = [ordered]@{
@@ -310,7 +314,10 @@ Set-Location -LiteralPath '$Root'
         }
 
         # The thread culture is back where the run found it, so no later case inherits it.
-        [System.Threading.Thread]::CurrentThread.CurrentCulture.Name | Should -Not -Be 'cs-CZ'
+        # Compared against the ambient culture rather than a hardcoded name: on a host whose
+        # own culture is one of the fixtures (a cs-CZ machine), a correct restore lands on
+        # exactly the value a hardcoded assertion would reject.
+        [System.Threading.Thread]::CurrentThread.CurrentCulture.Name | Should -Be $ambientCulture -Because 'Invoke-WithCulture must restore the culture it found, whatever that was'
     }
 
     It 'test:BuildRegistry.CzechCollationFixtureIsStable rebuilds byte-identical catalogs under cs-CZ and en-US' {

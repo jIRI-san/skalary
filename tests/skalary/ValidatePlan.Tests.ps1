@@ -45,9 +45,13 @@ Describe 'Validate-Plan stage gate' {
             if ($PlanPath) { $arguments += @('-PlanPath', $PlanPath) }
 
             $output = @(& pwsh @arguments 2>&1)
+            # The child renders errors with ANSI colour, and the codes land at arbitrary points —
+            # including inside a path — so an assertion on the text would be matching escape
+            # sequences as much as content. Stripped once here rather than at every call site.
+            $text = ($output | ForEach-Object { "$_" }) -join "`n"
             return [pscustomobject]@{
                 ExitCode = $LASTEXITCODE
-                Output   = ($output | ForEach-Object { "$_" }) -join "`n"
+                Output   = $text -replace "$([char]27)\[[0-9;]*m", ''
             }
         }
     }
@@ -182,7 +186,10 @@ Describe 'Validate-Plan stage gate' {
 
                 $result.ExitCode | Should -Not -Be 0 -Because "'$bad' must not exit 0 while checking nothing"
                 $result.Output | Should -Match 'Unrecognised plan stage'
-                $result.Output | Should -Match ([regex]::Escape($plan))
+                # The validator does name the plan, but the child process renders its error at
+                # console width and a long temp path wraps mid-token (`…\plan.` / `md`). Comparing
+                # with whitespace removed asserts the message rather than the terminal geometry.
+                ($result.Output -replace '\s', '') | Should -Match ([regex]::Escape(($plan -replace '\s', ''))) -Because 'the operator must be told which plan carried the unrecognised stage'
             }
             finally {
                 Remove-Item -LiteralPath (Split-Path $plan) -Recurse -Force -ErrorAction SilentlyContinue
