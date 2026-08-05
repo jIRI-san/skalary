@@ -91,7 +91,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 9.1 Land `test:Ci.SeededFailureIsRed` as durable proof, replacing a one-off manual revert (REQ-9) [after: 8.3] `S`
 - [x] 9.2 Write `docs/design-notes/project/ci-gates.design.md`, register it in the index with `globs`, retire the clusters this plan resolves, record the constants deferral against `34088e`, and add `test:CiGates.InventoryMatchesWorkflow` (REQ-10, RISK-13) [after: 8.3] `L`
-- [ ] 9.3 Plan crosscheck: re-run the budget check against the final tree, rebuild `assets/evidence.md`, verify every REQ marker (REQ-2, RISK-9) [after: 9.1, 9.2] `M`
+- [x] 9.3 Plan crosscheck: re-run the budget check against the final tree, rebuild `assets/evidence.md`, verify every REQ marker (REQ-2, RISK-9) [after: 9.1, 9.2] `M`
 
 ## Finalization (conditional)
 
