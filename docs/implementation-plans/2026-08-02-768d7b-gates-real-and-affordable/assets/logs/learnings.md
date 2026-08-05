@@ -1,18 +1,19 @@
 ## Learnings Capture
 Phase: 1
-- [5.2] [trigger:overflow-summary] Folded 4 additional learnings into this summary.
+- [5.2] [trigger:overflow-summary] Folded 5 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 5
+No entries for this phase.
 
-- [5.2] [trigger:reusable-pattern] An evidence receipt line is only as current as the file it covers: a later phase editing a file an earlier phase already signed off silently invalidates that binding. Re-execute a phase's markers when any covered path changed after the recorded commit, rather than trusting the phase's own green.
 
 ## Learnings Capture
 Phase: 6
@@ -45,4 +46,4 @@ Phase: 8
 ## Learnings Capture
 Phase: 9
 
-No entries for this phase.
+- [9.2] [trigger:reusable-pattern] A document-pinning test must slice the document by section before matching: a lazy cross-section regex is satisfied by the same sentence further down, so the record it pins can be deleted while the test stays green.

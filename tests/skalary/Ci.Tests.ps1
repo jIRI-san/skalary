@@ -11,39 +11,12 @@ Describe 'ci workflow' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:workflowPath = Join-Path $script:repoRoot '.github/workflows/registry-ci.yml'
+        # Shared with CiGates.Tests.ps1: one parser for the workflow, because a second copy
+        # would be a second thing to drift.
+        Import-Module (Join-Path $PSScriptRoot '..' 'CiWorkflow.psm1') -Force -DisableNameChecking
         $script:workflowText = $null
         if (Test-Path -LiteralPath $script:workflowPath -PathType Leaf) {
             $script:workflowText = Get-Content -LiteralPath $script:workflowPath -Raw
-        }
-
-        # Comments are dropped before anything is matched. A comment naming a gate would
-        # otherwise count as that gate running, which is the exact failure these tests exist to
-        # catch — prose standing in for an invocation.
-        function Remove-CiComment {
-            param([string]$Text)
-
-            return (($Text -split '\r?\n' | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
-        }
-
-        # Steps are split on their `- name:` marker rather than parsed as YAML, because no YAML
-        # parser is a dependency of this repo and adding one to read seven step names would be a
-        # supply-chain cost paid for a string split.
-        function Get-CiWorkflowStep {
-            param([string]$Text)
-
-            $steps = [System.Collections.Generic.List[object]]::new()
-            $chunks = [regex]::Split((Remove-CiComment -Text $Text), '(?m)^ {6}- name: ')
-            for ($i = 1; $i -lt $chunks.Count; $i++) {
-                $chunk = $chunks[$i]
-                $break = $chunk.IndexOf("`n")
-                $name = if ($break -ge 0) { $chunk.Substring(0, $break) } else { $chunk }
-                $body = if ($break -ge 0) { $chunk.Substring($break + 1) } else { '' }
-                $steps.Add([pscustomobject]@{
-                        Name = $name.Trim()
-                        Body = $body
-                    })
-            }
-            return $steps
         }
 
         # Each gate the workflow is responsible for, and the invocation that proves it ran. The
@@ -74,51 +47,6 @@ Describe 'ci workflow' {
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf'
             'generated output drift' = 'git diff --exit-code'
-        }
-
-        # The statements a step actually runs. A gate's verdict is the exit code of the *last*
-        # of them, so reading the block as one blob would let a trailing command mask the gate
-        # — and `;` separates statements exactly as a newline does, so a swallow appended after
-        # a semicolon has to be read as its own statement rather than as part of the command it
-        # neuters. The block ends at the first line indented no deeper than the `run:` key, so a
-        # later YAML key on the same step is not mistaken for a command.
-        function Get-CiStepRunLine {
-            param([string]$Body)
-
-            $lines = @((Remove-CiComment -Text $Body) -split "`n")
-            $runIndex = -1
-            $runIndent = 0
-            $inline = ''
-            for ($i = 0; $i -lt $lines.Count; $i++) {
-                if ($lines[$i] -match '^(?<indent>[ \t]*)run:[ \t]*(?<rest>.*)$') {
-                    $runIndex = $i
-                    $runIndent = $Matches['indent'].Length
-                    $inline = $Matches['rest'].Trim()
-                    break
-                }
-            }
-            if ($runIndex -lt 0) { return @() }
-
-            $collected = [System.Collections.Generic.List[string]]::new()
-            # `|`, `|-` and `>` introduce a block scalar; anything else on the line is the
-            # command itself, which is the flow-scalar form.
-            if ($inline -and $inline -notmatch '^[|>][-+]?$') { $collected.Add($inline) }
-
-            for ($i = $runIndex + 1; $i -lt $lines.Count; $i++) {
-                $line = $lines[$i].TrimEnd()
-                if (-not $line.Trim()) { continue }
-                $indent = ($line -replace '^([ \t]*).*$', '$1').Length
-                if ($indent -le $runIndent) { break }
-                $collected.Add($line.Trim())
-            }
-
-            $statements = [System.Collections.Generic.List[string]]::new()
-            foreach ($line in $collected) {
-                foreach ($statement in ($line -split ';')) {
-                    if ($statement.Trim()) { $statements.Add($statement.Trim()) }
-                }
-            }
-            return @($statements)
         }
 
         function Get-CiJobName {
