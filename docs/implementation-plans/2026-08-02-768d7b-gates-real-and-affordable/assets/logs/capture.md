@@ -18,7 +18,7 @@ Phase: 5
 ## Capture
 Phase: 6
 
-No entries for this phase.
+- [6.3] [src:note] Phase 6 re-run found all three steps already landed (aedf4a0, 6daa294, 99fdf99) but no Phase 6 section in assets/evidence.md, so the phase had code without a receipt. Re-executed all four REQ-6 markers at HEAD f5d5397 rather than binding to the old step commits, which also covers PlanState.psm1 edits made by phases 7 onward.
 
 ## Capture
 Phase: 7

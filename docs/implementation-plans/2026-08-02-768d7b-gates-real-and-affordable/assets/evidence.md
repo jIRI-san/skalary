@@ -52,3 +52,8 @@ Phase 4 Crosscheck:
 ✓ REQ-4 — test:SuiteBudget.WithinHardCeiling — passed: Linux 108.998s of 330s, Windows 223.142s of 600s, both measured on the CI runners — 36334d66fa0e60ee82db95326afd65ee181a0f37
 ✓ REQ-4 — file:tools/suite-profile.json#contains:phase — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
 
+Phase 6 Crosscheck:
+✓ REQ-6 — file:scripts/skalary/PlanState.psm1#contains:PlanStageOrder — passed: re-verified at HEAD: PlanStageOrder is the single ordered, closed set and Get-PlanStageOrder is its only publisher — f5d539737d90f75b04251a196b7b67a5d51819b6
+✓ REQ-6 — test:ValidatePlan.ScaffoldedPlanReportsSkipped — passed: 3 cases green: the skip carries a distinguishable signal, an all-scaffold tree still reports skipped, and both npm test legs share one floor — f5d539737d90f75b04251a196b7b67a5d51819b6
+✓ REQ-6 — test:ValidatePlan.DraftedPlanStillValidated — passed: 2 cases green: a drafted plan is validated and a broken one still fails; a missing anchor resolves to drafted (RISK-7) — f5d539737d90f75b04251a196b7b67a5d51819b6
+✓ REQ-6 — test:ValidatePlan.UnknownStageFailsLoud — passed: an unrecognised stage throws rather than resolving to a skip (RISK-6) — f5d539737d90f75b04251a196b7b67a5d51819b6
