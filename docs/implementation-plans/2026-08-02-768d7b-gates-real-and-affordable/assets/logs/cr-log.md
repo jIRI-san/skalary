@@ -57,3 +57,6 @@ Phase: 4
 Phase: 8
 
 - [8.2] [src:code-review] [sev:Med] Workflow test let gates be silently disabled: nothing required the budget-clock step, and Build-Registry.ps1 alone counted as the drift gate though git diff --exit-code is the check. Added clock presence+ordering assertions and required the drift and dogfood steps to carry their enforcing command.
+- [8.3] [src:code-review] [sev:Med] Removing -SkipPublisherCheck restored no check: Install-PSResource validates nothing unless -AuthenticodeCheck is passed. Added -AuthenticodeCheck:$IsWindows (Authenticode is Windows-only, stated rather than implied) and a test asserting every Install-PSResource line carries it.
+- [8.3] [src:code-review] [sev:Med] Least-privilege test was a six-scope denylist and ignored job-level blocks, so contents:read plus checks:write passed. Replaced with an allowlist asserting the top-level block is exactly contents: read, and a rejection of any job-level permissions block.
+- [8.3] [src:code-review] [sev:Med] Pin test accepted a bracketed span (-Version '(5.0.0,6.0.0)') as an exact pin and missed Set-PSResourceRepository -Trusted, the PSResourceGet way of making trust permanent. Both closed and verified red by mutation.

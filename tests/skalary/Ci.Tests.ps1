@@ -73,13 +73,39 @@ Describe 'ci workflow' {
                     ForEach-Object { $_.Groups['job'].Value })
         }
 
+        function Get-CiMatrixLeg {
+            param([string]$Text)
+
+            $code = Remove-CiComment -Text $Text
+            $legs = [System.Collections.Generic.List[object]]::new()
+            $pattern = '(?m)^ {10}- os: (?<os>\S+)[^\n]*\n(?<rest>(?: {12}\S[^\n]*\n)*)'
+            foreach ($entry in [regex]::Matches($code, $pattern)) {
+                $properties = @{}
+                foreach ($line in ($entry.Groups['rest'].Value -split "`n")) {
+                    if ($line -match '^\s*(?<key>[A-Za-z0-9_-]+):\s*(?<value>.+?)\s*$') {
+                        $properties[$Matches['key']] = $Matches['value']
+                    }
+                }
+                $legs.Add([pscustomobject]@{
+                        Os         = $entry.Groups['os'].Value
+                        Properties = $properties
+                    })
+            }
+            return $legs
+        }
+
+        # The matrix names runner images; the budget names platforms. The mapping is stated here
+        # so a new runner image is an unmapped-leg failure rather than a silently unbudgeted one.
+        $script:budgetPlatformByOs = @{
+            'ubuntu-latest'  = 'Linux'
+            'windows-latest' = 'Windows'
+            'macos-latest'   = 'MacOS'
+        }
+
         function Get-CiMatrixPlatform {
             param([string]$Text)
 
-            if ($Text -notmatch '(?ms)^ {8}os:\s*\r?\n(?<entries>(?: {10}- .+\r?\n)+)') { return @() }
-            return @($Matches['entries'] -split '\r?\n' |
-                    Where-Object { $_ -match '^\s*-\s*(?<os>\S+)\s*$' } |
-                    ForEach-Object { ($_ -replace '^\s*-\s*', '').Trim() })
+            return @(Get-CiMatrixLeg -Text $Text | ForEach-Object { $_.Os })
         }
     }
 
@@ -163,4 +189,111 @@ Describe 'ci workflow' {
         $dogfoodStep.Body |
             Should -Match 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf' -Because 'a dogfood sync that writes cannot also detect drift'
     }
+
+    It 'test:Ci.DeclaresLeastPrivilege gives the workflow read-only credentials it does not keep' {
+        $script:workflowText | Should -Not -BeNullOrEmpty
+        $code = Remove-CiComment -Text $script:workflowText
+
+        # RISK-8: pull_request_target runs PR-authored code with the base repo's secrets and a
+        # writable token. The whole hardening below is worth nothing if the trigger is that one.
+        $code | Should -Not -Match '(?m)^\s*pull_request_target:' -Because 'PR-authored code must never run against base-repository credentials'
+        $code | Should -Match '(?m)^\s*pull_request:\s*$' -Because 'REQ-9 requires the gates on every PR'
+
+        # Declared at the top level, where no job can widen it, and holding nothing but the one
+        # scope the gates need. An allowlist rather than a denylist: GitHub keeps adding scopes,
+        # so a list of forbidden ones is out of date the moment a new one ships.
+        $code | Should -Match '(?ms)^permissions:\s*\n' -Because 'REQ-9 requires permissions declared for the whole workflow'
+        $code -match '(?ms)^permissions:\s*\n(?<body>(?:[ ]{2}\S[^\n]*\n)+)' | Out-Null
+        $granted = @($Matches['body'] -split "`n" | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() })
+        $granted | Should -Be @('contents: read') -Because 'every scope beyond contents: read is privilege this workflow never uses'
+
+        # A job-level block would override the top-level one, so the check above would be reading
+        # a declaration nothing runs under.
+        $code | Should -Not -Match '(?m)^ {4}permissions:' -Because 'a job-level permissions block silently replaces the workflow-level one'
+
+        $steps = @(Get-CiWorkflowStep -Text $script:workflowText)
+        $checkout = @($steps | Where-Object { $_.Body -match 'uses: actions/checkout@' })
+        $checkout.Count | Should -Be 1 -Because 'one checkout, so one place the credential policy is set'
+        $checkout[0].Body |
+            Should -Match '(?m)^\s*persist-credentials: false\s*$' -Because 'RISK-8: a token left in .git/config outlives the step that needed it'
+
+        $code | Should -Match '(?ms)^concurrency:\s*\n\s+group:' -Because 'REQ-9 requires concurrency, so a superseded run does not hold a runner this suite needs'
+    }
+
+    It 'test:Ci.ActionsAndModulesPinnedWithoutSkipPublisherCheck pins what it installs and does not disarm the checks on it' {
+        $script:workflowText | Should -Not -BeNullOrEmpty
+        $code = Remove-CiComment -Text $script:workflowText
+
+        # Every action is pinned to a 40-hex commit. A tag is a moving pointer the action's owner
+        # can repoint, so a tag pin is a statement of intent rather than a supply-chain control.
+        $uses = @([regex]::Matches($code, '(?m)^\s*uses:\s*(?<ref>\S+)') | ForEach-Object { $_.Groups['ref'].Value })
+        $uses.Count | Should -BeGreaterThan 0 -Because 'no action references would make this assertion vacuous'
+        foreach ($ref in $uses) {
+            $ref | Should -Match '@[0-9a-f]{40}$' -Because "action '$ref' must be pinned to a commit SHA, not a tag a third party can repoint"
+        }
+
+        # D10: both halves, because a version pin over a channel whose signature check is skipped
+        # pins only which unverified bytes arrive.
+        $code | Should -Not -Match '-SkipPublisherCheck' -Because 'skipping the publisher check discards the signature the version pin is trusting'
+        # Both the PowerShellGet and the PSResourceGet way of making the trust permanent: either
+        # outlives this workflow on the runner and covers every later install, including ones this
+        # workflow never sees.
+        $code | Should -Not -Match 'Set-PSRepository[^\n]*Trusted' -Because 'trusting PSGallery globally outlives this workflow on the runner'
+        $code | Should -Not -Match 'Set-PSResourceRepository[^\n]*-Trusted' -Because 'trusting PSGallery globally outlives this workflow on the runner'
+
+        $installSteps = @(Get-CiWorkflowStep -Text $script:workflowText |
+                Where-Object { $_.Body -match 'Install-PSResource|Install-Module' })
+        $installSteps.Count | Should -BeGreaterThan 0 -Because 'the modules the gates need must be installed somewhere this check can read'
+        foreach ($step in $installSteps) {
+            foreach ($line in ($step.Body -split "`n" | Where-Object { $_ -match 'Install-PSResource|Install-Module' })) {
+                # `[x.y.z]` is NuGet's exact range and `-RequiredVersion` is its PowerShellGet
+                # equivalent. A bare `-Version 5.9.0` is a *minimum*, which installs whatever is
+                # newest and reads like a pin while pinning nothing; a comma turns it into a span,
+                # which is the same problem written differently.
+                $line |
+                    Should -Match '(-Version\s+"?\[[^\],]+\]"?)|(-RequiredVersion\s+\S+)' -Because "install line '$($line.Trim())' must pin one exact version; a bare version is a minimum and a bracketed range is a span"
+
+                # Dropping -SkipPublisherCheck only restores a check if one still runs.
+                # PSResourceGet validates nothing unless asked, so its install must ask.
+                if ($line -match 'Install-PSResource') {
+                    $line |
+                        Should -Match '-AuthenticodeCheck' -Because "install line '$($line.Trim())' verifies no signature at all unless -AuthenticodeCheck is passed, which makes removing -SkipPublisherCheck a rename rather than a control"
+                }
+            }
+        }
+
+        # The pinned versions are declared as literals, so the pin is readable rather than
+        # resolved at runtime from whatever the gallery offers.
+        $code | Should -Match "Name = 'Pester'; Version = '[0-9]+\.[0-9]+\.[0-9]+'" -Because 'the Pester version the gate runs on is part of the gate'
+        $code | Should -Match "Name = 'PSScriptAnalyzer'; Version = '[0-9]+\.[0-9]+\.[0-9]+'" -Because 'the analyzer version decides which findings exist'
+    }
+
+    It 'test:Ci.TimeoutExceedsHardCeiling gives every leg longer than the ceiling it is enforcing' {
+        $script:workflowText | Should -Not -BeNullOrEmpty
+
+        $budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
+        $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+
+        $legs = @(Get-CiMatrixLeg -Text $script:workflowText)
+        $legs.Count | Should -BeGreaterThan 1 -Because 'REQ-9 requires both platforms; an unparsed matrix would make this vacuous'
+
+        (Remove-CiComment -Text $script:workflowText) |
+            Should -Match '(?m)^\s*timeout-minutes: \$\{\{ matrix\.timeoutMinutes \}\}\s*$' -Because 'the timeout is per leg (D9), because the platforms are budgeted ~2x apart'
+
+        foreach ($leg in $legs) {
+            $script:budgetPlatformByOs.ContainsKey($leg.Os) |
+                Should -BeTrue -Because "runner image '$($leg.Os)' has no budget platform mapped, so its timeout cannot be checked against a ceiling"
+            $platform = $script:budgetPlatformByOs[$leg.Os]
+            $budget.Platforms.Contains($platform) |
+                Should -BeTrue -Because "platform '$platform' runs in CI, so it must carry a budget entry"
+
+            $leg.Properties.ContainsKey('timeoutMinutes') |
+                Should -BeTrue -Because "leg '$($leg.Os)' must state its own timeout"
+
+            $ceilingMinutes = [double]$budget.Platforms[$platform].HardCeilingSeconds / 60.0
+            [double]$leg.Properties['timeoutMinutes'] |
+                Should -BeGreaterThan $ceilingMinutes -Because "a $($leg.Os) leg cut off at $($leg.Properties['timeoutMinutes'])m before its $([math]::Round($ceilingMinutes, 1))m ceiling reports a cancelled run instead of an over-budget one"
+        }
+    }
+
 }

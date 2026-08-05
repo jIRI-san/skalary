@@ -1,41 +1,81 @@
 name: registry-ci
 
+# RISK-8: the trigger stays `pull_request`, never `pull_request_target`. `pull_request_target`
+# runs PR-authored code against the base repository's secrets with a writable token, which is
+# exactly the exposure this workflow must not open while it starts running the whole suite.
 on:
   pull_request:
   push:
     branches:
       - main
 
+# Least privilege at the top level so no job can widen it: every gate here reads the tree and
+# writes nothing back.
+permissions:
+  contents: read
+
+# A superseded run proves nothing about the head commit, and two runs of a suite this size on
+# two platforms is the cost that makes people stop waiting for it (RISK-4).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   registry:
     name: registry checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Per leg, and above that platform's hard ceiling in tools/suite-budget.psd1 (D9): a job
+    # killed by the timeout before the budget check speaks reports a cancelled run rather than
+    # an over-budget one, which is the diagnosis the ceiling exists to produce.
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - os: ubuntu-latest
+            timeoutMinutes: 20
+          - os: windows-latest
+            timeoutMinutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # RISK-8: without this the token stays in .git/config for every later step, so any
+          # gate that runs repository code runs it next to a usable credential.
+          persist-credentials: false
 
-      - name: Install PowerShell modules
+      # RISK-8/D10: a version pin over a channel that skips signature checks is not a control,
+      # so `-SkipPublisherCheck` and the globally trusted PSGallery are removed rather than
+      # supplemented. Trust is granted per invocation to the one repository being read, and the
+      # version is an exact NuGet range — a bare `5.9.0` is a minimum, which is not a pin.
+      #
+      # Removing `-SkipPublisherCheck` only means something if something still checks: PSResourceGet
+      # validates nothing unless asked, so `-AuthenticodeCheck` is passed where the platform can
+      # honour it. Authenticode is a Windows facility, so the Linux leg gets the version pin and the
+      # per-invocation trust but no signature verification — stated here rather than implied by a
+      # flag that silently does nothing on that platform.
+      - name: Install pinned PowerShell modules
         shell: pwsh
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          }
-          if (-not (Get-Module -ListAvailable -Name Pester)) {
-            Install-Module -Name Pester -Scope CurrentUser -Force -SkipPublisherCheck
+          $modules = @(
+            @{ Name = 'Pester'; Version = '5.9.0' }
+            @{ Name = 'PSScriptAnalyzer'; Version = '1.25.0' }
+          )
+          foreach ($module in $modules) {
+            $present = Get-Module -ListAvailable -Name $module.Name |
+              Where-Object { $_.Version -eq [version]$module.Version }
+            if ($present) {
+              Write-Host "$($module.Name) $($module.Version) already present."
+              continue
+            }
+            Install-PSResource -Name $module.Name -Version "[$($module.Version)]" -Repository PSGallery -Scope CurrentUser -TrustRepository -AuthenticodeCheck:$IsWindows -ErrorAction Stop
           }
 
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
-          Import-Module PSScriptAnalyzer
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
           Invoke-ScriptAnalyzer -Path scripts/skalary -Settings PSScriptAnalyzerSettings.psd1 -Recurse
 
       # RISK-10: every gate below is its own named step. Chained into one script, the first
