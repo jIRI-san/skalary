@@ -8,6 +8,10 @@
     MeasuredCommand = 'npm test'
     MeasuredLegs = @('validate-plan', 'test:unit', 'validate.ps1')
 
+    # Where the achieved figures live. Named here rather than only in the test, so the budget
+    # says what it was tightened against and a reader can check the claim.
+    MeasurementRecord = 'tools/suite-runtime.json'
+
     # BoundCeilingSeconds is the ceiling agreed at the start and is immutable: it is what
     # every platform's HardCeilingSeconds is checked against, so a ceiling can be tightened
     # at will but never quietly loosened.
@@ -58,17 +62,31 @@
     # The ceiling is per platform (D13): the same suite measured ~10x apart between the
     # Linux container and a Windows host, so one shared number would be either unreachable
     # on Windows or vacuous on Linux. The runner enforces the entry for the platform it is
-    # running on; a platform with no entry is an error, not an exemption. Both start at the
-    # bound 600s/480s — the ceiling is not slackened to fit the slower host.
+    # running on; a platform with no entry is an error, not an exemption.
+    #
+    # Step 4.2 tightened both entries against the figures step 4.1 measured on the runners the
+    # gate is enforced on — recorded, with their environment, in tools/suite-runtime.json.
+    # Headroom is stated rather than chosen per platform: the hard ceiling is 3x the achieved
+    # figure and the target 2x, each rounded up to the next 30s, and neither may exceed the
+    # value it is replacing — a ceiling may only fall. The 3x absorbs a runner that is slower
+    # or noisier than the one measured without turning ordinary variance into a red build
+    # (RISK-4), which is the failure that makes people stop trusting the gate.
+    #
+    # Achieved (commit c99d5d1, both runs green, both 4-core):
+    #   Linux   ci:ubuntu-latest  108.998s -> 3x = 330s ceiling, 2x = 240s target
+    #   Windows ci:windows-latest 223.142s -> 3x = 690s, above the 600s it would replace, so
+    #           the ceiling stays 600s and only the target falls to 450s.
+    # Windows was 1157s when D13 was written; phases 2 and 3 brought it to 2.05x Linux rather
+    # than 10x, so the tier split D13 held in reserve is not needed and no raise was taken.
     Platforms = @{
         Linux = @{
-            HardCeilingSeconds = 600
-            TargetSeconds = 480
+            HardCeilingSeconds = 330
+            TargetSeconds = 240
             CeilingRaises = @()
         }
         Windows = @{
             HardCeilingSeconds = 600
-            TargetSeconds = 480
+            TargetSeconds = 450
             CeilingRaises = @()
         }
     }
