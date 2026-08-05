@@ -1,7 +1,7 @@
 {
   "schema": "skalary/suite-profile@1",
-  "generatedAt": "2026-08-05T19:15:21.0003421+00:00",
-  "commit": "b3145b7b987ab36a3e62a1165a643be3ed4054de",
+  "generatedAt": "2026-08-05T19:49:08.4426425+00:00",
+  "commit": "e9b52b5f992a09e5bb3103a9a23b76dce1bb4760",
   "environment": {
     "os": "Ubuntu 24.04.4 LTS",
     "psVersion": "7.6.4",
@@ -12,7 +12,7 @@
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1",
-    "fileCount": 69,
+    "fileCount": 71,
     "testFiles": [
       "tests/autopilot/ContainerOffline.Tests.ps1",
       "tests/autopilot/ModelConfiguration.Tests.ps1",
@@ -80,7 +80,9 @@
       "tests/skalary/SuiteBudget.Tests.ps1",
       "tests/skalary/SuiteCoverage.Tests.ps1",
       "tests/skalary/SuiteFixture.Tests.ps1",
+      "tests/skalary/SuiteOrdering.Tests.ps1",
       "tests/skalary/SuiteProfile.Tests.ps1",
+      "tests/skalary/SuiteScriptHost.Tests.ps1",
       "tests/skalary/Test-Plan.Tests.ps1",
       "tests/skalary/ValidatePlan.Tests.ps1"
     ]
@@ -88,10 +90,10 @@
   "run": {
     "command": "Invoke-Pester -Path tests",
     "budgetCommand": "npm test",
-    "wallClockSeconds": 78.145,
-    "instrumentedSeconds": 17.816,
-    "totalTests": 742,
-    "passed": 742,
+    "wallClockSeconds": 78.17,
+    "instrumentedSeconds": 17.639,
+    "totalTests": 749,
+    "passed": 749,
     "failed": 0,
     "skipped": 0
   },
@@ -99,52 +101,52 @@
     {
       "operation": "New-RepoClone",
       "count": 29,
-      "totalSeconds": 1.92,
-      "meanSeconds": 0.066,
+      "totalSeconds": 2.004,
+      "meanSeconds": 0.069,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 29,
-          "totalSeconds": 1.92
+          "totalSeconds": 2.004
         }
       ]
     },
     {
       "operation": "Install-Plugin",
       "count": 10,
-      "totalSeconds": 6.745,
-      "meanSeconds": 0.674,
+      "totalSeconds": 6.589,
+      "meanSeconds": 0.659,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 10,
-          "totalSeconds": 6.745
+          "totalSeconds": 6.589
         }
       ]
     },
     {
       "operation": "Build-Registry",
       "count": 10,
-      "totalSeconds": 4.4,
-      "meanSeconds": 0.44,
+      "totalSeconds": 4.357,
+      "meanSeconds": 0.436,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 10,
-          "totalSeconds": 4.4
+          "totalSeconds": 4.357
         }
       ]
     },
     {
       "operation": "Test-Registry",
       "count": 6,
-      "totalSeconds": 4.012,
-      "meanSeconds": 0.669,
+      "totalSeconds": 3.953,
+      "meanSeconds": 0.659,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 6,
-          "totalSeconds": 4.012
+          "totalSeconds": 3.953
         }
       ]
     },
@@ -177,26 +179,26 @@
     {
       "operation": "Remove-Plugin",
       "count": 3,
-      "totalSeconds": 0.094,
-      "meanSeconds": 0.031,
+      "totalSeconds": 0.083,
+      "meanSeconds": 0.028,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 3,
-          "totalSeconds": 0.094
+          "totalSeconds": 0.083
         }
       ]
     },
     {
       "operation": "Update-Plugin",
       "count": 1,
-      "totalSeconds": 0.592,
-      "meanSeconds": 0.592,
+      "totalSeconds": 0.6,
+      "meanSeconds": 0.6,
       "sources": [
         {
           "source": "tests/skalary/Skalary.Tests.ps1",
           "count": 1,
-          "totalSeconds": 0.592
+          "totalSeconds": 0.6
         }
       ]
     }
@@ -204,208 +206,213 @@
   "files": [
     {
       "file": "tests/skalary/Skalary.Tests.ps1",
-      "seconds": 18.665,
+      "seconds": 18.477,
       "tests": 18
     },
     {
       "file": "tests/skalary/PlanAssets.Tests.ps1",
-      "seconds": 10.198,
+      "seconds": 9.87,
       "tests": 21
     },
     {
       "file": "tests/skalary/RunUnitTests.Tests.ps1",
-      "seconds": 8.348,
+      "seconds": 8.015,
       "tests": 3
     },
     {
       "file": "tests/skalary/Remove-LedgerEntry.Tests.ps1",
-      "seconds": 6.066,
+      "seconds": 5.867,
       "tests": 5
     },
     {
       "file": "tests/skalary/Dependency.Tests.ps1",
-      "seconds": 5.942,
+      "seconds": 5.602,
       "tests": 5
     },
     {
       "file": "tests/skalary/ValidatePlan.Tests.ps1",
-      "seconds": 3.398,
+      "seconds": 3.39,
       "tests": 6
     },
     {
       "file": "tests/skalary/Add-LedgerEntry.Tests.ps1",
-      "seconds": 2.861,
+      "seconds": 2.75,
       "tests": 16
     },
     {
       "file": "tests/skalary/SuiteCoverage.Tests.ps1",
-      "seconds": 2.681,
+      "seconds": 2.642,
       "tests": 2
     },
     {
       "file": "tests/skalary/SuiteFixture.Tests.ps1",
-      "seconds": 2.629,
+      "seconds": 2.628,
       "tests": 6
     },
     {
+      "file": "tests/skalary/SuiteOrdering.Tests.ps1",
+      "seconds": 2.112,
+      "tests": 2
+    },
+    {
       "file": "tests/pprc/GitHubPr.Tests.ps1",
-      "seconds": 1.855,
+      "seconds": 1.789,
       "tests": 24
     },
     {
       "file": "tests/skalary/BuildRegistryCollation.Tests.ps1",
-      "seconds": 1.774,
+      "seconds": 1.715,
       "tests": 2
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
-      "seconds": 1.396,
+      "seconds": 1.262,
       "tests": 21
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "seconds": 1.253,
+      "seconds": 1.209,
       "tests": 16
     },
     {
       "file": "tests/skalary/Epic.Tests.ps1",
-      "seconds": 1.131,
+      "seconds": 1.105,
       "tests": 23
     },
     {
       "file": "tests/skalary/Test-Plan.Tests.ps1",
-      "seconds": 0.754,
+      "seconds": 0.674,
       "tests": 16
     },
     {
       "file": "tests/skalary/ReviewScope.Tests.ps1",
-      "seconds": 0.66,
+      "seconds": 0.666,
       "tests": 16
     },
     {
       "file": "tests/skalary/SiWriteScope.Tests.ps1",
-      "seconds": 0.624,
+      "seconds": 0.615,
       "tests": 17
     },
     {
       "file": "tests/skalary/ConcernAgents.Tests.ps1",
-      "seconds": 0.435,
+      "seconds": 0.427,
+      "tests": 7
+    },
+    {
+      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
+      "seconds": 0.387,
       "tests": 7
     },
     {
       "file": "tests/skalary/HumanStepDetail.Tests.ps1",
-      "seconds": 0.417,
+      "seconds": 0.372,
       "tests": 19
     },
     {
-      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
-      "seconds": 0.409,
-      "tests": 7
-    },
-    {
       "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
-      "seconds": 0.355,
+      "seconds": 0.369,
       "tests": 7
     },
     {
       "file": "tests/skalary/PlanIndex.Tests.ps1",
-      "seconds": 0.346,
+      "seconds": 0.325,
       "tests": 5
     },
     {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "seconds": 0.332,
-      "tests": 10
-    },
-    {
       "file": "tests/skalary/ModelAllowlist.Tests.ps1",
-      "seconds": 0.327,
+      "seconds": 0.304,
       "tests": 17
     },
     {
+      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
+      "seconds": 0.296,
+      "tests": 10
+    },
+    {
       "file": "tests/autopilot/PreparePackages.Tests.ps1",
-      "seconds": 0.284,
+      "seconds": 0.28,
       "tests": 19
     },
     {
       "file": "tests/skalary/SkillContracts.Tests.ps1",
-      "seconds": 0.26,
+      "seconds": 0.256,
       "tests": 7
     },
     {
       "file": "tests/skalary/PlanState.Tests.ps1",
-      "seconds": 0.255,
+      "seconds": 0.254,
       "tests": 36
     },
     {
-      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
-      "seconds": 0.229,
-      "tests": 14
-    },
-    {
       "file": "tests/skalary/PayloadScope.Tests.ps1",
-      "seconds": 0.226,
+      "seconds": 0.218,
       "tests": 5
     },
     {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "seconds": 0.212,
+      "tests": 14
+    },
+    {
       "file": "tests/autopilot/Resolve-HostCommand.Tests.ps1",
-      "seconds": 0.21,
+      "seconds": 0.206,
       "tests": 7
     },
     {
-      "file": "tests/evals/EvalTools.Tests.ps1",
-      "seconds": 0.206,
-      "tests": 25
-    },
-    {
-      "file": "tests/skalary/Marketplace.Tests.ps1",
-      "seconds": 0.19,
-      "tests": 3
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "seconds": 0.204,
+      "tests": 5
     },
     {
       "file": "tests/skalary/SetScriptApproval.Tests.ps1",
-      "seconds": 0.174,
+      "seconds": 0.181,
       "tests": 6
     },
     {
-      "file": "tests/evals/InvokeWazaEvals.Tests.ps1",
-      "seconds": 0.131,
+      "file": "tests/skalary/Marketplace.Tests.ps1",
+      "seconds": 0.17,
+      "tests": 3
+    },
+    {
+      "file": "tests/evals/EvalTools.Tests.ps1",
+      "seconds": 0.167,
       "tests": 25
     },
     {
       "file": "tests/skalary/SuiteProfile.Tests.ps1",
-      "seconds": 0.13,
+      "seconds": 0.139,
       "tests": 3
     },
     {
+      "file": "tests/evals/InvokeWazaEvals.Tests.ps1",
+      "seconds": 0.137,
+      "tests": 25
+    },
+    {
       "file": "tests/skalary/New-Plan.Tests.ps1",
-      "seconds": 0.12,
+      "seconds": 0.112,
       "tests": 7
     },
     {
       "file": "tests/evals/ResolveToken.Tests.ps1",
-      "seconds": 0.113,
+      "seconds": 0.11,
       "tests": 14
     },
     {
       "file": "tests/skalary/SelfImprovement.Tests.ps1",
-      "seconds": 0.108,
+      "seconds": 0.1,
       "tests": 8
     },
     {
-      "file": "tests/evals/WazaDesignNotesConvention.Tests.ps1",
+      "file": "tests/evals/WazaArchitectureNotesConvention.Tests.ps1",
       "seconds": 0.097,
-      "tests": 15
-    },
-    {
-      "file": "tests/skalary/ReviewSkills.Tests.ps1",
-      "seconds": 0.095,
-      "tests": 5
-    },
-    {
-      "file": "tests/autopilot/RebundleLoop.Tests.ps1",
-      "seconds": 0.094,
       "tests": 14
+    },
+    {
+      "file": "tests/skalary/PlanIntent.Tests.ps1",
+      "seconds": 0.092,
+      "tests": 13
     },
     {
       "file": "tests/skalary/DispatchGuide.Tests.ps1",
@@ -413,49 +420,34 @@
       "tests": 9
     },
     {
-      "file": "tests/evals/WazaCrConvention.Tests.ps1",
+      "file": "tests/evals/WazaDesignNotesConvention.Tests.ps1",
       "seconds": 0.09,
-      "tests": 12
+      "tests": 15
     },
     {
-      "file": "tests/skalary/PlanIntent.Tests.ps1",
-      "seconds": 0.09,
-      "tests": 13
-    },
-    {
-      "file": "tests/evals/WazaArchitectureNotesConvention.Tests.ps1",
+      "file": "tests/autopilot/RebundleLoop.Tests.ps1",
       "seconds": 0.089,
       "tests": 14
     },
     {
-      "file": "tests/skalary/Build-EvidenceReceipt.Tests.ps1",
-      "seconds": 0.087,
-      "tests": 3
+      "file": "tests/skalary/ReviewSkills.Tests.ps1",
+      "seconds": 0.088,
+      "tests": 5
     },
     {
-      "file": "tests/skalary/DiffExtractionRetired.Tests.ps1",
-      "seconds": 0.086,
-      "tests": 6
-    },
-    {
-      "file": "tests/evals/WazaCiConvention.Tests.ps1",
-      "seconds": 0.085,
-      "tests": 14
-    },
-    {
-      "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
-      "seconds": 0.084,
-      "tests": 4
+      "file": "tests/evals/WazaProcessPrCommentsConvention.Tests.ps1",
+      "seconds": 0.083,
+      "tests": 16
     },
     {
       "file": "tests/skalary/PromptShortcuts.Tests.ps1",
-      "seconds": 0.084,
+      "seconds": 0.083,
       "tests": 4
     },
     {
-      "file": "tests/evals/ProbeGhEntitlement.Tests.ps1",
-      "seconds": 0.084,
-      "tests": 14
+      "file": "tests/skalary/DiffExtractionRetired.Tests.ps1",
+      "seconds": 0.082,
+      "tests": 6
     },
     {
       "file": "tests/evals/WazaPluginManagerConvention.Tests.ps1",
@@ -463,14 +455,34 @@
       "tests": 14
     },
     {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "seconds": 0.081,
+      "file": "tests/evals/WazaCiConvention.Tests.ps1",
+      "seconds": 0.078,
       "tests": 14
     },
     {
-      "file": "tests/evals/WazaProcessPrCommentsConvention.Tests.ps1",
-      "seconds": 0.079,
-      "tests": 16
+      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
+      "seconds": 0.076,
+      "tests": 14
+    },
+    {
+      "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
+      "seconds": 0.075,
+      "tests": 4
+    },
+    {
+      "file": "tests/skalary/Build-EvidenceReceipt.Tests.ps1",
+      "seconds": 0.074,
+      "tests": 3
+    },
+    {
+      "file": "tests/evals/WazaCrConvention.Tests.ps1",
+      "seconds": 0.073,
+      "tests": 12
+    },
+    {
+      "file": "tests/evals/ProbeGhEntitlement.Tests.ps1",
+      "seconds": 0.073,
+      "tests": 14
     },
     {
       "file": "tests/skalary/Get-PlanState.Tests.ps1",
@@ -478,59 +490,59 @@
       "tests": 3
     },
     {
-      "file": "tests/skalary/SkillSize.Tests.ps1",
-      "seconds": 0.068,
-      "tests": 5
-    },
-    {
       "file": "tests/evals/WazaDrConvention.Tests.ps1",
-      "seconds": 0.064,
+      "seconds": 0.067,
       "tests": 10
     },
     {
       "file": "tests/evals/WazaCipConvention.Tests.ps1",
-      "seconds": 0.063,
+      "seconds": 0.067,
       "tests": 11
     },
     {
-      "file": "tests/skalary/SuiteBudget.Tests.ps1",
-      "seconds": 0.056,
-      "tests": 4
+      "file": "tests/skalary/SkillSize.Tests.ps1",
+      "seconds": 0.063,
+      "tests": 5
     },
     {
       "file": "tests/evals/LegacyCutover.Tests.ps1",
-      "seconds": 0.055,
+      "seconds": 0.059,
       "tests": 6
     },
     {
+      "file": "tests/autopilot/TimeoutConfiguration.Tests.ps1",
+      "seconds": 0.054,
+      "tests": 12
+    },
+    {
       "file": "tests/evals/WazaAutopilotConvention.Tests.ps1",
-      "seconds": 0.053,
+      "seconds": 0.051,
       "tests": 10
     },
     {
       "file": "tests/skalary/Repair-Plans.Tests.ps1",
-      "seconds": 0.052,
+      "seconds": 0.049,
       "tests": 5
     },
     {
-      "file": "tests/autopilot/TimeoutConfiguration.Tests.ps1",
-      "seconds": 0.051,
-      "tests": 12
-    },
-    {
-      "file": "tests/autopilot/ContainerOffline.Tests.ps1",
-      "seconds": 0.045,
-      "tests": 11
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "seconds": 0.048,
+      "tests": 4
     },
     {
       "file": "tests/autopilot/SandboxOffline.Tests.ps1",
-      "seconds": 0.044,
+      "seconds": 0.045,
       "tests": 12
     },
     {
       "file": "tests/skalary/DesignNotes.Tests.ps1",
-      "seconds": 0.039,
+      "seconds": 0.045,
       "tests": 5
+    },
+    {
+      "file": "tests/autopilot/ContainerOffline.Tests.ps1",
+      "seconds": 0.043,
+      "tests": 11
     },
     {
       "file": "tests/autopilot/ModelConfiguration.Tests.ps1",
@@ -539,12 +551,12 @@
     },
     {
       "file": "tests/skalary/Set-PlanStage.Tests.ps1",
-      "seconds": 0.033,
+      "seconds": 0.032,
       "tests": 3
     },
     {
       "file": "tests/skalary/Bootstrap.Tests.ps1",
-      "seconds": 0.029,
+      "seconds": 0.027,
       "tests": 1
     }
   ],
@@ -578,11 +590,11 @@
       "label": "residue-reduction",
       "scope": "run",
       "baselineSeconds": 95.847,
-      "scopeSeconds": 78.145,
+      "scopeSeconds": 78.17,
       "targetSavingSeconds": 10.0,
-      "achievedSavingSeconds": 17.702,
+      "achievedSavingSeconds": 17.677,
       "metTarget": true,
-      "achievedSeconds": 78.145,
+      "achievedSeconds": 78.17,
       "note": "Registry fixture scoped to the plugins under test; the four costliest residue files stopped spawning a child process or rebuilding a git repo per case. Scored on the run because the phase spans two scopes no single instrumented operation covers."
     }
   ]
