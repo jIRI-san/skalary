@@ -39,7 +39,12 @@ param(
     # Defaults to a temp path derived from $RepoRoot. Derived rather than fixed because the
     # suite runs this script against sandbox roots of its own: a shared path would let one of
     # those nested runs consume the clock belonging to the real run that spawned it.
-    [string]$BudgetClockPath
+    [string]$BudgetClockPath,
+
+    # Where the NUnit report is written. Pester's default is a fixed name in the working
+    # directory, which two CI matrix legs would both produce and neither could be told apart
+    # from — so CI names it per platform (REQ-9) and everything else keeps the default.
+    [string]$TestResultPath
 )
 
 Set-StrictMode -Version Latest
@@ -124,6 +129,14 @@ $configuration.Run.Path = $testPath
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
+
+if ($TestResultPath) {
+    $resultDirectory = Split-Path -Parent $TestResultPath
+    if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
+    }
+    $configuration.TestResult.OutputPath = $TestResultPath
+}
 
 $result = Invoke-Pester -Configuration $configuration
 

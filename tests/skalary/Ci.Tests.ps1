@@ -296,4 +296,51 @@ Describe 'ci workflow' {
         }
     }
 
+
+    It 'test:Ci.ArtifactNamePerPlatform names the report after the platform that produced it, and uploads it even when the run is red' {
+        $script:workflowText | Should -Not -BeNullOrEmpty
+
+        $steps = @(Get-CiWorkflowStep -Text $script:workflowText)
+        $unitStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })[0]
+
+        # A default NUnit path is a fixed name in the working directory, so both legs write the
+        # same file and the artifact upload of the second collides with the first. The platform
+        # is in the path rather than only in the artifact name so the collision cannot come back
+        # through a later step that reads the file.
+        $unitStep.Body |
+            Should -Match '-TestResultPath\s+\S+' -Because 'Pester writes a fixed default name, which two matrix legs both produce'
+        # `${{ matrix.os }}` carries spaces, so the capture runs to end of line rather than to
+        # the first whitespace.
+        $unitStep.Body -match '-TestResultPath\s+(?<path>[^\n]+)' | Out-Null
+        $resultPath = $Matches['path'].Trim()
+        $resultPath |
+            Should -Match '\$\{\{ matrix\.os \}\}' -Because 'a report that cannot be attributed to a platform is not a diagnosis on a suite that runs ~2x apart across them'
+
+        $uploadSteps = @($steps | Where-Object { $_.Body -match 'uses:\s*actions/upload-artifact@' })
+        $uploadSteps.Count | Should -Be 1 -Because 'one upload, so one artifact name to keep unique'
+        $upload = $uploadSteps[0]
+
+        $upload.Body -match '(?m)^\s*name:\s*(?<name>[^\n]+)$' | Out-Null
+        $Matches['name'].Trim() |
+            Should -Match '\$\{\{ matrix\.os \}\}' -Because 'two matrix legs uploading one artifact name is a hard failure, not a merge'
+
+        $upload.Body -match '(?m)^\s*path:\s*(?<path>[^\n]+)$' | Out-Null
+        $Matches['path'].Trim() |
+            Should -Be $resultPath -Because 'the uploaded path must be the path the runner was told to write, or the artifact is empty for a reason nothing reports'
+
+        # The run worth reading is the failed one. Without always() the report is uploaded
+        # exactly when nobody needs it.
+        $upload.Body |
+            Should -Match '(?m)^\s*if: always\(\)\s*$' -Because 'a red suite is the run whose NUnit report is worth keeping'
+
+        # REQ-9's summary line: a job whose only output is a red step tells a reader which
+        # platform failed but not what failed on it.
+        $summarySteps = @($steps | Where-Object { $_.Body -match 'GITHUB_STEP_SUMMARY' })
+        $summarySteps.Count | Should -Be 1 -Because 'REQ-9 requires a summary line'
+        $summarySteps[0].Body |
+            Should -Match '(?m)^\s*if: always\(\)\s*$' -Because 'a summary that only appears on green runs summarises nothing worth reading'
+        $summarySteps[0].Body |
+            Should -Match '\$\{\{ matrix\.os \}\}' -Because 'both legs write into one summary, so each line has to say which leg wrote it'
+    }
+
 }

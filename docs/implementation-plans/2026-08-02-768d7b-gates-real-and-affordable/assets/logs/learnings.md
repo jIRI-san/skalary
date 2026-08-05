@@ -1,17 +1,17 @@
 ## Learnings Capture
 Phase: 1
-- [2.3] [trigger:overflow-summary] Folded 3 additional learnings into this summary.
+- [5.2] [trigger:overflow-summary] Folded 4 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 5
 
-- [5.2] [trigger:reusable-pattern] Pester splits failures across FailedCount, FailedBlocksCount and FailedContainersCount; any runner that decides on FailedCount alone reports green for a test file that never loaded. Use Pester's own verdict, or sum all three.
 - [5.2] [trigger:reusable-pattern] An evidence receipt line is only as current as the file it covers: a later phase editing a file an earlier phase already signed off silently invalidates that binding. Re-execute a phase's markers when any covered path changed after the recorded commit, rather than trusting the phase's own green.
 
 ## Learnings Capture
@@ -40,4 +40,4 @@ Phase: 4
 ## Learnings Capture
 Phase: 8
 
-No entries for this phase.
+- [8.4] [trigger:reusable-pattern] Workflow-shape tests are only worth their cost if each assertion is proven red by mutating the workflow: 18 mutations (dropped permissions, tag pin, -SkipPublisherCheck, shared artifact name, chained gates, lowered timeout) each turned exactly one named test red, which is what separates a shape test from a spell-checker.

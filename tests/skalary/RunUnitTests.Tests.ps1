@@ -62,7 +62,9 @@ Describe 'run unit tests' {
                 [Parameter(Mandatory)]
                 [string]$SandboxRoot,
 
-                [string]$ModulePath
+                [string]$ModulePath,
+
+                [string[]]$ExtraArguments = @()
             )
 
             $lines = [System.Collections.Generic.List[string]]::new()
@@ -71,7 +73,8 @@ Describe 'run unit tests' {
             # report is lost at the moment it is needed.
             $lines.Add('$PSStyle.OutputRendering = ''PlainText''')
             if ($ModulePath) { $lines.Add("`$env:PSModulePath = '$ModulePath'") }
-            $lines.Add("& '$script:runner' -RepoRoot '$SandboxRoot'")
+            $extra = if ($ExtraArguments.Count -gt 0) { ' ' + ($ExtraArguments -join ' ') } else { '' }
+            $lines.Add("& '$script:runner' -RepoRoot '$SandboxRoot'$extra")
             $lines.Add('exit $LASTEXITCODE')
 
             $driver = Join-Path $SandboxRoot 'driver.ps1'
@@ -204,5 +207,28 @@ Describe 'sandbox' {
         $result.Output | Should -Match 'TestFilesNotDiscoverable'
         $result.Output |
             Should -Match 'Undiscoverable\.Tests\.ps1' -Because 'the file that did not load has to be nameable from the output'
+    }
+
+    It 'test:RunUnitTests.WritesNUnitToRequestedPath puts the report where CI asked, creating the folder it named' {
+        # REQ-9: two matrix legs both writing Pester's default name produce one file and one
+        # artifact upload that collides with the other. The path is therefore given per platform,
+        # and a runner that quietly ignored it would leave CI uploading nothing while still green.
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $relative = 'artifacts/test-results/nunit-sandbox.xml'
+        $expected = Join-Path $sandbox $relative
+
+        Test-Path -LiteralPath (Split-Path -Parent $expected) |
+            Should -BeFalse -Because 'the point is that the runner creates the directory CI names, so it must not exist first'
+
+        $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestResultPath '$relative'")
+        $result.ExitCode | Should -Be 0 -Because "the sandbox suite passes: $($result.Output)"
+
+        Test-Path -LiteralPath $expected -PathType Leaf |
+            Should -BeTrue -Because "the NUnit report must land at the requested path: $($result.Output)"
+
+        # Present but empty would upload an artifact that says nothing, so the report is read
+        # rather than merely counted.
+        ([xml](Get-Content -LiteralPath $expected -Raw)).'test-results'.total |
+            Should -Be '1' -Because 'the report has to describe the run that produced it'
     }
 }

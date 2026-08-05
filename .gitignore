@@ -29,3 +29,6 @@ tests/evals/**/result*.json
 
 # Pester CI test output
 testResults.xml
+# Per-platform NUnit reports written by Run-UnitTests.ps1 -TestResultPath (CI uploads them
+# as artifacts; a local run must not offer them for commit).
+artifacts/

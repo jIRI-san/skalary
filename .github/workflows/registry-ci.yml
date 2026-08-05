@@ -101,9 +101,51 @@ jobs:
       # REQ-9/D2: the runner is invoked rather than Invoke-Pester, because the runtime budget
       # and the cannot-test failures live in this script and nowhere else. Calling Pester
       # directly here would be a second, unbudgeted way to run the suite.
+      #
+      # The NUnit path carries the platform because both legs write into the same artifact
+      # namespace: two legs uploading one name is a hard failure, and a report that cannot be
+      # attributed to a platform is not a diagnosis on a suite that measures ~2x apart.
       - name: Unit tests and runtime budget
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
+        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestResultPath artifacts/test-results/nunit-${{ matrix.os }}.xml
+
+      # `if: always()` because the run worth reading is the failed one. Without it the report is
+      # uploaded exactly when nobody needs it.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nunit-${{ matrix.os }}
+          path: artifacts/test-results/nunit-${{ matrix.os }}.xml
+          if-no-files-found: warn
+
+      - name: Test result summary
+        if: always()
+        shell: pwsh
+        run: |
+          $resultPath = 'artifacts/test-results/nunit-${{ matrix.os }}.xml'
+          # Every branch ends in a line. This step exists for the run that went wrong, and a
+          # report truncated by a killed run is exactly that run — so a parse failure is
+          # reported rather than thrown, or the diagnostic disappears when it is needed.
+          $line = if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+            try {
+              $results = ([xml](Get-Content -LiteralPath $resultPath -Raw)).'test-results'
+              $failed = [int]$results.failures + [int]$results.errors
+              $verdict = if ($failed -gt 0) { 'FAILED' } else { 'passed' }
+              # `time` on the root element is a wall-clock timestamp, not a duration; the duration
+              # lives on the top-level suite.
+              $seconds = @($results.'test-suite')[0].time
+              "**${{ matrix.os }}** — ${verdict}: $($results.total) test(s), $failed failed, $($results.'not-run') not run, ${seconds}s (artifact ``nunit-${{ matrix.os }}``)."
+            }
+            catch {
+              "**${{ matrix.os }}** — the NUnit report at ``$resultPath`` could not be read: $($_.Exception.Message). The run ended before the report was complete."
+            }
+          }
+          else {
+            "**${{ matrix.os }}** — no NUnit report at ``$resultPath``: the unit-test step did not get far enough to write one."
+          }
+          Write-Host $line
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $line
 
       - name: Validate registry
         shell: pwsh
