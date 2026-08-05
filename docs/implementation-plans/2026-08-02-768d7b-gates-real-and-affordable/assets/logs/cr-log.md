@@ -56,4 +56,4 @@ Phase: 4
 ## CR Capture
 Phase: 8
 
-No entries for this phase.
+- [8.2] [src:code-review] [sev:Med] Workflow test let gates be silently disabled: nothing required the budget-clock step, and Build-Registry.ps1 alone counted as the drift gate though git diff --exit-code is the check. Added clock presence+ordering assertions and required the drift and dogfood steps to carry their enforcing command.
