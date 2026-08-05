@@ -32,3 +32,12 @@ Phase 7 Crosscheck:
 ✓ REQ-8 — test:Validate.DotPrefixedPayloadEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
 ✓ REQ-8 — test:Validate.GitDirectoryNotEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
 ✓ REQ-8 — test:Validate.FileCountEqualAcrossPlatforms — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+
+Phase 3 Crosscheck:
+✓ REQ-3 — test:SuiteCoverage.TestNameInventoryPreserved — passed — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+✓ REQ-3 — test:SuiteCoverage.ConfinementCasesRetained — passed — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+✓ REQ-3 — test:SuiteFixture.CarriesTagsForVersionResolution — passed: order-independence for the tag is covered by test:SuiteOrdering.RandomisedOrderGivesIdenticalResults (RISK-12) — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+✓ REQ-4 — file:tools/suite-profile.json#contains:phase — passed: phase 3 row: 95.847s -> 78.17s on the run, saving 17.677s against a declared 10.0s — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+✓ REQ-4 — test:SuiteProfile.PhaseTargetsMet — passed: stop condition; phase 3 target pinned in tools/suite-budget.psd1 — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+✗ REQ-4 — test:SuiteBudget.WithinHardCeiling — unrun: lands in step 4.3 — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
+
