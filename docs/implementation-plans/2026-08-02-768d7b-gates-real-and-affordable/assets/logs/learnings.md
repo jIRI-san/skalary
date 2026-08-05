@@ -30,3 +30,8 @@ Phase: 3
 
 - [3.1] [trigger:reusable-pattern] A determinism test that compares two copies of one cached artifact proves nothing about the build that produced it; discard the cache between the two builds.
 - [3.3] [trigger:reusable-pattern] An order-independence test needs a paired non-blindness check that runs each probe's own body over a tainted input; run-to-run equality alone is satisfied by a probe that reports a constant.
+
+## Learnings Capture
+Phase: 4
+
+No entries for this phase.

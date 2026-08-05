@@ -1,0 +1,47 @@
+name: suite-runtime-measure
+
+# Temporary harness for plan 768d7b step 4.1: the ceiling is enforced per platform, and the
+# container this plan executes in has no Windows host, so the Windows figure is measured on
+# the runner the ceiling will actually be enforced on. Deleted in the same phase — the durable
+# CI wiring is phase 8's registry-ci.yml, and two workflows running the suite is one too many.
+#
+# Path-filtered to its own file so ordinary step pushes do not re-run a ~20 minute Windows leg.
+
+on:
+  push:
+    branches:
+      - feature/2026-08-02-768d7b-gates-real-and-affordable
+    paths:
+      - .github/workflows/suite-runtime-measure.yml
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: measure npm test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge [version]'5.6.1' })) {
+            Install-Module -Name Pester -RequiredVersion 5.6.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+
+      - name: Measure npm test
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Measure-SuiteRuntime.ps1 -Source 'ci:${{ matrix.os }}' -NoWrite
