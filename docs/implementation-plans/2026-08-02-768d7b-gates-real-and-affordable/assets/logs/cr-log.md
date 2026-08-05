@@ -41,3 +41,4 @@ Phase: 7
 Phase: 3
 
 - [3.1] [src:code-review] [sev:Med] Rebuilding the fixture registry stamped a wall-clock generatedAt into the committed tree, so the fixture commit SHA drifted per build and Install-Plugin's parity check would silently no-op; pinned the timestamp and made CommitIsDeterministic compare two independently built templates.
+- [3.2] [src:code-review] [sev:Med] Invoke-SuiteScript read the runspace's LASTEXITCODE, which a failing native command sets just as exit does, so a script without a terminal exit would report that command's code and turn 'Should -Not -Be 0' vacuous; the helper now refuses such a script by AST check and the guard is tested.

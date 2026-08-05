@@ -48,7 +48,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Scope `Build-Registry` calls to the plugins under test rather than all 11 (REQ-4) [after: 1.1] `M`
-- [ ] 3.2 Apply the same pattern to the next-costliest files from 1.1 (`ReviewScope`, `Add-LedgerEntry`, `Test-Plan`, `SiWriteScope`) (REQ-4, RISK-9) [after: 1.1] `L`
+- [x] 3.2 Apply the same pattern to the next-costliest files from 1.1 (`ReviewScope`, `Add-LedgerEntry`, `Test-Plan`, `SiWriteScope`) (REQ-4, RISK-9) [after: 1.1] `L`
 - [ ] 3.3 Assert a randomised-order run gives identical results, and the fixture still carries tags (REQ-3, RISK-1, RISK-12) [after: 2.3, 3.2] `S`
 
 ## Phase 4: Prove the ceiling holds

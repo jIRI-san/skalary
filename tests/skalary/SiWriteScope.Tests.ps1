@@ -12,6 +12,11 @@ Describe 'si write-scope guard' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:guard = Join-Path $script:repoRoot 'scripts/skalary/Test-SiWriteScope.ps1'
+        $script:scopeTemplate = $null
+
+        # Copy-SkalaryFixtureTree is the build-once-copy-per-case primitive the registry
+        # fixture uses: dot-prefixed entries included, onto a path that must not exist.
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteFixture.psm1') -Force -DisableNameChecking
 
         function Script:Invoke-Git {
             param(
@@ -29,11 +34,34 @@ Describe 'si write-scope guard' {
             <#
                 A throwaway repo with a `main` baseline and a feature branch checked out, which is
                 the exact shape /si proposes from.
+
+                Built once and copied per case: the shape costs seven git invocations and every
+                case needs a private tree, not a private construction.
             #>
+            if (-not $script:scopeTemplate) {
+                $script:scopeTemplate = New-ScopeRepoTemplate
+            }
+
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ("si-scope-" + [Guid]::NewGuid().ToString('n'))
+            Copy-SkalaryFixtureTree -Source $script:scopeTemplate -Destination $root
+            return $root
+        }
+
+        function Script:New-ScopeRepoTemplate {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("si-scope-template-" + [Guid]::NewGuid().ToString('n'))
             New-Item -ItemType Directory -Path $root -Force | Out-Null
 
-            Invoke-Git -Root $root -Arguments @('init', '--initial-branch=main') | Out-Null
+            # An empty init template drops the sample hooks, so the per-case copy moves the
+            # repo rather than a directory of hook examples nothing here reads.
+            $emptyTemplate = Join-Path ([System.IO.Path]::GetTempPath()) ("si-scope-empty-" + [Guid]::NewGuid().ToString('n'))
+            New-Item -ItemType Directory -Path $emptyTemplate -Force | Out-Null
+            try {
+                Invoke-Git -Root $root -Arguments @('init', '--initial-branch=main', "--template=$emptyTemplate") | Out-Null
+            }
+            finally {
+                Remove-Item -LiteralPath $emptyTemplate -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
             Invoke-Git -Root $root -Arguments @('config', 'user.email', 'si@example.test') | Out-Null
             Invoke-Git -Root $root -Arguments @('config', 'user.name', 'si test') | Out-Null
             Invoke-Git -Root $root -Arguments @('config', 'commit.gpgsign', 'false') | Out-Null
@@ -70,6 +98,13 @@ Describe 'si write-scope guard' {
 
     BeforeEach {
         $script:root = New-ScopeRepo
+    }
+
+    AfterAll {
+        if ($script:scopeTemplate -and (Test-Path -LiteralPath $script:scopeTemplate)) {
+            # Outlives every per-case copy, so nothing else would reclaim it.
+            Remove-Item -LiteralPath $script:scopeTemplate -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     AfterEach {

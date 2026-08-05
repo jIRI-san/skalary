@@ -41,6 +41,18 @@
             BaselineSeconds = 8.775
             RequiredSavingSeconds = 4.4
         }
+        # Phase 3 spans two scopes — the Build-Registry calls step 3.1 narrows and the four
+        # costliest residue files step 3.2 rewrites — so no single instrumented operation
+        # covers it and the run is what it is scored on. The baseline is phase 2's achieved
+        # wall clock, the figure phase 3 inherits. The required saving is half the phase-1
+        # cost of the four named files (30.575s), floored at 10s: ~10% of a ~96s run, which
+        # is far enough above the few-second scheduling noise that made wall clock unusable
+        # for phase 2's ~7s move to be decided by the change rather than by the scheduler.
+        '3' = @{
+            Scope = 'run'
+            BaselineSeconds = 95.847
+            RequiredSavingSeconds = 10.0
+        }
     }
 
     # The ceiling is per platform (D13): the same suite measured ~10x apart between the
