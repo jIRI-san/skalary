@@ -81,7 +81,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 8: Wire and harden CI
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 8.1 Entry check: run the budget check and stop the phase on a non-zero result — `[after:]` proves sequence, not success (REQ-2, REQ-9) [after: 4.3] `S`
+- [x] 8.1 Entry check: run the budget check and stop the phase on a non-zero result — `[after:]` proves sequence, not success (REQ-2, REQ-9) [after: 4.3] `S`
 - [ ] 8.2 `registry-ci.yml` invokes `Run-UnitTests.ps1` and `validate.ps1` as separate named steps on both platforms, never chained (REQ-9, RISK-10) [after: 8.1] `M`
 - [ ] 8.3 Harden: `permissions: contents: read`, `persist-credentials: false`, SHA-pinned actions, version-pinned modules with `-SkipPublisherCheck` and repository-trust removed, per-leg `timeout-minutes` above the hard ceiling, `concurrency` (REQ-9, RISK-8, RISK-4) [after: 8.2] `M`
 - [ ] 8.4 Deterministic per-OS NUnit path and per-OS artifact name; upload with `if: always()` and write a summary line (REQ-9) [after: 8.2] `S`

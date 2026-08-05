@@ -36,3 +36,8 @@ Phase: 4
 
 - [4.3] [trigger:reusable-pattern] A gate that measures a command spanning several processes needs the clock cleared before every exit, not only the successful one: a clock stranded by a red run is charged to the next run as time it never spent.
 - [4.3] [trigger:reusable-pattern] Under Set-StrictMode -Version Latest a missing key read with dot notation is terminating, so a config typo exits 1 - the code reserved for 'tests failed'. Name every field in the guard before reading any of it.
+
+## Learnings Capture
+Phase: 8
+
+No entries for this phase.

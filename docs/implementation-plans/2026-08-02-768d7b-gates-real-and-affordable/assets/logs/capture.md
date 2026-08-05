@@ -36,3 +36,8 @@ Phase: 4
 
 - [4.1] [src:note] npm test measured on the runners the gate will enforce on: ci:ubuntu-latest 108.998s, ci:windows-latest 223.142s, both green, both 4-core, commit c99d5d1. D13/RISK-4's 10x platform gap is gone - Windows was 1157s before phases 2 and 3 and is now 2.05x Linux, so the tier split D13 held in reserve is not needed. The autopilot container measures 86s on 16 cores; the CI figures are the slower and therefore the ones the ceiling is tightened against.
 - [4.1] [src:note] Windows cannot be measured from the Linux autopilot container, so step 4.1 measured it on windows-latest through a temporary path-filtered workflow (.github/workflows/suite-runtime-measure.yml), imported both rows through Measure-SuiteRuntime.ps1 -ImportRow, and deleted the workflow in the same phase; the durable CI wiring stays phase 8's job.
+
+## Capture
+Phase: 8
+
+- [8.1] [src:note] Phase 8 entry check (D9): npm test exit 0, 752 tests passed, budget reported 97.812s (npm test clock) against the Linux 330s ceiling / 240s target. Non-zero would have stopped the phase; the (after: 4.3) edge only proves sequence.
