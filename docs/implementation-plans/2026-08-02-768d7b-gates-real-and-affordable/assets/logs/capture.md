@@ -13,6 +13,7 @@ No entries for this phase.
 Phase: 5
 
 - [5.1] Step 2.2 is left in-progress with uncommitted work whose Copy-DirectoryContent resolves cp via Get-Command without taking the first match, so the path becomes two paths joined and 20 cases in Skalary.Tests.ps1/SuiteFixture.Tests.ps1 fail. Pre-existing and unrelated to phase 5; the phase-5 commits do not stage those files.
+- [5.2] [src:note] Phase 5 re-run found both steps already complete from commits ba3ed0f and 57175f0, but the receipt was bound to 57175f0 while step 4.3 (36334d6) later added 146 lines to Run-UnitTests.ps1, the exact file REQ-5 covers. Re-executed all three REQ-5 markers at HEAD 456dd67 and rebound the section; verified the budget branches (exit 5/6) sit strictly after every cannot-test branch (exit 2/3/4), so 4.3 cannot mask REQ-5.
 
 ## Capture
 Phase: 6

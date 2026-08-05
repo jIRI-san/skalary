@@ -1,17 +1,18 @@
 ## Learnings Capture
 Phase: 1
-- [1.3] [trigger:overflow-summary] Folded 2 additional learnings into this summary.
+- [2.3] [trigger:overflow-summary] Folded 3 additional learnings into this summary.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 
-- [2.3] [trigger:reusable-pattern] A gate whose threshold lives in the document the measuring run rewrites can be zeroed by omitting a parameter; pin thresholds in a file no run writes and cross-check set equality both ways.
 
 ## Learnings Capture
 Phase: 5
 
 - [5.2] [trigger:reusable-pattern] Pester splits failures across FailedCount, FailedBlocksCount and FailedContainersCount; any runner that decides on FailedCount alone reports green for a test file that never loaded. Use Pester's own verdict, or sum all three.
+- [5.2] [trigger:reusable-pattern] An evidence receipt line is only as current as the file it covers: a later phase editing a file an earlier phase already signed off silently invalidates that binding. Re-execute a phase's markers when any covered path changed after the recorded commit, rather than trusting the phase's own green.
 
 ## Learnings Capture
 Phase: 6

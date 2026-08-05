@@ -21,9 +21,9 @@ Phase 2 Crosscheck:
 ✗ REQ-4 — test:SuiteBudget.WithinHardCeiling — unrun: lands in step 4.3 — 58294c36ff8e5d6b573b57865b3125acb9a8581b
 
 Phase 5 Crosscheck:
-✓ REQ-5 — file:scripts/skalary/Run-UnitTests.ps1#contains:PesterNotInstalled — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
-✓ REQ-5 — test:RunUnitTests.MissingPesterExitsNonZero — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
-✓ REQ-5 — test:RunUnitTests.ZeroTestsDiscoveredFails — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
+✓ REQ-5 — file:scripts/skalary/Run-UnitTests.ps1#contains:PesterNotInstalled — passed: re-verified at HEAD: step 4.3 added the budget check to this same script, so the 57175f0 binding no longer covered the file — 456dd67ff5a783e6504bdeed4ee2cf1289e68914
+✓ REQ-5 — test:RunUnitTests.MissingPesterExitsNonZero — passed — 456dd67ff5a783e6504bdeed4ee2cf1289e68914
+✓ REQ-5 — test:RunUnitTests.ZeroTestsDiscoveredFails — passed: both shapes red: a file declaring no test, and an empty tests tree; each stays separable from a run that tested and failed — 456dd67ff5a783e6504bdeed4ee2cf1289e68914
 
 Phase 7 Crosscheck:
 ✓ REQ-7 — file:scripts/skalary/Build-Registry.ps1#contains:StringComparer — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
@@ -51,3 +51,4 @@ Phase 4 Crosscheck:
 ✓ REQ-2 — test:SuiteBudget.OverBudgetRunFails — passed: runner exits 5 naming measured and budgeted; 6 for an unbudgeted or malformed entry — 36334d66fa0e60ee82db95326afd65ee181a0f37
 ✓ REQ-4 — test:SuiteBudget.WithinHardCeiling — passed: Linux 108.998s of 330s, Windows 223.142s of 600s, both measured on the CI runners — 36334d66fa0e60ee82db95326afd65ee181a0f37
 ✓ REQ-4 — file:tools/suite-profile.json#contains:phase — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
+
