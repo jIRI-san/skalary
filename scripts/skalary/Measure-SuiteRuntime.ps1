@@ -72,10 +72,45 @@ function Get-CurrentPlatformKey {
     return 'Linux'
 }
 
-function Write-RuntimeDocument {
-    param([hashtable]$Row)
+function ConvertTo-CanonicalRow {
+    <#
+    .SYNOPSIS
+        Puts a row's fields in a fixed order.
+    .DESCRIPTION
+        A row that arrives from another host is deserialised in whatever order it was written,
+        so merging one would otherwise reshuffle the document and turn a one-figure change into
+        a whole-file diff.
+    #>
+    param($Row)
 
-    $platform = [string]$Row.platform
+    $source = @{}
+    foreach ($property in $Row.PSObject.Properties) { $source[$property.Name] = $property.Value }
+
+    $environment = [ordered]@{}
+    if ($source.ContainsKey('environment') -and $null -ne $source['environment']) {
+        $raw = @{}
+        foreach ($property in $source['environment'].PSObject.Properties) { $raw[$property.Name] = $property.Value }
+        foreach ($field in @('os', 'psVersion', 'pesterVersion', 'processorCount', 'ci', 'runner')) {
+            if ($raw.ContainsKey($field)) { $environment[$field] = $raw[$field] }
+        }
+        foreach ($field in @($raw.Keys | Sort-Object -CaseSensitive)) {
+            if (-not $environment.Contains($field)) { $environment[$field] = $raw[$field] }
+        }
+    }
+
+    $canonical = [ordered]@{}
+    foreach ($field in @('schema', 'platform', 'measuredCommand', 'seconds', 'succeeded', 'measuredAt', 'commit', 'source', 'note')) {
+        if ($source.ContainsKey($field)) { $canonical[$field] = $source[$field] }
+    }
+    $canonical['environment'] = $environment
+    return $canonical
+}
+
+function Write-RuntimeDocument {
+    param($Row)
+
+    $canonical = ConvertTo-CanonicalRow -Row ([pscustomobject]$Row)
+    $platform = [string]$canonical.platform
     if (-not $platform) { throw 'A runtime row must name the platform it was measured on.' }
 
     $rows = [ordered]@{}
@@ -83,11 +118,11 @@ function Write-RuntimeDocument {
         $existing = Get-Content -LiteralPath $OutputPath -Raw | ConvertFrom-Json
         if ($existing.PSObject.Properties.Name -contains 'platforms') {
             foreach ($property in $existing.platforms.PSObject.Properties) {
-                $rows[$property.Name] = $property.Value
+                $rows[$property.Name] = ConvertTo-CanonicalRow -Row $property.Value
             }
         }
     }
-    $rows[$platform] = $Row
+    $rows[$platform] = $canonical
 
     $ordered = [ordered]@{}
     foreach ($key in @($rows.Keys | Sort-Object -CaseSensitive)) { $ordered[$key] = $rows[$key] }
@@ -108,7 +143,7 @@ function Write-RuntimeDocument {
     if ($budget.Platforms.Contains($platform)) {
         $ceiling = "ceiling $($budget.Platforms[$platform].HardCeilingSeconds)s"
     }
-    Write-Host "Recorded $platform at $($Row.seconds)s in $OutputPath ($ceiling)."
+    Write-Host "Recorded $platform at $($canonical.seconds)s in $OutputPath ($ceiling)."
 }
 
 if ($PSCmdlet.ParameterSetName -eq 'Import') {
@@ -129,7 +164,7 @@ if ($PSCmdlet.ParameterSetName -eq 'Import') {
 
     $row = [ordered]@{}
     foreach ($property in $imported.PSObject.Properties) { $row[$property.Name] = $property.Value }
-    Write-RuntimeDocument -Row $row
+    Write-RuntimeDocument -Row ([pscustomobject]$row)
     exit 0
 }
 
