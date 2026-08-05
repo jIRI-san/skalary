@@ -24,3 +24,8 @@ Phase: 6
 Phase: 7
 
 - [7.2] [trigger:reusable-pattern] PowerShell enumerates statement output, so '$keys = if (...) { @(x) } else { @(y) } collapses a one-element array to a scalar; the string then indexes by character and .Length is the character count. Assign inside each branch when the value must stay an array.
+
+## Learnings Capture
+Phase: 3
+
+- [3.1] [trigger:reusable-pattern] A determinism test that compares two copies of one cached artifact proves nothing about the build that produced it; discard the cache between the two builds.

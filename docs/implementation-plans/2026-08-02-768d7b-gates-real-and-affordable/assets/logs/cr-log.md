@@ -36,3 +36,8 @@ Phase: 7
 - [7.2] [src:code-review] [sev:High] Test-Registry.ps1 carried a duplicate New-ReadmeCatalogTable still using culture-sensitive Sort-Object, so the drift gate would reject a correctly generated README on a cs-CZ host. Fixed: gate now shares the ordinal comparer, and CzechCollationFixtureIsStable runs Test-Registry.ps1 under both cultures (verified non-vacuous by reverting the sort).
 - [7.3] [src:code-review] [sev:Med] Test-ReparsePoint returned true on any exception, so an unreadable file silently left the parsed set — a fail-open in the gate that exists to prove every payload file parses. Fixed: it now throws, and only directory descent swallows the error via Test-DirectoryWalkable.
 - [7.3] [src:code-review] [sev:Med] Allowlist drift and an empty parse set were both silent. Fixed: -RequireRoot throws on a missing/unreadable root, validate.ps1 errors on a zero-file enumeration, and test:Validate.PayloadRootsCoverRepository fails when a new top-level directory is neither allowlisted nor pruned.
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Med] Rebuilding the fixture registry stamped a wall-clock generatedAt into the committed tree, so the fixture commit SHA drifted per build and Install-Plugin's parity check would silently no-op; pinned the timestamp and made CommitIsDeterministic compare two independently built templates.

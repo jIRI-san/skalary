@@ -79,16 +79,42 @@ Describe 'suite fixture' {
         $unexpected -join '; ' | Should -BeNullOrEmpty -Because 'the fixture tracks only allowlisted payload'
     }
 
+    It 'test:SuiteFixture.PluginSetIsScopedToTestsUnderTest carries the plugins the cases name and nothing else' {
+        # Build-Registry hashes every plugin the fixture carries, and the fixture is copied
+        # once per case, so a plugin no case names is paid for on both sides. The set must
+        # also be closed under `dependencies`: a registry entry whose dependency has no
+        # files behind it would fail an install for a fixture reason, not a code one.
+        Test-SkalaryFixturePluginClosure -ProjectRoot $script:repoRoot |
+            Should -BeNullOrEmpty -Because 'the fixture plugin allowlist must be closed under plugin dependencies'
+
+        $allowlist = @(Get-SkalaryFixturePlugins)
+        $allowlist.Count | Should -BeGreaterThan 0
+        @(Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -Directory).Count |
+            Should -BeGreaterThan $allowlist.Count -Because 'scoping only means something while the repo carries plugins the suite does not exercise'
+
+        $fixture = New-CaseFixture
+        $carried = @(Get-ChildItem -LiteralPath (Join-Path $fixture 'plugins') -Directory | ForEach-Object { $_.Name } | Sort-Object -CaseSensitive)
+        $carried | Should -Be (@($allowlist | Sort-Object -CaseSensitive))
+
+        # The registry must describe the plugins the fixture has rather than the repo's:
+        # an entry with no files behind it turns an install into a fixture failure.
+        $registry = Get-Content -LiteralPath (Join-Path $fixture 'registry.json') -Raw | ConvertFrom-Json -Depth 100
+        @(@($registry.plugins).name | Sort-Object -CaseSensitive) | Should -Be (@($allowlist | Sort-Object -CaseSensitive))
+    }
+
     It 'test:SuiteFixture.CommitIsDeterministic gives every fixture the same commit so registry parity still runs' {
         # Install-Plugin only checks source/target registry parity when the source commit is an
-        # object in the target repo. The clone-based fixture got that for free; the synthetic one
-        # keeps it by building byte-identical commits.
+        # object in the target repo, and it returns quietly when it is not — so a fixture whose
+        # SHA drifts costs the assertion without failing anything. The template is discarded
+        # between the two builds: comparing two copies of one cached template would compare
+        # byte-identical trees by construction and prove nothing about the *build*.
         $first = New-CaseFixture
+        Remove-SkalaryFixtureTemplate
         $second = New-CaseFixture
 
         $firstSha = (git -C $first rev-parse HEAD).Trim()
         $secondSha = (git -C $second rev-parse HEAD).Trim()
-        $firstSha | Should -Be $secondSha
+        $firstSha | Should -Be $secondSha -Because 'two independently built templates must produce the same commit'
 
         git -C $second cat-file -e "$firstSha^{commit}" 2>$null
         $LASTEXITCODE | Should -Be 0 -Because 'the target repo must be able to read the source commit'

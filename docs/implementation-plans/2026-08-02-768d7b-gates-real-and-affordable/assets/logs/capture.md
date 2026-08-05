@@ -23,3 +23,8 @@ No entries for this phase.
 Phase: 7
 
 - [7.1] D8 satisfied: collation fixture (plugin names chata/cukr/hrad/ivan, accented+mixed-case tags and file names) is RED against pre-fix Build-Registry — en-US yields 'chata, cukr, hrad, ivan', cs-CZ yields 'cukr, hrad, chata, ivan'; FixtureIsRedBeforeFix passes, CzechCollationFixtureIsStable fails.
+
+## Capture
+Phase: 3
+
+No entries for this phase.
