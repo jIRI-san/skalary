@@ -26,6 +26,26 @@ Describe 'run unit tests' {
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'tests'))
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'emptymodules'))
 
+            # The runner enforces a runtime budget and treats a missing one as a failure, so a
+            # sandbox exercising the Pester-presence branches has to carry a budget it fits
+            # inside — otherwise every case here would pass on the budget verdict instead.
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools'))
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') -Encoding utf8 -Value @'
+@{
+    Schema = 'skalary/suite-budget@2'
+    MeasuredCommand = 'npm test'
+    MeasuredLegs = @('validate-plan', 'test:unit', 'validate.ps1')
+    BoundCeilingSeconds = 600
+    AbsoluteCapSeconds = 900
+    MaxCeilingRaises = 1
+    Platforms = @{
+        Linux = @{ HardCeilingSeconds = 600; TargetSeconds = 480; CeilingRaises = @() }
+        Windows = @{ HardCeilingSeconds = 600; TargetSeconds = 480; CeilingRaises = @() }
+        MacOS = @{ HardCeilingSeconds = 600; TargetSeconds = 480; CeilingRaises = @() }
+    }
+}
+'@
+
             if ($TestFileContent) {
                 Set-Content -LiteralPath (Join-Path $root 'tests/Sandbox.Tests.ps1') -Value $TestFileContent -Encoding utf8
             }
@@ -46,6 +66,10 @@ Describe 'run unit tests' {
             )
 
             $lines = [System.Collections.Generic.List[string]]::new()
+            # Plain text, not because it reads better: a captured escape sequence is written
+            # into the NUnit report when a case fails, and 0x1B is not valid XML — the whole
+            # report is lost at the moment it is needed.
+            $lines.Add('$PSStyle.OutputRendering = ''PlainText''')
             if ($ModulePath) { $lines.Add("`$env:PSModulePath = '$ModulePath'") }
             $lines.Add("& '$script:runner' -RepoRoot '$SandboxRoot'")
             $lines.Add('exit $LASTEXITCODE')
@@ -69,7 +93,7 @@ Describe 'run unit tests' {
 
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Output   = ($output | Out-String)
+                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
             }
         }
 

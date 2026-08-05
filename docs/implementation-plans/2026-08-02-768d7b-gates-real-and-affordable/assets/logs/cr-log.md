@@ -47,4 +47,7 @@ Phase: 3
 ## CR Capture
 Phase: 4
 
-No entries for this phase.
+- [4.3] [src:code-review] [sev:High] Clock was consumed only on the green path, so a red suite or a failing earlier leg stranded it and the next direct test:unit run was charged the abandoned run's wall clock (reproduced: 1.3s run reported as 408s over budget). Fixed by reading and clearing the clock before any exit; covered by test:SuiteBudget.ClockedRunIsMeasuredAsTheWholeCommand.
+- [4.3] [src:code-review] [sev:Med] Staleness bound fell back to HardCeilingSeconds*4 when AbsoluteCapSeconds was absent, so the worse the overrun the more certainly the clock was discarded and the run passed on a leg-only figure. AbsoluteCapSeconds is now required (exit 6 when missing).
+- [4.3] [src:code-review] [sev:Med] A budget entry missing a field the check reads died under StrictMode with exit 1 - the code that means tests failed - destroying the one distinction the runner exists to make. Every field is now named in the guard before it is read; covered by test:SuiteBudget.OverBudgetRunFails.
+- [4.3] [src:code-review] [sev:Med] Docstring claimed CI already invokes this script; registry-ci.yml still calls Invoke-Pester on one file. Claim reworded as the REQ-9 contract phase 8 wires, not a statement about the present.

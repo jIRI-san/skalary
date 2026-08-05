@@ -53,14 +53,24 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
-if (-not $OutputPath) { $OutputPath = Join-Path $repoRootPath 'tools/suite-runtime.json' }
 
 $budgetPath = Join-Path $repoRootPath 'tools/suite-budget.psd1'
 if (-not (Test-Path -LiteralPath $budgetPath -PathType Leaf)) {
     throw "Budget not found at '$budgetPath'; there is nothing for a measurement to be recorded against."
 }
 $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+if (-not $budget.Contains('MeasuredCommand')) {
+    throw "'$budgetPath' does not state a MeasuredCommand, so there is nothing to measure against."
+}
 $measuredCommand = [string]$budget.MeasuredCommand
+
+# The budget names the document its figures live in, so the two cannot drift apart.
+if (-not $OutputPath) {
+    if (-not $budget.Contains('MeasurementRecord')) {
+        throw "'$budgetPath' does not name a MeasurementRecord for the achieved figures to be written to."
+    }
+    $OutputPath = Join-Path $repoRootPath ([string]$budget.MeasurementRecord)
+}
 
 $rowSchema = 'skalary/suite-runtime-row@1'
 $documentSchema = 'skalary/suite-runtime@1'
@@ -140,7 +150,7 @@ function Write-RuntimeDocument {
     Set-Content -LiteralPath $OutputPath -Value (($document | ConvertTo-Json -Depth 12) + "`n") -Encoding utf8NoBOM
 
     $ceiling = 'no ceiling recorded'
-    if ($budget.Platforms.Contains($platform)) {
+    if ($budget.Contains('Platforms') -and $budget.Platforms.Contains($platform)) {
         $ceiling = "ceiling $($budget.Platforms[$platform].HardCeilingSeconds)s"
     }
     Write-Host "Recorded $platform at $($canonical.seconds)s in $OutputPath ($ceiling)."
