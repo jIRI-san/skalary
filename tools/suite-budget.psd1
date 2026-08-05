@@ -1,7 +1,7 @@
 @{
     # Runtime budget for the repo's test gate. Bound in phase 1 of plan 768d7b — before any
     # optimisation — so later work cannot redefine success by measuring itself.
-    Schema = 'skalary/suite-budget@1'
+    Schema = 'skalary/suite-budget@2'
 
     # The budget measures the whole `npm test` command, not the Pester leg alone: the
     # operator's bar and the recorded baseline are both for `npm test`.
@@ -9,17 +9,34 @@
     MeasuredLegs = @('validate-plan', 'test:unit', 'validate.ps1')
 
     # BoundCeilingSeconds is the ceiling agreed at the start and is immutable: it is what
-    # HardCeilingSeconds is checked against, so the ceiling can be tightened at will but
-    # never quietly loosened.
+    # every platform's HardCeilingSeconds is checked against, so a ceiling can be tightened
+    # at will but never quietly loosened.
     BoundCeilingSeconds = 600
-    HardCeilingSeconds = 600
-    TargetSeconds = 480
 
-    # The single documented escape hatch: step 4.2 may raise HardCeilingSeconds once, to at
-    # most AbsoluteCapSeconds, and only with a justification recorded in the plan's
-    # assets/decisions.md. CeilingRaises stays empty unless that hatch is used.
+    # The single documented escape hatch: step 4.2 may raise one platform's
+    # HardCeilingSeconds once, to at most AbsoluteCapSeconds, and only with a justification
+    # recorded in the plan's assets/decisions.md. CeilingRaises stays empty unless that
+    # hatch is used. A platform that still cannot meet its ceiling splits into fast and slow
+    # tiers (D13) rather than taking a second raise.
     AbsoluteCapSeconds = 900
     MaxCeilingRaises = 1
     JustificationPlanId = '768d7b'
-    CeilingRaises = @()
+
+    # The ceiling is per platform (D13): the same suite measured ~10x apart between the
+    # Linux container and a Windows host, so one shared number would be either unreachable
+    # on Windows or vacuous on Linux. The runner enforces the entry for the platform it is
+    # running on; a platform with no entry is an error, not an exemption. Both start at the
+    # bound 600s/480s — the ceiling is not slackened to fit the slower host.
+    Platforms = @{
+        Linux = @{
+            HardCeilingSeconds = 600
+            TargetSeconds = 480
+            CeilingRaises = @()
+        }
+        Windows = @{
+            HardCeilingSeconds = 600
+            TargetSeconds = 480
+            CeilingRaises = @()
+        }
+    }
 }

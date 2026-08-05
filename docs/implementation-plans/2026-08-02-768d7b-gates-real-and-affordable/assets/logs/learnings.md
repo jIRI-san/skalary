@@ -1,7 +1,7 @@
 ## Learnings Capture
 Phase: 1
 
-No entries for this phase.
+- [1.3] [trigger:reusable-pattern] A branch that only runs in the state nobody has reached yet is untested by a green suite: the escape-hatch branch here had a hard parameter-binding error and every run passed because CeilingRaises was empty. Exercise the not-yet-taken branch against a mutated input before claiming the guard works.
 
 ## Learnings Capture
 Phase: 2
