@@ -57,3 +57,16 @@ Phase 6 Crosscheck:
 ✓ REQ-6 — test:ValidatePlan.ScaffoldedPlanReportsSkipped — passed: 3 cases green: the skip carries a distinguishable signal, an all-scaffold tree still reports skipped, and both npm test legs share one floor — f5d539737d90f75b04251a196b7b67a5d51819b6
 ✓ REQ-6 — test:ValidatePlan.DraftedPlanStillValidated — passed: 2 cases green: a drafted plan is validated and a broken one still fails; a missing anchor resolves to drafted (RISK-7) — f5d539737d90f75b04251a196b7b67a5d51819b6
 ✓ REQ-6 — test:ValidatePlan.UnknownStageFailsLoud — passed: an unrecognised stage throws rather than resolving to a skip (RISK-6) — f5d539737d90f75b04251a196b7b67a5d51819b6
+
+Phase 8 Crosscheck:
+✓ REQ-2 — file:tools/suite-budget.psd1#exists — passed: re-verified at HEAD through Test-Plan.ps1 -EvidenceMarker; the ceilings the workflow timeouts are checked against — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-2 — test:SuiteBudget.CeilingIsPerPlatform — passed — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-2 — test:SuiteBudget.CeilingCannotBeRaisedWithoutJustification — passed: no raise taken in phase 8 — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-2 — test:SuiteBudget.AbsoluteCapIs900 — passed — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-2 — test:SuiteBudget.MeasuresFullNpmTest — passed: CI reproduces the npm test span across separate named steps through the budget clock, so the figure CI enforces is the whole command — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-2 — test:SuiteBudget.OverBudgetRunFails — passed: step 8.1 entry check (D9): npm test exit 0 at 97.812s, re-measured 101.363s at phase end against the 330s Linux ceiling — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-9 — test:Ci.InvokesRunUnitTests — passed: one job, two-OS matrix; Run-UnitTests.ps1 and validate.ps1 in separate named steps, no Invoke-Pester — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-9 — test:Ci.DeclaresLeastPrivilege — passed: top-level permissions is exactly contents: read, no job-level override, persist-credentials false, trigger stays pull_request — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-9 — test:Ci.ActionsAndModulesPinnedWithoutSkipPublisherCheck — passed: actions SHA-pinned, modules pinned to an exact NuGet range, -SkipPublisherCheck and global PSGallery trust both absent, -AuthenticodeCheck restored where the platform supports it — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✓ REQ-9 — test:Ci.ArtifactNamePerPlatform — passed: per-OS NUnit path and artifact name, uploaded if: always(), one summary line per leg — 100ed125b11b8120bed34290aa55a0ee73f5af93
+✗ REQ-9 — test:Ci.SeededFailureIsRed — unrun: lands in step 9.1 — 100ed125b11b8120bed34290aa55a0ee73f5af93

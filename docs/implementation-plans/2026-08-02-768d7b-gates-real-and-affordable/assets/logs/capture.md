@@ -41,3 +41,4 @@ Phase: 4
 Phase: 8
 
 - [8.1] [src:note] Phase 8 entry check (D9): npm test exit 0, 752 tests passed, budget reported 97.812s (npm test clock) against the Linux 330s ceiling / 240s target. Non-zero would have stopped the phase; the (after: 4.3) edge only proves sequence.
+- [8.4] [src:note] Phase 8 crosscheck: npm test green at 759 tests (752 before; +6 Ci, +1 RunUnitTests), 101.363s against the 330s Linux ceiling. Every REQ-2 and REQ-9 marker executed at HEAD; only test:Ci.SeededFailureIsRed is unrun, which step 9.1 lands. Each workflow-shape assertion verified red by mutating the workflow (18 mutations, one named test red per mutation).
