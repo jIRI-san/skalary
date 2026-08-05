@@ -1,12 +1,11 @@
 ## Learnings Capture
 Phase: 1
+- [1.3] [trigger:overflow-summary] Folded 2 additional learnings into this summary.
 
-- [1.3] [trigger:reusable-pattern] A branch that only runs in the state nobody has reached yet is untested by a green suite: the escape-hatch branch here had a hard parameter-binding error and every run passed because CeilingRaises was empty. Exercise the not-yet-taken branch against a mutated input before claiming the guard works.
 
 ## Learnings Capture
 Phase: 2
 
-- [2.1] [trigger:reusable-pattern] A fixture rewrite loses coverage where the old fixture supplied state implicitly (.github payload, shared commit SHA); assert the precondition is non-empty rather than trusting the loop over it.
 - [2.3] [trigger:reusable-pattern] A gate whose threshold lives in the document the measuring run rewrites can be zeroed by omitting a parameter; pin thresholds in a file no run writes and cross-check set equality both ways.
 
 ## Learnings Capture
@@ -34,4 +33,5 @@ Phase: 3
 ## Learnings Capture
 Phase: 4
 
-No entries for this phase.
+- [4.3] [trigger:reusable-pattern] A gate that measures a command spanning several processes needs the clock cleared before every exit, not only the successful one: a clock stranded by a red run is charged to the next run as time it never spent.
+- [4.3] [trigger:reusable-pattern] Under Set-StrictMode -Version Latest a missing key read with dot notation is terminating, so a config typo exits 1 - the code reserved for 'tests failed'. Name every field in the guard before reading any of it.

@@ -41,3 +41,13 @@ Phase 3 Crosscheck:
 ✓ REQ-4 — test:SuiteProfile.PhaseTargetsMet — passed: stop condition; phase 3 target pinned in tools/suite-budget.psd1 — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
 ✗ REQ-4 — test:SuiteBudget.WithinHardCeiling — unrun: lands in step 4.3 — a8e50e784cd38b6bc5f8a0f6906377261e3d6400
 
+
+Phase 4 Crosscheck:
+✓ REQ-2 — file:tools/suite-budget.psd1#exists — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-2 — test:SuiteBudget.CeilingIsPerPlatform — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-2 — test:SuiteBudget.CeilingCannotBeRaisedWithoutJustification — passed: no raise taken; both ceilings at or below the bound 600s — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-2 — test:SuiteBudget.AbsoluteCapIs900 — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-2 — test:SuiteBudget.MeasuresFullNpmTest — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-2 — test:SuiteBudget.OverBudgetRunFails — passed: runner exits 5 naming measured and budgeted; 6 for an unbudgeted or malformed entry — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-4 — test:SuiteBudget.WithinHardCeiling — passed: Linux 108.998s of 330s, Windows 223.142s of 600s, both measured on the CI runners — 36334d66fa0e60ee82db95326afd65ee181a0f37
+✓ REQ-4 — file:tools/suite-profile.json#contains:phase — passed — 36334d66fa0e60ee82db95326afd65ee181a0f37
