@@ -61,3 +61,9 @@ Phase: 8
 - [8.3] [src:code-review] [sev:Med] Least-privilege test was a six-scope denylist and ignored job-level blocks, so contents:read plus checks:write passed. Replaced with an allowlist asserting the top-level block is exactly contents: read, and a rejection of any job-level permissions block.
 - [8.3] [src:code-review] [sev:Med] Pin test accepted a bracketed span (-Version '(5.0.0,6.0.0)') as an exact pin and missed Set-PSResourceRepository -Trusted, the PSResourceGet way of making trust permanent. Both closed and verified red by mutation.
 - [8.4] [src:code-review] [sev:Med] Summary step parsed the NUnit XML unguarded, so a report truncated by a killed run threw and the if:always() diagnostic vanished exactly when it was needed. Wrapped in try/catch; all three branches (present, malformed, absent) now write a line and exit 0.
+
+## CR Capture
+Phase: 9
+
+- [9.1] [src:code-review] [sev:Med] Enforcement check was line-based, so a same-line swallow (pwsh -File validate.ps1; exit 0) matched the enforcing pattern and evaded all three swallow regexes; run blocks are now split into statements on ; as well as newline, and LASTEXITCODE = 0 was added to the swallow set.
+- [9.1] [src:code-review] [sev:Med] The run: block regex ran greedily to the end of the step, so an env: key after run: read as a command (false red) and a block-scalar run: / captured the pipe as the command; the block now ends at the first line indented no deeper than the run: key and both scalar forms are accepted.

@@ -60,6 +60,67 @@ Describe 'ci workflow' {
             'generated output drift' = 'Build-Registry\.ps1'
         }
 
+        # What makes each gate *fail*, which is not always what names it. The drift gate is
+        # `git diff --exit-code`, not the rebuild that precedes it, and a dogfood sync only
+        # detects drift with `-WhatIf`. PSScriptAnalyzer is deliberately absent: it writes
+        # findings to the output stream and sets no exit code, so its step cannot go red on a
+        # finding. That is a real property of the gate rather than an oversight here, and it
+        # belongs in the gate inventory as an advisory row rather than in an assertion that
+        # would claim an enforcement the step does not have.
+        $script:gateEnforcingPatterns = [ordered]@{
+            'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
+            'repository validation'  = 'scripts/validate\.ps1'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)'
+            'registry validation'    = 'Test-Registry\.ps1'
+            'dogfood drift'          = 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf'
+            'generated output drift' = 'git diff --exit-code'
+        }
+
+        # The statements a step actually runs. A gate's verdict is the exit code of the *last*
+        # of them, so reading the block as one blob would let a trailing command mask the gate
+        # — and `;` separates statements exactly as a newline does, so a swallow appended after
+        # a semicolon has to be read as its own statement rather than as part of the command it
+        # neuters. The block ends at the first line indented no deeper than the `run:` key, so a
+        # later YAML key on the same step is not mistaken for a command.
+        function Get-CiStepRunLine {
+            param([string]$Body)
+
+            $lines = @((Remove-CiComment -Text $Body) -split "`n")
+            $runIndex = -1
+            $runIndent = 0
+            $inline = ''
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match '^(?<indent>[ \t]*)run:[ \t]*(?<rest>.*)$') {
+                    $runIndex = $i
+                    $runIndent = $Matches['indent'].Length
+                    $inline = $Matches['rest'].Trim()
+                    break
+                }
+            }
+            if ($runIndex -lt 0) { return @() }
+
+            $collected = [System.Collections.Generic.List[string]]::new()
+            # `|`, `|-` and `>` introduce a block scalar; anything else on the line is the
+            # command itself, which is the flow-scalar form.
+            if ($inline -and $inline -notmatch '^[|>][-+]?$') { $collected.Add($inline) }
+
+            for ($i = $runIndex + 1; $i -lt $lines.Count; $i++) {
+                $line = $lines[$i].TrimEnd()
+                if (-not $line.Trim()) { continue }
+                $indent = ($line -replace '^([ \t]*).*$', '$1').Length
+                if ($indent -le $runIndent) { break }
+                $collected.Add($line.Trim())
+            }
+
+            $statements = [System.Collections.Generic.List[string]]::new()
+            foreach ($line in $collected) {
+                foreach ($statement in ($line -split ';')) {
+                    if ($statement.Trim()) { $statements.Add($statement.Trim()) }
+                }
+            }
+            return @($statements)
+        }
+
         function Get-CiJobName {
             param([string]$Text)
 
@@ -106,6 +167,67 @@ Describe 'ci workflow' {
             param([string]$Text)
 
             return @(Get-CiMatrixLeg -Text $Text | ForEach-Object { $_.Os })
+        }
+
+        $script:seedSandboxes = [System.Collections.Generic.List[string]]::new()
+
+        # A repo root the seeded run owns: the runner is pointed at this tree instead of the
+        # checkout the suite is running from, so a seeded failure is a failure of the seed and
+        # never of the real suite.
+        function New-SeededRepo {
+            param([Parameter(Mandatory)][string]$TestFileContent)
+
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ('ci-seeded-' + [System.Guid]::NewGuid().ToString('N'))
+            if (Test-Path -LiteralPath $root) { throw "Refusing to reuse an existing sandbox root: '$root'." }
+
+            [void](New-Item -ItemType Directory -Path $root)
+            $script:seedSandboxes.Add($root)
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'tests'))
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools'))
+
+            # The real budget, copied rather than restated: a sandbox carrying its own ceiling
+            # would let this case pass while the ceiling CI enforces says something else.
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot 'tools/suite-budget.psd1') `
+                -Destination (Join-Path $root 'tools/suite-budget.psd1')
+
+            Set-Content -LiteralPath (Join-Path $root 'tests/Seeded.Tests.ps1') -Value $TestFileContent -Encoding utf8
+            return (Resolve-Path -LiteralPath $root).Path
+        }
+
+        # Runs the workflow's own command line against a seeded tree, from that tree, so the
+        # repo-relative report path the workflow states lands in the sandbox.
+        function Invoke-SeededGate {
+            param(
+                [Parameter(Mandatory)][string]$SandboxRoot,
+                [Parameter(Mandatory)][string[]]$RunnerArgument
+            )
+
+            Push-Location -LiteralPath $SandboxRoot
+            $previousPreference = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                $output = & pwsh @RunnerArgument -RepoRoot $SandboxRoot 2>&1
+                $exitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousPreference
+                Pop-Location
+            }
+
+            return [pscustomobject]@{
+                ExitCode = $exitCode
+                # A captured escape sequence is not valid XML, so a failure message carrying
+                # one destroys the NUnit report at the moment it is needed.
+                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+            }
+        }
+    }
+
+    AfterAll {
+        foreach ($sandbox in $script:seedSandboxes) {
+            if (Test-Path -LiteralPath $sandbox -PathType Container) {
+                Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
@@ -341,6 +463,103 @@ Describe 'ci workflow' {
             Should -Match '(?m)^\s*if: always\(\)\s*$' -Because 'a summary that only appears on green runs summarises nothing worth reading'
         $summarySteps[0].Body |
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'both legs write into one summary, so each line has to say which leg wrote it'
+    }
+
+    It 'test:Ci.SeededFailureIsRed turns the command CI runs red on a seeded failure, and leaves no step a way to swallow it' {
+        # REQ-9's last criterion, and the one the epic's success signal rests on: reverting any
+        # fix from this plan turns a PR red. That was checked once, by hand, by reverting a fix
+        # and watching a run — a proof that expired the moment it was read. Every fix here is
+        # carried by a test, so the durable form of the same claim has two halves: the command
+        # CI runs goes non-zero when a test fails, and the workflow lets that code through.
+        $script:workflowText | Should -Not -BeNullOrEmpty
+        $steps = @(Get-CiWorkflowStep -Text $script:workflowText)
+
+        # The command is read out of the workflow rather than written here. A runner that goes
+        # red under some invocation of this file's choosing says nothing about the invocation
+        # the workflow performs, which is the only one a PR ever runs.
+        $unitStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })[0]
+        $unitCommands = @(Get-CiStepRunLine -Body $unitStep.Body |
+                Where-Object { $_ -match $script:gatePatterns['unit tests and budget'] })
+        $unitCommands.Count |
+            Should -Be 1 -Because 'the unit-test gate must be one command this case can execute as CI executes it'
+        $command = $unitCommands[0] -replace '\$\{\{ matrix\.os \}\}', 'seeded'
+
+        $argv = @($command -split '\s+')
+        $argv[0] | Should -Be 'pwsh' -Because 'the gate is a pwsh invocation, which is what this case reproduces'
+        $fileIndex = [array]::IndexOf($argv, '-File')
+        $fileIndex | Should -BeGreaterThan 0 -Because 'the script the gate runs is named by -File'
+        # The only edit to the command: the repo-relative script path becomes absolute, because
+        # the seeded tree is the working directory. Every flag — including the per-OS report
+        # path REQ-9 requires — is the workflow's own.
+        $argv[$fileIndex + 1] = Join-Path $script:repoRoot $argv[$fileIndex + 1]
+        $runnerArgument = @($argv[1..($argv.Count - 1)])
+
+        # Control first. Without it a sandbox broken for any other reason — a missing budget, a
+        # file that never loads — would satisfy the seeded assertion for entirely the wrong one.
+        $greenRepo = New-SeededRepo -TestFileContent @'
+Describe 'seeded' {
+    It 'passes' { $true | Should -BeTrue }
+}
+'@
+        $green = Invoke-SeededGate -SandboxRoot $greenRepo -RunnerArgument $runnerArgument
+        $green.ExitCode |
+            Should -Be 0 -Because "an unseeded tree must be green, or the seeded run below proves nothing: $($green.Output)"
+
+        $seededRepo = New-SeededRepo -TestFileContent @'
+Describe 'seeded' {
+    It 'passes' { $true | Should -BeTrue }
+    It 'is the seeded failure' { $false | Should -BeTrue }
+}
+'@
+        $seeded = Invoke-SeededGate -SandboxRoot $seededRepo -RunnerArgument $runnerArgument
+        $seeded.ExitCode |
+            Should -Be 1 -Because "a failing test must make the gate command report a failed run, not a failure count and not a cannot-test code: $($seeded.Output)"
+
+        # The report CI uploads has to name the seeded failure, or a red leg tells a reader
+        # which platform failed and nothing about what failed on it.
+        $reportIndex = [array]::IndexOf($runnerArgument, '-TestResultPath')
+        $reportIndex | Should -BeGreaterThan -1 -Because 'the per-platform NUnit path is part of the command CI runs'
+        $report = Join-Path $seededRepo $runnerArgument[$reportIndex + 1]
+        Test-Path -LiteralPath $report -PathType Leaf |
+            Should -BeTrue -Because "a red run is the one whose report matters: $($seeded.Output)"
+        $results = ([xml](Get-Content -LiteralPath $report -Raw)).'test-results'
+        [int]$results.failures | Should -Be 1 -Because 'the uploaded report must carry the failure the run reported'
+        (Get-Content -LiteralPath $report -Raw) |
+            Should -Match 'is the seeded failure' -Because 'the failing case has to be nameable from the artifact alone'
+
+        # --- the half no sandbox can execute: the workflow has to let that code through ---
+
+        # `continue-on-error` turns a red step into a green job. One occurrence anywhere would
+        # make every executable assertion above decorative.
+        (Remove-CiComment -Text $script:workflowText) |
+            Should -Not -Match 'continue-on-error' -Because 'a gate whose failure is tolerated is a gate that cannot be red'
+
+        foreach ($gate in $script:gateEnforcingPatterns.Keys) {
+            $enforcing = $script:gateEnforcingPatterns[$gate]
+            $step = @($steps | Where-Object { $_.Body -match $script:gatePatterns[$gate] })[0]
+            $step | Should -Not -BeNullOrEmpty -Because "the '$gate' gate must be in the workflow to be enforced by it"
+
+            # Without a declared shell the default differs by platform, so the two legs would
+            # run the same gate through different interpreters and propagate differently.
+            $step.Body |
+                Should -Match '(?m)^\s*shell: pwsh\s*$' -Because "the '$gate' step must state its shell, or the two legs run it under different ones"
+
+            # A step reports the exit code of its last statement, so a gate followed by anything
+            # else — on the next line or after a semicolon — is a gate whose verdict was
+            # overwritten by whatever ran after it.
+            $statements = @(Get-CiStepRunLine -Body $step.Body)
+            $statements.Count | Should -BeGreaterThan 0 -Because "the '$gate' step must run something"
+            $statements[-1] |
+                Should -Match $enforcing -Because "the '$gate' gate must be the last statement in its step; '$($statements[-1])' would decide the step instead"
+
+            # The shapes that turn a non-zero into a zero inside the step itself.
+            foreach ($swallow in @('\|\|\s*true', '^exit\s+0$', '^\$LASTEXITCODE\s*=', '-ErrorAction\s+SilentlyContinue')) {
+                foreach ($statement in $statements) {
+                    $statement |
+                        Should -Not -Match $swallow -Because "the '$gate' step must not discard the exit code it exists to produce"
+                }
+            }
+        }
     }
 
 }

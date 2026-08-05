@@ -41,3 +41,8 @@ Phase: 4
 Phase: 8
 
 - [8.4] [trigger:reusable-pattern] Workflow-shape tests are only worth their cost if each assertion is proven red by mutating the workflow: 18 mutations (dropped permissions, tag pin, -SkipPublisherCheck, shared artifact name, chained gates, lowered timeout) each turned exactly one named test red, which is what separates a shape test from a spell-checker.
+
+## Learnings Capture
+Phase: 9
+
+No entries for this phase.

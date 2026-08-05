@@ -42,3 +42,9 @@ Phase: 8
 
 - [8.1] [src:note] Phase 8 entry check (D9): npm test exit 0, 752 tests passed, budget reported 97.812s (npm test clock) against the Linux 330s ceiling / 240s target. Non-zero would have stopped the phase; the (after: 4.3) edge only proves sequence.
 - [8.4] [src:note] Phase 8 crosscheck: npm test green at 759 tests (752 before; +6 Ci, +1 RunUnitTests), 101.363s against the 330s Linux ceiling. Every REQ-2 and REQ-9 marker executed at HEAD; only test:Ci.SeededFailureIsRed is unrun, which step 9.1 lands. Each workflow-shape assertion verified red by mutating the workflow (18 mutations, one named test red per mutation).
+
+## Capture
+Phase: 9
+
+- [9.1] PSScriptAnalyzer step measured advisory, not blocking: Invoke-ScriptAnalyzer writes findings to the output stream and sets no exit code, and scripts/skalary carries 472 findings under the committed settings (344 PSUseConsistentWhitespace, 115 PSUseConsistentIndentation, 13 other), all Warning and 0 Error. Making it blocking is a repo-wide formatting cleanup outside this plan, so 9.1 excludes it from the enforcement loop and 9.2 records it as a typed advisory row.
+- [9.1] Seeded-failure proof verified by mutation: 8 mutations each turned exactly test:Ci.SeededFailureIsRed red (runner exiting 0 on failures, continue-on-error, trailing command after the drift gate, dropped shell: pwsh, // true, inline ; exit 0, LASTEXITCODE reset), while two valid workflow edits (block-scalar run:, env: after run:) stayed green. npm test 760 tests, 102.179s against the 330s Linux ceiling.
