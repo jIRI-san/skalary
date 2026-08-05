@@ -22,6 +22,27 @@
     MaxCeilingRaises = 1
     JustificationPlanId = '768d7b'
 
+    # Each reduction phase's declared saving (D4). It is pinned here rather than only in
+    # tools/suite-profile.json because that document is rewritten in full by every measuring
+    # run: a rerun that simply omitted the target would record a target of zero and turn a
+    # missed phase into a passing one. Scoring on an operation's aggregate seconds rather
+    # than wall clock keeps a few-second move out of run-to-run scheduling noise.
+    PhaseTargets = @{
+        # The baseline declares no saving: it is what the later phases are measured against.
+        # It is still listed, so that "every recorded phase is declared here" is a total rule
+        # with no exempt row a forgotten phase could hide behind.
+        '1' = @{
+            Scope = 'run'
+            BaselineSeconds = 0.0
+            RequiredSavingSeconds = 0.0
+        }
+        '2' = @{
+            Scope = 'New-RepoClone'
+            BaselineSeconds = 8.775
+            RequiredSavingSeconds = 4.4
+        }
+    }
+
     # The ceiling is per platform (D13): the same suite measured ~10x apart between the
     # Linux container and a Windows host, so one shared number would be either unreachable
     # on Windows or vacuous on Linux. The runner enforces the entry for the platform it is

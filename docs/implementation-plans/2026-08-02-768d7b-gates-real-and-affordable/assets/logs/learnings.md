@@ -7,6 +7,7 @@ Phase: 1
 Phase: 2
 
 - [2.1] [trigger:reusable-pattern] A fixture rewrite loses coverage where the old fixture supplied state implicitly (.github payload, shared commit SHA); assert the precondition is non-empty rather than trusting the loop over it.
+- [2.3] [trigger:reusable-pattern] A gate whose threshold lives in the document the measuring run rewrites can be zeroed by omitting a parameter; pin thresholds in a file no run writes and cross-check set equality both ways.
 
 ## Learnings Capture
 Phase: 5

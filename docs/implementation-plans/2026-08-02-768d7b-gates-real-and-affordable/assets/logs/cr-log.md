@@ -14,6 +14,8 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Low] New-SkalaryFixtureRepo leaked its temp root when a git step failed mid-build; wrapped in try/catch cleanup.
 - [2.2] [src:code-review] [sev:Med] Copy-SkalaryFixtureTree leaked a half-copied case root on a mid-copy failure; the path is never returned so no AfterAll could reclaim it. Added cleanup-and-rethrow.
 - [2.2] [src:code-review] [sev:Low] Skalary.Tests.ps1 AfterAll removed fixtures without -ErrorAction SilentlyContinue under ErrorActionPreference Stop, so one failure skipped the template cleanup.
+- [2.3] [src:code-review] [sev:High] PhaseTargetsMet checked declarations->rows only, so an undeclared phase row with a zeroed target was ungated; fixed by asserting set equality in both directions.
+- [2.3] [src:code-review] [sev:Med] achievedSavingSeconds was the scored number and the only one not derived; now recomputed from baselineSeconds minus scopeSeconds.
 
 ## CR Capture
 Phase: 5

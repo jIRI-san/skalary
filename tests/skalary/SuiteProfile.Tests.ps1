@@ -14,6 +14,9 @@ Describe 'suite cost model' {
             $script:suiteProfile = Get-Content -LiteralPath $script:profilePath -Raw | ConvertFrom-Json
         }
 
+        $script:budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
+        $script:budget = Import-PowerShellDataFile -LiteralPath $script:budgetPath
+
         function Get-ProfiledOperation {
             param([string]$Name)
             return @($script:suiteProfile.operations | Where-Object { [string]$_.operation -eq $Name })
@@ -118,6 +121,48 @@ Describe 'suite cost model' {
 
             if ($achieved -lt $target) {
                 $misses.Add("phase $([int]$row.phase) saved $($achieved)s of $($target)s on '$([string]$row.scope)'")
+            }
+        }
+
+        # The profile is rewritten in full by every measuring run, so the target it reports is
+        # the one that run was told about. The declarations in tools/suite-budget.psd1 are not
+        # written by any run, so a rerun cannot lower a phase's bar by forgetting it.
+        $declared = $script:budget.PhaseTargets
+        @($declared.Keys).Count |
+            Should -BeGreaterThan 0 -Because 'an empty declaration set would make every cross-check below vacuous'
+
+        # Checked in both directions. Declarations-to-rows alone would leave an undeclared
+        # phase ungated, which is the same forgotten-parameter failure this pinning exists to
+        # catch: its row would carry a target of zero and be skipped by the loop above.
+        @($phases | ForEach-Object { [string][int]$_.phase } | Sort-Object) |
+            Should -Be @($declared.Keys | Sort-Object) -Because 'every recorded phase must declare its saving in tools/suite-budget.psd1, and every declared phase must record what it achieved'
+
+        foreach ($key in @($declared.Keys | Sort-Object)) {
+            $declaration = $declared[$key]
+            $recorded = @($phases | Where-Object { [int]$_.phase -eq [int]$key })
+            $recorded.Count |
+                Should -Be 1 -Because "phase $key declared a saving, so the profile must carry exactly one row recording what it achieved"
+
+            $row = $recorded[0]
+            [string]$row.scope |
+                Should -Be ([string]$declaration.Scope) -Because "phase $key must be scored over the scope it declared, not one that moved after the fact"
+            [double]$row.baselineSeconds |
+                Should -Be ([double]$declaration.BaselineSeconds) -Because "phase $key must be measured against the baseline it declared"
+            [double]$row.targetSavingSeconds |
+                Should -Be ([double]$declaration.RequiredSavingSeconds) -Because "phase $key's recorded target must be the one declared in tools/suite-budget.psd1"
+
+            # The saving is the number the gate scores on, so it is derived here rather than
+            # read: a row could otherwise claim a saving its own baseline and scope figures
+            # contradict. This mirrors how Measure-SuiteProfile.ps1 computes it.
+            $derived = if ([double]$row.baselineSeconds -gt 0) {
+                [math]::Round([double]$row.baselineSeconds - [double]$row.scopeSeconds, 3)
+            }
+            else { 0.0 }
+            [double]$row.achievedSavingSeconds |
+                Should -Be $derived -Because "phase $key's claimed saving must follow from the baseline and scope figures it recorded"
+
+            if ($derived -lt [double]$declaration.RequiredSavingSeconds) {
+                $misses.Add("phase $key saved $($derived)s of its declared $([double]$declaration.RequiredSavingSeconds)s")
             }
         }
 
