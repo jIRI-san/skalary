@@ -1,15 +1,16 @@
 Phase 1 Crosscheck:
-✓ REQ-1 — file:tools/suite-profile.json#exists — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-1 — test:SuiteProfile.RecordsPerOperationCosts — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-1 — test:SuiteProfile.CoversWholeTestTree — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-2 — file:tools/suite-budget.psd1#exists — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-2 — test:SuiteBudget.CeilingCannotBeRaisedWithoutJustification — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-2 — test:SuiteBudget.AbsoluteCapIs900 — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-2 — test:SuiteBudget.MeasuresFullNpmTest — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✗ REQ-2 — test:SuiteBudget.OverBudgetRunFails — unrun: lands in step 4.3 — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-3 — test:SuiteCoverage.TestNameInventoryPreserved — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-3 — test:SuiteCoverage.ConfinementCasesRetained — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
-✓ REQ-3 — test:SuiteFixture.CarriesTagsForVersionResolution — passed — 9ea0f59edbc33c27da50dcd97449682f5a1fed91
+✓ REQ-1 — file:tools/suite-profile.json#exists — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-1 — test:SuiteProfile.RecordsPerOperationCosts — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-1 — test:SuiteProfile.CoversWholeTestTree — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-2 — file:tools/suite-budget.psd1#exists — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-2 — test:SuiteBudget.CeilingIsPerPlatform — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-2 — test:SuiteBudget.CeilingCannotBeRaisedWithoutJustification — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-2 — test:SuiteBudget.AbsoluteCapIs900 — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-2 — test:SuiteBudget.MeasuresFullNpmTest — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✗ REQ-2 — test:SuiteBudget.OverBudgetRunFails — unrun: lands in step 4.3 — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-3 — test:SuiteCoverage.TestNameInventoryPreserved — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-3 — test:SuiteCoverage.ConfinementCasesRetained — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
+✓ REQ-3 — test:SuiteFixture.CarriesTagsForVersionResolution — passed — 69ad2245b5d29fda812a020c23592a8b67ce33b3
 
 Phase 5 Crosscheck:
 ✓ REQ-5 — file:scripts/skalary/Run-UnitTests.ps1#contains:PesterNotInstalled — passed — 57175f09e85c2c80e73d12bf008ef9ba315c61f4
