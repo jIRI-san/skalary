@@ -54,8 +54,8 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 4: Prove the ceiling holds
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 4.1 Measure `npm test` end to end and record the achieved figure with its environment (REQ-2, REQ-4) [after: 3.3] `S`
-- [ ] 4.2 Tighten `tools/suite-budget.psd1` to the achieved figure plus stated headroom. The ceiling may only fall — unless the measured floor makes 600s unreachable, in which case raise it once to at most 900s with the justification written into `assets/decisions.md` (REQ-2, RISK-14) [after: 4.1] `M`
+- [ ] 4.1 Measure `npm test` end to end on **both** Linux and Windows; record each figure with its environment (REQ-2, REQ-4, RISK-4) [after: 3.3] `M`
+- [ ] 4.2 Tighten each platform's entry in `tools/suite-budget.psd1` to its achieved figure plus stated headroom. A ceiling may only fall — a platform still above its ceiling triggers the D13 tier split, not a raise; the single 900s hatch stays available only with a justification written into `assets/decisions.md` (REQ-2, RISK-4, RISK-14) [after: 4.1] `M`
 - [ ] 4.3 `Run-UnitTests.ps1` reads the budget and fails an over-budget `npm test`, reporting measured and budgeted values (REQ-2) [after: 4.2] `M`
 
 ## Phase 5: The test command fails when it cannot test

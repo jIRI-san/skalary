@@ -28,6 +28,8 @@ Resolved in the `/cip` interview on 2026-08-02, then revised after DR rounds 1 a
 
 - **Repo-wide constants consolidation is deferred, not silently moved (D12, revised).** Round 1 finding 42 moved it to sibling `34088e`. Round 2 noted the hand-off had no `depends-on`, no risk row and no requirement on the receiving side — so it was dropped rather than moved. It is recorded here as an explicit deferral with the receiving child named; `34088e` must pick it up in its own `/cip`, and this plan asserts nothing about it.
 
+- **The ceiling is enforced per platform, and a platform that cannot meet it splits its tiers rather than raising it (D13, new).** Measured after Phase 7 landed: the same suite runs **108s** in the Linux container and **1157s** on a Windows host — roughly 10×, against RISK-4's assumed 2×. A single 600s ceiling would therefore be either unreachable on Windows or vacuous on Linux, and Phase 8 wires both into CI, so the Windows leg would have failed on the budget rather than on a defect. `tools/suite-budget.psd1` now carries an entry per platform and the runner enforces the one it is running on. Both start at the same 600s/480s the intent states — the ceiling is not slackened to fit the slower host. Operator direction: get Windows as close as possible; if Phase 3 cannot bring it under, **split the suite into fast and slow tiers** rather than raise the ceiling. The escape hatch in D1 remains a single 900s raise with a recorded justification and is not a substitute for that split.
+
 ## Prior art reconciled
 
 | Prior record | Relationship | Note |
