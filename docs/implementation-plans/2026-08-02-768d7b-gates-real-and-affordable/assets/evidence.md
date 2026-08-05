@@ -26,12 +26,12 @@ Phase 5 Crosscheck:
 ✓ REQ-5 — test:RunUnitTests.ZeroTestsDiscoveredFails — passed: both shapes red: a file declaring no test, and an empty tests tree; each stays separable from a run that tested and failed — 456dd67ff5a783e6504bdeed4ee2cf1289e68914
 
 Phase 7 Crosscheck:
-✓ REQ-7 — file:scripts/skalary/Build-Registry.ps1#contains:StringComparer — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
-✓ REQ-7 — test:BuildRegistry.CzechCollationFixtureIsStable — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
-✓ REQ-7 — test:BuildRegistry.FixtureIsRedBeforeFix — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
-✓ REQ-8 — test:Validate.DotPrefixedPayloadEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
-✓ REQ-8 — test:Validate.GitDirectoryNotEnumerated — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
-✓ REQ-8 — test:Validate.FileCountEqualAcrossPlatforms — passed — 633aab9979da23f4ab5ac90c4880533fb1a09d15
+✓ REQ-7 — file:scripts/skalary/Build-Registry.ps1#contains:StringComparer — passed: re-verified at HEAD through Test-Plan.ps1 -EvidenceMarker; Build-Marketplace.ps1 and the Test-Registry.ps1 drift gate carry the same ordinal comparer — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
+✓ REQ-7 — test:BuildRegistry.CzechCollationFixtureIsStable — passed: re-verified at HEAD: 7d1bbf7 rewrote BuildRegistryCollation.Tests.ps1 host-independently after the 633aab9 binding, so that binding no longer covered the test — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
+✓ REQ-7 — test:BuildRegistry.FixtureIsRedBeforeFix — passed: re-verified at HEAD; the fixture still collates chata/cukr/hrad differently between cs-CZ and en-US, so the stability assertion is non-vacuous — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
+✓ REQ-8 — test:Validate.DotPrefixedPayloadEnumerated — passed: re-verified at HEAD — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
+✓ REQ-8 — test:Validate.GitDirectoryNotEnumerated — passed: re-verified at HEAD; RISK-5 negative case, with reparse points rejected rather than followed — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
+✓ REQ-8 — test:Validate.FileCountEqualAcrossPlatforms — passed: re-verified at HEAD — 1144dc2fd3b35454abffeb3e17e0aa58be9aa33d
 
 Phase 3 Crosscheck:
 ✓ REQ-3 — test:SuiteCoverage.TestNameInventoryPreserved — passed — a8e50e784cd38b6bc5f8a0f6906377261e3d6400

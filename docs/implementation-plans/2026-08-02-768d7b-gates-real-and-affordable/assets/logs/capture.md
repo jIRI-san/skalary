@@ -24,6 +24,7 @@ Phase: 6
 Phase: 7
 
 - [7.1] D8 satisfied: collation fixture (plugin names chata/cukr/hrad/ivan, accented+mixed-case tags and file names) is RED against pre-fix Build-Registry — en-US yields 'chata, cukr, hrad, ivan', cs-CZ yields 'cukr, hrad, chata, ivan'; FixtureIsRedBeforeFix passes, CzechCollationFixtureIsStable fails.
+- [7.3] [src:note] Phase 7 re-run found all three steps already landed (c8162ec, 633aab9) but the receipt was bound to 633aab9, while 7d1bbf7 later rewrote tests/skalary/BuildRegistryCollation.Tests.ps1 host-independently - the exact test REQ-7 rests on. Re-executed all six REQ-7/REQ-8 markers at HEAD 1144dc2 and rebound the section; full npm test green at 752 tests, 97.158s against the 330s Linux ceiling.
 
 ## Capture
 Phase: 3
