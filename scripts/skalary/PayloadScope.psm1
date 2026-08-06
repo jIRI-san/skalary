@@ -46,6 +46,9 @@ $script:PrunedDirectoryName = @(
     '.git'
     '.skalary'
     '.worktrees'
+    # Per-platform NUnit reports written by the CI test step, so it exists only while the
+    # run that checks this list is in flight.
+    'artifacts'
     'bin'
     'node_modules'
     'obj'
