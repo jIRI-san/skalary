@@ -93,8 +93,25 @@ if (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf) {
     $clock = $null
     try { $clock = $clockText | ConvertFrom-Json } catch { $clock = $null }
     if ($clock -and @($clock.PSObject.Properties.Name) -contains 'startedAt') {
-        $parsed = [DateTimeOffset]::MinValue
-        if ([DateTimeOffset]::TryParse([string]$clock.startedAt, [ref]$parsed)) { $clockStartedAt = $parsed }
+        # ConvertFrom-Json coerces an ISO timestamp to [datetime], and casting that back to a
+        # string renders it invariant (MM/dd/yyyy) while TryParse reads the current culture. On
+        # a dd/MM host the two disagree and the clock is misread as ~59 days old, silently
+        # discarded as residue, leaving the budget measuring this leg alone. Use the coerced
+        # value directly, and parse only a value JSON left as text.
+        $raw = $clock.startedAt
+        if ($raw -is [datetime]) {
+            $clockStartedAt = [DateTimeOffset]$raw
+        }
+        else {
+            $parsed = [DateTimeOffset]::MinValue
+            if ([DateTimeOffset]::TryParse(
+                    [string]$raw,
+                    [System.Globalization.CultureInfo]::InvariantCulture,
+                    [System.Globalization.DateTimeStyles]::RoundtripKind,
+                    [ref]$parsed)) {
+                $clockStartedAt = $parsed
+            }
+        }
     }
 }
 
