@@ -72,11 +72,27 @@ jobs:
             Install-PSResource -Name $module.Name -Version "[$($module.Version)]" -Repository PSGallery -Scope CurrentUser -TrustRepository -AuthenticodeCheck:$IsWindows -ErrorAction Stop
           }
 
+      # The step has to be able to fail. `Invoke-ScriptAnalyzer` writes findings to the
+      # pipeline and sets no exit code, so before this it ran on every PR and could never go
+      # red — plan 001 DR1-#17 decided zero-warning would be enforced here, and that decision
+      # was inert. Errors fail the build. Warnings are counted and printed but not enforced:
+      # scripts/skalary carries 472 of them, and triaging or baselining that set is its own
+      # plan, not a silent change of what this gate means.
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
           Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
-          Invoke-ScriptAnalyzer -Path scripts/skalary -Settings PSScriptAnalyzerSettings.psd1 -Recurse
+          $findings = @(Invoke-ScriptAnalyzer -Path scripts/skalary -Settings PSScriptAnalyzerSettings.psd1 -Recurse)
+          $analyzerErrors = @($findings | Where-Object { $_.Severity -eq 'Error' })
+          $analyzerWarnings = @($findings | Where-Object { $_.Severity -eq 'Warning' })
+          Write-Host "PSScriptAnalyzer: $($analyzerErrors.Count) error(s), $($analyzerWarnings.Count) warning(s)."
+          if ($analyzerErrors.Count -gt 0) {
+            $analyzerErrors |
+              Format-Table -AutoSize RuleName, ScriptName, Line, Message |
+              Out-String -Width 400 |
+              Write-Host
+            throw "PSScriptAnalyzer found $($analyzerErrors.Count) error-severity finding(s)."
+          }
 
       # RISK-10: every gate below is its own named step. Chained into one script, the first
       # failure masks every gate behind it, and a gate that never ran is indistinguishable

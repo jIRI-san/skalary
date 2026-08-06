@@ -318,6 +318,18 @@ Describe 'ci workflow' {
         $code | Should -Match "Name = 'PSScriptAnalyzer'; Version = '[0-9]+\.[0-9]+\.[0-9]+'" -Because 'the analyzer version decides which findings exist'
     }
 
+    It 'test:Ci.LintStepCanFail makes the analyzer step able to go red instead of only reporting' {
+        $script:workflowText | Should -Not -BeNullOrEmpty
+
+        # Invoke-ScriptAnalyzer sets no exit code, so a step that merely calls it runs on every
+        # PR and can never fail — the shape plan 001 DR1-#17 assumed was enforced and was not.
+        $body = (Remove-CiComment -Text $script:workflowText)
+
+        $body | Should -Match 'Invoke-ScriptAnalyzer' -Because 'the lint gate must still run'
+        $body | Should -Match "Severity -eq 'Error'" -Because 'the step must separate error findings from the warning backlog it does not enforce'
+        $body | Should -Match 'throw "PSScriptAnalyzer found' -Because 'an error-severity finding must fail the build rather than scroll past'
+    }
+
     It 'test:Ci.TimeoutExceedsHardCeiling gives every leg longer than the ceiling it is enforcing' {
         $script:workflowText | Should -Not -BeNullOrEmpty
 

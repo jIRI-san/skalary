@@ -164,20 +164,29 @@ Describe 'ci gate inventory' {
             # The enforcement column is the one cell a reader acts on, so it is checked against
             # the step rather than believed. A step's verdict is the exit code of its last
             # statement: a process invocation or a native command carries one, and a cmdlet that
-            # writes findings to the output stream does not — which is why the analyzer step is
-            # advisory rather than blocking, and why claiming otherwise has to be red.
+            # writes findings to the output stream does not. Under `shell: pwsh` an uncaught
+            # `throw` carries one too, from wherever it sits in the block, so a step that inspects
+            # findings and throws can go red even though its last line is a closing brace. The
+            # last-statement rule still does the job it was written for: a trailing `exit 0` or a
+            # reset of `$LASTEXITCODE` neuters every idiom above it, and claiming to block anyway
+            # has to be red.
             if ($row.Host -eq '.github/workflows/registry-ci.yml') {
                 $statements = @(Get-CiStepRunLine -Body ($steps | Where-Object { $_.Body -match $row.Invocation })[0].Body)
                 $statements.Count | Should -BeGreaterThan 0 -Because "gate '$($row.Id)' must run something"
-                $enforces = $statements[-1] -match '^(pwsh|git)\b|-EnableExit\b'
+
+                $lastStatement = $statements[-1]
+                $swallowsVerdict = $lastStatement -match '^(exit +0\b|\$(global:)?LASTEXITCODE *=)'
+                $throwsOnFinding = @($statements | Where-Object { $_ -match '^throw\b' }).Count -gt 0
+                $enforces = (-not $swallowsVerdict) -and
+                    ($lastStatement -match '^(pwsh|git)\b|-EnableExit\b' -or $throwsOnFinding)
 
                 if ($row.Enforcement -eq 'blocking') {
                     $enforces |
-                        Should -BeTrue -Because "gate '$($row.Id)' is recorded as blocking, but its step ends in '$($statements[-1])', which reports no exit code"
+                        Should -BeTrue -Because "gate '$($row.Id)' is recorded as blocking, but its step ends in '$lastStatement' and throws on nothing, so it reports no exit code"
                 }
                 elseif ($row.Enforcement -match '^advisory') {
                     $enforces |
-                        Should -BeFalse -Because "gate '$($row.Id)' is recorded as advisory while its step ends in '$($statements[-1])', which does set the step's verdict — an exclusion for a gate that does enforce hides a working gate"
+                        Should -BeFalse -Because "gate '$($row.Id)' is recorded as advisory while its step ends in '$lastStatement', which does set the step's verdict — an exclusion for a gate that does enforce hides a working gate"
                 }
             }
         }
