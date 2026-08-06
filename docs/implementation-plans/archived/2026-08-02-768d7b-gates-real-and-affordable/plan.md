@@ -98,7 +98,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 9.4 Operator acceptance gate (REQ-2, REQ-3, REQ-4, REQ-10, RISK-2, RISK-9) @human `S`
+- [x] 9.4 Operator acceptance gate (REQ-2, REQ-3, REQ-4, REQ-10, RISK-2, RISK-9) @human `S` — accepted 2026-08-06; the `windows-latest` CI leg is deferred as an accepted risk (D14), not verified
   <details><summary>Details</summary>
 
   **Steps:**
