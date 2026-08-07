@@ -13,6 +13,20 @@ Describe 'Ensure-EvalTools' {
         $script:manifest = Import-EvalToolManifest -Path $manifestFile
         $script:waza = $script:manifest.Tools | Where-Object { $_.Name -eq 'waza' }
         $script:gh = $script:manifest.Tools | Where-Object { $_.Name -eq 'gh' }
+
+        # Pester runs in-process, so a var a test assigns outlives the suite in the caller's shell.
+        # These tests used to leave HOME pointing at TestDrive, which sends git looking for .gitconfig
+        # and .ssh in a temp directory for the rest of that shell's life.
+        $script:envSnapshot = @{}
+        foreach ($name in @('WAZA_EVAL_APPROVE_INSTALL', 'LOCALAPPDATA', 'HOME')) {
+            $script:envSnapshot[$name] = [Environment]::GetEnvironmentVariable($name)
+        }
+    }
+
+    AfterAll {
+        foreach ($name in @($script:envSnapshot.Keys)) {
+            [Environment]::SetEnvironmentVariable($name, $script:envSnapshot[$name])
+        }
     }
 
     Context 'test:evaltools-resolve — per-tool version decisions' {

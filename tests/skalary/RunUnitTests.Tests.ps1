@@ -128,6 +128,17 @@ Describe 'sandbox' {
 Describe 'sandbox' {
     It 'never loads' { $true | Should -BeTrue }
 '@
+
+        # Passes while repointing HOME at a temp directory, which is what the eval tests did: the
+        # suite is green and the caller's shell is the thing that broke.
+        $script:environmentLeakingTestFile = @'
+Describe 'sandbox' {
+    It 'leaks HOME' {
+        $env:HOME = (Join-Path $TestDrive 'home')
+        $true | Should -BeTrue
+    }
+}
+'@
     }
 
     AfterAll {
@@ -230,5 +241,19 @@ Describe 'sandbox' {
         # rather than merely counted.
         ([xml](Get-Content -LiteralPath $expected -Raw)).'test-results'.total |
             Should -Be '1' -Because 'the report has to describe the run that produced it'
+    }
+
+    It 'test:RunUnitTests.EnvironmentLeakFails fails a passing suite that leaves the caller-s environment changed' {
+        # Pester runs in-process, so a test assigning $env:X rewrites the shell that invoked the
+        # suite. Nothing in a green run says so: the eval tests left HOME under TestDrive, and git
+        # then looked for .gitconfig and .ssh in a deleted temp directory until the shell was closed.
+        $sandbox = New-RunnerSandbox -TestFileContent $script:environmentLeakingTestFile
+
+        $result = Invoke-Runner -SandboxRoot $sandbox
+        $result.ExitCode |
+            Should -Be 7 -Because "every test passed, so only the environment check can catch this: $($result.Output)"
+        $result.Output | Should -Match 'EnvironmentLeaked'
+        $result.Output |
+            Should -Match 'HOME' -Because 'the variable that leaked has to be nameable from the output'
     }
 }

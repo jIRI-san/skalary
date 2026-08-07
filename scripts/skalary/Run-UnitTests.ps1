@@ -25,6 +25,7 @@
       4  TestFilesNotDiscoverable — a test file failed to load, so its tests never ran
       5  OverBudget — the run is slower than this platform's hard ceiling
       6  BudgetNotDefined — no budget file, or no entry for this platform
+      7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
 #>
@@ -155,6 +156,14 @@ if ($TestResultPath) {
     $configuration.TestResult.OutputPath = $TestResultPath
 }
 
+# Pester runs in-process, so a test that assigns $env:X changes this shell and every command run
+# in it afterwards. That is invisible to the suite itself: the tests pass and the damage lands on
+# whoever ran them. Snapshotted here and compared below rather than trusted.
+$environmentBefore = @{}
+foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
+    $environmentBefore[[string]$entry.Key] = [string]$entry.Value
+}
+
 $result = Invoke-Pester -Configuration $configuration
 
 # Test files that discover no test are the quieter half of the same failure: Pester returns a
@@ -177,6 +186,30 @@ if ([int]$result.FailedContainersCount -gt 0) {
 
 if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
     exit 1
+}
+
+# A green suite that leaves HOME pointing at TestDrive is still a defect: it sends git looking for
+# .gitconfig and .ssh in a deleted temp directory for the rest of the shell's life, and nothing in
+# the run reports it. Checked after the failure gates so a real test failure keeps the clearer code.
+$environmentAfter = @{}
+foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
+    $environmentAfter[[string]$entry.Key] = [string]$entry.Value
+}
+
+$leakedNames = [System.Collections.Generic.List[string]]::new()
+$candidateNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@($environmentBefore.Keys))
+$candidateNames.UnionWith([string[]]@($environmentAfter.Keys))
+foreach ($name in ($candidateNames | Sort-Object)) {
+    $before = if ($environmentBefore.ContainsKey($name)) { $environmentBefore[$name] } else { $null }
+    $after = if ($environmentAfter.ContainsKey($name)) { $environmentAfter[$name] } else { $null }
+    if ($before -ne $after) {
+        $leakedNames.Add("$name ('$before' -> '$after')")
+    }
+}
+
+if ($leakedNames.Count -gt 0) {
+    Write-Host "EnvironmentLeaked: the suite changed $($leakedNames.Count) environment variable(s) and did not restore them: $($leakedNames -join '; '). Snapshot and restore them in the owning test." -ForegroundColor Red
+    exit 7
 }
 
 # REQ-2: the gate the ceiling exists for. A suite nobody runs because it is slow is a gate
