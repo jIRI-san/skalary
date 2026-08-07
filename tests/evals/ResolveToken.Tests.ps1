@@ -20,7 +20,15 @@ Describe 'Resolve-EvalToken' {
 
     AfterAll {
         foreach ($name in @($script:envSnapshot.Keys)) {
-            [Environment]::SetEnvironmentVariable($name, $script:envSnapshot[$name])
+            $value = $script:envSnapshot[$name]
+            # $null binds to SetEnvironmentVariable's string parameter as '', which creates the
+            # variable empty rather than removing it.
+            if ($null -eq $value) {
+                Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($name, $value)
+            }
         }
     }
 

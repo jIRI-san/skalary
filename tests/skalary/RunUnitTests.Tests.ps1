@@ -139,6 +139,18 @@ Describe 'sandbox' {
     }
 }
 '@
+
+        # Creating a variable that did not exist is the other half, and the half that is easy to miss
+        # locally: on a developer box HOME and LOCALAPPDATA are already set, so only a clean
+        # environment like CI's shows the difference between "unset" and "set to empty".
+        $script:environmentCreatingTestFile = @'
+Describe 'sandbox' {
+    It 'creates a variable that was never set' {
+        $env:SKALARY_LEAK_PROBE = ''
+        $true | Should -BeTrue
+    }
+}
+'@
     }
 
     AfterAll {
@@ -255,5 +267,20 @@ Describe 'sandbox' {
         $result.Output | Should -Match 'EnvironmentLeaked'
         $result.Output |
             Should -Match 'HOME' -Because 'the variable that leaked has to be nameable from the output'
+    }
+
+    It 'test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked' {
+        # Setting an absent variable to '' is still a change, and it is the case a developer box
+        # hides: locally the variable is usually already set, so the restore looks correct and only a
+        # clean environment disagrees. The report has to distinguish unset from empty, or the
+        # difference renders as "('' -> '')" and reads like a bug in the check.
+        $sandbox = New-RunnerSandbox -TestFileContent $script:environmentCreatingTestFile
+
+        $result = Invoke-Runner -SandboxRoot $sandbox
+        $result.ExitCode |
+            Should -Be 7 -Because "creating a variable changes the caller's environment too: $($result.Output)"
+        $result.Output | Should -Match 'SKALARY_LEAK_PROBE'
+        $result.Output |
+            Should -Match '<unset>' -Because 'an absent variable and an empty one must not render identically'
     }
 }

@@ -203,7 +203,10 @@ foreach ($name in ($candidateNames | Sort-Object)) {
     $before = if ($environmentBefore.ContainsKey($name)) { $environmentBefore[$name] } else { $null }
     $after = if ($environmentAfter.ContainsKey($name)) { $environmentAfter[$name] } else { $null }
     if ($before -ne $after) {
-        $leakedNames.Add("$name ('$before' -> '$after')")
+        # Rendered rather than interpolated: an unset variable and one set to '' both interpolate to
+        # nothing, which turns a real difference into the unreadable "('' -> '')".
+        $shown = { param($v) if ($null -eq $v) { '<unset>' } else { "'$v'" } }
+        $leakedNames.Add("$name ($(& $shown $before) -> $(& $shown $after))")
     }
 }
 

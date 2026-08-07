@@ -25,7 +25,15 @@ Describe 'Ensure-EvalTools' {
 
     AfterAll {
         foreach ($name in @($script:envSnapshot.Keys)) {
-            [Environment]::SetEnvironmentVariable($name, $script:envSnapshot[$name])
+            $value = $script:envSnapshot[$name]
+            # SetEnvironmentVariable cannot express "unset" from PowerShell: $null binds to the string
+            # parameter as '', which creates the variable empty instead of removing it.
+            if ($null -eq $value) {
+                Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($name, $value)
+            }
         }
     }
 
