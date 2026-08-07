@@ -1056,6 +1056,45 @@ function Get-PlanValidationDecision {
     }
 }
 
+function Split-PlanHeader {
+    <#
+    .SYNOPSIS
+    Splits plan content into the header region and everything below it.
+
+    .DESCRIPTION
+    The header is the run of lines above the first `##` heading, and it is the only region a marker
+    anchor may live in. The boundary is defined here once because readers and writers have to agree on
+    it: `Set-PlanStage` used to match anchors over the whole file while `Get-PlanHeaderMarkers` read
+    only the header, so a step description quoting an anchor captured the write and the header kept
+    none — a lost write that still reported success.
+
+    `Header` and `Body` are the two line runs joined back with newlines, so `Header` + newline + `Body`
+    reproduces the input whenever `HasBody` is true.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Content
+    )
+
+    $normalized = ($Content ?? '') -replace "`r`n", "`n"
+    $lines = $normalized.Split("`n")
+
+    $boundary = 0
+    while ($boundary -lt $lines.Count -and $lines[$boundary] -notmatch '^##\s') { $boundary++ }
+
+    $headerLines = if ($boundary -gt 0) { $lines[0..($boundary - 1)] } else { @() }
+    $bodyLines = if ($boundary -lt $lines.Count) { $lines[$boundary..($lines.Count - 1)] } else { @() }
+
+    return [pscustomobject]@{
+        Header          = (@($headerLines) -join "`n")
+        Body            = (@($bodyLines) -join "`n")
+        HeaderLineCount = @($headerLines).Count
+        HasBody         = @($bodyLines).Count -gt 0
+    }
+}
+
 function Get-PlanHeaderMarkers {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     param(
@@ -1071,14 +1110,7 @@ function Get-PlanHeaderMarkers {
         $Content = Get-Content -LiteralPath (Resolve-Path -LiteralPath $Path).Path -Raw
     }
 
-    $normalized = ($Content ?? '') -replace "`r`n", "`n"
-    $lines = $normalized.Split("`n")
-    $headerLines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in $lines) {
-        if ($line -match '^##\s') { break }
-        $headerLines.Add($line)
-    }
-    $header = $headerLines -join "`n"
+    $header = (Split-PlanHeader -Content ($Content ?? '')).Header
 
     $all = [ordered]@{}
     foreach ($match in [regex]::Matches($header, '<!--\s*(?<key>[A-Za-z][\w-]*)\s*:\s*(?<value>.*?)\s*-->')) {
@@ -1424,4 +1456,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

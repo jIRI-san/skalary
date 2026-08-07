@@ -32,12 +32,18 @@ $normalized = $raw -replace "`r`n", "`n"
 $anchor = "<!-- cip-stage: $stageValue -->"
 $pattern = '<!--\s*cip-stage:\s*[^>]*-->'
 
-if ([regex]::IsMatch($normalized, $pattern)) {
-    $updated = [regex]::Replace($normalized, $pattern, $anchor, 1)
+# Scoped to the header because that is the only region readers parse. Matching over the whole file let
+# a step description quoting an anchor absorb the write while the header kept none.
+$split = Split-PlanHeader -Content $normalized
+
+if ([regex]::IsMatch($split.Header, $pattern)) {
+    $header = [regex]::Replace($split.Header, $pattern, $anchor, 1)
 }
 else {
     $lines = [System.Collections.Generic.List[string]]::new()
-    $lines.AddRange([string[]]($normalized.Split("`n")))
+    if ($split.HeaderLineCount -gt 0) {
+        $lines.AddRange([string[]]($split.Header.Split("`n")))
+    }
 
     $insertAfter = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -55,11 +61,20 @@ else {
     else {
         $lines.Insert(0, $anchor)
     }
-    $updated = ($lines -join "`n")
+    $header = $lines -join "`n"
 }
+
+$updated = if ($split.HasBody) { @($header, $split.Body) -join "`n" } else { $header }
 
 $content = $updated.TrimEnd("`n") + "`n"
 Set-Content -LiteralPath $fullPath -Value $content -Encoding utf8NoBOM -NoNewline
+
+# Read back through the parser every consumer uses, so a write that lands where no reader looks fails
+# loudly instead of returning the stage it did not persist.
+$persisted = (Get-PlanHeaderMarkers -Path $fullPath).CipStage
+if ($persisted -ne $stageValue) {
+    throw "Set-PlanStage wrote stage '$stageValue' to '$fullPath', but the header reads '$persisted'."
+}
 
 return [pscustomobject]@{
     PlanFile = $fullPath

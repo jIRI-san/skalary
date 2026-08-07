@@ -73,7 +73,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.27"
+      "version": "1.0.28"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -85,7 +85,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.26"
+      "version": "1.0.27"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -153,7 +153,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.20"
+      "version": "1.0.21"
     }
   ]
 }

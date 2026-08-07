@@ -60,4 +60,26 @@ Describe 'Set-PlanStage' {
             Remove-Item -LiteralPath (Split-Path $file) -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'test:set-planstage anchors the header even when the body quotes an anchor' {
+        # Plan prose about the plan machinery quotes anchors routinely. While the writer searched the
+        # whole file it rewrote the first quote it found, so the header kept no anchor, the reader
+        # defaulted to `drafted`, and the write was lost without a word.
+        $decoy = '| 1.1 | Set the `<!-- cip-stage: drafted -->` anchor |'
+        $file = New-PlanFile -Body "# x: Plan`n<!-- plan-id: abc123 -->`n`n## Phase 1`n`n$decoy`n"
+        try {
+            & $scriptPath -PlanFile $file -Stage 'done' | Out-Null
+            $text = Get-Content -LiteralPath $file -Raw
+
+            $text | Should -Match "(?s)<!-- plan-id: abc123 -->\n<!-- cip-stage: done -->"
+            $text | Should -Match ([regex]::Escape($decoy)) -Because 'the body is prose, not state, so the writer must leave it alone'
+
+            Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
+            (Get-PlanHeaderMarkers -Path $file).CipStage |
+                Should -Be 'done' -Because 'the stage the writer reports must be the stage every reader sees'
+        }
+        finally {
+            Remove-Item -LiteralPath (Split-Path $file) -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
