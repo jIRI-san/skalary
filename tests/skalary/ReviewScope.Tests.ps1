@@ -12,6 +12,12 @@ Describe 'Get-ReviewScope' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:scriptPath = Join-Path $script:repoRoot 'plugins/code-review/agents/scripts/Get-ReviewScope.ps1'
         $script:fixtures = [System.Collections.Generic.List[string]]::new()
+        $script:fixtureTemplates = @{}
+
+        # Copy-SkalaryFixtureTree is the same build-once-copy-per-case primitive the registry
+        # fixture uses: it copies dot-prefixed entries (so `.git` comes along) onto a path
+        # that must not already exist.
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteFixture.psm1') -Force -DisableNameChecking
 
         function Invoke-Scope {
             param(
@@ -30,16 +36,54 @@ Describe 'Get-ReviewScope' {
             <#
                 Bare origin + clone so origin/HEAD, unpushed commits, and branch-vs-default
                 all resolve exactly as they do in a real checkout.
+
+                Built once and copied per case: the shape above costs ten git invocations,
+                and every case needs its own private tree rather than its own construction.
+                The copy fixes up the one thing that does not survive a move — the work
+                tree's `origin` URL, which still names the template's bare repo.
             #>
             param([string]$DefaultBranch = 'main')
 
+            $template = Get-FixtureTemplate -DefaultBranch $DefaultBranch
+
             $base = Join-Path ([System.IO.Path]::GetTempPath()) ("review-scope-" + [System.Guid]::NewGuid().ToString('N'))
+            Copy-SkalaryFixtureTree -Source $template -Destination $base
+            $script:fixtures.Add($base)
+
+            $work = Join-Path $base 'work'
+            git -C $work remote set-url origin (Join-Path $base 'origin.git') | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to repoint the copied fixture's origin remote in '$work'."
+            }
+
+            return $work
+        }
+
+        function Get-FixtureTemplate {
+            param([string]$DefaultBranch)
+
+            if (-not $script:fixtureTemplates.ContainsKey($DefaultBranch)) {
+                $script:fixtureTemplates[$DefaultBranch] = New-FixtureTemplate -DefaultBranch $DefaultBranch
+            }
+
+            return $script:fixtureTemplates[$DefaultBranch]
+        }
+
+        function New-FixtureTemplate {
+            param([string]$DefaultBranch)
+
+            $base = Join-Path ([System.IO.Path]::GetTempPath()) ("review-scope-template-" + [System.Guid]::NewGuid().ToString('N'))
             $origin = Join-Path $base 'origin.git'
             $work = Join-Path $base 'work'
             [void](New-Item -ItemType Directory -Path $base -Force)
 
-            git init --quiet --bare --initial-branch=$DefaultBranch $origin | Out-Null
-            git init --quiet --initial-branch=$DefaultBranch $work | Out-Null
+            # An empty init template drops the sample hooks: 18 files per repo become 2, and
+            # the per-case cost here is a file copy, not a git operation.
+            $emptyTemplate = Join-Path $base 'empty-template'
+            [void](New-Item -ItemType Directory -Path $emptyTemplate -Force)
+
+            git init --quiet --bare --initial-branch=$DefaultBranch --template=$emptyTemplate $origin | Out-Null
+            git init --quiet --initial-branch=$DefaultBranch --template=$emptyTemplate $work | Out-Null
             git -C $work config user.name 'review-scope-tests' | Out-Null
             git -C $work config user.email 'review-scope-tests@example.com' | Out-Null
             git -C $work config commit.gpgsign false | Out-Null
@@ -52,8 +96,9 @@ Describe 'Get-ReviewScope' {
             git -C $work push --quiet -u origin $DefaultBranch | Out-Null
             git -C $work remote set-head origin $DefaultBranch | Out-Null
 
+            Remove-Item -LiteralPath $emptyTemplate -Recurse -Force
             $script:fixtures.Add($base)
-            return $work
+            return $base
         }
 
         function Add-Commit {

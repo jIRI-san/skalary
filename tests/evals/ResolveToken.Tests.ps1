@@ -9,6 +9,27 @@ Describe 'Resolve-EvalToken' {
         $repoDir = (Resolve-Path (Join-Path $here '..' '..')).Path
         $scriptFile = Join-Path $repoDir 'scripts/skalary/Resolve-EvalToken.ps1'
         . $scriptFile
+
+        # These tests blanked the token vars rather than restoring them, so running the suite in a
+        # shell that had GH_TOKEN set left gh unauthenticated afterwards.
+        $script:envSnapshot = @{}
+        foreach ($name in @('COPILOT_GITHUB_TOKEN', 'GH_TOKEN')) {
+            $script:envSnapshot[$name] = [Environment]::GetEnvironmentVariable($name)
+        }
+    }
+
+    AfterAll {
+        foreach ($name in @($script:envSnapshot.Keys)) {
+            $value = $script:envSnapshot[$name]
+            # $null binds to SetEnvironmentVariable's string parameter as '', which creates the
+            # variable empty rather than removing it.
+            if ($null -eq $value) {
+                Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($name, $value)
+            }
+        }
     }
 
     Context 'test:resolvetoken-precedence — pure source selection' {

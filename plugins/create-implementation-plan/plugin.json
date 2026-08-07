@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.22",
+  "version": "1.0.27",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -104,6 +104,10 @@
     {
       "src": "skills/cep/scripts/PlanState.psm1",
       "dest": "skills/cep/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/Set-PlanStage.ps1",
+      "dest": "skills/cep/scripts/Set-PlanStage.ps1"
     },
     {
       "src": "skills/cep/scripts/ArchReceipt.psm1",

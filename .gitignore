@@ -10,8 +10,10 @@ session-transcript-*.md
 # Plugin install runtime state (receipts, tmp staging) — never committed
 .github/.skalary/
 
-# Autopilot local runtime/host configuration (never committed)
-.autopilot.json
+# Autopilot host-command configuration — machine-specific, never committed.
+# `.autopilot.json` is deliberately tracked: it is the run contract (model, timeouts,
+# build/test commands) and the container infers those commands when it is absent.
+# It carries auth *modes*, never tokens.
 .autopilot.host.json
 
 # Eval harness local outputs/config
@@ -27,3 +29,6 @@ tests/evals/**/result*.json
 
 # Pester CI test output
 testResults.xml
+# Per-platform NUnit reports written by Run-UnitTests.ps1 -TestResultPath (CI uploads them
+# as artifacts; a local run must not offer them for commit).
+artifacts/

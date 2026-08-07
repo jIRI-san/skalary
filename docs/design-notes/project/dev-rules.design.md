@@ -26,7 +26,7 @@ globs:
 ## Validation and test gates
 
 - **Validation logic must live in committed scripts, not markdown orchestration text.** For plan workflows, run `scripts/skalary/Test-Plan.ps1` (directly or via `npm run validate-plan`) and `scripts/validate.ps1`; do not add ad-hoc regex checks to skill/agent markdown.
-- **Pester is required for `test:unit` and typed `test:` evidence in container-autopilot.** Keep the pinned Pester install step in `.devcontainer/autopilot/Dockerfile`; when Pester is absent off-container, surface a skip-with-actionable-message pattern rather than silent pass/fail drift.
+- **Pester is required for `test:unit` and typed `test:` evidence everywhere, not only in container-autopilot.** Keep the pinned Pester install step in `.devcontainer/autopilot/Dockerfile`. `Run-UnitTests.ps1` fails rather than skips when it cannot test — absent Pester (exit 2), zero discovered tests (exit 3), or a test file that never loaded (exit 4) — because it is the `test:unit` leg and the `test:` evidence executor, so a skip would be a green run that asserted nothing. The failure message names `Install-Module Pester -Scope CurrentUser -Force`, which is what makes failing loudly acceptable off-container.
 
 ## Git History
 

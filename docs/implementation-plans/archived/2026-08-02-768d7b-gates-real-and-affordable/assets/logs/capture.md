@@ -1,0 +1,52 @@
+## Capture
+Phase: 1
+
+- [1.1] [src:note] Baseline measured in the autopilot Linux container: Pester leg 102.3s wall clock over 710 tests, 25.7s of it inside the four instrumented operations (New-RepoClone 29 calls/9.7s, Install-Plugin 10/8.4s, Test-Registry 6/6.0s, Build-Registry 10/2.9s). The plan's 1741.8s figure came from a Windows host, so phase 4 must record the platform with the achieved figure.
+- [1.1] [src:note] Costliest files after Skalary.Tests.ps1 (29.6s): Add-LedgerEntry 16.7s, PlanAssets 11.9s, Test-Plan 9.4s, Remove-LedgerEntry 7.8s - the input phase 3.2 asks for.
+
+## Capture
+Phase: 2
+
+No entries for this phase.
+
+## Capture
+Phase: 5
+
+- [5.1] Step 2.2 is left in-progress with uncommitted work whose Copy-DirectoryContent resolves cp via Get-Command without taking the first match, so the path becomes two paths joined and 20 cases in Skalary.Tests.ps1/SuiteFixture.Tests.ps1 fail. Pre-existing and unrelated to phase 5; the phase-5 commits do not stage those files.
+- [5.2] [src:note] Phase 5 re-run found both steps already complete from commits ba3ed0f and 57175f0, but the receipt was bound to 57175f0 while step 4.3 (36334d6) later added 146 lines to Run-UnitTests.ps1, the exact file REQ-5 covers. Re-executed all three REQ-5 markers at HEAD 456dd67 and rebound the section; verified the budget branches (exit 5/6) sit strictly after every cannot-test branch (exit 2/3/4), so 4.3 cannot mask REQ-5.
+
+## Capture
+Phase: 6
+
+- [6.3] [src:note] Phase 6 re-run found all three steps already landed (aedf4a0, 6daa294, 99fdf99) but no Phase 6 section in assets/evidence.md, so the phase had code without a receipt. Re-executed all four REQ-6 markers at HEAD f5d5397 rather than binding to the old step commits, which also covers PlanState.psm1 edits made by phases 7 onward.
+
+## Capture
+Phase: 7
+
+- [7.1] D8 satisfied: collation fixture (plugin names chata/cukr/hrad/ivan, accented+mixed-case tags and file names) is RED against pre-fix Build-Registry — en-US yields 'chata, cukr, hrad, ivan', cs-CZ yields 'cukr, hrad, chata, ivan'; FixtureIsRedBeforeFix passes, CzechCollationFixtureIsStable fails.
+- [7.3] [src:note] Phase 7 re-run found all three steps already landed (c8162ec, 633aab9) but the receipt was bound to 633aab9, while 7d1bbf7 later rewrote tests/skalary/BuildRegistryCollation.Tests.ps1 host-independently - the exact test REQ-7 rests on. Re-executed all six REQ-7/REQ-8 markers at HEAD 1144dc2 and rebound the section; full npm test green at 752 tests, 97.158s against the 330s Linux ceiling.
+
+## Capture
+Phase: 3
+
+No entries for this phase.
+
+## Capture
+Phase: 4
+
+- [4.1] [src:note] npm test measured on the runners the gate will enforce on: ci:ubuntu-latest 108.998s, ci:windows-latest 223.142s, both green, both 4-core, commit c99d5d1. D13/RISK-4's 10x platform gap is gone - Windows was 1157s before phases 2 and 3 and is now 2.05x Linux, so the tier split D13 held in reserve is not needed. The autopilot container measures 86s on 16 cores; the CI figures are the slower and therefore the ones the ceiling is tightened against.
+- [4.1] [src:note] Windows cannot be measured from the Linux autopilot container, so step 4.1 measured it on windows-latest through a temporary path-filtered workflow (.github/workflows/suite-runtime-measure.yml), imported both rows through Measure-SuiteRuntime.ps1 -ImportRow, and deleted the workflow in the same phase; the durable CI wiring stays phase 8's job.
+
+## Capture
+Phase: 8
+
+- [8.1] [src:note] Phase 8 entry check (D9): npm test exit 0, 752 tests passed, budget reported 97.812s (npm test clock) against the Linux 330s ceiling / 240s target. Non-zero would have stopped the phase; the (after: 4.3) edge only proves sequence.
+- [8.4] [src:note] Phase 8 crosscheck: npm test green at 759 tests (752 before; +6 Ci, +1 RunUnitTests), 101.363s against the 330s Linux ceiling. Every REQ-2 and REQ-9 marker executed at HEAD; only test:Ci.SeededFailureIsRed is unrun, which step 9.1 lands. Each workflow-shape assertion verified red by mutating the workflow (18 mutations, one named test red per mutation).
+
+## Capture
+Phase: 9
+
+- [9.1] PSScriptAnalyzer step measured advisory, not blocking: Invoke-ScriptAnalyzer writes findings to the output stream and sets no exit code, and scripts/skalary carries 472 findings under the committed settings (344 PSUseConsistentWhitespace, 115 PSUseConsistentIndentation, 13 other), all Warning and 0 Error. Making it blocking is a repo-wide formatting cleanup outside this plan, so 9.1 excludes it from the enforcement loop and 9.2 records it as a typed advisory row.
+- [9.1] Seeded-failure proof verified by mutation: 8 mutations each turned exactly test:Ci.SeededFailureIsRed red (runner exiting 0 on failures, continue-on-error, trailing command after the drift gate, dropped shell: pwsh, // true, inline ; exit 0, LASTEXITCODE reset), while two valid workflow edits (block-scalar run:, env: after run:) stayed green. npm test 760 tests, 102.179s against the 330s Linux ceiling.
+- [9.2] Gate inventory is two-sided across two hosts: workflow steps (parsed text) and validate.ps1 (parsed AST). 16 rows, 3 typed exclusions (analyzer-warnings-not-blocking, llm-eval-tier, arch-tier-not-seeded). Workflow parsing extracted to tests/CiWorkflow.psm1 so Ci.Tests.ps1 and CiGates.Tests.ps1 share one parser. npm test green at 762 tests, 102.882s.
+- [9.3] Plan crosscheck at HEAD 1820cbb: all 7 file: markers re-executed through Test-Plan.ps1 -EvidenceStage PlanCrosscheck and all 22 test: markers re-executed by name (32 Pester cases, 0 failed). Requirements 10/10, risks 14/14. Final budget on the finished tree: npm test exit 0, 762 tests, 102.275s against the 330s Linux ceiling and 240s target - RISK-9 answered with the last measurement rather than a mid-plan one.

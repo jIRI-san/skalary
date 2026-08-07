@@ -896,6 +896,205 @@ function Resolve-Epic {
     return $epicMatches[0]
 }
 
+# The lifecycle stages a plan's `<!-- cip-stage: ... -->` anchor may carry, lowest first. The set is
+# closed on purpose: a reader that treats "not `drafted`" as "skip validation" turns any typo (`draftd`)
+# into a silent pass that exits 0 while checking nothing (RISK-6). Ordering lives here once so writers
+# (`Set-PlanStage`) and readers (`Validate-Plan`) cannot disagree about what a stage means.
+#
+# `dr-round` is a family rather than a single value: design-review rounds are numbered and open-ended,
+# but every round ranks at the same point in the lifecycle — after drafting, before completion.
+$script:PlanStageOrder = @('scaffolded', 'drafted', 'dr-round', 'done')
+
+# A plan with no anchor at all predates the anchor (RISK-7). It resolves to `drafted` so an older plan
+# keeps being validated exactly as it is today, rather than silently dropping out of validation.
+$script:PlanStageDefault = 'drafted'
+
+# The stage a plan must reach before its content is worth validating. Below it a plan is a scaffold of
+# placeholders, so validating it would keep the test command red for the whole drafting session.
+$script:PlanValidationFloor = 'drafted'
+
+function Get-PlanStageOrder {
+    <#
+    .SYNOPSIS
+    The ordered, closed set of plan lifecycle stage families, lowest first.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param()
+
+    return [string[]]$script:PlanStageOrder
+}
+
+function Resolve-PlanStage {
+    <#
+    .SYNOPSIS
+    Resolves a `cip-stage` anchor value to its family and rank in the closed stage order.
+
+    .DESCRIPTION
+    Throws on anything outside the closed set — that loud failure is the whole point, because the
+    alternative is an unrecognised stage quietly disabling every downstream check.
+
+    A null or whitespace value is not an unrecognised stage: it is a plan written before the anchor
+    existed, and resolves to the default (`drafted`) with `IsDefaulted` set so a caller can tell the two
+    apart.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Stage
+    )
+
+    $isDefaulted = [string]::IsNullOrWhiteSpace($Stage)
+    $value = if ($isDefaulted) { $script:PlanStageDefault } else { $Stage.Trim().ToLowerInvariant() }
+
+    $family = $null
+    $round = $null
+    if ($value -match '^dr-round-(?<n>[1-9][0-9]*)$') {
+        $family = 'dr-round'
+        $round = [int]$Matches['n']
+    }
+    elseif ($value -ne 'dr-round') {
+        # A bare `dr-round` names the family, not a stage: a plan under review is always in a numbered
+        # round, so the unnumbered form is as much a typo as `draftd` and is rejected the same way.
+        $family = $value
+    }
+
+    $rank = if ($family) { [array]::IndexOf([string[]]$script:PlanStageOrder, $family) } else { -1 }
+    if ($rank -lt 0) {
+        $known = (@('scaffolded', 'drafted', 'dr-round-<n>', 'done')) -join ', '
+        throw "Unrecognised plan stage '$Stage'. Known stages, in order: $known."
+    }
+
+    return [pscustomobject]@{
+        Stage       = $value
+        Family      = $family
+        Round       = $round
+        Rank        = $rank
+        IsDefaulted = $isDefaulted
+    }
+}
+
+function Test-PlanStageAtLeast {
+    <#
+    .SYNOPSIS
+    True when $Stage ranks at or above $Minimum in the closed stage order.
+
+    .DESCRIPTION
+    `-Stage` is an anchor value read from a plan and is resolved strictly, so a bad marker fails loudly.
+    `-Minimum` is a caller-supplied floor and is ranked against the family list directly, so every value
+    `Get-PlanStageOrder` publishes — including the bare family name `dr-round` — is a usable floor. A bad
+    floor is the caller's bug and says so, rather than blaming the plan under validation.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Stage,
+
+        [Parameter(Mandatory)]
+        [string]$Minimum
+    )
+
+    $floorValue = $Minimum.Trim().ToLowerInvariant()
+    $floorRank = [array]::IndexOf([string[]]$script:PlanStageOrder, $floorValue)
+    if ($floorRank -lt 0) {
+        if ($floorValue -match '^dr-round-[1-9][0-9]*$') {
+            $floorRank = [array]::IndexOf([string[]]$script:PlanStageOrder, 'dr-round')
+        }
+        else {
+            throw "Unknown stage floor '$Minimum'. Use one of: $(($script:PlanStageOrder) -join ', ')."
+        }
+    }
+
+    return (Resolve-PlanStage -Stage $Stage).Rank -ge $floorRank
+}
+
+function Get-PlanValidationDecision {
+    <#
+    .SYNOPSIS
+    Decides whether a plan file is far enough along to be worth validating, and says so out loud.
+
+    .DESCRIPTION
+    One home for the floor and for the signal both entry points print. `npm test` validates plans twice —
+    `Validate-Plan.ps1` for the working plan, `scripts/validate.ps1` for the whole tree — and if only one
+    of them honours the floor, a below-floor plan is skipped by one leg and hard-failed by the other. The
+    floor then changes nothing except which leg reports the failure.
+
+    An unrecognised stage propagates as a throw, with the offending plan named: a stage nobody recognises
+    must never resolve to "skip", which is the failure the closed set exists to prevent.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $markers = Get-PlanHeaderMarkers -Path $Path
+    try {
+        $stage = Resolve-PlanStage -Stage $markers.CipStage
+    }
+    catch {
+        throw "$($_.Exception.Message) Plan: $Path"
+    }
+
+    $shouldValidate = Test-PlanStageAtLeast -Stage $stage.Stage -Minimum $script:PlanValidationFloor
+    $signal = if ($shouldValidate) {
+        "PLAN-VALIDATION: VALIDATING stage=$($stage.Stage) plan=$Path"
+    }
+    else {
+        "PLAN-VALIDATION: SKIPPED stage=$($stage.Stage) floor=$($script:PlanValidationFloor) plan=$Path"
+    }
+
+    return [pscustomobject]@{
+        Path           = $Path
+        Stage          = $stage.Stage
+        Floor          = $script:PlanValidationFloor
+        ShouldValidate = $shouldValidate
+        Signal         = $signal
+    }
+}
+
+function Split-PlanHeader {
+    <#
+    .SYNOPSIS
+    Splits plan content into the header region and everything below it.
+
+    .DESCRIPTION
+    The header is the run of lines above the first `##` heading, and it is the only region a marker
+    anchor may live in. The boundary is defined here once because readers and writers have to agree on
+    it: `Set-PlanStage` used to match anchors over the whole file while `Get-PlanHeaderMarkers` read
+    only the header, so a step description quoting an anchor captured the write and the header kept
+    none — a lost write that still reported success.
+
+    `Header` and `Body` are the two line runs joined back with newlines, so `Header` + newline + `Body`
+    reproduces the input whenever `HasBody` is true.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Content
+    )
+
+    $normalized = ($Content ?? '') -replace "`r`n", "`n"
+    $lines = $normalized.Split("`n")
+
+    $boundary = 0
+    while ($boundary -lt $lines.Count -and $lines[$boundary] -notmatch '^##\s') { $boundary++ }
+
+    $headerLines = if ($boundary -gt 0) { $lines[0..($boundary - 1)] } else { @() }
+    $bodyLines = if ($boundary -lt $lines.Count) { $lines[$boundary..($lines.Count - 1)] } else { @() }
+
+    return [pscustomobject]@{
+        Header          = (@($headerLines) -join "`n")
+        Body            = (@($bodyLines) -join "`n")
+        HeaderLineCount = @($headerLines).Count
+        HasBody         = @($bodyLines).Count -gt 0
+    }
+}
+
 function Get-PlanHeaderMarkers {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     param(
@@ -911,14 +1110,7 @@ function Get-PlanHeaderMarkers {
         $Content = Get-Content -LiteralPath (Resolve-Path -LiteralPath $Path).Path -Raw
     }
 
-    $normalized = ($Content ?? '') -replace "`r`n", "`n"
-    $lines = $normalized.Split("`n")
-    $headerLines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in $lines) {
-        if ($line -match '^##\s') { break }
-        $headerLines.Add($line)
-    }
-    $header = $headerLines -join "`n"
+    $header = (Split-PlanHeader -Content ($Content ?? '')).Header
 
     $all = [ordered]@{}
     foreach ($match in [regex]::Matches($header, '<!--\s*(?<key>[A-Za-z][\w-]*)\s*:\s*(?<value>.*?)\s*-->')) {
@@ -1264,4 +1456,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

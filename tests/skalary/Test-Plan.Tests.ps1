@@ -8,6 +8,12 @@ Describe 'Test-Plan validator' {
         $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $scriptPath = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
         $fixturesRoot = Join-Path $PSScriptRoot 'fixtures'
+
+        # One child pwsh per case bought nothing these assertions use: they read an exit
+        # code and merged output, both of which a fresh runspace reproduces without paying
+        # process startup sixteen times.
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteScriptHost.psm1') -Force -DisableNameChecking
+
         $invokeTestPlan = {
             param(
                 [Parameter(Mandatory)]
@@ -17,13 +23,10 @@ Describe 'Test-Plan validator' {
                 [string]$Stage = 'Draft'
             )
 
-            $output = @(
-                & pwsh -NoProfile -File $scriptPath -PlanPath $PlanPath -RepoRoot $repoRoot -Stage $Stage 2>&1
-            )
-
-            return [pscustomobject]@{
-                ExitCode = $LASTEXITCODE
-                Output = ($output | ForEach-Object { "$_" }) -join "`n"
+            return Invoke-SuiteScript -ScriptPath $scriptPath -Parameters @{
+                PlanPath = $PlanPath
+                RepoRoot = $repoRoot
+                Stage = $Stage
             }
         }.GetNewClosure()
     }

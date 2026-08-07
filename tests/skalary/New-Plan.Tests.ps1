@@ -92,4 +92,37 @@ Describe 'New-Plan scaffolding' {
             Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'test:new-plan-scaffold stamps the scaffolded stage through the single anchor writer' {
+        $repo = New-TempRepo
+        try {
+            $created = & $scriptPath -Title 'Stamped' -Slug 'stamped' -Date '2026-07-06' -RepoRoot $repo
+            $created.Stage | Should -Be 'scaffolded'
+
+            $content = Get-Content -LiteralPath $created.PlanFile -Raw
+            $content | Should -Match '(?m)^<!-- cip-stage: scaffolded -->$'
+            ([regex]::Matches($content, 'cip-stage:')).Count | Should -Be 1
+
+            # The stamp has to resolve as the lowest lifecycle stage, or a fresh scaffold would be
+            # validated as though it had been authored.
+            Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
+            try {
+                $markers = Get-PlanHeaderMarkers -Path $created.PlanFile
+                Test-PlanStageAtLeast -Stage $markers.CipStage -Minimum 'drafted' | Should -BeFalse
+            }
+            finally {
+                Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:new-plan-scaffold does not become a second writer of the stage anchor' {
+        # Two writers of one anchor is how the grammar drifts; the scaffold path must delegate.
+        $source = Get-Content -LiteralPath $scriptPath -Raw
+        $source | Should -Not -Match '<!--\s*cip-stage'
+        $source | Should -Match 'Set-PlanStage\.ps1'
+    }
 }

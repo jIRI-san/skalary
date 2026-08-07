@@ -215,6 +215,16 @@ New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 $content = ($lines -join "`n")
 Set-Content -LiteralPath $planFile -Value $content -Encoding utf8NoBOM
 
+# A scaffold is stamped rather than left anchorless: a missing anchor means `drafted`, so an unstamped
+# scaffold would be validated as if it were authored. The stamp goes through Set-PlanStage — the single
+# writer of the anchor — so the scaffold value is checked against the closed stage set by the same code
+# that checks every later transition, instead of this script becoming a second, unchecked writer.
+$setPlanStagePath = Join-Path $PSScriptRoot 'Set-PlanStage.ps1'
+if (-not (Test-Path -LiteralPath $setPlanStagePath -PathType Leaf)) {
+    throw "Set-PlanStage.ps1 not found beside New-Plan.ps1: $setPlanStagePath"
+}
+$stamped = & $setPlanStagePath -PlanFile $planFile -Stage 'scaffolded'
+
 $assetsDir = Resolve-ConfinedFolder -Root $targetDir -FolderName 'assets'
 New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
 $assetFiles = [System.Collections.Generic.List[string]]::new()
@@ -237,6 +247,7 @@ $result = [pscustomobject]@{
     FolderName = $folderName
     Path = $targetDir
     PlanFile = $planFile
+    Stage = $stamped.Stage
     AssetsDir = $assetsDir
     AssetFiles = $assetFiles.ToArray()
 }

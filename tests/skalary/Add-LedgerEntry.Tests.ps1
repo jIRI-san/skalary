@@ -9,6 +9,12 @@ Describe 'Add-LedgerEntry script' {
         $scriptPath = Join-Path $repoRoot 'scripts/skalary/Add-LedgerEntry.ps1'
         $tempRoots = [System.Collections.Generic.List[string]]::new()
 
+        # Every case below invoked the script through a child pwsh, so the file paid ~30
+        # process startups to assert on exit codes and file contents. A fresh runspace is
+        # the isolation those assertions actually need; ConcurrentAppend keeps real
+        # processes, because contended appends are what it exists to exercise.
+        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteScriptHost.psm1') -Force -DisableNameChecking
+
         function New-TestRepoRoot {
             [CmdletBinding()]
             param()
@@ -37,26 +43,19 @@ Describe 'Add-LedgerEntry script' {
                 [string[]]$Tags = @()
             )
 
-            $argList = @(
-                '-NoProfile',
-                '-File', $scriptPath,
-                '-RepoRoot', $Root,
-                '-Category', $Category,
-                '-Plan', $Plan,
-                '-Src', $Src,
-                '-Severity', $Severity,
-                '-Entry', $Entry
-            )
+            $parameters = @{
+                RepoRoot = $Root
+                Category = $Category
+                Plan = $Plan
+                Src = $Src
+                Severity = $Severity
+                Entry = $Entry
+            }
             if (@($Tags).Count -gt 0) {
-                $argList += '-Tags'
-                $argList += $Tags
+                $parameters['Tags'] = $Tags
             }
 
-            $output = @(& pwsh @argList 2>&1)
-            return [pscustomobject]@{
-                ExitCode = $LASTEXITCODE
-                Output = ($output | ForEach-Object { "$_" }) -join "`n"
-            }
+            return Invoke-SuiteScript -ScriptPath $scriptPath -Parameters $parameters
         }
 
         function Get-LedgerLines {

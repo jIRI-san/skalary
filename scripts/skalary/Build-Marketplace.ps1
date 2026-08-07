@@ -13,6 +13,10 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_Common.ps1')
 
+# REQ-7/D8: marketplace.json is compared byte for byte by the drift gate below, so its
+# ordering is fixed by this comparer rather than by the building host's culture.
+$script:CatalogComparer = [System.StringComparer]::Ordinal
+
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 $marketplacePath = Join-Path $repoRootPath '.github/plugin/marketplace.json'
@@ -21,8 +25,12 @@ if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
     throw "Plugins directory not found: $pluginsRoot"
 }
 
-$manifestPaths = Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json' |
-    Sort-Object FullName
+$manifestPaths = @(
+    Sort-Ordinal `
+        -InputObject @(Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json') `
+        -Property 'FullName' `
+        -Comparer $script:CatalogComparer
+)
 if ($manifestPaths.Count -eq 0) {
     throw "No plugin manifests found under '$pluginsRoot'."
 }
@@ -41,11 +49,11 @@ foreach ($manifestPath in $manifestPaths) {
             description = [string]$manifest.description
             version = [string]$manifest.version
             license = [string]$manifest.license
-            tags = @($manifest.tags | Sort-Object)
+            tags = @(Sort-Ordinal -InputObject @($manifest.tags) -Comparer $script:CatalogComparer)
             strict = $false
         })
 }
-$pluginEntries = @($pluginEntries | Sort-Object name)
+$pluginEntries = @(Sort-Ordinal -InputObject $pluginEntries -Property 'name' -Comparer $script:CatalogComparer)
 
 $marketplace = [pscustomobject]@{
     name = $MarketplaceName
@@ -64,7 +72,7 @@ if ($WhatIfPreference) {
     $existing = Read-JsonFile -Path $marketplacePath
     $existingComparable = ConvertTo-SortedObject -InputObject $existing | ConvertTo-Json -Depth 100 -Compress
     $expectedComparable = ConvertTo-SortedObject -InputObject $marketplace | ConvertTo-Json -Depth 100 -Compress
-    if ($existingComparable -ne $expectedComparable) {
+    if (-not [string]::Equals($existingComparable, $expectedComparable, [System.StringComparison]::Ordinal)) {
         throw 'Marketplace drift: .github/plugin/marketplace.json differs from plugins/ sources. Run scripts/skalary/Build-Marketplace.ps1.'
     }
     Write-Host 'Marketplace up to date (no drift).'

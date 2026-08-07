@@ -22,7 +22,7 @@ context: fork
 - Every requirement needs machine-checkable evidence markers in acceptance criteria.
 - Keep plans phase-budget aware and size-bounded.
 - Run `Test-Plan.ps1` after drafting and after each DR round.
-- Maintain the `<!-- cip-stage: ... -->` anchor via `Set-PlanStage.ps1` (never hand-edit it).
+- Maintain the `<!-- cip-stage: ... -->` anchor via `Set-PlanStage.ps1` (never hand-edit it). The stage vocabulary is closed and ordered — `scaffolded` (stamped by `New-Plan.ps1`), `drafted`, `dr-round-<n>`, `done` — and any other value is rejected at write time.
 
 ## Preservation checklist (legacy Step-4 rules -> assets)
 

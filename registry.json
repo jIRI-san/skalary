@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-02T08:32:40.6495174Z",
+  "generatedAt": "2026-08-07T19:06:51.6253169Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -23,6 +23,11 @@
           "dest": "prompts/uan.prompt.md",
           "sha256": "f1d5a1dbd8136df4991620cbb5de1f22eec068bf58314eaffaae09b667c10389",
           "src": "prompts/uan.prompt.md"
+        },
+        {
+          "dest": "skills/architecture-notes/SKILL.md",
+          "sha256": "f58297c04a191263752829c59f2f09d2592763153f88f0392ca6c09591ffc1e1",
+          "src": "skills/architecture-notes/SKILL.md"
         },
         {
           "dest": "skills/architecture-notes/assets/adr-template.md",
@@ -93,11 +98,6 @@
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
           "sha256": "12422975f6020935f774f9564aa8ef5c4e7b2961bb16c22d39ef2303d5872dbe",
           "src": "scripts/Test-ArchContract.ps1"
-        },
-        {
-          "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "f58297c04a191263752829c59f2f09d2592763153f88f0392ca6c09591ffc1e1",
-          "src": "skills/architecture-notes/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -152,6 +152,11 @@
       },
       "files": [
         {
+          "dest": "skills/architecture-tests/SKILL.md",
+          "sha256": "76b617bae5d61e60df566dc77c7e11d187d9cf7e824908685f6274f804e9df34",
+          "src": "skills/architecture-tests/SKILL.md"
+        },
+        {
           "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
           "sha256": "ea948ec9ad4d006749aba6ec244a41ed79b8bf5a2a7c50b8764bbc54148367f1",
           "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
@@ -160,16 +165,6 @@
           "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
           "sha256": "87e7338ea8b803e130607e0746c953d40617a5bb5196e78f70e93ee69f25d0de",
           "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
-        },
-        {
-          "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
-          "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5",
-          "src": "scripts/adapters/NetArchTest.Adapter.ps1"
-        },
-        {
-          "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
-          "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e",
-          "src": "scripts/adapters/TsArch.Adapter.ps1"
         },
         {
           "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
@@ -202,6 +197,16 @@
           "src": "skills/architecture-tests/scripts/PlanEvidence.psm1"
         },
         {
+          "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
+          "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5",
+          "src": "scripts/adapters/NetArchTest.Adapter.ps1"
+        },
+        {
+          "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
+          "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e",
+          "src": "scripts/adapters/TsArch.Adapter.ps1"
+        },
+        {
           "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
           "sha256": "28e747b9bce41ed79bec15be20f0e1960e2c9233b67e15fc55ed05f6ec911327",
           "src": "scripts/providers/Custom.Provider.ps1"
@@ -215,11 +220,6 @@
           "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
           "sha256": "a1eb60dddbe662c5a089b4adb74afbafc49327ce88a30b8342c1005e04120b4b",
           "src": "scripts/providers/SemanticEvalProvider.ps1"
-        },
-        {
-          "dest": "skills/architecture-tests/SKILL.md",
-          "sha256": "76b617bae5d61e60df566dc77c7e11d187d9cf7e824908685f6274f804e9df34",
-          "src": "skills/architecture-tests/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -278,14 +278,19 @@
           "src": ".autopilot.json.example"
         },
         {
-          "dest": "skills/autopilot/devcontainer/devcontainer.json",
-          "sha256": "213e3fa92cc65a33d62e4853df795e83085d7fea398fbcd8772186a1d9be94ce",
-          "src": "devcontainer/devcontainer.json"
+          "dest": "skills/autopilot/SKILL.md",
+          "sha256": "b18008db7f554c93ff96aecc1d3bd141f787447acb0a25208b2836ff381b6732",
+          "src": "skills/autopilot/SKILL.md"
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
           "sha256": "2acb5fb9a9cdeeb4ef16c7d90b63cd72e32bde811d4be001f4302d9ea0490971",
           "src": "devcontainer/Dockerfile"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/devcontainer.json",
+          "sha256": "213e3fa92cc65a33d62e4853df795e83085d7fea398fbcd8772186a1d9be94ce",
+          "src": "devcontainer/devcontainer.json"
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
@@ -356,11 +361,6 @@
           "dest": "skills/autopilot/scripts/validate-auth.ps1",
           "sha256": "6c4f4744600cdfb8bacad1e4fe52b5965a3e3837d540d0451253e74a3042d874",
           "src": "scripts/validate-auth.ps1"
-        },
-        {
-          "dest": "skills/autopilot/SKILL.md",
-          "sha256": "b18008db7f554c93ff96aecc1d3bd141f787447acb0a25208b2836ff381b6732",
-          "src": "skills/autopilot/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -433,6 +433,11 @@
           "src": "prompts/cr.prompt.md"
         },
         {
+          "dest": "skills/cr/SKILL.md",
+          "sha256": "dedc919ea0feb52c289b72a0b1dcf4ca74687efc61b45fede5df40076062de00",
+          "src": "skills/cr/SKILL.md"
+        },
+        {
           "dest": "skills/cr/assets/collation-guide.md",
           "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
           "src": "skills/cr/assets/collation-guide.md"
@@ -456,11 +461,6 @@
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
           "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
-        },
-        {
-          "dest": "skills/cr/SKILL.md",
-          "sha256": "dedc919ea0feb52c289b72a0b1dcf4ca74687efc61b45fede5df40076062de00",
-          "src": "skills/cr/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -484,6 +484,11 @@
         "status": "none"
       },
       "files": [
+        {
+          "dest": "skills/ci/SKILL.md",
+          "sha256": "6e1984605688debe136d94bf0643fd21b79e0e680da1677799ae0c8da6261306",
+          "src": "skills/ci/SKILL.md"
+        },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
           "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
@@ -526,7 +531,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -548,11 +553,6 @@
           "dest": "skills/ci/scripts/Test-Plan.ps1",
           "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/ci/scripts/Test-Plan.ps1"
-        },
-        {
-          "dest": "skills/ci/SKILL.md",
-          "sha256": "6e1984605688debe136d94bf0643fd21b79e0e680da1677799ae0c8da6261306",
-          "src": "skills/ci/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -603,7 +603,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.24"
+      "version": "1.0.28"
     },
     {
       "author": "jIRI-san",
@@ -615,6 +615,11 @@
         "status": "none"
       },
       "files": [
+        {
+          "dest": "skills/cep/SKILL.md",
+          "sha256": "55ad12759a39d671df109405b0e61b40fbfeaa88c2bae90b18e2bcbc93df21f1",
+          "src": "skills/cep/SKILL.md"
+        },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
           "sha256": "ca80f950df74b71b5de860ec520a7ff36f1905cd9a0bf4793280d65e48a6e3e9",
@@ -642,7 +647,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "7ad2d7ea956ab5951613bfaf38320a9b75e2ea6cbb341ac15bd69fe56e975d18",
+          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -652,8 +657,13 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Set-PlanStage.ps1",
+          "sha256": "f1deb272254d71f9a2daae29351a3d4d6e01aa355704d12d99ab1a1d2b298302",
+          "src": "skills/cep/scripts/Set-PlanStage.ps1"
         },
         {
           "dest": "skills/cep/scripts/Test-Plan.ps1",
@@ -661,9 +671,9 @@
           "src": "skills/cep/scripts/Test-Plan.ps1"
         },
         {
-          "dest": "skills/cep/SKILL.md",
-          "sha256": "55ad12759a39d671df109405b0e61b40fbfeaa88c2bae90b18e2bcbc93df21f1",
-          "src": "skills/cep/SKILL.md"
+          "dest": "skills/cip/SKILL.md",
+          "sha256": "1dbc561c2ec24ca455242174ac768cb9d5d2921c5c54f8c39db72accb8fad499",
+          "src": "skills/cip/SKILL.md"
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
@@ -707,7 +717,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "7ad2d7ea956ab5951613bfaf38320a9b75e2ea6cbb341ac15bd69fe56e975d18",
+          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -717,7 +727,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -727,18 +737,13 @@
         },
         {
           "dest": "skills/cip/scripts/Set-PlanStage.ps1",
-          "sha256": "c989201dad4b9731f645e80194298354e76ef513e8666c66646a034a25417dce",
+          "sha256": "f1deb272254d71f9a2daae29351a3d4d6e01aa355704d12d99ab1a1d2b298302",
           "src": "skills/cip/scripts/Set-PlanStage.ps1"
         },
         {
           "dest": "skills/cip/scripts/Test-Plan.ps1",
           "sha256": "6c13f2432749adc756c3232473c01ad5a9d54bdd6e3a2463de50ff97466c55a5",
           "src": "skills/cip/scripts/Test-Plan.ps1"
-        },
-        {
-          "dest": "skills/cip/SKILL.md",
-          "sha256": "543772bc514c068598e897dbabc49e21f0bc6b02611e311741281a5da613b2f7",
-          "src": "skills/cip/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -764,7 +769,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.22"
+      "version": "1.0.27"
     },
     {
       "author": "jIRI-san",
@@ -790,6 +795,11 @@
           "src": "prompts/udn.prompt.md"
         },
         {
+          "dest": "skills/design-notes/SKILL.md",
+          "sha256": "a98d36f9ec39490c0c686aea7235e93475770e2d3e3583ab86a87d7f779a7d3c",
+          "src": "skills/design-notes/SKILL.md"
+        },
+        {
           "dest": "skills/design-notes/assets/templates/design-note-writing-style.template.md",
           "sha256": "b48f49bfd89cdbdac90e0b90c5a0ac47b11662ed26c2dc3376cdda97c692f913",
           "src": "skills/design-notes/assets/templates/design-note-writing-style.template.md"
@@ -798,11 +808,6 @@
           "dest": "skills/design-notes/assets/templates/design-notes-index.template.md",
           "sha256": "40070a4a0651ea12b517309c443c3000cc0b2fe2de1e692f925e3bc44ee15a92",
           "src": "skills/design-notes/assets/templates/design-notes-index.template.md"
-        },
-        {
-          "dest": "skills/design-notes/SKILL.md",
-          "sha256": "a98d36f9ec39490c0c686aea7235e93475770e2d3e3583ab86a87d7f779a7d3c",
-          "src": "skills/design-notes/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -890,6 +895,11 @@
           "src": "prompts/dr.prompt.md"
         },
         {
+          "dest": "skills/dr/SKILL.md",
+          "sha256": "bf4af88126bed2156a45db07b0296c5b46cd9cc2ef1618a3dcdcff82b9d9e362",
+          "src": "skills/dr/SKILL.md"
+        },
+        {
           "dest": "skills/dr/assets/collation-guide.md",
           "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
           "src": "skills/dr/assets/collation-guide.md"
@@ -913,11 +923,6 @@
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
           "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
-        },
-        {
-          "dest": "skills/dr/SKILL.md",
-          "sha256": "bf4af88126bed2156a45db07b0296c5b46cd9cc2ef1618a3dcdcff82b9d9e362",
-          "src": "skills/dr/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -939,9 +944,9 @@
       },
       "files": [
         {
-          "dest": "skills/install-plugin/scripts/_Common.ps1",
-          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
-          "src": "skills/install-plugin/scripts/_Common.ps1"
+          "dest": "skills/install-plugin/SKILL.md",
+          "sha256": "cec4d665494caf72a1064130c170a24776cf98930f3d2397c14a25b3ac1d223e",
+          "src": "skills/install-plugin/SKILL.md"
         },
         {
           "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
@@ -954,14 +959,14 @@
           "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
-          "dest": "skills/install-plugin/SKILL.md",
-          "sha256": "cec4d665494caf72a1064130c170a24776cf98930f3d2397c14a25b3ac1d223e",
-          "src": "skills/install-plugin/SKILL.md"
+          "dest": "skills/install-plugin/scripts/_Common.ps1",
+          "sha256": "b910209a9305f407be183050dd2a6a0393df60cc12e96dde94d6242e94671a43",
+          "src": "skills/install-plugin/scripts/_Common.ps1"
         },
         {
-          "dest": "skills/list-plugins/scripts/_Common.ps1",
-          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
-          "src": "skills/list-plugins/scripts/_Common.ps1"
+          "dest": "skills/list-plugins/SKILL.md",
+          "sha256": "bf5a1e82a88b0cf1a90c8e49db16178bd903ec290082b72bef12dffcf5169ca9",
+          "src": "skills/list-plugins/SKILL.md"
         },
         {
           "dest": "skills/list-plugins/scripts/Find-Plugin.ps1",
@@ -974,14 +979,14 @@
           "src": "skills/list-plugins/scripts/Get-Plugin.ps1"
         },
         {
-          "dest": "skills/list-plugins/SKILL.md",
-          "sha256": "bf5a1e82a88b0cf1a90c8e49db16178bd903ec290082b72bef12dffcf5169ca9",
-          "src": "skills/list-plugins/SKILL.md"
+          "dest": "skills/list-plugins/scripts/_Common.ps1",
+          "sha256": "b910209a9305f407be183050dd2a6a0393df60cc12e96dde94d6242e94671a43",
+          "src": "skills/list-plugins/scripts/_Common.ps1"
         },
         {
-          "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
-          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
-          "src": "skills/uninstall-plugin/scripts/_Common.ps1"
+          "dest": "skills/uninstall-plugin/SKILL.md",
+          "sha256": "4f93051e88432b164d8b993f46a00c7827ed9c8e167526bfa9b1cc1d6d1ea0d7",
+          "src": "skills/uninstall-plugin/SKILL.md"
         },
         {
           "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
@@ -994,14 +999,14 @@
           "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
-          "dest": "skills/uninstall-plugin/SKILL.md",
-          "sha256": "4f93051e88432b164d8b993f46a00c7827ed9c8e167526bfa9b1cc1d6d1ea0d7",
-          "src": "skills/uninstall-plugin/SKILL.md"
+          "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
+          "sha256": "b910209a9305f407be183050dd2a6a0393df60cc12e96dde94d6242e94671a43",
+          "src": "skills/uninstall-plugin/scripts/_Common.ps1"
         },
         {
-          "dest": "skills/update-plugin/scripts/_Common.ps1",
-          "sha256": "59acae3650601254420dc4286f811d1e156505c835dd1bb2963a7d30007e4c27",
-          "src": "skills/update-plugin/scripts/_Common.ps1"
+          "dest": "skills/update-plugin/SKILL.md",
+          "sha256": "c2c16193d89df72644b3a8a45ea077125c5424ae4cab1a7a48c975475c04ebd8",
+          "src": "skills/update-plugin/SKILL.md"
         },
         {
           "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
@@ -1009,9 +1014,9 @@
           "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
         },
         {
-          "dest": "skills/update-plugin/SKILL.md",
-          "sha256": "c2c16193d89df72644b3a8a45ea077125c5424ae4cab1a7a48c975475c04ebd8",
-          "src": "skills/update-plugin/SKILL.md"
+          "dest": "skills/update-plugin/scripts/_Common.ps1",
+          "sha256": "b910209a9305f407be183050dd2a6a0393df60cc12e96dde94d6242e94671a43",
+          "src": "skills/update-plugin/scripts/_Common.ps1"
         }
       ],
       "license": "MIT",
@@ -1022,7 +1027,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",
@@ -1033,14 +1038,14 @@
       },
       "files": [
         {
-          "dest": "skills/process-pr-comments/scripts/GitHubPr.psm1",
-          "sha256": "e26047ffc1a010dd3ef691373017cfa432896f16a66396739990799db19e9f1a",
-          "src": "skills/process-pr-comments/scripts/GitHubPr.psm1"
-        },
-        {
           "dest": "skills/process-pr-comments/SKILL.md",
           "sha256": "a7602814fda705d3f918d01fe48326a738f7562497a453b0f310da61d01c5ee2",
           "src": "skills/process-pr-comments/SKILL.md"
+        },
+        {
+          "dest": "skills/process-pr-comments/scripts/GitHubPr.psm1",
+          "sha256": "e26047ffc1a010dd3ef691373017cfa432896f16a66396739990799db19e9f1a",
+          "src": "skills/process-pr-comments/scripts/GitHubPr.psm1"
         }
       ],
       "license": "MIT",
@@ -1075,6 +1080,11 @@
           "src": "prompts/si.prompt.md"
         },
         {
+          "dest": "skills/pfb/SKILL.md",
+          "sha256": "6e8febf47c11cd1d3485ac78b383a944214d39f6bdf9319908c35d28fccf2513",
+          "src": "skills/pfb/SKILL.md"
+        },
+        {
           "dest": "skills/pfb/assets/feedback-guide.md",
           "sha256": "4e2cd47b428f6bf979845c674c08637491bfde4047426fdce525225f416848b9",
           "src": "skills/pfb/assets/feedback-guide.md"
@@ -1086,7 +1096,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1095,9 +1105,9 @@
           "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
         },
         {
-          "dest": "skills/pfb/SKILL.md",
-          "sha256": "6e8febf47c11cd1d3485ac78b383a944214d39f6bdf9319908c35d28fccf2513",
-          "src": "skills/pfb/SKILL.md"
+          "dest": "skills/si/SKILL.md",
+          "sha256": "9dab1115ca6f920df5eb8a0f5a8955d750ae36c56292beb618f4c1845207c2d9",
+          "src": "skills/si/SKILL.md"
         },
         {
           "dest": "skills/si/assets/harvest-guide.md",
@@ -1111,18 +1121,13 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "6fdca53ecfb97478249c9877af9e1597d0ad78f686ce421b0487266458124fb5",
+          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
           "sha256": "a656313e9034482d7ead0688b541e25c9d9b92ca0914982cd22f12968ebf6625",
           "src": "skills/si/scripts/Test-SiWriteScope.ps1"
-        },
-        {
-          "dest": "skills/si/SKILL.md",
-          "sha256": "9dab1115ca6f920df5eb8a0f5a8955d750ae36c56292beb618f4c1845207c2d9",
-          "src": "skills/si/SKILL.md"
         }
       ],
       "license": "MIT",
@@ -1142,7 +1147,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.17"
+      "version": "1.0.21"
     }
   ]
 }

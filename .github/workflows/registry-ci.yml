@@ -1,51 +1,167 @@
 name: registry-ci
 
+# RISK-8: the trigger stays `pull_request`, never `pull_request_target`. `pull_request_target`
+# runs PR-authored code against the base repository's secrets with a writable token, which is
+# exactly the exposure this workflow must not open while it starts running the whole suite.
 on:
   pull_request:
   push:
     branches:
       - main
 
+# Least privilege at the top level so no job can widen it: every gate here reads the tree and
+# writes nothing back.
+permissions:
+  contents: read
+
+# A superseded run proves nothing about the head commit, and two runs of a suite this size on
+# two platforms is the cost that makes people stop waiting for it (RISK-4).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   registry:
     name: registry checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Per leg, and above that platform's hard ceiling in tools/suite-budget.psd1 (D9): a job
+    # killed by the timeout before the budget check speaks reports a cancelled run rather than
+    # an over-budget one, which is the diagnosis the ceiling exists to produce.
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - os: ubuntu-latest
+            timeoutMinutes: 20
+          - os: windows-latest
+            timeoutMinutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # RISK-8: without this the token stays in .git/config for every later step, so any
+          # gate that runs repository code runs it next to a usable credential.
+          persist-credentials: false
 
-      - name: Install PowerShell modules
+      # RISK-8/D10: a version pin over a channel that skips signature checks is not a control,
+      # so `-SkipPublisherCheck` and the globally trusted PSGallery are removed rather than
+      # supplemented. Trust is granted per invocation to the one repository being read, and the
+      # version is an exact NuGet range — a bare `5.9.0` is a minimum, which is not a pin.
+      #
+      # Removing `-SkipPublisherCheck` only means something if something still checks: PSResourceGet
+      # validates nothing unless asked, so `-AuthenticodeCheck` is passed where the platform can
+      # honour it. Authenticode is a Windows facility, so the Linux leg gets the version pin and the
+      # per-invocation trust but no signature verification — stated here rather than implied by a
+      # flag that silently does nothing on that platform.
+      - name: Install pinned PowerShell modules
         shell: pwsh
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          }
-          if (-not (Get-Module -ListAvailable -Name Pester)) {
-            Install-Module -Name Pester -Scope CurrentUser -Force -SkipPublisherCheck
+          $modules = @(
+            @{ Name = 'Pester'; Version = '5.9.0' }
+            @{ Name = 'PSScriptAnalyzer'; Version = '1.25.0' }
+          )
+          foreach ($module in $modules) {
+            $present = Get-Module -ListAvailable -Name $module.Name |
+              Where-Object { $_.Version -eq [version]$module.Version }
+            if ($present) {
+              Write-Host "$($module.Name) $($module.Version) already present."
+              continue
+            }
+            Install-PSResource -Name $module.Name -Version "[$($module.Version)]" -Repository PSGallery -Scope CurrentUser -TrustRepository -AuthenticodeCheck:$IsWindows -ErrorAction Stop
           }
 
+      # The step has to be able to fail. `Invoke-ScriptAnalyzer` writes findings to the
+      # pipeline and sets no exit code, so before this it ran on every PR and could never go
+      # red — plan 001 DR1-#17 decided zero-warning would be enforced here, and that decision
+      # was inert. Errors fail the build. Warnings are counted and printed but not enforced:
+      # scripts/skalary carries 472 of them, and triaging or baselining that set is its own
+      # plan, not a silent change of what this gate means.
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
-          Import-Module PSScriptAnalyzer
-          Invoke-ScriptAnalyzer -Path scripts/skalary -Settings PSScriptAnalyzerSettings.psd1 -Recurse
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
+          $findings = @(Invoke-ScriptAnalyzer -Path scripts/skalary -Settings PSScriptAnalyzerSettings.psd1 -Recurse)
+          $analyzerErrors = @($findings | Where-Object { $_.Severity -eq 'Error' })
+          $analyzerWarnings = @($findings | Where-Object { $_.Severity -eq 'Warning' })
+          Write-Host "PSScriptAnalyzer: $($analyzerErrors.Count) error(s), $($analyzerWarnings.Count) warning(s)."
+          if ($analyzerErrors.Count -gt 0) {
+            $analyzerErrors |
+              Format-Table -AutoSize RuleName, ScriptName, Line, Message |
+              Out-String -Width 400 |
+              Write-Host
+            throw "PSScriptAnalyzer found $($analyzerErrors.Count) error-severity finding(s)."
+          }
 
-      - name: Pester
+      # RISK-10: every gate below is its own named step. Chained into one script, the first
+      # failure masks every gate behind it, and a gate that never ran is indistinguishable
+      # from one that ran and passed.
+      #
+      # The three steps between the clock and the unit tests are exactly the legs `npm test`
+      # runs, in the order it runs them. The budget (REQ-2/D2) is stated against the whole
+      # command rather than the Pester leg, and the clock file is the only thing that spans
+      # separate steps — a step boundary is a process boundary, so nothing else survives it.
+      - name: Start suite budget clock
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -StartBudgetClock
+
+      - name: Validate plans
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Validate-Plan.ps1
+
+      - name: Repository validation
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/validate.ps1
+
+      # REQ-9/D2: the runner is invoked rather than Invoke-Pester, because the runtime budget
+      # and the cannot-test failures live in this script and nowhere else. Calling Pester
+      # directly here would be a second, unbudgeted way to run the suite.
+      #
+      # The NUnit path carries the platform because both legs write into the same artifact
+      # namespace: two legs uploading one name is a hard failure, and a report that cannot be
+      # attributed to a platform is not a diagnosis on a suite that measures ~2x apart.
+      - name: Unit tests and runtime budget
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestResultPath artifacts/test-results/nunit-${{ matrix.os }}.xml
+
+      # `if: always()` because the run worth reading is the failed one. Without it the report is
+      # uploaded exactly when nobody needs it.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nunit-${{ matrix.os }}
+          path: artifacts/test-results/nunit-${{ matrix.os }}.xml
+          if-no-files-found: warn
+
+      - name: Test result summary
+        if: always()
         shell: pwsh
         run: |
-          Import-Module Pester
-          $result = Invoke-Pester -Path tests/skalary/Skalary.Tests.ps1 -Output Detailed -PassThru
-          if ($result.FailedCount -gt 0) {
-            throw "Pester failed with $($result.FailedCount) failing test(s)."
+          $resultPath = 'artifacts/test-results/nunit-${{ matrix.os }}.xml'
+          # Every branch ends in a line. This step exists for the run that went wrong, and a
+          # report truncated by a killed run is exactly that run — so a parse failure is
+          # reported rather than thrown, or the diagnostic disappears when it is needed.
+          $line = if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+            try {
+              $results = ([xml](Get-Content -LiteralPath $resultPath -Raw)).'test-results'
+              $failed = [int]$results.failures + [int]$results.errors
+              $verdict = if ($failed -gt 0) { 'FAILED' } else { 'passed' }
+              # `time` on the root element is a wall-clock timestamp, not a duration; the duration
+              # lives on the top-level suite.
+              $seconds = @($results.'test-suite')[0].time
+              "**${{ matrix.os }}** — ${verdict}: $($results.total) test(s), $failed failed, $($results.'not-run') not run, ${seconds}s (artifact ``nunit-${{ matrix.os }}``)."
+            }
+            catch {
+              "**${{ matrix.os }}** — the NUnit report at ``$resultPath`` could not be read: $($_.Exception.Message). The run ended before the report was complete."
+            }
           }
+          else {
+            "**${{ matrix.os }}** — no NUnit report at ``$resultPath``: the unit-test step did not get far enough to write one."
+          }
+          Write-Host $line
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $line
 
       - name: Validate registry
         shell: pwsh

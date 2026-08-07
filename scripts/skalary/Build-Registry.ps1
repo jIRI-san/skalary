@@ -9,16 +9,24 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_Common.ps1')
 
+# REQ-7/D8: every list that reaches registry.json or the README catalog table is ordered
+# by this comparer rather than by the host's collation. `Sort-Object` would order the same
+# ids differently under cs-CZ and en-US — the digraph `ch` after `h`, accents apart from
+# their base letter — and the drift gate compares these files byte for byte.
+$script:CatalogComparer = [System.StringComparer]::Ordinal
+
 function Resolve-BootstrapRef {
     [CmdletBinding()]
     param()
 
     $tags = @(git tag --points-at HEAD)
     if ($LASTEXITCODE -eq 0 -and $tags.Count -gt 0) {
-        $tag = $tags |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Sort-Object -Descending |
+        $trimmedTags = @(
+            $tags |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+        $tag = @(Sort-Ordinal -InputObject $trimmedTags -Descending -Comparer $script:CatalogComparer) |
             Select-Object -First 1
         if (-not [string]::IsNullOrWhiteSpace($tag)) {
             return $tag
@@ -78,7 +86,7 @@ function New-RegistryPluginEntry {
     )
 
     $fileEntries = @()
-    foreach ($file in ($Manifest.files | Sort-Object @{ Expression = 'dest'; Ascending = $true }, @{ Expression = 'src'; Ascending = $true })) {
+    foreach ($file in (Sort-Ordinal -InputObject @($Manifest.files) -Property 'dest', 'src' -Comparer $script:CatalogComparer)) {
         $sourcePath = Join-Path $PluginRoot $file.src
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
             throw "Plugin '$($Manifest.name)' references missing file '$($file.src)'."
@@ -93,12 +101,12 @@ function New-RegistryPluginEntry {
 
     $entry = [ordered]@{
         author = [string]$Manifest.author
-        dependencies = @($Manifest.dependencies | Sort-Object)
+        dependencies = @(Sort-Ordinal -InputObject @($Manifest.dependencies) -Comparer $script:CatalogComparer)
         description = [string]$Manifest.description
         files = $fileEntries
         license = [string]$Manifest.license
         name = [string]$Manifest.name
-        tags = @($Manifest.tags | Sort-Object)
+        tags = @(Sort-Ordinal -InputObject @($Manifest.tags) -Comparer $script:CatalogComparer)
         version = [string]$Manifest.version
     }
 
@@ -124,7 +132,7 @@ function New-RegistryPluginEntry {
     # declaration that stops at plugin.json never reaches the repo that has to honour it.
     if ($Manifest.PSObject.Properties.Name -contains 'scaffolds' -and $null -ne $Manifest.scaffolds) {
         $scaffoldEntries = @()
-        foreach ($scaffold in ($Manifest.scaffolds | Sort-Object @{ Expression = 'path'; Ascending = $true })) {
+        foreach ($scaffold in (Sort-Ordinal -InputObject @($Manifest.scaffolds) -Property 'path' -Comparer $script:CatalogComparer)) {
             $scaffoldEntry = [ordered]@{
                 mode    = [string]$scaffold.mode
                 owner   = [string]$scaffold.owner
@@ -135,7 +143,7 @@ function New-RegistryPluginEntry {
                 $scaffoldEntry.confine = [string]$scaffold.confine
             }
             if ($scaffold.PSObject.Properties.Name -contains 'values' -and $null -ne $scaffold.values) {
-                $scaffoldEntry.values = @($scaffold.values | Sort-Object)
+                $scaffoldEntry.values = @(Sort-Ordinal -InputObject @($scaffold.values) -Comparer $script:CatalogComparer)
             }
             $scaffoldEntries += [pscustomobject]$scaffoldEntry
         }
@@ -167,7 +175,7 @@ function New-ReadmeCatalogTable {
         '|--------|---------|--------|--------------|-------|-------------|'
     )
 
-    foreach ($plugin in ($Registry.plugins | Sort-Object name)) {
+    foreach ($plugin in (Sort-Ordinal -InputObject @($Registry.plugins) -Property 'name' -Comparer $script:CatalogComparer)) {
         $deps = if ($plugin.dependencies.Count -gt 0) { ($plugin.dependencies -join ', ') } else { '—' }
         $status = if ([string]::IsNullOrWhiteSpace($plugin.status)) { 'stable' } else { $plugin.status }
         $fileCount = @($plugin.files).Count
@@ -220,7 +228,7 @@ function Update-ReadmeCatalog {
         $updated = $readmeContent.TrimEnd("`r", "`n") + $section + "`n"
     }
 
-    if ($updated -ne $readmeContent) {
+    if (-not [string]::Equals($updated, $readmeContent, [System.StringComparison]::Ordinal)) {
         # Set-Content appends its own terminator, so writing content that already ends in one grows
         # the file by a blank line on every catalog change.
         Set-Content -LiteralPath $ReadmePath -Value ($updated.TrimEnd("`r", "`n")) -Encoding utf8
@@ -236,8 +244,12 @@ if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
     throw "Plugins directory not found: $pluginsRoot"
 }
 
-$manifestPaths = Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json' |
-    Sort-Object FullName
+$manifestPaths = @(
+    Sort-Ordinal `
+        -InputObject @(Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json') `
+        -Property 'FullName' `
+        -Comparer $script:CatalogComparer
+)
 if ($manifestPaths.Count -eq 0) {
     throw "No plugin manifests found under '$pluginsRoot'."
 }
@@ -248,7 +260,7 @@ foreach ($manifestPath in $manifestPaths) {
     $pluginRoot = Split-Path -Parent $manifestPath.FullName
     $pluginEntries += New-RegistryPluginEntry -Manifest $manifest -PluginRoot $pluginRoot
 }
-$pluginEntries = @($pluginEntries | Sort-Object name)
+$pluginEntries = @(Sort-Ordinal -InputObject $pluginEntries -Property 'name' -Comparer $script:CatalogComparer)
 
 $existingRegistry = $null
 if (Test-Path -LiteralPath $registryPath -PathType Leaf) {
@@ -279,7 +291,10 @@ if ($null -ne $existingRegistry -and $existingRegistry.PSObject.Properties.Name 
         bootstrap = $existingRegistry.bootstrap
         plugins = $existingRegistry.plugins
     }
-    if ((Get-ComparableJson -InputObject $existingBody) -eq (Get-ComparableJson -InputObject $registryBody)) {
+    if ([string]::Equals(
+            (Get-ComparableJson -InputObject $existingBody),
+            (Get-ComparableJson -InputObject $registryBody),
+            [System.StringComparison]::Ordinal)) {
         # Preserve the prior timestamp, but normalize to canonical round-trip ISO.
         # ConvertFrom-Json may parse the ISO string into a [datetime] (platform/
         # version dependent); a bare [string] cast would then re-render it in the

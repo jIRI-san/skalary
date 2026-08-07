@@ -218,7 +218,7 @@ Absolute rules enforced:
 | Loop participation | Autopilot is a first-class verification participant: it runs `validate-plan`, executes typed evidence checks (`test:`/`file:`/`review:`), and writes `evidence.md` receipts during crosschecks. |
 | Phase budget | One invocation remains one phase/context window; phase-budget points (`S=1/M=2/L=3`, advisory cap 6) are guidance for phase sizing, not a hard launcher block. |
 | Rule 5 trust boundary | `.autopilot.json` `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. The committed `npm test` script is the blessed evidence-runner path. |
-| Composite test command | The composite gate lives in `package.json` (`validate-plan` + `test:unit` + `validate.ps1`). This avoids launcher allowlist rejection of shell-chained `.autopilot.json` commands. |
+| Composite test command | The composite gate lives in `package.json` (`validate-plan` + `validate.ps1` + `test:unit`, in that order). This avoids launcher allowlist rejection of shell-chained `.autopilot.json` commands. `test:unit` runs last because it is where the runtime budget is enforced, and a `pretest` hook starts the clock it measures the whole command with. |
 | Finalization ordering | Escalation ordering remains strict: commit -> push -> `gh pr create --draft` -> write uncommitted gitignored `.autopilot-finalize-needed` marker -> exit 42. |
 | Container dependency | `.devcontainer/autopilot/Dockerfile` pins `Install-Module Pester` so `test:unit` and `test:` evidence are runnable in container-autopilot. |
 | Canonical harvest host | Workflow-memory harvest is specified in `autopilot.agent.md` (canonical), not `ci` assets; `/ci` guidance is a marked mirror. |

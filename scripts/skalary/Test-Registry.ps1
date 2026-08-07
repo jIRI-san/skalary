@@ -9,6 +9,12 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_Common.ps1')
 
+# REQ-7/D8: this script re-derives the README catalog block and compares it against the
+# checked-in one, so it has to order plugins exactly the way Build-Registry.ps1 does. A
+# culture-sensitive sort here would reject a correctly generated README on a cs-CZ host —
+# the generator and the gate that verifies it must share one comparer.
+$script:CatalogComparer = [System.StringComparer]::Ordinal
+
 function New-ReadmeCatalogTable {
     [CmdletBinding()]
     param(
@@ -21,7 +27,7 @@ function New-ReadmeCatalogTable {
         '|--------|---------|--------|--------------|-------|-------------|'
     )
 
-    foreach ($plugin in ($Registry.plugins | Sort-Object name)) {
+    foreach ($plugin in (Sort-Ordinal -InputObject @($Registry.plugins) -Property 'name' -Comparer $script:CatalogComparer)) {
         $deps = if (@($plugin.dependencies).Count -gt 0) { ($plugin.dependencies -join ', ') } else { '—' }
         $status = if ([string]::IsNullOrWhiteSpace($plugin.status)) { 'stable' } else { $plugin.status }
         $fileCount = @($plugin.files).Count
@@ -120,7 +126,7 @@ function Test-DependencyCycles {
 
         $states[$Name] = 1
         $plugin = $PluginsByName[$Name]
-        foreach ($dependency in (@($plugin.dependencies) | Sort-Object)) {
+        foreach ($dependency in (Sort-Ordinal -InputObject @($plugin.dependencies) -Comparer $script:CatalogComparer)) {
             if ($PluginsByName.ContainsKey([string]$dependency)) {
                 Visit-Plugin -Name ([string]$dependency) -Stack ($Stack + $Name)
             }
@@ -128,7 +134,7 @@ function Test-DependencyCycles {
         $states[$Name] = 2
     }
 
-    foreach ($name in ($PluginsByName.Keys | Sort-Object)) {
+    foreach ($name in (Sort-Ordinal -InputObject @($PluginsByName.Keys) -Comparer $script:CatalogComparer)) {
         Visit-Plugin -Name $name -Stack @()
     }
 }
@@ -146,7 +152,7 @@ if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
 }
 
 $registry = Read-JsonFile -Path $registryPath
-$registryPlugins = @($registry.plugins | Sort-Object name)
+$registryPlugins = @(Sort-Ordinal -InputObject @($registry.plugins) -Property 'name' -Comparer $script:CatalogComparer)
 $registryByName = @{}
 foreach ($plugin in $registryPlugins) {
     $name = [string]$plugin.name
@@ -159,7 +165,12 @@ foreach ($plugin in $registryPlugins) {
 
 $manifestByName = @{}
 $manifestRootByName = @{}
-$manifestPaths = Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json' | Sort-Object FullName
+$manifestPaths = @(
+    Sort-Ordinal `
+        -InputObject @(Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter 'plugin.json') `
+        -Property 'FullName' `
+        -Comparer $script:CatalogComparer
+)
 foreach ($manifestPath in $manifestPaths) {
     $manifest = Read-JsonFile -Path $manifestPath.FullName
     $name = [string]$manifest.name
@@ -259,15 +270,21 @@ foreach ($plugin in $registryPlugins) {
         Add-RegistryError -Errors $errors -Message "Plugin '$name' status drift: registry '$status' vs manifest '$manifestStatus'."
     }
 
-    $registryTags = @($plugin.tags | Sort-Object)
-    $manifestTags = @($manifest.tags | Sort-Object)
-    if ((Get-ComparableJson -InputObject $registryTags) -ne (Get-ComparableJson -InputObject $manifestTags)) {
+    $registryTags = @(Sort-Ordinal -InputObject @($plugin.tags) -Comparer $script:CatalogComparer)
+    $manifestTags = @(Sort-Ordinal -InputObject @($manifest.tags) -Comparer $script:CatalogComparer)
+    if (-not [string]::Equals(
+            (Get-ComparableJson -InputObject $registryTags),
+            (Get-ComparableJson -InputObject $manifestTags),
+            [System.StringComparison]::Ordinal)) {
         Add-RegistryError -Errors $errors -Message "Plugin '$name' tags drift between registry and manifest."
     }
 
-    $registryDeps = @($plugin.dependencies | Sort-Object)
-    $manifestDeps = @($manifest.dependencies | Sort-Object)
-    if ((Get-ComparableJson -InputObject $registryDeps) -ne (Get-ComparableJson -InputObject $manifestDeps)) {
+    $registryDeps = @(Sort-Ordinal -InputObject @($plugin.dependencies) -Comparer $script:CatalogComparer)
+    $manifestDeps = @(Sort-Ordinal -InputObject @($manifest.dependencies) -Comparer $script:CatalogComparer)
+    if (-not [string]::Equals(
+            (Get-ComparableJson -InputObject $registryDeps),
+            (Get-ComparableJson -InputObject $manifestDeps),
+            [System.StringComparison]::Ordinal)) {
         Add-RegistryError -Errors $errors -Message "Plugin '$name' dependencies drift between registry and manifest."
     }
 

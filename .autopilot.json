@@ -1,0 +1,19 @@
+{
+  "$schema": "./.github/skills/autopilot/schemas/autopilot.schema.json",
+  "runtime": "container",
+  "copilotAuth": "pat",
+  "gitProvider": "github",
+  "gitAuth": "pat-shared",
+  "model": "gpt-5.6-sol",
+  "context": "long_context",
+  "reasoningEffort": "high",
+  "git": {
+    "name": "jIRI",
+    "email": "jiri@jiribrossmann.com"
+  },
+  "timeout": 240,
+  "planTimeout": 1440,
+  "maxIterationsPerStep": 10,
+  "build": "npm run build",
+  "test": "npm test"
+}

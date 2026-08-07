@@ -379,3 +379,91 @@ Describe 'PlanState Get-NextStep' {
     }
 }
 
+
+Describe 'PlanState plan stage order' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+    }
+
+    AfterAll {
+        Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:plan-stage-order ranks the lifecycle from scaffolded through done' {
+        $order = @(Get-PlanStageOrder)
+        ($order -join ',') | Should -Be 'scaffolded,drafted,dr-round,done'
+
+        # The property that matters is the ordering, not the literal ranks: every later stage must
+        # outrank every earlier one, which is what makes "below drafted" a decidable question.
+        for ($i = 1; $i -lt $order.Count; $i++) {
+            $lower = if ($order[$i - 1] -eq 'dr-round') { 'dr-round-1' } else { $order[$i - 1] }
+            $higher = if ($order[$i] -eq 'dr-round') { 'dr-round-1' } else { $order[$i] }
+            (Resolve-PlanStage -Stage $higher).Rank |
+                Should -BeGreaterThan (Resolve-PlanStage -Stage $lower).Rank
+        }
+    }
+
+    It 'test:plan-stage-order collapses every dr round onto one rank' {
+        $first = Resolve-PlanStage -Stage 'dr-round-1'
+        $ninth = Resolve-PlanStage -Stage 'dr-round-9'
+
+        $first.Family | Should -Be 'dr-round'
+        $ninth.Family | Should -Be 'dr-round'
+        $ninth.Rank | Should -Be $first.Rank
+        $ninth.Round | Should -Be 9
+        Test-PlanStageAtLeast -Stage 'dr-round-9' -Minimum 'drafted' | Should -BeTrue
+    }
+
+    It 'test:plan-stage-order treats a missing anchor as drafted rather than unknown' {
+        foreach ($absent in @($null, '', '   ')) {
+            $resolved = Resolve-PlanStage -Stage $absent
+            $resolved.Stage | Should -Be 'drafted'
+            $resolved.IsDefaulted | Should -BeTrue
+            Test-PlanStageAtLeast -Stage $absent -Minimum 'drafted' | Should -BeTrue
+        }
+
+        (Resolve-PlanStage -Stage 'drafted').IsDefaulted | Should -BeFalse
+    }
+
+    It 'test:plan-stage-order accepts every published stage as a floor' {
+        # The published order and the floor vocabulary have to be the same set, or a caller that builds
+        # thresholds from Get-PlanStageOrder fails with the loud "bad marker" error meant for plans.
+        foreach ($floor in @(Get-PlanStageOrder)) {
+            Test-PlanStageAtLeast -Stage 'done' -Minimum $floor | Should -BeTrue
+            Test-PlanStageAtLeast -Stage 'scaffolded' -Minimum $floor |
+                Should -Be ($floor -eq 'scaffolded')
+        }
+
+        Test-PlanStageAtLeast -Stage 'done' -Minimum 'dr-round-2' | Should -BeTrue
+        { Test-PlanStageAtLeast -Stage 'done' -Minimum 'draftd' } |
+            Should -Throw -ExpectedMessage '*Unknown stage floor*'
+    }
+
+    It 'test:plan-stage-order fails loudly on a value outside the closed set' {
+        foreach ($bad in @('draftd', 'dr-round', 'dr-round-0', 'dr-round-01', 'DONE-ish', 'in-review')) {
+            { Resolve-PlanStage -Stage $bad } |
+                Should -Throw -ExpectedMessage "*Unrecognised plan stage*" -Because "'$bad' must not resolve to a silent skip"
+        }
+    }
+
+    It 'test:plan-stage-order rejects an unknown stage at the single anchor writer' {
+        $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("planstageset-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        try {
+            $file = Join-Path $dir 'plan.md'
+            Set-Content -LiteralPath $file -Value "# abc123: Plan`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
+            $setStage = Join-Path $repoRoot 'scripts/skalary/Set-PlanStage.ps1'
+
+            { & $setStage -PlanFile $file -Stage 'draftd' } | Should -Throw -ExpectedMessage "*Unrecognised plan stage*"
+            (Get-Content -LiteralPath $file -Raw) | Should -Not -Match 'cip-stage'
+
+            & $setStage -PlanFile $file -Stage 'DR-Round-2' | Out-Null
+            (Get-Content -LiteralPath $file -Raw) | Should -Match '(?m)^<!-- cip-stage: dr-round-2 -->$'
+        }
+        finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

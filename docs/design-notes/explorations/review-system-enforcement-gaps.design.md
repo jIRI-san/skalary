@@ -1,5 +1,5 @@
 ---
-description: Deferred exploration — the review and plan machinery reports its own controls rather than enforcing them, and its evidence cannot distinguish a degraded run from a clean one. Sourced from the 44-finding step 10.7 gate review. Load before changing Build-ReviewReport, Build-EvidenceReceipt, the dispatch guides, or CI wiring.
+description: Deferred exploration — the review and plan machinery reports its own controls rather than enforcing them, and its evidence cannot distinguish a degraded run from a clean one. Sourced from the 44-finding step 10.7 gate review. Clusters B (except the evidence skipped state), E and H were resolved by plan 768d7b and are retained as retired records; C is deferred to 34088e. Load before changing Build-ReviewReport, Build-EvidenceReceipt, the dispatch guides, or CI wiring — for the CI gates themselves, load docs/design-notes/project/ci-gates.design.md instead.
 globs:
   - scripts/skalary/Build-ReviewReport.ps1
   - scripts/skalary/Build-EvidenceReceipt.ps1
@@ -13,6 +13,21 @@ globs:
 Sourced from the `b0c0d3` step 10.7 operator gate: `cr branch`, 7 concerns × 2 models, 14 invocations, 44 findings. Full report preserved at `docs/implementation-plans/2026-07-31-b0c0d3-review-split-plan-assets-self-improvement/assets/reviews/gate-10.7-cr-branch.md`.
 
 Recorded because the findings are systemic rather than incidental: they describe one defect *shape* appearing in ten places.
+
+## Status after plan `768d7b`
+
+Clusters E and H are **resolved** and Cluster B is resolved except for one row; the rest are open. Retired material is not deleted — a cluster whose fix is described only by its own absence cannot be checked against what actually shipped.
+
+| Cluster | Status | Where it now lives |
+|---|---|---|
+| A — the report cannot describe its own run | open | `c21cdc` (attendance and report size) |
+| B — gates that pass without running | resolved except the evidence `skipped` state | `docs/design-notes/project/ci-gates.design.md`; the remaining row is `863d97`'s contract |
+| C — constants copied into prose | **deferred to `34088e`** | not resolved here and asserted by nothing; see below |
+| D — collation passes data as code | open | `c21cdc` |
+| E — generated output is locale-dependent | resolved | ordinal comparers in `Build-Registry.ps1`/`Build-Marketplace.ps1`, `test:BuildRegistry.CzechCollationFixtureIsStable` |
+| F, G — the `/si` loop has no durable state | open | — |
+| H — the gate costs 29 minutes | resolved | `tools/suite-budget.psd1`, `tools/suite-profile.json`, `tools/suite-runtime.json` |
+
 
 ## The shape
 
@@ -40,14 +55,21 @@ Common fix direction: give the formatter the *dispatched task set*, not just fin
 
 ## Cluster B — gates that pass without running
 
-| Gap | Consequence |
-|---|---|
-| Evidence grammar has no `skipped` state | Four of five symlink-confinement cases self-skip on Windows; the receipt records five passed |
-| `Run-UnitTests.ps1` exits 0 when Pester is absent | `npm test` reports success having executed zero assertions — and it is both the autopilot test command and the `test:unit` evidence executor |
-| `registry-ci.yml` runs one test file | ~20 new test files and both new gates never run on PR; reverting the UTF-8 fix produces a green PR |
-| `validate.ps1` enumerates without `-Force` | On Linux every dot-prefixed entry is hidden, so the bundled `.github/skills/**/scripts/` payloads are never parsed — the container validates a strictly smaller set than the host |
+**Resolved by plan `768d7b`, except the first row.** The gate inventory that replaced this cluster is `docs/design-notes/project/ci-gates.design.md`, checked against the workflow by `test:CiGates.InventoryMatchesWorkflow`.
+
+| Gap | Consequence | Status |
+|---|---|---|
+| Evidence grammar has no `skipped` state | Four of five symlink-confinement cases self-skip on Windows; the receipt records five passed | open — `863d97`'s contract, a declared non-goal of `768d7b` |
+| `Run-UnitTests.ps1` exits 0 when Pester is absent | `npm test` reports success having executed zero assertions — and it is both the autopilot test command and the `test:unit` evidence executor | resolved — exits 2/3/4 for absent Pester, zero discovered, and a file that never loaded (`test:RunUnitTests.MissingPesterExitsNonZero`) |
+| `registry-ci.yml` runs one test file | ~20 new test files and both new gates never run on PR; reverting the UTF-8 fix produces a green PR | resolved — every gate is its own named step on both platforms, and `test:Ci.SeededFailureIsRed` proves a seeded failure returns non-zero rather than a hand-run revert |
+| `validate.ps1` enumerates without `-Force` | On Linux every dot-prefixed entry is hidden, so the bundled `.github/skills/**/scripts/` payloads are never parsed — the container validates a strictly smaller set than the host | resolved — allowlisted payload roots, canonicalised, reparse points refused (`test:Validate.FileCountEqualAcrossPlatforms`) |
+| The PSScriptAnalyzer step runs but cannot go red | `Invoke-ScriptAnalyzer` sets no exit code, and `scripts/skalary` carries 472 findings (all `Warning`, 0 `Error`) under the committed settings. The step executes on every PR and can never fail. Plan `001` DR1-#17 decided zero-warning would be **enforced by the CI gate**; that decision was inert | resolved for `Error` — the step now separates severities and throws on any error finding (`test:Ci.LintStepCanFail`). The 472-warning tier stays an explicit, counted exclusion: enforcing it is a repo-wide formatting change and its own plan, so `001` DR1-#17 is narrowed rather than restored |
+| The stage anchor's writer and reader disagree about where it lives | `Get-PlanMetadata` reads the header only — it stops at the first `##` and takes the first hit per key. `Set-PlanStage.ps1` replaced the first `<!-- cip-stage: … -->` match **anywhere in the file**. A plan whose prose mentions the anchor (step descriptions and guides naturally do) got that prose rewritten while the header stayed anchorless, and `Validate-Plan` then ran every check at `Draft` rather than reporting a missing stage — so the corruption was silent. Hit twice while drafting `768d7b` | resolved — `Split-PlanHeader` now defines the header boundary once for both sides, and the writer searches only the header (`test:set-planstage anchors the header even when the body quotes an anchor`). `Set-PlanStage` also reads the value back through `Get-PlanHeaderMarkers` and throws if it did not land, so a future divergence in that pair is loud rather than a reported success |
+| The suite could rewrite the environment of the shell that ran it | Pester runs in-process, so `$env:X = …` in a test outlives the run. `EvalTools.Tests.ps1` left `HOME` pointing at `TestDrive` and `ResolveToken.Tests.ps1` blanked `GH_TOKEN` and `COPILOT_GITHUB_TOKEN` rather than restoring them. A green suite therefore sent `git` looking for `.gitconfig` and `.ssh` in a deleted temp directory, and left `gh` unauthenticated, for the rest of that shell's life — with nothing in the run reporting it | resolved — both files snapshot and restore what they touch, and `Run-UnitTests.ps1` now diffs the process environment across the run and exits 7 naming every variable that moved (`test:RunUnitTests.EnvironmentLeakFails`). The guard is what stops it recurring: the tests themselves stayed green throughout |
 
 ## Cluster C — constants copied into prose
+
+**Deferred to `34088e`, not resolved.** Plan `768d7b` decision D12 records the hand-off explicitly because the first attempt at it went missing: round 1 of that plan's design review moved this cluster to the sibling, and round 2 found the hand-off carried no `depends-on`, no risk row and no requirement on the receiving side — so it had been dropped rather than moved. `768d7b` asserts nothing about it (RISK-13); `34088e` must pick it up in its own `/cip` or it is lost a second time.
 
 The 28-invocation budget exists in six ungated places, inside a design note that says *"do not restate those numbers here — a second copy is a second thing to drift."* Plan-size thresholds and the phase-budget default have the same shape. The branch establishes the correct pattern twice (`DesignNotes.Tests.ps1` pins the size cap to the script default by regex; `Test-ModelAllowlist.ps1` validates guide rows against `tools/model-allowlist.psd1`) and then does not apply it here.
 
@@ -113,6 +135,8 @@ Recorded so a future reader does not over-correct: the concern split found a rea
 
 ## Cluster E — generated output is locale-dependent
 
+**Resolved by plan `768d7b`.** Every culture-sensitive comparison in `Build-Registry.ps1` and `Build-Marketplace.ps1` is an ordinal comparer, and the fixture that proves it genuinely diverges between `cs-CZ` and `en-US` was demonstrated red against the pre-fix code first (`test:BuildRegistry.FixtureIsRedBeforeFix`, `test:BuildRegistry.CzechCollationFixtureIsStable`). The operator's 2026-08-01 "regenerate under invariant culture to unblock the merge" is superseded: the latent defect below is fixed rather than worked around.
+
 Found by **CI**, 2026-08-01, on the `b0c0d3` merge attempt — the first time CI produced a meaningful verdict on this work.
 
 `Build-Registry.ps1` sorts `files[]` with bare `Sort-Object`, which is **culture-aware**. On a `cs-CZ` host, `ch` is a single collating letter sorting after `c`, so `skills/autopilot/s·ch·emas/…` sorts *after* `skills/autopilot/s·c·ripts/…`; on an invariant/en-US runner it sorts before.
@@ -166,6 +190,8 @@ So an autopilot run that generates excellent harvest material leaves no record t
 **Declined, recorded so they are not re-raised as new:** the fence-forgery scan has no self-reference exemption and produced two false positives on its first real run (cr-log [6.2], [8.1] — entries *describing* the fence); and the 44-finding step 10.7 gate wrote no cr-log entries at all, so its findings survive only as prose here and can never be counted toward recurrence.
 
 ## Cluster H — the gate costs 29 minutes, and one file is 82% of it
+
+**Resolved by plan `768d7b`.** The 1741.8s below became **108.998s** on `ubuntu-latest` and **223.142s** on `windows-latest`, both measured on the runners the gate is enforced on (`tools/suite-runtime.json`, commit `c99d5d1`), against a ceiling bound at 600s *before* any optimisation so later work could not redefine success. The direction the note proposed — a shared fixture, and a slow tier split out of `npm test` — was not the one taken: a shared fixture fits 1–2 of ~20 executions, and the tier split held in reserve for a 10× platform gap was never needed once per-case process startup and git construction went away (D13, D15). What the note got right is the framing: the 29-minute figure was a behaviour problem, and the fix is only real because the ceiling is enforced per platform by `Run-UnitTests.ps1` on every run.
 
 Measured from a full `npm test` capture on 2026-08-01: 1741.8s wall clock for 698 passing tests.
 

@@ -1,7 +1,13 @@
 # Testing Ledger
 
+- [2026-08-05] A determinism test comparing two copies of one cached artifact proves nothing about the build that produced it. Discard the cache between the two builds. (plan-768d7b, src:autopilot, sev:Med) #phase-3 #req-4
+- [2026-08-05] A test that pins a document must slice it by section before matching. A lazy cross-section regex is satisfied by the same sentence further down so the record it pins can be deleted while the test stays green. (plan-768d7b, src:autopilot, sev:Med) #phase-9 #req-10
 - [2026-08-01] A test whose fixture is overwritten before the only invocation asserts the opposite of its name; check that the arranged state is the state actually exercised. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-16
+- [2026-08-05] A text check over a CI run block must split statements on the semicolon as well as the newline: an inline pwsh script.ps1; exit 0 matches the enforcing pattern while discarding the exit code it produces. (plan-768d7b, src:autopilot, sev:Med) #phase-9 #req-9
 - [2026-08-01] An existence assertion scoped to a global namespace passes vacuously; bind it to the unit that declares the dependency and assert use rather than mere definition. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
+- [2026-08-05] An inventory column that labels enforcement must be checked against the artifact rather than believed and every label needs a claim attached: a label with no assertion behind it is the cheapest place to hide a gate. (plan-768d7b, src:autopilot, sev:Med) #phase-9 #req-10
+- [2026-08-05] An order-independence test needs a paired non-blindness check that runs each probe body over a tainted tree. Run-to-run equality alone is satisfied by a probe that reports a constant. (plan-768d7b, src:autopilot, sev:Med) #phase-3 #req-3
 - [2026-06-28] Extract launcher dispatch into a side-effect-free dot-sourceable library so loop logic is unit-testable without the launcher's mandatory params avoids Pester mandatory-param prompt hang . Share test state via .GetNewClos (plan-aaf29b, src:ci, sev:Med) #dot-source #pester #testability
 - [2026-06-28] Mock the script's own restore helpers Invoke-NpmRestore/Invoke-DotnetRestore instead of external npm/dotnet: real npm ci runs ~20s and isn't intercepted by Pester mocks. Avoid angle brackets in It names ParseException . (plan-aaf29b, src:ci, sev:Med) #mocking #npm #pester
+- [2026-08-05] Workflow-shape tests earn their cost only when each assertion is proven red by mutating the workflow. 18 mutations one named test red each is what separates a shape test from a spell-checker. (plan-768d7b, src:autopilot, sev:High) #phase-8 #req-9
 

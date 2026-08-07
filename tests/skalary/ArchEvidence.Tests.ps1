@@ -232,7 +232,7 @@ Describe 'ci arch-runner integration (REQ-12)' {
     BeforeAll {
         $script:ciRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:runnerCanonical = Join-Path $script:ciRepoRoot 'scripts/skalary/Invoke-ArchTests.ps1'
-        # npm test = validate-plan && test:unit && validate.ps1 -> all three legs must stay structural.
+        # npm test = validate-plan && validate.ps1 && test:unit -> all three legs must stay structural.
         $script:structuralEntrypoints = @(
             (Join-Path $script:ciRepoRoot 'scripts/validate.ps1'),
             (Join-Path $script:ciRepoRoot 'scripts/skalary/Validate-Plan.ps1'),

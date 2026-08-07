@@ -9,6 +9,8 @@
       * parses every PowerShell script (*.ps1/*.psm1/*.psd1) and fails on syntax
         errors, and
       * validates every JSON file (*.json) parses.
+    The file set comes from PayloadScope.psm1, which enumerates an allowlist of
+    payload roots so both platforms see the same files (REQ-8).
     No external modules are required, so it runs identically on the Windows host
     and inside the Linux autopilot container (which ships pwsh).
 #>
@@ -21,38 +23,47 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $errors = [System.Collections.Generic.List[string]]::new()
 
-# Skip noise / vendored / VCS directories.
-$skip = '[\\/](\.git|node_modules|bin|obj|\.worktrees)[\\/]'
+# REQ-8/RISK-5: the file set is an allowlist of payload roots, canonicalised, with
+# reparse points refused. Without it `.github` was parsed on Windows and skipped on
+# Linux — where pwsh treats dot-prefixed entries as hidden — so the two CI legs passed
+# over different files while both reported success.
+Import-Module (Join-Path $PSScriptRoot 'skalary/PayloadScope.psm1') -Force -DisableNameChecking
 
 Write-Host '== Validating PowerShell scripts =='
-$psFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1', '*.psm1', '*.psd1' |
-    Where-Object { $_.FullName -notmatch $skip }
+$psFiles = @(Get-SkalaryPayloadFile -RepoRoot $repoRoot -Extension '.ps1', '.psm1', '.psd1' -RequireRoot)
 foreach ($file in $psFiles) {
     $tokens = $null
     $parseErrors = $null
-    [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)
+    [void][System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$parseErrors)
     if ($parseErrors -and $parseErrors.Count -gt 0) {
         foreach ($pe in $parseErrors) {
-            $errors.Add("$($file.FullName):$($pe.Extent.StartLineNumber) $($pe.Message)")
+            $errors.Add("${file}:$($pe.Extent.StartLineNumber) $($pe.Message)")
         }
     }
 }
 Write-Host "  Parsed $($psFiles.Count) PowerShell file(s)."
+if ($psFiles.Count -eq 0) {
+    # An allowlist can fail by scanning nothing as easily as a denylist fails by scanning
+    # too much, and a gate that parsed nothing has proved nothing.
+    $errors.Add('No PowerShell files were enumerated; the payload allowlist matched nothing, so this run asserted nothing.')
+}
 
 Write-Host '== Validating JSON files =='
-$jsonFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.json' |
-    Where-Object { $_.FullName -notmatch $skip }
+$jsonFiles = @(Get-SkalaryPayloadFile -RepoRoot $repoRoot -Extension '.json' -RequireRoot)
 foreach ($file in $jsonFiles) {
     try {
         # -AsHashtable so standard npm lock files (which use an empty-string root package key under
         # "packages") still validate as well-formed; the check only asserts the JSON parses.
-        $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
+        $null = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -AsHashtable
     }
     catch {
-        $errors.Add("$($file.FullName): invalid JSON - $($_.Exception.Message)")
+        $errors.Add("${file}: invalid JSON - $($_.Exception.Message)")
     }
 }
 Write-Host "  Parsed $($jsonFiles.Count) JSON file(s)."
+if ($jsonFiles.Count -eq 0) {
+    $errors.Add('No JSON files were enumerated; the payload allowlist matched nothing, so this run asserted nothing.')
+}
 
 Write-Host '== Validating plugin script bundles =='
 $bundleSync = Join-Path $repoRoot 'scripts/skalary/Sync-PluginScripts.ps1'
@@ -91,16 +102,37 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host '== Validating implementation plans (Draft stage) =='
+Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
 $planValidator = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
 $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementation-plans') -Recurse -File -Filter 'plan.md' |
     Sort-Object FullName
+$checkedCount = 0
+$skippedCount = 0
 foreach ($plan in $planPaths) {
+    # The same decision `Validate-Plan.ps1` makes, from the same place. Both legs of `npm test` validate
+    # plans, so a floor honoured by only one of them changes nothing except which leg reports the
+    # failure. An unrecognised stage is a hard error here, never a skip.
+    try {
+        $decision = Get-PlanValidationDecision -Path $plan.FullName
+    }
+    catch {
+        $errors.Add("$($plan.FullName): $($_.Exception.Message)")
+        continue
+    }
+
+    if (-not $decision.ShouldValidate) {
+        Write-Host "  $($decision.Signal)"
+        $skippedCount++
+        continue
+    }
+
     & $planValidator -PlanPath $plan.FullName -RepoRoot $repoRoot -Stage Draft
+    $checkedCount++
     if ($LASTEXITCODE -ne 0) {
         $errors.Add("$($plan.FullName): Test-Plan failed at Draft stage.")
     }
 }
-Write-Host "  Checked $($planPaths.Count) plan file(s)."
+Write-Host "  Checked $checkedCount plan file(s); skipped $skippedCount below the drafted floor."
 
 Write-Host '== Validating architecture human-doc freshness =='
 $freshnessGate = Join-Path $repoRoot 'scripts/skalary/Test-ArchDocFreshness.ps1'
