@@ -35,9 +35,12 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `2366ad` | cross-repo-si-and-standards | `1936cb`, `34088e` |
 | `34088e` | consumer-install-correctness | — |
 | `57cc2c` | intent-capture-and-rfc | — |
-| `768d7b` | gates-real-and-affordable | — |
+| `768d7b` | gates-real-and-affordable _(archived)_ | — |
 | `863d97` | evidence-receipt-truth | — |
 | `c21cdc` | review-report-as-data | — |
+| `79cfe1` | concern-registry-and-generated-agents | — |
+| `8a0644` | dispatch-plan-up-front | — |
+| `ca8ba8` | review-corroboration-truth | — |
 <!-- child-plans:end -->
 
 Membership is the `<!-- epic: 33b1f9 -->` marker in each child `plan.md`; the table above is a generated
