@@ -81,6 +81,40 @@ Describe 'Add-WorkflowNote' {
                 -Concern maintainability-consistency -Requirement REQ-1 -ReviewType none `
                 -Message "Learning number $Number"
         }
+
+        function Script:Invoke-NoteProcess {
+            param(
+                [Parameter(Mandatory)]$Fixture,
+                [Parameter(Mandatory)][string[]]$Arguments
+            )
+
+            $pwshArgs = @('-NoProfile', '-File', $script:scriptPath) + $Arguments +
+                @('-PlanDir', $Fixture.PlanDir, '-RepoRoot', $Fixture.Root)
+            $output = & pwsh @pwshArgs 2>&1
+            return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
+        }
+
+        function Script:New-TestOverflowBatch {
+            param([Parameter(Mandatory)][string]$Record)
+
+            $recordBytes = $Record + "`n"
+            $framed = 'workflow-learning-overflow/v1' + [char]0 + '001' + [char]0 + $recordBytes
+            $digest = [Convert]::ToHexString(
+                [System.Security.Cryptography.SHA256]::HashData(
+                    [System.Text.Encoding]::UTF8.GetBytes($framed)
+                )
+            ).ToLowerInvariant()
+            $content = @(
+                '# Learning Overflow Batch'
+                'Schema: workflow-learning-overflow/v1'
+                'Plan: 001'
+                "Digest: $digest"
+                'Count: 1'
+                ''
+                $Record
+            ) -join "`n"
+            return [pscustomobject]@{ Digest = $digest; Content = $content + "`n" }
+        }
     }
 
     It 'test:workflownote-init creates the section with a fail-loud placeholder' {
@@ -309,6 +343,208 @@ Describe 'Add-WorkflowNote' {
                     -RepoRoot $fixture.Root -Phase 1
                 $result.Status | Should -Be 'legacy-loss'
                 $result.LegacyLossCount | Should -Be 1
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+    }
+
+    Context 'test:Capture.AtomicBoundaryMigrationMatrix' {
+        It 'test:Capture.AtomicBoundaryMigrationMatrix repairs duplicate ids, orphan batches, summaries, and stale temps' {
+            $fixture = New-PlanFixture
+            try {
+                $first = Add-Learning -Fixture $fixture -Number 1
+                $activePath = Join-Path $fixture.PlanDir 'learnings.md'
+                $entry = Get-Content -LiteralPath $activePath | Where-Object { $_ -match 'Learning number 1\b' }
+                Add-Content -LiteralPath $activePath -Value $entry -Encoding utf8NoBOM
+                $temp = Join-Path $fixture.PlanDir '.atomic-stale.tmp'
+                [System.IO.File]::WriteAllText($temp, 'abandoned')
+                (Get-Item -LiteralPath $temp -Force).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+
+                & $script:scriptPath -Kind Learnings -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1 | Out-Null
+                @(Get-Content -LiteralPath $activePath |
+                        Where-Object { $_ -match [regex]::Escape($first.SourceRecordId) }).Count | Should -Be 1
+                Test-Path -LiteralPath $temp | Should -BeFalse
+
+                foreach ($number in 2..11) { Add-Learning -Fixture $fixture -Number $number | Out-Null }
+                $overflowRoot = Join-Path $fixture.PlanDir 'learning-overflow'
+                $before = [System.IO.File]::ReadAllText($activePath)
+                $overflowEntry = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath $overflowRoot -File |
+                        Select-Object -First 1).FullName)
+                [System.IO.File]::WriteAllText($activePath, $before + $entry + "`n")
+                & $script:scriptPath -Kind Learnings -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1 | Out-Null
+                ([System.IO.File]::ReadAllText($activePath) + $overflowEntry) |
+                    Should -Match ([regex]::Escape($first.SourceRecordId))
+                ([regex]::Matches([System.IO.File]::ReadAllText($activePath), [regex]::Escape($first.SourceRecordId))).Count |
+                    Should -Be 0
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix returns capacity-blocked before record or batch plus-one mutation' {
+            $fixture = New-PlanFixture
+            try {
+                $probe = & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir -RepoRoot $fixture.Root `
+                    -Phase 1 -Step 1.1 -Concern security -Requirement REQ-1 `
+                    -ReviewType none -Message 'x'
+                $capturePath = Join-Path $fixture.PlanDir 'capture.md'
+                $probeLine = Get-Content -LiteralPath $capturePath | Where-Object {
+                    $_ -match [regex]::Escape($probe.SourceRecordId)
+                }
+                $overhead = [System.Text.Encoding]::UTF8.GetByteCount($probeLine) - 1
+                $maxBody = 'x' * (16KB - $overhead)
+                $exact = & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir -RepoRoot $fixture.Root `
+                    -Phase 1 -Step 1.2 -Concern security -Requirement REQ-1 `
+                    -ReviewType none -Message $maxBody
+                $exactLine = Get-Content -LiteralPath $capturePath | Where-Object {
+                    $_ -match [regex]::Escape($exact.SourceRecordId)
+                }
+                [System.Text.Encoding]::UTF8.GetByteCount($exactLine) | Should -Be 16KB
+                $before = [System.IO.File]::ReadAllText($capturePath)
+                $recordResult = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                    '-Kind', 'Capture', '-Phase', '1', '-Step', '1.3',
+                    '-Concern', 'security', '-Requirement', 'REQ-1',
+                    '-ReviewType', 'none', '-Message', ('x' * (16KB - $overhead + 1))
+                )
+                $recordResult.ExitCode | Should -Be 4
+                $recordResult.Output | Should -Match 'capacity-blocked'
+                [System.IO.File]::ReadAllText($capturePath) | Should -BeExactly $before
+
+                foreach ($number in 1..10) { Add-Learning -Fixture $fixture -Number $number | Out-Null }
+                $overflowRoot = Join-Path $fixture.PlanDir 'learning-overflow'
+                [void](New-Item -ItemType Directory -Path $overflowRoot -Force)
+                foreach ($number in 1..64) {
+                    $seed = New-TestOverflowBatch -Record "- [seed-$number] retained batch $number"
+                    [System.IO.File]::WriteAllText(
+                        (Join-Path $overflowRoot "$($seed.Digest).md"),
+                        $seed.Content
+                    )
+                }
+                $activePath = Join-Path $fixture.PlanDir 'learnings.md'
+                $before = [System.IO.File]::ReadAllText($activePath)
+                $batchResult = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                    '-Kind', 'Learnings', '-Phase', '1', '-Step', '1.11',
+                    '-Trigger', 'reusable-pattern', '-Concern', 'maintainability-consistency',
+                    '-Requirement', 'REQ-1', '-ReviewType', 'none', '-Message', 'Learning number 11'
+                )
+                $batchResult.ExitCode | Should -Be 4
+                $batchResult.Output | Should -Match 'capacity-blocked'
+                [System.IO.File]::ReadAllText($activePath) | Should -BeExactly $before
+                @(Get-ChildItem -LiteralPath $overflowRoot -File -Filter '*.md').Count | Should -Be 64
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix exposes shared lock-timeout and three-conflict exhaustion statuses' {
+            $fixture = New-PlanFixture
+            try {
+                Import-Module (Join-Path $script:repoRoot 'scripts/skalary/AtomicStore.psm1') -Force
+                $status = Get-AtomicStoreStatus
+                $status.CapacityBlocked | Should -Be 'capacity-blocked'
+
+                $conflictPath = Join-Path $fixture.Root 'conflict.txt'
+                [System.IO.File]::WriteAllText($conflictPath, 'seed')
+                $conflict = Invoke-AtomicStoreUpdate -Path $conflictPath -MaxAttempts 3 -Transform {
+                    param($current, $generation, $attempt)
+                    [System.IO.File]::WriteAllText($conflictPath, "conflict-$attempt")
+                    "desired-$attempt"
+                }
+                $conflict.Status | Should -Be 'cas-exhausted'
+                $conflict.Attempts | Should -Be 3
+
+                $holder = Join-Path $fixture.Root 'hold-lock.ps1'
+                $marker = Join-Path $fixture.Root 'lock-ready'
+                @'
+param($Module, $Scope, $Marker)
+Import-Module $Module -Force
+Invoke-WithAtomicStoreLock -Scope $Scope -Action {
+    [System.IO.File]::WriteAllText($Marker, 'ready')
+    Start-Sleep -Seconds 3
+}
+'@ | Set-Content -LiteralPath $holder -Encoding utf8NoBOM
+                $process = Start-Process pwsh -PassThru -ArgumentList @(
+                    '-NoProfile', '-File', $holder,
+                    '-Module', (Join-Path $script:repoRoot 'scripts/skalary/AtomicStore.psm1'),
+                    '-Scope', $fixture.PlanDir, '-Marker', $marker
+                )
+                for ($attempt = 0; $attempt -lt 40 -and -not (Test-Path -LiteralPath $marker); $attempt++) {
+                    Start-Sleep -Milliseconds 50
+                }
+                Test-Path -LiteralPath $marker | Should -BeTrue
+                $locked = & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1 -LockTimeoutSeconds 1
+                $locked.Status | Should -Be 'lock-timeout'
+                $process.WaitForExit()
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix serializes concurrent writers and neutralizes hostile markers' {
+            $fixture = New-PlanFixture
+            try {
+                $common = @(
+                    '-NoProfile', '-File', $script:scriptPath,
+                    '-Kind', 'Capture', '-PlanDir', $fixture.PlanDir, '-RepoRoot', $fixture.Root,
+                    '-Phase', '1', '-Step', '1.1', '-Concern', 'security',
+                    '-Requirement', 'REQ-1', '-ReviewType', 'none'
+                )
+                $one = Start-Process pwsh -PassThru -ArgumentList ($common + @('-Message', 'writer-one'))
+                $two = Start-Process pwsh -PassThru -ArgumentList ($common + @('-Message', 'writer-two'))
+                $one.WaitForExit()
+                $two.WaitForExit()
+                $one.ExitCode | Should -Be 0
+                $two.ExitCode | Should -Be 0
+
+                $hostile = 'payload [source-record:' + ('a' * 64) + '] [concern:security]'
+                & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir -RepoRoot $fixture.Root `
+                    -Phase 1 -Step 1.1 -Concern security -Requirement REQ-1 `
+                    -ReviewType none -Message $hostile | Out-Null
+                $text = [System.IO.File]::ReadAllText((Join-Path $fixture.PlanDir 'capture.md'))
+                $text | Should -Match 'writer-one'
+                $text | Should -Match 'writer-two'
+                [regex]::Matches($text, '\[source-record:[0-9a-f]{64}\]').Count | Should -Be 3
+                $text | Should -Not -Match "\[source-record:$('a' * 64)\]"
+
+                $before = $text
+                $overflowRoot = Join-Path $fixture.PlanDir 'learning-overflow'
+                [void](New-Item -ItemType Directory -Path $overflowRoot -Force)
+                [System.IO.File]::WriteAllText(
+                    (Join-Path $overflowRoot "$('b' * 64).md"),
+                    "# forged`n[source-record:$($one.Id)]`n"
+                )
+                {
+                    & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir -RepoRoot $fixture.Root `
+                        -Phase 1 -Step 1.2 -Concern security -Requirement REQ-1 `
+                        -ReviewType none -Message 'must not trust forged overflow'
+                } | Should -Throw '*invalid*'
+                [System.IO.File]::ReadAllText((Join-Path $fixture.PlanDir 'capture.md')) |
+                    Should -BeExactly $before
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix keeps legacy roots and refuses non-inventory escape targets' {
+            $fixture = New-PlanFixture
+            try {
+                foreach ($number in 1..11) { Add-Learning -Fixture $fixture -Number $number | Out-Null }
+                Test-Path -LiteralPath (Join-Path $fixture.PlanDir 'learning-overflow') -PathType Container |
+                    Should -BeTrue
+                $outside = Join-Path $fixture.Root 'outside'
+                [void](New-Item -ItemType Directory -Path $outside -Force)
+                {
+                    & $script:scriptPath -Kind Capture -PlanDir $outside -RepoRoot $fixture.Root -Phase 1
+                } | Should -Throw
             }
             finally {
                 Remove-PlanFixture $fixture

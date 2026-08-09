@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T17:06:03.6991826Z",
+  "generatedAt": "2026-08-09T17:27:22.5827777Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -304,7 +304,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/AtomicStore.psm1",
-          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
         },
         {
@@ -377,7 +377,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.5"
+      "version": "1.2.8"
     },
     {
       "author": "jIRI-san",
@@ -511,7 +511,7 @@
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "236e21a7044ca161fdb545719e5f8b70e9e57c138c4a2653c7f307775cf88824",
+          "sha256": "a89390add2e97bb48c0b10a3bcea0c029705b56c14d72668121b7b7fda409b09",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -521,7 +521,7 @@
         },
         {
           "dest": "skills/ci/scripts/AtomicStore.psm1",
-          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
           "src": "skills/ci/scripts/AtomicStore.psm1"
         },
         {
@@ -641,7 +641,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.31"
+      "version": "1.0.34"
     },
     {
       "author": "jIRI-san",
@@ -740,7 +740,7 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "236e21a7044ca161fdb545719e5f8b70e9e57c138c4a2653c7f307775cf88824",
+          "sha256": "a89390add2e97bb48c0b10a3bcea0c029705b56c14d72668121b7b7fda409b09",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -750,7 +750,7 @@
         },
         {
           "dest": "skills/cip/scripts/AtomicStore.psm1",
-          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
           "src": "skills/cip/scripts/AtomicStore.psm1"
         },
         {
@@ -812,7 +812,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.30"
+      "version": "1.0.33"
     },
     {
       "author": "jIRI-san",
@@ -1139,7 +1139,7 @@
         },
         {
           "dest": "skills/pfb/scripts/AtomicStore.psm1",
-          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
           "src": "skills/pfb/scripts/AtomicStore.psm1"
         },
         {
@@ -1199,7 +1199,7 @@
         },
         {
           "dest": "skills/si/scripts/AtomicStore.psm1",
-          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
           "src": "skills/si/scripts/AtomicStore.psm1"
         },
         {
@@ -1316,7 +1316,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.31"
     }
   ]
 }

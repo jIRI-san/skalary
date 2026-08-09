@@ -7,6 +7,7 @@ $script:AtomicStoreStatus = [ordered]@{
     LockTimeout = 'lock-timeout'
     CasConflict = 'cas-conflict'
     CasExhausted = 'cas-exhausted'
+    CapacityBlocked = 'capacity-blocked'
     Invalid = 'invalid'
 }
 
@@ -44,7 +45,7 @@ function Invoke-WithAtomicStoreLock {
     param(
         [Parameter(Mandatory)][string]$Scope,
         [Parameter(Mandatory)][scriptblock]$Action,
-        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30
+        [ValidateRange(1, 30)][int]$TimeoutSeconds = 30
     )
 
     $baseName = Get-AtomicStoreLockName -Scope $Scope
@@ -153,8 +154,8 @@ function Invoke-AtomicStoreUpdate {
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][scriptblock]$Transform,
         [string]$LockScope = ([System.IO.Path]::GetFullPath($Path)),
-        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30,
-        [ValidateRange(1, 10)][int]$MaxAttempts = 3,
+        [ValidateRange(1, 30)][int]$TimeoutSeconds = 30,
+        [ValidateRange(1, 3)][int]$MaxAttempts = 3,
         [scriptblock]$Validate
     )
 
