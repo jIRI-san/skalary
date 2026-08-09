@@ -132,6 +132,15 @@ content is not copied. The index binds the resolved plan and pinned HEAD OID. Co
 also bind the snapshot and selected-window digests, so any active-source mutation makes a cursor
 stale rather than mixing pages from different evidence sets.
 
+The SI skill never opens those source files itself: installed `Get-SiHarvest.ps1` is the sole
+free-text read path. After ranking, the resolver accepts only a closed 0-5 candidate JSON shape,
+assigns content-addressed candidate IDs, and writes a resolver receipt through `AtomicStore.psm1`.
+`SiResolverReceipt.psm1` is the shared JCS implementation for issuance and verification. Receipt IDs
+are exactly `sha256(UTF8("si-resolver-receipt-v1") || JCS(payload))`; the payload binds due/run,
+pinned OID, snapshot/selected/ranked-set digests, and ordered candidate IDs.
+`Test-SiResolverReceipt.ps1` schema-validates, re-canonicalizes, and re-hashes the installed receipt,
+rejecting additional fields, duplicates, mutations, or a filename/content mismatch.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |

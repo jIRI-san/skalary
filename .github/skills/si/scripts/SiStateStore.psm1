@@ -86,7 +86,7 @@ function Get-SiManifestPath {
 }
 
 function Get-SiSchemaPath {
-    param([Parameter(Mandatory)][ValidateSet('manifest', 'run', 'repair-observation', 'repair-receipt')][string]$Name)
+    param([Parameter(Mandatory)][ValidateSet('manifest', 'run', 'resolver-receipt', 'repair-observation', 'repair-receipt')][string]$Name)
     $path = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../schemas/$Name.schema.json"))
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "SI state schema not found: $path"

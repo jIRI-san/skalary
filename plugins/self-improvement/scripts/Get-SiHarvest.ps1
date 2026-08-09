@@ -15,7 +15,17 @@ param(
 
     [string]$Cursor,
 
-    [string[]]$ArchiveReference = @()
+    [string[]]$ArchiveReference = @(),
+
+    [switch]$IssueReceipt,
+
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$DueId,
+
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$RunId,
+
+    [string]$CandidateJson = '[]'
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +35,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 $protocol = 'si-harvest-index-v1'
 $cursorProtocol = 'si-harvest-cursor-v1'
@@ -837,6 +848,78 @@ if ($indexWrite.Status -ne 'complete') {
     throw "SI harvest index write failed with status '$($indexWrite.Status)'."
 }
 
+$issuedReceipt = $null
+$rankedCandidates = $null
+if ($IssueReceipt) {
+    if (-not $DueId -or -not $RunId) {
+        throw 'Resolver receipt issuance requires -DueId and -RunId.'
+    }
+    if ([System.Text.Encoding]::UTF8.GetByteCount($CandidateJson) -gt 1MB) {
+        throw 'Resolver candidate JSON exceeds 1 MiB.'
+    }
+    try {
+        $candidateInput = @($CandidateJson | ConvertFrom-Json -Depth 20)
+    }
+    catch {
+        throw "Resolver candidate JSON is malformed: $($_.Exception.Message)"
+    }
+    $rankedCandidates = New-SiRankedCandidates -Candidate $candidateInput
+    $payload = [pscustomobject][ordered]@{
+        protocol        = 'si-resolver-receipt-v1'
+        dueId           = $DueId
+        runId           = $RunId
+        pinnedBaseOid   = $PinnedBaseOid
+        snapshotDigest  = $snapshotDigest
+        selectedDigest  = $selectedDigest
+        rankedSetDigest = $rankedCandidates.RankedSetDigest
+        candidates      = $rankedCandidates.CandidateIds
+    }
+    $receiptId = Get-SiResolverReceiptId -Payload $payload
+    $envelope = [pscustomobject][ordered]@{
+        receiptId = $receiptId
+        payload   = $payload
+    }
+    $receiptJson = (ConvertTo-StableJson -Value $envelope) + "`n"
+    $schemaPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../schemas/resolver-receipt.schema.json'))
+    $errors = @()
+    if (-not ($receiptJson | Test-Json -SchemaFile $schemaPath -ErrorVariable errors)) {
+        throw 'Generated resolver receipt failed closed-schema validation.'
+    }
+    $receiptRoot = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @('resolver-receipts')
+    Assert-PhysicalDescendant -Root $repoRootFull -Path $receiptRoot
+    $receiptLockScope = Resolve-PhysicalPath -Path $receiptRoot
+    if ($IsWindows) { $receiptLockScope = $receiptLockScope.ToLowerInvariant() }
+    $receiptPath = Resolve-SiStatePath -RepoRoot $repoRootFull `
+        -Segments @('resolver-receipts', "$receiptId.json")
+    $receiptWrite = Invoke-WithAtomicStoreLock -Scope $receiptLockScope -TimeoutSeconds 30 -Action {
+        $files = @(if (Test-Path -LiteralPath $receiptRoot -PathType Container) {
+                Get-ChildItem -LiteralPath $receiptRoot -File -Filter '*.json' |
+                    Select-Object -First 513
+            })
+        $existing = Test-Path -LiteralPath $receiptPath -PathType Leaf
+        if (-not $existing -and $files.Count -ge 512) {
+            return [pscustomobject]@{ Status = 'capacity-blocked' }
+        }
+        if ($existing) {
+            $current = [System.IO.File]::ReadAllText($receiptPath)
+            if (-not [string]::Equals($current, $receiptJson, [System.StringComparison]::Ordinal)) {
+                return [pscustomobject]@{ Status = 'invalid' }
+            }
+            return [pscustomobject]@{ Status = 'complete'; Path = $receiptPath }
+        }
+        return Set-AtomicStoreContent -Path $receiptPath -Content $receiptJson -ExpectedGeneration 'absent'
+    }
+    if ($receiptWrite.Status -ne 'complete') {
+        throw "Resolver receipt write failed with status '$($receiptWrite.Status)'."
+    }
+    $issuedReceipt = [pscustomobject]@{
+        ReceiptId       = $receiptId
+        Path            = $receiptPath
+        RankedSetDigest = $rankedCandidates.RankedSetDigest
+        Candidates      = $rankedCandidates.Candidates
+    }
+}
+
 $nextOffset = [int]$offset + $page.Count
 return [pscustomobject][ordered]@{
     Status            = if ($selected.Count -eq 0) { 'empty' } else { 'complete' }
@@ -852,6 +935,7 @@ return [pscustomobject][ordered]@{
     SelectedByteCount = $selectedBytes
     InjectionCount    = @($page | Where-Object injectionDetected).Count
     IndexPath         = $indexPath
+    ResolverReceipt   = $issuedReceipt
     Items             = $page.ToArray()
     NextCursor        = if ($nextOffset -lt $selected.Count) {
         New-HarvestCursor -PlanId $planId -PinnedOid $PinnedBaseOid -SnapshotDigest $snapshotDigest `

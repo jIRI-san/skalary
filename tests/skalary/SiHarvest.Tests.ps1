@@ -127,10 +127,11 @@ No queued feedback.
             if ($LASTEXITCODE -ne 0) { throw 'Failed to commit SI harvest fixture.' }
             $oid = (& git -C $root rev-parse HEAD).Trim()
             return [pscustomobject]@{
-                Root    = $root
-                PlanDir = $planDir
-                Script  = Join-Path $root '.github/skills/si/scripts/Get-SiHarvest.ps1'
-                Oid     = $oid
+                Root     = $root
+                PlanDir  = $planDir
+                Script   = Join-Path $root '.github/skills/si/scripts/Get-SiHarvest.ps1'
+                Verifier = Join-Path $root '.github/skills/si/scripts/Test-SiResolverReceipt.ps1'
+                Oid      = $oid
             }
         }
     }
@@ -145,17 +146,19 @@ No queued feedback.
         }
     }
 
-    It 'test:SiHarvest.BoundedPinnedIndexAndCursor scans the closed active set and invalidates stale paging' {
+    It 'test:SiHarvest.HostileStoredContentIsFenced neutralizes forged markers inside fresh wrappers' {
         $first = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
             -PinnedBaseOid $script:fixture.Oid -PageSize 2
         $first.Status | Should -Be complete
         $first.Items.Count | Should -Be 2
         $first.NextCursor | Should -Not -BeNullOrEmpty
-        $first.Items[0].wrappedContent | Should -Match '<<<UNTRUSTED_INPUT_START id=[0-9a-f]{24}'
-        $first.Items[0].wrappedContent | Should -Match '(?m)^````$'
-        $first.Items[0].wrappedContent | Should -Match '(?m)^<<<UNTRUSTED_INPUT_END id=[0-9a-f]{24}>>>$'
-        ($first.Items.wrappedContent -join "`n") | Should -Not -Match 'UNTRUSTED_INPUT marker forgery'
-        ($first.Items.wrappedContent -join "`n") | Should -Match 'UNTRUSTED-INPUT\[neutralized\]'
+        $hostile = @($first.Items | Where-Object injectionDetected)
+        $hostile.Count | Should -Be 1
+        $hostile[0].wrappedContent | Should -Match '<<<UNTRUSTED_INPUT_START id=[0-9a-f]{24}'
+        $hostile[0].wrappedContent | Should -Match '(?m)^````$'
+        $hostile[0].wrappedContent | Should -Match '(?m)^<<<UNTRUSTED_INPUT_END id=[0-9a-f]{24}>>>$'
+        $hostile[0].wrappedContent | Should -Not -Match 'UNTRUSTED_INPUT marker forgery'
+        $hostile[0].wrappedContent | Should -Match 'UNTRUSTED-INPUT\[neutralized\]'
 
         $index = Get-Content -LiteralPath $first.IndexPath -Raw | ConvertFrom-Json -Depth 100
         @($index.sources.path) | Should -Contain 'docs/self-improvement/state.json'
@@ -176,7 +179,91 @@ No queued feedback.
         } | Should -Throw '*cursor is stale*'
     }
 
-    It 'test:SiHarvest.BoundedPinnedIndexAndCursor blocks receipt plus-one before index mutation' {
+    It 'test:SiHarvest.FullScanSelectedWindowCompleteness pages every selected record exactly once' {
+        $ledgerPath = Join-Path $script:fixture.Root 'docs/review-ledger/testing.md'
+        $entries = 1..70 | ForEach-Object {
+            "- [2026-08-09] Paged evidence $_ (plan-a1b2c3, src:cr, sev:Med)"
+        }
+        Write-Utf8 -Path $ledgerPath -Content ("# Testing`n`n" + ($entries -join "`n") + "`n")
+        & git -C $script:fixture.Root add docs/review-ledger/testing.md
+        & git -C $script:fixture.Root commit --quiet -m paging
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        $cursor = $null
+        $recordIds = [System.Collections.Generic.List[string]]::new()
+        do {
+            $page = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $oid -PageSize 7 -Cursor $cursor
+            foreach ($item in @($page.Items)) { $recordIds.Add([string]$item.recordId) }
+            $cursor = $page.NextCursor
+        } while ($cursor)
+
+        $index = Get-Content -LiteralPath $page.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        $recordIds.Count | Should -Be $index.selectedRecords.Count
+        @($recordIds | Select-Object -Unique).Count | Should -Be $recordIds.Count
+        @($recordIds | Sort-Object) | Should -Be @($index.selectedRecords.recordId | Sort-Object)
+        $index.sources.Count | Should -Be 13
+    }
+
+    It 'test:SiHarvest.ResolverReceiptIssuanceAndMutation issues JCS-bound receipts and rejects mutation' {
+        $candidateJson = @(
+            [ordered]@{
+                title     = 'Harden the resolver'
+                rationale = 'The wrapped evidence identifies a repeated boundary.'
+                sources   = @('docs/review-ledger/security.md')
+                targets   = @('plugins/self-improvement/scripts/Get-SiHarvest.ps1')
+            }
+        ) | ConvertTo-Json -Depth 10 -Compress
+        $result = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $script:fixture.Oid -IssueReceipt -DueId ('d' * 64) -RunId ('e' * 64) `
+            -CandidateJson $candidateJson
+        $result.ResolverReceipt.ReceiptId | Should -Match '^[0-9a-f]{64}$'
+        $result.ResolverReceipt.Candidates.Count | Should -Be 1
+        $verified = & $script:fixture.Verifier -RepoRoot $script:fixture.Root `
+            -Receipt $result.ResolverReceipt.ReceiptId
+        $verified.Status | Should -Be complete
+        $verified.Payload.snapshotDigest | Should -Be $result.SnapshotDigest
+        $verified.Payload.selectedDigest | Should -Be $result.SelectedDigest
+        $verified.Payload.candidates[0] | Should -Be $result.ResolverReceipt.Candidates[0].candidateId
+
+        Import-Module (Join-Path $script:fixture.Root '.github/skills/si/scripts/SiResolverReceipt.psm1') -Force
+        ConvertTo-SiJcsJson -Value ([string][char]11) | Should -Be '"\u000b"'
+        ConvertTo-SiJcsJson -Value "a`"b\c`n" | Should -Be '"a\"b\\c\n"'
+        {
+            & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $script:fixture.Oid -IssueReceipt -DueId ('d' * 64) -RunId ('e' * 64) `
+                -CandidateJson '[{"title":"bad","rationale":"bad","sources":"one.md","targets":[1]}]'
+        } | Should -Throw '*invalid JSON field types*'
+
+        $receiptPath = $result.ResolverReceipt.Path
+        $mutated = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 100
+        $mutated.payload.runId = 'f' * 64
+        Write-Utf8 -Path $receiptPath -Content (($mutated | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        {
+            & $script:fixture.Verifier -RepoRoot $script:fixture.Root `
+                -Receipt $result.ResolverReceipt.ReceiptId
+        } | Should -Throw '*JCS content-address check*'
+    }
+
+    It 'test:SiHarvest.SoleFreeTextReadPath routes SI workflow text through the installed resolver only' {
+        $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        @($manifest.files.dest) | Should -Contain 'skills/si/scripts/Get-SiHarvest.ps1'
+        @($manifest.files.dest) | Should -Contain 'skills/si/scripts/Test-SiResolverReceipt.ps1'
+        $skill = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/si/SKILL.md') -Raw
+        $guide = Get-Content -LiteralPath (
+            Join-Path $script:pluginRoot 'skills/si/assets/harvest-guide.md'
+        ) -Raw
+        $skill | Should -Match '(?s)Invoke only installed.*Get-SiHarvest\.ps1'
+        $guide | Should -Match 'only executable allowed to read harvest free text'
+        foreach ($scriptFile in @(Get-ChildItem -LiteralPath (Join-Path $script:pluginRoot 'scripts') `
+                    -File -Filter '*.ps1' | Where-Object Name -NE 'Get-SiHarvest.ps1')) {
+            [System.IO.File]::ReadAllText($scriptFile.FullName) |
+                Should -Not -Match 'docs/review-ledger|docs/feedback/queue|LearningOverflowRoot|HarvestReceiptRoot'
+        }
+    }
+
+    It 'blocks receipt plus-one before index mutation' {
         $receiptRoot = Join-Path $script:fixture.PlanDir 'assets/harvest-receipts'
         for ($phase = 2; $phase -le 65; $phase++) {
             Write-Utf8 -Path (Join-Path $receiptRoot ('phase-{0:D3}.json' -f $phase)) `

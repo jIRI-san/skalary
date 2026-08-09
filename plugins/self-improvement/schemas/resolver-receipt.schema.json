@@ -4,9 +4,8 @@
   "title": "Self-improvement resolver receipt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "receiptId", "payload"],
+  "required": ["receiptId", "payload"],
   "properties": {
-    "schemaVersion": { "const": 1 },
     "receiptId": { "$ref": "#/$defs/sha256" },
     "payload": {
       "type": "object",
