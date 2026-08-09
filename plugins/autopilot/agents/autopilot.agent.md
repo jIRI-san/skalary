@@ -57,7 +57,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
-   - Durable writers use the shared module installed at `.github/skills/autopilot/scripts/AtomicStore.psm1`; root-canonical workflow writers import the same `AtomicStore.psm1` closure.
+   - Durable writers use the shared modules installed at `.github/skills/autopilot/scripts/{AtomicStore,LedgerStore}.psm1`; the root-canonical phase engine is distributed as `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` with the same closure.
 17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
 
    ```powershell

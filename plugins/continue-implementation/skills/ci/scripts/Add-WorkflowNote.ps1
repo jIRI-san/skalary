@@ -495,6 +495,18 @@ if ($requirements.Count -gt 0) {
 if ($Message -and -not $Concern) {
     throw 'Workflow-note entries require -Concern.'
 }
+if ($Message -and $Kind -eq 'Learnings' -and -not $Step) {
+    throw 'Learnings notes require -Step so overflow retains phase provenance.'
+}
+if ($Message -and $Step -and [int]($Step.Split('.')[0]) -ne $Phase) {
+    throw "Workflow-note step '$Step' does not belong to phase $Phase."
+}
+if ($Message -and $Kind -eq 'Learnings' -and ($Src -or $Sev)) {
+    throw 'Learnings notes do not accept -Src or -Sev because those fields are not part of the learning record grammar.'
+}
+if ($Message -and $Kind -ne 'Learnings' -and $Trigger) {
+    throw "$Kind notes do not accept -Trigger because that field is not part of the record grammar."
+}
 
 $formattedEntry = if ($Message) {
     Format-NoteEntry -Kind $Kind -PlanId $planId -Phase $Phase -Step $Step -Sev $Sev -Src $Src `
@@ -509,7 +521,9 @@ if ($formattedEntry -and
 }
 
 $result = try {
-    Invoke-WithAtomicStoreLock -Scope $planDirFull -TimeoutSeconds $LockTimeoutSeconds -Action {
+    $planLockScope = Resolve-PhysicalRepoPath -Path $planDirFull
+    if ($IsWindows) { $planLockScope = $planLockScope.ToLowerInvariant() }
+    Invoke-WithAtomicStoreLock -Scope $planLockScope -TimeoutSeconds $LockTimeoutSeconds -Action {
         $fileGeneration = Get-AtomicStoreGeneration -Path $filePath
         $raw = if (Test-Path -LiteralPath $filePath -PathType Leaf) {
             [System.IO.File]::ReadAllText($filePath)

@@ -164,6 +164,49 @@ Describe 'Add-WorkflowNote' {
         }
     }
 
+    It 'rejects kind-specific fields that are not represented in the record grammar' {
+        $fixture = New-PlanFixture
+        try {
+            $learning = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                '-Kind', 'Learnings', '-Phase', '1', '-Step', '1.1',
+                '-Trigger', 'reusable-pattern', '-Src', 'note',
+                '-Concern', 'maintainability-consistency', '-Requirement', 'REQ-1',
+                '-ReviewType', 'none', '-Message', 'Hidden source'
+            )
+            $learning.ExitCode | Should -Not -Be 0
+            $learning.Output | Should -Match 'do not accept -Src or -Sev'
+
+            $capture = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                '-Kind', 'Capture', '-Phase', '1', '-Step', '1.1',
+                '-Trigger', 'reusable-pattern',
+                '-Concern', 'maintainability-consistency', '-Requirement', 'REQ-1',
+                '-ReviewType', 'none', '-Message', 'Hidden trigger'
+            )
+            $capture.ExitCode | Should -Not -Be 0
+            $capture.Output | Should -Match 'do not accept -Trigger'
+
+            $crossPhase = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                '-Kind', 'Capture', '-Phase', '1', '-Step', '2.1',
+                '-Concern', 'maintainability-consistency', '-Requirement', 'REQ-1',
+                '-ReviewType', 'none', '-Message', 'Wrong phase'
+            )
+            $crossPhase.ExitCode | Should -Not -Be 0
+            $crossPhase.Output | Should -Match 'does not belong to phase 1'
+
+            $stepLessLearning = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                '-Kind', 'Learnings', '-Phase', '1',
+                '-Trigger', 'reusable-pattern',
+                '-Concern', 'maintainability-consistency', '-Requirement', 'REQ-1',
+                '-ReviewType', 'none', '-Message', 'Missing step'
+            )
+            $stepLessLearning.ExitCode | Should -Not -Be 0
+            $stepLessLearning.Output | Should -Match 'require -Step'
+        }
+        finally {
+            Remove-PlanFixture $fixture
+        }
+    }
+
     It 'test:workflownote-append appends additional entries after the first' {
         $fixture = New-PlanFixture
         try {

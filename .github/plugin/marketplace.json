@@ -47,7 +47,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.8"
+      "version": "1.2.9"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -73,7 +73,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.34"
+      "version": "1.0.35"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -85,7 +85,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.33"
+      "version": "1.0.34"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -153,7 +153,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.31"
+      "version": "1.0.32"
     }
   ]
 }

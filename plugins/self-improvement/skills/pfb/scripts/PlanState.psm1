@@ -65,7 +65,7 @@ $script:PlanAssetMap = [ordered]@{
     HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
 }
 
-function Resolve-PhysicalPlanPath {
+function Resolve-PhysicalRepoPath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
 
@@ -99,13 +99,19 @@ function Assert-PhysicalPlanConfinement {
         [Parameter(Mandatory)][string]$Path
     )
 
-    $physicalPlan = Resolve-PhysicalPlanPath -Path $PlanDir
-    $physicalPath = Resolve-PhysicalPlanPath -Path $Path
+    $physicalPlan = Resolve-PhysicalRepoPath -Path $PlanDir
+    $physicalPath = Resolve-PhysicalRepoPath -Path $Path
     $prefix = $physicalPlan.TrimEnd([char[]]@(
             [System.IO.Path]::DirectorySeparatorChar,
             [System.IO.Path]::AltDirectorySeparatorChar
         )) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $physicalPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not $physicalPath.StartsWith($prefix, $comparison)) {
         throw "Resolved plan asset path '$Path' escapes inventoried plan folder '$PlanDir' through a link or reparse point."
     }
 }
@@ -1538,4 +1544,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

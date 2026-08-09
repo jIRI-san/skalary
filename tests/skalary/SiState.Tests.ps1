@@ -222,7 +222,8 @@ Describe 'Shared atomic writer closure' {
         $script:writers = @(
             'scripts/skalary/Update-FeedbackQueue.ps1',
             'scripts/skalary/Add-WorkflowNote.ps1',
-            'scripts/skalary/Add-LedgerEntry.ps1',
+            'scripts/skalary/LedgerStore.psm1',
+            'scripts/skalary/Invoke-PhaseHarvest.ps1',
             'plugins/self-improvement/scripts/SiStateStore.psm1'
         )
         function Script:Get-NonAtomicWriters {

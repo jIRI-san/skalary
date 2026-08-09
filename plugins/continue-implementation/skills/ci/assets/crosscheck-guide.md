@@ -57,6 +57,10 @@ documented **non-containing sandbox**, not a true container.
 
 ## Phase crosscheck
 
+The root-canonical harvest engine is distributed at
+`.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1`; its generated closure includes
+`LedgerStore.psm1`, `PlanState.psm1`, and `AtomicStore.psm1`.
+
 1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction -Concern architecture-patterns -Requirement <REQ-N...> -ReviewType none`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
 3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
