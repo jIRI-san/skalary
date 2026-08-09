@@ -65,7 +65,7 @@ Describe 'model allowlist validator' {
 
             $allowlist.VSCodeModels | Should -Contain 'Claude Opus 5 (copilot)'
             $allowlist.VSCodeModels | Should -Contain 'GPT-5.6 Sol (copilot)'
-            $allowlist.CliModels | Should -Contain 'claude-opus-5'
+            $allowlist.CliModels | Should -Contain 'gpt-5.6-sol'
 
             # Formats are never normalized into one another.
             foreach ($model in @($allowlist.VSCodeModels)) { $model | Should -Match '^.+\s\([^)]+\)$' }
@@ -151,7 +151,7 @@ Describe 'model allowlist validator' {
             $root = & $script:newFixtureRoot
             try {
                 $configPath = Join-Path $root '.autopilot.json'
-                Set-Content -LiteralPath $configPath -Value '{ "model": "claude-opus-5" }' -Encoding utf8NoBOM
+                Set-Content -LiteralPath $configPath -Value '{ "model": "gpt-5.6-sol" }' -Encoding utf8NoBOM
                 (& $script:invoke -Root $root).ExitCode | Should -Be 0
 
                 # The runtime model comes from this field, not from agent frontmatter, so the
@@ -203,16 +203,16 @@ Describe 'model allowlist validator' {
             # This plan validates autopilot's model; it never repoints it. A run must not rewrite
             # the model of the runtime that is executing it.
             $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
-            $allowlist.CliModels | Should -Contain 'claude-opus-5'
+            $allowlist.CliModels | Should -Contain 'gpt-5.6-sol'
 
             foreach ($agent in @('plugins/autopilot/agents/autopilot.agent.md', '.github/agents/autopilot.agent.md')) {
                 $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $agent) -Raw
-                $raw | Should -Match '(?m)^model: claude-opus-5$'
+                $raw | Should -Match '(?m)^model: gpt-5\.6-sol$'
             }
 
             foreach ($config in @('plugins/autopilot/.autopilot.json.example', '.github/skills/autopilot/.autopilot.json.example')) {
                 $parsed = Get-Content -LiteralPath (Join-Path $script:repoRoot $config) -Raw | ConvertFrom-Json
-                $parsed.model | Should -Be 'claude-opus-5'
+                $parsed.model | Should -Be 'gpt-5.6-sol'
                 $allowlist.CliModels | Should -Contain $parsed.model
             }
         }

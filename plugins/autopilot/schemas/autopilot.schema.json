@@ -45,7 +45,7 @@
     },
     "model": {
       "type": "string",
-      "description": "Model identifier for Copilot CLI (e.g. 'claude-opus-5')."
+      "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.6-sol')."
     },
     "context": {
       "type": "string",

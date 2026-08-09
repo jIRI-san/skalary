@@ -141,7 +141,7 @@ Per-repo, gitignored, never committed — the plugin ships `.autopilot.json.exam
   "copilotAuth": "pat",
   "gitProvider": "github",
   "gitAuth": "pat-shared",
-   "model": "claude-opus-5",
+   "model": "gpt-5.6-sol",
    "context": "long_context",
    "reasoningEffort": "high",
   "git": { "name": "autopilot", "email": "autopilot@users.noreply.github.com" },
@@ -157,7 +157,7 @@ Key fields:
 - `copilotAuth`: `pat` or `oauth` (string enum) — selects how the CLI authenticates
 - `gitProvider`: `github` or `ado`
 - `gitAuth`: `pat-shared`, `oauth`, or `azure-cli`
-- `model`: Bare Copilot CLI model slug; the shipped default is `claude-opus-5`
+- `model`: Bare Copilot CLI model slug; the shipped default is `gpt-5.6-sol`
 - `context`: Copilot CLI context tier (`default` or `long_context`)
 - `reasoningEffort`: Copilot CLI reasoning depth (`low`, `medium`, `high`, `xhigh`, or `max`)
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
@@ -229,7 +229,7 @@ Absolute rules enforced:
 
 ### Model field format
 
-The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `claude-opus-5`), not the qualified `Model Name (vendor)` form used by VS Code-hosted agents. Copilot CLI resolves the plain slug; the parenthesized-vendor format is a VS Code convention and does not apply here. Keep the two formats distinct — the dr/cr review subagents run in VS Code and use `Model Name (copilot)`, while this agent runs under Copilot CLI and uses the bare slug. Launchers also pass `--context` and `--effort` explicitly so persisted user settings cannot override the project configuration.
+The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `gpt-5.6-sol`), not the qualified `Model Name (vendor)` form used by VS Code-hosted agents. Copilot CLI resolves the plain slug; the parenthesized-vendor format is a VS Code convention and does not apply here. Keep the two formats distinct — the dr/cr review subagents run in VS Code and use `Model Name (copilot)`, while this agent runs under Copilot CLI and uses the bare slug. Launchers also pass `--context` and `--effort` explicitly so persisted user settings cannot override the project configuration.
 
 ## Script Inventory
 

@@ -66,7 +66,7 @@
     },
     {
       "file": "tests/autopilot/ModelConfiguration.Tests.ps1",
-      "test": "Autopilot model configuration.defaults to Claude Opus 5 with high reasoning and long context",
+      "test": "Autopilot model configuration.defaults to GPT-5.6 Sol with high reasoning and long context",
       "count": 1
     },
     {

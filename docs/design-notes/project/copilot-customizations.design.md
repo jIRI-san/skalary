@@ -75,7 +75,7 @@ Both `dr` and `cr` use an orchestrator + concern-split subagent pattern: seven m
 
 > Model identifiers live in `tools/model-allowlist.psd1` and the dispatch guide's roster table, both gated by `scripts/skalary/Test-ModelAllowlist.ps1`.
 >
-> The qualified `Model Name (vendor)` format applies to **VS Code-hosted agents**. The `autopilot` agent runs under **Copilot CLI**, which expects a bare model slug instead (e.g. `claude-opus-5`) — see [autopilot-execution.design.md](../architecture/autopilot-execution.design.md). The two formats are never normalized; host is selected from the closed agent→host map in the allowlist, never inferred from folder layout.
+> The qualified `Model Name (vendor)` format applies to **VS Code-hosted agents**. The `autopilot` agent runs under **Copilot CLI**, which expects a bare model slug instead (e.g. `gpt-5.6-sol`) — see [autopilot-execution.design.md](../architecture/autopilot-execution.design.md). The two formats are never normalized; host is selected from the closed agent→host map in the allowlist, never inferred from folder layout.
 
 **Copilot Pro caveat.** The roster models are unavailable on the Copilot **Pro** plan — Pro+, Max, Business, and Enterprise only. A frontmatter fallback array does not rescue this: explicit-param dispatch outranks frontmatter, so the array is never consulted and the subagent silently falls back to the *parent* model. On Pro, the orchestrator passes the GA fallback **as the explicit parameter** and says so in the review header. The concrete roster and fallback names live in `tools/model-allowlist.psd1` and the dispatch guide's roster table, which `Test-ModelAllowlist.ps1` gates; naming them here would be a third, ungated copy.
 

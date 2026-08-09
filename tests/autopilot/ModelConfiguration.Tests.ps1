@@ -12,11 +12,11 @@ Describe 'Autopilot model configuration' {
         $script:agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
     }
 
-    It 'defaults to Claude Opus 5 with high reasoning and long context' {
-        $example.model | Should -Be 'claude-opus-5'
+    It 'defaults to GPT-5.6 Sol with high reasoning and long context' {
+        $example.model | Should -Be 'gpt-5.6-sol'
         $example.context | Should -Be 'long_context'
         $example.reasoningEffort | Should -Be 'high'
-        $agent | Should -Match '(?m)^model: claude-opus-5$'
+        $agent | Should -Match '(?m)^model: gpt-5\.6-sol$'
     }
 
     It 'requires and constrains context and reasoning settings in the schema' {
