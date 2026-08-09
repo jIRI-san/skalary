@@ -60,12 +60,17 @@ documented **non-containing sandbox**, not a true container.
 The root-canonical harvest engine is distributed at
 `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1`; its generated closure includes
 `LedgerStore.psm1`, `PlanState.psm1`, and `AtomicStore.psm1`.
+The bound scalar compatibility entry point remains installed at
+`.github/skills/ci/scripts/Add-LedgerEntry.ps1`; it delegates to the same `LedgerStore.psm1`
+engine and is not a second harvest implementation.
 
 1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction -Concern architecture-patterns -Requirement <REQ-N...> -ReviewType none`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
 3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
-4. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
-5. Fail phase completion if blocking criteria are unsatisfied.
+4. Invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
+5. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
+6. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
+7. Fail phase completion if blocking criteria are unsatisfied.
 
 ## Plan crosscheck
 
@@ -142,14 +147,9 @@ This section is a **mirror** of the canonical harvest procedure in `plugins/auto
 At interactive plan completion, `/ci` runs harvest with the same shared scripts and ordering:
 
 1. Run dependency preflight (`Test-DependencyPlan006.ps1`) before entering harvest/finalization.
-2. If append infra is present (`Test-Path .github/skills/ci/scripts/Add-LedgerEntry.ps1` and `Test-Path docs/review-ledger`), execute append harvest first:
-   - Require category files (at minimum `docs/review-ledger/security.md` and `docs/review-ledger/testing.md`) before invoking append scripts.
-   - Distill entries from the layout-resolved logs — `assets/logs/{capture,cr-log,learnings}.md`, or the plan-folder root for legacy plans. Resolve with `Resolve-PlanAssetPath`; reading the wrong location yields a silently empty harvest.
-   - Resolve `-Category` through the **concern → ledger category map**, keyed by the concern that raised the finding and the review type that produced it (`cr` or `dr`). Probe both installed copies — `.github/skills/cr/assets/concern-ledger-map.md`, then `.github/skills/dr/assets/concern-ledger-map.md` — because the two review plugins ship the same file and either install alone makes the map available. The map is total and deterministic; an unmapped concern is a bug in that table, not a cue to improvise a category.
-   - A candidate that no reviewer produced — a `learnings.md` or `capture.md` lesson — has no concern attached. Name the concern it is about first (the same seven), then route it through the same map. One visible judgment call, not seven invisible ones.
-   - Only when **neither** copy resolves is the map absent: say so and fall back to the `ledger-consult` keyword rubric below, rather than silently inventing categories.
-   - Map the remaining `Add-LedgerEntry` inputs directly: `-Plan` the canonical plan id, `-Src ci`, `-Severity` from captured severity (default `Med`), `-Entry` one sanitized lesson, `-Tags` sorted tags.
-   - Invoke `Add-LedgerEntry.ps1` via argument arrays / `ArgumentList` only (no shell-string interpolation).
+2. If append infra is present (`Test-Path .github/skills/ci/scripts/Invoke-PhaseHarvest.ps1`), execute append harvest first:
+   - Invoke `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -FinalSweep -Src ci -RepoRoot .`. Finalization replays immutable phase receipts and never redistills logs.
+   - `complete` and `empty` are the only completion outcomes. Surface `degraded` or `capacity-blocked` explicitly and stop before branch selection or archival.
    - Stage and commit ledger updates by explicit file names under `docs/review-ledger/`.
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
 3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.

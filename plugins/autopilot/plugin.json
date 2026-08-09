@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -108,6 +108,22 @@
     {
       "src": ".autopilot.host.json.example",
       "dest": "skills/autopilot/.autopilot.host.json.example"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first assets-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first legacy-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
     }
   ],
   "evals": {

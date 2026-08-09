@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T18:26:08.6733831Z",
+  "generatedAt": "2026-08-09T19:05:28.3174703Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "fcb87254938c012704613459279ba8d85cf1e5ebedf83b473bd59dd072790919",
+          "sha256": "e581f5a1a546802f73e1d0b7c1dec8b18b53ce48dce672811dc3a87b1238af17",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -385,6 +385,22 @@
       ],
       "license": "MIT",
       "name": "autopilot",
+      "scaffolds": [
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+          "trigger": "first assets-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+          "trigger": "first legacy-layout phase harvest"
+        }
+      ],
       "status": "partial",
       "tags": [
         "agent",
@@ -392,7 +408,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.9"
+      "version": "1.2.10"
     },
     {
       "author": "jIRI-san",
@@ -511,7 +527,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "298a60284d42024a6b1be662526c9a7de6846dcb5d3d8215f667d6fa76f3da12",
+          "sha256": "bc98ad9685d53ce4aa0df31f262d8e551049aead10232c052cde40cf12af31d9",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -666,7 +682,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.35"
+      "version": "1.0.36"
     },
     {
       "author": "jIRI-san",

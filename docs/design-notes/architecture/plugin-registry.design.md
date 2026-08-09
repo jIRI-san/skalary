@@ -122,6 +122,11 @@ autopilot. SI remains the owner of its lifecycle scripts and schemas; only their
 write dependency comes from `scripts/skalary/`. Every generated copy is explicitly registered in
 the consumer manifest so foreign installs receive the same lock/CAS/replace implementation.
 
+`Invoke-PhaseHarvest.ps1` and its `LedgerStore.psm1` closure have exactly two distribution
+consumers: `continue-implementation` (`skills/ci/scripts/`) and `autopilot`
+(`skills/autopilot/scripts/`). Both invoke their installed copy, declare current and legacy
+phase-receipt scaffolds, and carry the same root-canonical bytes.
+
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
 
