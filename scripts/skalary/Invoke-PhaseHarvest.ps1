@@ -451,7 +451,7 @@ function New-HarvestReceipt {
         [Parameter(Mandatory)][int]$TargetPhase,
         [Parameter(Mandatory)][string]$Status,
         [Parameter(Mandatory)][object[]]$Sources,
-        [Parameter(Mandatory)][object[]]$Candidates,
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Candidates,
         [Parameter(Mandatory)][string]$LedgerSource
     )
 
@@ -514,7 +514,7 @@ function Read-HarvestReceipt {
 
 function ConvertTo-LedgerInputs {
     param(
-        [Parameter(Mandatory)][object[]]$Candidate,
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Candidate,
         [Parameter(Mandatory)][string]$PlanId,
         [Parameter(Mandatory)][string]$LedgerSource
     )
