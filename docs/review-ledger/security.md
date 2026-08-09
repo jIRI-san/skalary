@@ -7,6 +7,11 @@
 - [2026-08-09] Consumer hostile fixture contained only the marker token and did not exercise a forged boundary marker plus inner fence delimiter. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-6 #security
 - [2026-08-09] Enumerated overflow and receipt child files were read without rechecking physical descent from their confined roots. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-09] Explicit archive source paths were interpolated into wrapper metadata without fully neutralizing marker tokens or line breaks. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-1 #req-7 #security
+- [2026-08-09] Fixed case-insensitive physical containment on Unix accepting a case-variant sibling link target. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
+- [2026-08-09] Fixed non-asserting timestamp formats leaking malformed stored text canonical candidate/digest hashes not being rechecked and orphan run due provenance not being validated. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-3 #req-7 #security
+- [2026-08-09] Fixed pinned state bounds being checked only after git show materialized the complete remote blob. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
+- [2026-08-09] Fixed schema diagnostics echoing untrusted stored property names outside the metadata-only Surface contract. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
+- [2026-08-09] Fixed SI state path confinement following a docs/self-improvement link outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Harvest index output was lexically confined but could follow a symlinked SI state directory outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-7 #security
 - [2026-08-09] Ledger path confinement was lexical only so a symlinked review-ledger directory could redirect writes outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
