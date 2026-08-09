@@ -57,7 +57,7 @@ documented **non-containing sandbox**, not a true container.
 
 ## Phase crosscheck
 
-1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction`) before declaring the phase complete.
+1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction -Concern architecture-patterns -Requirement <REQ-N...> -ReviewType none`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
 3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
 4. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
@@ -181,7 +181,7 @@ Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote
 
 - Initialize a phase section (header + `No entries for this phase.` placeholder) by calling `Add-WorkflowNote` with no `-Message`.
 - `cr-log.md` (`-Kind CrLog`): interactive `ci` persists `@cr` report + triage; autopilot persists `code-review`/`rubber-duck` findings with `-Src code-review`; standalone `cr` persists nothing.
-- `learnings.md` (`-Kind Learnings`): append only on `rework>1`, `plan-contradiction`, or `reusable-pattern` triggers; the script replaces the phase placeholder and caps at 10 entries per plan with one `overflow-summary` fold.
+- `learnings.md` (`-Kind Learnings`): append only on `rework>1`, `plan-contradiction`, or `reusable-pattern` triggers, with typed concern/REQ/review provenance. The script keeps 10 active entries and writes older records to layout-resolved content-addressed overflow batches before replacing the active file. Old `overflow-summary` lines return explicit `legacy-loss` degradation.
 - Stage and commit the changed log by explicit filename.
 
 Fail-loud: missing required sections/placeholders fail; an intentionally empty `No entries for this phase.` section stays valid.

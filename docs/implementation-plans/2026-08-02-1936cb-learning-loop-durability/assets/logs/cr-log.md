@@ -23,3 +23,7 @@ Phase: 2
 
 - [2.1] [src:code-review] [sev:Med] Legacy case-varied retries could duplicate preserved 8-hex records; use ordinal-insensitive content migration matching.
 - [2.1] [src:code-review] [sev:Med] Crash coverage only seeded an unrelated stale temp; fault the atomic temp-before-replace boundary and prove recovery.
+- [2.2] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:5df5cb8d1f2cb4deef43a8522575191bc2e00fef5508f1cc3e5f322d334b2a4b] Uncertain-commit replay could append an already durable source-record ID; deduplicate active and overflow records under the plan lock.
+- [2.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-8] [review:cr] [source-record:56d369e13fecd98dd2f387a71d7488050718fd193b3db27308ed21977a732d19] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes.
+- [2.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:3e0865428bd948fe62c9399fe245717bdf39d0909d4100e3031b6ace53a375b7] Repository-root discovery did not advance its ancestor cursor and could loop forever.
+- [2.2] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-4] [review:cr] [source-record:ed85ce3a57d7251e2da4609c6487ba2f6cf0eecbdc622f50cd93f86a3c89a766] Typed provenance evidence proved only kind domain separation; vary each provenance field and canonical requirement order.

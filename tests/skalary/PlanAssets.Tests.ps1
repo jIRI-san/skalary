@@ -214,9 +214,9 @@ Describe 'Plan assets layout' {
         It 'test:planstate-legacy-layout-unchanged keeps a legacy plan legacy when assets/ holds no section file' {
             $tempRoot = & $newTempDir
             try {
-                $dir = Join-Path $tempRoot 'legacy'
-                $null = & $newLegacyPlan $dir
-                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $dir -Phase 1 | Out-Null
+                $dir = Join-Path $tempRoot 'docs/implementation-plans/001-legacy'
+                $null = & $newLegacyPlan $dir '001'
+                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $dir -RepoRoot $tempRoot -Phase 1 | Out-Null
                 Test-Path -LiteralPath (Join-Path $dir 'capture.md') | Should -BeTrue
 
                 # A bare assets/ subfolder must not flip the layout and orphan the logs already at the root.
@@ -224,7 +224,7 @@ Describe 'Plan assets layout' {
                 Get-PlanLayout -PlanDir $dir | Should -Be 'legacy'
                 Resolve-PlanAssetPath -PlanDir $dir -Kind Capture | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $dir 'capture.md')))
 
-                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $dir -Phase 2 | Out-Null
+                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $dir -RepoRoot $tempRoot -Phase 2 | Out-Null
                 Test-Path -LiteralPath (Join-Path $dir 'assets/logs/capture.md') | Should -BeFalse
             }
             finally {
@@ -473,18 +473,86 @@ Describe 'Plan assets layout' {
     }
 
     Context 'layout-aware writers' {
+        It 'test:planstate-capture-roots confines overflow and receipt roots to an inventoried plan' {
+            $tempRoot = & $newTempDir
+            try {
+                $assetsPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-assets-plan'
+                $null = & $newAssetsPlan $assetsPlanDir
+                $legacyPlanDir = Join-Path $tempRoot 'docs/implementation-plans/001-legacy-plan'
+                $null = & $newLegacyPlan $legacyPlanDir '001'
+                $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
+
+                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
+                    -RepoRoot $tempRoot -Inventory $inventory |
+                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/logs/learning-overflow')))
+                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind HarvestReceiptRoot `
+                    -RepoRoot $tempRoot -Inventory $inventory |
+                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/harvest-receipts')))
+                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind LearningOverflowRoot `
+                    -RepoRoot $tempRoot -Inventory $inventory |
+                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'learning-overflow')))
+                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind HarvestReceiptRoot `
+                    -RepoRoot $tempRoot -Inventory $inventory |
+                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'harvest-receipts')))
+
+                $outside = Join-Path $tempRoot 'outside'
+                [void](New-Item -ItemType Directory -Path $outside -Force)
+                {
+                    Resolve-PlanAssetPath -PlanDir $outside -Kind LearningOverflowRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*escapes repository plan root*'
+
+                $untracked = Join-Path $tempRoot 'docs/implementation-plans/untracked'
+                [void](New-Item -ItemType Directory -Path $untracked -Force)
+                {
+                    Resolve-PlanAssetPath -PlanDir $untracked -Kind HarvestReceiptRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*not a unique member*'
+            }
+            finally {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:planstate-capture-roots refuses a symlinked overflow escape' {
+            $tempRoot = & $newTempDir
+            try {
+                $assetsPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-assets-plan'
+                $null = & $newAssetsPlan $assetsPlanDir
+                $outside = Join-Path $tempRoot 'outside-overflow'
+                [void](New-Item -ItemType Directory -Path $outside -Force)
+                try {
+                    [void](New-Item -ItemType SymbolicLink `
+                            -Path (Join-Path $assetsPlanDir 'assets/logs') -Target $outside -ErrorAction Stop)
+                }
+                catch [System.Exception] {
+                    Set-ItResult -Skipped -Because "this host cannot create a symbolic link unprivileged: $($_.Exception.Message)"
+                    return
+                }
+
+                $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
+                {
+                    Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*escapes inventoried plan folder*'
+            }
+            finally {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'test:workflownote-dual-layout writes logs under assets/logs when the layout is in use' {
             $tempRoot = & $newTempDir
             try {
-                $assetsPlanDir = Join-Path $tempRoot 'assets-plan'
+                $assetsPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-assets-plan'
                 $null = & $newAssetsPlan $assetsPlanDir
-                $legacyPlanDir = Join-Path $tempRoot 'legacy-plan'
-                $null = & $newLegacyPlan $legacyPlanDir
+                $legacyPlanDir = Join-Path $tempRoot 'docs/implementation-plans/001-legacy-plan'
+                $null = & $newLegacyPlan $legacyPlanDir '001'
 
                 foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
-                    & pwsh -NoProfile -File $workflowNoteScript -Kind $kind -PlanDir $assetsPlanDir -Phase 1 | Out-Null
+                    & pwsh -NoProfile -File $workflowNoteScript -Kind $kind -PlanDir $assetsPlanDir -RepoRoot $tempRoot -Phase 1 | Out-Null
                     $LASTEXITCODE | Should -Be 0
-                    & pwsh -NoProfile -File $workflowNoteScript -Kind $kind -PlanDir $legacyPlanDir -Phase 1 | Out-Null
+                    & pwsh -NoProfile -File $workflowNoteScript -Kind $kind -PlanDir $legacyPlanDir -RepoRoot $tempRoot -Phase 1 | Out-Null
                     $LASTEXITCODE | Should -Be 0
                 }
 
@@ -496,7 +564,9 @@ Describe 'Plan assets layout' {
                 }
 
                 # Appending resolves to the same file the initializer created — no split-brain.
-                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $assetsPlanDir -Phase 1 -Step '1.1' -Message 'layout resolved' | Out-Null
+                & pwsh -NoProfile -File $workflowNoteScript -Kind Capture -PlanDir $assetsPlanDir -RepoRoot $tempRoot `
+                    -Phase 1 -Step '1.1' -Concern architecture-patterns -Requirement REQ-1 `
+                    -ReviewType none -Message 'layout resolved' | Out-Null
                 (Get-Content -LiteralPath (Join-Path $assetsPlanDir 'assets/logs/capture.md') -Raw) | Should -Match 'layout resolved'
             }
             finally {
@@ -574,12 +644,12 @@ Describe 'Plan assets layout' {
                 if ((Get-PlanLayout -PlanDir $planDir) -ne 'assets') { continue }
                 $asserted++
 
-                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'Intent', 'References')) {
+                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'Intent', 'References')) {
                     $resolved = Resolve-PlanAssetPath -PlanDir $planDir -Kind $kind
                     $resolved | Should -Match ([regex]::Escape([System.IO.Path]::Combine('assets', ''))) -Because "$kind must resolve under assets/ for $planDir"
                 }
 
-                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md', 'evolution-log.md', 'intent.md', 'references.md', 'requirements.md', 'risks.md', 'decisions.md', 'decisions')) {
+                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md', 'learning-overflow', 'harvest-receipts', 'evolution-log.md', 'intent.md', 'references.md', 'requirements.md', 'risks.md', 'decisions.md', 'decisions')) {
                     Test-Path -LiteralPath (Join-Path $planDir $stray) | Should -BeFalse -Because "$stray must not linger at the root of migrated plan $planDir"
                 }
             }

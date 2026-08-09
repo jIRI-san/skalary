@@ -3557,6 +3557,21 @@
       "reason": "Executable evidence that a failed install leaves no partial writes behind."
     }
   ],
-  "removals": []
+  "removals": [
+    {
+      "test": "Add-WorkflowNote.test:workflownote-cap folds the oldest learnings into one loud overflow-summary",
+      "reason": "Plan 1936cb step 2.2 retires lossy summary generation in favor of lossless content-addressed overflow batches.",
+      "step": "1936cb/2.2"
+    },
+    {
+      "test": "Add-WorkflowNote.test:workflownote-cap accumulates the folded count across repeated overflow",
+      "reason": "Plan 1936cb step 2.2 replaces folded-count accumulation with idempotent overflow-first crash recovery evidence.",
+      "step": "1936cb/2.2"
+    },
+    {
+      "test": "Add-WorkflowNote.test:workflownote-sanitize neutralizes brackets, backticks, pipes, middots and newlines in the body",
+      "reason": "Plan 1936cb step 2.2 broadens sanitization to all control characters and retains the invariant under the renamed test.",
+      "step": "1936cb/2.2"
+    }
+  ]
 }
-

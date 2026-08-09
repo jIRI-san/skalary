@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.29",
+  "version": "1.0.31",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -114,6 +114,34 @@
         "security",
         "testing"
       ]
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/assets/logs/learning-overflow/**",
+      "mode": "parameterized",
+      "owner": "Add-WorkflowNote.ps1",
+      "trigger": "first assets-layout learning overflow",
+      "confine": "Resolve-PlanAssetPath"
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/learning-overflow/**",
+      "mode": "parameterized",
+      "owner": "Add-WorkflowNote.ps1",
+      "trigger": "first legacy-layout learning overflow",
+      "confine": "Resolve-PlanAssetPath"
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first assets-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first legacy-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
     }
   ],
   "evals": {

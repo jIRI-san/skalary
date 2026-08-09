@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T16:27:24.9846023Z",
+  "generatedAt": "2026-08-09T17:06:03.6991826Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "327cdff2b83f34217bac1f47c3570a15077374e56f1cbd9e852bafab0b8e5d92",
+          "sha256": "cc27b61a8b0c3a9bb06239be447cc1c9e4a2e5a95dfa997415a9889c35a45fe3",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -377,7 +377,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.4"
+      "version": "1.2.5"
     },
     {
       "author": "jIRI-san",
@@ -496,12 +496,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
+          "sha256": "13e1a7e0eea216222ff2c1ba9f09b6c2e8d8a5c8d5e98b68d0ca3805f5c8a1a2",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "89965ccfee8f02d4c9cdbdf166b0c646d5629f12796ef73d89121fc60afbf3c7",
+          "sha256": "a818c2e9980930458b05d48221890bc87a4e0a673f6313b0e7fdb2960d989d0f",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -511,7 +511,7 @@
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "ea366d14012bf62a3dc19d9c5db0436373a432584612ff758c287a83661ca69a",
+          "sha256": "236e21a7044ca161fdb545719e5f8b70e9e57c138c4a2653c7f307775cf88824",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -541,7 +541,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "0cb5f41f6e27b52963bb9202aa1114297510dd9609c108523497f22ae47e0221",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -568,6 +568,34 @@
       "license": "MIT",
       "name": "continue-implementation",
       "scaffolds": [
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+          "trigger": "first assets-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Add-WorkflowNote.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/logs/learning-overflow/**",
+          "trigger": "first assets-layout learning overflow"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+          "trigger": "first legacy-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Add-WorkflowNote.ps1",
+          "path": "docs/implementation-plans/<plan>/learning-overflow/**",
+          "trigger": "first legacy-layout learning overflow"
+        },
         {
           "mode": "literal",
           "owner": "Remove-LedgerEntry.ps1",
@@ -613,7 +641,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.29"
+      "version": "1.0.31"
     },
     {
       "author": "jIRI-san",
@@ -667,7 +695,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "0cb5f41f6e27b52963bb9202aa1114297510dd9609c108523497f22ae47e0221",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
@@ -687,12 +715,12 @@
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "d6d2dd11baa2184c6f5f569809b89e182f2db20bfea04ca0fa4e82c87263f65f",
+          "sha256": "8ca525426521f1302afeeef16dd60015716a0ad91650147a8a01fd89d84b0b87",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "84a93b249e38f20720042737371dff56353bee84f063c9f3ddc8520831353019",
+          "sha256": "95e7d3866e9cbf0ac25368efd6d5e2448bee4edf9c84d471623137dffcf47786",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -712,7 +740,7 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "ea366d14012bf62a3dc19d9c5db0436373a432584612ff758c287a83661ca69a",
+          "sha256": "236e21a7044ca161fdb545719e5f8b70e9e57c138c4a2653c7f307775cf88824",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -742,7 +770,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "0cb5f41f6e27b52963bb9202aa1114297510dd9609c108523497f22ae47e0221",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -784,7 +812,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.30"
     },
     {
       "author": "jIRI-san",
@@ -1116,7 +1144,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "0cb5f41f6e27b52963bb9202aa1114297510dd9609c108523497f22ae47e0221",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1186,7 +1214,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "0cb5f41f6e27b52963bb9202aa1114297510dd9609c108523497f22ae47e0221",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
@@ -1288,7 +1316,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.26"
+      "version": "1.0.28"
     }
   ]
 }

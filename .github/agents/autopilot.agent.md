@@ -26,7 +26,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - **Exception: conditional Finalization step** → do not stop immediately. Run the canonical harvest finalization flow (append harvest first, then autonomous vs escalation branch), then continue per branch outcome.
    - `[discovery]` → treat as exploratory. Acceptance criteria are softer; iterate until the step's intent is satisfied rather than a strict pass/fail.
 8. **Mark in-progress** — change `- [ ]` to `- [~]` for the current step.
-9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize the `cr-log` / `learnings` / `capture` logs for the active phase through `Add-WorkflowNote.ps1` (it resolves `assets/logs/<file>.md` for the current layout and the plan-folder root for legacy plans via `Resolve-PlanAssetPath`, so pass `-PlanDir` and never a file path) (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the 10-entry learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
+9. **Initialize ephemeral logs by name** — in the selected plan folder, initialize the `cr-log` / `learnings` / `capture` logs for the active phase through `Add-WorkflowNote.ps1` (it resolves `assets/logs/<file>.md` for the current layout and the plan-folder root for legacy plans via `Resolve-PlanAssetPath`, so pass `-PlanDir` and never a file path) (never hand-write the scaffolds — the script owns header init, the `No entries for this phase.` placeholder, free-text sanitization, and the lossless 10-entry active-learnings cap). Invoke once per kind with `-Phase <N>` and no `-Message` to lay down the phase section + placeholder:
 
    ```powershell
    pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog     -PlanDir <plan-folder> -Phase <N>
@@ -39,13 +39,13 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 11. **Implement** — write the code/files for this step. Follow design notes in `docs/design-notes/`. Make only changes necessary for this step.
    - **Try the simplest approach first.** If the plan specifies a complex solution but a simpler one might work, try the simple one. Only escalate to complexity when the simple approach demonstrably fails.
    - **Tests must encode invariants, not snapshots.** Assert the meaningful property (e.g. "cells grow outward from center") not an incidental observation (e.g. "all center-row cells have height 42px"). If a test would break from a valid future change to an unrelated aspect, it's asserting the wrong thing.
-   - **Learning capture trigger:** append to `learnings.md` **only** through `Add-WorkflowNote.ps1 -Kind Learnings` (the script replaces the phase placeholder, enforces the 10-entry cap, and folds overflow into a single summary). Append only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern`:
+   - **Learning capture trigger:** append to `learnings.md` **only** through `Add-WorkflowNote.ps1 -Kind Learnings` (the script replaces the phase placeholder and persists content-addressed overflow before reducing the active file to 10 entries). Append only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern`:
 
      ```powershell
-     pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Step <source-step> -Trigger <rework>1|plan-contradiction|reusable-pattern> -Message "<one-line learning>"
+     pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Trigger <rework>1|plan-contradiction|reusable-pattern> -Concern <concern> -Requirement <REQ-N...> -ReviewType <cr|dr|none> -Message "<one-line learning>"
      ```
 
-     The script emits the entry shape `- [<source-step>] [trigger:<...>] <learning>` and, once the per-plan cap of 10 is reached, a single `[trigger:overflow-summary]` line — do not hand-write these.
+     The script emits typed concern/requirement/review provenance plus a domain-separated source-record ID. It writes overflow-first batches under the layout-resolved learning-overflow root; never hand-write either active entries or overflow batches. A returned `legacy-loss` status means an old `overflow-summary` proved prior content was already folded away.
 12. **Build** — run the build command from `.autopilot.json` `build` field. Fix errors and retry up to `maxIterationsPerStep` times.
 13. **Test** — run the test command from `.autopilot.json` `test` field. If a relevant test filter can be identified from the changed subsystem (e.g. `--filter Category=Scheduling`), use it for faster feedback. Otherwise run all tests. Fix failures and retry.
    - **Offline rebundle exception (`AUTOPILOT_OFFLINE=true` only).** If a build/test restore fails because a package is *missing from the offline feed* (not a code error), the disposable runtime cannot fetch it and cannot regenerate a valid lockfile — the host does that. In that case:
@@ -61,7 +61,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
 
    ```powershell
-   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
+   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Concern <concern> -Requirement <REQ-N...> -ReviewType cr -Message "<one-line finding or triage note>"
    ```
 
    It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. For any findings it reports, fix them and re-run build/test.

@@ -93,7 +93,7 @@ Durable interview/assumption notes are written **script-only** via `Add-Workflow
 # initialize the phase section (no -Message)
 pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N>
 # record an interview decision/assumption
-pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Message "interview: <decision or assumption>"
+pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Concern architecture-patterns -ReviewType none -Message "interview: <decision or assumption>"
 ```
 
 Initialize the section and commit the capture log by explicit filename at phase start even if empty; commit again when entries are appended. Missing required sections/placeholders fail loud; an intentionally empty `No entries for this phase.` stays valid.
