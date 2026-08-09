@@ -69,13 +69,16 @@ function Get-DomainSeparatedId {
 function Get-RepoIdentity {
     param([Parameter(Mandatory)][string]$Root)
 
+    $gitExitCode = 1
     $remote = try {
-        (& git -C $Root remote get-url origin 2>$null | Select-Object -First 1).Trim()
+        $remoteOutput = & git -C $Root remote get-url origin 2>$null
+        $gitExitCode = $LASTEXITCODE
+        ([string]($remoteOutput | Select-Object -First 1)).Trim()
     }
     catch {
         ''
     }
-    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($remote)) {
+    if ($gitExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($remote)) {
         $uri = $null
         if ([System.Uri]::TryCreate($remote, [System.UriKind]::Absolute, [ref]$uri) -and
             -not [string]::IsNullOrWhiteSpace($uri.Host)) {

@@ -1,7 +1,21 @@
 # Error-Handling Ledger
 
+- [2026-08-09] A durable snapshot receipt must share the writers physically canonical lock and recheck every source generation before publication. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4 #req-7
 - [2026-08-01] A first-use scaffold whose owner throws instead of creating the path disables the feature silently in every consumer repo; declare it only if the owner really writes it. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
 - [2026-08-05] A gate measuring a command that spans several processes must read and clear its clock before every exit not only the green one: a clock stranded by a red run is charged to the next run as time it never spent. (plan-768d7b, src:autopilot, sev:High) #phase-4 #req-2
 - [2026-08-01] A payload that reads a file existing only in the source repo degrades silently rather than failing; every runtime read needs an install-time or first-use declaration. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
+- [2026-08-09] A phase receipt is durable only when complete or empty gates completion and its receipt plus ledger delta are committed before runtime teardown. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] A step-less learning could overflow without phase provenance and make every later phase harvest degrade. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Existing-receipt replay occurred before rejecting an already over-cap active receipt set. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Final sweep required preexisting ledger category files so fresh standalone installs could skip valid receipt replay. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-8
+- [2026-08-09] Ledger lock scopes did not normalize Windows root casing and CAS conflicts thrown during replace bypassed the bounded retry loop. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-7
+- [2026-08-09] Ledger mutex identity used the lexical repository path so symlink aliases could acquire different locks for the same physical store. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-7
+- [2026-08-09] Overflow kind inference used ambiguous visible tokens; validate each compatible grammar against its domain-separated source digest instead. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Phase crosscheck invoked harvest but did not commit its ledger and receipt outputs before ephemeral phase runtime teardown. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Phase harvest could publish a receipt from logs changed after collection because source writers and publication used different locks without a generation recheck. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Receipt capacity checking was outside the receipt publication lock allowing concurrent phase harvests to exceed the active ceiling after ledger mutation. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Receipt publication used a lexical plan lock identity so physical aliases could bypass the active-receipt ceiling serialization. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-7
 - [2026-08-05] Under Set-StrictMode -Version Latest a missing config key read with dot notation is terminating and exits 1 the code reserved for tests failed. Name every field in the guard before reading any of them. (plan-768d7b, src:autopilot, sev:Med) #phase-4 #req-2
-
+- [2026-08-09] Unresolved degraded harvest was surfaced but still allowed phase teardown and final branch selection leaving missing receipts unrecoverable. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Workflow text claimed final sweep could recover a degraded phase without a receipt but final sweep only replays already persisted receipts. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
+- [2026-08-09] Workflow-note writing accepted a step whose leading phase disagreed with the target section guaranteeing harvest degradation. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4
