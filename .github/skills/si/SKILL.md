@@ -16,6 +16,11 @@ context: fork
 what the last runs actually learned and turns it into a small, ranked, cited set of improvements to
 the customizations themselves.
 
+Autopilot depends on this plugin but never invokes this skill headlessly. After an autonomous plan's
+complete source commit is pushed, it calls the installed `Enqueue-SiDue.ps1` with bound arguments.
+That writer records one content-addressed due for the next interactive completion; duplicate calls
+are no-ops, and a failed write is reported as non-blocking degradation rather than success.
+
 ## Step 0: Scope the run
 
 1. Resolve and pin the source commit before reading evidence. Pass the plan reference and pinned OID

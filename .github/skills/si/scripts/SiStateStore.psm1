@@ -56,6 +56,30 @@ function Resolve-SiRepoRoot {
     return $root
 }
 
+function Resolve-SiPhysicalPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $pathRoot = [System.IO.Path]::GetPathRoot($fullPath)
+    $current = $pathRoot
+    foreach ($segment in @($fullPath.Substring($pathRoot.Length) -split '[\\/]' | Where-Object { $_ })) {
+        $candidate = Join-Path $current $segment
+        if (Test-Path -LiteralPath $candidate) {
+            $item = Get-Item -LiteralPath $candidate -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                $target = $item.ResolveLinkTarget($true)
+                if ($null -eq $target) {
+                    throw "Cannot resolve SI state link '$candidate'."
+                }
+                $current = [System.IO.Path]::GetFullPath($target.FullName)
+                continue
+            }
+        }
+        $current = [System.IO.Path]::GetFullPath($candidate)
+    }
+    return $current
+}
+
 function Resolve-SiStatePath {
     [CmdletBinding()]
     param(
@@ -74,8 +98,23 @@ function Resolve-SiStatePath {
     }
     $full = [System.IO.Path]::GetFullPath($path)
     $prefix = $root.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $pathComparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not $full.StartsWith($prefix, $pathComparison)) {
         throw "Resolved SI state path '$full' escapes repository root."
+    }
+    $physicalRoot = Resolve-SiPhysicalPath -Path $root
+    $physicalPath = Resolve-SiPhysicalPath -Path $full
+    $physicalPrefix = $physicalRoot.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $physicalPath.StartsWith($physicalPrefix, $pathComparison)) {
+        throw "Resolved SI state path '$full' escapes repository root via link."
     }
     return $full
 }
@@ -147,6 +186,45 @@ function Get-SiDueId {
     )
     $bytes = [System.Text.Encoding]::UTF8.GetBytes("$RepoId|$PlanId|$SourceCommit|si-due-v1")
     return [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
+function Get-SiRepoId {
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $root = Resolve-SiRepoRoot -RepoRoot $RepoRoot
+    $gitExitCode = 1
+    $remote = try {
+        $remoteOutput = & git -C $root remote get-url origin 2>$null
+        $gitExitCode = $LASTEXITCODE
+        ([string]($remoteOutput | Select-Object -First 1)).Trim()
+    }
+    catch {
+        ''
+    }
+    if ($gitExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($remote)) {
+        $uri = $null
+        if ([System.Uri]::TryCreate($remote, [System.UriKind]::Absolute, [ref]$uri) -and
+            -not [string]::IsNullOrWhiteSpace($uri.Host)) {
+            $repositoryPath = $uri.AbsolutePath.Trim('/').Replace('\', '/')
+            if ($repositoryPath.EndsWith('.git', [System.StringComparison]::OrdinalIgnoreCase)) {
+                $repositoryPath = $repositoryPath.Substring(0, $repositoryPath.Length - 4)
+            }
+            return 'origin:' + $uri.Host.ToLowerInvariant() + '/' + $repositoryPath
+        }
+        $scp = [regex]::Match($remote, '^(?:[^@]+@)?(?<host>[^:]+):(?<path>.+)$')
+        if ($scp.Success) {
+            $repositoryPath = $scp.Groups['path'].Value.Trim('/').Replace('\', '/')
+            if ($repositoryPath.EndsWith('.git', [System.StringComparison]::OrdinalIgnoreCase)) {
+                $repositoryPath = $repositoryPath.Substring(0, $repositoryPath.Length - 4)
+            }
+            return 'origin:' + $scp.Groups['host'].Value.ToLowerInvariant() + '/' + $repositoryPath
+        }
+        $digest = [System.Security.Cryptography.SHA256]::HashData(
+            [System.Text.Encoding]::UTF8.GetBytes($remote)
+        )
+        return 'origin-sha256:' + [Convert]::ToHexString($digest).ToLowerInvariant()
+    }
+    return 'path:' + $root.Replace('\', '/').TrimEnd('/')
 }
 
 function Get-SiArtifactDigest {
@@ -259,6 +337,13 @@ function Invoke-SiManifestUpdate {
                     $current | ConvertFrom-Json -Depth 100
                 }
                 $value = & $Transform $manifest $attempt
+                if ($null -ne $value -and
+                    $value.PSObject.Properties.Name -contains 'Mutated' -and -not $value.Mutated) {
+                    return [pscustomobject]@{
+                        Status = 'complete'; Path = $path; Generation = $generation
+                        Attempts = $attempt; Value = $value
+                    }
+                }
                 $manifest.generation = [int]$manifest.generation + 1
                 $json = ConvertTo-SiJson -Value $manifest
                 if ([System.Text.Encoding]::UTF8.GetByteCount($json) -gt $script:SiStateContract.Limits.ManifestBytes) {
@@ -301,7 +386,9 @@ function Add-SiDue {
         param($manifest)
         $known = @($manifest.pending) + @($manifest.inFlight) + @($manifest.recentRuns)
         if (@($known | Where-Object { [string]$_.dueId -eq $dueId }).Count -gt 0) {
-            return [pscustomobject]@{ DueId = $dueId; Written = $false; Note = 'already-known' }
+            return [pscustomobject]@{
+                DueId = $dueId; Written = $false; Mutated = $false; Note = 'already-known'
+            }
         }
         if (@($manifest.pending).Count + @($manifest.inFlight).Count -ge $script:SiStateContract.Limits.PendingDues) {
             throw 'capacity-blocked: SI pending/in-flight due limit reached.'
@@ -311,7 +398,9 @@ function Add-SiDue {
             createdAtUtc = [datetime]::UtcNow.ToString('o'); deferUntilUtc = $null
             status = 'pending'; runId = $null
         }
-        return [pscustomobject]@{ DueId = $dueId; Written = $true; Note = '' }
+        return [pscustomobject]@{
+            DueId = $dueId; Written = $true; Mutated = $true; Note = ''
+        }
     }
     return [pscustomobject]@{
         Status   = $result.Status
@@ -747,6 +836,6 @@ function Invoke-SiRepair {
 }
 
 Export-ModuleMember -Function Get-SiStateContract, Resolve-SiStatePath, New-SiManifest,
-Read-SiManifest, Get-SiDueId, Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
+Read-SiManifest, Get-SiDueId, Get-SiRepoId, Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
 Invoke-SiManifestUpdate, Add-SiDue, Get-SiStoreInspection, Get-SiObservationPayload,
 Save-SiRepairObservation, New-SiRepairReceipt, Invoke-SiRepair

@@ -65,10 +65,12 @@ Controls, in the order they apply:
    honour; this script is the enforcement. See below.
 4. **Draft PR, never auto-merge.** A human accepts every candidate.
 
-`/si` is offered at plan completion by both `/ci` and the autopilot harvest mirror. **Autopilot does
-not run it.** `/si` ends in a PR against the repo's own instructions; opening one with nobody having
-asked is not an autonomous decision, so a headless run notes that `/si` is available for the next
-interactive session and queues nothing.
+`/si` is offered at plan completion by `/ci`. **Autopilot does not run it.** Autopilot explicitly
+depends on this plugin only to invoke installed `Enqueue-SiDue.ps1` after its autonomous archive
+commit has been pushed. The due ID is
+`sha256(repo-id|plan-id|complete-source-commit|si-due-v1)`; repeat enqueue is a no-op. A successful
+write is committed and pushed before the plan PR. Writer failure is surfaced as non-blocking
+degradation, never success, because opening a proposal with nobody present remains disallowed.
 
 The consumer-repo fork/upstream flow is documented as manual — `gh` fork entitlement is out of
 scope, and skalary is itself the registry, so the PR target is this repo.
@@ -95,6 +97,15 @@ its schemas and lifecycle scripts remain plugin-owned. `SiStateStore.psm1` is th
 module that calls the primitive: manifest updates retry at most three generation conflicts, run
 completion persists and validates the run before the manifest, and repair Snapshot/Apply/Rollback
 share the same state lock.
+
+`Enqueue-SiDue.ps1` derives the same canonical repository identity as phase harvest from `origin`
+(with hashed-remote and canonical-path fallbacks), unless a test or trusted caller supplies
+`-RepoId`. It computes the domain-specific due ID from repository, canonical plan ID, and the pushed
+complete-source OID before the locked manifest update. Pending, in-flight, and recent IDs all
+participate in deduplication. A duplicate is byte-stable and does not advance manifest generation.
+Every state path resolves existing links physically and is refused when the target escapes the
+physical repository root, using case-sensitive containment on Unix and case-insensitive containment
+on Windows.
 
 `Get-SiState.ps1` exposes metadata only. Inspection classifies absent, valid, orphaned, corrupt,
 legacy, forward-version, capacity-blocked, and incomplete-apply stores without mutation.

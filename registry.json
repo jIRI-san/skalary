@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T20:56:56.5812642Z",
+  "generatedAt": "2026-08-09T22:08:12.4293428Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -256,7 +256,9 @@
     },
     {
       "author": "jIRI-san",
-      "dependencies": [],
+      "dependencies": [
+        "self-improvement"
+      ],
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
       "evals": {
         "status": "none"
@@ -264,7 +266,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "e581f5a1a546802f73e1d0b7c1dec8b18b53ce48dce672811dc3a87b1238af17",
+          "sha256": "6bd2a3ad525ab6f8fbca669ef8a98deef089c673308b6c734da3848f6bad6d34",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -408,7 +410,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.12"
+      "version": "1.2.13"
     },
     {
       "author": "jIRI-san",
@@ -1195,7 +1197,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "596e3143d99bf3acece571d3875fa3623361417ac20c703d50f9ce78a1595775",
+          "sha256": "0707a21dc24df87639d0532f7996b802305cd2819900a6628cbd226e713c483a",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -1245,7 +1247,7 @@
         },
         {
           "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
-          "sha256": "c293a4b425cd4059c84718084955f30c0ce1979e843b94ad624ad588ac83cf98",
+          "sha256": "4510467179eea93b66d2e10dab798efdcd2f694a8c96ceac4de64c50b4bc1fb0",
           "src": "scripts/Enqueue-SiDue.ps1"
         },
         {
@@ -1275,7 +1277,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "a226a5360aba0d8a3298cb3d5b15a54bd964481e7d7449a231acfeaa5bdd042c",
+          "sha256": "952fe5b21aa7b19a3cbc28912d16f528c52246ae7adf84ea5bb6da8b23818820",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1378,7 +1380,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.34"
+      "version": "1.0.35"
     }
   ]
 }

@@ -204,7 +204,7 @@ Describe 'Self-improvement harvest contract' {
             foreach ($path in @($script:ciGuidePaths + $script:autopilotPaths)) {
                 $flat = Get-FlatText -RelativePath $path
 
-                # /pfb queues its question headless; /si must not queue a *proposal*, because the
+                # A due marker may be queued headlessly, but /si itself must not run because the
                 # end of that flow is a PR against the files that govern every later run.
                 $flat | Should -Match '(?i)(headless|autopilot run) (completion )?does not run (it|`?/si`?)' -Because "$path must not run /si without an operator"
             }
@@ -212,7 +212,8 @@ Describe 'Self-improvement harvest contract' {
             foreach ($path in $script:autopilotPaths) {
                 $flat = Get-FlatText -RelativePath $path
                 $flat | Should -Match '(?i)Self-improvement \(`/si`\) . not run headless' -Because "$path must name the rule where the harvest mirror lives"
-                $flat | Should -Match '(?i)queues nothing' -Because "$path must not leave a queued proposal marker behind"
+                $flat | Should -Match 'Enqueue-SiDue\.ps1' -Because "$path must persist only the due handoff"
+                $flat | Should -Match '(?i)never enqueue before that source push' -Because "$path must bind the due to persisted completion"
             }
         }
 

@@ -20,3 +20,8 @@ Phase: 3
 Phase: 4
 
 No entries for this phase.
+
+## Learnings Capture
+Phase: 5
+
+- [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-3,REQ-8] [review:none] [source-record:fd463b4883053cb24a5bb30d63036f8e52e8b380ffb996485cff886cd6ebb715] Headless SI tests must distinguish running a proposal from enqueueing a durable due; the old 'queues nothing' invariant blocked the planned handoff.

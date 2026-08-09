@@ -83,3 +83,11 @@ Phase: 4
 - [4.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:b8ecdd63bd9f962a15733c53cfa20ecc5f216ca6d092d0661bc3c13f930d2fd5] Consumer fixture tracked plugin names but did not compare the materialized file and hash inventory against the exact declared dependency closure.
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-6] [review:cr] [source-record:2930df4a4d28e0aecbcd13b4f6a68ef35bf82f8e38ca74de21efbf7ce8aac438] Consumer test asserted token neutralization but not rejection of the forged closing marker and extra inner fence delimiter in the same test.
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:97eb5e99d8253960e3c11842433b6ecf1b4e50740f1f1d18d88df95d682331bb] Installed-only evidence scanned only the entry script for an absolute source path rather than every installed script module and returned path.
+
+## CR Capture
+Phase: 5
+
+- [5.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-3,REQ-8] [review:cr] [source-record:57c33574515977549a3e51dd762b2aafea85e98c410ea1324e3894341cfcab6f] Fixed duplicate enqueue rewriting manifest generation and retry guidance dropping an existing unpushed due state.
+- [5.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-7] [review:cr] [source-record:d971a85be33c0585250f6f73dfdd80c8c2e5d3ef065ca6c1062d87e8bc894772] Fixed SI state path confinement following a docs/self-improvement link outside the physical repository root.
+- [5.1] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:761df95080deeda2880f2c27dd2eff41074b88fb5bbe1ffc8dba3cfa1b477bd9] Regenerated registry payload hashes after the final autopilot agent wording change.
+- [5.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-7] [review:cr] [source-record:ccab772a62070feb42cf8273782694c942324f3be2a63847ff5c54f7822a84a2] Fixed case-insensitive physical containment on Unix accepting a case-variant sibling link target.

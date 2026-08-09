@@ -127,6 +127,11 @@ consumers: `continue-implementation` (`skills/ci/scripts/`) and `autopilot`
 (`skills/autopilot/scripts/`). Both invoke their installed copy, declare current and legacy
 phase-receipt scaffolds, and carry the same root-canonical bytes.
 
+Autopilot declares `self-improvement` as a plugin dependency rather than copying SI-owned lifecycle
+scripts into its payload. Dependency installation supplies `skills/si/scripts/Enqueue-SiDue.ps1`
+at an independently versioned SI release, preserving SI's sole ownership and allowing standalone SI
+installs to use the same due writer.
+
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
 

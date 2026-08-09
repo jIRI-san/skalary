@@ -48,8 +48,9 @@ $script:FixturePayload = @(
 #
 #   code-review, design-notes, design-review  — installed, removed and searched directly
 #   continue-implementation                   — the transitive-install case; pulls code-review + autopilot
-#   autopilot                                 — dependency of continue-implementation
+#   autopilot                                 — dependency of continue-implementation; pulls self-improvement
 #   create-implementation-plan                — the modified-file remove case; pulls design-review
+#   self-improvement                          — dependency of autopilot
 #
 # `Test-SkalaryFixturePluginClosure` proves the list is closed under `dependencies`, so a
 # manifest that gains a dependency cannot leave the fixture referencing a missing plugin.
@@ -60,6 +61,7 @@ $script:FixturePlugins = @(
     'create-implementation-plan'
     'design-notes'
     'design-review'
+    'self-improvement'
 )
 
 # Points at HEAD of the fixture commit so Build-Registry resolves a version rather

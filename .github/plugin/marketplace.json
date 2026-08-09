@@ -47,7 +47,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.12"
+      "version": "1.2.13"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -153,7 +153,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.34"
+      "version": "1.0.35"
     }
   ]
 }

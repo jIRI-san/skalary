@@ -69,7 +69,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.5 | partial | — | 17 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `architecture-tests` | 1.0.20 | partial | — | 14 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
-| `autopilot` | 1.2.12 | partial | — | 24 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
+| `autopilot` | 1.2.13 | partial | self-improvement | 24 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.4 | stable | — | 16 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.38 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
 | `create-implementation-plan` | 1.0.34 | stable | design-review | 27 | Implementation plan generation skill for coding workflows. |
@@ -77,5 +77,5 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `design-review` | 1.0.3 | stable | — | 15 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.3 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
-| `self-improvement` | 1.0.34 | stable | create-implementation-plan | 28 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
+| `self-improvement` | 1.0.35 | stable | create-implementation-plan | 28 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
 <!-- END SKALARY PLUGIN CATALOG -->
