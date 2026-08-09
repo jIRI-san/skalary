@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T19:42:51.2061135Z",
+  "generatedAt": "2026-08-09T20:22:04.5893591Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1249,6 +1249,11 @@
           "src": "scripts/Enqueue-SiDue.ps1"
         },
         {
+          "dest": "skills/si/scripts/Get-SiHarvest.ps1",
+          "sha256": "fe467c4e2f23f521df9580e2333a043b724d04680dde2207261c7ea2337bf3fa",
+          "src": "scripts/Get-SiHarvest.ps1"
+        },
+        {
           "dest": "skills/si/scripts/Get-SiState.ps1",
           "sha256": "ca94799de5925770ee2ca6e93295265b0d4956eccfe0a83b3712ff5e70f19a59",
           "src": "scripts/Get-SiState.ps1"
@@ -1265,7 +1270,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "e60d42a35925bc6a5bab49b947639ca01a22460f32ff0a6da91d39a1865a1250",
+          "sha256": "645ec6ad296704b723ecfa707e336d04662849b05c14be509c4ae983cecd01e5",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1301,6 +1306,12 @@
           "owner": "Repair-SiState.ps1",
           "path": "docs/self-improvement/backups/<observation>/**",
           "trigger": "repair apply journal and backup"
+        },
+        {
+          "mode": "literal",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/harvest-index.json",
+          "trigger": "bounded SI evidence scan"
         },
         {
           "confine": "Resolve-SiStatePath",
@@ -1357,7 +1368,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.32"
+      "version": "1.0.33"
     }
   ]
 }

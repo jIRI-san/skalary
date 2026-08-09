@@ -6,34 +6,35 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 
 $script:SiStateContract = [pscustomobject]@{
-    ManifestVersion = 2
-    RunVersion = 2
-    ResolverReceiptVersion = 1
+    ManifestVersion          = 2
+    RunVersion               = 2
+    ResolverReceiptVersion   = 1
     RepairObservationVersion = 1
-    RepairReceiptVersion = 1
-    Status = [pscustomobject]@{
+    RepairReceiptVersion     = 1
+    Status                   = [pscustomobject]@{
         Absent = 0; Valid = 0
         RepairableOrphans = 2; RepairableCorrupt = 2; MigrationRequired = 2
         ForwardReadonly = 3; ForwardBlocked = 3
         CapacityBlocked = 4; Invalid = 5; LockTimeout = 6
         CasConflict = 7; CasExhausted = 8; ApplyIncomplete = 9
     }
-    Limits = [pscustomobject]@{
+    Limits                   = [pscustomobject]@{
         ManifestBytes = 256KB; PendingDues = 128; RecentRunReferences = 64
         ActiveCompletedRuns = 32; ActiveInFlightRuns = 16
         ArchivedRuns = 4096; RunsPerShard = 256; RunBytes = 1MB
         RankedCandidates = 5; LockSeconds = 30; CasRetries = 3
-        AuxiliaryRecordsPerKind = 256; ResolverReceipts = 512
+        AuxiliaryRecordsPerKind = 256; ResolverReceipts = 512; HarvestIndexBytes = 8MB
     }
-    Topology = [pscustomobject]@{
+    Topology                 = [pscustomobject]@{
         RootSegments = @('docs', 'self-improvement'); ManifestName = 'state.json'
         ActiveRunsSegments = @('runs'); ArchiveSegments = @('archive')
         BackupSegments = @('backups'); QuarantineSegments = @('quarantine')
         ObservationSegments = @('repair-observations')
-        ReceiptSegments = @('repair-receipts')
-        ResolverReceiptSegments = @('resolver-receipts'); LockName = '.state.lock'
+        ReceiptSegments     = @('repair-receipts')
+        ResolverReceiptSegments = @('resolver-receipts'); HarvestIndexName = 'harvest-index.json'
+        LockName            = '.state.lock'
     }
-    TransactionOrder = @(
+    TransactionOrder         = @(
         'acquire-lock', 'read-generation', 'write-random-temp', 'validate-temp',
         'recheck-generation', 'replace-run-before-manifest', 'replace-manifest', 'release-lock'
     )
@@ -113,10 +114,10 @@ function Test-SiJsonSchema {
 function New-SiManifest {
     return [ordered]@{
         schemaVersion = $script:SiStateContract.ManifestVersion
-        generation = 0
-        pending = @()
-        inFlight = @()
-        recentRuns = @()
+        generation    = 0
+        pending       = @()
+        inFlight      = @()
+        recentRuns    = @()
     }
 }
 
@@ -250,37 +251,37 @@ function Invoke-SiManifestUpdate {
     try {
         return Invoke-WithAtomicStoreLock -Scope "$root|si-state" `
             -TimeoutSeconds $script:SiStateContract.Limits.LockSeconds -Action {
-                for ($attempt = 1; $attempt -le $script:SiStateContract.Limits.CasRetries; $attempt++) {
-                    $generation = Get-AtomicStoreGeneration -Path $path
-                    $current = if ($generation -eq 'absent') { $null } else { [System.IO.File]::ReadAllText($path) }
-                    $manifest = if ($null -eq $current) { [pscustomobject](New-SiManifest) } else {
-                        Test-SiJsonSchema -Json $current -Schema manifest
-                        $current | ConvertFrom-Json -Depth 100
-                    }
-                    $value = & $Transform $manifest $attempt
-                    $manifest.generation = [int]$manifest.generation + 1
-                    $json = ConvertTo-SiJson -Value $manifest
-                    if ([System.Text.Encoding]::UTF8.GetByteCount($json) -gt $script:SiStateContract.Limits.ManifestBytes) {
-                        throw 'capacity-blocked: SI manifest exceeds 256 KiB.'
-                    }
-                    Test-SiJsonSchema -Json $json -Schema manifest
-                    $write = Set-AtomicStoreContent -Path $path -Content $json `
-                        -ExpectedGeneration $generation -Validate {
-                            param($temp)
-                            Test-SiJsonSchema -Json ([System.IO.File]::ReadAllText($temp)) -Schema manifest
-                        }
-                    if ($write.Status -eq 'complete') {
-                        return [pscustomobject]@{
-                            Status = 'complete'; Path = $path; Generation = $write.Generation
-                            Attempts = $attempt; Value = $value
-                        }
-                    }
+            for ($attempt = 1; $attempt -le $script:SiStateContract.Limits.CasRetries; $attempt++) {
+                $generation = Get-AtomicStoreGeneration -Path $path
+                $current = if ($generation -eq 'absent') { $null } else { [System.IO.File]::ReadAllText($path) }
+                $manifest = if ($null -eq $current) { [pscustomobject](New-SiManifest) } else {
+                    Test-SiJsonSchema -Json $current -Schema manifest
+                    $current | ConvertFrom-Json -Depth 100
                 }
-                return [pscustomobject]@{
-                    Status = 'cas-exhausted'; Path = $path
-                    Attempts = $script:SiStateContract.Limits.CasRetries; Value = $null
+                $value = & $Transform $manifest $attempt
+                $manifest.generation = [int]$manifest.generation + 1
+                $json = ConvertTo-SiJson -Value $manifest
+                if ([System.Text.Encoding]::UTF8.GetByteCount($json) -gt $script:SiStateContract.Limits.ManifestBytes) {
+                    throw 'capacity-blocked: SI manifest exceeds 256 KiB.'
+                }
+                Test-SiJsonSchema -Json $json -Schema manifest
+                $write = Set-AtomicStoreContent -Path $path -Content $json `
+                    -ExpectedGeneration $generation -Validate {
+                    param($temp)
+                    Test-SiJsonSchema -Json ([System.IO.File]::ReadAllText($temp)) -Schema manifest
+                }
+                if ($write.Status -eq 'complete') {
+                    return [pscustomobject]@{
+                        Status = 'complete'; Path = $path; Generation = $write.Generation
+                        Attempts = $attempt; Value = $value
+                    }
                 }
             }
+            return [pscustomobject]@{
+                Status = 'cas-exhausted'; Path = $path
+                Attempts = $script:SiStateContract.Limits.CasRetries; Value = $null
+            }
+        }
     }
     catch [System.TimeoutException] {
         return [pscustomobject]@{ Status = 'lock-timeout'; Path = $path; Attempts = 0; Value = $null }
@@ -313,10 +314,10 @@ function Add-SiDue {
         return [pscustomobject]@{ DueId = $dueId; Written = $true; Note = '' }
     }
     return [pscustomobject]@{
-        Status = $result.Status
-        DueId = $dueId
-        Written = ($result.Status -eq 'complete' -and $result.Value.Written)
-        Note = if ($result.Status -eq 'complete') { $result.Value.Note } else { $result.Status }
+        Status   = $result.Status
+        DueId    = $dueId
+        Written  = ($result.Status -eq 'complete' -and $result.Value.Written)
+        Note     = if ($result.Status -eq 'complete') { $result.Value.Note } else { $result.Status }
         Attempts = $result.Attempts
     }
 }
@@ -374,23 +375,23 @@ function Get-SiStoreInspection {
             $manifestKind = 'corrupt'
         }
         $observed.Add([pscustomobject]@{
-            path = 'docs/self-improvement/state.json'
-            sha256 = Get-AtomicStoreGeneration -Path $manifestPath
-        })
+                path   = 'docs/self-improvement/state.json'
+                sha256 = Get-AtomicStoreGeneration -Path $manifestPath
+            })
     }
 
     $status = if ($journalFiles.Count -gt 0) { 'apply-incomplete' }
     elseif ($currentRuns -gt 0 -and @($runFiles | Where-Object {
                 try {
                     [string](Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 100).status -in
-                        @('declined-before-ranking', 'no-candidates', 'completed')
+                    @('declined-before-ranking', 'no-candidates', 'completed')
                 }
                 catch { $false }
             }).Count -gt $script:SiStateContract.Limits.ActiveCompletedRuns) { 'capacity-blocked' }
     elseif (@($runFiles | Where-Object {
                 try {
                     [string](Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 100).status -notin
-                        @('declined-before-ranking', 'no-candidates', 'completed')
+                    @('declined-before-ranking', 'no-candidates', 'completed')
                 }
                 catch { $false }
             }).Count -gt $script:SiStateContract.Limits.ActiveInFlightRuns) { 'capacity-blocked' }
@@ -406,11 +407,11 @@ function Get-SiStoreInspection {
     else { 'valid' }
 
     return [pscustomobject]@{
-        Status = $status
-        ExitCode = [int]$script:SiStateContract.Status.($status -replace '-(\w)', { $_.Groups[1].Value.ToUpperInvariant() })
+        Status       = $status
+        ExitCode     = [int]$script:SiStateContract.Status.($status -replace '-(\w)', { $_.Groups[1].Value.ToUpperInvariant() })
         ManifestPath = $manifestPath
-        RunFiles = $runFiles
-        Observed = @($observed | Sort-Object path)
+        RunFiles     = $runFiles
+        Observed     = @($observed | Sort-Object path)
     }
 }
 
@@ -421,10 +422,10 @@ function Get-SiObservationPayload {
     )
     $inspection = Get-SiStoreInspection -RepoRoot $RepoRoot
     return [ordered]@{
-        protocol = 'si-repair-observation-v1'
+        protocol      = 'si-repair-observation-v1'
         pinnedBaseOid = $PinnedBaseOid
-        status = $inspection.Status
-        observed = @($inspection.Observed)
+        status        = $inspection.Status
+        observed      = @($inspection.Observed)
     }
 }
 
@@ -454,12 +455,12 @@ function New-SiRepairReceipt {
         [Parameter(Mandatory)][string]$AfterDigest
     )
     $payload = [ordered]@{
-        protocol = 'si-repair-receipt-v1'
+        protocol      = 'si-repair-receipt-v1'
         observationId = $ObservationId
-        mode = $Mode
-        beforeDigest = $BeforeDigest
-        afterDigest = $AfterDigest
-        createdAtUtc = [datetime]::UtcNow.ToString('o')
+        mode          = $Mode
+        beforeDigest  = $BeforeDigest
+        afterDigest   = $AfterDigest
+        createdAtUtc  = [datetime]::UtcNow.ToString('o')
     }
     $bytes = [System.Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
     $receiptId = [Convert]::ToHexString(
@@ -487,15 +488,15 @@ function Invoke-SiRepair {
         try {
             return Invoke-WithAtomicStoreLock -Scope "$root|si-state" `
                 -TimeoutSeconds $script:SiStateContract.Limits.LockSeconds -Action {
-                    $script:SiRepairLockHeld = $true
-                    try {
-                        Invoke-SiRepair -RepoRoot $root -Mode $Mode -PinnedBaseOid $PinnedBaseOid `
-                            -Observation $Observation -Receipt $Receipt
-                    }
-                    finally {
-                        $script:SiRepairLockHeld = $false
-                    }
+                $script:SiRepairLockHeld = $true
+                try {
+                    Invoke-SiRepair -RepoRoot $root -Mode $Mode -PinnedBaseOid $PinnedBaseOid `
+                        -Observation $Observation -Receipt $Receipt
                 }
+                finally {
+                    $script:SiRepairLockHeld = $false
+                }
+            }
         }
         catch [System.TimeoutException] {
             return [pscustomobject]@{ Status = 'lock-timeout'; Mutated = $false }
@@ -537,7 +538,7 @@ function Invoke-SiRepair {
         $repoRootPath = Resolve-SiRepoRoot -RepoRoot $RepoRoot
         $stateRootPath = Split-Path -Parent (Get-SiManifestPath -RepoRoot $RepoRoot)
         $statePrefix = $stateRootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
-            [System.IO.Path]::DirectorySeparatorChar
+        [System.IO.Path]::DirectorySeparatorChar
         foreach ($observed in @($envelope.payload.observed)) {
             $observedPath = [string]$observed.path
             if ([System.IO.Path]::IsPathRooted($observedPath)) {
@@ -564,9 +565,9 @@ function Invoke-SiRepair {
         }
         $journalPath = Join-Path $backupRoot 'apply-journal.json'
         [void](Set-AtomicStoreContent -Path $journalPath -Content (([ordered]@{
-                    observationId = $Observation
-                    beforeDigest = Get-SiArtifactDigest -Path $manifestPath
-                } | ConvertTo-Json -Compress) + "`n"))
+                        observationId = $Observation
+                        beforeDigest  = Get-SiArtifactDigest -Path $manifestPath
+                    } | ConvertTo-Json -Compress) + "`n"))
         $manifest = New-SiManifest
         $quarantineEntries = [System.Collections.Generic.List[object]]::new()
         if ($envelope.payload.status -eq 'migration-required' -and
@@ -626,10 +627,10 @@ function Invoke-SiRepair {
                 }
                 [System.IO.File]::Move($runFile.FullName, $quarantinePath, $false)
                 $quarantineEntries.Add([pscustomobject][ordered]@{
-                        observationId = $Observation
-                        path = [System.IO.Path]::GetRelativePath($repoRootPath, $runFile.FullName).Replace('\', '/')
+                        observationId  = $Observation
+                        path           = [System.IO.Path]::GetRelativePath($repoRootPath, $runFile.FullName).Replace('\', '/')
                         quarantinePath = [System.IO.Path]::GetRelativePath($repoRootPath, $quarantinePath).Replace('\', '/')
-                        sha256 = Get-AtomicStoreGeneration -Path $quarantinePath
+                        sha256         = Get-AtomicStoreGeneration -Path $quarantinePath
                     })
             }
         }
@@ -641,7 +642,7 @@ function Invoke-SiRepair {
             else { @() }
             $indexJson = ConvertTo-SiJson -Value ([ordered]@{
                     schemaVersion = 1
-                    entries = @($existingIndex) + @($quarantineEntries)
+                    entries       = @($existingIndex) + @($quarantineEntries)
                 })
             [void](Set-AtomicStoreContent -Path $indexPath -Content $indexJson)
         }
@@ -670,12 +671,12 @@ function Invoke-SiRepair {
         Test-SiJsonSchema -Json $receiptJson -Schema repair-receipt
         $storedReceipt = $receiptJson | ConvertFrom-Json -Depth 100 -DateKind String
         $receiptPayload = [ordered]@{
-            protocol = [string]$storedReceipt.protocol
+            protocol      = [string]$storedReceipt.protocol
             observationId = [string]$storedReceipt.observationId
-            mode = [string]$storedReceipt.mode
-            beforeDigest = [string]$storedReceipt.beforeDigest
-            afterDigest = [string]$storedReceipt.afterDigest
-            createdAtUtc = [string]$storedReceipt.createdAtUtc
+            mode          = [string]$storedReceipt.mode
+            beforeDigest  = [string]$storedReceipt.beforeDigest
+            afterDigest   = [string]$storedReceipt.afterDigest
+            createdAtUtc  = [string]$storedReceipt.createdAtUtc
         }
         $calculatedReceipt = [Convert]::ToHexString(
             [System.Security.Cryptography.SHA256]::HashData(
@@ -746,6 +747,6 @@ function Invoke-SiRepair {
 }
 
 Export-ModuleMember -Function Get-SiStateContract, Resolve-SiStatePath, New-SiManifest,
-    Read-SiManifest, Get-SiDueId, Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
-    Invoke-SiManifestUpdate, Add-SiDue, Get-SiStoreInspection, Get-SiObservationPayload,
-    Save-SiRepairObservation, New-SiRepairReceipt, Invoke-SiRepair
+Read-SiManifest, Get-SiDueId, Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
+Invoke-SiManifestUpdate, Add-SiDue, Get-SiStoreInspection, Get-SiObservationPayload,
+Save-SiRepairObservation, New-SiRepairReceipt, Invoke-SiRepair

@@ -35,7 +35,7 @@ Describe 'Durable self-improvement state' {
                     repoId = 'owner/repo'; planId = '1936cb'; sourceCommit = ('a' * 40)
                     pinnedBaseOid = ('b' * 40); resolverReceiptId = $null
                 }
-                rankedSet = [pscustomobject][ordered]@{ count = 0; digest = ('0' * 64); candidates = @() }
+                rankedSet  = [pscustomobject][ordered]@{ count = 0; digest = ('0' * 64); candidates = @() }
                 choices = @(); proposalPr = $null
             }
         }
@@ -58,13 +58,13 @@ Describe 'Durable self-improvement state' {
 
         $manifestPath = Join-Path $script:stateRoot 'docs/self-improvement/state.json'
         (Get-Content -LiteralPath $manifestPath -Raw |
-                Test-Json -SchemaFile (Join-Path $script:siSchemas 'manifest.schema.json')) | Should -BeTrue
+            Test-Json -SchemaFile (Join-Path $script:siSchemas 'manifest.schema.json')) | Should -BeTrue
 
         $input = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
-                dueId = $enqueued.DueId
-                runId = ('1' * 64)
+                dueId         = $enqueued.DueId
+                runId         = ('1' * 64)
                 pinnedBaseOid = ('b' * 40)
-                createdAtUtc = '2026-08-09T00:00:00.0000000Z'
+                createdAtUtc  = '2026-08-09T00:00:00.0000000Z'
             })
         $updated = & $script:update -RepoRoot $script:stateRoot -Operation Begin -InputPath $input
         $updated.Status | Should -Be 'complete'
@@ -72,7 +72,7 @@ Describe 'Durable self-improvement state' {
         $runPath = Join-Path $script:stateRoot "docs/self-improvement/runs/2026/08/$('1' * 64).json"
         Test-Path -LiteralPath $runPath -PathType Leaf | Should -BeTrue
         (Get-Content -LiteralPath $runPath -Raw |
-                Test-Json -SchemaFile (Join-Path $script:siSchemas 'run.schema.json')) | Should -BeTrue
+            Test-Json -SchemaFile (Join-Path $script:siSchemas 'run.schema.json')) | Should -BeTrue
     }
 
     It 'test:SiState.RankedSetCompleteness rejects count, rank, choice, and duplicate-id gaps' {
@@ -80,19 +80,19 @@ Describe 'Durable self-improvement state' {
             param($id, $rank)
             [pscustomobject]@{
                 candidateId = $id
-                rank = $rank
-                title = 'Candidate'
-                rationale = 'Because'
-                sources = @('docs/review-ledger/testing.md')
-                targets = @('plugins/self-improvement/skills/si/SKILL.md')
+                rank        = $rank
+                title       = 'Candidate'
+                rationale   = 'Because'
+                sources     = @('docs/review-ledger/testing.md')
+                targets     = @('plugins/self-improvement/skills/si/SKILL.md')
             }
         }
         $run = [pscustomobject]@{
             rankedSet = [pscustomobject]@{
-                count = 2
+                count      = 2
                 candidates = @((& $candidate ('1' * 64) 1))
             }
-            choices = @()
+            choices   = @()
         }
         { Assert-SiRunIntegrity -Run $run } | Should -Throw '*count*'
 
@@ -130,7 +130,7 @@ Describe 'Durable self-improvement state' {
                 repoId = 'owner/repo'; planId = '1936cb'; sourceCommit = ('a' * 40)
                 pinnedBaseOid = ('b' * 40); resolverReceiptId = $null
             }
-            rankedSet = [ordered]@{ count = 0; digest = ('0' * 64); candidates = @() }
+            rankedSet  = [ordered]@{ count = 0; digest = ('0' * 64); candidates = @() }
             choices = @(); proposalPr = $null
         }
         [System.IO.File]::WriteAllText(
@@ -224,7 +224,8 @@ Describe 'Shared atomic writer closure' {
             'scripts/skalary/Add-WorkflowNote.ps1',
             'scripts/skalary/LedgerStore.psm1',
             'scripts/skalary/Invoke-PhaseHarvest.ps1',
-            'plugins/self-improvement/scripts/SiStateStore.psm1'
+            'plugins/self-improvement/scripts/SiStateStore.psm1',
+            'plugins/self-improvement/scripts/Get-SiHarvest.ps1'
         )
         function Script:Get-NonAtomicWriters {
             param([string]$Root, [string[]]$Paths)
@@ -256,137 +257,138 @@ Describe 'Shared atomic writer closure' {
 }
 
 Describe 'Installed SI state paging and repair' {
-        BeforeAll {
-            $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
-            $script:pluginRoot = Join-Path $script:repoRoot 'plugins/self-improvement'
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/self-improvement'
 
-            function Script:New-InstalledSiRoot {
-                $root = Join-Path ([System.IO.Path]::GetTempPath()) ('si-installed-' + [Guid]::NewGuid().ToString('N'))
-                [void](New-Item -ItemType Directory -Path $root -Force)
-                $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
-                    ConvertFrom-Json -Depth 100
-                foreach ($file in @($manifest.files)) {
-                    $source = Join-Path $script:pluginRoot ([string]$file.src)
-                    $target = Join-Path $root ('.github/' + [string]$file.dest)
-                    $parent = Split-Path -Parent $target
-                    if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
-                        [void](New-Item -ItemType Directory -Path $parent -Force)
-                    }
-                    Copy-Item -LiteralPath $source -Destination $target
-                }
-                return $root
-            }
-        }
-
-        BeforeEach {
-            $script:consumer = New-InstalledSiRoot
-            $script:installedScripts = Join-Path $script:consumer '.github/skills/si/scripts'
-        }
-
-        AfterEach {
-            if (Test-Path -LiteralPath $script:consumer) {
-                Remove-Item -LiteralPath $script:consumer -Recurse -Force
-            }
-        }
-
-        It 'test:SiState.BoundedManifestPagingAndRepair pages metadata and rebuilds an orphan manifest from the self-improvement payload alone' {
+        function Script:New-InstalledSiRoot {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ('si-installed-' + [Guid]::NewGuid().ToString('N'))
+            [void](New-Item -ItemType Directory -Path $root -Force)
             $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
                 ConvertFrom-Json -Depth 100
-            $declared = @($manifest.scaffolds | ForEach-Object { [string]$_.path })
-            foreach ($required in @(
-                    'docs/self-improvement/state.json',
-                    'docs/self-improvement/runs/<yyyy>/<mm>/<run>.json',
-                    'docs/self-improvement/archive/<yyyy>/<mm>/<run>.json',
-                    'docs/self-improvement/backups/<observation>/**',
-                    'docs/self-improvement/quarantine/index.json',
-                    'docs/self-improvement/quarantine/<observation>/**',
-                    'docs/self-improvement/repair-observations/<observation>.json',
-                    'docs/self-improvement/repair-receipts/<receipt>.json',
-                    'docs/self-improvement/resolver-receipts/<receipt>.json'
-                )) {
-                $declared | Should -Contain $required
+            foreach ($file in @($manifest.files)) {
+                $source = Join-Path $script:pluginRoot ([string]$file.src)
+                $target = Join-Path $root ('.github/' + [string]$file.dest)
+                $parent = Split-Path -Parent $target
+                if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+                    [void](New-Item -ItemType Directory -Path $parent -Force)
+                }
+                Copy-Item -LiteralPath $source -Destination $target
             }
+            return $root
+        }
+    }
 
-            $enqueue = Join-Path $script:installedScripts 'Enqueue-SiDue.ps1'
-            $getState = Join-Path $script:installedScripts 'Get-SiState.ps1'
-            $update = Join-Path $script:installedScripts 'Update-SiState.ps1'
-            $repair = Join-Path $script:installedScripts 'Repair-SiState.ps1'
-            $stateDir = Join-Path $script:consumer 'docs/self-improvement'
-            $dues = @()
-            foreach ($suffix in @('a', 'b', 'c')) {
-                $dues += & $enqueue -RepoRoot $script:consumer -RepoId 'consumer/repo' `
-                    -PlanId '1936cb' -SourceCommit ($suffix * 40)
-            }
-            $page1 = & $getState -RepoRoot $script:consumer -PageSize 2
-            $page1.Items.Count | Should -Be 2
-            $page1.NextCursor | Should -Be '2'
-            @($page1.Items[0].PSObject.Properties.Name) | Should -Be @('dueId', 'runId', 'status')
-            $page2 = & $getState -RepoRoot $script:consumer -PageSize 2 -Cursor $page1.NextCursor
-            $page2.Items.Count | Should -Be 1
-            $page2.NextCursor | Should -BeNullOrEmpty
+    BeforeEach {
+        $script:consumer = New-InstalledSiRoot
+        $script:installedScripts = Join-Path $script:consumer '.github/skills/si/scripts'
+    }
 
-            $inputPath = Join-Path $script:consumer 'begin.json'
-            [System.IO.File]::WriteAllText($inputPath, (([ordered]@{
-                            dueId = $dues[0].DueId
-                            runId = ('1' * 64)
-                            pinnedBaseOid = ('d' * 40)
-                            createdAtUtc = '2026-08-09T00:00:00Z'
-                        } | ConvertTo-Json -Compress) + "`n"))
-            (& $update -RepoRoot $script:consumer -Operation Begin -InputPath $inputPath).Status |
-                Should -Be 'complete'
-            Remove-Item -LiteralPath (Join-Path $script:consumer 'docs/self-improvement/state.json') -Force
+    AfterEach {
+        if (Test-Path -LiteralPath $script:consumer) {
+            Remove-Item -LiteralPath $script:consumer -Recurse -Force
+        }
+    }
 
-            (& $repair -RepoRoot $script:consumer -Mode Inspect -PinnedBaseOid ('d' * 40)).Status |
-                Should -Be 'repairable-orphans'
-            $snapshot = & $repair -RepoRoot $script:consumer -Mode Snapshot -PinnedBaseOid ('d' * 40)
-            $applied = & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId
-            $applied.Status | Should -Be 'valid'
-            $repaired = & $getState -RepoRoot $script:consumer -PageSize 2
-            $repaired.InFlightCount | Should -Be 1
-            $repaired.Items[0].dueId | Should -Be $dues[0].DueId
-
-            $rolledBack = & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt $applied.ReceiptId
-            $rolledBack.Status | Should -Be 'repairable-orphans'
-            $rolledBack.ReceiptId | Should -Match '^[0-9a-f]{64}$'
-            Test-Path -LiteralPath (
-                Join-Path $stateDir "backups/$($snapshot.ObservationId)/apply-journal.json"
-            ) | Should -BeFalse
+    It 'test:SiState.BoundedManifestPagingAndRepair pages metadata and rebuilds an orphan manifest from the self-improvement payload alone' {
+        $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $declared = @($manifest.scaffolds | ForEach-Object { [string]$_.path })
+        foreach ($required in @(
+                'docs/self-improvement/state.json',
+                'docs/self-improvement/runs/<yyyy>/<mm>/<run>.json',
+                'docs/self-improvement/archive/<yyyy>/<mm>/<run>.json',
+                'docs/self-improvement/backups/<observation>/**',
+                'docs/self-improvement/quarantine/index.json',
+                'docs/self-improvement/quarantine/<observation>/**',
+                'docs/self-improvement/repair-observations/<observation>.json',
+                'docs/self-improvement/repair-receipts/<receipt>.json',
+                'docs/self-improvement/resolver-receipts/<receipt>.json',
+                'docs/self-improvement/harvest-index.json'
+            )) {
+            $declared | Should -Contain $required
         }
 
-        It 'test:SiState.RepairReceiptGatesApplyRollback rejects stale observations and requires the exact apply receipt' {
-            $repair = Join-Path $script:installedScripts 'Repair-SiState.ps1'
-            $getState = Join-Path $script:installedScripts 'Get-SiState.ps1'
-            $stateDir = Join-Path $script:consumer 'docs/self-improvement'
-            [void](New-Item -ItemType Directory -Path $stateDir -Force)
-            $manifestPath = Join-Path $stateDir 'state.json'
-            [System.IO.File]::WriteAllText($manifestPath, '{broken')
-            $corruptMetadata = & $getState -RepoRoot $script:consumer
-            $corruptMetadata.Status | Should -Be 'repairable-corrupt'
-            $corruptMetadata.Items.Count | Should -Be 0
-
-            $legacy = '{"schemaVersion":1,"generation":0,"pending":[],"inFlight":[],"recentRuns":[]}'
-            [System.IO.File]::WriteAllText($manifestPath, $legacy)
-            $snapshot = & $repair -RepoRoot $script:consumer -Mode Snapshot -PinnedBaseOid ('e' * 40)
-
-            [System.IO.File]::WriteAllText($manifestPath, $legacy + ' ')
-            { & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId } |
-                Should -Throw '*stale*'
-            [System.IO.File]::WriteAllText($manifestPath, $legacy)
-
-            $applied = & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId
-            { & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId } |
-                Should -Throw '*stale*'
-            { & $repair -RepoRoot $script:consumer -Mode Rollback -Observation $snapshot.ObservationId } |
-                Should -Throw '*requires its apply receipt*'
-            { & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt ('f' * 64) } |
-                Should -Throw '*not found*'
-
-            $rolledBack = & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt $applied.ReceiptId
-            $rolledBack.Status | Should -Be 'migration-required'
-            $rollbackReceipt = Get-Content -LiteralPath (
-                Join-Path $stateDir "repair-receipts/$($rolledBack.ReceiptId).json"
-            ) -Raw | ConvertFrom-Json
-            $rollbackReceipt.mode | Should -Be 'rollback'
-            $rollbackReceipt.observationId | Should -Be $snapshot.ObservationId
+        $enqueue = Join-Path $script:installedScripts 'Enqueue-SiDue.ps1'
+        $getState = Join-Path $script:installedScripts 'Get-SiState.ps1'
+        $update = Join-Path $script:installedScripts 'Update-SiState.ps1'
+        $repair = Join-Path $script:installedScripts 'Repair-SiState.ps1'
+        $stateDir = Join-Path $script:consumer 'docs/self-improvement'
+        $dues = @()
+        foreach ($suffix in @('a', 'b', 'c')) {
+            $dues += & $enqueue -RepoRoot $script:consumer -RepoId 'consumer/repo' `
+                -PlanId '1936cb' -SourceCommit ($suffix * 40)
         }
+        $page1 = & $getState -RepoRoot $script:consumer -PageSize 2
+        $page1.Items.Count | Should -Be 2
+        $page1.NextCursor | Should -Be '2'
+        @($page1.Items[0].PSObject.Properties.Name) | Should -Be @('dueId', 'runId', 'status')
+        $page2 = & $getState -RepoRoot $script:consumer -PageSize 2 -Cursor $page1.NextCursor
+        $page2.Items.Count | Should -Be 1
+        $page2.NextCursor | Should -BeNullOrEmpty
+
+        $inputPath = Join-Path $script:consumer 'begin.json'
+        [System.IO.File]::WriteAllText($inputPath, (([ordered]@{
+                        dueId         = $dues[0].DueId
+                        runId         = ('1' * 64)
+                        pinnedBaseOid = ('d' * 40)
+                        createdAtUtc  = '2026-08-09T00:00:00Z'
+                    } | ConvertTo-Json -Compress) + "`n"))
+        (& $update -RepoRoot $script:consumer -Operation Begin -InputPath $inputPath).Status |
+            Should -Be 'complete'
+        Remove-Item -LiteralPath (Join-Path $script:consumer 'docs/self-improvement/state.json') -Force
+
+        (& $repair -RepoRoot $script:consumer -Mode Inspect -PinnedBaseOid ('d' * 40)).Status |
+            Should -Be 'repairable-orphans'
+        $snapshot = & $repair -RepoRoot $script:consumer -Mode Snapshot -PinnedBaseOid ('d' * 40)
+        $applied = & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId
+        $applied.Status | Should -Be 'valid'
+        $repaired = & $getState -RepoRoot $script:consumer -PageSize 2
+        $repaired.InFlightCount | Should -Be 1
+        $repaired.Items[0].dueId | Should -Be $dues[0].DueId
+
+        $rolledBack = & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt $applied.ReceiptId
+        $rolledBack.Status | Should -Be 'repairable-orphans'
+        $rolledBack.ReceiptId | Should -Match '^[0-9a-f]{64}$'
+        Test-Path -LiteralPath (
+            Join-Path $stateDir "backups/$($snapshot.ObservationId)/apply-journal.json"
+        ) | Should -BeFalse
+    }
+
+    It 'test:SiState.RepairReceiptGatesApplyRollback rejects stale observations and requires the exact apply receipt' {
+        $repair = Join-Path $script:installedScripts 'Repair-SiState.ps1'
+        $getState = Join-Path $script:installedScripts 'Get-SiState.ps1'
+        $stateDir = Join-Path $script:consumer 'docs/self-improvement'
+        [void](New-Item -ItemType Directory -Path $stateDir -Force)
+        $manifestPath = Join-Path $stateDir 'state.json'
+        [System.IO.File]::WriteAllText($manifestPath, '{broken')
+        $corruptMetadata = & $getState -RepoRoot $script:consumer
+        $corruptMetadata.Status | Should -Be 'repairable-corrupt'
+        $corruptMetadata.Items.Count | Should -Be 0
+
+        $legacy = '{"schemaVersion":1,"generation":0,"pending":[],"inFlight":[],"recentRuns":[]}'
+        [System.IO.File]::WriteAllText($manifestPath, $legacy)
+        $snapshot = & $repair -RepoRoot $script:consumer -Mode Snapshot -PinnedBaseOid ('e' * 40)
+
+        [System.IO.File]::WriteAllText($manifestPath, $legacy + ' ')
+        { & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId } |
+            Should -Throw '*stale*'
+        [System.IO.File]::WriteAllText($manifestPath, $legacy)
+
+        $applied = & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId
+        { & $repair -RepoRoot $script:consumer -Mode Apply -Observation $snapshot.ObservationId } |
+            Should -Throw '*stale*'
+        { & $repair -RepoRoot $script:consumer -Mode Rollback -Observation $snapshot.ObservationId } |
+            Should -Throw '*requires its apply receipt*'
+        { & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt ('f' * 64) } |
+            Should -Throw '*not found*'
+
+        $rolledBack = & $repair -RepoRoot $script:consumer -Mode Rollback -Receipt $applied.ReceiptId
+        $rolledBack.Status | Should -Be 'migration-required'
+        $rollbackReceipt = Get-Content -LiteralPath (
+            Join-Path $stateDir "repair-receipts/$($rolledBack.ReceiptId).json"
+        ) -Raw | ConvertFrom-Json
+        $rollbackReceipt.mode | Should -Be 'rollback'
+        $rollbackReceipt.observationId | Should -Be $snapshot.ObservationId
+    }
 }

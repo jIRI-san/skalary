@@ -114,6 +114,24 @@ mutation, reconstructs bounded manifest references from valid run files, quarant
 with an indexed digest, and refuses Apply/Rollback when the exact observation/receipt chain is
 stale, altered, or missing. Successful rollback emits its own content-addressed receipt.
 
+`Get-SiHarvest.ps1` is the bounded free-text scanner. It resolves one inventoried plan, enumerates
+the closed active set (manifest, seven ledger categories, three layout-resolved logs, learning
+overflow, phase receipts, recorded feedback, and active SI runs), and reads every present file once
+per invocation from the pinned commit's immutable blobs, never from a concurrently changing
+worktree. A scan refuses more than 256 files, 160 MiB, or 60 seconds, streams directory discovery to
+its plus-one boundary, validates manifest/run/phase-receipt integrity, and enforces each source's
+smaller operational ceiling. Archives and resolver outputs are absent unless the operator supplies
+an exact pinned path under a closed auxiliary/archive root. The scanner selects at most 1,024
+records / 4 MiB in recurrence-severity-blast-radius order, proves each record can fit a page before
+publication, pages at 64 records / 256 KiB, and wraps every returned record with a fresh
+untrusted-input fence after neutralizing stored fence tokens in both content and source metadata.
+
+The selected window and source digest table are persisted in the single bounded
+`docs/self-improvement/harvest-index.json` scaffold through `AtomicStore.psm1`; raw unselected
+content is not copied. The index binds the resolved plan and pinned HEAD OID. Continuation cursors
+also bind the snapshot and selected-window digests, so any active-source mutation makes a cursor
+stale rather than mixing pages from different evidence sets.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |
