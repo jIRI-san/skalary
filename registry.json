@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-08T13:13:21.4523217Z",
+  "generatedAt": "2026-08-09T14:20:01.3091169Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1120,14 +1120,69 @@
           "src": "skills/si/assets/propose-guide.md"
         },
         {
+          "dest": "skills/si/schemas/manifest.schema.json",
+          "sha256": "08e3e7f6073ba521dd1b92c5db5fbca81349a59d65499b0336a171bb1e88a5ba",
+          "src": "schemas/manifest.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/repair-observation.schema.json",
+          "sha256": "2794f9e947bfedd1d9c29463ac33fddff674ce3041a2800c013a1456da4d4a9f",
+          "src": "schemas/repair-observation.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/repair-receipt.schema.json",
+          "sha256": "92f8d23c33815519257741112905ea1b43a6e01ae6079f2593e8f0e0d7101196",
+          "src": "schemas/repair-receipt.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/resolver-receipt.schema.json",
+          "sha256": "dd9ba6a6f9c79d2d009b79938199334411a06c47e8eaafa221020778d97f709a",
+          "src": "schemas/resolver-receipt.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/run.schema.json",
+          "sha256": "5f3feb3a1a5b4803dbb88baf6b84d8477f792c2fc55977fb5d5a6753125366c7",
+          "src": "schemas/run.schema.json"
+        },
+        {
+          "dest": "skills/si/scripts/Archive-SiState.ps1",
+          "sha256": "9be45b835af340757c7560c4ed6d28b71061ffdea386f97d1ed655843ace06ed",
+          "src": "scripts/Archive-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
+          "sha256": "7ec645105ae1055bfc7e48e8101a8ba7f7ed478537309ff7c0a194da15c7a949",
+          "src": "scripts/Enqueue-SiDue.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Get-SiState.ps1",
+          "sha256": "2799817206062efd43e47dd9a308514537f2efaa9df89da0d60a50bdda14c690",
+          "src": "scripts/Get-SiState.ps1"
+        },
+        {
           "dest": "skills/si/scripts/PlanState.psm1",
           "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
+          "dest": "skills/si/scripts/Repair-SiState.ps1",
+          "sha256": "ccb58993eff482bbb5149d02ed2e0a713f4a227ce722b704bcf2a55e27032609",
+          "src": "scripts/Repair-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/SiStateStore.psm1",
+          "sha256": "63c21a2f9a1a8db0775f1336a359b9fe3efb7c3cd4fd71e88656270a0318fcd8",
+          "src": "scripts/SiStateStore.psm1"
+        },
+        {
           "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
           "sha256": "a656313e9034482d7ead0688b541e25c9d9b92ca0914982cd22f12968ebf6625",
           "src": "skills/si/scripts/Test-SiWriteScope.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Update-SiState.ps1",
+          "sha256": "e243bd8616375e9e287db09d2c51bda5eeea0849650d581f40ca177ddee9d2ac",
+          "src": "scripts/Update-SiState.ps1"
         }
       ],
       "license": "MIT",
@@ -1147,7 +1202,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     }
   ]
 }

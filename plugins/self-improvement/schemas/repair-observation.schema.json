@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/plugins/self-improvement/schemas/repair-observation.schema.json",
+  "title": "Self-improvement repair observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "observationId", "payload"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "observationId": { "$ref": "#/$defs/sha256" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "pinnedBaseOid", "status", "observed"],
+      "properties": {
+        "protocol": { "const": "si-repair-observation-v1" },
+        "pinnedBaseOid": { "$ref": "#/$defs/gitOid" },
+        "status": {
+          "enum": [
+            "absent",
+            "valid",
+            "repairable-orphans",
+            "repairable-corrupt",
+            "migration-required",
+            "forward-readonly",
+            "forward-blocked",
+            "capacity-blocked",
+            "invalid",
+            "apply-incomplete"
+          ]
+        },
+        "observed": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitOid": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" }
+  }
+}

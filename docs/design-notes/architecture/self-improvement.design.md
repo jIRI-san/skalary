@@ -68,6 +68,20 @@ interactive session and queues nothing.
 The consumer-repo fork/upstream flow is documented as manual — `gh` fork entitlement is out of
 scope, and skalary is itself the registry, so the PR target is this repo.
 
+## Durable SI state ownership
+
+Self-improvement owns its state schemas and lifecycle commands directly under
+`plugins/self-improvement/{schemas,scripts}/`. They are mapped one-for-one into
+`.github/skills/si/{schemas,scripts}/`; `Sync-PluginScripts.ps1` must not generate or prune these
+plugin-owned sources. `SiStateStore.psm1` is the single owner of the closed schema versions, status
+codes, operational limits, topology segments, and run-before-manifest transaction order.
+
+The hot manifest is bounded to 128 pending dues, 16 in-flight runs, 64 recent references, and
+256 KiB. Active history is sharded per run and bounded to 32 completed plus 16 resumable files;
+archive history is bounded to 4,096 files and 256 files per year/month shard. Every plus-one
+operation returns `capacity-blocked` before mutation. Lifecycle commands are contract-only until
+the shared atomic store is present; they fail loudly rather than exposing partial state behavior.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |
