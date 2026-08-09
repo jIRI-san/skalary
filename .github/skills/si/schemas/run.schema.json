@@ -73,30 +73,9 @@
     "choices": {
       "type": "array",
       "maxItems": 5,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["candidateId", "disposition"],
-        "properties": {
-          "candidateId": { "$ref": "#/$defs/sha256" },
-          "disposition": { "enum": ["accepted", "declined", "deferred"] }
-        }
-      }
+      "items": { "$ref": "#/$defs/choice" }
     },
-    "proposalPr": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["url", "headOid"],
-          "properties": {
-            "url": { "type": "string", "format": "uri" },
-            "headOid": { "$ref": "#/$defs/gitOid" }
-          }
-        },
-        { "type": "null" }
-      ]
-    }
+    "proposalPr": { "$ref": "#/$defs/nullableProposalPr" }
   },
   "allOf": [
     {
@@ -205,7 +184,7 @@
               }
             }
           },
-          "$ref": "#/$defs/completeChoices"
+          "$ref": "#/$defs/exactChoices"
         },
         {
           "properties": {
@@ -255,7 +234,7 @@
               }
             }
           },
-          "$ref": "#/$defs/completeChoices"
+          "$ref": "#/$defs/completedChoices"
         }
       ]
     }
@@ -266,7 +245,75 @@
     "timestamp": { "type": "string", "format": "date-time" },
     "boundedText": { "type": "string", "minLength": 1, "maxLength": 8192 },
     "boundedPath": { "type": "string", "minLength": 1, "maxLength": 1024 },
-    "completeChoices": {
+    "nullableProposalPr": {
+      "anyOf": [
+        { "$ref": "#/$defs/proposalPr" },
+        { "type": "null" }
+      ]
+    },
+    "proposalPr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "headOid"],
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "headOid": { "$ref": "#/$defs/gitOid" }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId", "disposition", "proposalPr"],
+      "properties": {
+        "candidateId": { "$ref": "#/$defs/sha256" },
+        "disposition": { "enum": ["accepted", "declined", "deferred"] },
+        "proposalPr": { "$ref": "#/$defs/nullableProposalPr" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": { "enum": ["declined", "deferred"] }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposalPr": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "completedChoice": {
+      "allOf": [
+        { "$ref": "#/$defs/choice" },
+        {
+          "if": {
+            "properties": {
+              "disposition": { "const": "accepted" }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposalPr": { "$ref": "#/$defs/proposalPr" }
+            }
+          }
+        }
+      ]
+    },
+    "completedChoices": {
+      "allOf": [
+        { "$ref": "#/$defs/exactChoices" },
+        {
+          "properties": {
+            "choices": {
+              "items": { "$ref": "#/$defs/completedChoice" }
+            }
+          }
+        }
+      ]
+    },
+    "exactChoices": {
       "oneOf": [
         {
           "properties": {
