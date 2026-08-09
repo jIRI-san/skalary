@@ -33,3 +33,16 @@ Phase 3 Crosscheck:
 ✓ REQ-8 — test:bundle-no-drift — passed — c0cf0cd62e5165f40316f60254d4f9f34603e039
 ✓ REQ-8 — test:bundle-byte-identical — passed — c0cf0cd62e5165f40316f60254d4f9f34603e039
 ✓ REQ-8 — test:bundle-registered — passed — c0cf0cd62e5165f40316f60254d4f9f34603e039
+
+Phase 4 Crosscheck:
+✓ REQ-6 — test:SiHarvest.FullScanSelectedWindowCompleteness — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-6 — test:SiHarvest.ResolverReceiptIssuanceAndMutation — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-6 — test:SiHarvest.HostileStoredContentIsFenced — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-6 — test:SiHarvest.SoleFreeTextReadPath — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-6 — test:SiHarvest.ConsumerInstallExecution — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-7 — test:AtomicStore.AllWritersUseSharedPrimitive — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-7 — test:SiHarvest.ResolverReceiptIssuanceAndMutation — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-8 — test:SiHarvest.ConsumerInstallExecution — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-8 — test:bundle-no-drift — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-8 — test:bundle-byte-identical — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
+✓ REQ-8 — test:bundle-registered — passed — 06671d3ae41a7d237c68a1977ee0bbb4e92c7b23
