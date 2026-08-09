@@ -49,6 +49,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 
 $maxEntryLength = 300
 $pendingHeader = '## Pending'
@@ -145,7 +146,8 @@ function Save-QueueDocument {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][psobject]$Document
+        [Parameter(Mandatory)][psobject]$Document,
+        [Parameter(Mandatory)][string]$ExpectedGeneration
     )
 
     $parent = Split-Path -Parent $Path
@@ -169,11 +171,12 @@ function Save-QueueDocument {
     if ($Document.Recorded.Count -gt 0) { $lines.AddRange($Document.Recorded) } else { $lines.Add($recordedPlaceholder) }
 
     $content = ($lines -join "`n").TrimEnd("`n") + "`n"
-    # Write-then-replace: a truncating in-place write that is interrupted leaves a zero-byte queue,
-    # and the queue is the only durable record of feedback already given.
-    $tempPath = "$Path.tmp"
-    Set-Content -LiteralPath $tempPath -Value $content -Encoding utf8NoBOM -NoNewline
-    Move-Item -LiteralPath $tempPath -Destination $Path -Force
+    $write = Invoke-WithAtomicStoreLock -Scope $Path -Action {
+        Set-AtomicStoreContent -Path $Path -Content $content -ExpectedGeneration $ExpectedGeneration
+    }
+    if ($write.Status -ne 'complete') {
+        throw "Update-FeedbackQueue failed with status '$($write.Status)' because the queue changed concurrently; retry the command."
+    }
 }
 
 function ConvertTo-FeedbackRecord {
@@ -222,6 +225,7 @@ function New-FeedbackEntryLine {
 }
 
 $queuePath = Resolve-FeedbackQueuePath -Root $RepoRoot
+$queueGeneration = Get-AtomicStoreGeneration -Path $queuePath
 $document = Get-QueueDocument -Path $queuePath
 
 switch ($Action) {
@@ -251,7 +255,7 @@ switch ($Action) {
         }
 
         $document.Pending.Add((New-FeedbackEntryLine -Id $queueId -Plan $Plan -Kind 'queued' -Date $Date -Text $text))
-        Save-QueueDocument -Path $queuePath -Document $document
+        Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
 
         return [pscustomobject]@{ Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $true; Note = '' }
     }
@@ -306,7 +310,7 @@ switch ($Action) {
             $consumedStale = $false
             if ($null -ne $pendingRecord) {
                 [void]$document.Pending.Remove($pendingRecord.Line)
-                Save-QueueDocument -Path $queuePath -Document $document
+                Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
                 $consumedStale = $true
             }
             return [pscustomobject]@{
@@ -324,7 +328,7 @@ switch ($Action) {
             [void]$document.Pending.Remove($pendingRecord.Line)
         }
         $document.Recorded.Add((New-FeedbackEntryLine -Id $entryId -Plan $resolvedPlan -Kind 'recorded' -Date $Date -Text $text -Alignment $Alignment))
-        Save-QueueDocument -Path $queuePath -Document $document
+        Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
 
         return [pscustomobject]@{
             Action   = 'Record'

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T14:44:44.7199199Z",
+  "generatedAt": "2026-08-09T15:28:47.1114591Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "52248347a191888abc5b7086a46fd23bc7acea9ba0a9854aaa128d1c53492edd",
+          "sha256": "327cdff2b83f34217bac1f47c3570a15077374e56f1cbd9e852bafab0b8e5d92",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -301,6 +301,11 @@
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
           "sha256": "7e8b52da5da2344eed9d17f4394e93c1cbd9385e5bff384c51d045c4795f8067",
           "src": "schemas/autopilot.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/scripts/AtomicStore.psm1",
+          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "src": "skills/autopilot/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
@@ -372,7 +377,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     {
       "author": "jIRI-san",
@@ -501,18 +506,23 @@
         },
         {
           "dest": "skills/ci/scripts/Add-LedgerEntry.ps1",
-          "sha256": "2daf1849cfd29f83ceb18ecdb92546766a5e05b64b7cb50cff46305987c0cf05",
+          "sha256": "2d4bd86b49df2146b7be5d2a52adfddfcbe7569ae433b8e07db496882b59668a",
           "src": "skills/ci/scripts/Add-LedgerEntry.ps1"
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
+          "sha256": "ea366d14012bf62a3dc19d9c5db0436373a432584612ff758c287a83661ca69a",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
           "dest": "skills/ci/scripts/ArchReceipt.psm1",
           "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
           "src": "skills/ci/scripts/ArchReceipt.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/AtomicStore.psm1",
+          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "src": "skills/ci/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
@@ -603,7 +613,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.29"
     },
     {
       "author": "jIRI-san",
@@ -702,13 +712,18 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
+          "sha256": "ea366d14012bf62a3dc19d9c5db0436373a432584612ff758c287a83661ca69a",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
           "dest": "skills/cip/scripts/ArchReceipt.psm1",
           "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
           "src": "skills/cip/scripts/ArchReceipt.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/AtomicStore.psm1",
+          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "src": "skills/cip/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/cip/scripts/Get-PlanIndex.ps1",
@@ -769,7 +784,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.27"
+      "version": "1.0.28"
     },
     {
       "author": "jIRI-san",
@@ -1095,13 +1110,18 @@
           "src": "skills/pfb/assets/queue-guide.md"
         },
         {
+          "dest": "skills/pfb/scripts/AtomicStore.psm1",
+          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "src": "skills/pfb/scripts/AtomicStore.psm1"
+        },
+        {
           "dest": "skills/pfb/scripts/PlanState.psm1",
           "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-          "sha256": "23ea021c7477251349ffe1d8e55e7ecd0947fbdafbefe26b9faf018f1af0d32b",
+          "sha256": "48ab2b7f2554ac3f56a496a9d2e6a4c174255e0806c4063361b442217d722af1",
           "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
         },
         {
@@ -1146,17 +1166,22 @@
         },
         {
           "dest": "skills/si/scripts/Archive-SiState.ps1",
-          "sha256": "9be45b835af340757c7560c4ed6d28b71061ffdea386f97d1ed655843ace06ed",
+          "sha256": "2b0a72a5f1ae2a1d3297e2fed8c5c5dc2132146d123591fad204117ee5b9c625",
           "src": "scripts/Archive-SiState.ps1"
         },
         {
+          "dest": "skills/si/scripts/AtomicStore.psm1",
+          "sha256": "b97602abfe57eef5b264081fe6f61a2cb6fa9ca5fcb12b41e549d18e91e18907",
+          "src": "skills/si/scripts/AtomicStore.psm1"
+        },
+        {
           "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
-          "sha256": "7ec645105ae1055bfc7e48e8101a8ba7f7ed478537309ff7c0a194da15c7a949",
+          "sha256": "c293a4b425cd4059c84718084955f30c0ce1979e843b94ad624ad588ac83cf98",
           "src": "scripts/Enqueue-SiDue.ps1"
         },
         {
           "dest": "skills/si/scripts/Get-SiState.ps1",
-          "sha256": "2799817206062efd43e47dd9a308514537f2efaa9df89da0d60a50bdda14c690",
+          "sha256": "5c002d6220ca6868e022169e657bcbed96a716faedd9a08354d1cde6cf913136",
           "src": "scripts/Get-SiState.ps1"
         },
         {
@@ -1166,12 +1191,12 @@
         },
         {
           "dest": "skills/si/scripts/Repair-SiState.ps1",
-          "sha256": "ccb58993eff482bbb5149d02ed2e0a713f4a227ce722b704bcf2a55e27032609",
+          "sha256": "7b849a526582dcc5a147aab2b8585ae532fc3fb186803f9d1e695451d9fb99f3",
           "src": "scripts/Repair-SiState.ps1"
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "63c21a2f9a1a8db0775f1336a359b9fe3efb7c3cd4fd71e88656270a0318fcd8",
+          "sha256": "a7abcd1d2391d510f76b641d8e26fea10d8c8f046cb46f5a89a118b867ad01e1",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1181,7 +1206,7 @@
         },
         {
           "dest": "skills/si/scripts/Update-SiState.ps1",
-          "sha256": "e243bd8616375e9e287db09d2c51bda5eeea0849650d581f40ca177ddee9d2ac",
+          "sha256": "921d2f99d69b299c3bbd7c1129ecf43406d2762e0a59d9d9960461e195d03ad0",
           "src": "scripts/Update-SiState.ps1"
         }
       ],
@@ -1202,7 +1227,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.22"
+      "version": "1.0.23"
     }
   ]
 }

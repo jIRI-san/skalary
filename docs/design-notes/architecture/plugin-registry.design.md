@@ -117,6 +117,11 @@ Skills and agents that invoke deterministic PowerShell at runtime must ship that
 
 The one deliberate split: the `architecture-tests` **runner** (`Invoke-ArchTests.ps1`) is a normal `scripts/skalary/` bundle (single source of truth) but is bundled into `architecture-tests` **only** — its **adapter/provider file set** (`plugins/architecture-tests/scripts/{adapters,providers}/**`) is plugin-owned and can't be bundled into `ci` (the runner, `ArchReceipt.psm1`, `Assert-ArchLock.ps1`, and `Invoke-ArchAdapter.ps1` are all `scripts/skalary/` bundles), so `/ci` invokes the installed runner via a gated bare reference. See [architecture-tests.design.md](architecture-tests.design.md).
 
+`AtomicStore.psm1` is another normal root-canonical bundle, shared by PFB, CI, CIP, SI, and
+autopilot. SI remains the owner of its lifecycle scripts and schemas; only their generic atomic
+write dependency comes from `scripts/skalary/`. Every generated copy is explicitly registered in
+the consumer manifest so foreign installs receive the same lock/CAS/replace implementation.
+
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
 

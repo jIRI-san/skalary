@@ -10,4 +10,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
-Assert-SiStateImplementationAvailable -CommandName $MyInvocation.MyCommand.Name
+
+$result = Add-SiDue -RepoRoot $RepoRoot -RepoId $RepoId -PlanId $PlanId -SourceCommit $SourceCommit
+if ($result.Status -ne 'complete') {
+    Write-Error "Enqueue-SiDue failed with status '$($result.Status)'."
+}
+return $result

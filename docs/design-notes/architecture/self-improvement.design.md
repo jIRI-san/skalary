@@ -79,8 +79,25 @@ codes, operational limits, topology segments, and run-before-manifest transactio
 The hot manifest is bounded to 128 pending dues, 16 in-flight runs, 64 recent references, and
 256 KiB. Active history is sharded per run and bounded to 32 completed plus 16 resumable files;
 archive history is bounded to 4,096 files and 256 files per year/month shard. Every plus-one
-operation returns `capacity-blocked` before mutation. Lifecycle commands are contract-only until
-the shared atomic store is present; they fail loudly rather than exposing partial state behavior.
+operation returns `capacity-blocked` before mutation. Lifecycle commands fail loudly on invalid,
+stale, forward-version, or exhausted state rather than exposing partial behavior.
+
+`scripts/skalary/AtomicStore.psm1` is the root-canonical persistence primitive. It provides the
+30-second repo-scoped lock, random same-directory temp writes, validation before replace,
+generation-digest CAS, and the closed `complete` / `lock-timeout` / `cas-conflict` /
+`cas-exhausted` status vocabulary. SI receives that module as a generated bundle closure while
+its schemas and lifecycle scripts remain plugin-owned. `SiStateStore.psm1` is the only lifecycle
+module that calls the primitive: manifest updates retry at most three generation conflicts, run
+completion persists and validates the run before the manifest, and repair Snapshot/Apply/Rollback
+share the same state lock.
+
+`Get-SiState.ps1` exposes metadata only. Inspection classifies absent, valid, orphaned, corrupt,
+legacy, forward-version, capacity-blocked, and incomplete-apply stores without mutation.
+`Repair-SiState.ps1 -Mode Snapshot` content-addresses exact sorted observation bytes; Apply refuses
+stale or altered observations, writes the backup and apply journal before replacing state, and
+writes the receipt last. Rollback accepts the observation before receipt creation or the receipt
+afterward. A v1 migration preserves existing due/run identifiers and arrays; forward versions
+remain read-only.
 
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 

@@ -225,6 +225,7 @@ Absolute rules enforced:
 | Harvest guardrail | Finalization harvest runs only when repo infra exists (`Test-Path scripts/skalary/Add-LedgerEntry.ps1` and ledger paths). Missing infra falls through to standard branch behavior. |
 | Harvest branch split | Append-harvest executes and commits before branch selection; autonomous branch archives + real PR, escalation branch runs `/udn` + prune + draft PR + marker + exit 42 (never archive). |
 | Script invocation safety | `Add-LedgerEntry.ps1` and `Remove-LedgerEntry.ps1` are the Rule-5 carve-out and must be invoked with `Start-Process -ArgumentList`/argument arrays, never shell-interpolated command strings. |
+| Durable writer closure | Root-canonical capture/ledger writers import `AtomicStore.psm1`; autopilot carries the same generated module under `.github/skills/autopilot/scripts/` so installed phase-harvest writers can use one lock/CAS/status/replace contract. |
 | Ephemeral capture durability | Each phase initializes and commits `cr-log.md`, `learnings.md`, and `evolution-log.md` sections by explicit filename with `No entries for this phase.` placeholders; harvest fails loud only on missing required sections. |
 
 ### Model field format

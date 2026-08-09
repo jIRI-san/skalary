@@ -31,6 +31,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 
 function Get-NoteConfig {
     param([string]$Kind)
@@ -104,6 +105,7 @@ if (-not (Test-Path -LiteralPath $planDirFull -PathType Container)) {
     throw "Plan folder not found: $planDirFull"
 }
 $filePath = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind $Kind
+$fileGeneration = Get-AtomicStoreGeneration -Path $filePath
 $fileParent = Split-Path -Parent $filePath
 if (-not (Test-Path -LiteralPath $fileParent -PathType Container)) {
     New-Item -ItemType Directory -Path $fileParent -Force | Out-Null
@@ -264,7 +266,12 @@ if ($Kind -eq 'Learnings' -and $Message) {
 }
 
 $content = ($lines -join "`n").TrimEnd("`n") + "`n"
-Set-Content -LiteralPath $filePath -Value $content -Encoding utf8NoBOM -NoNewline
+$write = Invoke-WithAtomicStoreLock -Scope $filePath -Action {
+    Set-AtomicStoreContent -Path $filePath -Content $content -ExpectedGeneration $fileGeneration
+}
+if ($write.Status -ne 'complete') {
+    throw "Add-WorkflowNote failed with status '$($write.Status)' because the log changed concurrently; retry the command."
+}
 
 return [pscustomobject]@{
     Kind     = $Kind

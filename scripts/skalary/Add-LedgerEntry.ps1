@@ -29,11 +29,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 
 $maxEntryLength = 220
 $maxTagLength = 40
 $maxTagCount = 12
-$mutexWaitSeconds = 30
 
 function Normalize-LedgerLesson {
     [CmdletBinding()]
@@ -267,67 +267,7 @@ function Invoke-WithLedgerLock {
         [scriptblock]$Action
     )
 
-    $scopeBytes = [System.Text.Encoding]::UTF8.GetBytes($Scope)
-    $hashBytes = [System.Security.Cryptography.SHA256]::HashData($scopeBytes)
-    $hash = [Convert]::ToHexString($hashBytes).ToLowerInvariant().Substring(0, 32)
-    $mutexBaseName = "skalary-ledger-$hash"
-    $mutex = $null
-    foreach ($prefix in @('Global\', 'Local\')) {
-        try {
-            $mutex = [System.Threading.Mutex]::new($false, "$prefix$mutexBaseName")
-            break
-        }
-        catch {
-            $mutex = $null
-        }
-    }
-    if ($null -eq $mutex) {
-        throw "Unable to create ledger lock '$mutexBaseName'."
-    }
-    $hasLock = $false
-    try {
-        try {
-            $hasLock = $mutex.WaitOne([TimeSpan]::FromSeconds($mutexWaitSeconds))
-        }
-        catch [System.Threading.AbandonedMutexException] {
-            # Previous owner terminated without releasing; ownership has transferred to us.
-            $hasLock = $true
-        }
-        if (-not $hasLock) {
-            throw "Timed out acquiring ledger lock '$mutexBaseName'."
-        }
-
-        function Set-FileAtomically {
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory)]
-                [string]$Path,
-                [Parameter(Mandatory)]
-                [AllowEmptyString()]
-                [string]$Content
-            )
-
-            $targetDirectory = [System.IO.Path]::GetDirectoryName($Path)
-            $tempPath = Join-Path $targetDirectory ([System.IO.Path]::GetRandomFileName())
-            try {
-                New-Item -ItemType File -Path $tempPath -Force | Out-Null
-                Set-Content -LiteralPath $tempPath -Value $Content -Encoding utf8NoBOM
-                Move-Item -LiteralPath $tempPath -Destination $Path -Force
-            }
-            finally {
-                if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
-                    Remove-Item -LiteralPath $tempPath -Force
-                }
-            }
-        }
-        return & $Action
-    }
-    finally {
-        if ($hasLock) {
-            [void]$mutex.ReleaseMutex()
-        }
-        $mutex.Dispose()
-    }
+    return Invoke-WithAtomicStoreLock -Scope $Scope -TimeoutSeconds 30 -Action $Action
 }
 
 function Resolve-LedgerPlanId {
@@ -395,7 +335,7 @@ if (-not (Test-Path -LiteralPath $ledgerPath -PathType Leaf)) {
         [void](New-Item -ItemType Directory -Path $ledgerDir -Force)
     }
     $title = (Get-Culture).TextInfo.ToTitleCase($Category.Replace('-', ' '))
-    Set-Content -LiteralPath $ledgerPath -Value "# $title Ledger`n`nNo entries yet.`n" -Encoding utf8NoBOM
+    [void](Set-AtomicStoreContent -Path $ledgerPath -Content "# $title Ledger`n`nNo entries yet.`n")
     Write-Host "Scaffolded ledger category file: $ledgerPath" -ForegroundColor Yellow
 }
 
@@ -426,7 +366,7 @@ $result = Invoke-WithLedgerLock -Scope $lockScope -Action {
         $existingContent = if ($lines.Count -eq 0) { '' } else { ($lines -join "`n") + "`n" }
         $canonicalContent = Build-LedgerContent -HeaderLines $headerLines -EntryLines $orderedLines
         if ($existingContent -ne $canonicalContent) {
-            Set-FileAtomically -Path $ledgerPath -Content $canonicalContent
+            [void](Set-AtomicStoreContent -Path $ledgerPath -Content $canonicalContent)
         }
         return [pscustomobject]@{
             Added = $false
@@ -448,7 +388,7 @@ $result = Invoke-WithLedgerLock -Scope $lockScope -Action {
     $ordered = Get-DeterministicOrder -Records (@($records) + $newRecord)
     $updatedLines = @($ordered | ForEach-Object { $_.Line })
     $content = Build-LedgerContent -HeaderLines $headerLines -EntryLines $updatedLines
-    Set-FileAtomically -Path $ledgerPath -Content $content
+    [void](Set-AtomicStoreContent -Path $ledgerPath -Content $content)
 
     return [pscustomobject]@{
         Added = $true
