@@ -12,3 +12,8 @@ Phase: 1
 - [1.2] [src:code-review] [sev:High] Lifecycle accepted run-id reuse and invalid predecessor states; updates now bind run to due and enforce a closed transition matrix.
 - [1.2] [src:code-review] [sev:High] Active run ceilings were inspection-only; run writes now reject completed or in-flight plus-one before mutation.
 - [1.2] [src:code-review] [sev:High] Rollback could delete state without an exact backup; repair now journals an explicit absent-manifest marker and otherwise refuses rollback.
+- [1.3] [src:code-review] [sev:High] Repair checked total active files but applied separate completed and in-flight ceilings after quarantine mutation; inspection and pre-mutation repair checks now use the exact limits.
+- [1.3] [src:code-review] [sev:Med] Receipt rollback verification depended on a coincidental backup-directory miss; every receipt path now verifies the receipt and after-digest unconditionally.
+- [1.3] [src:code-review] [sev:High] Repair backup paths relied on observation text; Apply now rejects rooted or state-root-escaping observed paths before file access.
+- [1.3] [src:code-review] [sev:High] Incomplete-apply rollback retained its journal and authorization; successful rollback now removes the journal and matching quarantine index entries.
+- [1.3] [src:code-review] [sev:Med] Metadata paging threw on corrupt, legacy, or forward manifests; Get-SiState now returns inspection status with empty metadata for non-readable states.

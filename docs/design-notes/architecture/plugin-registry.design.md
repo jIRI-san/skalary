@@ -140,6 +140,11 @@ this is a gate rather than a convention.
 | Two modes, both explicit | A **literal** entry names a fixed path and forbids a `confine` helper. A **parameterized** entry uses `<name>` (one segment) or `**` (subtree), **requires** a `confine` helper, and may carry a closed `values` domain. The schema enforces both branches, so a variable path cannot be mislabelled as fixed to dodge the helper requirement. |
 | Declarations must be true | The declared `confine` helper has to be shipped **and called** by the declaring plugin's own payload — asserted by test, because a manifest that describes a control nobody implements is worse than no manifest: it passes the gate while the gap stays open. `owner` and `trigger` are **documentation, not assertions**; they name who to go ask, and nothing verifies that the named owner performs the write. |
 
+Self-improvement declares its complete `docs/self-improvement/` runtime topology in this form:
+literal manifest/quarantine-index paths and parameterized active/archive run, backup, quarantine,
+repair-observation/receipt, and resolver-receipt paths. Installation still writes only `.github/`;
+the installed SI scripts materialize these paths on first use through `Resolve-SiStatePath`.
+
 **The scanner grammar is closed** (`Sync-PluginScripts.ps1`, gated by `validate.ps1` via `-WhatIf`):
 
 1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.

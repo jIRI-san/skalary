@@ -11,10 +11,21 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 
 $inspection = Get-SiStoreInspection -RepoRoot $RepoRoot
-$manifest = Read-SiManifest -RepoRoot $RepoRoot -AllowAbsent
-$pending = if ($null -eq $manifest) { @() } else { @($manifest.pending) }
-$inFlight = if ($null -eq $manifest) { @() } else { @($manifest.inFlight) }
-$recent = if ($null -eq $manifest) { @() } else { @($manifest.recentRuns) }
+$manifest = $null
+try {
+    $manifest = Read-SiManifest -RepoRoot $RepoRoot -AllowAbsent
+}
+catch {
+    if ($inspection.Status -notin @(
+            'repairable-corrupt', 'migration-required', 'forward-readonly',
+            'forward-blocked', 'capacity-blocked', 'apply-incomplete'
+        )) {
+        throw
+    }
+}
+$pending = @(if ($null -ne $manifest) { $manifest.pending })
+$inFlight = @(if ($null -ne $manifest) { $manifest.inFlight })
+$recent = @(if ($null -ne $manifest) { $manifest.recentRuns })
 $offset = 0
 if ($Cursor) {
     if ($Cursor -notmatch '^[0-9]+$') { throw 'Cursor must be a non-negative integer offset.' }

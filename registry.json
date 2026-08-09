@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T15:28:47.1114591Z",
+  "generatedAt": "2026-08-09T16:07:31.4904364Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1181,7 +1181,7 @@
         },
         {
           "dest": "skills/si/scripts/Get-SiState.ps1",
-          "sha256": "5c002d6220ca6868e022169e657bcbed96a716faedd9a08354d1cde6cf913136",
+          "sha256": "ca94799de5925770ee2ca6e93295265b0d4956eccfe0a83b3712ff5e70f19a59",
           "src": "scripts/Get-SiState.ps1"
         },
         {
@@ -1196,7 +1196,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "a7abcd1d2391d510f76b641d8e26fea10d8c8f046cb46f5a89a118b867ad01e1",
+          "sha256": "e60d42a35925bc6a5bab49b947639ca01a22460f32ff0a6da91d39a1865a1250",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1218,6 +1218,67 @@
           "owner": "Update-FeedbackQueue.ps1",
           "path": "docs/feedback/queue.md",
           "trigger": "first queued /pfb marker"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Archive-SiState.ps1",
+          "path": "docs/self-improvement/archive/<yyyy>/<mm>/<run>.json",
+          "trigger": "completed-run archive"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/backups/<observation>/**",
+          "trigger": "repair apply journal and backup"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/quarantine/<observation>/**",
+          "trigger": "corrupt artifact quarantine"
+        },
+        {
+          "mode": "literal",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/quarantine/index.json",
+          "trigger": "first corrupt artifact quarantine"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-observations/<observation>.json",
+          "trigger": "repair snapshot"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-receipts/<receipt>.json",
+          "trigger": "repair apply or rollback completion"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/resolver-receipts/<receipt>.json",
+          "trigger": "resolver receipt issuance"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "SiStateStore.psm1",
+          "path": "docs/self-improvement/runs/<yyyy>/<mm>/<run>.json",
+          "trigger": "SI run begin or update"
+        },
+        {
+          "mode": "literal",
+          "owner": "SiStateStore.psm1",
+          "path": "docs/self-improvement/state.json",
+          "trigger": "first SI due or repaired manifest"
         }
       ],
       "status": "stable",
@@ -1227,7 +1288,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.23"
+      "version": "1.0.24"
     }
   ]
 }

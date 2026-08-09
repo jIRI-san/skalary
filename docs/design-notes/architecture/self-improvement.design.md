@@ -99,6 +99,16 @@ writes the receipt last. Rollback accepts the observation before receipt creatio
 afterward. A v1 migration preserves existing due/run identifiers and arrays; forward versions
 remain read-only.
 
+All runtime state paths outside `.github/` are first-use scaffolds declared by
+`plugins/self-improvement/plugin.json`: the manifest; year/month active and archive run shards;
+observation-keyed backup and quarantine trees plus the quarantine index; repair observations and
+receipts; and resolver receipts. Parameterized paths route through `Resolve-SiStatePath`.
+`Get-SiState` pages only `{dueId,runId,status}` plus counts/generation; it never returns candidate
+text. Local repair copies every observed artifact under the observation-keyed backup before
+mutation, reconstructs bounded manifest references from valid run files, quarantines corrupt runs
+with an indexed digest, and refuses Apply/Rollback when the exact observation/receipt chain is
+stale, altered, or missing. Successful rollback emits its own content-addressed receipt.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |
