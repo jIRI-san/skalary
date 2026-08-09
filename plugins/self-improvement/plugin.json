@@ -1,6 +1,6 @@
 {
   "name": "self-improvement",
-  "version": "1.0.35",
+  "version": "1.0.36",
   "description": "Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -90,6 +90,10 @@
     {
       "src": "scripts/Enqueue-SiDue.ps1",
       "dest": "skills/si/scripts/Enqueue-SiDue.ps1"
+    },
+    {
+      "src": "scripts/Invoke-SiLifecycle.ps1",
+      "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1"
     },
     {
       "src": "scripts/Update-SiState.ps1",

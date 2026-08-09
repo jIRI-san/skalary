@@ -125,6 +125,28 @@ mutation, reconstructs bounded manifest references from valid run files, quarant
 with an indexed digest, and refuses Apply/Rollback when the exact observation/receipt chain is
 stale, altered, or missing. Successful rollback emits its own content-addressed receipt.
 
+`Invoke-SiLifecycle.ps1 -Operation Surface` is the interactive remote-state entry point. It fetches
+and pins `origin/main`, reads bounded schema-valid manifest/run blobs from that immutable commit, and
+classifies fixed `si/<due-id>` plus `si-repair/<observation-id>` remote branches. Its result is a
+closed metadata projection only: IDs, lifecycle states, defer timestamps, OIDs, and candidate
+disposition/proposal counts. Candidate titles, rationales, sources, targets, choices, and stored
+wrappers never reach the caller. Missing or malformed authoritative state fails explicitly rather
+than returning partial success. Blob size is checked from Git object metadata before content is
+materialized; tree/ref listings stop at their plus-one line; schema diagnostics are replaced with a
+fixed error; canonical ranked-set integrity is rechecked; completed and in-flight limits are enforced
+independently; manifest/run IDs and nonterminal states must agree; optional defer timestamps are
+compared as absolute instants rather than host-local wall-clock values. The complete bounded active
+run tree is scanned even when the manifest has no run references, and run-first/manifest-second
+orphans surface by run/due ID and status as `repairable-orphan` metadata and make the overall result
+non-empty. Pending plus in-flight dues share the 128-entry manifest ceiling.
+Surface re-derives every content-addressed due from repository/plan/source provenance, binds
+in-flight run provenance back to its manifest due, rejects duplicate due/run references across all
+lifecycle arrays, and budgets fixed due branches for both 128 active dues and 64 retained completed
+run references. Every manifest/run timestamp is explicitly parsed as RFC 3339 because JSON Schema
+format annotations alone are non-asserting; parse failures return fixed errors. Every loaded run,
+including an orphan, re-derives its due from provenance. Ranked states also re-run the shared JCS
+candidate-ID and ranked-set-digest algorithm before any outcome counts are surfaced.
+
 `Get-SiHarvest.ps1` is the bounded free-text scanner. It resolves one inventoried plan, enumerates
 the closed active set (manifest, seven ledger categories, three layout-resolved logs, learning
 overflow, phase receipts, recorded feedback, and active SI runs), and reads every present file once

@@ -23,10 +23,13 @@ are no-ops, and a failed write is reported as non-blocking degradation rather th
 
 ## Step 0: Scope the run
 
-1. Resolve and pin the source commit before reading evidence. Pass the plan reference and pinned OID
+1. Invoke installed `Invoke-SiLifecycle.ps1 -Operation Surface -RepoRoot .` through bound arguments.
+   It fetches/pins authoritative `origin/main` and returns metadata only. Select or resume a surfaced
+   due; never open SI state/run files directly, and stop on explicit Surface degradation.
+2. Resolve and pin the source commit before reading evidence. Pass the plan reference and pinned OID
    to the installed `.github/skills/si/scripts/Get-SiHarvest.ps1`; the script resolves hash prefixes,
    legacy numbers, slugs, and dates, including archived plans.
-2. This skill proposes edits **to this repository**. In a consumer repo the customizations arrive
+3. This skill proposes edits **to this repository**. In a consumer repo the customizations arrive
    through the registry, so an improvement belongs upstream: harvest locally, then carry the
    candidate list to the source repo by hand. The fork/upstream round-trip is deliberately manual.
 

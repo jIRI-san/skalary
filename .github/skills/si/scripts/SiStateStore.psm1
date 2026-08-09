@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 # Installed shared closure: .github/skills/si/scripts/AtomicStore.psm1
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 $script:SiStateContract = [pscustomobject]@{
     ManifestVersion          = 2
@@ -266,6 +267,35 @@ function Assert-SiRunIntegrity {
         if ($ids -notcontains [string]$choice.candidateId) {
             throw "Choice references candidate '$($choice.candidateId)' outside the ranked set."
         }
+    }
+    $choiceIds = @($Run.choices | ForEach-Object { [string]$_.candidateId })
+    if (@($choiceIds | Select-Object -Unique).Count -ne $choiceIds.Count) {
+        throw 'Choice candidate IDs must be unique.'
+    }
+    if ($choiceIds.Count -gt 0 -and
+        (($choiceIds | Sort-Object) -join ',') -ne (($ids | Sort-Object) -join ',')) {
+        throw 'Choices must cover the complete ranked candidate set.'
+    }
+    if ([string]$Run.status -in @('resumable', 'declined-before-ranking')) {
+        if ([string]$Run.rankedSet.digest -ne ('0' * 64)) {
+            throw 'Unranked runs must carry the zero ranked-set digest.'
+        }
+        return
+    }
+    $candidateBodies = @($Run.rankedSet.candidates | ForEach-Object {
+            [pscustomobject][ordered]@{
+                title = [string]$_.title
+                rationale = [string]$_.rationale
+                sources = [string[]]$_.sources
+                targets = [string[]]$_.targets
+            }
+        })
+    $canonical = New-SiRankedCandidates -Candidate $candidateBodies
+    if (($canonical.CandidateIds -join ',') -ne ($ids -join ',')) {
+        throw 'Ranked-set candidate IDs failed canonical verification.'
+    }
+    if ([string]$Run.rankedSet.digest -ne [string]$canonical.RankedSetDigest) {
+        throw 'Ranked-set digest failed canonical verification.'
     }
 }
 

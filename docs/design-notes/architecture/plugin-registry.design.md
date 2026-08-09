@@ -130,7 +130,9 @@ phase-receipt scaffolds, and carry the same root-canonical bytes.
 Autopilot declares `self-improvement` as a plugin dependency rather than copying SI-owned lifecycle
 scripts into its payload. Dependency installation supplies `skills/si/scripts/Enqueue-SiDue.ps1`
 at an independently versioned SI release, preserving SI's sole ownership and allowing standalone SI
-installs to use the same due writer.
+installs to use the same due writer. Interactive CI receives the same dependency transitively
+through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor CI bundles a
+foreign lifecycle copy.
 
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.

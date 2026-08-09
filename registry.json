@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T22:08:12.4293428Z",
+  "generatedAt": "2026-08-09T23:36:46.0030398Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -529,7 +529,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "bc98ad9685d53ce4aa0df31f262d8e551049aead10232c052cde40cf12af31d9",
+          "sha256": "17e4b96e0494d09bec9331284d515ba0e12eb4a4906d515b66d8f447eaee0fe0",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -684,7 +684,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.38"
+      "version": "1.0.39"
     },
     {
       "author": "jIRI-san",
@@ -1197,7 +1197,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "0707a21dc24df87639d0532f7996b802305cd2819900a6628cbd226e713c483a",
+          "sha256": "6109d6ea100b431f4c041d1209eb1d9e9a425ab9c79ffc054a9084dd929141b8",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -1261,6 +1261,11 @@
           "src": "scripts/Get-SiState.ps1"
         },
         {
+          "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
+          "sha256": "d125e124c65c892d248c5df008f5a1fa1be8a4fcea18e7fb1849d64a6692710a",
+          "src": "scripts/Invoke-SiLifecycle.ps1"
+        },
+        {
           "dest": "skills/si/scripts/PlanState.psm1",
           "sha256": "2324a8904b8d741e37570a668ec6595bcbda3d9756762f565b5afdc769e2e618",
           "src": "skills/si/scripts/PlanState.psm1"
@@ -1277,7 +1282,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "952fe5b21aa7b19a3cbc28912d16f528c52246ae7adf84ea5bb6da8b23818820",
+          "sha256": "cc4a42016fb4f205ad5bd14c0a629c5dd4f00e6f48a57c639fca0acb4b8cd674",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1380,7 +1385,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.35"
+      "version": "1.0.36"
     }
   ]
 }
