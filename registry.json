@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T16:07:31.4904364Z",
+  "generatedAt": "2026-08-09T16:27:24.9846023Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1106,7 +1106,7 @@
         },
         {
           "dest": "skills/pfb/assets/queue-guide.md",
-          "sha256": "c91d6b7b149ed9614532cd3fde6159ee4150c196bf4fc750a985dc5df1e3ea56",
+          "sha256": "dc6eff23d039affd516c684130c00d4492746f03535cf6d978cdfd1992985e41",
           "src": "skills/pfb/assets/queue-guide.md"
         },
         {
@@ -1121,7 +1121,7 @@
         },
         {
           "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-          "sha256": "48ab2b7f2554ac3f56a496a9d2e6a4c174255e0806c4063361b442217d722af1",
+          "sha256": "ab7124ea73a405e9576195cf07a4ed6f694970cf9ba519228fdf4a095664a6f7",
           "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
         },
         {
@@ -1288,7 +1288,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.24"
+      "version": "1.0.26"
     }
   ]
 }

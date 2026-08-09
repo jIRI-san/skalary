@@ -35,7 +35,7 @@ param(
 
     [string]$Response,
 
-    [ValidatePattern('^[0-9a-f]{8}$')]
+    [ValidatePattern('^(?:[0-9a-f]{8}|[0-9a-f]{16})$')]
     [string]$Id,
 
     [ValidateSet('Pending', 'Recorded')]
@@ -51,7 +51,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 
-$maxEntryLength = 300
+$maxEntryBytes = 16KB
+$maxPendingEntries = 128
+$maxRecordedEntries = 2048
+$maxFileBytes = 4MB
 $pendingHeader = '## Pending'
 $recordedHeader = '## Recorded'
 $pendingPlaceholder = 'No queued feedback.'
@@ -96,9 +99,6 @@ function ConvertTo-SafeFeedbackText {
     if ([string]::IsNullOrWhiteSpace($clean)) {
         throw 'Feedback text is empty after sanitization.'
     }
-    if ($clean.Length -gt $maxEntryLength) {
-        $clean = $clean.Substring(0, $maxEntryLength).Trim()
-    }
     return $clean
 }
 
@@ -113,7 +113,7 @@ function Get-FeedbackEntryId {
     # makes queueing and recording idempotent rather than duplicating on retry.
     $bytes = [System.Text.Encoding]::UTF8.GetBytes("$Plan|$($Text.ToLowerInvariant())")
     $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
-    return -join ($hash[0..3] | ForEach-Object { $_.ToString('x2') })
+    return -join ($hash[0..7] | ForEach-Object { $_.ToString('x2') })
 }
 
 function Get-QueueDocument {
@@ -142,18 +142,11 @@ function Get-QueueDocument {
     return [pscustomobject]@{ Pending = $pending; Recorded = $recorded }
 }
 
-function Save-QueueDocument {
+function ConvertTo-QueueContent {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][psobject]$Document,
-        [Parameter(Mandatory)][string]$ExpectedGeneration
+        [Parameter(Mandatory)][psobject]$Document
     )
-
-    $parent = Split-Path -Parent $Path
-    if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
-        New-Item -ItemType Directory -Path $parent -Force | Out-Null
-    }
 
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add('# Feedback Queue')
@@ -170,13 +163,7 @@ function Save-QueueDocument {
     $lines.Add('')
     if ($Document.Recorded.Count -gt 0) { $lines.AddRange($Document.Recorded) } else { $lines.Add($recordedPlaceholder) }
 
-    $content = ($lines -join "`n").TrimEnd("`n") + "`n"
-    $write = Invoke-WithAtomicStoreLock -Scope $Path -Action {
-        Set-AtomicStoreContent -Path $Path -Content $content -ExpectedGeneration $ExpectedGeneration
-    }
-    if ($write.Status -ne 'complete') {
-        throw "Update-FeedbackQueue failed with status '$($write.Status)' because the queue changed concurrently; retry the command."
-    }
+    return ($lines -join "`n").TrimEnd("`n") + "`n"
 }
 
 function ConvertTo-FeedbackRecord {
@@ -185,7 +172,7 @@ function ConvertTo-FeedbackRecord {
         [Parameter(Mandatory)][string]$Line
     )
 
-    $pattern = '^- \[(?<id>[0-9a-f]{8})\] \[plan:(?<plan>[^\]]+)\] \[(?<kind>queued|recorded):(?<date>\d{4}-\d{2}-\d{2})\](?: \[align:(?<align>full|partial|missed)\])? (?<text>.+)$'
+    $pattern = '^- \[(?<id>[0-9a-f]{8}|[0-9a-f]{16})\] \[plan:(?<plan>[^\]]+)\] \[(?<kind>queued|recorded):(?<date>\d{4}-\d{2}-\d{2})\](?: \[align:(?<align>full|partial|missed)\])? (?<text>.+)$'
     if ($Line -notmatch $pattern) { return $null }
 
     return [pscustomobject]@{
@@ -224,12 +211,66 @@ function New-FeedbackEntryLine {
     return $line
 }
 
+function New-CapacityBlockedResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Action,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Reason
+    )
+
+    return [pscustomobject]@{
+        Action = $Action
+        Status = 'capacity-blocked'
+        Path = $Path
+        Written = $false
+        Note = $Reason
+    }
+}
+
+function Test-FeedbackTextCapacity {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Text)
+
+    return [System.Text.Encoding]::UTF8.GetByteCount($Text) -le $maxEntryBytes
+}
+
+function Save-QueueDocumentLocked {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][psobject]$Document,
+        [Parameter(Mandatory)][string]$ExpectedGeneration
+    )
+
+    $content = ConvertTo-QueueContent -Document $Document
+    if ([System.Text.Encoding]::UTF8.GetByteCount($content) -gt $maxFileBytes) {
+        return New-CapacityBlockedResult -Action $Action -Path $Path -Reason "feedback queue exceeds the $maxFileBytes-byte file limit"
+    }
+
+    $write = Set-AtomicStoreContent -Path $Path -Content $content -ExpectedGeneration $ExpectedGeneration
+    if ($write.Status -ne 'complete') {
+        throw "Update-FeedbackQueue failed with status '$($write.Status)' because the queue changed concurrently; retry the command."
+    }
+    return $null
+}
+
+function Complete-FeedbackOperation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][psobject]$Result)
+
+    if ($Result.PSObject.Properties.Name -contains 'Status' -and $Result.Status -eq 'capacity-blocked') {
+        Write-Output $Result
+        exit 4
+    }
+    return $Result
+}
+
 $queuePath = Resolve-FeedbackQueuePath -Root $RepoRoot
-$queueGeneration = Get-AtomicStoreGeneration -Path $queuePath
-$document = Get-QueueDocument -Path $queuePath
 
 switch ($Action) {
     'List' {
+        $document = Get-QueueDocument -Path $queuePath
         $lines = if ($Section -eq 'Pending') { $document.Pending } else { $document.Recorded }
         $records = @($lines | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } | Where-Object { $null -ne $_ })
         # Unary comma: callers assign the result and read .Count, so an empty section must still be
@@ -242,22 +283,44 @@ switch ($Action) {
         if ([string]::IsNullOrWhiteSpace($Question)) { throw 'Queue requires -Question.' }
 
         $text = ConvertTo-SafeFeedbackText -Text $Question
+        if (-not (Test-FeedbackTextCapacity -Text $text)) {
+            Complete-FeedbackOperation -Result (New-CapacityBlockedResult -Action 'Queue' -Path $queuePath -Reason "feedback entry exceeds the $maxEntryBytes-byte limit")
+        }
         $queueId = Get-FeedbackEntryId -Plan $Plan -Text $text
 
-        # Content-addressed dedup across both sections: a re-run of the same headless plan must not
-        # re-ask a question that is already waiting, and must never re-open one already answered.
-        $known = @(@($document.Pending) + @($document.Recorded) |
-                ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
-                Where-Object { $null -ne $_ -and $_.Id -eq $queueId })
-        if ($known.Count -gt 0) {
-            $note = if ($known[0].Kind -eq 'recorded') { 'already recorded' } else { 'already pending' }
-            return [pscustomobject]@{ Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $false; Note = $note }
+        $result = Invoke-WithAtomicStoreLock -Scope $queuePath -Action {
+            $queueGeneration = Get-AtomicStoreGeneration -Path $queuePath
+            $document = Get-QueueDocument -Path $queuePath
+
+            # Match legacy entries by their preserved content as well as their old 8-hex ID. A
+            # migration write must never recompute the identifier that another record may cite.
+            $known = @(@($document.Pending) + @($document.Recorded) |
+                    ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                    Where-Object {
+                        $null -ne $_ -and
+                        ($_.Id -eq $queueId -or
+                            ($_.Plan -eq $Plan -and
+                                [string]::Equals($_.Text, $text, [System.StringComparison]::OrdinalIgnoreCase)))
+                    })
+            if ($known.Count -gt 0) {
+                $note = if ($known[0].Kind -eq 'recorded') { 'already recorded' } else { 'already pending' }
+                return [pscustomobject]@{
+                    Action = 'Queue'; Id = $known[0].Id; Path = $queuePath; Written = $false; Note = $note
+                }
+            }
+            if ($document.Pending.Count -ge $maxPendingEntries) {
+                return New-CapacityBlockedResult -Action 'Queue' -Path $queuePath -Reason "pending feedback limit of $maxPendingEntries reached"
+            }
+
+            $document.Pending.Add((New-FeedbackEntryLine -Id $queueId -Plan $Plan -Kind 'queued' -Date $Date -Text $text))
+            $blocked = Save-QueueDocumentLocked -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
+            if ($null -ne $blocked) { return $blocked }
+
+            return [pscustomobject]@{
+                Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $true; Note = ''
+            }
         }
-
-        $document.Pending.Add((New-FeedbackEntryLine -Id $queueId -Plan $Plan -Kind 'queued' -Date $Date -Text $text))
-        Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
-
-        return [pscustomobject]@{ Action = 'Queue'; Id = $queueId; Path = $queuePath; Written = $true; Note = '' }
+        return Complete-FeedbackOperation -Result $result
     }
 
     'Record' {
@@ -265,79 +328,90 @@ switch ($Action) {
         if ([string]::IsNullOrWhiteSpace($Response)) { throw 'Record requires -Response.' }
 
         $text = ConvertTo-SafeFeedbackText -Text $Response
-        $pendingRecord = $null
+        if (-not (Test-FeedbackTextCapacity -Text $text)) {
+            Complete-FeedbackOperation -Result (New-CapacityBlockedResult -Action 'Record' -Path $queuePath -Reason "feedback entry exceeds the $maxEntryBytes-byte limit")
+        }
 
-        if ($Id) {
-            # Consuming a queued marker: the pending entry, not the caller, is the authority on which
-            # plan the answer belongs to.
-            $pendingRecord = @($document.Pending | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
-                    Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
-            if ($null -ne $pendingRecord) {
-                $resolvedPlan = $pendingRecord.Plan
+        $result = Invoke-WithAtomicStoreLock -Scope $queuePath -Action {
+            $queueGeneration = Get-AtomicStoreGeneration -Path $queuePath
+            $document = Get-QueueDocument -Path $queuePath
+            $pendingRecord = $null
+
+            if ($Id) {
+                # Consuming a queued marker: the pending entry, not the caller, is the authority on
+                # which plan the answer belongs to.
+                $pendingRecord = @($document.Pending | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                        Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
+                if ($null -ne $pendingRecord) {
+                    $resolvedPlan = $pendingRecord.Plan
+                }
+                else {
+                    $answeredRecord = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                            Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
+                    if ($null -eq $answeredRecord) {
+                        throw "No feedback marker with id '$Id'."
+                    }
+                    $resolvedPlan = $answeredRecord.Plan
+                }
+                if ($Plan -and $Plan -ne $resolvedPlan) {
+                    throw "Marker '$Id' belongs to plan '$resolvedPlan', not '$Plan'."
+                }
             }
             else {
-                # A verdict is one or more corrections, so the calls after the first find the marker
-                # already consumed. That is the normal flow, not an error — only an id that belongs
-                # to no marker at all is a state error.
-                $answeredRecord = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
-                        Where-Object { $null -ne $_ -and $_.Id -eq $Id }) | Select-Object -First 1
-                if ($null -eq $answeredRecord) {
-                    throw "No feedback marker with id '$Id'."
+                if ([string]::IsNullOrWhiteSpace($Plan)) { throw 'Record requires -Plan (or -Id naming a marker).' }
+                $resolvedPlan = $Plan
+            }
+
+            # The first correction inherits the marker id so the answer stays tied to its question;
+            # every other entry gets the new 16-hex content id.
+            $contentId = Get-FeedbackEntryId -Plan $resolvedPlan -Text $text
+            $entryId = if ($null -ne $pendingRecord) { $Id } else { $contentId }
+            $existing = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
+                    Where-Object {
+                        $null -ne $_ -and
+                        ($_.Id -eq $entryId -or
+                            ($_.Plan -eq $resolvedPlan -and
+                                [string]::Equals($_.Text, $text, [System.StringComparison]::OrdinalIgnoreCase)))
+                    })
+            if ($existing.Count -gt 0) {
+                $consumedStale = $false
+                if ($null -ne $pendingRecord) {
+                    [void]$document.Pending.Remove($pendingRecord.Line)
+                    $blocked = Save-QueueDocumentLocked -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
+                    if ($null -ne $blocked) { return $blocked }
+                    $consumedStale = $true
                 }
-                $resolvedPlan = $answeredRecord.Plan
+                return [pscustomobject]@{
+                    Action = 'Record'
+                    Id = $existing[0].Id
+                    Plan = $resolvedPlan
+                    Path = $queuePath
+                    Written = $false
+                    Consumed = $consumedStale
+                    Note = 'already recorded'
+                }
             }
-            if ($Plan -and $Plan -ne $resolvedPlan) {
-                throw "Marker '$Id' belongs to plan '$resolvedPlan', not '$Plan'."
+            if ($document.Recorded.Count -ge $maxRecordedEntries) {
+                return New-CapacityBlockedResult -Action 'Record' -Path $queuePath -Reason "recorded feedback limit of $maxRecordedEntries reached"
             }
-        }
-        else {
-            if ([string]::IsNullOrWhiteSpace($Plan)) { throw 'Record requires -Plan (or -Id naming a marker).' }
-            $resolvedPlan = $Plan
-        }
 
-        # The first correction inherits the marker id so the answer stays tied to its question; every
-        # other entry is content-addressed.
-        $contentId = Get-FeedbackEntryId -Plan $resolvedPlan -Text $text
-        $entryId = if ($null -ne $pendingRecord) { $Id } else { $contentId }
-
-        # Dedup on the verdict itself, not just on the id: the marker-id and content-id key spaces
-        # do not intersect, so an id-only guard would record the same correction twice.
-        $existing = @($document.Recorded | ForEach-Object { ConvertTo-FeedbackRecord -Line $_ } |
-                Where-Object { $null -ne $_ -and ($_.Id -eq $entryId -or ($_.Plan -eq $resolvedPlan -and $_.Text -eq $text)) })
-        if ($existing.Count -gt 0) {
-            # The verdict is already durable; converge the queue anyway so a marker whose answer was
-            # recorded cannot linger as pending and get asked a second time.
-            $consumedStale = $false
             if ($null -ne $pendingRecord) {
                 [void]$document.Pending.Remove($pendingRecord.Line)
-                Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
-                $consumedStale = $true
             }
+            $document.Recorded.Add((New-FeedbackEntryLine -Id $entryId -Plan $resolvedPlan -Kind 'recorded' -Date $Date -Text $text -Alignment $Alignment))
+            $blocked = Save-QueueDocumentLocked -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
+            if ($null -ne $blocked) { return $blocked }
+
             return [pscustomobject]@{
                 Action   = 'Record'
                 Id       = $entryId
                 Plan     = $resolvedPlan
                 Path     = $queuePath
-                Written  = $false
-                Consumed = $consumedStale
-                Note     = 'already recorded'
+                Written  = $true
+                Consumed = ($null -ne $pendingRecord)
+                Note     = ''
             }
         }
-
-        if ($null -ne $pendingRecord) {
-            [void]$document.Pending.Remove($pendingRecord.Line)
-        }
-        $document.Recorded.Add((New-FeedbackEntryLine -Id $entryId -Plan $resolvedPlan -Kind 'recorded' -Date $Date -Text $text -Alignment $Alignment))
-        Save-QueueDocument -Path $queuePath -Document $document -ExpectedGeneration $queueGeneration
-
-        return [pscustomobject]@{
-            Action   = 'Record'
-            Id       = $entryId
-            Plan     = $resolvedPlan
-            Path     = $queuePath
-            Written  = $true
-            Consumed = ($null -ne $pendingRecord)
-            Note     = ''
-        }
+        return Complete-FeedbackOperation -Result $result
     }
 }

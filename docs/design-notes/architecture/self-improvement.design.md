@@ -36,6 +36,11 @@ gate, and never gates the PR.
 - The queue is **script-owned**. `Update-FeedbackQueue.ps1` is the only writer; the skill never
   hand-edits `docs/feedback/queue.md`. Its arguments are composed from plan content, so callers pass
   argument arrays — never a shell-interpolated command string.
+- Queue mutations import the bundled `AtomicStore.psm1` and replace the file under its repo-scoped
+  lock. Existing 8-hex identifiers remain unchanged during migration; new sanitized content receives
+  a 16-hex content identifier. Sanitized entry text is bounded at 16 KiB, with 128 pending entries,
+  2,048 recorded entries, and a 4 MiB file ceiling. A plus-one operation returns
+  `capacity-blocked` with exit 4 before writing; content is never truncated.
 - `docs/feedback/queue.md` sits outside `.github/`, so installation cannot write it. It is declared
   as a first-use `scaffolds[]` entry in `plugins/self-improvement/plugin.json`
   (see [plugin-registry.design.md](plugin-registry.design.md) → asset bootstrap).

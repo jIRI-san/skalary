@@ -17,3 +17,9 @@ Phase: 1
 - [1.3] [src:code-review] [sev:High] Repair backup paths relied on observation text; Apply now rejects rooted or state-root-escaping observed paths before file access.
 - [1.3] [src:code-review] [sev:High] Incomplete-apply rollback retained its journal and authorization; successful rollback now removes the journal and matching quarantine index entries.
 - [1.3] [src:code-review] [sev:Med] Metadata paging threw on corrupt, legacy, or forward manifests; Get-SiState now returns inspection status with empty metadata for non-readable states.
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:Med] Legacy case-varied retries could duplicate preserved 8-hex records; use ordinal-insensitive content migration matching.
+- [2.1] [src:code-review] [sev:Med] Crash coverage only seeded an unrelated stale temp; fault the atomic temp-before-replace boundary and prove recovery.
