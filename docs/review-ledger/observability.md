@@ -3,3 +3,4 @@
 - [2026-08-01] A gate that reports a violation must name the remedy in the message; a cap that only blocks authoring teaches nothing about how to get under it. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-08-05] A summary step that parses a report unguarded throws exactly when the run it describes was killed so the if-always diagnostic disappears when it is needed. Every branch must still write a line. (plan-768d7b, src:autopilot, sev:Med) #phase-8 #req-9
 - [2026-08-10] Disposable worktree cleanup failures are ignored instead of surfaced. (plan-1936cb, src:autopilot, sev:Med) #operability-observability #phase-6 #req-7
+- [2026-08-10] Final review found undeclared receipt directory reads; literal receipt-root scaffolds now cover installed enumeration and validation. (plan-1936cb, src:autopilot, sev:High) #operability-observability #phase-7 #req-8

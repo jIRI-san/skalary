@@ -70,3 +70,19 @@ Phase 6 Crosscheck:
 ✓ REQ-8 — test:SiScope.TrustedBasePassesAllowedProposal — passed — e21952341166dd6317fe83fe020034d8865aefe3
 ✓ REQ-8 — test:SiScope.ProtectedTrustAnchorsAllRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
 ✓ REQ-8 — test:SiScope.StaleRemoteHeadRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
+
+Phase 7 Crosscheck:
+✓ REQ-1 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-1 — test:SiState.RepairCrashJournalRollback — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-1 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-2 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-2 — test:SiState.PrFailureReconciliation — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-2 — test:SiState.AllDeclinedRecordPr — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-2 — test:SiScope.ExpectedHeadMergeEnforced — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-3 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-3 — test:SiState.AllDeclinedRecordPr — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-7 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-7 — test:SiState.RepairCrashJournalRollback — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-7 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-7 — test:SiScope.ExpectedHeadMergeEnforced — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+✓ REQ-8 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
