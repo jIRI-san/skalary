@@ -188,6 +188,23 @@ state transition. Resumed run files receive the same byte, closed-schema, timest
 integrity validation as pinned runs. The lower-level state writer retains run-first/manifest-second
 CAS ordering and admits a matching in-flight retry without consuming a second capacity slot.
 
+`Invoke-SiProposalSync.ps1` is the trusted-base proposal transport. It must execute from a clean
+installed checkout outside the proposal worktree whose HEAD exactly equals the fetched main OID. A
+clean `si/<due-id>` branch supplies a lifecycle-only commit followed by proposal commits; sync
+refuses any later `docs/self-improvement/**` edit and limits the lifecycle commit to the manifest,
+one canonical run, one content-addressed receipt, and the transient harvest index. All mutation runs
+in a disposable detached worktree, so refusal cannot strand merge/state commits on the operator
+branch. Sync merges current `origin/main`, restores the complete SI subtree from that authority, then
+regenerates only the schema/canonical/receipt-verified run, exact receipt, and derived manifest
+through shared atomic/state writers in receipt/run/manifest order. Before transport it rejects the
+closed trust-anchor set (canonical and installed SI scripts, schemas, guides, prompt, manifest, and
+scope guard), then launches the trusted `Test-SiWriteScope.ps1` in a child process. HEAD is pinned
+before final checks, and every merge/diff/restore/guard uses the captured main OID rather than its
+mutable remote-tracking ref. A regular push names that validated OID directly; expected-remote
+comparison before push and exact remote-head comparison afterward make stale or raced heads explicit
+failures without force-pushing. Disposable-worktree cleanup is checked and a cleanup failure blocks
+success.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |

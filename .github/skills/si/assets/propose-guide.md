@@ -59,16 +59,27 @@ If an edit touches a plugin payload, re-run the payload pipeline (`Sync-PluginSc
 
 ## Step 6: Gate the write scope (blocking)
 
-Before the PR — not after — run the named guard from the worktree:
+Before the PR — not after — invoke trusted synchronization from a clean checkout pinned exactly to
+the fetched main OID and target the proposal worktree. Never invoke the proposal branch's copy of its
+own guard:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/si/scripts/Test-SiWriteScope.ps1 -RepoRoot . -BaseRef main
+pwsh -NoProfile -File .github/skills/si/scripts/Invoke-SiProposalSync.ps1 `
+  -RepoRoot .worktrees/si-<due-prefix> -Operation Sync `
+  -DueId <due-id> -RunId <run-id> -Receipt <receipt-id> `
+  -LifecycleHeadOid <lifecycle-state-commit> -ExpectedRemoteHead <oid-or-absent>
 ```
 
-It enumerates every path the proposal touches — committed against `main...HEAD`, staged, unstaged,
-**and untracked** — canonicalizes each one, follows symlinks component by component, and refuses on
-anything that escapes the repository, traverses out of it, lands outside the allowlist, or touches a
-denied execution-carrying path.
+The sync requires a clean fixed branch and refuses any state edit after the lifecycle commit. In a
+disposable detached worktree it fetches and merges current main, restores the complete
+`docs/self-improvement/**` tree from that authority, and regenerates only the verified
+receipt/run/manifest. It rejects every path in the closed SI trust-anchor set before invoking the
+trusted `Test-SiWriteScope.ps1`. That guard enumerates committed, staged, unstaged, and untracked
+paths, canonicalizes each one, follows symlinks component by component, and refuses anything
+escaping the repository, outside the allowlist, or under a denied execution-carrying path. Sync
+pins HEAD before those final checks, pushes one exact OID with a regular push, confirms the remote
+head equals it, and removes the disposable worktree on both success and failure. A cleanup failure
+is itself blocking and is reported rather than returning a successful synchronization.
 
 - Exit **0**: continue to Step 7.
 - Exit **1**: stop. Remove the offending paths from the proposal and re-run.

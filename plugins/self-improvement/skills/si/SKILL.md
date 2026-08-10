@@ -82,6 +82,8 @@ receipt candidate in a temporary closed `{ "choices": [...] }` input with `propo
 invoke installed `Invoke-SiLifecycle.ps1 -Operation RecordChoices` through bound arguments. Omitted,
 extra, duplicate, fabricated, stale, or rewritten input is a refusal. If they decline all candidates,
 the fixed branch still carries the durable ranked set and outcome for its state-only record PR.
+Commit only the lifecycle-managed `docs/self-improvement/**` changes immediately and retain that
+commit as `lifecycleHeadOid`; proposal edits must descend from it and may not alter those state paths.
 
 Under a headless run there is no operator to ask. Report the ranked list and stop; `/si` never opens
 a PR nobody asked for.
@@ -96,11 +98,18 @@ isolation, the blocking pre-PR guard, and the draft PR. In short:
 2. Make only the accepted edits, inside `plugins/`, `docs/`, and `.github/{skills,agents,prompts}/`.
    `.github/workflows/` and `.github/actions/` are denied outright — a same-repo PR branch executes
    them with repository secrets at PR-open time, before any human review (RISK-12).
-3. Run the blocking guard and stop on a refusal:
+3. Commit the accepted proposal edits, then invoke `Invoke-SiProposalSync.ps1` from a clean trusted
+   checkout whose HEAD is exactly the fetched `origin/main` OID, never from the proposal worktree.
+   Pass the proposal worktree as `-RepoRoot` plus the bound due/run/receipt, `lifecycleHeadOid`, and
+   the surfaced expected remote head (`absent` for a new branch). It uses a disposable detached
+   worktree to merge current main, rebuilds the complete SI state subtree from main plus only the
+   admitted receipt/run/manifest, runs the blocking scope/trust-anchor guards, pushes only the
+   validated OID, and confirms remote-head equality. Stop on any refusal.
+4. The trusted sync runs the existing scope guard:
 
    ```powershell
    pwsh -NoProfile -File .github/skills/si/scripts/Test-SiWriteScope.ps1 -RepoRoot . -BaseRef main
    ```
 
-4. Open a **draft** PR. `/si` proposes and never merges — not manually, not by auto-merge, and never
+5. Open a **draft** PR. `/si` proposes and never merges — not manually, not by auto-merge, and never
    into `main` directly.

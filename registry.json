@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T00:01:06.8283023Z",
+  "generatedAt": "2026-08-10T00:45:58.2035511Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1197,7 +1197,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "a326a82ef2ff694e1edbfbb871b66cb2cbcef4a6b38acf74d6e079f10d3509f0",
+          "sha256": "e651e7c055d3e34fb4c02650a663dcd80d1a46016474efce63a4ddc6ad9d5396",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -1207,7 +1207,7 @@
         },
         {
           "dest": "skills/si/assets/propose-guide.md",
-          "sha256": "e5d62cc7a3bd3d55e7547ca70f6cd5f73080c582839fc6efd354263ea9733662",
+          "sha256": "1aafd15f5912981ee6323a44684dc744d533509544f9214d3472219ac895ef4e",
           "src": "skills/si/assets/propose-guide.md"
         },
         {
@@ -1262,8 +1262,13 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
-          "sha256": "a6f9c9723dd0a0c61c5b2144152c3898a210c39631800ac74bcedccef042f893",
+          "sha256": "1ff0cc41733d1e2306425641f5c7086902f2e0d754444003bf049052b050c55e",
           "src": "scripts/Invoke-SiLifecycle.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1",
+          "sha256": "8ded0e83efc7b0125f6733fa246bf882483bee99924c675ca428983a6c78f986",
+          "src": "scripts/Invoke-SiProposalSync.ps1"
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
@@ -1297,7 +1302,7 @@
         },
         {
           "dest": "skills/si/scripts/Update-SiState.ps1",
-          "sha256": "921d2f99d69b299c3bbd7c1129ecf43406d2762e0a59d9d9960461e195d03ad0",
+          "sha256": "0f273ca7d5128856797852be5867ceb88453c8fdf11aa83a283469b43907a881",
           "src": "scripts/Update-SiState.ps1"
         }
       ],
@@ -1385,7 +1390,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.37"
+      "version": "1.0.38"
     }
   ]
 }
