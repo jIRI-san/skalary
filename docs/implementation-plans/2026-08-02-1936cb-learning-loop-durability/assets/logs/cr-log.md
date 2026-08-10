@@ -17,6 +17,9 @@ Phase: 1
 - [1.3] [src:code-review] [sev:High] Repair backup paths relied on observation text; Apply now rejects rooted or state-root-escaping observed paths before file access.
 - [1.3] [src:code-review] [sev:High] Incomplete-apply rollback retained its journal and authorization; successful rollback now removes the journal and matching quarantine index entries.
 - [1.3] [src:code-review] [sev:Med] Metadata paging threw on corrupt, legacy, or forward manifests; Get-SiState now returns inspection status with empty metadata for non-readable states.
+- [1.2] [src:code-review] [sev:Critical] [concern:operability-observability] [req:REQ-1,REQ-7] [review:cr] [source-record:218e8074b4d8bb49c4017c8228f7fa7b9b6bea5177d4aa43abb6523c288096ad] Final CR: apply-incomplete inspection omits observationId, stage, and journal path, so rollback cannot be invoked after a crash.
+- [1.3] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:1ce7b1a784087d15f579a15f2c39a60491b52953e5dd2a503560502b4fffb3ca] Final CR: archive can move an orphan terminal run while manifest still references it inFlight, destroying recoverable run-first state.
+- [1.2] [src:code-review] [sev:High] [concern:security] [req:REQ-7] [review:cr] [source-record:ec2871434315e8f504c03c73a2eded0657574122d573c66723bab1ada3c9727a] Final CR: repair follows descendant symlinks and may copy host files into repository backups; each source needs physical confinement recheck.
 
 ## CR Capture
 Phase: 2
@@ -32,6 +35,8 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:84ee2a018eaff21fc54b0250b714725814ee9ab461d0e3913ee6ec74f92da658] Migrated records bypassed the 16 KiB per-record limit; validate every overflow record before mutation.
 - [2.3] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-7] [review:cr] [source-record:7ea6e7e5da0cb4028960beb7039fba58cb81f7a120445e5b2430e1884f3d51c9] Public lock and CAS parameters allowed values beyond exact 30-second and three-attempt maxima.
 - [2.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:06b32620aecea800a1c4d82bf9b91c5450bd5e7cd7d436451830dd5839365606] Boundary matrix used coarse values and lacked active-replace rollback evidence; cover exact maxima and plus-one.
+- [2.2] [src:code-review] [sev:Critical] [concern:operability-observability] [req:REQ-5,REQ-7] [review:cr] [source-record:c8bc8169bf656d412cda9a64c8e62759dbfa1023b39b3ad4be41a863e81a4159] Final CR: Add-WorkflowNote returns lock-timeout with exit code 0, silently dropping requested capture for callers that do not inspect the object.
+- [2.2] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:35d529e32fef1396aea6e301a2d05246b0ffc47a1c48c2cd4265eae0719597e6] Final CR: overflow crash test fabricates old active bytes after success instead of faulting between overflow-first and active replace.
 
 ## CR Capture
 Phase: 3
@@ -61,6 +66,8 @@ Phase: 3
 - [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:e699c71cd7c722989730c2013bb09126e24e7b5dba1db233990318711dc7d60a] Concurrent harvest coverage wrote different categories and could not detect lost updates under same-category contention.
 - [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:3cd320dc51706150b9d8dbd58d337ac7d1db701b59d5fec5ab50cbe80ba41f29] Receipt capacity coverage exercised only the sequential precheck and not concurrent in-lock arbitration at the sixty-fourth receipt.
 - [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-4] [review:cr] [source-record:be9a923b2b649c691d0dbd3b7b975ba7f91299c28da79b7a6dff825dde9a8fde] Final replay coverage proved log isolation but did not prove a tampered immutable receipt is rejected before ledger mutation.
+- [3.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-4] [review:cr] [source-record:7ef591c8722369dc5d2152ddea428499d1a4a393c55dcac9b27ae2c663f3a6c8] Final CR: ledger batch idempotence and recurrence are O(N times M) at the 10000-record and 4096-candidate boundary.
+- [3.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:5fc51db5f1108337448374eddc31cf0f80e62d1f657c5a54b45413d3a47e5d57] Final CR: capacity-blocked phase harvest dereferences absent Receipt and Ledger properties before checking status, returning the wrong degraded result.
 
 ## CR Capture
 Phase: 4
@@ -83,6 +90,7 @@ Phase: 4
 - [4.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:b8ecdd63bd9f962a15733c53cfa20ecc5f216ca6d092d0661bc3c13f930d2fd5] Consumer fixture tracked plugin names but did not compare the materialized file and hash inventory against the exact declared dependency closure.
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-6] [review:cr] [source-record:2930df4a4d28e0aecbcd13b4f6a68ef35bf82f8e38ca74de21efbf7ce8aac438] Consumer test asserted token neutralization but not rejection of the forged closing marker and extra inner fence delimiter in the same test.
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:97eb5e99d8253960e3c11842433b6ecf1b4e50740f1f1d18d88df95d682331bb] Installed-only evidence scanned only the entry script for an absolute source path rather than every installed script module and returned path.
+- [4.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-6] [review:cr] [source-record:d5504015f65c37eaa73d1f52196176fd38d9dd548f899b55c2f97aff648cae71] Final CR: each harvest page rebuilds and rereads the full snapshot, and pinned blob reads allocate before byte limits are enforced.
 
 ## CR Capture
 Phase: 5
@@ -102,6 +110,7 @@ Phase: 5
 - [5.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:fdfeb2c4bff82b29db8c3cbf912da58279434c49279f895b26027c1c9c46368a] Fixed orphan-only authoritative state being labeled empty and combined pending plus in-flight dues exceeding the shared manifest ceiling.
 - [5.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:0713550c94553a2be7996273ed95efc3288a8ffc521600d565aa06020aec09d6] Fixed fixed-branch capacity omitting retained completed runs, due IDs not being re-derived, run provenance drift, and duplicate manifest due/run references.
 - [5.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-3,REQ-7] [review:cr] [source-record:a6aed97a76a468b737b33a136edf5642841044d58b5ee4714482c02b85467cc3] Fixed non-asserting timestamp formats leaking malformed stored text, canonical candidate/digest hashes not being rechecked, and orphan run due provenance not being validated.
+- [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:bd31f15edf08840805fd2b4c30f079efd6375bb1385435e3c75f53c675d03a2c] Final CR: headless non-blocking degradation is only proven by prompt grep, not by executing a failing installed enqueue writer.
 
 ## CR Capture
 Phase: 6
@@ -136,6 +145,8 @@ Phase: 7
 - [7.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:c0a1b34604d7d094f957901c857ce2e4df64f5708e370818b53aaaf72bf2fd99] Final review found ambiguous successful merges unrecoverable; completion now reconciles merged responses and validates terminal authoritative state on retry.
 - [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-7] [review:cr] [source-record:5296fd2636e1044b6f658b61a28b835ea80b6ef80f385ebde7c729ed32f5e928] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement.
 - [7.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:e609d4d8366ddc094916ba5ac640b1387af49beb670284703b026b8d5d22fe09] Release review found repair retries compared against later mutable main state; validation now targets the historical merged PR tree.
+- [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:61ed197a1974083d620959e117f4c306efba082c5c7a2999fa25bdbe8d1653a7] Final CR: already-merged reconciliation trusts proposal-supplied pinnedBaseOid instead of freshly fetched authoritative origin/main.
+- [7.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:9f5acc3d36af7c980d98636acd8d8107d01dd3457d2e3dda8138e48fddd13544] Final CR: completion has no test that mutates a protected trust anchor after sync and proves expected-head merge refuses.
 
 ## CR Capture
 Phase: 8
@@ -154,3 +165,5 @@ Phase: 8
 - [8.2] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:365500b335535ddbbb4c42c43f0f93dccaa1f0d76a55ffd68f10340354e253c5] Second review found the real suite evidence assertion rejected authorized missing-row bootstrap even though the custom fixture passed.
 - [8.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-8] [review:cr] [source-record:1d7a7e0c4fd2d34d484fd0c34265cda56edb5d0671bf16a8a4bc55effd1ab7dc] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization.
 - [8.2] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:7c0d112ddb0a0bab128cdd17f6350f6f32f09029d9c9c0a6c1e9a25a31236388] Final review found the recorded Linux row stale after the reviewed fingerprinted fixes; final measurement refresh required.
+- [8.2] [src:code-review] [sev:Critical] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:874ac67b4d5c45a29fdcb9710f6d5735c07eed16d385b2492239229d88368786] Final CR: reviewed HEAD lacks final Linux and Windows runtime rows; evidence and Linux measurement are stale.
+- [8.2] [src:code-review] [sev:Low] [concern:security] [req:REQ-8] [review:cr] [source-record:09847806947813c368711f722f4198100675597cc7cc83380384d81b6806d2dd] Final CR: omitting MeasurementRecord disables runtime freshness; the budget field must be mandatory and fail loud.
