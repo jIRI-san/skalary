@@ -83,6 +83,17 @@ Self-improvement owns its state schemas and lifecycle commands directly under
 plugin-owned sources. `SiStateStore.psm1` is the single owner of the closed schema versions, status
 codes, operational limits, topology segments, and run-before-manifest transaction order.
 
+Distribution is fail-closed. `test:LearningLoop.PayloadOwnershipAndDrift` enumerates the complete
+plugin-owned schema/script sets, refuses root-canonical duplicates, verifies each manifest mapping
+and dogfood byte, proves autopilot's explicit dependency, and cross-checks scaffold, registry,
+marketplace, version, installed-invocation, and shared phase-harvest bundle state.
+`test:LearningLoop.StructuralEvals` is the Tier-1 plugin eval for both `pfb` and `si`; it validates
+frontmatter, bodies, links, and required declared assets through the normal `npm run eval` path.
+Neither proof adds a standalone `validate.ps1` gate: ownership drift belongs to the existing unit
+suite, while plugin structural evals retain the separate eval-runner boundary. That boundary is not
+a generic CI gate, but the named test is blocking when a plan cites it as typed evidence during a
+phase or plan crosscheck.
+
 The hot manifest is bounded to 128 pending dues, 16 in-flight runs, 64 recent references, and
 256 KiB. Active history is sharded per run and bounded to 32 completed plus 16 resumable files;
 archive history is bounded to 4,096 files and 256 files per year/month shard. Every plus-one

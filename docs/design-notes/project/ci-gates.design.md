@@ -39,7 +39,7 @@ globs:
 | Exclusion | Decided by | Why |
 |---|---|---|
 | `exclusion:analyzer-warnings-not-blocking` | plan `768d7b` step 9.2, narrowed 2026-08-06 | The step no longer merely reports: it separates severities and throws on any `Error`, so the gate can go red (`test:Ci.LintStepCanFail`). What remains excluded is the **warning** tier. Measured 2026-08-05: 472 findings over `scripts/skalary`, all `Warning`, 0 `Error` — 344 `PSUseConsistentWhitespace` and 115 `PSUseConsistentIndentation`. Enforcing those is a repo-wide formatting change and its own plan; the count is recorded so the debt is a number rather than an impression |
-| `exclusion:llm-eval-tier` | plan `005` REQ-12, RISK-3 | The LLM tier needs a model token and returns a judged verdict, not a deterministic one. `npm run eval:llm` stays operator-invoked; the structural eval tier runs inside `gate:unit-suite` as ordinary Pester files under `tests/evals/` |
+| `exclusion:llm-eval-tier` | plan `005` REQ-12, RISK-3 | The LLM tier needs a model token and returns a judged verdict, not a deterministic one. `npm run eval:llm` stays operator-invoked. Offline waza-shape guards under `tests/evals/` run inside `gate:unit-suite`; plugin Tier-1 evals under `plugins/*/evals/*.Tests.ps1` remain the separate `npm run eval` path and are not a `validate.ps1` gate. |
 | `exclusion:arch-tier-not-seeded` | plan `768d7b` decision D11 | `docs/architecture-notes/receipts/` and `arch-test-config.json` do not exist, so an `arch:` gate would assert against an unminted tier. `gate:arch-doc-freshness` covers the part of that tier which does exist |
 
 ## Two hosts, one reason
@@ -70,3 +70,9 @@ Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Peste
 - **Actions pinned by SHA, modules by exact NuGet range, with `-AuthenticodeCheck` where the platform honours it.** Dropping `-SkipPublisherCheck` restores a check only if one still runs; PSResourceGet verifies nothing unless asked (RISK-8).
 - **Ordering in generated catalogs is ordinal, never culture-aware.** `cs-CZ` sorts `ch` after `c`, so a culture-aware sort makes `gate:generated-output-drift` fail for everyone whose locale differs from the last person to run the generator.
 - **`validate.ps1` enumerates payload roots by allowlist, canonicalised, refusing reparse points.** `-Recurse` without `-Force` hides dot-prefixed entries on Linux only, so the two legs passed over different file sets; `-Force` alone reaches `.git` and `node_modules` (REQ-8, RISK-5).
+- **Cross-surface proofs compose existing gates.** `test:LearningLoop.PayloadOwnershipAndDrift`
+  runs in the existing unit suite and cross-checks SI ownership, generated bundles, dogfood,
+  manifests, versions, scaffolds, marketplace, and registry. Its companion plugin structural eval
+  runs through `npm run eval`. Neither introduces a new workflow or `validate.ps1` gate; when a plan
+  names the structural eval as `test:` evidence, that plan crosscheck executes the named Pester case
+  and treats its result as blocking evidence.

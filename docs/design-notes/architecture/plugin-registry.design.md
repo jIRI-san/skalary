@@ -113,7 +113,7 @@ Skills and agents that invoke deterministic PowerShell at runtime must ship that
 | Managed duplication | Bundled copies are generated, not hand-authored: `scripts/skalary/` is the single source of truth and `Sync-PluginScripts.ps1` is the only writer of `plugins/**/skills/**/scripts/`. A `-WhatIf` drift gate (wired into `scripts/validate.ps1`) proves every bundled copy is byte-identical to its source. |
 | Version independence | Plugins install and version independently, so each carries its own copy — duplication across plugins is intentional and accepted (no shared runtime module, no cross-plugin hierarchy). |
 | Version-bump coupling | Because there is exactly one source per script, **any change to a shared script bumps the `version` of every plugin that bundles it.** `Sync-PluginScripts.ps1` performs this patch bump automatically when it re-copies a changed bundle, so the advertised version never lags the payload. A script edit is a content change to each dependent plugin's payload; a stale (unsynced) bundle fails the `-WhatIf` drift gate. |
-| Plugin-owned scripts (exception) | Not every plugin script is a `scripts/skalary/` bundle. The `architecture-notes` scripts (`Copy-ArchScaffold`, `Import-ArchHarvest`, `Import-ArchAdr`, …) and the `architecture-tests` **adapters/providers** (`plugins/architecture-tests/scripts/{adapters,providers}/**`) are **canonical inside their own plugin**, not `scripts/skalary/`. `Sync-PluginScripts.ps1` does not manage them; `Sync-Dogfood.ps1` mirrors them to `.github/`. Referencing a plugin-owned script by the literal installed path `.github/skills/<skill>/scripts/<Name>.ps1` from a **foreign** plugin's content triggers a stray cross-plugin bundle (the bundler's ref regex) — so cross-plugin references use bare names or gated wording. |
+| Plugin-owned scripts (exception) | Not every plugin script is a `scripts/skalary/` bundle. The self-improvement lifecycle/schema payload (`plugins/self-improvement/{scripts,schemas}/`), the `architecture-notes` scripts (`Copy-ArchScaffold`, `Import-ArchHarvest`, `Import-ArchAdr`, …), and the `architecture-tests` **adapters/providers** (`plugins/architecture-tests/scripts/{adapters,providers}/**`) are **canonical inside their own plugin**, not `scripts/skalary/`. `Sync-PluginScripts.ps1` does not manage them; `Sync-Dogfood.ps1` mirrors them to `.github/`. Foreign consumers depend on the owning plugin rather than copying its executable; references use the installed path only where the dependency contract and drift test explicitly permit it. |
 
 The one deliberate split: the `architecture-tests` **runner** (`Invoke-ArchTests.ps1`) is a normal `scripts/skalary/` bundle (single source of truth) but is bundled into `architecture-tests` **only** — its **adapter/provider file set** (`plugins/architecture-tests/scripts/{adapters,providers}/**`) is plugin-owned and can't be bundled into `ci` (the runner, `ArchReceipt.psm1`, `Assert-ArchLock.ps1`, and `Invoke-ArchAdapter.ps1` are all `scripts/skalary/` bundles), so `/ci` invokes the installed runner via a gated bare reference. See [architecture-tests.design.md](architecture-tests.design.md).
 
@@ -133,6 +133,11 @@ at an independently versioned SI release, preserving SI's sole ownership and all
 installs to use the same due writer. Interactive CI receives the same dependency transitively
 through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor CI bundles a
 foreign lifecycle copy.
+
+`test:LearningLoop.PayloadOwnershipAndDrift` is the cross-surface proof for this split. It enumerates
+the closed SI-owned sets, shared harvest consumers, dependency edges, installed calls, scaffolds,
+dogfood bytes, catalog hashes, and manifest/catalog versions. The existing generator and drift
+gates remain authoritative; no learning-loop-specific validation gate is added.
 
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.

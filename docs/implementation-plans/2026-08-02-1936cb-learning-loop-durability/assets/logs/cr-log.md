@@ -136,3 +136,13 @@ Phase: 7
 - [7.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:c0a1b34604d7d094f957901c857ce2e4df64f5708e370818b53aaaf72bf2fd99] Final review found ambiguous successful merges unrecoverable; completion now reconciles merged responses and validates terminal authoritative state on retry.
 - [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-7] [review:cr] [source-record:5296fd2636e1044b6f658b61a28b835ea80b6ef80f385ebde7c729ed32f5e928] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement.
 - [7.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:e609d4d8366ddc094916ba5ac640b1387af49beb670284703b026b8d5d22fe09] Release review found repair retries compared against later mutable main state; validation now targets the historical merged PR tree.
+
+## CR Capture
+Phase: 8
+
+- [8.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:33c6794fe47af7d3e8180312dcafe96a20fb2a3d1dc0a253119896c3a6ff6b2d] Registry drift proof omitted install-critical source, dependency, scaffold, and destination-ownership fields.
+- [8.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:e9dd3006ebf532609532dd779be65fff94366a60d0b13373c2a668d3ab45446c] Structural eval could satisfy plugin-source links from stale dogfood without proving a source mapping or byte identity.
+- [8.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-8] [review:cr] [source-record:b9e00ce61391caf0da55b1f802591e3ca2207bbf8987350926ad07dc48af31a5] Sole-resolver proof scanned ps1 scripts but omitted executable psm1 modules.
+- [8.1] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:4314fb1f651a72988695d564ec52193a33887bbebb13599a4f9e758577676edc] Second-opinion review found report-only wording obscured that a named structural eval is blocking typed evidence; clarified the boundary.
+- [8.1] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:f6b85e0421a9daf2b6acbe40f5e7a63a9dbfd2ffa8b7bd7f63058b84f7ac474d] Second-opinion review noted the pre-existing structural eval harness lacks a discovery-container failure guard; outside this step, targeted named evidence remains fail-closed.
+- [8.1] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:896c424e5714acaeaf466be46c1993d9363a823d2a923d4563f8a4c8644bbc45] Second-opinion review found culture-aware source-set ordering; replaced it with ordinal ordering.
