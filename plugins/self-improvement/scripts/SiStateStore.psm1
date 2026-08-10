@@ -81,6 +81,27 @@ function Resolve-SiPhysicalPath {
     return $current
 }
 
+function Test-SiPhysicalDescendant {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $physicalRoot = Resolve-SiPhysicalPath -Path $Root
+    $physicalPath = Resolve-SiPhysicalPath -Path $Path
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $prefix = $physicalRoot.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    return $physicalPath.StartsWith($prefix, $comparison)
+}
+
 function Resolve-SiStatePath {
     [CmdletBinding()]
     param(
@@ -108,13 +129,7 @@ function Resolve-SiStatePath {
     if (-not $full.StartsWith($prefix, $pathComparison)) {
         throw "Resolved SI state path '$full' escapes repository root."
     }
-    $physicalRoot = Resolve-SiPhysicalPath -Path $root
-    $physicalPath = Resolve-SiPhysicalPath -Path $full
-    $physicalPrefix = $physicalRoot.TrimEnd([char[]]@(
-            [System.IO.Path]::DirectorySeparatorChar,
-            [System.IO.Path]::AltDirectorySeparatorChar
-        )) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $physicalPath.StartsWith($physicalPrefix, $pathComparison)) {
+    if (-not (Test-SiPhysicalDescendant -Root $root -Path $full)) {
         throw "Resolved SI state path '$full' escapes repository root via link."
     }
     return $full
@@ -448,8 +463,55 @@ function Get-SiStoreInspection {
     $root = Resolve-SiRepoRoot -RepoRoot $RepoRoot
     $manifestPath = Get-SiManifestPath -RepoRoot $root
     $runsRoot = Resolve-SiStatePath -RepoRoot $root -Segments @('runs')
-    $journalFiles = @(Get-ChildItem -LiteralPath (Resolve-SiStatePath -RepoRoot $root -Segments @('backups')) `
+    $backupsRoot = Resolve-SiStatePath -RepoRoot $root -Segments @('backups')
+    $journalFiles = @(Get-ChildItem -LiteralPath $backupsRoot `
             -Filter 'apply-journal.json' -Recurse -File -ErrorAction SilentlyContinue)
+    $journalPathComparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $incompleteApplies = @($journalFiles | ForEach-Object {
+            $journal = $null
+            try {
+                $journal = [System.IO.File]::ReadAllText($_.FullName) |
+                    ConvertFrom-Json -Depth 20
+            }
+            catch { }
+            $journalProperties = if ($null -eq $journal) {
+                @()
+            }
+            else {
+                @($journal.PSObject.Properties | ForEach-Object Name)
+            }
+            $directoryObservationId = [string]$_.Directory.Name
+            $expectedJournalPath = [System.IO.Path]::GetFullPath(
+                (Join-Path (Join-Path $backupsRoot $directoryObservationId) 'apply-journal.json')
+            )
+            $journalPathMatches = [string]::Equals(
+                [System.IO.Path]::GetFullPath($_.FullName),
+                $expectedJournalPath,
+                $journalPathComparison
+            )
+            $journalIdMatches = $journalProperties -contains 'observationId' -and
+                [string]$journal.observationId -match '^[0-9a-f]{64}$' -and
+                [string]$journal.observationId -ceq $directoryObservationId -and
+                $journalPathMatches
+            [pscustomobject][ordered]@{
+                observationId = $directoryObservationId
+                stage = if ($journalIdMatches -and
+                    $journalProperties -contains 'stage' -and [string]$journal.stage -in @(
+                        'backup-pending', 'backup-complete', 'mutation-started'
+                    )) {
+                    [string]$journal.stage
+                }
+                else {
+                    'invalid'
+                }
+                journalPath = [System.IO.Path]::GetRelativePath($root, $_.FullName).Replace('\', '/')
+            }
+        } | Sort-Object observationId, journalPath)
     $runFiles = @(Get-ChildItem -LiteralPath $runsRoot -Filter '*.json' -Recurse -File -ErrorAction SilentlyContinue)
     $observed = [System.Collections.Generic.List[object]]::new()
     $currentRuns = 0
@@ -531,6 +593,7 @@ function Get-SiStoreInspection {
         ManifestPath = $manifestPath
         RunFiles     = $runFiles
         Observed     = @($observed | Sort-Object path)
+        IncompleteApplies = $incompleteApplies
     }
 }
 
@@ -672,6 +735,13 @@ function Invoke-SiRepair {
         $stateRootPath = Split-Path -Parent (Get-SiManifestPath -RepoRoot $RepoRoot)
         $statePrefix = $stateRootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
         [System.IO.Path]::DirectorySeparatorChar
+        $physicalPathComparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
+        $verifiedManifestBytes = $null
         foreach ($observed in @($envelope.payload.observed)) {
             $observedPath = [string]$observed.path
             if ([System.IO.Path]::IsPathRooted($observedPath)) {
@@ -681,16 +751,39 @@ function Invoke-SiRepair {
             if (-not $source.StartsWith($statePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
                 throw "Repair observation '$Observation' path '$observedPath' escapes the SI state root."
             }
+            if (-not (Test-SiPhysicalDescendant -Root $stateRootPath -Path $source)) {
+                throw "Repair observation '$Observation' path '$observedPath' escapes the SI state root via link."
+            }
+            $physicalSource = Resolve-SiPhysicalPath -Path $source
+            $sourceBytes = [System.IO.File]::ReadAllBytes($physicalSource)
+            $sourceDigest = [Convert]::ToHexString(
+                [System.Security.Cryptography.SHA256]::HashData($sourceBytes)
+            ).ToLowerInvariant()
+            if ($sourceDigest -ne [string]$observed.sha256 -or
+                -not (Test-SiPhysicalDescendant -Root $stateRootPath -Path $source) -or
+                -not [string]::Equals(
+                    (Resolve-SiPhysicalPath -Path $source),
+                    $physicalSource,
+                    $physicalPathComparison
+                )) {
+                throw "Repair observation '$Observation' source '$observedPath' changed before backup."
+            }
+            if ($observedPath -ceq 'docs/self-improvement/state.json') {
+                $verifiedManifestBytes = $sourceBytes
+            }
             $relative = [System.IO.Path]::GetRelativePath($repoRootPath, $source)
             $backup = Join-Path $backupFilesRoot $relative
             $backupParent = Split-Path -Parent $backup
             if (-not (Test-Path -LiteralPath $backupParent -PathType Container)) {
                 [void](New-Item -ItemType Directory -Path $backupParent -Force)
             }
-            [System.IO.File]::Copy($source, $backup, $true)
+            [System.IO.File]::WriteAllBytes($backup, $sourceBytes)
         }
-        if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
-            [System.IO.File]::Copy($manifestPath, (Join-Path $backupRoot 'state.json'), $true)
+        if ($null -ne $verifiedManifestBytes) {
+            [System.IO.File]::WriteAllBytes(
+                (Join-Path $backupRoot 'state.json'),
+                $verifiedManifestBytes
+            )
         }
         else {
             [void](Set-AtomicStoreContent -Path (Join-Path $backupRoot 'manifest.absent') -Content "absent`n")

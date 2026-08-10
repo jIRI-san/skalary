@@ -124,6 +124,11 @@ on Windows.
 
 `Get-SiState.ps1` exposes metadata only. Inspection classifies absent, valid, orphaned, corrupt,
 legacy, forward-version, capacity-blocked, and incomplete-apply stores without mutation.
+Incomplete-apply metadata includes the observation ID, journal stage, and repository-relative journal
+path needed for an explicit rollback; a journal ID that differs from its backup directory is invalid.
+Repair resolves every observed backup source physically under the SI state root, reads it once,
+verifies those bytes against the immutable observation digest, and only then writes the backup, so
+descendant links and link-swap races cannot capture host files.
 `Repair-SiState.ps1 -Mode Snapshot` content-addresses exact sorted observation bytes; Apply refuses
 stale or altered observations, writes the backup and apply journal before replacing state, and
 writes the receipt last. Rollback accepts the observation before receipt creation or the receipt

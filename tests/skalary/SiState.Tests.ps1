@@ -10,6 +10,7 @@ Describe 'Durable self-improvement state' {
         $script:atomicModule = Join-Path $script:repoRoot 'scripts/skalary/AtomicStore.psm1'
         $script:enqueue = Join-Path $script:siScripts 'Enqueue-SiDue.ps1'
         $script:update = Join-Path $script:siScripts 'Update-SiState.ps1'
+        $script:getState = Join-Path $script:siScripts 'Get-SiState.ps1'
         Import-Module (Join-Path $script:siScripts 'SiStateStore.psm1') -Force
         Import-Module $script:atomicModule -Force
 
@@ -139,10 +140,65 @@ Describe 'Durable self-improvement state' {
         )
         (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status | Should -Be 'repairable-orphans'
 
-        $backup = Join-Path $script:stateRoot "docs/self-improvement/backups/$('6' * 64)"
+        $observationId = '6' * 64
+        $backup = Join-Path $script:stateRoot "docs/self-improvement/backups/$observationId"
         [void](New-Item -ItemType Directory -Path $backup -Force)
-        [System.IO.File]::WriteAllText((Join-Path $backup 'apply-journal.json'), '{}')
-        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status | Should -Be 'apply-incomplete'
+        $journalPath = Join-Path $backup 'apply-journal.json'
+        [System.IO.File]::WriteAllText(
+            $journalPath,
+            (([ordered]@{
+                        schemaVersion = 1
+                        observationId = $observationId
+                        beforeDigest = 'absent'
+                        stage = 'backup-complete'
+                    } | ConvertTo-Json -Compress) + "`n")
+        )
+        $inspection = Get-SiStoreInspection -RepoRoot $script:stateRoot
+        $inspection.Status | Should -Be 'apply-incomplete'
+        $inspection.IncompleteApplies.Count | Should -Be 1
+        $inspection.IncompleteApplies[0].observationId | Should -Be $observationId
+        $inspection.IncompleteApplies[0].stage | Should -Be 'backup-complete'
+        $inspection.IncompleteApplies[0].journalPath | Should -Be (
+            "docs/self-improvement/backups/$observationId/apply-journal.json"
+        )
+        $metadata = & $script:getState -RepoRoot $script:stateRoot
+        $metadata.IncompleteApplies[0].observationId | Should -Be $observationId
+
+        [System.IO.File]::WriteAllText($journalPath, "{}`n")
+        $invalidJournal = Get-SiStoreInspection -RepoRoot $script:stateRoot
+        $invalidJournal.IncompleteApplies[0].observationId | Should -Be $observationId
+        $invalidJournal.IncompleteApplies[0].stage | Should -Be 'invalid'
+
+        [System.IO.File]::WriteAllText(
+            $journalPath,
+            (([ordered]@{
+                        schemaVersion = 1
+                        observationId = '9' * 64
+                        beforeDigest = 'absent'
+                        stage = 'mutation-started'
+                    } | ConvertTo-Json -Compress) + "`n")
+        )
+        $mismatchedJournal = Get-SiStoreInspection -RepoRoot $script:stateRoot
+        $mismatchedJournal.IncompleteApplies[0].observationId | Should -Be $observationId
+        $mismatchedJournal.IncompleteApplies[0].stage | Should -Be 'invalid'
+
+        $nestedId = 'a' * 64
+        $nestedBackup = Join-Path (
+            Split-Path -Parent $backup
+        ) "nested/$nestedId"
+        [void](New-Item -ItemType Directory -Path $nestedBackup -Force)
+        [System.IO.File]::WriteAllText(
+            (Join-Path $nestedBackup 'apply-journal.json'),
+            (([ordered]@{
+                        schemaVersion = 1
+                        observationId = $nestedId
+                        beforeDigest = 'absent'
+                        stage = 'backup-complete'
+                    } | ConvertTo-Json -Compress) + "`n")
+        )
+        $nestedJournal = (Get-SiStoreInspection -RepoRoot $script:stateRoot).IncompleteApplies |
+            Where-Object observationId -EQ $nestedId
+        $nestedJournal.stage | Should -Be 'invalid'
     }
 
     It 'test:SiState.VersionMigrationRepairRollback snapshots exact observations and restores the pre-repair version' {
@@ -181,6 +237,39 @@ Describe 'Durable self-improvement state' {
         {
             Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback -Receipt $applied.ReceiptId
         } | Should -Throw '*content-address check*'
+    }
+
+    It 'test:SiState.InspectionRepairStateMatrix rejects repair backup sources that escape through a descendant link' -Skip:$IsWindows {
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) (
+            'si-state-outside-' + [Guid]::NewGuid().ToString('N') + '.json'
+        )
+        try {
+            $run = New-ResumableRun -RunId ('7' * 64) -DueId ('8' * 64)
+            [System.IO.File]::WriteAllText(
+                $outside,
+                (($run | ConvertTo-Json -Depth 20 -Compress) + "`n")
+            )
+            $runDir = Join-Path $script:stateRoot 'docs/self-improvement/runs/2026/08'
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            [void](New-Item -ItemType SymbolicLink `
+                    -Path (Join-Path $runDir "$('7' * 64).json") -Target $outside)
+
+            $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+                -PinnedBaseOid ('a' * 40)
+            {
+                Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                    -Observation $snapshot.ObservationId
+            } | Should -Throw '*escapes the SI state root via link*'
+
+            $rolledBack = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Observation $snapshot.ObservationId
+            $rolledBack.Mutated | Should -BeFalse
+        }
+        finally {
+            if (Test-Path -LiteralPath $outside) {
+                Remove-Item -LiteralPath $outside -Force
+            }
+        }
     }
 
     It 'test:SiState.ConcurrentCrashCasExhaustion returns the closed status after three generation conflicts' {

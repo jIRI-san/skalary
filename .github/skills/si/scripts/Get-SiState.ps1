@@ -48,5 +48,6 @@ return [pscustomobject]@{
     InFlightCount = $inFlight.Count
     RecentCount = $recent.Count
     Items = $items
+    IncompleteApplies = @($inspection.IncompleteApplies)
     NextCursor = if ($offset + $items.Count -lt $total) { [string]($offset + $items.Count) } else { $null }
 }
