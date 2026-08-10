@@ -214,20 +214,52 @@ No queued feedback.
         & git -C $script:fixture.Root commit --quiet -m paging
         $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
 
-        $cursor = $null
         $recordIds = [System.Collections.Generic.List[string]]::new()
-        do {
-            $page = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
-                -PinnedBaseOid $oid -PageSize 7 -Cursor $cursor
-            foreach ($item in @($page.Items)) { $recordIds.Add([string]$item.recordId) }
-            $cursor = $page.NextCursor
-        } while ($cursor)
+        $page = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $oid -PageSize 7
+        foreach ($item in @($page.Items)) { $recordIds.Add([string]$item.recordId) }
+        $cursor = $page.NextCursor
+
+        $blobOid = (& git -C $script:fixture.Root rev-parse `
+                "$oid`:docs/review-ledger/testing.md").Trim()
+        $objectPath = Join-Path $script:fixture.Root (
+            ".git/objects/$($blobOid.Substring(0, 2))/$($blobOid.Substring(2))"
+        )
+        $objectBackup = "$objectPath.harvest-test"
+        Move-Item -LiteralPath $objectPath -Destination $objectBackup
+        try {
+            while ($cursor) {
+                $page = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                    -PinnedBaseOid $oid -PageSize 7 -Cursor $cursor
+                foreach ($item in @($page.Items)) { $recordIds.Add([string]$item.recordId) }
+                $cursor = $page.NextCursor
+            }
+        }
+        finally {
+            Move-Item -LiteralPath $objectBackup -Destination $objectPath
+        }
 
         $index = Get-Content -LiteralPath $page.IndexPath -Raw | ConvertFrom-Json -Depth 100
         $recordIds.Count | Should -Be $index.selectedRecords.Count
         @($recordIds | Select-Object -Unique).Count | Should -Be $recordIds.Count
         @($recordIds | Sort-Object) | Should -Be @($index.selectedRecords.recordId | Sort-Object)
         $index.sources.Count | Should -Be 13
+    }
+
+    It 'rejects a continuation when persisted ranking metadata is mutated' {
+        $first = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $script:fixture.Oid -PageSize 1
+        $first.NextCursor | Should -Not -BeNullOrEmpty
+        $index = Get-Content -LiteralPath $first.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        $index.selectedRecords[0].recurrence = [int]$index.selectedRecords[0].recurrence + 1
+        Write-Utf8 -Path $first.IndexPath -Content (
+            ($index | ConvertTo-Json -Depth 100 -Compress) + "`n"
+        )
+
+        {
+            $page = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $script:fixture.Oid -PageSize 1 -Cursor $first.NextCursor
+        } | Should -Throw '*snapshot or selected-window digest*'
     }
 
     It 'test:SiHarvest.ResolverReceiptIssuanceAndMutation issues JCS-bound receipts and rejects mutation' {

@@ -108,6 +108,8 @@ Phase: 4
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-6] [review:cr] [source-record:2930df4a4d28e0aecbcd13b4f6a68ef35bf82f8e38ca74de21efbf7ce8aac438] Consumer test asserted token neutralization but not rejection of the forged closing marker and extra inner fence delimiter in the same test.
 - [4.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:97eb5e99d8253960e3c11842433b6ecf1b4e50740f1f1d18d88df95d682331bb] Installed-only evidence scanned only the entry script for an absolute source path rather than every installed script module and returned path.
 - [4.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-6] [review:cr] [source-record:d5504015f65c37eaa73d1f52196176fd38d9dd548f899b55c2f97aff648cae71] Final CR: each harvest page rebuilds and rereads the full snapshot, and pinned blob reads allocate before byte limits are enforced.
+- [4.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-6] [review:cr] [source-record:cc5a3a6054f68c019a205d6b129a4c885e945dd982db5f2a56f24fe3bedc1187] Cursor digest covered selected text but not derived recurrence and severity metadata; bound the complete selected-record envelope and added a mutation refusal test.
+- [4.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-6] [review:cr] [source-record:3fedf3096e3cd679873c881cb504a4d4b05a833084ad67918638420122398e6e] Second-opinion review found no significant issue after continuation stopped rereading source blobs and the cursor digest bound the complete selected-record envelope.
 
 ## CR Capture
 Phase: 5

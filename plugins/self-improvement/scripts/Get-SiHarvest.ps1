@@ -109,7 +109,8 @@ function Invoke-GitText {
 function Read-PinnedBlob {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string]$BlobOid
+        [Parameter(Mandatory)][string]$BlobOid,
+        [Parameter(Mandatory)][long]$ExpectedSize
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -130,6 +131,9 @@ function Read-PinnedBlob {
             $stderr = $process.StandardError.ReadToEnd()
             $process.WaitForExit()
             if ($process.ExitCode -ne 0) { throw "git cat-file failed: $($stderr.Trim())" }
+            if ($memory.Length -ne $ExpectedSize) {
+                throw "Pinned blob '$BlobOid' changed size while being read."
+            }
             return $memory.ToArray()
         }
         finally {
@@ -144,13 +148,21 @@ function Read-PinnedBlob {
 function ConvertFrom-TreeLine {
     param([Parameter(Mandatory)][string]$Line)
 
-    if ($Line -notmatch '^(?<mode>\d{6}) blob (?<oid>[0-9a-f]{40}|[0-9a-f]{64})\t(?<path>.+)$' -or
+    if ($Line -notmatch (
+            '^(?<mode>\d{6}) blob (?<oid>[0-9a-f]{40}|[0-9a-f]{64})\s+' +
+            '(?<size>\d+)\t(?<path>.+)$'
+        ) -or
         $Matches.mode -notin @('100644', '100755')) {
         throw "Pinned harvest tree contains a non-regular or malformed entry '$Line'."
     }
     return [pscustomobject]@{
         Mode = $Matches.mode
         Oid  = $Matches.oid
+        Size = [long]::Parse(
+            $Matches.size,
+            [System.Globalization.NumberStyles]::None,
+            [System.Globalization.CultureInfo]::InvariantCulture
+        )
         Path = $Matches.path
     }
 }
@@ -163,7 +175,7 @@ function Get-PinnedTreeEntry {
     )
 
     $text = Invoke-GitText -Root $Root -Argument @(
-        '-c', 'core.quotePath=false', 'ls-tree', '--full-tree', $CommitOid, '--', $Path
+        '-c', 'core.quotePath=false', 'ls-tree', '-l', '--full-tree', $CommitOid, '--', $Path
     )
     $lines = @($text.TrimEnd("`r", "`n") -split "`r?`n" | Where-Object { $_ })
     if ($lines.Count -eq 0) { return $null }
@@ -189,7 +201,7 @@ function Get-PinnedTreeEntries {
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
     foreach ($item in @(
-            '-C', $Root, '-c', 'core.quotePath=false', 'ls-tree', '-r', '--full-tree',
+            '-C', $Root, '-c', 'core.quotePath=false', 'ls-tree', '-l', '-r', '--full-tree',
             $CommitOid, '--', $Prefix
         )) {
         $startInfo.ArgumentList.Add($item)
@@ -526,6 +538,217 @@ function Read-HarvestCursor {
     return $cursorDocument
 }
 
+function Test-HarvestInteger {
+    param($Value)
+    return $Value -is [byte] -or $Value -is [sbyte] -or
+        $Value -is [int16] -or $Value -is [uint16] -or
+        $Value -is [int32] -or $Value -is [uint32] -or
+        $Value -is [int64] -or $Value -is [uint64]
+}
+
+function Read-HarvestIndex {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ExpectedPlanId,
+        [Parameter(Mandatory)][string]$ExpectedPlanPath,
+        [Parameter(Mandatory)][string]$ExpectedPinnedOid
+    )
+
+    Assert-PhysicalDescendant -Root $repoRootFull -Path $Path
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw 'Harvest cursor is stale because its persisted index is missing.'
+    }
+    $length = (Get-Item -LiteralPath $Path -Force).Length
+    if ($length -gt $maxIndexBytes) {
+        throw 'capacity-blocked: SI harvest index exceeds 8 MiB.'
+    }
+    try {
+        $text = [System.IO.File]::ReadAllText($Path, $utf8)
+        $candidate = $text | ConvertFrom-Json -Depth 100
+    }
+    catch {
+        throw "Harvest cursor index is malformed: $($_.Exception.Message)"
+    }
+
+    $rootNames = @($candidate.PSObject.Properties.Name)
+    $expectedRootNames = @(
+        'schemaVersion', 'protocol', 'planId', 'planPath', 'pinnedBaseOid', 'snapshotDigest',
+        'selectedDigest', 'fileCount', 'scannedByteCount', 'sourceCount', 'recordCount',
+        'selectedByteCount', 'sources', 'selectedRecords'
+    )
+    if ($rootNames.Count -ne $expectedRootNames.Count -or
+        @($expectedRootNames | Where-Object { $rootNames -notcontains $_ }).Count -gt 0 -or
+        $candidate.schemaVersion -ne 1 -or $candidate.protocol -ne $protocol -or
+        $candidate.planId -ne $ExpectedPlanId -or $candidate.planPath -ne $ExpectedPlanPath -or
+        $candidate.pinnedBaseOid -ne $ExpectedPinnedOid -or
+        $candidate.snapshotDigest -notmatch '^[0-9a-f]{64}$' -or
+        $candidate.selectedDigest -notmatch '^[0-9a-f]{64}$' -or
+        $candidate.sources -isnot [System.Array] -or
+        $candidate.selectedRecords -isnot [System.Array]) {
+        throw 'Harvest cursor index failed closed-shape validation.'
+    }
+    if (-not [string]::Equals(
+            $text,
+            (ConvertTo-StableJson -Value $candidate) + "`n",
+            [System.StringComparison]::Ordinal
+        )) {
+        throw 'Harvest cursor index is not in its canonical persisted form.'
+    }
+
+    foreach ($name in @(
+            'fileCount', 'scannedByteCount', 'sourceCount', 'recordCount', 'selectedByteCount'
+        )) {
+        if (-not (Test-HarvestInteger -Value $candidate.$name) -or [long]$candidate.$name -lt 0) {
+            throw "Harvest cursor index field '$name' is not a non-negative integer."
+        }
+    }
+
+    $allowedKinds = @(
+        'manifest', 'ledger', 'feedback', 'plan-log', 'learning-overflow',
+        'phase-receipt', 'active-run', 'archive-reference'
+    )
+    $sourceByPath = [System.Collections.Generic.Dictionary[string, object]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $presentCount = 0
+    $scannedBytes = [long]0
+    $previousPath = $null
+    foreach ($source in @($candidate.sources)) {
+        $names = @($source.PSObject.Properties.Name)
+        if ($names.Count -ne 5 -or
+            @('path', 'kind', 'status', 'byteCount', 'sha256' |
+                Where-Object { $names -notcontains $_ }).Count -gt 0 -or
+            [string]::IsNullOrWhiteSpace([string]$source.path) -or
+            [string]$source.path -match '[\x00-\x1f\\]' -or
+            [string]$source.path -match '(^|/)\.\.?(/|$)' -or
+            [string]$source.path -match '^/' -or
+            [string]$source.kind -notin $allowedKinds -or
+            [string]$source.status -notin @('present', 'absent') -or
+            -not (Test-HarvestInteger -Value $source.byteCount) -or
+            [long]$source.byteCount -lt 0) {
+            throw 'Harvest cursor index contains an invalid source entry.'
+        }
+        if ($null -ne $previousPath -and
+            [System.StringComparer]::Ordinal.Compare($previousPath, [string]$source.path) -ge 0) {
+            throw 'Harvest cursor index sources are not uniquely sorted.'
+        }
+        $previousPath = [string]$source.path
+        $sourceByPath.Add([string]$source.path, $source)
+        if ($source.status -eq 'present') {
+            if ($source.sha256 -notmatch '^[0-9a-f]{64}$') {
+                throw 'Harvest cursor index contains an invalid present-source digest.'
+            }
+            $presentCount++
+            $scannedBytes += [long]$source.byteCount
+        }
+        elseif ([long]$source.byteCount -ne 0 -or $null -ne $source.sha256) {
+            throw 'Harvest cursor index contains invalid absent-source metadata.'
+        }
+    }
+    if ([long]$candidate.sourceCount -ne $candidate.sources.Count -or
+        [long]$candidate.fileCount -ne $presentCount -or
+        [long]$candidate.scannedByteCount -ne $scannedBytes -or
+        $presentCount -gt $maxFiles -or $scannedBytes -gt $maxScanBytes) {
+        throw 'Harvest cursor index source totals violate the bounded snapshot.'
+    }
+
+    $selectedBytes = [long]0
+    foreach ($record in @($candidate.selectedRecords)) {
+        $names = @($record.PSObject.Properties.Name)
+        if ($names.Count -ne 10 -or
+            @('recordId', 'sourcePath', 'sourceKind', 'ordinal', 'recurrence', 'severity',
+                'severityScore', 'blastRadius', 'byteCount', 'contentBase64' |
+                Where-Object { $names -notcontains $_ }).Count -gt 0 -or
+            $record.recordId -notmatch '^[0-9a-f]{64}$' -or
+            -not $sourceByPath.ContainsKey([string]$record.sourcePath) -or
+            $sourceByPath[[string]$record.sourcePath].status -ne 'present' -or
+            $sourceByPath[[string]$record.sourcePath].kind -ne [string]$record.sourceKind -or
+            -not (Test-HarvestInteger -Value $record.ordinal) -or [long]$record.ordinal -lt 1 -or
+            -not (Test-HarvestInteger -Value $record.recurrence) -or [long]$record.recurrence -lt 1 -or
+            [string]$record.severity -notin @('Critical', 'High', 'Med', 'Low') -or
+            -not (Test-HarvestInteger -Value $record.severityScore) -or
+            -not (Test-HarvestInteger -Value $record.blastRadius) -or
+            -not (Test-HarvestInteger -Value $record.byteCount) -or [long]$record.byteCount -lt 0 -or
+            $record.contentBase64 -isnot [string]) {
+            throw 'Harvest cursor index contains an invalid selected record.'
+        }
+        $expectedSeverityScore = switch ([string]$record.severity) {
+            'Critical' { 4 }
+            'High' { 3 }
+            'Med' { 2 }
+            default { 1 }
+        }
+        $expectedBlastRadius = switch ([string]$record.sourceKind) {
+            'ledger' { 3 }
+            'active-run' { 3 }
+            'feedback' { 2 }
+            'plan-log' { 2 }
+            'learning-overflow' { 2 }
+            default { 1 }
+        }
+        if ([long]$record.severityScore -ne $expectedSeverityScore -or
+            [long]$record.blastRadius -ne $expectedBlastRadius) {
+            throw 'Harvest cursor index contains inconsistent ranking metadata.'
+        }
+        try {
+            $contentBytes = [Convert]::FromBase64String([string]$record.contentBase64)
+            $null = $utf8.GetString($contentBytes)
+        }
+        catch {
+            throw 'Harvest cursor index contains invalid UTF-8 record content.'
+        }
+        if ($contentBytes.Length -ne [long]$record.byteCount -or
+            $contentBytes.Length -gt $maxPageBytes) {
+            throw 'Harvest cursor index contains a record outside its byte boundary.'
+        }
+        $contentDigest = Get-SiHarvestDigest -Domain 'si-harvest-record-content-v1' -Field @(
+            $utf8.GetString($contentBytes)
+        )
+        $expectedRecordId = Get-SiHarvestDigest -Domain 'si-harvest-record-v1' -Field @(
+            [string]$record.sourcePath,
+            [string]$record.sourceKind,
+            [string][long]$record.ordinal,
+            $contentDigest
+        )
+        if ($expectedRecordId -ne [string]$record.recordId) {
+            throw 'Harvest cursor index selected record failed its content-address check.'
+        }
+        $selectedBytes += $contentBytes.Length
+    }
+    if ($candidate.selectedRecords.Count -gt $maxSelectedRecords -or
+        $selectedBytes -gt $maxSelectedBytes -or
+        [long]$candidate.selectedByteCount -ne $selectedBytes -or
+        [long]$candidate.recordCount -lt $candidate.selectedRecords.Count) {
+        throw 'Harvest cursor index selected-window totals violate their boundary.'
+    }
+    $sorted = @($candidate.selectedRecords | Sort-Object `
+        @{ Expression = 'recurrence'; Descending = $true },
+        @{ Expression = 'severityScore'; Descending = $true },
+        @{ Expression = 'blastRadius'; Descending = $true },
+        @{ Expression = 'byteCount'; Descending = $false },
+        @{ Expression = 'recordId'; Descending = $false })
+    for ($index = 0; $index -lt $sorted.Count; $index++) {
+        if ($sorted[$index].recordId -ne $candidate.selectedRecords[$index].recordId) {
+            throw 'Harvest cursor index selected records are not in ranking order.'
+        }
+    }
+
+    $expectedSnapshotDigest = Get-SiHarvestDigest -Domain 'si-harvest-snapshot-v1' -Field @(
+        $ExpectedPinnedOid,
+        $ExpectedPlanId,
+        (ConvertTo-StableJson -Value @($candidate.sources))
+    )
+    $expectedSelectedDigest = Get-SiHarvestDigest -Domain 'si-harvest-selected-window-v1' -Field @(
+        $expectedSnapshotDigest,
+        (ConvertTo-StableJson -Value @($candidate.selectedRecords))
+    )
+    if ($candidate.snapshotDigest -ne $expectedSnapshotDigest -or
+        $candidate.selectedDigest -ne $expectedSelectedDigest) {
+        throw 'Harvest cursor index failed its snapshot or selected-window digest check.'
+    }
+    return $candidate
+}
+
 $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
 if (-not (Test-Path -LiteralPath $repoRootFull -PathType Container)) {
     throw "Repository root not found: $repoRootFull"
@@ -542,15 +765,38 @@ if ($stopwatch.Elapsed.TotalSeconds -gt $maxScanSeconds) {
 $plan = Resolve-Plan -Reference $PlanReference -RepoRoot $repoRootFull -Inventory $inventory
 $planId = [string]$plan.Id
 $planDir = [System.IO.Path]::GetFullPath([string]$plan.Path)
-$planRelative = Get-RelativeHarvestPath -Root $repoRootFull -Path (Join-Path $planDir 'plan.md')
-$pinnedPlan = Get-PinnedTreeEntry -Root $repoRootFull -CommitOid $PinnedBaseOid -Path $planRelative
-if ($null -eq $pinnedPlan) { throw "Resolved plan '$planId' is absent from pinned commit '$PinnedBaseOid'." }
-$pinnedPlanBytes = Read-PinnedBlob -Root $repoRootFull -BlobOid $pinnedPlan.Oid
-if ($pinnedPlanBytes.Length -gt 1MB) { throw "Resolved plan '$planId' exceeds the discovery ceiling." }
-$pinnedPlanText = $utf8.GetString($pinnedPlanBytes)
-if ($pinnedPlanText -notmatch "(?m)^<!-- plan-id: $([regex]::Escape($planId)) -->\s*$") {
-    throw "Resolved plan '$planId' does not match its pinned plan-id anchor."
+$cursorDocument = if ($Cursor) { Read-HarvestCursor -Value $Cursor } else { $null }
+$indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @('harvest-index.json')
+Assert-PhysicalDescendant -Root $repoRootFull -Path $indexPath
+
+if ($null -ne $cursorDocument) {
+    if ($cursorDocument.planId -ne $planId -or $cursorDocument.pinnedBaseOid -ne $PinnedBaseOid) {
+        throw 'Harvest cursor is stale for the current plan or pinned commit.'
+    }
+    $resolvedPlanPath = Get-RelativeHarvestPath -Root $repoRootFull -Path $planDir
+    $persistedIndex = Read-HarvestIndex -Path $indexPath -ExpectedPlanId $planId `
+        -ExpectedPlanPath $resolvedPlanPath -ExpectedPinnedOid $PinnedBaseOid
+    $snapshotDigest = [string]$persistedIndex.snapshotDigest
+    $selectedDigest = [string]$persistedIndex.selectedDigest
+    $selected = @($persistedIndex.selectedRecords)
+    $fileCount = [long]$persistedIndex.fileCount
+    $scanBytes = [long]$persistedIndex.scannedByteCount
+    $sourceCount = [long]$persistedIndex.sourceCount
+    $recordCount = [long]$persistedIndex.recordCount
+    $selectedBytes = [long]$persistedIndex.selectedByteCount
 }
+else {
+    $planRelative = Get-RelativeHarvestPath -Root $repoRootFull -Path (Join-Path $planDir 'plan.md')
+    $pinnedPlan = Get-PinnedTreeEntry -Root $repoRootFull -CommitOid $PinnedBaseOid -Path $planRelative
+    if ($null -eq $pinnedPlan) { throw "Resolved plan '$planId' is absent from pinned commit '$PinnedBaseOid'." }
+    $pinnedPlanSize = [long]$pinnedPlan.Size
+    if ($pinnedPlanSize -gt 1MB) { throw "Resolved plan '$planId' exceeds the discovery ceiling." }
+    $pinnedPlanBytes = Read-PinnedBlob -Root $repoRootFull -BlobOid $pinnedPlan.Oid `
+        -ExpectedSize $pinnedPlanSize
+    $pinnedPlanText = $utf8.GetString($pinnedPlanBytes)
+    if ($pinnedPlanText -notmatch "(?m)^<!-- plan-id: $([regex]::Escape($planId)) -->\s*$") {
+        throw "Resolved plan '$planId' does not match its pinned plan-id anchor."
+    }
 
 $sourceSpecs = [System.Collections.Generic.List[object]]::new()
 $sourcePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -681,15 +927,16 @@ foreach ($spec in @($sourceSpecs | Sort-Object RelativePath)) {
             })
         continue
     }
-    $bytes = Read-PinnedBlob -Root $repoRootFull -BlobOid $entry.Oid
+    $blobSize = [long]$entry.Size
     $fileCount++
-    $scanBytes += $bytes.Length
+    $scanBytes += $blobSize
     if ($fileCount -gt $maxFiles -or $scanBytes -gt $maxScanBytes) {
         throw 'capacity-blocked: SI active scan exceeds 256 files or 160 MiB.'
     }
-    if ($bytes.Length -gt [long]$spec.MaxBytes) {
+    if ($blobSize -gt [long]$spec.MaxBytes) {
         throw "capacity-blocked: harvest source '$($spec.RelativePath)' exceeds its byte ceiling."
     }
+    $bytes = Read-PinnedBlob -Root $repoRootFull -BlobOid $entry.Oid -ExpectedSize $blobSize
     try { $text = $utf8.GetString($bytes) }
     catch { throw "Harvest source '$($spec.RelativePath)' is not valid UTF-8." }
     $sha256 = [Convert]::ToHexString(
@@ -757,12 +1004,13 @@ foreach ($record in $orderedRecords) {
 }
 $selectedDigest = Get-SiHarvestDigest -Domain 'si-harvest-selected-window-v1' -Field @(
     $snapshotDigest,
-    (ConvertTo-StableJson -Value @($selected | ForEach-Object {
-            [ordered]@{ recordId = $_.recordId; contentBase64 = $_.contentBase64 }
-        }))
+    (ConvertTo-StableJson -Value @($selected))
 )
 
-$cursorDocument = if ($Cursor) { Read-HarvestCursor -Value $Cursor } else { $null }
+$sourceCount = $sources.Count
+$recordCount = $records.Count
+}
+
 $offset = if ($null -eq $cursorDocument) { 0 } else { [int64]$cursorDocument.offset }
 if ($null -ne $cursorDocument -and (
         $cursorDocument.planId -ne $planId -or
@@ -809,43 +1057,43 @@ for ($indexOffset = [int]$offset; $indexOffset -lt $selected.Count -and $page.Co
     $pageBytes += $wrappedBytes
 }
 
-$index = [ordered]@{
-    schemaVersion     = 1
-    protocol          = $protocol
-    planId            = $planId
-    planPath          = Get-RelativeHarvestPath -Root $repoRootFull -Path $planDir
-    pinnedBaseOid     = $PinnedBaseOid
-    snapshotDigest    = $snapshotDigest
-    selectedDigest    = $selectedDigest
-    fileCount         = $fileCount
-    scannedByteCount  = $scanBytes
-    sourceCount       = $sources.Count
-    recordCount       = $records.Count
-    selectedByteCount = $selectedBytes
-    sources           = @($sources)
-    selectedRecords   = @($selected)
-}
-$indexJson = (ConvertTo-StableJson -Value $index) + "`n"
-if ([System.Text.Encoding]::UTF8.GetByteCount($indexJson) -gt $maxIndexBytes) {
-    throw 'capacity-blocked: SI harvest index exceeds 8 MiB.'
-}
-$indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @('harvest-index.json')
-Assert-PhysicalDescendant -Root $repoRootFull -Path $indexPath
-$indexWrite = Invoke-AtomicStoreUpdate -Path $indexPath -Transform { $indexJson } -Validate {
-    param($tempPath)
-    $candidate = [System.IO.File]::ReadAllText($tempPath) | ConvertFrom-Json -Depth 100
-    $names = @($candidate.PSObject.Properties.Name)
-    if ($names.Count -ne 14 -or
-        @('schemaVersion', 'protocol', 'planId', 'planPath', 'pinnedBaseOid', 'snapshotDigest',
-            'selectedDigest', 'fileCount', 'scannedByteCount', 'sourceCount', 'recordCount',
-            'selectedByteCount', 'sources', 'selectedRecords' |
-                Where-Object { $names -notcontains $_ }).Count -gt 0 -or
-        $candidate.schemaVersion -ne 1 -or $candidate.protocol -ne $protocol) {
-        throw 'SI harvest index failed closed-shape validation.'
+if ($null -eq $cursorDocument) {
+    $index = [ordered]@{
+        schemaVersion     = 1
+        protocol          = $protocol
+        planId            = $planId
+        planPath          = Get-RelativeHarvestPath -Root $repoRootFull -Path $planDir
+        pinnedBaseOid     = $PinnedBaseOid
+        snapshotDigest    = $snapshotDigest
+        selectedDigest    = $selectedDigest
+        fileCount         = $fileCount
+        scannedByteCount  = $scanBytes
+        sourceCount       = $sourceCount
+        recordCount       = $recordCount
+        selectedByteCount = $selectedBytes
+        sources           = @($sources)
+        selectedRecords   = @($selected)
     }
-}
-if ($indexWrite.Status -ne 'complete') {
-    throw "SI harvest index write failed with status '$($indexWrite.Status)'."
+    $indexJson = (ConvertTo-StableJson -Value $index) + "`n"
+    if ([System.Text.Encoding]::UTF8.GetByteCount($indexJson) -gt $maxIndexBytes) {
+        throw 'capacity-blocked: SI harvest index exceeds 8 MiB.'
+    }
+    $indexWrite = Invoke-AtomicStoreUpdate -Path $indexPath -Transform { $indexJson } -Validate {
+        param($tempPath)
+        $candidate = [System.IO.File]::ReadAllText($tempPath) | ConvertFrom-Json -Depth 100
+        $names = @($candidate.PSObject.Properties.Name)
+        if ($names.Count -ne 14 -or
+            @('schemaVersion', 'protocol', 'planId', 'planPath', 'pinnedBaseOid', 'snapshotDigest',
+                'selectedDigest', 'fileCount', 'scannedByteCount', 'sourceCount', 'recordCount',
+                'selectedByteCount', 'sources', 'selectedRecords' |
+                    Where-Object { $names -notcontains $_ }).Count -gt 0 -or
+            $candidate.schemaVersion -ne 1 -or $candidate.protocol -ne $protocol) {
+            throw 'SI harvest index failed closed-shape validation.'
+        }
+    }
+    if ($indexWrite.Status -ne 'complete') {
+        throw "SI harvest index write failed with status '$($indexWrite.Status)'."
+    }
 }
 
 $issuedReceipt = $null
@@ -929,8 +1177,8 @@ return [pscustomobject][ordered]@{
     SelectedDigest    = $selectedDigest
     FileCount         = $fileCount
     ScannedByteCount  = $scanBytes
-    SourceCount       = $sources.Count
-    RecordCount       = $records.Count
+    SourceCount       = $sourceCount
+    RecordCount       = $recordCount
     SelectedCount     = $selected.Count
     SelectedByteCount = $selectedBytes
     InjectionCount    = @($page | Where-Object injectionDetected).Count

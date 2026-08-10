@@ -172,20 +172,24 @@ candidate-ID and ranked-set-digest algorithm before any outcome counts are surfa
 `Get-SiHarvest.ps1` is the bounded free-text scanner. It resolves one inventoried plan, enumerates
 the closed active set (manifest, seven ledger categories, three layout-resolved logs, learning
 overflow, phase receipts, recorded feedback, and active SI runs), and reads every present file once
-per invocation from the pinned commit's immutable blobs, never from a concurrently changing
-worktree. A scan refuses more than 256 files, 160 MiB, or 60 seconds, streams directory discovery to
-its plus-one boundary, validates manifest/run/phase-receipt integrity, and enforces each source's
-smaller operational ceiling. Archives and resolver outputs are absent unless the operator supplies
-an exact pinned path under a closed auxiliary/archive root. The scanner selects at most 1,024
-records / 4 MiB in recurrence-severity-blast-radius order, proves each record can fit a page before
-publication, pages at 64 records / 256 KiB, and wraps every returned record with a fresh
-untrusted-input fence after neutralizing stored fence tokens in both content and source metadata.
+when creating a snapshot from the pinned commit's immutable blobs, never from a concurrently
+changing worktree. Git object sizes are checked against source and aggregate ceilings before blob
+content is materialized. A scan refuses more than 256 files, 160 MiB, or 60 seconds, streams
+directory discovery to its plus-one boundary, validates manifest/run/phase-receipt integrity, and
+enforces each source's smaller operational ceiling. Archives and resolver outputs are absent unless
+the operator supplies an exact pinned path under a closed auxiliary/archive root. The scanner
+selects at most 1,024 records / 4 MiB in recurrence-severity-blast-radius order, proves each record
+can fit a page before publication, pages at 64 records / 256 KiB, and wraps every returned record
+with a fresh untrusted-input fence after neutralizing stored fence tokens in both content and source
+metadata.
 
 The selected window and source digest table are persisted in the single bounded
 `docs/self-improvement/harvest-index.json` scaffold through `AtomicStore.psm1`; raw unselected
 content is not copied. The index binds the resolved plan and pinned HEAD OID. Continuation cursors
-also bind the snapshot and selected-window digests, so any active-source mutation makes a cursor
-stale rather than mixing pages from different evidence sets.
+also bind the snapshot and selected-window digests. Continuation pages validate the canonical index,
+its closed source/record shapes, bounds, ranking order, and content-addressed digests, then page that
+persisted window without rereading the bounded source set. Missing, replaced, or inconsistent index
+content makes the cursor stale rather than mixing pages from different evidence sets.
 
 The SI skill never opens those source files itself: installed `Get-SiHarvest.ps1` is the sole
 free-text read path. After ranking, the resolver accepts only a closed 0-5 candidate JSON shape,
