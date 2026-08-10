@@ -27,6 +27,12 @@ Phase: 1
 - [1.3] [src:code-review] [sev:High] [concern:security] [req:REQ-7] [review:cr] [source-record:976f6019c9d37e0824c9d194a95f6abcb4a6dbd8d7965eefb8a6df8c05a45310] Repair backup paths relied on observation text; Apply now rejects rooted or state-root-escaping observed paths before file access.
 - [1.3] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:0db14835f8f2b55d9f4dfeb2b5d7977ca9d3683746a01301c40be6589c9bcda7] Incomplete-apply rollback retained its journal and authorization; successful rollback now removes the journal and matching quarantine index entries.
 - [1.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:a8a45bf4af8d1b945c6deda92458a65280a1ce0e1aa906ff505c764313827dae] Metadata paging threw on corrupt, legacy, or forward manifests; Get-SiState now returns inspection status with empty metadata for non-readable states.
+- [1.2] [src:code-review] [sev:Critical] [concern:security] [req:REQ-1,REQ-7] [review:cr] [source-record:693508c094dc10a4961bdd180a906f6b9e2770790661f9a61f17d834b9b1ca5a] Closure CR: repair integrity normalizes text and rereads paths, so byte-different artifacts and replacement between reads can evade exact backup binding.
+- [1.3] [src:code-review] [sev:Critical] [concern:security] [req:REQ-1,REQ-7] [review:cr] [source-record:dd266a0571717894eec117ee7738e99ede4feb4c89a3428eef3c129b6a97ee13] Closure CR: rollback trusts mutable backup paths without deriving the restore set from the observation, verifying exact digests, or physically confining every source and target.
+- [1.2] [src:code-review] [sev:Critical] [concern:maintainability-consistency] [req:REQ-1,REQ-7] [review:cr] [source-record:6ce9098a8584913e0fc9a68bdb4ef4cc7b85be3215732071f930eae2eb3215db] Closure CR: SI consumers duplicate limits, terminal statuses, and topology despite SiStateStore being the contract owner, with conflicting reference ceilings.
+- [1.3] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-1,REQ-7] [review:cr] [source-record:1d3e2304077b40c0c779070f902481da3a29e550f66f51951b27d43035b4a05c] Closure CR: archive moves run files before manifest replacement without a durable journal, and inspection can misclassify interrupted dangling references as valid.
+- [1.3] [src:code-review] [sev:High] [concern:security] [req:REQ-1,REQ-7] [review:cr] [source-record:52f57a7ae7dd2e96978036da63bd916c1e3c1be26541a5fd44120d5646d4508f] Closure CR: SI discovery recursively materializes hostile repair and run trees before enforcing file, byte, and deadline limits, which can block recovery.
+- [1.2] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-1,REQ-7] [review:cr] [source-record:d81c4e61019ac351507de5cc6cdf61e6489d19c19984053cc4c44d6a690b7673] Closure CR: manifest CAS retry reruns a transform after the run write commits, so a conflict can strand run-first state and reject the retry.
 
 ## CR Capture
 Phase: 2
@@ -48,6 +54,8 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:9da069fa73d12717fed8da311f47377809dc7de49bcbb67b28f35d4cc3ffa2e7] Bound legacy-summary replay to content and file-version observations so crash replicas deduplicate without losing later identical ABA rewrites.
 - [2.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:1615cd8b3a39cc68715399604cefea4fde430e4cf595f075f465a022a26a4c7c] Legacy case-varied retries could duplicate preserved 8-hex records; use ordinal-insensitive content migration matching.
 - [2.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:db160cabd7fe1102c0337e8bdd52ae18c7ede1a8c9659cb45f50728adae44308] Crash coverage must fault the atomic temp-before-replace boundary and prove recovery rather than seed an unrelated stale temp.
+- [2.1] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-5,REQ-7] [review:cr] [source-record:ba3b102bbd9b0ac4273c802af2399df3f0ec6eacda3b664a446c12fd11fa3186] Closure CR: feedback queue parsing silently drops unparseable durable lines, so a later rewrite can erase the only headless feedback record.
+- [2.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-5,REQ-7] [review:cr] [source-record:7e8e9f7f461945f0a024b56a874cc138857e44d1e3e94411103af173151c7b8c] Closure CR: feedback queue confinement is lexical and can follow a docs/feedback link outside the repository during unattended writes.
 
 ## CR Capture
 Phase: 3
@@ -110,6 +118,8 @@ Phase: 4
 - [4.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-6] [review:cr] [source-record:d5504015f65c37eaa73d1f52196176fd38d9dd548f899b55c2f97aff648cae71] Final CR: each harvest page rebuilds and rereads the full snapshot, and pinned blob reads allocate before byte limits are enforced.
 - [4.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-6] [review:cr] [source-record:cc5a3a6054f68c019a205d6b129a4c885e945dd982db5f2a56f24fe3bedc1187] Cursor digest covered selected text but not derived recurrence and severity metadata; bound the complete selected-record envelope and added a mutation refusal test.
 - [4.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-6] [review:cr] [source-record:3fedf3096e3cd679873c881cb504a4d4b05a833084ad67918638420122398e6e] Second-opinion review found no significant issue after continuation stopped rereading source blobs and the cursor digest bound the complete selected-record envelope.
+- [4.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-6,REQ-7] [review:cr] [source-record:660956ace6f8f7764456de75ad2342d9e661a66cc32126dd2ae117e5563c13cc] Closure CR: harvest launches per-file Git processes without bounded waits, so a blocked child can exceed the documented scan deadline indefinitely.
+- [4.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-6,REQ-7] [review:cr] [source-record:2dd430093f26fbb2578248409d43ff044f82b061066d3c4a8aceda8ff59a9fdc] Closure CR: harvest resolves plan layout from the mutable worktree while reading pinned-tree bytes, allowing snapshot mismatch to omit capture as merely absent.
 
 ## CR Capture
 Phase: 5
@@ -133,6 +143,7 @@ Phase: 5
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:83e9610243ccad18f1b72d59d507bf11a2c14580a9c058512de54abaab5f4611] Rubber Duck: the degradation assertion was test-authored and did not bind the runtime writer failure.
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3,REQ-7] [review:cr] [source-record:02e220d4e0c6426dc66cb60d8c81a0f2517efdd73b833e29ed94185e46ef2537] Rubber Duck: blocking the parent directory made the no-mutation assertion structurally vacuous.
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:f3012ceabc1b7b7564835ec1f4a258a128cefe8eaf14e9efc50efb2ccbfe0e8a] Rubber Duck: the continuation flag was unconditional and did not prove a post-failure handoff operation completed.
+- [5.1] [src:code-review] [sev:Critical] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:d6daa513504ba1eb260dcf1e89984e9142bad74775735a5bf5db8e7729aea147] Closure CR: headless continuation evidence uses an unrelated successful fixture and does not execute a failed enqueue followed by a completed handoff.
 
 ## CR Capture
 Phase: 6
@@ -149,6 +160,7 @@ Phase: 6
 - [6.2] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-7] [review:cr] [source-record:7275d3a758f50415e7550c908b98979c91a825f5a67e441f53bd3d9e71523a74] Disposable worktree cleanup failures are ignored instead of surfaced.
 - [6.2] [src:code-review] [sev:High] [concern:security] [req:REQ-8] [review:cr] [source-record:c5c32b4a1a5674548637b1d1c94108772239fc8b69be066c07ac7c7dc3dfb4ed] Installed Invoke-SiProposalSync lacks the latest trusted-checkout, immutable-main, and cleanup fixes.
 - [6.2] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:41b899b5fbd488cf913282f3f54a70bf5c32f91b09bb9a19e41d2a13a00aa347] Registry payload hashes are stale after final SI script and guide changes.
+- [6.2] [src:code-review] [sev:High] [concern:architecture-patterns] [req:REQ-2,REQ-7] [review:cr] [source-record:b7248066c7cf414b61446ddcb4525a20b8b3bddf62fa1e1a9532e94d67eac6d8] Closure CR: proposal synchronization prechecks and postchecks remote heads around a regular push instead of binding the write server-side to the expected old OID.
 
 ## CR Capture
 Phase: 7
@@ -171,6 +183,10 @@ Phase: 7
 - [7.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:9f5acc3d36af7c980d98636acd8d8107d01dd3457d2e3dda8138e48fddd13544] Final CR: completion has no test that mutates a protected trust anchor after sync and proves expected-head merge refuses.
 - [7.1] [src:code-review] [sev:Low] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:581da9360e6e4930d206a36b7470c10e4c15341d71845bade8dcedf127cb49a3] Re-review found no additional defects in merged-base authority binding or post-sync trust-anchor refusal.
 - [7.1] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-2,REQ-7] [review:cr] [source-record:27dbe21ff63aee315b4580e6da65ba238ee3d863c99a6bb6cc30e018962b0793] Second-opinion baseRefOid finding dismissed: a live GitHub GraphQL probe showed the merged PR retaining its merge-time base while main had advanced; mergeCommit ancestry independently binds fetched authority.
+- [7.1] [src:code-review] [sev:Critical] [concern:operability-observability] [req:REQ-2,REQ-7] [review:cr] [source-record:e7d69e17c70eaef6bc0ce8973197079ab669e62d5089b8a2566ce804086f4e98] Closure CR: expected-head merge failures discard bounded provider diagnostics, making stale heads, checks, protection, auth, and rate limits indistinguishable.
+- [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:1e697c089152dff942e06688a988fff4f51b3b0c0b1a24041a1c47a84ed44689] Closure CR: trusted completion materializes proposal-controlled manifest, run, and repair files before object-size and strict UTF-8 checks.
+- [7.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-2,REQ-7] [review:cr] [source-record:b29076b0f163ad346f3a5030804c7040b7d91ee94677efef0e5d73ee89cc0313] Closure CR: expected-head tests do not prove the GraphQL mutation consumes expectedHeadOid or reject a provider-visible head race.
+- [7.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:6319eadeeb83042bb2ea0d4ec2b1a31bb69e513457b9f3d9999c575ec0d947de] Closure CR: completion scope guard lacks a negative execution test proving an ordinary out-of-scope proposal blocks provider invocation and leaves heads unchanged.
 
 ## CR Capture
 Phase: 8
@@ -191,3 +207,4 @@ Phase: 8
 - [8.2] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:7c0d112ddb0a0bab128cdd17f6350f6f32f09029d9c9c0a6c1e9a25a31236388] Final review found the recorded Linux row stale after the reviewed fingerprinted fixes; final measurement refresh required.
 - [8.2] [src:code-review] [sev:Critical] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:874ac67b4d5c45a29fdcb9710f6d5735c07eed16d385b2492239229d88368786] Final CR: reviewed HEAD lacks final Linux and Windows runtime rows; evidence and Linux measurement are stale.
 - [8.2] [src:code-review] [sev:Low] [concern:security] [req:REQ-8] [review:cr] [source-record:09847806947813c368711f722f4198100675597cc7cc83380384d81b6806d2dd] Final CR: omitting MeasurementRecord disables runtime freshness; the budget field must be mandatory and fail loud.
+- [8.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:8b87bb1e46031ef1126459bc0898db4784d7a519c83628c4a7724058753bdad9] Closure CR: structural-eval evidence is recorded green although the named assertion is outside every blocking gate.
