@@ -4,10 +4,12 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -21,7 +23,6 @@ No entries for this phase.
 ## Learnings Capture
 Phase: 3
 
-- [3.1] [trigger:rework>1] [concern:performance] [req:REQ-4] [review:cr] [source-record:4556b5bb16e5bb63fb0564029056edccb32fa501a6fc47ea717cc06af6c5a5e0] Batch writers must index idempotence and recurrence keys once; per-candidate scans become quadratic at the legal final-sweep boundary.
 - [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:5a9538cc4bd4865bce799ecec59f4009e9f83c89f4eb02c4d1ad6d937d4ddc67] Concurrency regressions need an observable synchronization point or a deterministic state path; fixed sleeps cannot prove which side of a precheck ran.
 
 ## Learnings Capture
@@ -50,6 +51,7 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -63,3 +65,4 @@ Phase: 8
 
 - [8.1] [trigger:reusable-pattern] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:cb80a59e2dda1be2b1ce61566d76996a8d9ca91192b8f5b5931d5fb5dae4c114] Cross-surface drift proofs must bind complete install metadata and canonical source bytes, not only destination names and hashes.
 - [8.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-8] [review:cr] [source-record:6c18b57ce1f34a8ac1d3d3069dbd853223e36bd8298b73ab4b8b0cc4cbbab3b6] A freshness protocol must support absent-row bootstrap, consume authorization at an existing process boundary, and preserve path bytes exactly.
+- [8.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-8] [review:cr] [source-record:9142873c894ca15f824971b797f61f507cd9ad616530e197576090d24787b399] Process-scoped measurement authorization must be cleared before nested fixtures run against a different repository fingerprint.
