@@ -7,12 +7,12 @@
       "platform": "Linux",
       "measuredCommand": "npm test",
       "fingerprintProtocol": "skalary/suite-input-fingerprint@1",
-      "inputFingerprint": "9f7cbe5b1a48aa553cdeba8fc01891459a9c628260319adfcf707d738247fc87",
-      "seconds": 244.614,
+      "inputFingerprint": "6d51c9a5b2e40e3df0bbf8010de3d3512e0df4af57308503345d2ee278e56e4f",
+      "seconds": 303.169,
       "succeeded": true,
-      "measuredAt": "2026-08-10T03:52:46.4845341+00:00",
-      "commit": "a1796ceb183afe0805b82af903f0156258397987",
-      "source": "container:autopilot-step-8.2-atomic",
+      "measuredAt": "2026-08-10T08:04:42.9720131+00:00",
+      "commit": "e3d590d22af6d0174be8defad67a6f459dcb4dab",
+      "source": "container:autopilot-phase-4-crosscheck",
       "note": "",
       "environment": {
         "os": "Ubuntu 24.04.4 LTS",
@@ -20,7 +20,7 @@
         "pesterVersion": "5.6.1",
         "processorCount": 16,
         "ci": false,
-        "runner": "e94b2f2906d7"
+        "runner": "c1570b5ca03e"
       }
     }
   }
