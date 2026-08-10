@@ -191,7 +191,7 @@ Describe 'Add-WorkflowNote' {
                 '-ReviewType', 'none', '-Message', 'Wrong phase'
             )
             $crossPhase.ExitCode | Should -Not -Be 0
-            $crossPhase.Output | Should -Match 'does not belong to phase 1'
+            $crossPhase.Output | Should -Match 'does not belong to\s+phase\s+1'
 
             $stepLessLearning = Invoke-NoteProcess -Fixture $fixture -Arguments @(
                 '-Kind', 'Learnings', '-Phase', '1',
@@ -509,13 +509,14 @@ param($Module, $Scope, $Marker)
 Import-Module $Module -Force
 Invoke-WithAtomicStoreLock -Scope $Scope -Action {
     [System.IO.File]::WriteAllText($Marker, 'ready')
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 30
 }
 '@ | Set-Content -LiteralPath $holder -Encoding utf8NoBOM
                 $process = Start-Process pwsh -PassThru -ArgumentList @(
                     '-NoProfile', '-File', $holder,
                     '-Module', (Join-Path $script:repoRoot 'scripts/skalary/AtomicStore.psm1'),
-                    '-Scope', $fixture.PlanDir, '-Marker', $marker
+                    '-Scope', $(if ($IsWindows) { $fixture.PlanDir.ToLowerInvariant() } else { $fixture.PlanDir }),
+                    '-Marker', $marker
                 )
                 for ($attempt = 0; $attempt -lt 40 -and -not (Test-Path -LiteralPath $marker); $attempt++) {
                     Start-Sleep -Milliseconds 50
