@@ -178,6 +178,7 @@ Describe 'sandbox' {
                 # A captured escape sequence is written into the NUnit report when a case
                 # fails, and 0x1B is not valid XML — the report is lost exactly when it matters.
                 '$PSStyle.OutputRendering = ''PlainText'''
+                'Remove-Item Env:SKALARY_SUITE_MEASUREMENT_TOKEN, Env:SKALARY_SUITE_MEASUREMENT_KEY -ErrorAction SilentlyContinue'
                 "& '$script:runner' $arguments"
                 'exit $LASTEXITCODE'
             )

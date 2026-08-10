@@ -106,6 +106,7 @@ Describe 'run unit tests' {
             # into the NUnit report when a case fails, and 0x1B is not valid XML — the whole
             # report is lost at the moment it is needed.
             $lines.Add('$PSStyle.OutputRendering = ''PlainText''')
+            $lines.Add('Remove-Item Env:SKALARY_SUITE_MEASUREMENT_TOKEN, Env:SKALARY_SUITE_MEASUREMENT_KEY -ErrorAction SilentlyContinue')
             if ($ModulePath) { $lines.Add("`$env:PSModulePath = '$ModulePath'") }
             $extra = if ($ExtraArguments.Count -gt 0) { ' ' + ($ExtraArguments -join ' ') } else { '' }
             $lines.Add("& '$script:runner' -RepoRoot '$SandboxRoot'$extra")
