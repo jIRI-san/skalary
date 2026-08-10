@@ -5,10 +5,12 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -22,8 +24,8 @@ No entries for this phase.
 
 ## Learnings Capture
 Phase: 3
+No entries for this phase.
 
-- [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:5a9538cc4bd4865bce799ecec59f4009e9f83c89f4eb02c4d1ad6d937d4ddc67] Concurrency regressions need an observable synchronization point or a deterministic state path; fixed sleeps cannot prove which side of a precheck ran.
 
 ## Learnings Capture
 Phase: 4
@@ -52,6 +54,7 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -59,6 +62,7 @@ No entries for this phase.
 Phase: 7
 
 - [7.1] [trigger:rework>1] [concern:security] [req:REQ-7] [review:cr] [source-record:ce492a8bb93a32cbb7c32967b14a9e417a199fd9ac537efab4019d2a5b54efa3] Content-addressed repair artifacts are not authority; merge gates must replay the transition from pinned authoritative state and compare the complete result.
+- [7.1] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:5e6c7b966cde2ab06ff46d12c4989f35b8e9091e6859fda4f3a42782d54347f7] Provider metadata semantics must be checked against a live authoritative response before redesigning merge reconciliation around third-party summaries.
 
 ## Learnings Capture
 Phase: 8

@@ -133,7 +133,7 @@ query($owner:String!,$name:String!,$number:Int!){
   repository(owner:$owner,name:$name){
     pullRequest(number:$number){
       id number url state merged isDraft baseRefName headRefName headRefOid
-      baseRefOid mergedAt
+      baseRefOid mergedAt mergeCommit{oid}
       headRepository{nameWithOwner}
     }
   }
@@ -167,6 +167,40 @@ function Assert-SiPullRequestIdentity {
         [string]$PullRequest.baseRefOid -ne $ExpectedBaseOid) {
         throw 'GitHub pull request does not match the open fixed-branch SI transition.'
     }
+}
+
+function Get-SiMergedPullRequestBase {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)]$PullRequest,
+        [Parameter(Mandatory)][string]$PinnedMainOid
+    )
+
+    $baseOid = [string]$PullRequest.baseRefOid
+    $mergeOid = [string]$PullRequest.mergeCommit.oid
+    if ($baseOid -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' -or
+        $mergeOid -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+        throw 'Merged GitHub pull request has invalid base or merge authority.'
+    }
+    foreach ($edge in @(
+            [pscustomobject]@{
+                Ancestor = $baseOid
+                Descendant = $mergeOid
+                Message = 'Merged GitHub pull request does not descend from its historical base.'
+            },
+            [pscustomobject]@{
+                Ancestor = $mergeOid
+                Descendant = $PinnedMainOid
+                Message = 'Merged GitHub pull request is absent from fetched origin/main.'
+            }
+        )) {
+        if ((Invoke-SiCompletionGit -Root $Root -Argument @(
+                    'merge-base', '--is-ancestor', $edge.Ancestor, $edge.Descendant
+                ) -AllowFailure).ExitCode -ne 0) {
+            throw $edge.Message
+        }
+    }
+    return $baseOid
 }
 
 function Invoke-SiExpectedHeadMerge {
@@ -809,7 +843,8 @@ function Assert-SiRepairReceipt {
 function Assert-SiMergedPullRequestHead {
     param(
         [Parameter(Mandatory)][string]$TrustedRoot,
-        [Parameter(Mandatory)]$PullRequest
+        [Parameter(Mandatory)]$PullRequest,
+        [Parameter(Mandatory)][string]$AuthoritativeBaseOid
     )
 
     $headRef = "refs/remotes/origin/si-merged-pr-$PullRequestNumber"
@@ -832,12 +867,16 @@ function Assert-SiMergedPullRequestHead {
             ))
         if ($script:SiCompletionParameterSet -eq 'Run') {
             $record = Get-SiCompletionRun -Root $mergedRoot -ExpectedRunId $RunId
-            $baseOid = Assert-SiLifecycleChoiceBinding -Root $mergedRoot `
+            $lifecycleBaseOid = Assert-SiLifecycleChoiceBinding -Root $mergedRoot `
                 -RunRecord $record
-            Assert-SiCompletionPaths -Root $mergedRoot -BaseOid $baseOid `
+            if ($lifecycleBaseOid -ne $AuthoritativeBaseOid) {
+                throw 'Merged lifecycle state does not match the authoritative pull request base.'
+            }
+            Assert-SiCompletionPaths -Root $mergedRoot `
+                -BaseOid $AuthoritativeBaseOid `
                 -HeadOid $headOid
             Assert-SiCompletedRun -Root $mergedRoot -PullRequest $PullRequest `
-                -HeadOid $headOid -BaseOid $baseOid
+                -HeadOid $headOid -BaseOid $AuthoritativeBaseOid
         }
         else {
             $observationPath = Resolve-SiStatePath -RepoRoot $mergedRoot `
@@ -851,9 +890,14 @@ function Assert-SiMergedPullRequestHead {
             if ($baseOid -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
                 throw 'Merged repair observation has an invalid pinned base OID.'
             }
-            Assert-SiCompletionPaths -Root $mergedRoot -BaseOid $baseOid `
+            if ($baseOid -ne $AuthoritativeBaseOid) {
+                throw 'Merged repair state does not match the authoritative pull request base.'
+            }
+            Assert-SiCompletionPaths -Root $mergedRoot `
+                -BaseOid $AuthoritativeBaseOid `
                 -HeadOid $headOid -RepairOnly
-            Assert-SiRepairReceipt -Root $mergedRoot -BaseOid $baseOid
+            Assert-SiRepairReceipt -Root $mergedRoot `
+                -BaseOid $AuthoritativeBaseOid
         }
     }
     catch {
@@ -938,7 +982,10 @@ if ([bool]$pullRequest.merged -and [string]$pullRequest.state -eq 'MERGED') {
         [string]::IsNullOrWhiteSpace([string]$pullRequest.mergedAt)) {
         throw 'Merged GitHub pull request does not match the fixed SI transition.'
     }
-    Assert-SiMergedPullRequestHead -TrustedRoot $root -PullRequest $pullRequest
+    $authoritativeBase = Get-SiMergedPullRequestBase -Root $root `
+        -PullRequest $pullRequest -PinnedMainOid $pinnedMain
+    Assert-SiMergedPullRequestHead -TrustedRoot $root `
+        -PullRequest $pullRequest -AuthoritativeBaseOid $authoritativeBase
     return [pscustomobject][ordered]@{
         Status = 'complete'
         PullRequestNumber = $PullRequestNumber

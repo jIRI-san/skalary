@@ -169,6 +169,8 @@ Phase: 7
 - [7.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:e609d4d8366ddc094916ba5ac640b1387af49beb670284703b026b8d5d22fe09] Release review found repair retries compared against later mutable main state; validation now targets the historical merged PR tree.
 - [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:61ed197a1974083d620959e117f4c306efba082c5c7a2999fa25bdbe8d1653a7] Final CR: already-merged reconciliation trusts proposal-supplied pinnedBaseOid instead of freshly fetched authoritative origin/main.
 - [7.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:9f5acc3d36af7c980d98636acd8d8107d01dd3457d2e3dda8138e48fddd13544] Final CR: completion has no test that mutates a protected trust anchor after sync and proves expected-head merge refuses.
+- [7.1] [src:code-review] [sev:Low] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:581da9360e6e4930d206a36b7470c10e4c15341d71845bade8dcedf127cb49a3] Re-review found no additional defects in merged-base authority binding or post-sync trust-anchor refusal.
+- [7.1] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-2,REQ-7] [review:cr] [source-record:27dbe21ff63aee315b4580e6da65ba238ee3d863c99a6bb6cc30e018962b0793] Second-opinion baseRefOid finding dismissed: a live GitHub GraphQL probe showed the merged PR retaining its merge-time base while main had advanced; mergeCommit ancestry independently binds fetched authority.
 
 ## CR Capture
 Phase: 8

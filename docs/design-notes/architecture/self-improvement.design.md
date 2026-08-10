@@ -243,8 +243,10 @@ rewrite the operator's choices. Immediately before merge it refreshes the PR and
 repository, `main` base name/OID, fixed branch, and head OID, then marks a draft ready and calls
 GitHub's merge mutation with `expectedHeadOid` in the same process. An ambiguous provider response
 is reconciled against the merged PR. A later retry fetches the provider's immutable pull-request head
-and reruns the same lifecycle binding, scope, exact-state, or trusted repair replay checks; it never
-substitutes the current mutable manifest for the historical merge tree. Repair PRs use
+and binds the provider's historical base and merge commit as ancestors of freshly fetched
+`origin/main` before rerunning the same lifecycle binding, scope, exact-state, or trusted repair
+replay checks. The proposal-stored pinned base must equal that provider base; it never substitutes
+the current mutable manifest for the historical merge tree. Repair PRs use
 `si-repair/<observation-id>` and must carry an
 exact content-addressed observation and final apply/rollback receipt whose after digest matches the
 proposed state.

@@ -336,6 +336,7 @@ Describe 'Authoritative SI proposal completion' {
             )
             $global:SiCompletionRemote = [string]$Fixture.Remote
             $global:SiCompletionBranch = [string]$Fixture.Branch
+            $global:SiCompletionBaseOid = [string]$Fixture.MainOid
             $global:SiCompletionIsDraft = $true
             $global:SiCompletionFailMerge = [bool]$FailMerge
             $global:SiCompletionAmbiguousMerge = [bool]$AmbiguousMerge
@@ -397,9 +398,15 @@ Describe 'Authoritative SI proposal completion' {
                     merged = $global:SiCompletionMerged
                     isDraft = $global:SiCompletionIsDraft
                     baseRefName = 'main'
-                    baseRefOid = $base
+                    baseRefOid = $global:SiCompletionBaseOid
                     headRefName = $global:SiCompletionBranch
                     headRefOid = $head
+                    mergeCommit = if ($global:SiCompletionMerged) {
+                        [ordered]@{ oid = $base }
+                    }
+                    else {
+                        $null
+                    }
                     mergedAt = if ($global:SiCompletionMerged) {
                         '2026-08-10T00:00:00Z'
                     }
@@ -422,7 +429,7 @@ Describe 'Authoritative SI proposal completion' {
         foreach ($name in @(
                 'SiCompletionRemote', 'SiCompletionBranch', 'SiCompletionIsDraft',
                 'SiCompletionFailMerge', 'SiCompletionAmbiguousMerge',
-                'SiCompletionMerged', 'SiCompletionCalls'
+                'SiCompletionMerged', 'SiCompletionCalls', 'SiCompletionBaseOid'
             )) {
             Remove-Variable $name -Scope Global -ErrorAction SilentlyContinue
         }
@@ -616,6 +623,53 @@ Describe 'Authoritative SI proposal completion' {
         finally {
             Remove-CompletionFixture -Fixture $ambiguous
         }
+
+        $wrongBase = New-CompletionFixture
+        try {
+            Set-ProviderFixture -Fixture $wrongBase -FailMerge
+            {
+                & $wrongBase.Complete -RepoRoot $wrongBase.Trusted `
+                    -PullRequestNumber 17 -DueId $wrongBase.DueId `
+                    -RunId $wrongBase.RunId -Receipt $wrongBase.Receipt `
+                    -LifecycleHeadOid $wrongBase.LifecycleHead
+            } | Should -Throw '*provider request failed*'
+            $completedHead = ([string](
+                    & git --git-dir=$($wrongBase.Remote) rev-parse (
+                        "refs/heads/$($wrongBase.Branch)"
+                    )
+                )).Trim()
+            & git --git-dir=$($wrongBase.Remote) update-ref refs/heads/main `
+                $completedHead
+            & git --git-dir=$($wrongBase.Remote) update-ref refs/pull/17/head `
+                $completedHead
+            $global:SiCompletionMerged = $true
+            $global:SiCompletionIsDraft = $false
+            $global:SiCompletionBaseOid = $wrongBase.LifecycleHead
+            $global:SiCompletionCalls.Clear()
+            Remove-Item -LiteralPath $wrongBase.Trusted -Recurse -Force
+            [void](Invoke-CompletionGit -Root (
+                    Split-Path -Parent $wrongBase.Trusted
+                ) -Argument @(
+                    'clone', '--quiet', '--branch', 'main',
+                    $wrongBase.Remote, $wrongBase.Trusted
+                ))
+            [void](Invoke-CompletionGit -Root $wrongBase.Trusted -Argument @(
+                    'checkout', '--quiet', '--detach'
+                ))
+            $wrongBase.Complete = Join-Path $wrongBase.Trusted (
+                '.github/skills/si/scripts/Complete-SiProposal.ps1'
+            )
+            {
+                & $wrongBase.Complete -RepoRoot $wrongBase.Trusted `
+                    -PullRequestNumber 17 -DueId $wrongBase.DueId `
+                    -RunId $wrongBase.RunId -Receipt $wrongBase.Receipt `
+                    -LifecycleHeadOid $wrongBase.LifecycleHead
+            } | Should -Throw '*authoritative pull request base*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $wrongBase
+        }
     }
 
     It 'test:SiState.AllDeclinedRecordPr persists a completed state-only record with null candidate proposal links' {
@@ -774,6 +828,34 @@ Describe 'Authoritative SI proposal completion' {
         }
         finally {
             Remove-CompletionFixture -Fixture $fixture
+        }
+
+        $tampered = New-CompletionFixture
+        try {
+            [System.IO.File]::AppendAllText(
+                (Join-Path $tampered.Root '.github/skills/si/SKILL.md'),
+                "`npost-sync protected edit`n"
+            )
+            [void](Invoke-CompletionGit -Root $tampered.Root -Argument @(
+                    'add', '.github/skills/si/SKILL.md'
+                ))
+            [void](Invoke-CompletionGit -Root $tampered.Root -Argument @(
+                    'commit', '--quiet', '-m', 'mutate protected anchor after sync'
+                ))
+            [void](Invoke-CompletionGit -Root $tampered.Root -Argument @(
+                    'push', '--quiet', 'origin', $tampered.Branch
+                ))
+            Set-ProviderFixture -Fixture $tampered
+            {
+                & $tampered.Complete -RepoRoot $tampered.Trusted `
+                    -PullRequestNumber 17 -DueId $tampered.DueId `
+                    -RunId $tampered.RunId -Receipt $tampered.Receipt `
+                    -LifecycleHeadOid $tampered.LifecycleHead
+            } | Should -Throw '*protected SI trust anchor*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $tampered
         }
     }
 }
