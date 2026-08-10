@@ -1,11 +1,13 @@
 ## Learnings Capture
 Phase: 1
 
-- [1.1] [trigger:plan-contradiction] Content-addressed observations require a separately hashed payload; placing the identifier inside its own exact hash input is impossible.
-- [1.2] [trigger:rework>1] Multi-file state transitions must perform run-first writes inside the same repo-scoped lock as the manifest CAS.
+- [1.1] [trigger:plan-contradiction] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:32524986890e51ca09bf07b059c2f194c4c3835fbd1701b8271edda2516d577c] Content-addressed observations require a separately hashed payload; placing the identifier inside its own exact hash input is impossible.
+- [1.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-1,REQ-7] [review:cr] [source-record:4664114d25730c281754f276e7d064cd923737df10ea838c22627162102849ca] Multi-file state transitions must perform run-first writes inside the same repo-scoped lock as the manifest CAS.
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -18,6 +20,8 @@ Phase: 3
 
 ## Learnings Capture
 Phase: 4
+No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
@@ -29,6 +33,8 @@ Phase: 5
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
+No entries for this phase.
 
 No entries for this phase.
 
