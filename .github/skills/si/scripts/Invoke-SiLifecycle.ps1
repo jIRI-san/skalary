@@ -2,13 +2,18 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Get-Location).Path,
-    [ValidateSet('Surface')][string]$Operation = 'Surface',
+    [ValidateSet('Surface', 'Begin', 'RecordChoices')][string]$Operation = 'Surface',
+    [ValidatePattern('^[0-9a-f]{64}$')][string]$DueId,
+    [ValidatePattern('^[0-9a-f]{64}$')][string]$RunId,
+    [ValidatePattern('^[0-9a-f]{64}$')][string]$Receipt,
+    [string]$InputPath,
     [datetimeoffset]$AsOfUtc = [datetimeoffset]::UtcNow
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 function Invoke-SiGit {
     param(
@@ -223,6 +228,297 @@ function Assert-SiRunDueIdentity {
     }
 }
 
+function Read-SiLifecycleInput {
+        param(
+            [Parameter(Mandatory)][string]$Path,
+            [Parameter(Mandatory)][ValidateSet('candidates', 'choices')][string]$Property
+        )
+
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            throw "Lifecycle input file not found: $Path"
+        }
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        if ($bytes.Length -gt 1MB) {
+            throw 'Lifecycle input exceeds 1 MiB.'
+        }
+        try {
+            $json = [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+            $value = $json | ConvertFrom-Json -Depth 100
+        }
+        catch {
+            throw "Lifecycle input is not valid UTF-8 JSON: $($_.Exception.Message)"
+        }
+        if ($null -eq $value -or
+            $value.GetType().FullName -ne 'System.Management.Automation.PSCustomObject') {
+            throw "Lifecycle input must be an object containing only '$Property'."
+        }
+        $names = @($value.PSObject.Properties.Name)
+        if ($names.Count -ne 1 -or $names[0] -ne $Property -or
+            $value.$Property -isnot [System.Array]) {
+            throw "Lifecycle input must contain only a '$Property' array."
+        }
+        return ,@($value.$Property)
+    }
+
+    function Read-SiHarvestIndex {
+        param([Parameter(Mandatory)][string]$Root)
+
+        $path = Resolve-SiStatePath -RepoRoot $Root -Segments @('harvest-index.json')
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw 'Current SI harvest index is absent.'
+        }
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+        if ($bytes.Length -gt (Get-SiStateContract).Limits.HarvestIndexBytes) {
+            throw 'Current SI harvest index exceeds its byte limit.'
+        }
+        try {
+            $json = [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+            $index = $json | ConvertFrom-Json -Depth 100
+        }
+        catch {
+            throw 'Current SI harvest index is malformed.'
+        }
+        $required = @(
+            'schemaVersion', 'protocol', 'planId', 'planPath', 'pinnedBaseOid',
+            'snapshotDigest', 'selectedDigest', 'fileCount', 'scannedByteCount',
+            'sourceCount', 'recordCount', 'selectedByteCount', 'sources', 'selectedRecords'
+        )
+        $names = @($index.PSObject.Properties.Name)
+        if ($names.Count -ne $required.Count -or
+            @($required | Where-Object { $names -notcontains $_ }).Count -gt 0 -or
+            [int]$index.schemaVersion -ne 1 -or
+            [string]$index.protocol -ne 'si-harvest-index-v1') {
+            throw 'Current SI harvest index failed closed-shape validation.'
+        }
+        return $index
+    }
+
+    function Assert-SiReceiptBinding {
+        param(
+            [Parameter(Mandatory)]$VerifiedReceipt,
+            [Parameter(Mandatory)]$HarvestIndex,
+            [Parameter(Mandatory)][string]$PinnedOid,
+            [Parameter(Mandatory)][string]$ExpectedDueId,
+            [Parameter(Mandatory)][string]$ExpectedRunId
+        )
+
+        $payload = $VerifiedReceipt.Payload
+        if ([string]$payload.dueId -ne $ExpectedDueId -or
+            [string]$payload.runId -ne $ExpectedRunId) {
+            throw 'Resolver receipt belongs to a different due or run.'
+        }
+        if ([string]$payload.pinnedBaseOid -ne $PinnedOid) {
+            throw 'Resolver receipt is stale for the current pinned origin/main.'
+        }
+        if ([string]$HarvestIndex.pinnedBaseOid -ne $PinnedOid -or
+            [string]$HarvestIndex.snapshotDigest -ne [string]$payload.snapshotDigest -or
+            [string]$HarvestIndex.selectedDigest -ne [string]$payload.selectedDigest) {
+            throw 'Resolver receipt is stale for the current harvest snapshot.'
+        }
+    }
+
+    function ConvertTo-SiValidatedRanking {
+        param(
+            [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Candidate,
+            [Parameter(Mandatory)]$ReceiptPayload
+        )
+
+        $ranked = New-SiRankedCandidates -Candidate $Candidate
+        if (($ranked.CandidateIds -join ',') -ne
+            (@($ReceiptPayload.candidates) -join ',') -or
+            [string]$ranked.RankedSetDigest -ne [string]$ReceiptPayload.rankedSetDigest) {
+            throw 'Candidate input does not exactly match the resolver receipt.'
+        }
+        return [pscustomobject][ordered]@{
+            count      = $ranked.Candidates.Count
+            digest     = $ranked.RankedSetDigest
+            candidates = $ranked.Candidates
+        }
+    }
+
+    function ConvertTo-SiValidatedChoices {
+        param(
+            [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Choice,
+            [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$CandidateId
+        )
+
+        if ($Choice.Count -ne $CandidateId.Count) {
+            throw 'Choices must cover the complete resolver candidate set.'
+        }
+        $byId = @{}
+        foreach ($item in $Choice) {
+            if ($null -eq $item -or
+                $item.GetType().FullName -ne 'System.Management.Automation.PSCustomObject') {
+                throw 'Each choice must be a closed JSON object.'
+            }
+            $names = @($item.PSObject.Properties.Name)
+            if ($names.Count -ne 3 -or
+                @('candidateId', 'disposition', 'proposalPr' |
+                    Where-Object { $names -notcontains $_ }).Count -gt 0) {
+                throw 'Each choice must contain only candidateId, disposition, and proposalPr.'
+            }
+            $candidate = [string]$item.candidateId
+            if ($candidate -notmatch '^[0-9a-f]{64}$' -or
+                $CandidateId -notcontains $candidate) {
+                throw "Choice references fabricated candidate '$candidate'."
+            }
+            if ($byId.ContainsKey($candidate)) {
+                throw "Choice candidate '$candidate' is duplicated."
+            }
+            if ([string]$item.disposition -notin @('accepted', 'declined', 'deferred')) {
+                throw "Choice for '$candidate' has an invalid disposition."
+            }
+            if ($null -ne $item.proposalPr) {
+                throw 'RecordChoices requires proposalPr to remain null before proposal creation.'
+            }
+            $byId[$candidate] = [pscustomobject][ordered]@{
+                candidateId = $candidate
+                disposition = [string]$item.disposition
+                proposalPr  = $null
+            }
+        }
+        return ,@($CandidateId | ForEach-Object { $byId[$_] })
+    }
+
+    function Test-SiGitRef {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][string]$Ref
+        )
+
+        & git -C $Root show-ref --verify --quiet $Ref
+        $code = $LASTEXITCODE
+        if ($code -eq 0) { return $true }
+        if ($code -eq 1) { return $false }
+        throw "git 'show-ref' failed with exit code $code."
+    }
+
+    function Set-SiFixedBranch {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][string]$PinnedOid,
+            [Parameter(Mandatory)][string]$ExpectedDueId
+        )
+
+        $branch = "si/$ExpectedDueId"
+        $localRef = "refs/heads/$branch"
+        $remoteRef = "refs/remotes/origin/$branch"
+        $currentHead = ((Invoke-SiGit -Root $Root -Argument @(
+                    'rev-parse', '--verify', 'HEAD^{commit}'
+                )) | Select-Object -First 1).Trim()
+        $current = try {
+            ((Invoke-SiGit -Root $Root -Argument @(
+                        'symbolic-ref', '--quiet', '--short', 'HEAD'
+                    )) | Select-Object -First 1).Trim()
+        }
+        catch {
+            $null
+        }
+        if ($current -ne $branch) {
+            if (Test-SiGitRef -Root $Root -Ref $localRef) {
+                $localHead = ((Invoke-SiGit -Root $Root -Argument @(
+                            'rev-parse', '--verify', "$localRef^{commit}"
+                        )) | Select-Object -First 1).Trim()
+                if ($currentHead -ne $localHead) {
+                    throw "Resume fixed SI branch '$branch' from a worktree pinned at '$localHead' before generating lifecycle artifacts."
+                }
+                [void](Invoke-SiGit -Root $Root -Argument @('switch', '--quiet', $branch))
+            }
+            else {
+                $remote = @(Invoke-SiGitBoundedLines -Root $Root -Argument @(
+                        'ls-remote', '--heads', 'origin', "refs/heads/$branch"
+                    ) -MaximumLines 1)
+                if ($remote.Count -eq 1) {
+                    [void](Invoke-SiGit -Root $Root -Argument @(
+                            'fetch', '--quiet', '--no-tags', 'origin',
+                            "+refs/heads/$branch`:$remoteRef"
+                        ))
+                    $remoteHead = ((Invoke-SiGit -Root $Root -Argument @(
+                                'rev-parse', '--verify', "$remoteRef^{commit}"
+                            )) | Select-Object -First 1).Trim()
+                    if ($currentHead -ne $remoteHead) {
+                        throw "Resume fixed SI branch '$branch' from a worktree pinned at '$remoteHead' before generating lifecycle artifacts."
+                    }
+                    [void](Invoke-SiGit -Root $Root -Argument @(
+                            'switch', '--quiet', '--create', $branch, $remoteRef
+                        ))
+                }
+                else {
+                    [void](Invoke-SiGit -Root $Root -Argument @(
+                            'switch', '--quiet', '--create', $branch, $PinnedOid
+                        ))
+                }
+            }
+        }
+        & git -C $Root merge-base --is-ancestor $PinnedOid $branch
+        if ($LASTEXITCODE -ne 0) {
+            throw "Fixed SI branch '$branch' does not contain the pinned origin/main."
+        }
+        return $branch
+    }
+
+    function Get-SiLifecycleRun {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][string]$ExpectedRunId
+        )
+
+        $runsRoot = Resolve-SiStatePath -RepoRoot $Root -Segments @('runs')
+        $matches = @(Get-ChildItem -LiteralPath $runsRoot -Filter "$ExpectedRunId.json" `
+                -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 2)
+        if ($matches.Count -gt 1) {
+            throw "Run '$ExpectedRunId' exists at multiple active paths."
+        }
+        if ($matches.Count -eq 0) { return $null }
+        if ($matches[0].Length -gt (Get-SiStateContract).Limits.RunBytes) {
+            throw "Run '$ExpectedRunId' exceeds its byte limit."
+        }
+        try {
+            $json = [System.Text.UTF8Encoding]::new($false, $true).GetString(
+                [System.IO.File]::ReadAllBytes($matches[0].FullName)
+            )
+            $run = $json | ConvertFrom-Json -Depth 100
+        }
+        catch {
+            throw "Run '$ExpectedRunId' is not valid UTF-8 JSON."
+        }
+        $schemaPath = [System.IO.Path]::GetFullPath(
+            (Join-Path $PSScriptRoot '../schemas/run.schema.json')
+        )
+        if (-not ($json | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
+            throw "Run '$ExpectedRunId' failed closed-schema validation."
+        }
+        Assert-SiJsonTimestamps -Json $json -Schema run
+        Assert-SiRunIntegrity -Run $run
+        return $run
+    }
+
+    function Invoke-SiStateTransition {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][ValidateSet('Begin', 'RecordRanking', 'RecordChoices')][string]$Transition,
+            [Parameter(Mandatory)]$Request
+        )
+
+        $temporary = Join-Path ([System.IO.Path]::GetTempPath()) (
+            'si-lifecycle-' + [Guid]::NewGuid().ToString('N') + '.json'
+        )
+        try {
+            [System.IO.File]::WriteAllText(
+                $temporary,
+                (($Request | ConvertTo-Json -Depth 100 -Compress) + "`n"),
+                [System.Text.UTF8Encoding]::new($false)
+            )
+            return & (Join-Path $PSScriptRoot 'Update-SiState.ps1') `
+                -RepoRoot $Root -Operation $Transition -InputPath $temporary
+        }
+        finally {
+            if (Test-Path -LiteralPath $temporary) {
+                Remove-Item -LiteralPath $temporary -Force
+            }
+        }
+    }
+
 $root = [System.IO.Path]::GetFullPath($RepoRoot)
 if (-not (Test-Path -LiteralPath $root -PathType Container)) {
     throw "Repository root not found: $root"
@@ -277,23 +573,23 @@ foreach ($runPath in $runPaths) {
 }
 $runPathById = @{}
 foreach ($path in $runPaths) {
-    $runId = [System.IO.Path]::GetFileNameWithoutExtension($path)
-    if ($runPathById.ContainsKey($runId)) {
-        throw "Pinned SI run '$runId' exists at multiple paths."
+    $pinnedRunId = [System.IO.Path]::GetFileNameWithoutExtension($path)
+    if ($runPathById.ContainsKey($pinnedRunId)) {
+        throw "Pinned SI run '$pinnedRunId' exists at multiple paths."
     }
-    $runPathById[$runId] = $path
+    $runPathById[$pinnedRunId] = $path
 }
 $runById = @{}
 $completedRunCount = 0
 $inFlightRunCount = 0
-foreach ($runId in $runPathById.Keys) {
+foreach ($pinnedRunId in $runPathById.Keys) {
     $run = Read-SiPinnedJson -Root $root -PinnedOid $pinnedOid `
-        -Path $runPathById[$runId] -Schema run -MaximumBytes $contract.Limits.RunBytes
-    if ([string]$run.runId -ne $runId) {
-        throw "Pinned run '$runId' does not match its file name."
+        -Path $runPathById[$pinnedRunId] -Schema run -MaximumBytes $contract.Limits.RunBytes
+    if ([string]$run.runId -ne $pinnedRunId) {
+        throw "Pinned run '$pinnedRunId' does not match its file name."
     }
     Assert-SiRunDueIdentity -Run $run
-    $runById[$runId] = $run
+    $runById[$pinnedRunId] = $run
     if ([string]$run.status -in @('declined-before-ranking', 'no-candidates', 'completed')) {
         $completedRunCount++
     }
@@ -301,6 +597,134 @@ foreach ($runId in $runPathById.Keys) {
         $inFlightRunCount++
     }
 }
+
+if ($Operation -ne 'Surface') {
+    foreach ($requiredArgument in @('DueId', 'RunId', 'Receipt', 'InputPath')) {
+        if ([string]::IsNullOrWhiteSpace([string](Get-Variable -Name $requiredArgument -ValueOnly))) {
+            throw "$Operation requires -$requiredArgument."
+        }
+    }
+    if ($null -eq $manifest) {
+        throw 'Pinned origin/main has no authoritative SI manifest.'
+    }
+    $authoritativeDue = @(
+        @($manifest.pending) + @($manifest.inFlight) |
+            Where-Object { [string]$_.dueId -eq $DueId }
+    )
+    if ($authoritativeDue.Count -ne 1) {
+        throw "Due '$DueId' is absent from authoritative active state."
+    }
+    Assert-SiDueIdentity -Due $authoritativeDue[0]
+    if ([string]$authoritativeDue[0].status -eq 'in-flight' -and
+        [string]$authoritativeDue[0].runId -ne $RunId) {
+        throw "Due '$DueId' is already bound to a different run."
+    }
+
+    $verifiedReceipt = & (Join-Path $PSScriptRoot 'Test-SiResolverReceipt.ps1') `
+        -RepoRoot $root -Receipt $Receipt
+    $harvestIndex = Read-SiHarvestIndex -Root $root
+    Assert-SiReceiptBinding -VerifiedReceipt $verifiedReceipt `
+        -HarvestIndex $harvestIndex -PinnedOid $pinnedOid `
+        -ExpectedDueId $DueId -ExpectedRunId $RunId
+
+    $candidateIds = [string[]]@($verifiedReceipt.Payload.candidates)
+    $rankedSet = $null
+    $choices = $null
+    if ($Operation -eq 'Begin') {
+        $candidateInput = Read-SiLifecycleInput -Path $InputPath -Property candidates
+        $rankedSet = ConvertTo-SiValidatedRanking -Candidate $candidateInput `
+            -ReceiptPayload $verifiedReceipt.Payload
+    }
+    else {
+        $choiceInput = Read-SiLifecycleInput -Path $InputPath -Property choices
+        $choices = ConvertTo-SiValidatedChoices -Choice $choiceInput `
+            -CandidateId $candidateIds
+    }
+
+    $branchName = Set-SiFixedBranch -Root $root -PinnedOid $pinnedOid `
+        -ExpectedDueId $DueId
+    $run = Get-SiLifecycleRun -Root $root -ExpectedRunId $RunId
+    if ($null -ne $run) {
+        if ([string]$run.dueId -ne $DueId -or
+            [string]$run.provenance.pinnedBaseOid -ne $pinnedOid) {
+            throw "Run '$RunId' does not match the current due and pinned base."
+        }
+        if ([string]$run.status -ne 'resumable') {
+            if ([string]$run.provenance.resolverReceiptId -ne $Receipt -or
+                [string]$run.rankedSet.digest -ne
+                [string]$verifiedReceipt.Payload.rankedSetDigest -or
+                (@($run.rankedSet.candidates | ForEach-Object {
+                            [string]$_.candidateId
+                        }) -join ',') -ne ($candidateIds -join ',')) {
+                throw "Run '$RunId' is bound to different resolver input."
+            }
+        }
+    }
+
+    $mutated = $false
+    if ($Operation -eq 'Begin') {
+        if ($null -eq $run -or [string]$run.status -eq 'resumable') {
+            [void](Invoke-SiStateTransition -Root $root -Transition Begin -Request ([ordered]@{
+                        dueId         = $DueId
+                        runId         = $RunId
+                        pinnedBaseOid = $pinnedOid
+                    }))
+            [void](Invoke-SiStateTransition -Root $root -Transition RecordRanking -Request ([ordered]@{
+                        dueId             = $DueId
+                        runId             = $RunId
+                        resolverReceiptId = $Receipt
+                        rankedSet         = $rankedSet
+                    }))
+            $mutated = $true
+            $run = Get-SiLifecycleRun -Root $root -ExpectedRunId $RunId
+        }
+        elseif ([string]$run.status -notin @(
+                'ranked', 'proposal-pending', 'no-candidates', 'completed'
+            )) {
+            throw "Begin cannot resume run status '$($run.status)'."
+        }
+    }
+    elseif ($null -eq $run) {
+        throw "RecordChoices requires existing run '$RunId'."
+    }
+    elseif ($candidateIds.Count -eq 0 -and [string]$run.status -eq 'no-candidates') {
+        if ($choices.Count -ne 0) {
+            throw 'A no-candidate run cannot record choices.'
+        }
+    }
+    elseif ([string]$run.status -eq 'ranked') {
+        [void](Invoke-SiStateTransition -Root $root -Transition RecordChoices -Request ([ordered]@{
+                    dueId  = $DueId
+                    runId  = $RunId
+                    choices = $choices
+                }))
+        $mutated = $true
+        $run = Get-SiLifecycleRun -Root $root -ExpectedRunId $RunId
+    }
+    elseif ([string]$run.status -eq 'proposal-pending') {
+        if ((ConvertTo-SiJcsJson -Value @($run.choices)) -ne
+            (ConvertTo-SiJcsJson -Value @($choices))) {
+            throw "Run '$RunId' already records different choices."
+        }
+    }
+    else {
+        throw "RecordChoices cannot resume run status '$($run.status)'."
+    }
+
+    return [pscustomobject][ordered]@{
+        Status         = 'complete'
+        Operation      = $Operation
+        PinnedBaseOid  = $pinnedOid
+        DueId          = $DueId
+        RunId          = $RunId
+        ReceiptId      = $Receipt
+        BranchName     = $branchName
+        RunStatus      = [string]$run.status
+        CandidateCount = $candidateIds.Count
+        Mutated        = $mutated
+    }
+}
+
 if ($completedRunCount -gt $contract.Limits.ActiveCompletedRuns) {
     throw 'Pinned SI completed run file set exceeds its limit.'
 }

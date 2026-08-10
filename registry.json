@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-09T23:36:46.0030398Z",
+  "generatedAt": "2026-08-10T00:01:06.8283023Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1197,7 +1197,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "6109d6ea100b431f4c041d1209eb1d9e9a425ab9c79ffc054a9084dd929141b8",
+          "sha256": "a326a82ef2ff694e1edbfbb871b66cb2cbcef4a6b38acf74d6e079f10d3509f0",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -1207,7 +1207,7 @@
         },
         {
           "dest": "skills/si/assets/propose-guide.md",
-          "sha256": "200696e0c708f0bb6944ce28b9fca662ad9a986b7fd141bfff24eda9011b1c5e",
+          "sha256": "e5d62cc7a3bd3d55e7547ca70f6cd5f73080c582839fc6efd354263ea9733662",
           "src": "skills/si/assets/propose-guide.md"
         },
         {
@@ -1262,7 +1262,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
-          "sha256": "d125e124c65c892d248c5df008f5a1fa1be8a4fcea18e7fb1849d64a6692710a",
+          "sha256": "a6f9c9723dd0a0c61c5b2144152c3898a210c39631800ac74bcedccef042f893",
           "src": "scripts/Invoke-SiLifecycle.ps1"
         },
         {
@@ -1385,7 +1385,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.36"
+      "version": "1.0.37"
     }
   ]
 }

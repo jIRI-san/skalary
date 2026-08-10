@@ -214,6 +214,54 @@ Describe 'Durable self-improvement state' {
         @(Get-ChildItem -LiteralPath (Join-Path $script:stateRoot 'docs/self-improvement/runs') `
                 -Filter '*.json' -Recurse -File).Count | Should -Be 16
     }
+
+    It 'allows a matching partial Begin retry when all in-flight slots are occupied' {
+        $targetDue = '1' * 64
+        $targetRun = '2' * 64
+        Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-ResumableRun -RunId $targetRun -DueId $targetDue
+        ) | Out-Null
+        $inFlight = for ($index = 0; $index -lt 16; $index++) {
+            [pscustomobject][ordered]@{
+                dueId = if ($index -eq 0) { $targetDue } else {
+                    ($index + 32).ToString('x').PadLeft(64, '0')
+                }
+                repoId = 'owner/repo'
+                planId = '1936cb'
+                sourceCommit = 'a' * 40
+                createdAtUtc = '2026-08-09T00:00:00Z'
+                status = 'in-flight'
+                runId = if ($index -eq 0) { $targetRun } else {
+                    ($index + 64).ToString('x').PadLeft(64, '0')
+                }
+            }
+        }
+        $manifestPath = Join-Path $script:stateRoot 'docs/self-improvement/state.json'
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (([ordered]@{
+                        schemaVersion = 2
+                        generation = 16
+                        pending = @()
+                        inFlight = @($inFlight)
+                        recentRuns = @()
+                    } | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        )
+        $input = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+                dueId = $targetDue
+                runId = $targetRun
+                pinnedBaseOid = 'b' * 40
+            })
+
+        $retried = & $script:update -RepoRoot $script:stateRoot `
+            -Operation Begin -InputPath $input
+
+        $retried.Status | Should -Be 'complete'
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw |
+            ConvertFrom-Json -Depth 100
+        @($manifest.inFlight).Count | Should -Be 16
+        @($manifest.inFlight | Where-Object dueId -EQ $targetDue).Count | Should -Be 1
+    }
 }
 
 Describe 'Shared atomic writer closure' {

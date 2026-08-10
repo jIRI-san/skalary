@@ -174,6 +174,20 @@ pinned OID, snapshot/selected/ranked-set digests, and ordered candidate IDs.
 `Test-SiResolverReceipt.ps1` schema-validates, re-canonicalizes, and re-hashes the installed receipt,
 rejecting additional fields, duplicates, mutations, or a filename/content mismatch.
 
+`Invoke-SiLifecycle.ps1 -Operation Begin|RecordChoices` is the only interactive admission path for
+ranked candidates and operator choices. Both operations refetch and pin `origin/main`, invoke the
+installed receipt verifier, require the receipt and current harvest index to bind the same pinned
+OID/snapshot/selected window and due/run, then create or resume the fixed `si/<due-id>` branch in the
+detached SI worktree. New worktrees start at pinned main; resumes start at the surfaced fixed-branch
+head so locally generated receipt/index files cannot collide with a checkout. `Begin`
+re-canonicalizes the supplied 0-5 full candidate objects and persists
+only an exact receipt match; `RecordChoices` requires one closed choice per receipt candidate and
+keeps proposal references null until proposal creation. Same-input replay is byte-stable and reports
+no mutation; absent, stale, fabricated, omitted, extra, duplicate, or rewritten input fails before a
+state transition. Resumed run files receive the same byte, closed-schema, timestamp, and canonical
+integrity validation as pinned runs. The lower-level state writer retains run-first/manifest-second
+CAS ordering and admits a matching in-flight retry without consuming a second capacity slot.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |

@@ -25,17 +25,21 @@ proposal genuinely needs a workflow change, it is a plan, not a `/si` run.
 
 ## Step 4: Isolate the work
 
-Create a worktree and a branch before the first edit, **cut from the base ref, not from whatever
-branch you are standing on**:
+Step 0 creates a detached worktree at pinned `origin/main` for a new run, or at the surfaced fixed
+branch head for a resumed run. Lifecycle `Begin` creates or resumes the only correlation branch,
+`si/<due-id>`, there before writing the ranked run:
 
 ```powershell
-git worktree add .worktrees/si-<slug> -b si/<slug> origin/main
+git worktree add --detach .worktrees/si-<due-prefix> <pinned-origin-main-oid>
+pwsh -NoProfile -File .github/skills/si/scripts/Invoke-SiLifecycle.ps1 `
+  -RepoRoot .worktrees/si-<due-prefix> -Operation Begin `
+  -DueId <due-id> -RunId <run-id> -Receipt <receipt-id> -InputPath <candidate-input>
 ```
 
-Two reasons the base matters. The blast radius of a bad proposal becomes a directory the operator
-can delete — and the Step 6 guard reads `main...HEAD`, so a branch cut from a plan's feature branch
-would drag that entire plan diff into the proposal's scope and refuse every time. Use `main` when
-there is no `origin`.
+Do not hand-create a slug branch. The due-derived identity makes retries converge on one branch,
+while the detached worktree keeps the blast radius removable. The Step 6 guard reads `main...HEAD`,
+so a worktree cut from a plan feature branch would drag that entire plan diff into the proposal's
+scope and refuse every time.
 
 Never propose from the plan's own branch, never commit into it, and never from `main` itself.
 

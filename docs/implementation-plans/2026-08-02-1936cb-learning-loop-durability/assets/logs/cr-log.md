@@ -102,3 +102,10 @@ Phase: 5
 - [5.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:fdfeb2c4bff82b29db8c3cbf912da58279434c49279f895b26027c1c9c46368a] Fixed orphan-only authoritative state being labeled empty and combined pending plus in-flight dues exceeding the shared manifest ceiling.
 - [5.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:0713550c94553a2be7996273ed95efc3288a8ffc521600d565aa06020aec09d6] Fixed fixed-branch capacity omitting retained completed runs, due IDs not being re-derived, run provenance drift, and duplicate manifest due/run references.
 - [5.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-3,REQ-7] [review:cr] [source-record:a6aed97a76a468b737b33a136edf5642841044d58b5ee4714482c02b85467cc3] Fixed non-asserting timestamp formats leaking malformed stored text, canonical candidate/digest hashes not being rechecked, and orphan run due provenance not being validated.
+
+## CR Capture
+Phase: 6
+
+- [6.1] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:1874a38a419a97247e2952f91a12d699105b14350940b9300436bbd432870888] Remote fixed-branch resume can conflict with locally generated receipt and harvest-index artifacts.
+- [6.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:f819d72780f6eefbf8ba1e21dbc753ae6e7e3206b10cccc89d32f3947cb9fd57] A partial Begin retry at the 16-run boundary rechecks capacity before recognizing the existing in-flight due.
+- [6.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-7] [review:cr] [source-record:79dab3c7ba7611ad8cfe077eb69ba2d59114a2143ef07508d8be24f6fd0ad3eb] Resumed branch runs bypass byte, schema, and timestamp validation before replay acceptance.

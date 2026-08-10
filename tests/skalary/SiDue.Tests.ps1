@@ -530,4 +530,396 @@ Describe 'Headless SI due handoff' {
                 Remove-Item -LiteralPath $remote -Recurse -Force
         }
     }
+
+    It 'test:SiState.ResolverReceiptCandidateRefusalMatrix binds fresh receipts, exact candidates and complete choices with replay refusal' {
+        $consumer = New-InstallRoot
+        $remote = New-InstallRoot
+        $emptyConsumer = New-InstallRoot
+        $resumeConsumer = New-InstallRoot
+        try {
+        [void](Install-PluginClosure -RootPlugin self-improvement -TargetRoot $consumer)
+        $lifecycle = Join-Path $consumer '.github/skills/si/scripts/Invoke-SiLifecycle.ps1'
+        $enqueue = Join-Path $consumer '.github/skills/si/scripts/Enqueue-SiDue.ps1'
+
+        [void](Invoke-FixtureGit -Root $remote -Argument @('init', '--bare', '--quiet'))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'init', '--initial-branch=main', '--quiet'
+            ))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'config', 'user.name', 'SI Fixture'
+            ))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'config', 'user.email', 'si@example.test'
+            ))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'remote', 'add', 'origin', $remote
+            ))
+
+        $sourceCommit = 'a' * 40
+        $enqueued = & $enqueue -RepoRoot $consumer -PlanId 1936cb `
+            -SourceCommit $sourceCommit
+        $dueId = $enqueued.DueId
+        $runId = 'b' * 64
+        [void](Invoke-FixtureGit -Root $consumer -Argument @('add', '.github', 'docs'))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'commit', '--quiet', '-m', 'authoritative SI due'
+            ))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'push', '--quiet', '--set-upstream', 'origin', 'main'
+            ))
+        $pinnedOid = [string](
+            Invoke-FixtureGit -Root $consumer -Argument @('rev-parse', 'HEAD') |
+                Select-Object -First 1
+        )
+        $pinnedOid = $pinnedOid.Trim()
+
+        $candidateBodies = @(
+            [pscustomobject][ordered]@{
+                title = 'First candidate'; rationale = 'First rationale'
+                sources = @('docs/review-ledger/testing.md')
+                targets = @('plugins/self-improvement/skills/si/SKILL.md')
+            },
+            [pscustomobject][ordered]@{
+                title = 'Second candidate'; rationale = 'Second rationale'
+                sources = @('docs/review-ledger/security.md')
+                targets = @('plugins/self-improvement/scripts/Invoke-SiLifecycle.ps1')
+            }
+        )
+        $ranked = New-SiRankedCandidates -Candidate $candidateBodies
+        $snapshotDigest = 'c' * 64
+        $selectedDigest = 'd' * 64
+        $payload = [pscustomobject][ordered]@{
+            protocol = 'si-resolver-receipt-v1'
+            dueId = $dueId
+            runId = $runId
+            pinnedBaseOid = $pinnedOid
+            snapshotDigest = $snapshotDigest
+            selectedDigest = $selectedDigest
+            rankedSetDigest = $ranked.RankedSetDigest
+            candidates = $ranked.CandidateIds
+        }
+        $receiptId = Get-SiResolverReceiptId -Payload $payload
+        $receiptPath = Join-Path $consumer (
+            "docs/self-improvement/resolver-receipts/$receiptId.json"
+        )
+        Write-SiJson -Path $receiptPath -Value ([ordered]@{
+                receiptId = $receiptId
+                payload = $payload
+            })
+        $index = [ordered]@{
+            schemaVersion = 1; protocol = 'si-harvest-index-v1'
+            planId = '1936cb'; planPath = 'docs/implementation-plans/example'
+            pinnedBaseOid = $pinnedOid; snapshotDigest = $snapshotDigest
+            selectedDigest = $selectedDigest; fileCount = 1
+            scannedByteCount = 1; sourceCount = 1; recordCount = 1
+            selectedByteCount = 1; sources = @(); selectedRecords = @()
+        }
+        $indexPath = Join-Path $consumer 'docs/self-improvement/harvest-index.json'
+        Write-SiJson -Path $indexPath -Value $index
+        $beginInput = Join-Path $consumer 'begin.json'
+        Write-SiJson -Path $beginInput -Value ([ordered]@{
+                candidates = $candidateBodies
+            })
+
+        $begun = & $lifecycle -RepoRoot $consumer -Operation Begin `
+            -DueId $dueId -RunId $runId -Receipt $receiptId -InputPath $beginInput
+        $begun.Status | Should -Be 'complete'
+        $begun.Mutated | Should -BeTrue
+        $begun.BranchName | Should -Be "si/$dueId"
+        $begun.RunStatus | Should -Be 'ranked'
+        $begun.CandidateCount | Should -Be 2
+        [string](
+            Invoke-FixtureGit -Root $consumer -Argument @(
+                'branch', '--show-current'
+            ) | Select-Object -First 1
+        ) | Should -Be "si/$dueId"
+
+        $runPath = @(Get-ChildItem -LiteralPath (
+                Join-Path $consumer 'docs/self-improvement/runs'
+            ) -Filter "$runId.json" -Recurse -File)[0].FullName
+        $run = Get-Content -LiteralPath $runPath -Raw | ConvertFrom-Json -Depth 100
+        $run.provenance.resolverReceiptId | Should -Be $receiptId
+        @($run.rankedSet.candidates).Count | Should -Be 2
+        @($run.choices).Count | Should -Be 0
+
+        $manifestPath = Join-Path $consumer 'docs/self-improvement/state.json'
+        $beforeReplay = [System.IO.File]::ReadAllText($manifestPath)
+        $replayed = & $lifecycle -RepoRoot $consumer -Operation Begin `
+            -DueId $dueId -RunId $runId -Receipt $receiptId -InputPath $beginInput
+        $replayed.Mutated | Should -BeFalse
+        [System.IO.File]::ReadAllText($manifestPath) | Should -Be $beforeReplay
+
+        {
+            & $lifecycle -RepoRoot $consumer -Operation Begin `
+                -DueId $dueId -RunId $runId -Receipt ('e' * 64) `
+                -InputPath $beginInput
+        } | Should -Throw '*not found*'
+        {
+            & $lifecycle -RepoRoot $consumer -Operation Begin `
+                -DueId $dueId -RunId ('f' * 64) -Receipt $receiptId `
+                -InputPath $beginInput
+        } | Should -Throw '*different due or run*'
+
+        $stalePayload = [pscustomobject][ordered]@{
+            protocol = 'si-resolver-receipt-v1'
+            dueId = $dueId; runId = $runId; pinnedBaseOid = ('1' * 40)
+            snapshotDigest = $snapshotDigest; selectedDigest = $selectedDigest
+            rankedSetDigest = $ranked.RankedSetDigest
+            candidates = $ranked.CandidateIds
+        }
+        $staleReceipt = Get-SiResolverReceiptId -Payload $stalePayload
+        Write-SiJson -Path (Join-Path $consumer (
+                "docs/self-improvement/resolver-receipts/$staleReceipt.json"
+            )) -Value ([ordered]@{
+                receiptId = $staleReceipt; payload = $stalePayload
+            })
+        {
+            & $lifecycle -RepoRoot $consumer -Operation Begin `
+                -DueId $dueId -RunId $runId -Receipt $staleReceipt `
+                -InputPath $beginInput
+        } | Should -Throw '*stale for the current pinned origin/main*'
+
+        $index.snapshotDigest = '2' * 64
+        Write-SiJson -Path $indexPath -Value $index
+        {
+            & $lifecycle -RepoRoot $consumer -Operation Begin `
+                -DueId $dueId -RunId $runId -Receipt $receiptId `
+                -InputPath $beginInput
+        } | Should -Throw '*stale for the current harvest snapshot*'
+        $index.snapshotDigest = $snapshotDigest
+        Write-SiJson -Path $indexPath -Value $index
+
+        $candidateCases = @(
+            [ordered]@{ candidates = @($candidateBodies[0]) },
+            [ordered]@{
+                candidates = @(
+                    $candidateBodies[0], $candidateBodies[1],
+                    [pscustomobject][ordered]@{
+                        title = 'Extra'; rationale = 'Extra rationale'
+                        sources = @('extra-source'); targets = @('extra-target')
+                    }
+                )
+            },
+            [ordered]@{
+                candidates = @($candidateBodies[0], $candidateBodies[0])
+            },
+            [ordered]@{
+                candidates = @(
+                    [pscustomobject][ordered]@{
+                        title = 'Rewritten candidate'; rationale = 'First rationale'
+                        sources = @('docs/review-ledger/testing.md')
+                        targets = @('plugins/self-improvement/skills/si/SKILL.md')
+                    },
+                    $candidateBodies[1]
+                )
+            }
+        )
+        foreach ($case in $candidateCases) {
+            $casePath = Join-Path $consumer (
+                'candidate-case-' + [Guid]::NewGuid().ToString('N') + '.json'
+            )
+            Write-SiJson -Path $casePath -Value $case
+            {
+                & $lifecycle -RepoRoot $consumer -Operation Begin `
+                    -DueId $dueId -RunId $runId -Receipt $receiptId `
+                    -InputPath $casePath
+            } | Should -Throw
+        }
+
+        $choices = @(
+            [pscustomobject][ordered]@{
+                candidateId = $ranked.CandidateIds[0]
+                disposition = 'accepted'
+                proposalPr = $null
+            },
+            [pscustomobject][ordered]@{
+                candidateId = $ranked.CandidateIds[1]
+                disposition = 'declined'
+                proposalPr = $null
+            }
+        )
+        $choiceInput = Join-Path $consumer 'choices.json'
+        Write-SiJson -Path $choiceInput -Value ([ordered]@{ choices = $choices })
+        $recorded = & $lifecycle -RepoRoot $consumer -Operation RecordChoices `
+            -DueId $dueId -RunId $runId -Receipt $receiptId -InputPath $choiceInput
+        $recorded.Mutated | Should -BeTrue
+        $recorded.RunStatus | Should -Be 'proposal-pending'
+        $choiceReplay = & $lifecycle -RepoRoot $consumer -Operation RecordChoices `
+            -DueId $dueId -RunId $runId -Receipt $receiptId -InputPath $choiceInput
+        $choiceReplay.Mutated | Should -BeFalse
+
+        [void](Invoke-FixtureGit -Root $consumer -Argument @('add', 'docs'))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'commit', '--quiet', '-m', 'persist fixed SI branch state'
+            ))
+        [void](Invoke-FixtureGit -Root $consumer -Argument @(
+                'push', '--quiet', '--set-upstream', 'origin', "si/$dueId"
+            ))
+        $fixedHead = [string](
+            Invoke-FixtureGit -Root $consumer -Argument @('rev-parse', 'HEAD') |
+                Select-Object -First 1
+        )
+        $fixedHead = $fixedHead.Trim()
+        Remove-Item -LiteralPath $resumeConsumer -Recurse -Force
+        [void](Invoke-FixtureGit -Root (Split-Path -Parent $resumeConsumer) -Argument @(
+                'clone', '--quiet', '--branch', 'main', $remote, $resumeConsumer
+            ))
+        [void](Invoke-FixtureGit -Root $resumeConsumer -Argument @(
+                'checkout', '--quiet', '--detach', $fixedHead
+            ))
+        $resumeChoiceInput = Join-Path $resumeConsumer 'choices.json'
+        Write-SiJson -Path $resumeChoiceInput -Value ([ordered]@{ choices = $choices })
+        $resumeLifecycle = Join-Path $resumeConsumer (
+            '.github/skills/si/scripts/Invoke-SiLifecycle.ps1'
+        )
+        $remoteReplay = & $resumeLifecycle -RepoRoot $resumeConsumer `
+            -Operation RecordChoices -DueId $dueId -RunId $runId `
+            -Receipt $receiptId -InputPath $resumeChoiceInput
+        $remoteReplay.Mutated | Should -BeFalse
+        [string](
+            Invoke-FixtureGit -Root $resumeConsumer -Argument @(
+                'branch', '--show-current'
+            ) | Select-Object -First 1
+        ) | Should -Be "si/$dueId"
+
+        $resumeRunPath = @(Get-ChildItem -LiteralPath (
+                Join-Path $resumeConsumer 'docs/self-improvement/runs'
+            ) -Filter "$runId.json" -Recurse -File)[0].FullName
+        $malformedRun = Get-Content -LiteralPath $resumeRunPath -Raw |
+            ConvertFrom-Json -Depth 100
+        $malformedRun | Add-Member -NotePropertyName unexpected -NotePropertyValue true
+        Write-SiJson -Path $resumeRunPath -Value $malformedRun
+        {
+            & $resumeLifecycle -RepoRoot $resumeConsumer `
+                -Operation RecordChoices -DueId $dueId -RunId $runId `
+                -Receipt $receiptId -InputPath $resumeChoiceInput
+        } | Should -Throw '*closed-schema validation*'
+
+        $choiceCases = @(
+            [ordered]@{ choices = @($choices[0]) },
+            [ordered]@{
+                choices = @(
+                    $choices[0], $choices[1],
+                    [pscustomobject][ordered]@{
+                        candidateId = ('3' * 64)
+                        disposition = 'declined'; proposalPr = $null
+                    }
+                )
+            },
+            [ordered]@{ choices = @($choices[0], $choices[0]) },
+            [ordered]@{
+                choices = @(
+                    [pscustomobject][ordered]@{
+                        candidateId = ('4' * 64)
+                        disposition = 'accepted'; proposalPr = $null
+                    },
+                    $choices[1]
+                )
+            },
+            [ordered]@{
+                choices = @(
+                    [pscustomobject][ordered]@{
+                        candidateId = $ranked.CandidateIds[0]
+                        disposition = 'deferred'; proposalPr = $null
+                    },
+                    $choices[1]
+                )
+            }
+        )
+        foreach ($case in $choiceCases) {
+            $casePath = Join-Path $consumer (
+                'choice-case-' + [Guid]::NewGuid().ToString('N') + '.json'
+            )
+            Write-SiJson -Path $casePath -Value $case
+            {
+                & $lifecycle -RepoRoot $consumer -Operation RecordChoices `
+                    -DueId $dueId -RunId $runId -Receipt $receiptId `
+                    -InputPath $casePath
+            } | Should -Throw
+        }
+
+        Remove-Item -LiteralPath $emptyConsumer -Recurse -Force
+        [void](Invoke-FixtureGit -Root (Split-Path -Parent $emptyConsumer) -Argument @(
+                'clone', '--quiet', '--branch', 'main', $remote, $emptyConsumer
+            ))
+        [void](Invoke-FixtureGit -Root $emptyConsumer -Argument @(
+                'config', 'user.name', 'SI Fixture'
+            ))
+        [void](Invoke-FixtureGit -Root $emptyConsumer -Argument @(
+                'config', 'user.email', 'si@example.test'
+            ))
+        $emptyEnqueue = Join-Path $emptyConsumer (
+            '.github/skills/si/scripts/Enqueue-SiDue.ps1'
+        )
+        $emptyDue = & $emptyEnqueue -RepoRoot $emptyConsumer -PlanId 1936cb `
+            -SourceCommit ('5' * 40)
+        [void](Invoke-FixtureGit -Root $emptyConsumer -Argument @(
+                'add', 'docs/self-improvement/state.json'
+            ))
+        [void](Invoke-FixtureGit -Root $emptyConsumer -Argument @(
+                'commit', '--quiet', '-m', 'second authoritative SI due'
+            ))
+        [void](Invoke-FixtureGit -Root $emptyConsumer -Argument @(
+                'push', '--quiet', 'origin', 'main'
+            ))
+        $emptyPinned = [string](
+            Invoke-FixtureGit -Root $emptyConsumer -Argument @('rev-parse', 'HEAD') |
+                Select-Object -First 1
+        )
+        $emptyPinned = $emptyPinned.Trim()
+        $emptyRun = '6' * 64
+        $emptyRanked = New-SiRankedCandidates -Candidate @()
+        $emptyPayload = [pscustomobject][ordered]@{
+            protocol = 'si-resolver-receipt-v1'
+            dueId = $emptyDue.DueId; runId = $emptyRun
+            pinnedBaseOid = $emptyPinned; snapshotDigest = ('7' * 64)
+            selectedDigest = ('8' * 64)
+            rankedSetDigest = $emptyRanked.RankedSetDigest
+            candidates = @()
+        }
+        $emptyReceipt = Get-SiResolverReceiptId -Payload $emptyPayload
+        Write-SiJson -Path (Join-Path $emptyConsumer (
+                "docs/self-improvement/resolver-receipts/$emptyReceipt.json"
+            )) -Value ([ordered]@{
+                receiptId = $emptyReceipt; payload = $emptyPayload
+            })
+        Write-SiJson -Path (Join-Path $emptyConsumer (
+                'docs/self-improvement/harvest-index.json'
+            )) -Value ([ordered]@{
+                schemaVersion = 1; protocol = 'si-harvest-index-v1'
+                planId = '1936cb'; planPath = 'docs/implementation-plans/example'
+                pinnedBaseOid = $emptyPinned; snapshotDigest = ('7' * 64)
+                selectedDigest = ('8' * 64); fileCount = 1
+                scannedByteCount = 1; sourceCount = 1; recordCount = 0
+                selectedByteCount = 0; sources = @(); selectedRecords = @()
+            })
+        $emptyInput = Join-Path $emptyConsumer 'empty-candidates.json'
+        Write-SiJson -Path $emptyInput -Value ([ordered]@{ candidates = @() })
+        $emptyLifecycle = Join-Path $emptyConsumer (
+            '.github/skills/si/scripts/Invoke-SiLifecycle.ps1'
+        )
+        $emptyBegin = & $emptyLifecycle -RepoRoot $emptyConsumer -Operation Begin `
+            -DueId $emptyDue.DueId -RunId $emptyRun -Receipt $emptyReceipt `
+            -InputPath $emptyInput
+        $emptyBegin.CandidateCount | Should -Be 0
+        $emptyBegin.RunStatus | Should -Be 'no-candidates'
+        $emptyChoices = Join-Path $emptyConsumer 'empty-choices.json'
+        Write-SiJson -Path $emptyChoices -Value ([ordered]@{ choices = @() })
+        $emptyChoiceResult = & $emptyLifecycle -RepoRoot $emptyConsumer `
+            -Operation RecordChoices -DueId $emptyDue.DueId -RunId $emptyRun `
+            -Receipt $emptyReceipt -InputPath $emptyChoices
+        $emptyChoiceResult.Mutated | Should -BeFalse
+        $emptyChoiceResult.RunStatus | Should -Be 'no-candidates'
+        }
+        finally {
+        Remove-Item -LiteralPath $consumer -Recurse -Force
+        Remove-Item -LiteralPath $remote -Recurse -Force
+        if (Test-Path -LiteralPath $emptyConsumer) {
+            Remove-Item -LiteralPath $emptyConsumer -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $resumeConsumer) {
+            Remove-Item -LiteralPath $resumeConsumer -Recurse -Force
+        }
+        }
+    }
 }

@@ -91,10 +91,15 @@ $result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
     switch ($Operation) {
         'Begin' {
             $manifest.pending = @($manifest.pending | Where-Object { [string]$_.dueId -ne [string]$request.dueId })
-            if (@($manifest.inFlight).Count -ge (Get-SiStateContract).Limits.ActiveInFlightRuns) {
-                throw 'capacity-blocked: active in-flight run limit reached.'
-            }
-            if (@($manifest.inFlight | Where-Object { [string]$_.dueId -eq [string]$request.dueId }).Count -eq 0) {
+            $existingInFlight = @(
+                $manifest.inFlight |
+                    Where-Object { [string]$_.dueId -eq [string]$request.dueId }
+            )
+            if ($existingInFlight.Count -eq 0) {
+                if (@($manifest.inFlight).Count -ge
+                    (Get-SiStateContract).Limits.ActiveInFlightRuns) {
+                    throw 'capacity-blocked: active in-flight run limit reached.'
+                }
                 $due.status = 'in-flight'
                 $due.runId = [string]$request.runId
                 $manifest.inFlight = @($manifest.inFlight) + $due
