@@ -65,11 +65,24 @@ $script:PlanAssetMap = [ordered]@{
     HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
 }
 
-function Resolve-PhysicalRepoPath {
+function Normalize-PhysicalPathRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
 
     $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (-not $IsWindows) {
+        return $fullPath
+    }
+
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    return $root.ToUpperInvariant() + $fullPath.Substring($root.Length)
+}
+
+function Resolve-PhysicalRepoPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = Normalize-PhysicalPathRoot -Path $Path
     $root = [System.IO.Path]::GetPathRoot($fullPath)
     $relative = $fullPath.Substring($root.Length)
     $segments = @($relative -split '[\\/]' | Where-Object { $_.Length -gt 0 })
@@ -77,17 +90,32 @@ function Resolve-PhysicalRepoPath {
     foreach ($segment in $segments) {
         $candidate = Join-Path $current $segment
         if (Test-Path -LiteralPath $candidate) {
-            $item = Get-Item -LiteralPath $candidate -Force
+            $children = @(Get-ChildItem -LiteralPath $current -Force)
+            $matches = @($children | Where-Object {
+                    [string]::Equals($_.Name, $segment, [System.StringComparison]::Ordinal)
+                })
+            if ($matches.Count -eq 0) {
+                $matches = @($children | Where-Object {
+                        [string]::Equals($_.Name, $segment, [System.StringComparison]::OrdinalIgnoreCase)
+                    })
+            }
+            if ($matches.Count -ne 1) {
+                throw "Cannot resolve a unique physical path component '$segment' under '$current'."
+            }
+
+            $item = $matches[0]
             if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
                 $target = $item.ResolveLinkTarget($true)
                 if ($null -eq $target) {
                     throw "Cannot resolve reparse-point target '$candidate'."
                 }
-                $current = [System.IO.Path]::GetFullPath($target.FullName)
+                $current = Normalize-PhysicalPathRoot -Path $target.FullName
                 continue
             }
+            $current = Normalize-PhysicalPathRoot -Path $item.FullName
+            continue
         }
-        $current = [System.IO.Path]::GetFullPath($candidate)
+        $current = Normalize-PhysicalPathRoot -Path $candidate
     }
     return $current
 }
@@ -105,13 +133,7 @@ function Assert-PhysicalPlanConfinement {
             [System.IO.Path]::DirectorySeparatorChar,
             [System.IO.Path]::AltDirectorySeparatorChar
         )) + [System.IO.Path]::DirectorySeparatorChar
-    $comparison = if ($IsWindows) {
-        [System.StringComparison]::OrdinalIgnoreCase
-    }
-    else {
-        [System.StringComparison]::Ordinal
-    }
-    if (-not $physicalPath.StartsWith($prefix, $comparison)) {
+    if (-not $physicalPath.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
         throw "Resolved plan asset path '$Path' escapes inventoried plan folder '$PlanDir' through a link or reparse point."
     }
 }
@@ -173,12 +195,15 @@ function Resolve-PlanAssetPath {
     $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
     if ($RepoRoot) {
         $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $physicalRepoRoot = Resolve-PhysicalRepoPath -Path $repoRootFull
         $plansRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/implementation-plans'))
-        $plansPrefix = $plansRoot.TrimEnd([char[]]@(
+        $physicalPlansRoot = Resolve-PhysicalRepoPath -Path $plansRoot
+        $physicalPlanDir = Resolve-PhysicalRepoPath -Path $planDirFull
+        $plansPrefix = $physicalPlansRoot.TrimEnd([char[]]@(
                 [System.IO.Path]::DirectorySeparatorChar,
                 [System.IO.Path]::AltDirectorySeparatorChar
             )) + [System.IO.Path]::DirectorySeparatorChar
-        if (-not $planDirFull.StartsWith($plansPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        if (-not $physicalPlanDir.StartsWith($plansPrefix, [System.StringComparison]::Ordinal)) {
             throw "Plan folder '$planDirFull' escapes repository plan root '$plansRoot'."
         }
         Assert-PhysicalPlanConfinement -PlanDir $plansRoot -Path $planDirFull
@@ -188,14 +213,24 @@ function Resolve-PlanAssetPath {
         }
         $inventoryMatch = @($Inventory | Where-Object {
                 $_.Path -and [string]::Equals(
-                    [System.IO.Path]::GetFullPath([string]$_.Path),
-                    $planDirFull,
-                    [System.StringComparison]::OrdinalIgnoreCase
+                    (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
+                    $physicalPlanDir,
+                    [System.StringComparison]::Ordinal
                 )
             })
         if ($inventoryMatch.Count -ne 1) {
             throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
         }
+
+        $planRelativePath = [System.IO.Path]::GetRelativePath($physicalRepoRoot, $physicalPlanDir)
+        if ($planRelativePath -eq '..' -or
+            $planRelativePath.StartsWith(
+                '..' + [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Plan folder '$planDirFull' escapes physical repository root '$physicalRepoRoot'."
+        }
+        $planDirFull = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $planRelativePath))
     }
 
     if (-not $Layout) {

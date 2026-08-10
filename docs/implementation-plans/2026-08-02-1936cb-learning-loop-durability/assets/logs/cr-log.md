@@ -44,6 +44,7 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:06b32620aecea800a1c4d82bf9b91c5450bd5e7cd7d436451830dd5839365606] Boundary matrix used coarse values and lacked active-replace rollback evidence; cover exact maxima and plus-one.
 - [2.2] [src:code-review] [sev:Critical] [concern:operability-observability] [req:REQ-5,REQ-7] [review:cr] [source-record:c8bc8169bf656d412cda9a64c8e62759dbfa1023b39b3ad4be41a863e81a4159] Final CR: Add-WorkflowNote returns lock-timeout with exit code 0, silently dropping requested capture for callers that do not inspect the object.
 - [2.2] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:35d529e32fef1396aea6e301a2d05246b0ffc47a1c48c2cd4265eae0719597e6] Final CR: overflow crash test fabricates old active bytes after success instead of faulting between overflow-first and active replace.
+- [2.2] [src:code-review] [sev:High] [concern:security] [req:REQ-8] [review:cr] [source-record:d9d4a6dc6a0890d85f1f4508d328f8f591e7be1e063307a536d62e4379e181f9] Fixed case-distinct PlanState inventory matching that could accept an uninventoried sibling on case-sensitive filesystems.
 
 ## CR Capture
 Phase: 3

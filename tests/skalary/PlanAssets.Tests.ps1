@@ -514,6 +514,98 @@ Describe 'Plan assets layout' {
             }
         }
 
+        It 'test:planstate-capture-roots refuses a case-distinct non-inventory plan directory' {
+            $tempRoot = & $newTempDir
+            try {
+                $inventoriedPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-CasePlan'
+                $null = & $newAssetsPlan $inventoriedPlanDir
+                $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
+                $caseDistinctDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-caseplan'
+                if (Test-Path -LiteralPath $caseDistinctDir) {
+                    Set-ItResult -Skipped -Because 'the test filesystem is case-insensitive'
+                    return
+                }
+                [void](New-Item -ItemType Directory -Path $caseDistinctDir -Force)
+
+                {
+                    Resolve-PlanAssetPath -PlanDir $caseDistinctDir -Kind LearningOverflowRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*not a unique member*'
+            }
+            finally {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:planstate-capture-roots returns an immutable physical path through a plan alias' {
+            $tempRoot = & $newTempDir
+            try {
+                $actualPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-actual-plan'
+                $null = & $newAssetsPlan $actualPlanDir
+                $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
+                $aliasPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-def456-plan-alias'
+                try {
+                    [void](New-Item -ItemType SymbolicLink -Path $aliasPlanDir -Target $actualPlanDir -ErrorAction Stop)
+                }
+                catch [System.Exception] {
+                    Set-ItResult -Skipped -Because "this host cannot create a symbolic link unprivileged: $($_.Exception.Message)"
+                    return
+                }
+
+                $resolved = Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
+                    -RepoRoot $tempRoot -Inventory $inventory
+                $expected = [System.IO.Path]::GetFullPath((Join-Path $actualPlanDir 'assets/logs/learning-overflow'))
+                $resolved | Should -Be $expected
+
+                $outside = Join-Path $tempRoot 'outside-retarget'
+                [void](New-Item -ItemType Directory -Path $outside -Force)
+                Remove-Item -LiteralPath $aliasPlanDir -Force
+                [void](New-Item -ItemType SymbolicLink -Path $aliasPlanDir -Target $outside -ErrorAction Stop)
+                [void](New-Item -ItemType Directory -Path $resolved -Force)
+                Set-Content -LiteralPath (Join-Path $resolved 'marker.txt') -Value 'physical target' -Encoding utf8NoBOM
+
+                Test-Path -LiteralPath (Join-Path $actualPlanDir 'assets/logs/learning-overflow/marker.txt') |
+                    Should -BeTrue
+                Test-Path -LiteralPath (Join-Path $outside 'assets/logs/learning-overflow/marker.txt') |
+                    Should -BeFalse
+            }
+            finally {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:planstate-capture-roots preserves a symlink-mounted repository path' {
+            $tempParent = & $newTempDir
+            try {
+                $actualRoot = Join-Path $tempParent 'actual-repo'
+                $actualPlanDir = Join-Path $actualRoot 'docs/implementation-plans/2026-01-01-abc123-mounted-plan'
+                $null = & $newAssetsPlan $actualPlanDir
+                $mountedRoot = Join-Path $tempParent 'mounted-repo'
+                try {
+                    [void](New-Item -ItemType SymbolicLink -Path $mountedRoot -Target $actualRoot -ErrorAction Stop)
+                }
+                catch [System.Exception] {
+                    Set-ItResult -Skipped -Because "this host cannot create a symbolic link unprivileged: $($_.Exception.Message)"
+                    return
+                }
+
+                $mountedPlanDir = Join-Path $mountedRoot 'docs/implementation-plans/2026-01-01-abc123-mounted-plan'
+                $inventory = @(Get-PlanInventory -RepoRoot $mountedRoot)
+                $resolved = Resolve-PlanAssetPath -PlanDir $mountedPlanDir -Kind LearningOverflowRoot `
+                    -RepoRoot $mountedRoot -Inventory $inventory
+                $expected = [System.IO.Path]::GetFullPath(
+                    (Join-Path $mountedPlanDir 'assets/logs/learning-overflow')
+                )
+
+                $resolved | Should -Be $expected
+                [System.IO.Path]::GetRelativePath($mountedRoot, $resolved) |
+                    Should -Not -Match '^\.\.(?:[\\/]|$)'
+            }
+            finally {
+                Remove-Item -LiteralPath $tempParent -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'test:planstate-capture-roots refuses a symlinked overflow escape' {
             $tempRoot = & $newTempDir
             try {
