@@ -31,8 +31,6 @@ Phase: 1
 ## CR Capture
 Phase: 2
 
-- [2.1] [src:code-review] [sev:Med] Legacy case-varied retries could duplicate preserved 8-hex records; use ordinal-insensitive content migration matching.
-- [2.1] [src:code-review] [sev:Med] Crash coverage only seeded an unrelated stale temp; fault the atomic temp-before-replace boundary and prove recovery.
 - [2.2] [src:code-review] [sev:High] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:5df5cb8d1f2cb4deef43a8522575191bc2e00fef5508f1cc3e5f322d334b2a4b] Uncertain-commit replay could append an already durable source-record ID; deduplicate active and overflow records under the plan lock.
 - [2.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-8] [review:cr] [source-record:56d369e13fecd98dd2f387a71d7488050718fd193b3db27308ed21977a732d19] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes.
 - [2.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:3e0865428bd948fe62c9399fe245717bdf39d0909d4100e3031b6ace53a375b7] Repository-root discovery did not advance its ancestor cursor and could loop forever.
@@ -48,6 +46,8 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:a7c21b1ae4291d00cc117e59df47ccd3038790e55142933077b477936d1552ef] Guard overflow-committed fault injection behind an actual successful overflow batch write and assert each pre-replay persisted state.
 - [2.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:36d1ef19258f8a06864e225de9ace281411ec3a0cc353b3bbf5721672d689c85] Expanded boundary evidence to accept exact maxima and reject 65 records, 512 KiB plus one byte, and 4 MiB plus one byte before mutation.
 - [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:9da069fa73d12717fed8da311f47377809dc7de49bcbb67b28f35d4cc3ffa2e7] Bound legacy-summary replay to content and file-version observations so crash replicas deduplicate without losing later identical ABA rewrites.
+- [2.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:1615cd8b3a39cc68715399604cefea4fde430e4cf595f075f465a022a26a4c7c] Legacy case-varied retries could duplicate preserved 8-hex records; use ordinal-insensitive content migration matching.
+- [2.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:db160cabd7fe1102c0337e8bdd52ae18c7ede1a8c9659cb45f50728adae44308] Crash coverage must fault the atomic temp-before-replace boundary and prove recovery rather than seed an unrelated stale temp.
 
 ## CR Capture
 Phase: 3

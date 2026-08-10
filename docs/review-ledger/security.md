@@ -14,6 +14,7 @@
 - [2026-08-10] Final review found a link-swap race between repair source validation and copy; read once and bind bytes to the immutable observation digest before backup write. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-10] Final review found mutable branch choices unbound; completion now requires the operator-retained lifecycle head and verifies exact dispositions. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
 - [2026-08-10] Fingerprint confinement did not reject intermediate links or reparse points. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
+- [2026-08-10] Fixed case-distinct PlanState inventory matching that could accept an uninventoried sibling on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-2 #req-8 #security
 - [2026-08-09] Fixed case-insensitive physical containment on Unix accepting a case-variant sibling link target. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Fixed non-asserting timestamp formats leaking malformed stored text canonical candidate/digest hashes not being rechecked and orphan run due provenance not being validated. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-3 #req-7 #security
 - [2026-08-09] Fixed pinned state bounds being checked only after git show materialized the complete remote blob. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
@@ -23,6 +24,7 @@
 - [2026-08-10] HEAD is captured after final validation allowing a concurrent commit to become the pushed unvalidated OID. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
 - [2026-08-10] Installed Invoke-SiProposalSync lacks the latest trusted-checkout immutable-main and cleanup fixes. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-8 #security
 - [2026-08-09] Ledger path confinement was lexical only so a symlinked review-ledger directory could redirect writes outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
+- [2026-08-10] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes. (plan-1936cb, src:autopilot, sev:Med) #phase-2 #req-8 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] PlanState physical confinement used case-insensitive prefix comparison on Unix and could accept case-distinct escape targets. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-10] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
@@ -39,3 +41,4 @@
 - [2026-08-10] Sole-resolver proof scanned ps1 scripts but omitted executable psm1 modules. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Standalone resolver receipt verification could follow a symlinked receipt directory outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-7 #security
 - [2026-08-10] Trusted proposal sync accepts any external checkout without pinning its HEAD or cleanliness to fetched origin/main. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
+- [2026-08-10] Unvalidated overflow markers could delete active records; verify schema plan filename digest count and records before repair. (plan-1936cb, src:autopilot, sev:High) #phase-2 #req-7 #security
