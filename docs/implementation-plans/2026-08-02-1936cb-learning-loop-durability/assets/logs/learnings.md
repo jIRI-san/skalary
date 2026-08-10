@@ -3,10 +3,12 @@ Phase: 1
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -19,7 +21,6 @@ No entries for this phase.
 ## Learnings Capture
 Phase: 3
 
-- [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-4,REQ-7] [review:cr] [source-record:4ce53563bb1e59b45dc2f53b1133a770e48b866aace9bf88b1967333f787f56f] Concurrency evidence must contend on the same store and exact capacity boundary; distinct categories or sequential prechecks prove weaker invariants.
 - [3.1] [trigger:rework>1] [concern:performance] [req:REQ-4] [review:cr] [source-record:4556b5bb16e5bb63fb0564029056edccb32fa501a6fc47ea717cc06af6c5a5e0] Batch writers must index idempotence and recurrence keys once; per-candidate scans become quadratic at the legal final-sweep boundary.
 - [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:5a9538cc4bd4865bce799ecec59f4009e9f83c89f4eb02c4d1ad6d937d4ddc67] Concurrency regressions need an observable synchronization point or a deterministic state path; fixed sleeps cannot prove which side of a precheck ran.
 
@@ -38,9 +39,11 @@ Phase: 5
 - [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-3,REQ-8] [review:none] [source-record:fd463b4883053cb24a5bb30d63036f8e52e8b380ffb996485cff886cd6ebb715] Headless SI tests must distinguish running a proposal from enqueueing a durable due; the old 'queues nothing' invariant blocked the planned handoff.
 - [5.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-2,REQ-3,REQ-8] [review:none] [source-record:2a69326264281c5fbb4c2f8634e7c439bbb0a0607a8bbcac2ec676bfc7fec78e] Installed lifecycle tests must build the full CI dependency closure and encode omitted nullable JSON fields explicitly; direct SI fixtures can miss both integration and schema-coercion defects.
 - [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-3,REQ-8] [review:none] [source-record:c8bd18cdce9c8271bc209b7bf358116985e54af5885f97297bdaeb5fa7e1a22e] Failure-path integration tests need a deterministic storage fault because SI repo identity intentionally falls back when origin is absent.
+- [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-8] [review:none] [source-record:1f01744ed0c7ce6ca108c9a3a1546fd7ba7407a99d5c3bb5308c7d2dfeb731e6] Suite measurement must run after every new file is tracked because the fingerprint intentionally ignores untracked paths outside git ls-files.
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
