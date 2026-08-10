@@ -81,6 +81,10 @@ Phase: 3
 - [3.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:5fc51db5f1108337448374eddc31cf0f80e62d1f657c5a54b45413d3a47e5d57] Final CR: capacity-blocked phase harvest dereferences absent Receipt and Ledger properties before checking status, returning the wrong degraded result.
 - [3.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-4] [review:cr] [source-record:9a26e7c091d91994dd274d73e61f266d720d0c94dc505cf4e643c2915fc03529] Code review found no significant defect in the indexed ledger batch engine or capacity-result ordering.
 - [3.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-4] [review:cr] [source-record:1568b97993a5ecc5cabbd4ccac81efa1fac3829869956c5772c279b39ed46fb4] Second-opinion review confirmed indexed batch semantics, plan caching, and capacity status ordering are behavior-preserving.
+- [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:ac2fb066985478e053008df71bd7ca53bbe90ebcc96bbee2d11e8fc23ab9e9df] Fixed-sleep receipt race could false-green before the child reached in-lock arbitration; replaced it with a deterministic locked-path regression.
+- [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:71af34ec00bc463da4922252711a5716ad54ffc256f7767b04fc0f9cf723e9e4] Timed-out child cleanup did not wait after termination; removing the child-process race eliminated the leak and failure-masking path.
+- [3.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:12b049b5213eca2c057fd23021047a201426ba0a20bbc5f9bb619376a794ec88] Re-review found no significant issue after replacing the timing race with deterministic locked-path coverage.
+- [3.3] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:ce5edf758e7f0462c2ee36696ae631713decf09d11257a7f2dd8cdad8bd8031d] Second-opinion review confirmed the locked over-cap replay and exact 4096-candidate boundary tests cannot false-green.
 
 ## CR Capture
 Phase: 4

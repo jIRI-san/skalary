@@ -470,6 +470,34 @@ Describe 'Installed learning harvest workflow' {
             Remove-Item -LiteralPath $fixture.Root -Recurse -Force
         }
 
+        $replayCapacity = New-HarvestFixture
+        try {
+            Add-HarvestNote -Fixture $replayCapacity -Kind Capture -Phase 1 -Concern security `
+                -Requirement REQ-1 -Message 'Existing receipt replay must preserve capacity status'
+            (Invoke-InstalledHarvest -ScriptPath $script:ciScript -Fixture $replayCapacity `
+                    -Source ci).ExitCode | Should -Be 0
+            $replayReceiptRoot = Join-Path $replayCapacity.PlanDir 'assets/harvest-receipts'
+            for ($index = 100; $index -lt 164; $index++) {
+                [System.IO.File]::WriteAllText(
+                    (Join-Path $replayReceiptRoot ("phase-{0:D3}.json" -f $index)),
+                    '{}',
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+            }
+            $replayLedgerPath = Join-Path $replayCapacity.Root 'docs/review-ledger/security.md'
+            $replayLedgerBefore = [System.IO.File]::ReadAllBytes($replayLedgerPath)
+            $replay = Invoke-InstalledHarvest -ScriptPath $script:ciScript `
+                -Fixture $replayCapacity -Source ci
+            $replay.ExitCode | Should -Be 4
+            $replay.Output | Should -Match 'capacity-blocked'
+            $replay.Output | Should -Not -Match 'degraded'
+            [Convert]::ToHexString([System.IO.File]::ReadAllBytes($replayLedgerPath)) |
+                Should -Be ([Convert]::ToHexString($replayLedgerBefore))
+        }
+        finally {
+            Remove-Item -LiteralPath $replayCapacity.Root -Recurse -Force
+        }
+
         $racing = New-HarvestFixture -PhaseCount 2
         $raceProcesses = @()
         try {

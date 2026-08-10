@@ -653,12 +653,6 @@ try {
     $existingReceipts = @(if (Test-Path -LiteralPath $receiptRoot -PathType Container) {
             Get-ChildItem -LiteralPath $receiptRoot -File -Filter 'phase-*.json'
         })
-    if ($existingReceipts.Count -gt $maxReceipts) {
-        Write-HarvestResult -Status capacity-blocked -TargetPhase $Phase `
-            -ReceiptCount $existingReceipts.Count `
-            -Note 'Active phase receipt ceiling exceeded before ledger mutation.'
-        exit 4
-    }
     if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
         $replay = Invoke-WithAtomicStoreLock -Scope $normalizedHarvestLock -TimeoutSeconds 30 -Action {
             $receiptCount = @(Get-ChildItem -LiteralPath $receiptRoot -File -Filter 'phase-*.json').Count

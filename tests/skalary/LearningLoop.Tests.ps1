@@ -368,7 +368,7 @@ Describe 'Learning loop distribution contract' {
         $lines = [System.Collections.Generic.List[string]]::new(10002)
         $lines.Add('# Security Ledger')
         $lines.Add('')
-        for ($index = 0; $index -lt 9999; $index++) {
+        for ($index = 0; $index -lt 5904; $index++) {
             $lines.Add(
                 "- [2026-08-10] bounded lesson $($index.ToString('D5')) " +
                 '(plan-007, src:ci, sev:Low)'
@@ -379,25 +379,36 @@ Describe 'Learning loop distribution contract' {
             ($lines -join "`n") + "`n",
             [System.Text.UTF8Encoding]::new($false)
         )
+        $batch = @(
+                for ($index = 5904; $index -lt 10000; $index++) {
+                    [pscustomobject]@{
+                        Category = 'security'
+                        Plan = '007'
+                        Src = 'ci'
+                        Severity = 'Low'
+                        Entry = "bounded lesson $($index.ToString('D5'))"
+                        Date = '2026-08-10'
+                    }
+                }
+        )
 
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $result = Invoke-LedgerScalar -RepoRoot $root -Category security -Plan 007 `
-            -Src ci -Severity Low -Entry 'bounded lesson 99999' -Date '2026-08-10'
+        $result = Invoke-LedgerBatch -RepoRoot $root -Entry $batch
         $stopwatch.Stop()
         $result.Status | Should -Be 'complete'
-        $result.Added | Should -Be 1
+        $result.Added | Should -Be 4096
         $stopwatch.Elapsed.TotalSeconds |
-            Should -BeLessOrEqual 60 -Because 'the exact legal ledger maximum is a focused test, not an exemption from the suite budget'
+                Should -BeLessOrEqual 60 -Because 'the exact 10,000-record and 4,096-candidate boundary must remain bounded'
         @(
-            Get-Content -LiteralPath $ledgerPath |
-                Where-Object { $_ -match '^- \[' }
-            ).Count | Should -Be 10000
+                Get-Content -LiteralPath $ledgerPath |
+                    Where-Object { $_ -match '^- \[' }
+        ).Count | Should -Be 10000
 
-            $before = [System.IO.File]::ReadAllBytes($ledgerPath)
-            $plusOne = Invoke-LedgerScalar -RepoRoot $root -Category security -Plan 007 `
+        $before = [System.IO.File]::ReadAllBytes($ledgerPath)
+        $plusOne = Invoke-LedgerScalar -RepoRoot $root -Category security -Plan 007 `
                 -Src ci -Severity Low -Entry 'bounded lesson 10000' -Date '2026-08-10'
-            $plusOne.Status | Should -Be 'capacity-blocked'
-            [Convert]::ToHexString([System.IO.File]::ReadAllBytes($ledgerPath)) |
+        $plusOne.Status | Should -Be 'capacity-blocked'
+        [Convert]::ToHexString([System.IO.File]::ReadAllBytes($ledgerPath)) |
                 Should -Be ([Convert]::ToHexString($before))
     }
 }

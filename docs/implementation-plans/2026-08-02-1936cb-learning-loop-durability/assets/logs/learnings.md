@@ -1,10 +1,11 @@
 ## Learnings Capture
 Phase: 1
+No entries for this phase.
 
-- [1.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-1,REQ-7] [review:cr] [source-record:4664114d25730c281754f276e7d064cd923737df10ea838c22627162102849ca] Multi-file state transitions must perform run-first writes inside the same repo-scoped lock as the manifest CAS.
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -18,9 +19,11 @@ Phase: 3
 - [3.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:8bf61c3b3c6111065e7ac79fb6de718dd4f99e88e9f2d69974cd9986bfc9665b] A phase receipt is durable only when complete or empty gates completion and its receipt plus ledger delta are committed before runtime teardown.
 - [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-4,REQ-7] [review:cr] [source-record:4ce53563bb1e59b45dc2f53b1133a770e48b866aace9bf88b1967333f787f56f] Concurrency evidence must contend on the same store and exact capacity boundary; distinct categories or sequential prechecks prove weaker invariants.
 - [3.1] [trigger:rework>1] [concern:performance] [req:REQ-4] [review:cr] [source-record:4556b5bb16e5bb63fb0564029056edccb32fa501a6fc47ea717cc06af6c5a5e0] Batch writers must index idempotence and recurrence keys once; per-candidate scans become quadratic at the legal final-sweep boundary.
+- [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:5a9538cc4bd4865bce799ecec59f4009e9f83c89f4eb02c4d1ad6d937d4ddc67] Concurrency regressions need an observable synchronization point or a deterministic state path; fixed sleeps cannot prove which side of a precheck ran.
 
 ## Learnings Capture
 Phase: 4
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -35,6 +38,7 @@ Phase: 5
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
