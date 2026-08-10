@@ -86,3 +86,14 @@ Phase 7 Crosscheck:
 ✓ REQ-7 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
 ✓ REQ-7 — test:SiScope.ExpectedHeadMergeEnforced — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
 ✓ REQ-8 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 9d6b6633a3c981d055ec731b4363c212c545f1d1
+
+Phase 8 Crosscheck:
+✓ REQ-8 — test:LearningLoop.PayloadOwnershipAndDrift — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:LearningLoop.StructuralEvals — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:SiHarvest.ConsumerInstallExecution — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:LearningLoop.MaximumBoundRuntime — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:LedgerStore.ScalarBatchParity — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:SuiteBudget.MeasurementModeRefreshesStaleRows — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:SuiteBudget.MeasurementModeRejectsMismatchedOrReplayedToken — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:SuiteBudget.OrdinaryModeRejectsStaleRows — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
+✓ REQ-8 — test:SuiteBudget.WithinHardCeiling — passed — e16134152277cca9d46bc61b4c0422bee708fe4e

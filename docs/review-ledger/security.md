@@ -10,6 +10,7 @@
 - [2026-08-09] Enumerated overflow and receipt child files were read without rechecking physical descent from their confined roots. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-09] Explicit archive source paths were interpolated into wrapper metadata without fully neutralizing marker tokens or line breaks. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-1 #req-7 #security
 - [2026-08-10] Final review found mutable branch choices unbound; completion now requires the operator-retained lifecycle head and verifies exact dispositions. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
+- [2026-08-10] Fingerprint confinement did not reject intermediate links or reparse points. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Fixed case-insensitive physical containment on Unix accepting a case-variant sibling link target. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Fixed non-asserting timestamp formats leaking malformed stored text canonical candidate/digest hashes not being rechecked and orphan run due provenance not being validated. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-3 #req-7 #security
 - [2026-08-09] Fixed pinned state bounds being checked only after git show materialized the complete remote blob. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
@@ -24,9 +25,12 @@
 - [2026-08-10] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
 - [2026-08-05] Removing -SkipPublisherCheck restores a check only if one still runs: Install-PSResource verifies nothing unless -AuthenticodeCheck is passed so the removal alone is a rename rather than a control. (plan-768d7b, src:autopilot, sev:High) #phase-8 #req-9
 - [2026-08-10] Repair receipts were self-authenticating; completion now replays repair from pinned main with trusted code and compares the full state result. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
+- [2026-08-10] Replay coverage used a never-valid token and the nonce was not consumed across a measured run. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
+- [2026-08-10] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Second-opinion review found case-insensitive state-path admission; canonical Git paths now require ordinal-exact matches. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
 - [2026-08-10] Second-opinion review found record-only PRs admitted customization edits; zero-accepted outcomes now allow only exact lifecycle state paths. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
+- [2026-08-10] Sole-resolver proof scanned ps1 scripts but omitted executable psm1 modules. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Standalone resolver receipt verification could follow a symlinked receipt directory outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-7 #security
 - [2026-08-10] Trusted proposal sync accepts any external checkout without pinning its HEAD or cleanliness to fetched origin/main. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security

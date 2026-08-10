@@ -2,6 +2,7 @@
 
 - [2026-08-09] A durable snapshot receipt must share the writers physically canonical lock and recheck every source generation before publication. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-4 #req-7
 - [2026-08-01] A first-use scaffold whose owner throws instead of creating the path disables the feature silently in every consumer repo; declare it only if the owner really writes it. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
+- [2026-08-10] A freshness protocol must support absent-row bootstrap consume authorization at an existing process boundary and preserve path bytes exactly. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-8 #req-8
 - [2026-08-05] A gate measuring a command that spans several processes must read and clear its clock before every exit not only the green one: a clock stranded by a red run is charged to the next run as time it never spent. (plan-768d7b, src:autopilot, sev:High) #phase-4 #req-2
 - [2026-08-10] A partial Begin retry at the 16-run boundary rechecks capacity before recognizing the existing in-flight due. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-6 #req-1
 - [2026-08-01] A payload that reads a file existing only in the source repo degrades silently rather than failing; every runtime read needs an install-time or first-use declaration. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
@@ -13,6 +14,7 @@
 - [2026-08-10] Final review found ambiguous successful merges unrecoverable; completion now reconciles merged responses and validates terminal authoritative state on retry. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-7 #req-2
 - [2026-08-10] Final review found expected-head merge did not recheck base identity; completion now refreshes and binds base name/OID plus remote main immediately before merge. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-7 #req-2
 - [2026-08-09] Final sweep required preexisting ledger category files so fresh standalone installs could skip valid receipt replay. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-3 #req-8
+- [2026-08-10] Fingerprint normalization changed legal Unix backslash filename data into separators. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-8 #req-8
 - [2026-08-09] Fixed deferred-until classification using host-local DateTime ticks and failing on schema-valid omitted deferUntilUtc. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-5 #req-3
 - [2026-08-09] Fixed duplicate enqueue rewriting manifest generation and retry guidance dropping an existing unpushed due state. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-5 #req-3 #req-8
 - [2026-08-09] Fixed fixed-branch capacity omitting retained completed runs due IDs not being re-derived run provenance drift and duplicate manifest due/run references. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-5 #req-2 #req-3
@@ -25,6 +27,7 @@
 - [2026-08-09] Ledger mutex identity used the lexical repository path so symlink aliases could acquire different locks for the same physical store. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-3 #req-7
 - [2026-08-10] Lifecycle-head state can contain forged auxiliary artifacts because only the manifest is restored from main. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-6 #req-2
 - [2026-08-09] Manifest run and phase-receipt inputs were not fully schema and digest validated before a complete harvest result. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-4 #req-6
+- [2026-08-10] Measurement authorization allowed stale rows but not a missing platform row after stale-row retirement. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-8 #req-8
 - [2026-08-10] Merge validation admitted unrelated SI state; completion now confines state paths and preserves unrelated manifest entries exactly. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-7 #req-2
 - [2026-08-10] Mutable origin/main refs are reused after pinning allowing concurrent fetches to change the validated base. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-6 #req-2
 - [2026-08-10] No-candidate record PRs were rejected; completion now validates and merges their already-terminal state unchanged. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-7 #req-3
@@ -39,6 +42,7 @@
 - [2026-08-10] Repair marked mutation-started after quarantine moves; journaling now advances before the first target move. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-7 #req-7
 - [2026-08-09] Resolver JCS string serialization emitted uppercase hexadecimal control escapes instead of RFC 8785 lowercase escapes. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-4 #req-6
 - [2026-08-09] Resolver receipt capacity used a lexical mutex scope so physical repository aliases could race past the 512-file ceiling. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-4 #req-7
+- [2026-08-10] Scalar-batch parity used pre-sorted recurrence inputs and hid invocation-order divergence. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-8 #req-8
 - [2026-08-09] Second-opinion review found JCS named escapes continued only the switch and then emitted the same character again producing invalid canonical strings. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-4 #req-6
 - [2026-08-09] Second-opinion review found malformed backtick fence construction that joined literal n tokens to evidence and unanchored the closing marker. (plan-1936cb, src:autopilot, sev:Med) #correctness-reliability #phase-4 #req-6
 - [2026-08-10] Second-opinion review found terminal generation and provenance under-validated; completion now binds both to pinned authoritative state. (plan-1936cb, src:autopilot, sev:High) #correctness-reliability #phase-7 #req-2
