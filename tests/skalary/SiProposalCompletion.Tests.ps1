@@ -885,7 +885,11 @@ Describe 'Crash-safe SI repair journal' {
             'backups', $snapshot.ObservationId
         )
         [void](New-Item -ItemType Directory -Path $backup -Force)
-        [System.IO.File]::Copy($manifestPath, (Join-Path $backup 'state.json'), $true)
+        $manifestBackup = Join-Path $backup 'files/docs/self-improvement/state.json'
+        [void](New-Item -ItemType Directory -Path (
+                Split-Path -Parent $manifestBackup
+            ) -Force)
+        [System.IO.File]::Copy($manifestPath, $manifestBackup, $true)
         $before = Get-SiArtifactDigest -Path $manifestPath
         [System.IO.File]::WriteAllText(
             (Join-Path $backup 'apply-journal.json'),
@@ -908,6 +912,10 @@ Describe 'Crash-safe SI repair journal' {
         (Get-SiStoreInspection -RepoRoot $root).Status |
             Should -Be 'migration-required'
 
+        $repairedManifestJson = (New-SiManifest | ConvertTo-Json -Depth 20 -Compress) + "`n"
+        $expectedAfterDigest = Get-SiArtifactDigest -Bytes (
+            [System.Text.UTF8Encoding]::new($false).GetBytes($repairedManifestJson)
+        )
         [System.IO.File]::WriteAllText(
             (Join-Path $backup 'apply-journal.json'),
             (([ordered]@{
@@ -915,12 +923,14 @@ Describe 'Crash-safe SI repair journal' {
                         observationId = $snapshot.ObservationId
                         beforeDigest = $before
                         stage = 'mutation-started'
+                        expectedAfterDigest = $expectedAfterDigest
                     } | ConvertTo-Json -Compress) + "`n")
         )
-        [System.IO.File]::WriteAllText(
-            $manifestPath,
-            ((New-SiManifest | ConvertTo-Json -Depth 20 -Compress) + "`n")
-        )
+        [System.IO.File]::WriteAllText($manifestPath, $repairedManifestJson)
+        {
+            Add-SiDue -RepoRoot $root -RepoId 'owner/repo' -PlanId '1936cb' `
+                -SourceCommit ('f' * 40)
+        } | Should -Throw '*apply-incomplete*'
         $restored = Invoke-SiRepair -RepoRoot $root -Mode Rollback `
             -Observation $snapshot.ObservationId
         $restored.Mutated | Should -BeTrue
@@ -942,7 +952,7 @@ Describe 'Crash-safe SI repair journal' {
         } | Should -Throw '*changed before repair mutation*'
         [System.IO.File]::WriteAllText(
             $manifestPath,
-            [System.IO.File]::ReadAllText((Join-Path $backup 'state.json'))
+            [System.IO.File]::ReadAllText($manifestBackup)
         )
         [void](Invoke-SiRepair -RepoRoot $root -Mode Rollback `
                 -Observation $snapshot.ObservationId)

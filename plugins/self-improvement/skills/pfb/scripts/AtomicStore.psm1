@@ -93,6 +93,26 @@ function Set-AtomicStoreContent {
         [scriptblock]$Validate
     )
 
+    $parameters = @{
+        Path = $Path
+        Bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Content)
+        Validate = $Validate
+    }
+    if ($PSBoundParameters.ContainsKey('ExpectedGeneration')) {
+        $parameters.ExpectedGeneration = $ExpectedGeneration
+    }
+    return Set-AtomicStoreBytes @parameters
+}
+
+function Set-AtomicStoreBytes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Bytes,
+        [string]$ExpectedGeneration,
+        [scriptblock]$Validate
+    )
+
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $parent = [System.IO.Path]::GetDirectoryName($fullPath)
     if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
@@ -101,8 +121,6 @@ function Set-AtomicStoreContent {
 
     $tempPath = Join-Path $parent ('.atomic-' + [Guid]::NewGuid().ToString('N') + '.tmp')
     try {
-        $utf8 = [System.Text.UTF8Encoding]::new($false)
-        $bytes = $utf8.GetBytes($Content)
         $stream = [System.IO.FileStream]::new(
             $tempPath,
             [System.IO.FileMode]::CreateNew,
@@ -112,7 +130,7 @@ function Set-AtomicStoreContent {
             [System.IO.FileOptions]::WriteThrough
         )
         try {
-            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Write($Bytes, 0, $Bytes.Length)
             $stream.Flush($true)
         }
         finally {
@@ -208,4 +226,5 @@ function Invoke-AtomicStoreUpdate {
 }
 
 Export-ModuleMember -Function Get-AtomicStoreStatus, Get-AtomicStoreGeneration,
-    Invoke-WithAtomicStoreLock, Set-AtomicStoreContent, Invoke-AtomicStoreUpdate
+    Invoke-WithAtomicStoreLock, Set-AtomicStoreContent, Set-AtomicStoreBytes,
+    Invoke-AtomicStoreUpdate

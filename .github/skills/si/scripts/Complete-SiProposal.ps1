@@ -290,9 +290,10 @@ function Assert-SiCompletionPaths {
         throw "Proposal touches protected SI trust anchor '$($denied[0].Path)'."
     }
     if ($RepairOnly) {
+        $statePrefix = (Get-SiStateRelativePath -Kind Root).TrimEnd('/') + '/'
         $outsideState = @($paths | Where-Object {
                 -not $_.Replace('\', '/').StartsWith(
-                    'docs/self-improvement/',
+                    $statePrefix,
                     [System.StringComparison]::Ordinal
                 )
             })
@@ -309,7 +310,8 @@ function Get-SiCompletionRun {
         [Parameter(Mandatory)][string]$ExpectedRunId
     )
 
-    $runsRoot = Resolve-SiStatePath -RepoRoot $Root -Segments @('runs')
+    $runsRoot = Resolve-SiStatePath -RepoRoot $Root `
+        -Segments @((Get-SiStateContract).Topology.ActiveRunsSegments)
     $matches = @(Get-ChildItem -LiteralPath $runsRoot -Filter "$ExpectedRunId.json" `
             -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 2)
     if ($matches.Count -ne 1) {
@@ -371,7 +373,8 @@ function Assert-SiLifecycleChoiceBinding {
     if ([string]$lifecycleRun.runId -ne $RunId -or
         [string]$lifecycleRun.dueId -ne $DueId -or
         [string]$lifecycleRun.provenance.resolverReceiptId -ne $Receipt -or
-        [string]$lifecycleRun.status -notin @('proposal-pending', 'no-candidates') -or
+        -not (Test-SiRunStatus -Status ([string]$lifecycleRun.status) `
+            -Set ProposalAdmitted) -or
         $lifecycleChoices -ne $liveChoices) {
         throw 'Live proposal choices do not match the operator-held lifecycle head.'
     }
@@ -379,10 +382,10 @@ function Assert-SiLifecycleChoiceBinding {
         [System.StringComparer]::Ordinal
     )
     foreach ($path in @(
-            'docs/self-improvement/state.json',
+            (Get-SiStateRelativePath -Kind Manifest),
             $runRelative,
-            "docs/self-improvement/resolver-receipts/$Receipt.json",
-            'docs/self-improvement/harvest-index.json'
+            (Get-SiStateRelativePath -Kind ResolverReceipts -Child "$Receipt.json"),
+            (Get-SiStateRelativePath -Kind HarvestIndex)
         )) {
         [void]$allowed.Add($path)
     }
@@ -403,7 +406,7 @@ function Get-SiPinnedManifest {
         [Parameter(Mandatory)][string]$BaseOid
     )
 
-    $object = "$BaseOid`:docs/self-improvement/state.json"
+    $object = "$BaseOid`:$(Get-SiStateRelativePath -Kind Manifest)"
     $json = (Invoke-SiCompletionGit -Root $Root -Argument @(
             'show', $object
         )).Output -join "`n"
@@ -435,14 +438,15 @@ function Assert-SiRunStateDelta {
         [System.StringComparer]::Ordinal
     )
     foreach ($path in @(
-            'docs/self-improvement/state.json', $runRelative, $receiptRelative
+            (Get-SiStateRelativePath -Kind Manifest), $runRelative, $receiptRelative
         )) {
         [void]$allowed.Add($path)
     }
+    $statePrefix = (Get-SiStateRelativePath -Kind Root).TrimEnd('/') + '/'
     $statePaths = @(Get-SiCompletionDiffPath -Root $Root `
             -Range "$BaseOid...HEAD" | Where-Object {
                 $_.Replace('\', '/').StartsWith(
-                    'docs/self-improvement/',
+                    $statePrefix,
                     [System.StringComparison]::Ordinal
                 )
             })
@@ -494,7 +498,9 @@ function Assert-SiRunStateDelta {
     }
     $beforeRecent = @($pinned.recentRuns | Where-Object {
             [string]$_.dueId -ne $DueId
-        } | Select-Object -First 63) | ConvertTo-Json -Depth 100 -Compress
+        } | Select-Object -First (
+            (Get-SiStateContract).Limits.RecentRunReferences - 1
+        )) | ConvertTo-Json -Depth 100 -Compress
     $afterRecent = @($CurrentManifest.recentRuns | Where-Object {
             [string]$_.dueId -ne $DueId
         }) | ConvertTo-Json -Depth 100 -Compress
@@ -523,7 +529,7 @@ function Assert-SiCompletedRun {
     $record = Get-SiCompletionRun -Root $Root -ExpectedRunId $RunId
     $run = $record.Value
     if ([string]$run.runId -ne $RunId -or [string]$run.dueId -ne $DueId -or
-        [string]$run.status -notin @('completed', 'no-candidates') -or
+        -not (Test-SiRunStatus -Status ([string]$run.status) -Set Completed) -or
         [string]$run.provenance.resolverReceiptId -ne $Receipt) {
         throw 'Completed SI run identity or status is invalid.'
     }
@@ -584,7 +590,7 @@ function Complete-SiRunState {
 
     $record = Get-SiCompletionRun -Root $Root -ExpectedRunId $RunId
     $run = $record.Value
-    if ([string]$run.status -in @('completed', 'no-candidates')) { return $false }
+    if (Test-SiRunStatus -Status ([string]$run.status) -Set Completed) { return $false }
     if ([string]$run.status -ne 'proposal-pending' -or
         [string]$run.dueId -ne $DueId -or
         [string]$run.provenance.resolverReceiptId -ne $Receipt) {
@@ -644,7 +650,7 @@ function Get-SiRepairStateMap {
                     $stateRoot, $_.FullName
                 ).Replace('\', '/')
                 -not $relative.StartsWith(
-                    'repair-receipts/',
+                    ((Get-SiStateContract).Topology.ReceiptSegments -join '/') + '/',
                     [System.StringComparison]::Ordinal
                 ) -and $relative -ne '.state.lock'
             } | Select-Object -First 258)
@@ -668,10 +674,10 @@ function Assert-SiRepairReceipt {
     )
 
     $observationPath = Resolve-SiStatePath -RepoRoot $Root -Segments @(
-        'repair-observations', "$Observation.json"
+        @((Get-SiStateContract).Topology.ObservationSegments) + "$Observation.json"
     )
     $receiptPath = Resolve-SiStatePath -RepoRoot $Root -Segments @(
-        'repair-receipts', "$RepairReceipt.json"
+        @((Get-SiStateContract).Topology.ReceiptSegments) + "$RepairReceipt.json"
     )
     if (-not (Test-Path -LiteralPath $observationPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
@@ -726,19 +732,22 @@ function Assert-SiRepairReceipt {
         throw 'Repair proposal state does not match its final receipt.'
     }
     $journal = Resolve-SiStatePath -RepoRoot $Root -Segments @(
-        'backups', $Observation, 'apply-journal.json'
+        @((Get-SiStateContract).Topology.BackupSegments) +
+        @($Observation, 'apply-journal.json')
     )
     if (Test-Path -LiteralPath $journal -PathType Leaf) {
         throw 'Repair proposal still has an incomplete apply journal.'
     }
+    $receiptPrefix = (Get-SiStateRelativePath -Kind RepairReceipts).TrimEnd('/') + '/'
     $receiptDelta = @(Get-SiCompletionDiffPath -Root $Root `
             -Range "$BaseOid...HEAD" | Where-Object {
                 $_.Replace('\', '/').StartsWith(
-                    'docs/self-improvement/repair-receipts/',
+                    $receiptPrefix,
                     [System.StringComparison]::Ordinal
                 )
             })
-    $expectedReceiptPath = "docs/self-improvement/repair-receipts/$RepairReceipt.json"
+    $expectedReceiptPath = Get-SiStateRelativePath -Kind RepairReceipts `
+        -Child "$RepairReceipt.json"
     if ($receiptDelta.Count -ne 1 -or $receiptDelta[0] -ne $expectedReceiptPath) {
         throw 'Repair proposal contains an unadmitted repair receipt.'
     }
@@ -753,7 +762,8 @@ function Assert-SiRepairReceipt {
                 'worktree', 'add', '--quiet', '--detach', $replayRoot, $BaseOid
             ))
         $replayObservationPath = Resolve-SiStatePath -RepoRoot $replayRoot `
-            -Segments @('repair-observations', "$Observation.json")
+            -Segments (@((Get-SiStateContract).Topology.ObservationSegments) +
+                "$Observation.json")
         [void](New-Item -ItemType Directory -Path (
                 Split-Path -Parent $replayObservationPath
             ) -Force)
@@ -778,7 +788,8 @@ function Assert-SiRepairReceipt {
         else {
             $receiptRoot = Split-Path -Parent (
                 Resolve-SiStatePath -RepoRoot $replayRoot -Segments @(
-                    'repair-receipts', "$RepairReceipt.json"
+                    @((Get-SiStateContract).Topology.ReceiptSegments) +
+                    "$RepairReceipt.json"
                 )
             )
             $applyReceipts = @(Get-ChildItem -LiteralPath $receiptRoot `
@@ -803,7 +814,8 @@ function Assert-SiRepairReceipt {
                 -Receipt ([string]$applyReceipts[0].receiptId)
         }
         $replayedReceiptPath = Resolve-SiStatePath -RepoRoot $replayRoot `
-            -Segments @('repair-receipts', "$($replayed.ReceiptId).json")
+            -Segments (@((Get-SiStateContract).Topology.ReceiptSegments) +
+                "$($replayed.ReceiptId).json")
         $replayedReceipt = Get-Content -LiteralPath $replayedReceiptPath -Raw |
             ConvertFrom-Json -Depth 20
         if ([string]$replayedReceipt.beforeDigest -ne [string]$repair.beforeDigest -or
@@ -960,6 +972,7 @@ if ((Get-SiCompletionOid -Root $root -Ref 'HEAD') -ne $pinnedMain) {
     throw 'Trusted SI completion checkout is not pinned to fetched origin/main.'
 }
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
+$stateRootRelative = Get-SiStateRelativePath -Kind Root
 
 $repositoryName = Get-SiProviderRepository -Root $root
 $parts = $repositoryName.Split('/', 2)
@@ -1032,7 +1045,7 @@ try {
             -PullRequest $pullRequest -LiveHeadOid $liveHead
         if ($stateCommitted) {
             [void](Invoke-SiCompletionGit -Root $worktree -Argument @(
-                    'add', '--', 'docs/self-improvement'
+                    'add', '--', $stateRootRelative
                 ))
             [void](Invoke-SiCompletionGit -Root $worktree -Argument @(
                     'commit', '--quiet', '-m',

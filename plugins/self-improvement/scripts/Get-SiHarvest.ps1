@@ -54,7 +54,7 @@ $maxScanSeconds = 60
 $maxSelectedRecords = 1024
 $maxSelectedBytes = 4MB
 $maxPageBytes = 256KB
-$maxIndexBytes = 8MB
+$maxIndexBytes = (Get-SiStateContract).Limits.HarvestIndexBytes
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $newline = "`n"
 $wrapperFence = [string]::new([char]0x60, 4)
@@ -766,7 +766,8 @@ $plan = Resolve-Plan -Reference $PlanReference -RepoRoot $repoRootFull -Inventor
 $planId = [string]$plan.Id
 $planDir = [System.IO.Path]::GetFullPath([string]$plan.Path)
 $cursorDocument = if ($Cursor) { Read-HarvestCursor -Value $Cursor } else { $null }
-$indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @('harvest-index.json')
+$indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull `
+    -Segments @([string]$stateContract.Topology.HarvestIndexName)
 Assert-PhysicalDescendant -Root $repoRootFull -Path $indexPath
 
 if ($null -ne $cursorDocument) {
@@ -823,7 +824,8 @@ function Add-SourceSpec {
 $manifestPath = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @(
     [string]$stateContract.Topology.ManifestName
 )
-Add-SourceSpec -Path $manifestPath -Kind manifest -MaxBytes 256KB
+Add-SourceSpec -Path $manifestPath -Kind manifest `
+    -MaxBytes $stateContract.Limits.ManifestBytes
 foreach ($ledgerName in $ledgerNames) {
     Add-SourceSpec -Path (Join-Path $repoRootFull "docs/review-ledger/$ledgerName") -Kind ledger -MaxBytes 4MB
 }
@@ -867,15 +869,17 @@ $stateRootRelative = (
     Get-RelativeHarvestPath -Root $repoRootFull -Path (Split-Path -Parent $manifestPath)
 ).TrimEnd('/') + '/'
 $activeRunsRelative = $stateRootRelative + [string]$stateContract.Topology.ActiveRunsSegments[0] + '/'
+$maximumActiveRuns = $stateContract.Limits.ActiveCompletedRuns +
+    $stateContract.Limits.ActiveInFlightRuns
 $runEntries = @(Get-PinnedTreeEntries -Root $repoRootFull -CommitOid $PinnedBaseOid `
-        -Prefix $activeRunsRelative.TrimEnd('/') -MaxCount 48)
+        -Prefix $activeRunsRelative.TrimEnd('/') -MaxCount $maximumActiveRuns)
 foreach ($entry in $runEntries) {
     if ($entry.Path -notmatch ('^' + [regex]::Escape($activeRunsRelative) +
             '\d{4}/\d{2}/[0-9a-f]{64}\.json$')) {
         throw "Unexpected active SI run path '$($entry.Path)'."
     }
     Add-SourceSpec -Path (Join-Path $repoRootFull $entry.Path) -Kind active-run `
-        -MaxBytes 1MB -Entry $entry
+        -MaxBytes $stateContract.Limits.RunBytes -Entry $entry
 }
 
 $archivePrefixes = @(
@@ -953,13 +957,14 @@ foreach ($spec in @($sourceSpecs | Sort-Object RelativePath)) {
         $run = $text | ConvertFrom-Json -Depth 100
         $runRecords = @(ConvertTo-HarvestRecords -SourcePath $spec.RelativePath `
                 -SourceKind $spec.Kind -Text $text -PlanId $planId)
-        if ([string]$run.status -in @('declined-before-ranking', 'no-candidates', 'completed')) {
+        if (Test-SiRunStatus -Status ([string]$run.status) -Set Terminal) {
             $completedRuns++
         }
         else {
             $inFlightRuns++
         }
-        if ($completedRuns -gt 32 -or $inFlightRuns -gt 16) {
+        if ($completedRuns -gt $stateContract.Limits.ActiveCompletedRuns -or
+            $inFlightRuns -gt $stateContract.Limits.ActiveInFlightRuns) {
             throw 'capacity-blocked: active SI run status ceilings exceeded.'
         }
         foreach ($record in $runRecords) { $records.Add($record) }
@@ -1133,19 +1138,22 @@ if ($IssueReceipt) {
     if (-not ($receiptJson | Test-Json -SchemaFile $schemaPath -ErrorVariable errors)) {
         throw 'Generated resolver receipt failed closed-schema validation.'
     }
-    $receiptRoot = Resolve-SiStatePath -RepoRoot $repoRootFull -Segments @('resolver-receipts')
+    $receiptRoot = Resolve-SiStatePath -RepoRoot $repoRootFull `
+        -Segments @($stateContract.Topology.ResolverReceiptSegments)
     Assert-PhysicalDescendant -Root $repoRootFull -Path $receiptRoot
     $receiptLockScope = Resolve-PhysicalPath -Path $receiptRoot
     if ($IsWindows) { $receiptLockScope = $receiptLockScope.ToLowerInvariant() }
     $receiptPath = Resolve-SiStatePath -RepoRoot $repoRootFull `
-        -Segments @('resolver-receipts', "$receiptId.json")
-    $receiptWrite = Invoke-WithAtomicStoreLock -Scope $receiptLockScope -TimeoutSeconds 30 -Action {
+        -Segments (@($stateContract.Topology.ResolverReceiptSegments) + "$receiptId.json")
+    $receiptWrite = Invoke-WithAtomicStoreLock -Scope $receiptLockScope `
+        -TimeoutSeconds $stateContract.Limits.LockSeconds -Action {
         $files = @(if (Test-Path -LiteralPath $receiptRoot -PathType Container) {
                 Get-ChildItem -LiteralPath $receiptRoot -File -Filter '*.json' |
-                    Select-Object -First 513
+                    Select-Object -First ($stateContract.Limits.ResolverReceipts + 1)
             })
         $existing = Test-Path -LiteralPath $receiptPath -PathType Leaf
-        if (-not $existing -and $files.Count -ge 512) {
+        if (-not $existing -and
+            $files.Count -ge $stateContract.Limits.ResolverReceipts) {
             return [pscustomobject]@{ Status = 'capacity-blocked' }
         }
         if ($existing) {

@@ -3,23 +3,27 @@
 param(
     [string]$RepoRoot = (Get-Location).Path,
     [Parameter(Mandatory)][datetime]$BeforeUtc,
-    [ValidateRange(1, 32)][int]$MaximumRuns = 32
+    [ValidateRange(1, [int]::MaxValue)][int]$MaximumRuns = 32
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+$stateContract = Get-SiStateContract
+if ($MaximumRuns -gt $stateContract.Limits.ActiveCompletedRuns) {
+    throw "MaximumRuns exceeds the active completed-run limit."
+}
 
 $root = [System.IO.Path]::GetFullPath($RepoRoot)
 try {
-    return Invoke-WithAtomicStoreLock -Scope "$root|si-state" `
+    return Invoke-WithAtomicStoreLock -Scope (Get-SiStateLockScope -RepoRoot $root) `
         -TimeoutSeconds (Get-SiStateContract).Limits.LockSeconds -Action {
             $inspection = Get-SiStoreInspection -RepoRoot $root
             if ($inspection.Status -notin @('valid', 'capacity-blocked')) {
                 throw "Archive-SiState refuses store status '$($inspection.Status)'."
             }
-            $manifestPath = Join-Path $root 'docs/self-improvement/state.json'
+            $manifestPath = Get-SiManifestPath -RepoRoot $root
             $manifestGeneration = Get-AtomicStoreGeneration -Path $manifestPath
             $manifest = Read-SiManifest -RepoRoot $root
             $inFlightRunIds = [System.Collections.Generic.HashSet[string]]::new(
@@ -32,16 +36,15 @@ try {
                     $run = Get-Content -LiteralPath $_.FullName -Raw |
                         ConvertFrom-Json -Depth 100
                     $_.LastWriteTimeUtc -lt $BeforeUtc -and
-                    [string]$run.status -in @(
-                        'declined-before-ranking', 'no-candidates', 'completed'
-                    ) -and
+                    (Test-SiRunStatus -Status ([string]$run.status) -Set Terminal) -and
                     -not $inFlightRunIds.Contains([string]$run.runId)
                 } | Sort-Object FullName | Select-Object -First $MaximumRuns)
             if ($eligible.Count -eq 0) {
                 return [pscustomobject]@{ Status = 'complete'; Archived = 0; Paths = @() }
             }
 
-            $archiveRoot = Resolve-SiStatePath -RepoRoot $root -Segments @('archive')
+            $archiveRoot = Resolve-SiStatePath -RepoRoot $root `
+                -Segments @($stateContract.Topology.ArchiveSegments)
             $existingArchive = @(Get-ChildItem -LiteralPath $archiveRoot -Filter '*.json' -Recurse -File -ErrorAction SilentlyContinue)
             if ($existingArchive.Count + $eligible.Count -gt (Get-SiStateContract).Limits.ArchivedRuns) {
                 throw 'capacity-blocked: SI archive limit reached.'
@@ -53,7 +56,8 @@ try {
                     $run = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -Depth 100
                     $created = [datetime]$run.createdAtUtc
                     $target = Resolve-SiStatePath -RepoRoot $root -Segments @(
-                        'archive', $created.ToString('yyyy'), $created.ToString('MM'), $file.Name
+                        @($stateContract.Topology.ArchiveSegments) +
+                        @($created.ToString('yyyy'), $created.ToString('MM'), $file.Name)
                     )
                     $parent = Split-Path -Parent $target
                     if (-not (Test-Path -LiteralPath $parent -PathType Container)) {

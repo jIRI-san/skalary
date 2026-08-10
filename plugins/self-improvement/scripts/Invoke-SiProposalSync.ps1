@@ -147,7 +147,9 @@ function Read-SiProposalRun {
         [Parameter(Mandatory)][string]$ExpectedRunId
     )
 
-    $runsRoot = Resolve-SiStatePath -RepoRoot $Root -Segments @('runs')
+    $contract = Get-SiStateContract
+    $runsRoot = Resolve-SiStatePath -RepoRoot $Root `
+        -Segments @($contract.Topology.ActiveRunsSegments)
     $matches = @(Get-ChildItem -LiteralPath $runsRoot -Filter "$ExpectedRunId.json" `
             -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 2)
     if ($matches.Count -ne 1) {
@@ -175,7 +177,7 @@ function Read-SiProposalRun {
     if ([string]$run.runId -ne $ExpectedRunId -or
         [string]$run.dueId -ne $DueId -or
         [string]$run.provenance.resolverReceiptId -ne $Receipt -or
-        [string]$run.status -notin @('proposal-pending', 'no-candidates')) {
+        -not (Test-SiRunStatus -Status ([string]$run.status) -Set ProposalAdmitted)) {
         throw "Proposal run '$ExpectedRunId' is not an admitted lifecycle outcome."
     }
     return [pscustomobject]@{ Value = $run; Path = $matches[0].FullName }
@@ -287,6 +289,8 @@ if (@($trustedStatus).Count -gt 0) {
 }
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
+$stateContract = Get-SiStateContract
+$stateRootRelative = Get-SiStateRelativePath -Kind Root
 
 $remoteHead = Get-SiRemoteHead -Root $root -Branch $branch
 if ($remoteHead -ne $ExpectedRemoteHead) {
@@ -302,7 +306,7 @@ if ($remoteHead -ne 'absent') {
 }
 
 $stateEdits = @(Get-SiDiffPath -Root $root -Range "$LifecycleHeadOid..HEAD" `
-        -Pathspec 'docs/self-improvement')
+        -Pathspec $stateRootRelative)
 if ($stateEdits.Count -gt 0) {
     throw "Proposal hand-edited lifecycle state after '$LifecycleHeadOid'."
 }
@@ -329,7 +333,7 @@ if (($candidateIds -join ',') -ne
     [string]$verifiedReceipt.Payload.rankedSetDigest) {
     throw 'Proposal run does not exactly match its resolver receipt.'
 }
-$manifestRelative = 'docs/self-improvement/state.json'
+$manifestRelative = Get-SiStateRelativePath -Kind Manifest
 $runRelative = [System.IO.Path]::GetRelativePath($root, $runRecord.Path).Replace('\', '/')
 $receiptRelative = [System.IO.Path]::GetRelativePath(
     $root, [string]$verifiedReceipt.Path
@@ -341,7 +345,7 @@ foreach ($allowedPath in @(
         $manifestRelative,
         $runRelative,
         $receiptRelative,
-        'docs/self-improvement/harvest-index.json'
+        (Get-SiStateRelativePath -Kind HarvestIndex)
     )) {
     [void]$allowedLifecyclePaths.Add($allowedPath)
 }
@@ -376,13 +380,13 @@ try {
     }
 
     [void](Invoke-SiProposalGit -Root $syncRoot -Argument @(
-            'rm', '-r', '--quiet', '--ignore-unmatch', '--', 'docs/self-improvement'
+            'rm', '-r', '--quiet', '--ignore-unmatch', '--', $stateRootRelative
         ))
     [void](Invoke-SiProposalGit -Root $syncRoot -Argument @(
-            'checkout', $pinnedMain, '--', 'docs/self-improvement'
+            'checkout', $pinnedMain, '--', $stateRootRelative
         ))
     $receiptPath = Resolve-SiStatePath -RepoRoot $syncRoot -Segments @(
-        'resolver-receipts', "$Receipt.json"
+        @($stateContract.Topology.ResolverReceiptSegments) + "$Receipt.json"
     )
     Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') `
         -Force -Prefix SiProposal
@@ -424,7 +428,9 @@ try {
             $manifest.recentRuns = @($reference) + @(
                 $manifest.recentRuns |
                     Where-Object { [string]$_.dueId -ne $DueId } |
-                    Select-Object -First 63
+                    Select-Object -First (
+                        $stateContract.Limits.RecentRunReferences - 1
+                    )
             )
         }
         else {
@@ -443,7 +449,7 @@ try {
     }
 
     [void](Invoke-SiProposalGit -Root $syncRoot -Argument @(
-            'add', '--', 'docs/self-improvement'
+            'add', '--', $stateRootRelative
         ))
     $staged = (Invoke-SiProposalGit -Root $syncRoot -Argument @(
             'diff', '--cached', '--name-only'
@@ -467,7 +473,7 @@ try {
         throw "Synchronized proposal touches protected SI trust anchor '$($postDenied[0])'."
     }
     $stateDelta = @(Get-SiDiffPath -Root $syncRoot `
-            -Range "$pinnedMain...HEAD" -Pathspec 'docs/self-improvement')
+            -Range "$pinnedMain...HEAD" -Pathspec $stateRootRelative)
     $expectedStateDelta = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase
     )

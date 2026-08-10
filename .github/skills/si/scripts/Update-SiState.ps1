@@ -11,6 +11,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
+$stateContract = Get-SiStateContract
 
 if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) {
     throw "Input file not found: $InputPath"
@@ -22,13 +23,83 @@ foreach ($required in @('dueId', 'runId')) {
     }
 }
 
-$result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
-    param($manifest)
-    $due = @($manifest.pending + $manifest.inFlight | Where-Object { [string]$_.dueId -eq [string]$request.dueId }) |
-        Select-Object -First 1
-    if ($null -eq $due) { throw "Due '$($request.dueId)' was not found." }
+function Update-SiLifecycleManifest {
+    param(
+        [Parameter(Mandatory)]$Manifest,
+        [Parameter(Mandatory)]$Due,
+        [Parameter(Mandatory)]$Request,
+        [Parameter(Mandatory)][string]$OperationName,
+        [Parameter(Mandatory)]$Run,
+        [Parameter(Mandatory)][string]$WrittenPath
+    )
 
-    $runsRoot = Resolve-SiStatePath -RepoRoot $RepoRoot -Segments @('runs')
+    if ($OperationName -eq 'Begin') {
+        $Manifest.pending = @($Manifest.pending | Where-Object {
+                [string]$_.dueId -ne [string]$Request.dueId
+            })
+        $existingInFlight = @($Manifest.inFlight | Where-Object {
+                [string]$_.dueId -eq [string]$Request.dueId
+            })
+        if ($existingInFlight.Count -eq 0) {
+            if (@($Manifest.inFlight).Count -ge $stateContract.Limits.ActiveInFlightRuns) {
+                throw 'capacity-blocked: active in-flight run limit reached.'
+            }
+            $Due.status = 'in-flight'
+            $Due.runId = [string]$Request.runId
+            $Manifest.inFlight = @($Manifest.inFlight) + $Due
+        }
+    }
+    if ($OperationName -eq 'Complete' -or [string]$Run.status -eq 'no-candidates') {
+        $Manifest.pending = @($Manifest.pending | Where-Object {
+                [string]$_.dueId -ne [string]$Request.dueId
+            })
+        $Manifest.inFlight = @($Manifest.inFlight | Where-Object {
+                [string]$_.dueId -ne [string]$Request.dueId
+            })
+        $relative = [System.IO.Path]::GetRelativePath(
+            [System.IO.Path]::GetFullPath($RepoRoot), $WrittenPath
+        ).Replace('\', '/')
+        $reference = [pscustomobject][ordered]@{
+            runId = [string]$Run.runId; dueId = [string]$Run.dueId
+            status = [string]$Run.status; path = $relative
+            completedAtUtc = [string]$Run.completedAtUtc
+        }
+        $retained = [int]$stateContract.Limits.RecentRunReferences - 1
+        $Manifest.recentRuns = @($reference) + @(
+            $Manifest.recentRuns | Where-Object {
+                [string]$_.dueId -ne [string]$Request.dueId
+            } | Select-Object -First $retained
+        )
+    }
+}
+
+$result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
+    param($manifest, $attempt, $prepared)
+    $activeDue = @($manifest.pending + $manifest.inFlight | Where-Object {
+            [string]$_.dueId -eq [string]$request.dueId
+        })
+    if ($activeDue.Count -ne 1) {
+        throw "Due '$($request.dueId)' must have exactly one active manifest entry."
+    }
+    $due = $activeDue[0]
+    if ([string]$due.status -eq 'in-flight' -and
+        [string]$due.runId -ne [string]$request.runId) {
+        throw "Due '$($request.dueId)' is already bound to run '$($due.runId)'."
+    }
+    if ($Operation -ne 'Begin' -and
+        ([string]$due.status -ne 'in-flight' -or
+            [string]$due.runId -ne [string]$request.runId)) {
+        throw "Operation '$Operation' requires due '$($request.dueId)' to be bound in-flight to run '$($request.runId)'."
+    }
+
+    if ($null -ne $prepared) {
+        Update-SiLifecycleManifest -Manifest $manifest -Due $due -Request $request `
+            -OperationName $Operation -Run $prepared.Run -WrittenPath $prepared.RunPath
+        return $prepared
+    }
+
+    $runsRoot = Resolve-SiStatePath -RepoRoot $RepoRoot `
+        -Segments @($stateContract.Topology.ActiveRunsSegments)
     $existingRuns = @(Get-ChildItem -LiteralPath $runsRoot -Filter "$($request.runId).json" `
             -Recurse -File -ErrorAction SilentlyContinue)
     if ($existingRuns.Count -gt 1) {
@@ -77,33 +148,12 @@ $result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
         throw 'Begin requires a valid pinnedBaseOid.'
     }
     $previousStatus = [string]$run.status
-    $allowedPredecessors = @{
-        Begin = @('resumable')
-        RecordRanking = @('resumable')
-        RecordChoices = @('ranked')
-        ProposalPending = @('ranked', 'proposal-pending')
-        Complete = @('resumable', 'proposal-pending')
-    }
-    if ([string]$run.status -notin $allowedPredecessors[$Operation]) {
+    if ([string]$run.status -notin [string[]]$stateContract.Transitions.$Operation) {
         throw "Operation '$Operation' is invalid from run status '$($run.status)'."
     }
 
     switch ($Operation) {
         'Begin' {
-            $manifest.pending = @($manifest.pending | Where-Object { [string]$_.dueId -ne [string]$request.dueId })
-            $existingInFlight = @(
-                $manifest.inFlight |
-                    Where-Object { [string]$_.dueId -eq [string]$request.dueId }
-            )
-            if ($existingInFlight.Count -eq 0) {
-                if (@($manifest.inFlight).Count -ge
-                    (Get-SiStateContract).Limits.ActiveInFlightRuns) {
-                    throw 'capacity-blocked: active in-flight run limit reached.'
-                }
-                $due.status = 'in-flight'
-                $due.runId = [string]$request.runId
-                $manifest.inFlight = @($manifest.inFlight) + $due
-            }
         }
         'RecordRanking' {
             foreach ($required in @('resolverReceiptId', 'rankedSet')) {
@@ -129,7 +179,7 @@ $result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
             if ($request.PSObject.Properties.Name -contains 'choices') { $run.choices = @($request.choices) }
             if ($request.PSObject.Properties.Name -contains 'proposalPr') { $run.proposalPr = $request.proposalPr }
             $run.status = if ($request.PSObject.Properties.Name -contains 'status') { [string]$request.status } else { 'completed' }
-            if ($run.status -notin @('declined-before-ranking', 'no-candidates', 'completed')) {
+            if (-not (Test-SiRunStatus -Status ([string]$run.status) -Set Terminal)) {
                 throw "Complete status '$($run.status)' is invalid."
             }
             if (($previousStatus -eq 'resumable' -and $run.status -ne 'declined-before-ranking') -or
@@ -143,19 +193,14 @@ $result = Invoke-SiManifestUpdate -RepoRoot $RepoRoot -Transform {
 
     # Run first, manifest second. A crash leaves a repairable orphan, never a consumed due without its audit record.
     $writtenPath = Write-SiRun -RepoRoot $RepoRoot -Run $run
-    if ($Operation -eq 'Complete' -or $run.status -eq 'no-candidates') {
-        $manifest.pending = @($manifest.pending | Where-Object { [string]$_.dueId -ne [string]$request.dueId })
-        $manifest.inFlight = @($manifest.inFlight | Where-Object { [string]$_.dueId -ne [string]$request.dueId })
-        $relative = [System.IO.Path]::GetRelativePath(
-            [System.IO.Path]::GetFullPath($RepoRoot), $writtenPath
-        ).Replace('\', '/')
-        $reference = [pscustomobject][ordered]@{
-            runId = [string]$run.runId; dueId = [string]$run.dueId; status = [string]$run.status
-            path = $relative; completedAtUtc = [string]$run.completedAtUtc
-        }
-        $manifest.recentRuns = @($reference) + @($manifest.recentRuns | Select-Object -First 63)
+    Update-SiLifecycleManifest -Manifest $manifest -Due $due -Request $request `
+        -OperationName $Operation -Run $run -WrittenPath $writtenPath
+    return [pscustomobject]@{
+        Operation = $Operation
+        RunId = [string]$run.runId
+        RunPath = $writtenPath
+        Run = $run
     }
-    return [pscustomobject]@{ Operation = $Operation; RunId = [string]$run.runId; RunPath = $writtenPath }
 }
 if ($result.Status -ne 'complete') {
     Write-Error "Update-SiState failed with status '$($result.Status)'."

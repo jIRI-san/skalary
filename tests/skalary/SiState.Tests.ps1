@@ -71,13 +71,14 @@ Describe 'Durable self-improvement state' {
         (Get-Content -LiteralPath $manifestPath -Raw |
             Test-Json -SchemaFile (Join-Path $script:siSchemas 'manifest.schema.json')) | Should -BeTrue
 
-        $input = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+        $requestPath = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
                 dueId         = $enqueued.DueId
                 runId         = ('1' * 64)
                 pinnedBaseOid = ('b' * 40)
                 createdAtUtc  = '2026-08-09T00:00:00.0000000Z'
             })
-        $updated = & $script:update -RepoRoot $script:stateRoot -Operation Begin -InputPath $input
+        $updated = & $script:update -RepoRoot $script:stateRoot -Operation Begin `
+            -InputPath $requestPath
         $updated.Status | Should -Be 'complete'
 
         $runPath = Join-Path $script:stateRoot "docs/self-improvement/runs/2026/08/$('1' * 64).json"
@@ -134,8 +135,10 @@ Describe 'Durable self-improvement state' {
         Remove-Item -LiteralPath $manifestPath -Force
         $runDir = Join-Path $script:stateRoot 'docs/self-improvement/runs/2026/08'
         [void](New-Item -ItemType Directory -Path $runDir -Force)
+        $orphanDueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
         $resumable = [ordered]@{
-            schemaVersion = 2; runId = ('4' * 64); dueId = ('5' * 64); status = 'resumable'
+            schemaVersion = 2; runId = ('4' * 64); dueId = $orphanDueId; status = 'resumable'
             createdAtUtc = '2026-08-09T00:00:00Z'; updatedAtUtc = '2026-08-09T00:00:00Z'; completedAtUtc = $null
             provenance = [ordered]@{
                 repoId = 'owner/repo'; planId = '1936cb'; sourceCommit = ('a' * 40)
@@ -249,6 +252,251 @@ Describe 'Durable self-improvement state' {
         } | Should -Throw '*content-address check*'
     }
 
+    It 'test:SiState.InspectionRepairStateMatrix refuses Apply for valid and forward stores' {
+        $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
+            -PlanId '1936cb' -SourceCommit ('f' * 40)
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        $validBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+        $validSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $validSnapshot.ObservationId
+        } | Should -Throw "*refuses observed status 'valid'*"
+        [System.IO.File]::ReadAllBytes($manifestPath) | Should -Be $validBytes
+        $enqueued.DueId | Should -Match '^[0-9a-f]{64}$'
+
+        [System.IO.File]::WriteAllText($manifestPath, '{"schemaVersion":99}')
+        $forwardBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+        $forwardSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $forwardSnapshot.ObservationId
+        } | Should -Throw "*refuses observed status 'forward-readonly'*"
+        [System.IO.File]::ReadAllBytes($manifestPath) | Should -Be $forwardBytes
+    }
+
+    It 'test:SiState.InspectionRepairStateMatrix rebuilds a parseable manifest without schemaVersion' {
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manifestPath) -Force)
+        [System.IO.File]::WriteAllText($manifestPath, '{}')
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $snapshot.Status | Should -Be 'repairable-corrupt'
+
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId).Status | Should -Be 'valid'
+        (Read-SiManifest -RepoRoot $script:stateRoot).schemaVersion | Should -Be 2
+    }
+
+    It 'test:SiState.InspectionRepairStateMatrix blocks Apply while another observation journal exists' {
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manifestPath) -Force)
+        [System.IO.File]::WriteAllText($manifestPath, '{broken')
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $otherId = '0' * 64
+        $otherJournal = Join-Path $script:stateRoot (
+            "docs/self-improvement/backups/$otherId/apply-journal.json"
+        )
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $otherJournal) -Force)
+        [System.IO.File]::WriteAllText(
+            $otherJournal,
+            (([ordered]@{
+                        schemaVersion = 1; observationId = $otherId
+                        beforeDigest = '0' * 64; stage = 'backup-pending'
+                    } | ConvertTo-Json -Compress) + "`n")
+        )
+
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId
+        } | Should -Throw '*another SI repair*'
+        [System.IO.File]::ReadAllText($manifestPath) | Should -Be '{broken'
+    }
+
+    It 'test:SiState.VersionMigrationRepairRollback preserves current manifest state while repairing runs' {
+        $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
+            -PlanId '1936cb' -SourceCommit ('c' * 40)
+        $runId = 'a' * 64
+        $runPath = Get-SiRunPath -RepoRoot $script:stateRoot -RunId $runId `
+            -Timestamp ([datetime]'2026-08-09T00:00:00Z')
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $runPath) -Force)
+        [System.IO.File]::WriteAllText($runPath, '{broken')
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $snapshot.Status | Should -Be 'repairable-corrupt'
+
+        $applied = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+            -Observation $snapshot.ObservationId
+
+        $applied.Status | Should -Be 'valid'
+        $manifest = Read-SiManifest -RepoRoot $script:stateRoot
+        @($manifest.pending | Where-Object dueId -EQ $enqueued.DueId).Count |
+            Should -Be 1
+        Test-Path -LiteralPath $runPath | Should -BeFalse
+
+        $legacyRunId = 'b' * 64
+        $legacyDueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
+        $legacyPath = Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-ResumableRun -RunId $legacyRunId -DueId $legacyDueId
+        )
+        $legacy = Get-Content -LiteralPath $legacyPath -Raw | ConvertFrom-Json -Depth 100
+        $legacy.schemaVersion = 1
+        [System.IO.File]::WriteAllText(
+            $legacyPath,
+            (($legacy | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        $migration = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $migration.Status | Should -Be 'migration-required'
+
+        $migrationApplied = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+            -Observation $migration.ObservationId
+        $migrationApplied.Status | Should -Be 'valid'
+        [int](Get-Content -LiteralPath $legacyPath -Raw |
+                ConvertFrom-Json -Depth 100).schemaVersion | Should -Be 2
+        @((Read-SiManifest -RepoRoot $script:stateRoot).pending |
+                Where-Object dueId -EQ $enqueued.DueId).Count | Should -Be 1
+
+        $stateRoot = Join-Path $script:stateRoot 'docs/self-improvement'
+        $relativeRun = [System.IO.Path]::GetRelativePath(
+            $script:stateRoot, $legacyPath
+        )
+        $legacyBackup = Join-Path $stateRoot (
+            "backups/$($migration.ObservationId)/files/$relativeRun"
+        )
+        [System.IO.File]::WriteAllBytes(
+            $legacyPath,
+            [System.IO.File]::ReadAllBytes($legacyBackup)
+        )
+        $migrationRollback = Invoke-SiRepair -RepoRoot $script:stateRoot `
+            -Mode Rollback -Receipt $migrationApplied.ReceiptId
+        $migrationRollback.Status | Should -Be 'migration-required'
+        [int](Get-Content -LiteralPath $legacyPath -Raw |
+                ConvertFrom-Json -Depth 100).schemaVersion | Should -Be 1
+    }
+
+    It 'test:SiState.VersionMigrationRepairRollback binds observations to exact artifact bytes' {
+        $stateDir = Join-Path $script:stateRoot 'docs/self-improvement'
+        [void](New-Item -ItemType Directory -Path $stateDir -Force)
+        $manifestPath = Join-Path $stateDir 'state.json'
+        $legacyCrLf = '{"schemaVersion":1,"generation":0,"pending":[],"inFlight":[],"recentRuns":[]}' +
+            "`r`n"
+        [System.IO.File]::WriteAllText($manifestPath, $legacyCrLf)
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+
+        [System.IO.File]::WriteAllText($manifestPath, $legacyCrLf.Replace("`r`n", "`n"))
+
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId
+        } | Should -Throw '*stale*'
+        Test-Path -LiteralPath (
+            Join-Path $stateDir "backups/$($snapshot.ObservationId)/apply-journal.json"
+        ) | Should -BeFalse
+    }
+
+    It 'test:SiState.VersionMigrationRepairRollback inspects empty artifacts and restores corrupt bytes exactly' {
+        $stateDir = Join-Path $script:stateRoot 'docs/self-improvement'
+        [void](New-Item -ItemType Directory -Path $stateDir -Force)
+        $manifestPath = Join-Path $stateDir 'state.json'
+        [System.IO.File]::WriteAllBytes($manifestPath, [byte[]]@())
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-corrupt'
+
+        Remove-Item -LiteralPath $manifestPath -Force
+        $runId = 'c' * 64
+        $runPath = Join-Path $stateDir "runs/2026/08/$runId.json"
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $runPath) -Force)
+        $corruptBytes = [byte[]]@(0xff, 0xfe, 0x00, 0x7b)
+        [System.IO.File]::WriteAllBytes($runPath, $corruptBytes)
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('b' * 40)
+        $applied = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+            -Observation $snapshot.ObservationId
+        $newerRunBytes = [byte[]]@(0x7b, 0x7d)
+        [System.IO.File]::WriteAllBytes($runPath, $newerRunBytes)
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Receipt $applied.ReceiptId
+        } | Should -Throw '*recreated after apply*'
+        [System.IO.File]::ReadAllBytes($runPath) | Should -Be $newerRunBytes
+        Remove-Item -LiteralPath $runPath -Force
+        $rolledBack = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+            -Receipt $applied.ReceiptId
+
+        $rolledBack.Status | Should -Be 'repairable-corrupt'
+        [System.IO.File]::ReadAllBytes($runPath) | Should -Be $corruptBytes
+    }
+
+    It 'test:SiState.VersionMigrationRepairRollback authenticates the exact rollback backup set' {
+        $stateDir = Join-Path $script:stateRoot 'docs/self-improvement'
+        [void](New-Item -ItemType Directory -Path $stateDir -Force)
+        $manifestPath = Join-Path $stateDir 'state.json'
+        $legacy = '{"schemaVersion":1,"generation":0,"pending":[],"inFlight":[],"recentRuns":[]}' +
+            "`n"
+        [System.IO.File]::WriteAllText($manifestPath, $legacy)
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('d' * 40)
+        $applied = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+            -Observation $snapshot.ObservationId
+        $backupFiles = Join-Path $stateDir "backups/$($snapshot.ObservationId)/files"
+        $manifestBackup = Join-Path $backupFiles 'docs/self-improvement/state.json'
+
+        [System.IO.File]::WriteAllText($manifestBackup, 'tampered')
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Receipt $applied.ReceiptId
+        } | Should -Throw '*observation digest*'
+        [System.IO.File]::WriteAllText($manifestBackup, $legacy)
+
+        $injected = Join-Path $backupFiles 'docs/self-improvement/runs/injected.json'
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $injected) -Force)
+        [System.IO.File]::WriteAllText($injected, '{}')
+        {
+            Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Receipt $applied.ReceiptId
+        } | Should -Throw '*does not exactly match*'
+        Remove-Item -LiteralPath $injected -Force
+
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Receipt $applied.ReceiptId).Status | Should -Be 'migration-required'
+        [System.IO.File]::ReadAllText($manifestPath) | Should -Be $legacy
+    }
+
+    It 'test:SiState.VersionMigrationRepairRollback reconstructs a corrupt manifest while migrating legacy runs' {
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manifestPath) -Force)
+        [System.IO.File]::WriteAllText($manifestPath, '{broken')
+        $runId = 'e' * 64
+        $runDueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
+        $runPath = Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-ResumableRun -RunId $runId -DueId $runDueId
+        )
+        $legacyRun = Get-Content -LiteralPath $runPath -Raw | ConvertFrom-Json -Depth 100
+        $legacyRun.schemaVersion = 1
+        [System.IO.File]::WriteAllText(
+            $runPath,
+            (($legacyRun | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $snapshot.Status | Should -Be 'repairable-corrupt'
+
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId).Status | Should -Be 'valid'
+        [int](Get-Content -LiteralPath $runPath -Raw |
+                ConvertFrom-Json -Depth 100).schemaVersion | Should -Be 2
+        @((Read-SiManifest -RepoRoot $script:stateRoot).inFlight |
+                Where-Object runId -EQ $runId).Count | Should -Be 1
+    }
+
     It 'test:SiState.InspectionRepairStateMatrix rejects repair backup sources that escape through a descendant link' -Skip:$IsWindows {
         $outside = Join-Path ([System.IO.Path]::GetTempPath()) (
             'si-state-outside-' + [Guid]::NewGuid().ToString('N') + '.json'
@@ -271,13 +519,51 @@ Describe 'Durable self-improvement state' {
                     -Observation $snapshot.ObservationId
             } | Should -Throw '*escapes the SI state root via link*'
 
-            $rolledBack = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
-                -Observation $snapshot.ObservationId
-            $rolledBack.Mutated | Should -BeFalse
+            Test-Path -LiteralPath (
+                Join-Path $script:stateRoot (
+                    "docs/self-improvement/backups/$($snapshot.ObservationId)/apply-journal.json"
+                )
+            ) | Should -BeFalse
         }
         finally {
             if (Test-Path -LiteralPath $outside) {
                 Remove-Item -LiteralPath $outside -Force
+            }
+        }
+    }
+
+    It 'test:SiState.InspectionRepairStateMatrix rejects a linked backup descendant' -Skip:$IsWindows {
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) (
+            'si-backup-outside-' + [Guid]::NewGuid().ToString('N')
+        )
+        try {
+            [void](New-Item -ItemType Directory -Path $outside -Force)
+            $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+            [void](New-Item -ItemType Directory -Path (
+                    Split-Path -Parent $manifestPath
+                ) -Force)
+            [System.IO.File]::WriteAllText(
+                $manifestPath,
+                '{"schemaVersion":1,"generation":0,"pending":[],"inFlight":[],"recentRuns":[]}'
+            )
+            $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+                -PinnedBaseOid ('a' * 40)
+            $backupRoot = Join-Path $script:stateRoot (
+                "docs/self-improvement/backups/$($snapshot.ObservationId)"
+            )
+            [void](New-Item -ItemType Directory -Path $backupRoot -Force)
+            [void](New-Item -ItemType SymbolicLink `
+                    -Path (Join-Path $backupRoot 'files') -Target $outside)
+
+            {
+                Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                    -Observation $snapshot.ObservationId
+            } | Should -Throw '*escapes its observation root via link*'
+            @(Get-ChildItem -LiteralPath $outside -File -Recurse).Count | Should -Be 0
+        }
+        finally {
+            if (Test-Path -LiteralPath $outside) {
+                Remove-Item -LiteralPath $outside -Recurse -Force
             }
         }
     }
@@ -294,6 +580,58 @@ Describe 'Durable self-improvement state' {
         $result.Attempts | Should -Be 3
         [System.IO.File]::ReadAllText($path) | Should -Be 'conflict-3'
         @(Get-ChildItem -LiteralPath $script:stateRoot -Filter '.atomic-*.tmp').Count | Should -Be 0
+    }
+
+    It 'test:SiState.ConcurrentCrashCasExhaustion reuses prepared side effects after a manifest conflict' {
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manifestPath) -Force)
+        $sideEffects = [pscustomobject]@{ Count = 0 }
+        $result = Invoke-SiManifestUpdate -RepoRoot $script:stateRoot -Transform {
+            param($manifest, $attempt, $prepared)
+            if ($null -eq $prepared) {
+                $sideEffects.Count++
+                $prepared = [pscustomobject]@{ Token = 'run-written' }
+                $conflict = New-SiManifest
+                [System.IO.File]::WriteAllText(
+                    $manifestPath,
+                    (($conflict | ConvertTo-Json -Depth 20 -Compress) + "`n")
+                )
+            }
+            $manifest.pending = @()
+            return $prepared
+        }
+
+        $result.Status | Should -Be 'complete'
+        $result.Attempts | Should -Be 2
+        $result.Value.Token | Should -Be 'run-written'
+        $sideEffects.Count | Should -Be 1
+    }
+
+    It 'keeps state limits, statuses, topology, and prepared retries module-owned' {
+        $contract = Get-SiStateContract
+        $contract.Limits.RecentRunReferences | Should -Be 64
+        [string[]]$contract.RunStatuses.Terminal |
+            Should -Be @('declined-before-ranking', 'no-candidates', 'completed')
+        (Get-SiStateRelativePath -Kind Manifest) |
+            Should -Be 'docs/self-improvement/state.json'
+
+        $consumerPaths = Get-ChildItem -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/self-improvement/scripts'
+        ) -Include '*.ps1', '*.psm1' -Recurse | Where-Object Name -NE 'SiStateStore.psm1'
+        $consumerText = @($consumerPaths | ForEach-Object {
+                [System.IO.File]::ReadAllText($_.FullName)
+            }) -join "`n"
+        $consumerText | Should -Not -Match [regex]::Escape(
+            "@('declined-before-ranking', 'no-candidates', 'completed')"
+        )
+        $consumerText | Should -Not -Match 'Select-Object\s+-First\s+63'
+        $consumerText | Should -Not -Match "'docs/self-improvement(?:/[^']*)?'"
+
+        $updateText = [System.IO.File]::ReadAllText(
+            (Join-Path $script:repoRoot 'plugins/self-improvement/scripts/Update-SiState.ps1')
+        )
+        $updateText | Should -Match 'param\(\$manifest,\s*\$attempt,\s*\$prepared\)'
+        $updateText | Should -Match 'if\s*\(\$null\s+-ne\s+\$prepared\)'
     }
 
     It 'test:SiState.ConcurrentCrashCasExhaustion blocks the seventeenth active run before mutation' {
@@ -346,14 +684,14 @@ Describe 'Durable self-improvement state' {
                         recentRuns = @()
                     } | ConvertTo-Json -Depth 20 -Compress) + "`n")
         )
-        $input = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+        $requestPath = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
                 dueId = $targetDue
                 runId = $targetRun
                 pinnedBaseOid = 'b' * 40
             })
 
         $retried = & $script:update -RepoRoot $script:stateRoot `
-            -Operation Begin -InputPath $input
+            -Operation Begin -InputPath $requestPath
 
         $retried.Status | Should -Be 'complete'
         $manifest = Get-Content -LiteralPath $manifestPath -Raw |
@@ -362,17 +700,252 @@ Describe 'Durable self-improvement state' {
         @($manifest.inFlight | Where-Object dueId -EQ $targetDue).Count | Should -Be 1
     }
 
+    It 'rejects lifecycle replay when the active due is bound to another run' {
+        $dueId = '7' * 64
+        $boundRunId = '8' * 64
+        $requestedRunId = '9' * 64
+        $manifest = New-SiManifest
+        $manifest.inFlight = @([pscustomobject][ordered]@{
+                dueId = $dueId
+                repoId = 'owner/repo'
+                planId = '1936cb'
+                sourceCommit = 'a' * 40
+                createdAtUtc = '2026-08-09T00:00:00Z'
+                deferUntilUtc = $null
+                status = 'in-flight'
+                runId = $boundRunId
+            })
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manifestPath) -Force)
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        )
+        $requestPath = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+                dueId = $dueId
+                runId = $requestedRunId
+                pinnedBaseOid = 'b' * 40
+            })
+
+        {
+            & $script:update -RepoRoot $script:stateRoot -Operation Begin `
+                -InputPath $requestPath
+        } | Should -Throw "*already bound to run '$boundRunId'*"
+        Test-Path -LiteralPath (
+            Get-SiRunPath -RepoRoot $script:stateRoot -RunId $requestedRunId
+        ) | Should -BeFalse
+    }
+
+    It 'rejects non-Begin transitions while the due is still pending' {
+        $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
+            -PlanId '1936cb' -SourceCommit ('d' * 40)
+        $runId = 'd' * 64
+        Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-ResumableRun -RunId $runId -DueId $enqueued.DueId
+        ) | Out-Null
+        $requestPath = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+                dueId = $enqueued.DueId
+                runId = $runId
+                resolverReceiptId = 'e' * 64
+                rankedSet = [ordered]@{
+                    count = 0
+                    digest = '0' * 64
+                    candidates = @()
+                }
+            })
+
+        {
+            & $script:update -RepoRoot $script:stateRoot -Operation RecordRanking `
+                -InputPath $requestPath
+        } | Should -Throw '*requires due*bound in-flight*'
+        (Get-Content -LiteralPath (
+                Get-SiRunPath -RepoRoot $script:stateRoot -RunId $runId `
+                    -Timestamp ([datetime]'2026-08-09T00:00:00Z')
+            ) -Raw | ConvertFrom-Json).status | Should -Be 'resumable'
+    }
+
+    It 'repairs run-first graph divergence and requeues a due whose run is corrupt' {
+        $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
+            -PlanId '1936cb' -SourceCommit ('e' * 40)
+        $runId = '6' * 64
+        $run = New-ResumableRun -RunId $runId -DueId $enqueued.DueId
+        $run.provenance.sourceCommit = 'e' * 40
+        $runPath = Write-SiRun -RepoRoot $script:stateRoot -Run $run
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-orphans'
+        $orphanSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $orphanSnapshot.ObservationId).Status | Should -Be 'valid'
+        $manifest = Read-SiManifest -RepoRoot $script:stateRoot
+        @($manifest.pending | Where-Object dueId -EQ $enqueued.DueId).Count |
+            Should -Be 0
+        @($manifest.inFlight | Where-Object runId -EQ $runId).Count | Should -Be 1
+
+        [System.IO.File]::WriteAllText($runPath, '{broken')
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-corrupt'
+        $corruptSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $corruptSnapshot.ObservationId).Status | Should -Be 'valid'
+        $repaired = Read-SiManifest -RepoRoot $script:stateRoot
+        @($repaired.inFlight | Where-Object runId -EQ $runId).Count | Should -Be 0
+        $pending = @($repaired.pending | Where-Object dueId -EQ $enqueued.DueId)
+        $pending.Count | Should -Be 1
+        $pending[0].status | Should -Be 'pending'
+        $pending[0].runId | Should -BeNullOrEmpty
+    }
+
+    It 'classifies a schema-valid run at a noncanonical path as repairable' {
+        $runId = '4' * 64
+        $dueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
+        $run = New-ResumableRun -RunId $runId -DueId $dueId
+        $wrongPath = Join-Path $script:stateRoot (
+            "docs/self-improvement/runs/2026/08/$('3' * 64).json"
+        )
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $wrongPath) -Force)
+        [System.IO.File]::WriteAllText(
+            $wrongPath,
+            (($run | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        $manifest = New-SiManifest
+        $manifest.inFlight = @([pscustomobject][ordered]@{
+                dueId = $dueId; repoId = 'owner/repo'; planId = '1936cb'
+                sourceCommit = 'a' * 40; createdAtUtc = '2026-08-09T00:00:00Z'
+                deferUntilUtc = $null; status = 'in-flight'; runId = $runId
+            })
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-corrupt'
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $applied = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+            -Observation $snapshot.ObservationId
+        $applied.Status | Should -Be 'valid'
+        Test-Path -LiteralPath $wrongPath | Should -BeFalse
+        $repaired = Read-SiManifest -RepoRoot $script:stateRoot
+        @($repaired.inFlight).Count | Should -Be 0
+        @($repaired.pending | Where-Object dueId -EQ $dueId).Count | Should -Be 1
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Rollback `
+                -Receipt $applied.ReceiptId).Status | Should -Be 'repairable-corrupt'
+        Test-Path -LiteralPath $wrongPath | Should -BeTrue
+    }
+
+    It 'quarantines duplicate run ownership and leaves one pending due' {
+        $dueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
+        $first = New-ResumableRun -RunId ('1' * 64) -DueId $dueId
+        $second = New-ResumableRun -RunId ('2' * 64) -DueId $dueId
+        $third = New-ResumableRun -RunId ('3' * 64) -DueId $dueId
+        $firstPath = Write-SiRun -RepoRoot $script:stateRoot -Run $first
+        $secondPath = Write-SiRun -RepoRoot $script:stateRoot -Run $second
+        $thirdPath = Write-SiRun -RepoRoot $script:stateRoot -Run $third
+        $manifest = New-SiManifest
+        $manifest.pending = @([pscustomobject][ordered]@{
+                dueId = $dueId; repoId = 'owner/repo'; planId = '1936cb'
+                sourceCommit = 'a' * 40; createdAtUtc = '2026-08-09T00:00:00Z'
+                deferUntilUtc = $null; status = 'pending'; runId = $null
+            })
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-orphans'
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId).Status | Should -Be 'valid'
+        Test-Path -LiteralPath $firstPath | Should -BeFalse
+        Test-Path -LiteralPath $secondPath | Should -BeFalse
+        Test-Path -LiteralPath $thirdPath | Should -BeFalse
+        $repaired = Read-SiManifest -RepoRoot $script:stateRoot
+        @($repaired.pending | Where-Object dueId -EQ $dueId).Count | Should -Be 1
+        @($repaired.inFlight).Count | Should -Be 0
+    }
+
+    It 'quarantines parseable schema-invalid runs without projecting their fields' {
+        $runPath = Join-Path $script:stateRoot (
+            "docs/self-improvement/runs/2026/08/$('7' * 64).json"
+        )
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $runPath) -Force)
+        [System.IO.File]::WriteAllText($runPath, '{}')
+        $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        $snapshot.Status | Should -Be 'repairable-corrupt'
+
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $snapshot.ObservationId).Status | Should -Be 'valid'
+        Test-Path -LiteralPath $runPath | Should -BeFalse
+        @((Read-SiManifest -RepoRoot $script:stateRoot).pending).Count | Should -Be 0
+    }
+
+    It 'canonicalizes duplicate pending dues and rebuilds in-flight provenance' {
+        $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
+            -PlanId '1936cb' -SourceCommit ('1' * 40)
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        $manifest = Read-SiManifest -RepoRoot $script:stateRoot
+        $manifest.pending = @($manifest.pending) + $manifest.pending[0]
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-orphans'
+        $duplicateSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $duplicateSnapshot.ObservationId).Status | Should -Be 'valid'
+        @((Read-SiManifest -RepoRoot $script:stateRoot).pending |
+                Where-Object dueId -EQ $enqueued.DueId).Count | Should -Be 1
+
+        $runId = '8' * 64
+        $requestPath = Write-JsonInput -Root $script:stateRoot -Value ([ordered]@{
+                dueId = $enqueued.DueId
+                runId = $runId
+                pinnedBaseOid = 'b' * 40
+                createdAtUtc = '2026-08-09T00:00:00Z'
+            })
+        (& $script:update -RepoRoot $script:stateRoot -Operation Begin `
+                -InputPath $requestPath).Status | Should -Be 'complete'
+        $manifest = Read-SiManifest -RepoRoot $script:stateRoot
+        $manifest.inFlight[0].repoId = 'forged/repo'
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 100 -Compress) + "`n")
+        )
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'repairable-orphans'
+        $provenanceSnapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
+            -PinnedBaseOid ('a' * 40)
+        (Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
+                -Observation $provenanceSnapshot.ObservationId).Status | Should -Be 'valid'
+        (Read-SiManifest -RepoRoot $script:stateRoot).inFlight[0].repoId |
+            Should -Be 'owner/repo'
+    }
+
     It 'test:SiState.BoundedManifestPagingAndRepair preserves manifest-referenced runs during archive' {
         $protectedRunId = '3' * 64
-        $protectedDueId = '4' * 64
+        $protectedDueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('a' * 40)
         $archiveRunId = '5' * 64
-        $archiveDueId = '6' * 64
+        $archiveDueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('b' * 40)
         $protectedPath = Write-SiRun -RepoRoot $script:stateRoot -Run (
-            New-DeclinedRun -RunId $protectedRunId -DueId $protectedDueId
+            New-ResumableRun -RunId $protectedRunId -DueId $protectedDueId
         )
-        $archivePath = Write-SiRun -RepoRoot $script:stateRoot -Run (
-            New-DeclinedRun -RunId $archiveRunId -DueId $archiveDueId
-        )
+        $archiveRun = New-DeclinedRun -RunId $archiveRunId -DueId $archiveDueId
+        $archiveRun.provenance.sourceCommit = 'b' * 40
+        $archivePath = Write-SiRun -RepoRoot $script:stateRoot -Run $archiveRun
         $manifest = New-SiManifest
         $manifest.inFlight = @([pscustomobject][ordered]@{
                 dueId = $protectedDueId
@@ -427,7 +1000,8 @@ Describe 'Shared atomic writer closure' {
             return @($Paths | Where-Object {
                     $text = [System.IO.File]::ReadAllText((Join-Path $Root $_))
                     $text -notmatch "Import-Module.+AtomicStore\.psm1" -or
-                    $text -notmatch '(Invoke-AtomicStoreUpdate|Invoke-WithAtomicStoreLock|Set-AtomicStoreContent)'
+                    $text -notmatch '(Invoke-AtomicStoreUpdate|Invoke-WithAtomicStoreLock|Set-AtomicStore(?:Content|Bytes))' -or
+                    $text -match '(?:\[System\.IO\.File\]::WriteAll(?:Text|Bytes)|(?m)^\s*Set-Content\b)'
                 })
         }
     }
@@ -443,7 +1017,7 @@ Describe 'Shared atomic writer closure' {
         }
         $direct = Join-Path $fixture 'scripts/skalary/Add-WorkflowNote.ps1'
         $text = [System.IO.File]::ReadAllText($direct)
-        $text = $text -replace "(?m)^Import-Module.+AtomicStore\.psm1.+\r?\n", ''
+        $text += "`n[System.IO.File]::WriteAllText(`$path, `$content)`n"
         [System.IO.File]::WriteAllText($direct, $text)
 
         Get-NonAtomicWriters -Root $fixture -Paths $script:writers |

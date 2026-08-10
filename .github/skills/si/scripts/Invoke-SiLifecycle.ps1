@@ -14,6 +14,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
+$stateContract = Get-SiStateContract
 
 function Invoke-SiGit {
     param(
@@ -263,7 +264,8 @@ function Read-SiLifecycleInput {
     function Read-SiHarvestIndex {
         param([Parameter(Mandatory)][string]$Root)
 
-        $path = Resolve-SiStatePath -RepoRoot $Root -Segments @('harvest-index.json')
+        $path = Resolve-SiStatePath -RepoRoot $Root `
+            -Segments @([string]$stateContract.Topology.HarvestIndexName)
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw 'Current SI harvest index is absent.'
         }
@@ -463,7 +465,8 @@ function Read-SiLifecycleInput {
             [Parameter(Mandatory)][string]$ExpectedRunId
         )
 
-        $runsRoot = Resolve-SiStatePath -RepoRoot $Root -Segments @('runs')
+        $runsRoot = Resolve-SiStatePath -RepoRoot $Root `
+            -Segments @($stateContract.Topology.ActiveRunsSegments)
         $matches = @(Get-ChildItem -LiteralPath $runsRoot -Filter "$ExpectedRunId.json" `
                 -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 2)
         if ($matches.Count -gt 1) {
@@ -536,7 +539,7 @@ if ($pinnedOid -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
     throw 'Fetched origin/main did not resolve to a valid commit OID.'
 }
 
-$contract = Get-SiStateContract
+$contract = $stateContract
 $stateRoot = @($contract.Topology.RootSegments) -join '/'
 $activeRunsRoot = @(
     @($contract.Topology.RootSegments) + @($contract.Topology.ActiveRunsSegments)
@@ -552,8 +555,8 @@ if ($null -ne $manifest) {
     if (@($manifest.inFlight).Count -gt $contract.Limits.ActiveInFlightRuns) {
         throw 'Pinned SI in-flight run set exceeds its limit.'
     }
-    if (@($manifest.recentRuns).Count -gt $contract.Limits.ActiveCompletedRuns) {
-        throw 'Pinned SI completed run set exceeds its limit.'
+    if (@($manifest.recentRuns).Count -gt $contract.Limits.RecentRunReferences) {
+        throw 'Pinned SI recent run reference set exceeds its limit.'
     }
     $maximumActiveRuns = $contract.Limits.ActiveCompletedRuns +
         $contract.Limits.ActiveInFlightRuns
@@ -590,7 +593,7 @@ foreach ($pinnedRunId in $runPathById.Keys) {
     }
     Assert-SiRunDueIdentity -Run $run
     $runById[$pinnedRunId] = $run
-    if ([string]$run.status -in @('declined-before-ranking', 'no-candidates', 'completed')) {
+    if (Test-SiRunStatus -Status ([string]$run.status) -Set Terminal) {
         $completedRunCount++
     }
     else {
@@ -678,9 +681,7 @@ if ($Operation -ne 'Surface') {
             $mutated = $true
             $run = Get-SiLifecycleRun -Root $root -ExpectedRunId $RunId
         }
-        elseif ([string]$run.status -notin @(
-                'ranked', 'proposal-pending', 'no-candidates', 'completed'
-            )) {
+        elseif (-not (Test-SiRunStatus -Status ([string]$run.status) -Set BeginResume)) {
             throw "Begin cannot resume run status '$($run.status)'."
         }
     }

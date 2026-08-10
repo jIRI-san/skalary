@@ -81,7 +81,9 @@ Self-improvement owns its state schemas and lifecycle commands directly under
 `plugins/self-improvement/{schemas,scripts}/`. They are mapped one-for-one into
 `.github/skills/si/{schemas,scripts}/`; `Sync-PluginScripts.ps1` must not generate or prune these
 plugin-owned sources. `SiStateStore.psm1` is the single owner of the closed schema versions, status
-codes, operational limits, topology segments, and run-before-manifest transaction order.
+codes and status sets, operational limits, topology segments/relative paths, and
+run-before-manifest transaction order. Consumers call that contract rather than restating terminal
+states, path literals, or derived ceilings such as the 63 retained references.
 
 Distribution is fail-closed. `test:LearningLoop.PayloadOwnershipAndDrift` enumerates the complete
 plugin-owned schema/script sets, refuses root-canonical duplicates, verifies each manifest mapping
@@ -105,13 +107,32 @@ reach the boundary, and reject record 10,001 without changing bytes. The full su
 to its tighter platform runtime row and tracked-input freshness gate.
 
 `scripts/skalary/AtomicStore.psm1` is the root-canonical persistence primitive. It provides the
-30-second repo-scoped lock, random same-directory temp writes, validation before replace,
+30-second repo-scoped lock, random same-directory text or byte-preserving temp writes, validation before replace,
 generation-digest CAS, and the closed `complete` / `lock-timeout` / `cas-conflict` /
 `cas-exhausted` status vocabulary. SI receives that module as a generated bundle closure while
 its schemas and lifecycle scripts remain plugin-owned. `SiStateStore.psm1` is the only lifecycle
 module that calls the primitive: manifest updates retry at most three generation conflicts, run
 completion persists and validates the run before the manifest, and repair Snapshot/Apply/Rollback
-share the same state lock.
+share the same state lock. A manifest retry carries the first transform's prepared run value into
+later CAS attempts, so it rebases the manifest without replaying an already committed run write.
+The lock scope is the physically resolved, separator-normalized SI state root, so symlink and
+trailing-separator aliases serialize on one mutex.
+Repair observations hash exact artifact bytes, not newline-normalized text; Apply reads each
+observed source once, hashes and backs up that same buffer, and derives migration/reconstruction
+state from the verified buffers. Rollback reloads the content-addressed observation, requires the
+backup path set to match it exactly, verifies every backup digest and physical target before the
+first restore, and refuses an observed run target unless it still has the observed digest or its
+exact bytes remain at the derived observation quarantine path. It then uses byte-mode atomic
+replacement, so a newer run-first write is never overwritten by rollback.
+Migration rollback authenticates the deterministic migrated run postimage before restoring v1
+bytes. A mutation-started journal binds the expected repaired manifest digest, blocks ordinary
+manifest writers, and permits rollback only from the exact pre- or post-repair manifest. Rollback
+accepts each authenticated target in either its repair postimage or already-restored observation
+preimage, making a crash during multi-file restore resumable. Inspection also requires each run's
+filename and year/month shard to match its embedded id and creation timestamp.
+Only one observation may have an apply journal: another Apply and every ordinary manifest writer
+refuse until rollback clears it. Backup and quarantine publication both use physically resolved,
+confined destinations through the shared atomic byte writer.
 
 `Enqueue-SiDue.ps1` derives the same canonical repository identity as phase harvest from `origin`
 (with hashed-remote and canonical-path fallbacks), unless a test or trusted caller supplies
@@ -126,9 +147,23 @@ on Windows.
 legacy, forward-version, capacity-blocked, and incomplete-apply stores without mutation.
 Incomplete-apply metadata includes the observation ID, journal stage, and repository-relative journal
 path needed for an explicit rollback; a journal ID that differs from its backup directory is invalid.
+Apply admits only `migration-required`, `repairable-corrupt`, and `repairable-orphans`
+observations; valid, absent, forward-version, capacity, and incomplete states are non-mutating
+refusals. Manifest and run repair are independent: a schema-valid current manifest retains pending,
+in-flight, and recent state while corrupt runs are quarantined or legacy runs are migrated. The
+manifest/run graph is validated bidirectionally; orphan runs are admitted to the correct active
+collection, corrupt referenced runs requeue their due, and terminal/nonterminal reference drift is
+rebuilt from verified run provenance. Run ids, canonical paths, and active due ownership are unique;
+noncanonical or same-due conflicting runs are quarantined and leave one pending due. Only an
+absent/corrupt manifest is reconstructed from verified runs. Apply issues a receipt only when the
+underlying post-mutation inspection is `valid`.
+Pending and run due ids are re-derived from repository/plan/source provenance. Repair canonicalizes
+pending identifiers and reconstructs in-flight provenance from validated runs rather than trusting
+stored ownership fields.
 Repair resolves every observed backup source physically under the SI state root, reads it once,
 verifies those bytes against the immutable observation digest, and only then writes the backup, so
-descendant links and link-swap races cannot capture host files.
+descendant links and link-swap races cannot capture host files. Backup writes use the resolved
+physical destination retained after confinement rather than reopening the logical linkable path.
 `Repair-SiState.ps1 -Mode Snapshot` content-addresses exact sorted observation bytes; Apply refuses
 stale or altered observations, writes the backup and apply journal before replacing state, and
 writes the receipt last. Rollback accepts the observation before receipt creation or the receipt

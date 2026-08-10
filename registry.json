@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T12:57:24.7828146Z",
+  "generatedAt": "2026-08-10T17:41:44.1098115Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -306,7 +306,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/AtomicStore.psm1",
-          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
         },
         {
@@ -410,7 +410,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.17"
+      "version": "1.2.18"
     },
     {
       "author": "jIRI-san",
@@ -554,7 +554,7 @@
         },
         {
           "dest": "skills/ci/scripts/AtomicStore.psm1",
-          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/ci/scripts/AtomicStore.psm1"
         },
         {
@@ -684,7 +684,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.44"
+      "version": "1.0.45"
     },
     {
       "author": "jIRI-san",
@@ -793,7 +793,7 @@
         },
         {
           "dest": "skills/cip/scripts/AtomicStore.psm1",
-          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/cip/scripts/AtomicStore.psm1"
         },
         {
@@ -855,7 +855,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.36"
+      "version": "1.0.37"
     },
     {
       "author": "jIRI-san",
@@ -1182,7 +1182,7 @@
         },
         {
           "dest": "skills/pfb/scripts/AtomicStore.psm1",
-          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/pfb/scripts/AtomicStore.psm1"
         },
         {
@@ -1237,17 +1237,17 @@
         },
         {
           "dest": "skills/si/scripts/Archive-SiState.ps1",
-          "sha256": "72e4e8bb3d98af786af25853ac6d518db294756b1ccb567753101aef36f5f6f5",
+          "sha256": "c611e1199bf2ed1c767dfc650b6436975604c6988806529e7a16cef5d5f79b4b",
           "src": "scripts/Archive-SiState.ps1"
         },
         {
           "dest": "skills/si/scripts/AtomicStore.psm1",
-          "sha256": "8feaf1d723295c3bcb6cc876b608af1db263e311cc277801c238ff867a01c8ba",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/si/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/si/scripts/Complete-SiProposal.ps1",
-          "sha256": "0efcf7c77ad2093b6848dd25d3ddd06f49c89eeda2946500cc165b93814e0a59",
+          "sha256": "bfc06e235fbf5dd3ad9ea28ae62916d14e553ef60c6ec60809edc557672674e8",
           "src": "scripts/Complete-SiProposal.ps1"
         },
         {
@@ -1257,7 +1257,7 @@
         },
         {
           "dest": "skills/si/scripts/Get-SiHarvest.ps1",
-          "sha256": "64b2b2bf0f3b501e6131927f3a8a6417ec590572369a94ef617b057f77d317ca",
+          "sha256": "bf1f97e06944b0410998920c41e9d1c75d6971f283d3dd0128e352a68e73a4bc",
           "src": "scripts/Get-SiHarvest.ps1"
         },
         {
@@ -1267,12 +1267,12 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
-          "sha256": "1ff0cc41733d1e2306425641f5c7086902f2e0d754444003bf049052b050c55e",
+          "sha256": "b484f0a1a0e6a2a75b4e2f00978d834023bbc9e888c829a4b9ba8696e52188aa",
           "src": "scripts/Invoke-SiLifecycle.ps1"
         },
         {
           "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1",
-          "sha256": "8ded0e83efc7b0125f6733fa246bf882483bee99924c675ca428983a6c78f986",
+          "sha256": "51a44facd75aaa60f77c6c66ace9c4e9c72cf5d07ccb92eb144298e39fc480cc",
           "src": "scripts/Invoke-SiProposalSync.ps1"
         },
         {
@@ -1292,12 +1292,12 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "7511572c1df696622a3024f1db5f3f0204f111982fc30d8623ab397fb9efb897",
+          "sha256": "85d630d4656cd85458916ed7badfa5b6b5b0780758147e5615bdaf22a7c38a7b",
           "src": "scripts/SiStateStore.psm1"
         },
         {
           "dest": "skills/si/scripts/Test-SiResolverReceipt.ps1",
-          "sha256": "4f554c9952f40e6005a0e9bc896d81b4809c3ceecd116f5f975bf9f28b8bb0da",
+          "sha256": "6f1d45fb5f7d623698356a9bcbac4cb53a860c355c016d77dc873842b44506b3",
           "src": "scripts/Test-SiResolverReceipt.ps1"
         },
         {
@@ -1307,7 +1307,7 @@
         },
         {
           "dest": "skills/si/scripts/Update-SiState.ps1",
-          "sha256": "0f273ca7d5128856797852be5867ceb88453c8fdf11aa83a283469b43907a881",
+          "sha256": "c8d3b4affd5665988730a9e83170ac7d56112109d5673d2a44b10aa4613e2f3a",
           "src": "scripts/Update-SiState.ps1"
         }
       ],
@@ -1407,7 +1407,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.44"
+      "version": "1.0.46"
     }
   ]
 }

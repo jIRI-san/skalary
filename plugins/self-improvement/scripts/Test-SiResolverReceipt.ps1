@@ -13,6 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
+$stateContract = Get-SiStateContract
 
 function Resolve-ReceiptPhysicalPath {
     param([Parameter(Mandatory)][string]$Path)
@@ -37,7 +38,8 @@ function Resolve-ReceiptPhysicalPath {
 }
 
 $root = [System.IO.Path]::GetFullPath($RepoRoot)
-$path = Resolve-SiStatePath -RepoRoot $root -Segments @('resolver-receipts', "$Receipt.json")
+$path = Resolve-SiStatePath -RepoRoot $root `
+    -Segments (@($stateContract.Topology.ResolverReceiptSegments) + "$Receipt.json")
 $physicalRoot = Resolve-ReceiptPhysicalPath -Path $root
 $physicalPath = Resolve-ReceiptPhysicalPath -Path $path
 $prefix = $physicalRoot.TrimEnd([char[]]@(
@@ -57,7 +59,9 @@ if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
     throw "Resolver receipt '$Receipt' not found."
 }
 $bytes = [System.IO.File]::ReadAllBytes($path)
-if ($bytes.Length -gt 1MB) { throw "Resolver receipt '$Receipt' exceeds 1 MiB." }
+if ($bytes.Length -gt $stateContract.Limits.RunBytes) {
+    throw "Resolver receipt '$Receipt' exceeds its byte limit."
+}
 try {
     $json = [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
     $envelope = $json | ConvertFrom-Json -Depth 100
