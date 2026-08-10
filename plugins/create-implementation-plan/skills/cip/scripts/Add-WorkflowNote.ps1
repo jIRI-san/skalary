@@ -48,6 +48,9 @@ param(
     [ValidateRange(1, 30)]
     [int]$LockTimeoutSeconds = 30,
 
+    [ValidateSet('overflow-temp', 'overflow-committed', 'active-temp', 'active-committed')]
+    [string]$TestCrashPoint,
+
     [string]$RepoRoot
 )
 
@@ -269,7 +272,8 @@ function Write-OverflowBatch {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][psobject]$Batch
+        [Parameter(Mandatory)][psobject]$Batch,
+        [switch]$ExitBeforeReplace
     )
 
     foreach ($record in @($Batch.Record)) {
@@ -301,7 +305,14 @@ function Write-OverflowBatch {
         throw 'capacity-blocked: learning overflow active-set ceiling reached.'
     }
 
-    $write = Set-AtomicStoreContent -Path $path -Content $Batch.Content -ExpectedGeneration 'absent'
+    $validate = if ($ExitBeforeReplace) {
+        { [Environment]::Exit(97) }
+    }
+    else {
+        $null
+    }
+    $write = Set-AtomicStoreContent -Path $path -Content $Batch.Content `
+        -ExpectedGeneration 'absent' -Validate $validate
     if ($write.Status -ne 'complete') {
         throw "Add-WorkflowNote overflow write failed with status '$($write.Status)'."
     }
@@ -367,12 +378,30 @@ function Get-SourceRecordIdFromLine {
     return $null
 }
 
+function Get-LegacyRecordKey {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Record)
+
+    $withoutGeneration = [regex]::Replace(
+        $Record,
+        '\s+\[legacy-(?:generation|observation):(?:[0-9a-f]{64}|absent)\]\s+\[legacy-occurrence:\d+\]$',
+        ''
+    )
+    return [regex]::Replace($withoutGeneration, '\s+\[legacy-occurrence:\d+\]$', '')
+}
+
 function Get-OverflowSnapshot {
     [CmdletBinding()]
-    param(    [Parameter(Mandatory)][string]$Root,
-    [Parameter(Mandatory)][string]$PlanId)
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$PlanId,
+        [Parameter(Mandatory)][string]$ActiveObservation
+    )
 
     $ids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $replayLegacyRecordCounts = [System.Collections.Generic.Dictionary[string, int]]::new(
+        [System.StringComparer]::Ordinal
+    )
     $legacyLoss = 0
     $files = if (Test-Path -LiteralPath $Root -PathType Container) {
         @(Get-ChildItem -LiteralPath $Root -File -Filter '*.md' | Sort-Object Name)
@@ -386,9 +415,27 @@ function Get-OverflowSnapshot {
         foreach ($match in [regex]::Matches($content, '\[source-record:(?<id>[0-9a-f]{64})\]')) {
             [void]$ids.Add($match.Groups['id'].Value)
         }
-        $legacyLoss += [regex]::Matches($content, '\[trigger:overflow-summary\]').Count
+        foreach ($record in @($batch.Records)) {
+            if ($record -notmatch '\[trigger:overflow-summary\]') { continue }
+            $legacyLoss++
+            if ($record -notmatch '\[legacy-observation:(?<observation>[0-9a-f]{64}|absent)\]') {
+                continue
+            }
+            if ($Matches.observation -ne $ActiveObservation) {
+                continue
+            }
+            $legacyKey = Get-LegacyRecordKey -Record $record
+            $count = 0
+            [void]$replayLegacyRecordCounts.TryGetValue($legacyKey, [ref]$count)
+            $replayLegacyRecordCounts[$legacyKey] = $count + 1
+        }
     }
-    return [pscustomobject]@{ Files = $files; SourceIds = $ids; LegacyLossCount = $legacyLoss }
+    return [pscustomobject]@{
+        Files = $files
+        SourceIds = $ids
+        LegacyLossCount = $legacyLoss
+        ReplayLegacyRecordCounts = $replayLegacyRecordCounts
+    }
 }
 
 function Assert-OverflowCapacity {
@@ -444,6 +491,15 @@ function Stop-CapacityBlocked {
             Note = $Reason
         })
     exit 4
+}
+
+function Invoke-TestCrashPoint {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Point)
+
+    if ($TestCrashPoint -eq $Point) {
+        [Environment]::Exit(97)
+    }
 }
 
 $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
@@ -525,6 +581,17 @@ $result = try {
     if ($IsWindows) { $planLockScope = $planLockScope.ToLowerInvariant() }
     Invoke-WithAtomicStoreLock -Scope $planLockScope -TimeoutSeconds $LockTimeoutSeconds -Action {
         $fileGeneration = Get-AtomicStoreGeneration -Path $filePath
+        $fileInfo = if (Test-Path -LiteralPath $filePath -PathType Leaf) {
+            Get-Item -LiteralPath $filePath -Force
+        }
+        else {
+            $null
+        }
+        $fileObservation = Get-DomainSeparatedId -Domain 'workflow-note/active-observation/v1' -Field @(
+            $fileGeneration,
+            $(if ($fileInfo) { [string]$fileInfo.Length } else { 'absent' }),
+            $(if ($fileInfo) { [string]$fileInfo.LastWriteTimeUtc.Ticks } else { 'absent' })
+        )
         $raw = if (Test-Path -LiteralPath $filePath -PathType Leaf) {
             [System.IO.File]::ReadAllText($filePath)
         }
@@ -537,14 +604,32 @@ $result = try {
             $lines.AddRange([string[]]($normalized.TrimEnd("`n").Split("`n")))
         }
 
-        $overflowSnapshot = Get-OverflowSnapshot -Root $overflowRoot -PlanId $planId
+        $overflowSnapshot = Get-OverflowSnapshot -Root $overflowRoot -PlanId $planId `
+            -ActiveObservation $fileObservation
         $pendingBatches = [System.Collections.Generic.List[object]]::new()
         $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         $removeIndexes = [System.Collections.Generic.List[int]]::new()
         $legacyRecords = [System.Collections.Generic.List[string]]::new()
+        $activeLegacyCounts = [System.Collections.Generic.Dictionary[string, int]]::new(
+            [System.StringComparer]::Ordinal
+        )
         for ($i = 0; $i -lt $lines.Count; $i++) {
             if ($lines[$i] -match '^\s*-\s.*\[trigger:overflow-summary\]') {
-                $legacyRecords.Add($lines[$i])
+                $legacyKey = Get-LegacyRecordKey -Record $lines[$i]
+                $activeCount = 0
+                [void]$activeLegacyCounts.TryGetValue($legacyKey, [ref]$activeCount)
+                $activeCount++
+                $activeLegacyCounts[$legacyKey] = $activeCount
+                $replayCount = 0
+                [void]$overflowSnapshot.ReplayLegacyRecordCounts.TryGetValue(
+                    $legacyKey,
+                    [ref]$replayCount
+                )
+                if ($activeCount -gt $replayCount) {
+                    $durableRecord = "$legacyKey [legacy-observation:$fileObservation]" +
+                        " [legacy-occurrence:$activeCount]"
+                    $legacyRecords.Add($durableRecord)
+                }
                 $removeIndexes.Add($i)
                 continue
             }
@@ -625,14 +710,28 @@ $result = try {
             throw 'capacity-blocked: active workflow log exceeds 4 MiB.'
         }
         Assert-OverflowCapacity -Root $overflowRoot -Batch ([object[]]$pendingBatches.ToArray())
+        $overflowCommitted = $false
         foreach ($pendingBatch in $pendingBatches) {
-            $overflowPath = Write-OverflowBatch -Root $overflowRoot -Batch $pendingBatch
+            $overflowPath = Write-OverflowBatch -Root $overflowRoot -Batch $pendingBatch `
+                -ExitBeforeReplace:($TestCrashPoint -eq 'overflow-temp')
+            $overflowCommitted = $true
+        }
+        if ($overflowCommitted) {
+            Invoke-TestCrashPoint -Point 'overflow-committed'
         }
         if (-not [string]::Equals($content, $normalized, [System.StringComparison]::Ordinal)) {
-            $write = Set-AtomicStoreContent -Path $filePath -Content $content -ExpectedGeneration $fileGeneration
+            $activeValidate = if ($TestCrashPoint -eq 'active-temp') {
+                { [Environment]::Exit(97) }
+            }
+            else {
+                $null
+            }
+            $write = Set-AtomicStoreContent -Path $filePath -Content $content `
+                -ExpectedGeneration $fileGeneration -Validate $activeValidate
             if ($write.Status -ne $atomicStatus.Complete) {
                 throw "Add-WorkflowNote active-log write failed with status '$($write.Status)'."
             }
+            Invoke-TestCrashPoint -Point 'active-committed'
         }
         Remove-StaleAtomicTemp -Root @((Split-Path -Parent $filePath), $overflowRoot)
 
@@ -668,4 +767,8 @@ catch {
     throw
 }
 
+if ($result.Status -eq $atomicStatus.LockTimeout) {
+    Write-Output $result
+    exit 5
+}
 return $result

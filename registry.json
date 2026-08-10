@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T05:48:18.9294968Z",
+  "generatedAt": "2026-08-10T06:37:02.5840045Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -544,7 +544,7 @@
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "fcf1a69151d92aa760ce1329e50e62a9ac4f25885013bac732612e8109555fa8",
+          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -684,7 +684,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.41"
+      "version": "1.0.42"
     },
     {
       "author": "jIRI-san",
@@ -783,7 +783,7 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "fcf1a69151d92aa760ce1329e50e62a9ac4f25885013bac732612e8109555fa8",
+          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -855,7 +855,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.35"
+      "version": "1.0.36"
     },
     {
       "author": "jIRI-san",

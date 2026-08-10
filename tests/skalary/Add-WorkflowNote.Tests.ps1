@@ -95,9 +95,9 @@ Describe 'Add-WorkflowNote' {
         }
 
         function Script:New-TestOverflowBatch {
-            param([Parameter(Mandatory)][string]$Record)
+            param([Parameter(Mandatory)][string[]]$Record)
 
-            $recordBytes = $Record + "`n"
+            $recordBytes = ($Record -join "`n") + "`n"
             $framed = 'workflow-learning-overflow/v1' + [char]0 + '001' + [char]0 + $recordBytes
             $digest = [Convert]::ToHexString(
                 [System.Security.Cryptography.SHA256]::HashData(
@@ -109,7 +109,7 @@ Describe 'Add-WorkflowNote' {
                 'Schema: workflow-learning-overflow/v1'
                 'Plan: 001'
                 "Digest: $digest"
-                'Count: 1'
+                "Count: $($Record.Count)"
                 ''
                 $Record
             ) -join "`n"
@@ -521,9 +521,11 @@ Invoke-WithAtomicStoreLock -Scope $Scope -Action {
                     Start-Sleep -Milliseconds 50
                 }
                 Test-Path -LiteralPath $marker | Should -BeTrue
-                $locked = & $script:scriptPath -Kind Capture -PlanDir $fixture.PlanDir `
-                    -RepoRoot $fixture.Root -Phase 1 -LockTimeoutSeconds 1
-                $locked.Status | Should -Be 'lock-timeout'
+                $locked = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                    '-Kind', 'Capture', '-Phase', '1', '-LockTimeoutSeconds', '1'
+                )
+                $locked.ExitCode | Should -Be 5
+                $locked.Output | Should -Match 'lock-timeout'
                 $process.WaitForExit()
             }
             finally {
@@ -574,6 +576,284 @@ Invoke-WithAtomicStoreLock -Scope $Scope -Action {
             }
             finally {
                 Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix recovers every overflow-first and active-replace crash point' {
+            foreach ($point in @('overflow-temp', 'overflow-committed', 'active-temp', 'active-committed')) {
+                $fixture = New-PlanFixture
+                try {
+                    foreach ($number in 1..10) { Add-Learning -Fixture $fixture -Number $number | Out-Null }
+                    $activePath = Join-Path $fixture.PlanDir 'learnings.md'
+                    $before = [System.IO.File]::ReadAllText($activePath)
+                    $crash = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                        '-Kind', 'Learnings', '-Phase', '1', '-Step', '1.11',
+                        '-Trigger', 'reusable-pattern', '-Concern', 'maintainability-consistency',
+                        '-Requirement', 'REQ-1', '-ReviewType', 'none',
+                        '-Message', 'Learning number 11', '-TestCrashPoint', $point
+                    )
+                    $crash.ExitCode | Should -Be 97 -Because "fault point '$point' must exit abruptly"
+
+                    $temps = @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -Force -File |
+                            Where-Object Name -Like '.atomic-*.tmp')
+                    if ($point -in @('overflow-temp', 'active-temp')) {
+                        $temps.Count | Should -Be 1
+                    }
+                    else {
+                        $temps.Count | Should -Be 0
+                    }
+                    if ($point -ne 'active-committed') {
+                        [System.IO.File]::ReadAllText($activePath) | Should -BeExactly $before
+                    }
+                    else {
+                        [System.IO.File]::ReadAllText($activePath) |
+                            Should -Match 'Learning number 11'
+                    }
+                    $overflowFiles = @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -File |
+                            Where-Object { $_.Directory.Name -eq 'learning-overflow' -and $_.Extension -eq '.md' })
+                    if ($point -eq 'overflow-temp') {
+                        $overflowFiles.Count | Should -Be 0
+                    }
+                    else {
+                        $overflowFiles.Count | Should -Be 1
+                    }
+
+                    foreach ($temp in $temps) {
+                        $temp.LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+                    }
+                    Add-Learning -Fixture $fixture -Number 11 | Out-Null
+
+                    $active = @(Get-Content -LiteralPath $activePath | Where-Object { $_ -match '^- \[' })
+                    $active.Count | Should -Be 10
+                    $all = @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -File -Filter '*.md' |
+                            ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
+                    foreach ($number in 1..11) {
+                        ([regex]::Matches($all, "Learning number $number(?!\d)")).Count |
+                            Should -Be 1 -Because "fault point '$point' must preserve learning $number exactly once"
+                    }
+                    @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -Force -File |
+                            Where-Object Name -Like '.atomic-*.tmp').Count | Should -Be 0
+                }
+                finally {
+                    Remove-PlanFixture $fixture
+                }
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix does not double-count legacy loss after overflow-first crash' {
+            $fixture = New-PlanFixture
+            try {
+                $legacy = @(
+                    '## Learnings Capture'
+                    'Phase: 1'
+                    ''
+                    '- [1.1] [trigger:overflow-summary] Folded 4 additional learnings into this summary.'
+                    ''
+                ) -join "`n"
+                $activePath = Join-Path $fixture.PlanDir 'learnings.md'
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    $legacy,
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+
+                $crash = Invoke-NoteProcess -Fixture $fixture -Arguments @(
+                    '-Kind', 'Learnings', '-Phase', '1',
+                    '-TestCrashPoint', 'overflow-committed'
+                )
+                $crash.ExitCode | Should -Be 97
+                [System.IO.File]::ReadAllText($activePath) | Should -Match 'overflow-summary'
+
+                $replay = & $script:scriptPath -Kind Learnings -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1
+                $replay.Status | Should -Be 'legacy-loss'
+                $replay.LegacyLossCount | Should -Be 1
+                $all = @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -File -Filter '*.md' |
+                        ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
+                ([regex]::Matches($all, '\[trigger:overflow-summary\]')).Count | Should -Be 1
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix preserves identical legacy-loss occurrences' {
+            $fixture = New-PlanFixture
+            try {
+                $summary = '- [1.1] [trigger:overflow-summary] Folded 4 additional learnings into this summary.'
+                $activePath = Join-Path $fixture.PlanDir 'learnings.md'
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    (@('## Learnings Capture', 'Phase: 1', '', $summary, '') -join "`n"),
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                & $script:scriptPath -Kind Learnings -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1 | Out-Null
+
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    (@('## Learnings Capture', 'Phase: 1', '', $summary, '') -join "`n"),
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                $result = & $script:scriptPath -Kind Learnings -PlanDir $fixture.PlanDir `
+                    -RepoRoot $fixture.Root -Phase 1
+
+                $result.Status | Should -Be 'legacy-loss'
+                $result.LegacyLossCount | Should -Be 2
+                $all = @(Get-ChildItem -LiteralPath $fixture.PlanDir -Recurse -File -Filter '*.md' |
+                        ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
+                ([regex]::Matches($all, '\[trigger:overflow-summary\]')).Count | Should -Be 2
+                ([regex]::Matches($all, '\[legacy-observation:[0-9a-f]{64}\]')).Count |
+                    Should -Be 2
+            }
+            finally {
+                Remove-PlanFixture $fixture
+            }
+        }
+
+        It 'test:Capture.AtomicBoundaryMigrationMatrix accepts exact byte and count ceilings then rejects plus-one' {
+            $records = [System.Collections.Generic.List[string]]::new()
+            foreach ($number in 1..64) {
+                $records.Add("- [seed-$number] " + ('x' * 8080))
+            }
+            $batch = New-TestOverflowBatch -Record $records.ToArray()
+            $batchBytes = [System.Text.Encoding]::UTF8.GetByteCount($batch.Content)
+            $records[63] += 'x' * (512KB - $batchBytes)
+            $batch = New-TestOverflowBatch -Record $records.ToArray()
+            [System.Text.Encoding]::UTF8.GetByteCount($batch.Content) | Should -Be 512KB
+
+            $exactBatchFixture = New-PlanFixture
+            try {
+                $activePath = Join-Path $exactBatchFixture.PlanDir 'learnings.md'
+                $active = @('## Learnings Capture', 'Phase: 1', '') + $records.ToArray()
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    ($active -join "`n") + "`n",
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                $result = & $script:scriptPath -Kind Learnings -PlanDir $exactBatchFixture.PlanDir `
+                    -RepoRoot $exactBatchFixture.Root -Phase 1 -Step 1.65 -MaxLearnings 1 `
+                    -Trigger reusable-pattern -Concern maintainability-consistency `
+                    -Requirement REQ-1 -ReviewType none -Message 'exact batch append'
+                $result.Status | Should -Be 'complete'
+                $result.OverflowCount | Should -Be 64
+                (Get-Item -LiteralPath $result.OverflowFile).Length | Should -Be 512KB
+            }
+            finally {
+                Remove-PlanFixture $exactBatchFixture
+            }
+
+            $plusBatchFixture = New-PlanFixture
+            try {
+                $plusRecords = [string[]]$records.ToArray().Clone()
+                $plusRecords[63] += 'x'
+                $activePath = Join-Path $plusBatchFixture.PlanDir 'learnings.md'
+                $active = @('## Learnings Capture', 'Phase: 1', '') + $plusRecords
+                $before = ($active -join "`n") + "`n"
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    $before,
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                $blocked = Invoke-NoteProcess -Fixture $plusBatchFixture -Arguments @(
+                    '-Kind', 'Learnings', '-Phase', '1', '-Step', '1.65', '-MaxLearnings', '1',
+                    '-Trigger', 'reusable-pattern', '-Concern', 'maintainability-consistency',
+                    '-Requirement', 'REQ-1', '-ReviewType', 'none', '-Message', 'plus one batch append'
+                )
+                $blocked.ExitCode | Should -Be 4
+                [System.IO.File]::ReadAllText($activePath) | Should -BeExactly $before
+                Test-Path -LiteralPath (Join-Path $plusBatchFixture.PlanDir 'learning-overflow') |
+                    Should -BeFalse
+            }
+            finally {
+                Remove-PlanFixture $plusBatchFixture
+            }
+
+            $plusRecordFixture = New-PlanFixture
+            try {
+                $activePath = Join-Path $plusRecordFixture.PlanDir 'learnings.md'
+                $countRecords = @(1..65 | ForEach-Object { "- [count-$_] retained record $_" })
+                $active = @('## Learnings Capture', 'Phase: 1', '') + $countRecords
+                $before = ($active -join "`n") + "`n"
+                [System.IO.File]::WriteAllText(
+                    $activePath,
+                    $before,
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                $blocked = Invoke-NoteProcess -Fixture $plusRecordFixture -Arguments @(
+                    '-Kind', 'Learnings', '-Phase', '1', '-Step', '1.66', '-MaxLearnings', '1',
+                    '-Trigger', 'reusable-pattern', '-Concern', 'maintainability-consistency',
+                    '-Requirement', 'REQ-1', '-ReviewType', 'none', '-Message', 'record count plus one'
+                )
+                $blocked.ExitCode | Should -Be 4
+                [System.IO.File]::ReadAllText($activePath) | Should -BeExactly $before
+                Test-Path -LiteralPath (Join-Path $plusRecordFixture.PlanDir 'learning-overflow') |
+                    Should -BeFalse
+            }
+            finally {
+                Remove-PlanFixture $plusRecordFixture
+            }
+
+            $probeFixture = New-PlanFixture
+            try {
+                $probe = & $script:scriptPath -Kind Capture -PlanDir $probeFixture.PlanDir `
+                    -RepoRoot $probeFixture.Root -Phase 1 -Step 1.1 -Concern security `
+                    -Requirement REQ-1 -ReviewType none -Message 'exact active log'
+                $probeLine = Get-Content -LiteralPath (Join-Path $probeFixture.PlanDir 'capture.md') |
+                    Where-Object { $_ -match [regex]::Escape($probe.SourceRecordId) }
+                $plusProbe = & $script:scriptPath -Kind Capture -PlanDir $probeFixture.PlanDir `
+                    -RepoRoot $probeFixture.Root -Phase 1 -Step 1.2 -Concern security `
+                    -Requirement REQ-1 -ReviewType none -Message 'plus one active log'
+                $plusProbeLine = Get-Content -LiteralPath (Join-Path $probeFixture.PlanDir 'capture.md') |
+                    Where-Object { $_ -match [regex]::Escape($plusProbe.SourceRecordId) }
+            }
+            finally {
+                Remove-PlanFixture $probeFixture
+            }
+
+            $activeFixture = New-PlanFixture
+            try {
+                $capturePath = Join-Path $activeFixture.PlanDir 'capture.md'
+                $fixed = "## Capture`nPhase: 1`n`n$probeLine`n"
+                $paddingLength = 4MB - [System.Text.Encoding]::UTF8.GetByteCount($fixed) - 1
+                $seed = "## Capture`nPhase: 1`n`nNo entries for this phase.`n" +
+                    ('p' * $paddingLength) + "`n"
+                [System.IO.File]::WriteAllText(
+                    $capturePath,
+                    $seed,
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                & $script:scriptPath -Kind Capture -PlanDir $activeFixture.PlanDir `
+                    -RepoRoot $activeFixture.Root -Phase 1 -Step 1.1 -Concern security `
+                    -Requirement REQ-1 -ReviewType none -Message 'exact active log' | Out-Null
+                (Get-Item -LiteralPath $capturePath).Length | Should -Be 4MB
+            }
+            finally {
+                Remove-PlanFixture $activeFixture
+            }
+
+            $plusActiveFixture = New-PlanFixture
+            try {
+                $capturePath = Join-Path $plusActiveFixture.PlanDir 'capture.md'
+                $fixed = "## Capture`nPhase: 1`n`n$plusProbeLine`n"
+                $paddingLength = (4MB + 1) - [System.Text.Encoding]::UTF8.GetByteCount($fixed) - 1
+                $before = "## Capture`nPhase: 1`n`nNo entries for this phase.`n" +
+                    ('p' * $paddingLength) + "`n"
+                [System.IO.File]::WriteAllText(
+                    $capturePath,
+                    $before,
+                    [System.Text.UTF8Encoding]::new($false)
+                )
+                $blocked = Invoke-NoteProcess -Fixture $plusActiveFixture -Arguments @(
+                    '-Kind', 'Capture', '-Phase', '1', '-Step', '1.2',
+                    '-Concern', 'security', '-Requirement', 'REQ-1',
+                    '-ReviewType', 'none', '-Message', 'plus one active log'
+                )
+                $blocked.ExitCode | Should -Be 4
+                [System.IO.File]::ReadAllText($capturePath) | Should -BeExactly $before
+            }
+            finally {
+                Remove-PlanFixture $plusActiveFixture
             }
         }
 

@@ -71,8 +71,8 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `architecture-tests` | 1.0.20 | partial | — | 14 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.2.15 | partial | self-improvement | 24 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.4 | stable | — | 16 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
-| `continue-implementation` | 1.0.41 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.35 | stable | design-review | 27 | Implementation plan generation skill for coding workflows. |
+| `continue-implementation` | 1.0.42 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
+| `create-implementation-plan` | 1.0.36 | stable | design-review | 27 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.2 | stable | — | 6 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.3 | stable | — | 15 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.3 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |

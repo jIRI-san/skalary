@@ -45,6 +45,9 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Critical] [concern:operability-observability] [req:REQ-5,REQ-7] [review:cr] [source-record:c8bc8169bf656d412cda9a64c8e62759dbfa1023b39b3ad4be41a863e81a4159] Final CR: Add-WorkflowNote returns lock-timeout with exit code 0, silently dropping requested capture for callers that do not inspect the object.
 - [2.2] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:35d529e32fef1396aea6e301a2d05246b0ffc47a1c48c2cd4265eae0719597e6] Final CR: overflow crash test fabricates old active bytes after success instead of faulting between overflow-first and active replace.
 - [2.2] [src:code-review] [sev:High] [concern:security] [req:REQ-8] [review:cr] [source-record:d9d4a6dc6a0890d85f1f4508d328f8f591e7be1e063307a536d62e4379e181f9] Fixed case-distinct PlanState inventory matching that could accept an uninventoried sibling on case-sensitive filesystems.
+- [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:a7c21b1ae4291d00cc117e59df47ccd3038790e55142933077b477936d1552ef] Guard overflow-committed fault injection behind an actual successful overflow batch write and assert each pre-replay persisted state.
+- [2.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:36d1ef19258f8a06864e225de9ace281411ec3a0cc353b3bbf5721672d689c85] Expanded boundary evidence to accept exact maxima and reject 65 records, 512 KiB plus one byte, and 4 MiB plus one byte before mutation.
+- [2.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:9da069fa73d12717fed8da311f47377809dc7de49bcbb67b28f35d4cc3ffa2e7] Bound legacy-summary replay to content and file-version observations so crash replicas deduplicate without losing later identical ABA rewrites.
 
 ## CR Capture
 Phase: 3
