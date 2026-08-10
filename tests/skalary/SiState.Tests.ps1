@@ -11,6 +11,7 @@ Describe 'Durable self-improvement state' {
         $script:enqueue = Join-Path $script:siScripts 'Enqueue-SiDue.ps1'
         $script:update = Join-Path $script:siScripts 'Update-SiState.ps1'
         $script:getState = Join-Path $script:siScripts 'Get-SiState.ps1'
+        $script:archive = Join-Path $script:siScripts 'Archive-SiState.ps1'
         Import-Module (Join-Path $script:siScripts 'SiStateStore.psm1') -Force
         Import-Module $script:atomicModule -Force
 
@@ -39,6 +40,15 @@ Describe 'Durable self-improvement state' {
                 rankedSet  = [pscustomobject][ordered]@{ count = 0; digest = ('0' * 64); candidates = @() }
                 choices = @(); proposalPr = $null
             }
+        }
+
+        function Script:New-DeclinedRun {
+            param([string]$RunId, [string]$DueId)
+            $run = New-ResumableRun -RunId $RunId -DueId $DueId
+            $run.status = 'declined-before-ranking'
+            $run.updatedAtUtc = '2026-08-09T01:00:00Z'
+            $run.completedAtUtc = '2026-08-09T01:00:00Z'
+            return $run
         }
     }
 
@@ -350,6 +360,54 @@ Describe 'Durable self-improvement state' {
             ConvertFrom-Json -Depth 100
         @($manifest.inFlight).Count | Should -Be 16
         @($manifest.inFlight | Where-Object dueId -EQ $targetDue).Count | Should -Be 1
+    }
+
+    It 'test:SiState.BoundedManifestPagingAndRepair preserves manifest-referenced runs during archive' {
+        $protectedRunId = '3' * 64
+        $protectedDueId = '4' * 64
+        $archiveRunId = '5' * 64
+        $archiveDueId = '6' * 64
+        $protectedPath = Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-DeclinedRun -RunId $protectedRunId -DueId $protectedDueId
+        )
+        $archivePath = Write-SiRun -RepoRoot $script:stateRoot -Run (
+            New-DeclinedRun -RunId $archiveRunId -DueId $archiveDueId
+        )
+        $manifest = New-SiManifest
+        $manifest.inFlight = @([pscustomobject][ordered]@{
+                dueId = $protectedDueId
+                repoId = 'owner/repo'
+                planId = '1936cb'
+                sourceCommit = 'a' * 40
+                createdAtUtc = '2026-08-09T00:00:00Z'
+                deferUntilUtc = $null
+                status = 'in-flight'
+                runId = $protectedRunId
+            })
+        $manifest.recentRuns = @([pscustomobject][ordered]@{
+                runId = $archiveRunId
+                dueId = $archiveDueId
+                status = 'declined-before-ranking'
+                path = "docs/self-improvement/runs/2026/08/$archiveRunId.json"
+                completedAtUtc = '2026-08-09T01:00:00Z'
+            })
+        $manifestPath = Join-Path $script:stateRoot 'docs/self-improvement/state.json'
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            (($manifest | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        )
+
+        $result = & $script:archive -RepoRoot $script:stateRoot `
+            -BeforeUtc ([datetime]::UtcNow.AddDays(1))
+
+        $result.Status | Should -Be 'complete'
+        $result.Archived | Should -Be 1
+        Test-Path -LiteralPath $protectedPath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $archivePath -PathType Leaf | Should -BeFalse
+        $after = Get-Content -LiteralPath $manifestPath -Raw |
+            ConvertFrom-Json -Depth 20
+        @($after.inFlight | Where-Object runId -EQ $protectedRunId).Count | Should -Be 1
+        @($after.recentRuns | Where-Object runId -EQ $archiveRunId).Count | Should -Be 0
     }
 }
 

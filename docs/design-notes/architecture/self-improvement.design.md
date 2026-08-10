@@ -144,6 +144,8 @@ text. Local repair copies every observed artifact under the observation-keyed ba
 mutation, reconstructs bounded manifest references from valid run files, quarantines corrupt runs
 with an indexed digest, and refuses Apply/Rollback when the exact observation/receipt chain is
 stale, altered, or missing. Successful rollback emits its own content-addressed receipt.
+Archival holds the state lock and never selects a run ID still referenced by `manifest.inFlight`,
+even if the run file itself claims a terminal status; recoverable run-first state remains active.
 
 `Invoke-SiLifecycle.ps1 -Operation Surface` is the interactive remote-state entry point. It fetches
 and pins `origin/main`, reads bounded schema-valid manifest/run blobs from that immutable commit, and

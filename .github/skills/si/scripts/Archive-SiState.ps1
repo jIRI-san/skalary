@@ -19,10 +19,23 @@ try {
             if ($inspection.Status -notin @('valid', 'capacity-blocked')) {
                 throw "Archive-SiState refuses store status '$($inspection.Status)'."
             }
+            $manifestPath = Join-Path $root 'docs/self-improvement/state.json'
+            $manifestGeneration = Get-AtomicStoreGeneration -Path $manifestPath
+            $manifest = Read-SiManifest -RepoRoot $root
+            $inFlightRunIds = [System.Collections.Generic.HashSet[string]]::new(
+                [System.StringComparer]::Ordinal
+            )
+            foreach ($entry in @($manifest.inFlight)) {
+                [void]$inFlightRunIds.Add([string]$entry.runId)
+            }
             $eligible = @($inspection.RunFiles | Where-Object {
+                    $run = Get-Content -LiteralPath $_.FullName -Raw |
+                        ConvertFrom-Json -Depth 100
                     $_.LastWriteTimeUtc -lt $BeforeUtc -and
-                    ((Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 100).status -in
-                        @('declined-before-ranking', 'no-candidates', 'completed'))
+                    [string]$run.status -in @(
+                        'declined-before-ranking', 'no-candidates', 'completed'
+                    ) -and
+                    -not $inFlightRunIds.Contains([string]$run.runId)
                 } | Sort-Object FullName | Select-Object -First $MaximumRuns)
             if ($eligible.Count -eq 0) {
                 return [pscustomobject]@{ Status = 'complete'; Archived = 0; Paths = @() }
@@ -34,9 +47,6 @@ try {
                 throw 'capacity-blocked: SI archive limit reached.'
             }
 
-            $manifestPath = Join-Path $root 'docs/self-improvement/state.json'
-            $manifestGeneration = Get-AtomicStoreGeneration -Path $manifestPath
-            $manifest = Read-SiManifest -RepoRoot $root
             $moves = [System.Collections.Generic.List[object]]::new()
             try {
                 foreach ($file in $eligible) {

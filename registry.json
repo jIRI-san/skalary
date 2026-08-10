@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T04:55:31.6517085Z",
+  "generatedAt": "2026-08-10T05:01:20.2771851Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1237,7 +1237,7 @@
         },
         {
           "dest": "skills/si/scripts/Archive-SiState.ps1",
-          "sha256": "2b0a72a5f1ae2a1d3297e2fed8c5c5dc2132146d123591fad204117ee5b9c625",
+          "sha256": "72e4e8bb3d98af786af25853ac6d518db294756b1ccb567753101aef36f5f6f5",
           "src": "scripts/Archive-SiState.ps1"
         },
         {
@@ -1407,7 +1407,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.40"
+      "version": "1.0.41"
     }
   ]
 }
