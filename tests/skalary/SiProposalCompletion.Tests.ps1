@@ -753,7 +753,7 @@ Describe 'Authoritative SI proposal completion' {
             Import-Module (Join-Path $checkout (
                     '.github/skills/si/scripts/AtomicStore.psm1'
                 )) -Force
-            $receipt.afterDigest = Get-AtomicStoreGeneration -Path $manifestPath
+            $receipt.afterDigest = Get-SiArtifactDigest -Path $manifestPath
             $payload = [ordered]@{
                 protocol = [string]$receipt.protocol
                 observationId = [string]$receipt.observationId

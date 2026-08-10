@@ -245,8 +245,14 @@ function Get-SiRepoId {
 
 function Get-SiArtifactDigest {
     param([Parameter(Mandatory)][string]$Path)
-    $generation = Get-AtomicStoreGeneration -Path $Path
-    if ($generation -ne 'absent') { return $generation }
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        $text = [System.IO.File]::ReadAllText($Path).Replace("`r`n", "`n").Replace("`r", "`n")
+        return [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData(
+                [System.Text.Encoding]::UTF8.GetBytes($text)
+            )
+        ).ToLowerInvariant()
+    }
     return [Convert]::ToHexString(
         [System.Security.Cryptography.SHA256]::HashData(
             [System.Text.Encoding]::UTF8.GetBytes('si-absent-v1')
@@ -533,7 +539,7 @@ function Get-SiStoreInspection {
             $corruptRuns++
         }
         $relative = [System.IO.Path]::GetRelativePath($root, $file.FullName).Replace('\', '/')
-        $observed.Add([pscustomobject]@{ path = $relative; sha256 = Get-AtomicStoreGeneration -Path $file.FullName })
+        $observed.Add([pscustomobject]@{ path = $relative; sha256 = Get-SiArtifactDigest -Path $file.FullName })
     }
 
     $manifestKind = 'absent'
@@ -557,7 +563,7 @@ function Get-SiStoreInspection {
         }
         $observed.Add([pscustomobject]@{
                 path   = 'docs/self-improvement/state.json'
-                sha256 = Get-AtomicStoreGeneration -Path $manifestPath
+            sha256 = Get-SiArtifactDigest -Path $manifestPath
             })
     }
 
@@ -756,9 +762,7 @@ function Invoke-SiRepair {
             }
             $physicalSource = Resolve-SiPhysicalPath -Path $source
             $sourceBytes = [System.IO.File]::ReadAllBytes($physicalSource)
-            $sourceDigest = [Convert]::ToHexString(
-                [System.Security.Cryptography.SHA256]::HashData($sourceBytes)
-            ).ToLowerInvariant()
+            $sourceDigest = Get-SiArtifactDigest -Path $physicalSource
             if ($sourceDigest -ne [string]$observed.sha256 -or
                 -not (Test-SiPhysicalDescendant -Root $stateRootPath -Path $source) -or
                 -not [string]::Equals(
@@ -858,7 +862,7 @@ function Invoke-SiRepair {
                         observationId  = $Observation
                         path           = [System.IO.Path]::GetRelativePath($repoRootPath, $runFile.FullName).Replace('\', '/')
                         quarantinePath = [System.IO.Path]::GetRelativePath($repoRootPath, $quarantinePath).Replace('\', '/')
-                        sha256         = Get-AtomicStoreGeneration -Path $quarantinePath
+                        sha256         = Get-SiArtifactDigest -Path $quarantinePath
                     })
             }
         }
@@ -882,7 +886,7 @@ function Invoke-SiRepair {
                     -Content ((ConvertTo-SiJson -Value $journal)))
         }
         [void](Set-AtomicStoreContent -Path $manifestPath -Content $manifestJson)
-        $after = Get-AtomicStoreGeneration -Path $manifestPath
+        $after = Get-SiArtifactDigest -Path $manifestPath
         $issuedReceipt = New-SiRepairReceipt -RepoRoot $RepoRoot -ObservationId $Observation -Mode apply `
             -BeforeDigest ([string](Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json).beforeDigest) `
             -AfterDigest $after
