@@ -316,7 +316,8 @@ function ConvertTo-LedgerCandidate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$InputObject,
-        [Parameter(Mandatory)][string]$Root
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)]$PlanCache
     )
 
     $category = [string](Get-ObjectProperty -Object $InputObject -Name Category)
@@ -333,7 +334,14 @@ function ConvertTo-LedgerCandidate {
     if ($script:LedgerSeverities -notcontains $severity) { throw "Invalid ledger severity '$severity'." }
     if ($date -notmatch '^\d{4}-\d{2}-\d{2}$') { throw "Date '$date' must match yyyy-MM-dd." }
 
-    $canonicalPlan = Resolve-LedgerPlanId -Reference $plan -Root $Root
+    $canonicalPlan = if ($PlanCache.ContainsKey($plan)) {
+        $PlanCache[$plan]
+    }
+    else {
+        $resolvedPlan = Resolve-LedgerPlanId -Reference $plan -Root $Root
+        $PlanCache.Add($plan, $resolvedPlan)
+        $resolvedPlan
+    }
     $entrySanitized = ConvertTo-SafeLedgerText -Text $entry -MaxLength $script:MaxEntryLength
     $tagSet = Get-LedgerTagSet -InputTags $tags
     $sortedTags = if ($tagSet.Count -eq 0) { '' } else { $tagSet -join '|' }
@@ -381,16 +389,29 @@ function New-LedgerCategoryState {
     }
     $headerLines = Get-LedgerHeaderLines -Lines $lines
     $records = [System.Collections.Generic.List[object]]::new()
+    $idempotenceKeys = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $recurrenceCounts = [System.Collections.Generic.Dictionary[string, int]]::new(
+        [System.StringComparer]::Ordinal
+    )
     foreach ($line in $lines) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $record = ConvertTo-LedgerRecord -Line $line -Category $Category
-        if ($null -ne $record) { $records.Add($record) }
+        if ($null -eq $record) { continue }
+        $records.Add($record)
+        [void]$idempotenceKeys.Add($record.IdempotenceKey)
+        if ($recurrenceCounts.ContainsKey($record.RecurrenceKey)) {
+            $recurrenceCounts[$record.RecurrenceKey]++
+        }
+        else {
+            $recurrenceCounts.Add($record.RecurrenceKey, 1)
+        }
     }
 
     $results = [System.Collections.Generic.List[object]]::new()
     foreach ($item in $Candidate) {
-        $existingMatch = @($records | Where-Object { $_.IdempotenceKey -eq $item.IdempotenceKey })
-        if ($existingMatch.Count -gt 0) {
+        if (-not $idempotenceKeys.Add($item.IdempotenceKey)) {
             $results.Add([pscustomobject]@{
                     SourceId = $item.SourceId
                     Added    = $false
@@ -401,7 +422,13 @@ function New-LedgerCategoryState {
             continue
         }
 
-        $nextRecurrence = @($records | Where-Object { $_.RecurrenceKey -eq $item.RecurrenceKey }).Count + 1
+        $nextRecurrence = if ($recurrenceCounts.ContainsKey($item.RecurrenceKey)) {
+            $recurrenceCounts[$item.RecurrenceKey] + 1
+        }
+        else {
+            1
+        }
+        $recurrenceCounts[$item.RecurrenceKey] = $nextRecurrence
         $lesson = if ($nextRecurrence -gt 1) { "$($item.Entry) [recurrence:$nextRecurrence]" } else { $item.Entry }
         $tagSuffix = if ($item.Tags.Count -eq 0) { '' } else { ' ' + ($item.Tags -join ' ') }
         $line = "- [$($item.Date)] $lesson (plan-$($item.Plan), src:$($item.Src), sev:$($item.Severity))$tagSuffix"
@@ -419,12 +446,28 @@ function New-LedgerCategoryState {
     }
 
     $ordered = Set-DeterministicLedgerRecurrence -Records @($records) -Category $Category
-    foreach ($result in @($results | Where-Object Added)) {
-        $match = @($ordered | Where-Object IdempotenceKey -EQ $result.IdempotenceKey)
-        if ($match.Count -ne 1) {
-            throw "Unable to bind added ledger result to its deterministic recurrence line."
+    $addedResults = @($results | Where-Object Added)
+    if ($addedResults.Count -gt 0) {
+        $addedKeys = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        foreach ($result in $addedResults) { [void]$addedKeys.Add($result.IdempotenceKey) }
+        $lineByIdempotenceKey = [System.Collections.Generic.Dictionary[string, string]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        foreach ($record in $ordered) {
+            if (-not $addedKeys.Contains($record.IdempotenceKey)) { continue }
+            if ($lineByIdempotenceKey.ContainsKey($record.IdempotenceKey)) {
+                throw "Unable to bind added ledger result to a unique deterministic recurrence line."
+            }
+            $lineByIdempotenceKey.Add($record.IdempotenceKey, $record.Line)
         }
-        $result.Line = $match[0].Line
+        foreach ($result in $addedResults) {
+            if (-not $lineByIdempotenceKey.ContainsKey($result.IdempotenceKey)) {
+                throw "Unable to bind added ledger result to its deterministic recurrence line."
+            }
+            $result.Line = $lineByIdempotenceKey[$result.IdempotenceKey]
+        }
     }
     $content = Build-LedgerContent -HeaderLines $headerLines -EntryLines @($ordered | ForEach-Object { $_.Line })
     $contentBytes = [System.Text.Encoding]::UTF8.GetByteCount($content)
@@ -460,7 +503,12 @@ function Invoke-LedgerBatch {
         return [pscustomobject]@{ Status = 'complete'; Added = 0; Duplicate = 0; Results = @(); Categories = @() }
     }
 
-    $candidates = @($Entry | ForEach-Object { ConvertTo-LedgerCandidate -InputObject $_ -Root $root })
+    $planCache = [System.Collections.Generic.Dictionary[string, string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $candidates = @($Entry | ForEach-Object {
+            ConvertTo-LedgerCandidate -InputObject $_ -Root $root -PlanCache $planCache
+        })
     $candidates = @(
         $candidates | Sort-Object `
         @{ Expression = { $_.Category } },

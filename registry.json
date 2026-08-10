@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T06:37:02.5840045Z",
+  "generatedAt": "2026-08-10T06:57:46.4660050Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -311,12 +311,12 @@
         },
         {
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "2a6080e2066a139baca95bda84ebe75de64aa6f53c758853b2afb25ad4077f10",
+          "sha256": "60a21aacf1cd826e539df008af6c861c20036e4f6ce94e634f01a41ba25eb0f0",
           "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/LedgerStore.psm1",
-          "sha256": "ced06ed4bbec8675ce316caef7bff404761643b48b00b098377fb8fca2b4739a",
+          "sha256": "d759a6db3670dfe1c606c22cbbdf13ac2618465f576d67b1491fd73fda8e5cf0",
           "src": "skills/autopilot/scripts/LedgerStore.psm1"
         },
         {
@@ -410,7 +410,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.15"
+      "version": "1.2.16"
     },
     {
       "author": "jIRI-san",
@@ -569,12 +569,12 @@
         },
         {
           "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "2a6080e2066a139baca95bda84ebe75de64aa6f53c758853b2afb25ad4077f10",
+          "sha256": "60a21aacf1cd826e539df008af6c861c20036e4f6ce94e634f01a41ba25eb0f0",
           "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
           "dest": "skills/ci/scripts/LedgerStore.psm1",
-          "sha256": "ced06ed4bbec8675ce316caef7bff404761643b48b00b098377fb8fca2b4739a",
+          "sha256": "d759a6db3670dfe1c606c22cbbdf13ac2618465f576d67b1491fd73fda8e5cf0",
           "src": "skills/ci/scripts/LedgerStore.psm1"
         },
         {
@@ -684,7 +684,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.42"
+      "version": "1.0.43"
     },
     {
       "author": "jIRI-san",

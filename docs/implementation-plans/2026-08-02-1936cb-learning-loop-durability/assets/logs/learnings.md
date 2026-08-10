@@ -1,11 +1,11 @@
 ## Learnings Capture
 Phase: 1
 
-- [1.1] [trigger:plan-contradiction] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:32524986890e51ca09bf07b059c2f194c4c3835fbd1701b8271edda2516d577c] Content-addressed observations require a separately hashed payload; placing the identifier inside its own exact hash input is impossible.
 - [1.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-1,REQ-7] [review:cr] [source-record:4664114d25730c281754f276e7d064cd923737df10ea838c22627162102849ca] Multi-file state transitions must perform run-first writes inside the same repo-scoped lock as the manifest CAS.
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 
@@ -17,9 +17,11 @@ Phase: 3
 - [3.1] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-4,REQ-7] [review:cr] [source-record:402646ca907161c36a250d09b9b551735d2e3556aa01b779d8b7b1fd700f6cd7] A durable snapshot receipt must share the writers physically canonical lock and recheck every source generation before publication.
 - [3.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:8bf61c3b3c6111065e7ac79fb6de718dd4f99e88e9f2d69974cd9986bfc9665b] A phase receipt is durable only when complete or empty gates completion and its receipt plus ledger delta are committed before runtime teardown.
 - [3.3] [trigger:rework>1] [concern:testing-evidence] [req:REQ-4,REQ-7] [review:cr] [source-record:4ce53563bb1e59b45dc2f53b1133a770e48b866aace9bf88b1967333f787f56f] Concurrency evidence must contend on the same store and exact capacity boundary; distinct categories or sequential prechecks prove weaker invariants.
+- [3.1] [trigger:rework>1] [concern:performance] [req:REQ-4] [review:cr] [source-record:4556b5bb16e5bb63fb0564029056edccb32fa501a6fc47ea717cc06af6c5a5e0] Batch writers must index idempotence and recurrence keys once; per-candidate scans become quadratic at the legal final-sweep boundary.
 
 ## Learnings Capture
 Phase: 4
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 
@@ -33,6 +35,7 @@ Phase: 5
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 

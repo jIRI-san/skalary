@@ -683,13 +683,13 @@ try {
                 Reason = if ($ledgerResult.PSObject.Properties.Name -contains 'Reason') { $ledgerResult.Reason } else { '' }
             }
         }
-        $receipt = $replay.Receipt
-        $ledger = $replay.Ledger
         if ($replay.Status -eq 'capacity-blocked') {
             Write-HarvestResult -Status capacity-blocked -TargetPhase $Phase `
                 -ReceiptCount $replay.ReceiptCount -ReceiptPath $receiptPath -Note $replay.Reason
             exit 4
         }
+        $receipt = $replay.Receipt
+        $ledger = $replay.Ledger
         if ($ledger.Status -eq 'capacity-blocked') {
             Write-HarvestResult -Status capacity-blocked -TargetPhase $Phase `
                 -CandidateCount @($receipt.payload.candidates).Count -ReceiptCount 1 `

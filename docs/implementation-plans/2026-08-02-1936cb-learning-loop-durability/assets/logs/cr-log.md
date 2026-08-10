@@ -79,6 +79,8 @@ Phase: 3
 - [3.3] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-4] [review:cr] [source-record:be9a923b2b649c691d0dbd3b7b975ba7f91299c28da79b7a6dff825dde9a8fde] Final replay coverage proved log isolation but did not prove a tampered immutable receipt is rejected before ledger mutation.
 - [3.1] [src:code-review] [sev:Critical] [concern:performance] [req:REQ-4] [review:cr] [source-record:7ef591c8722369dc5d2152ddea428499d1a4a393c55dcac9b27ae2c663f3a6c8] Final CR: ledger batch idempotence and recurrence are O(N times M) at the 10000-record and 4096-candidate boundary.
 - [3.3] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:5fc51db5f1108337448374eddc31cf0f80e62d1f657c5a54b45413d3a47e5d57] Final CR: capacity-blocked phase harvest dereferences absent Receipt and Ledger properties before checking status, returning the wrong degraded result.
+- [3.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-4] [review:cr] [source-record:9a26e7c091d91994dd274d73e61f266d720d0c94dc505cf4e643c2915fc03529] Code review found no significant defect in the indexed ledger batch engine or capacity-result ordering.
+- [3.1] [src:code-review] [sev:Low] [concern:performance] [req:REQ-4] [review:cr] [source-record:1568b97993a5ecc5cabbd4ccac81efa1fac3829869956c5772c279b39ed46fb4] Second-opinion review confirmed indexed batch semantics, plan caching, and capacity status ordering are behavior-preserving.
 
 ## CR Capture
 Phase: 4
