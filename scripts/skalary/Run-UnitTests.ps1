@@ -276,11 +276,15 @@ $platformBudget = $budget.Platforms[$platformKey]
 # Every field this check reads, named before any of them is read. Under Set-StrictMode a
 # missing key is a terminating error, which would exit 1 — the code that means "tests failed",
 # which is the one distinction this script exists to make.
-foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds')) {
+foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds', 'MeasurementRecord')) {
     if (-not $budget.Contains($required)) {
         Write-Host "BudgetNotDefined: '$budgetPath' is missing '$required'. A budget that does not state it cannot be enforced." -ForegroundColor Red
         exit 6
     }
+}
+if ([string]::IsNullOrWhiteSpace([string]$budget.MeasurementRecord)) {
+    Write-Host "BudgetNotDefined: '$budgetPath' has an empty 'MeasurementRecord'. A budget that does not name its freshness evidence cannot be enforced." -ForegroundColor Red
+    exit 6
 }
 foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
     if (-not $platformBudget.Contains($required)) {
@@ -292,27 +296,25 @@ foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
 $hardCeilingSeconds = [double]$platformBudget.HardCeilingSeconds
 $targetSeconds = [double]$platformBudget.TargetSeconds
 
-if ($budget.Contains('MeasurementRecord')) {
-    $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
-    if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
-        Write-Host "BudgetNotDefined: '$budgetPath' names a measurement record but '$fingerprintScript' is missing." -ForegroundColor Red
-        exit 6
-    }
-    . $fingerprintScript
-    $freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
-        -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
-        -CurrentProcessId $PID
-    if ($freshness.Status -eq 'measurement-token-invalid') {
-        Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
-        exit 9
-    }
-    if ($freshness.Status -ne 'complete') {
-        Write-Host "StaleMeasurement: $($freshness.Reason). Run scripts/skalary/Measure-SuiteRuntime.ps1 on the exact tracked inputs." -ForegroundColor Red
-        exit 8
-    }
-    if ($freshness.MeasurementMode) {
-        Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
-    }
+$fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
+    Write-Host "BudgetNotDefined: '$budgetPath' names a measurement record but '$fingerprintScript' is missing." -ForegroundColor Red
+    exit 6
+}
+. $fingerprintScript
+$freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
+    -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
+    -CurrentProcessId $PID
+if ($freshness.Status -eq 'measurement-token-invalid') {
+    Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
+    exit 9
+}
+if ($freshness.Status -ne 'complete') {
+    Write-Host "StaleMeasurement: $($freshness.Reason). Run scripts/skalary/Measure-SuiteRuntime.ps1 on the exact tracked inputs." -ForegroundColor Red
+    exit 8
+}
+if ($freshness.MeasurementMode) {
+    Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
 }
 
 # The budget measures the whole `npm test` command (D2). This leg can only see the rest of it

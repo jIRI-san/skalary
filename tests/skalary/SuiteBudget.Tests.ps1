@@ -105,6 +105,7 @@ Describe 'sandbox' {
     Schema = 'skalary/suite-budget@2'
     MeasuredCommand = 'npm test'
     MeasuredLegs = @('validate-plan', 'test:unit', 'validate.ps1')
+    MeasurementRecord = 'tools/suite-runtime.json'
     BoundCeilingSeconds = 600
     AbsoluteCapSeconds = 900
     MaxCeilingRaises = 1
@@ -119,6 +120,41 @@ Describe 'sandbox' {
 "@
             }
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') -Encoding utf8 -Value $BudgetText
+
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'scripts/skalary') -Force)
+            Copy-Item -LiteralPath $script:fingerprintScript `
+                -Destination (Join-Path $root 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
+            & git -C $root init --quiet
+            & git -C $root add -- scripts tests tools/suite-budget.psd1
+            $fixtureBudget = Import-PowerShellDataFile -LiteralPath (
+                Join-Path $root 'tools/suite-budget.psd1'
+            )
+            if ($fixtureBudget.Contains('MeasurementRecord')) {
+                $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
+                $runtime = [ordered]@{
+                    schema          = 'skalary/suite-runtime@2'
+                    measuredCommand = [string]$fixtureBudget.MeasuredCommand
+                    platforms       = [ordered]@{
+                        (Get-CurrentPlatformKey) = [ordered]@{
+                            schema              = 'skalary/suite-runtime-row@2'
+                            platform            = Get-CurrentPlatformKey
+                            measuredCommand     = [string]$fixtureBudget.MeasuredCommand
+                            fingerprintProtocol = $fingerprint.Protocol
+                            inputFingerprint    = $fingerprint.Fingerprint
+                            seconds             = 1
+                            succeeded           = $true
+                            measuredAt          = '2026-08-10T00:00:00Z'
+                            commit              = 'fixture'
+                            source              = 'test'
+                            note                = ''
+                            environment         = [ordered]@{}
+                        }
+                    }
+                }
+                Set-Content -LiteralPath (Join-Path $root 'tools/suite-runtime.json') `
+                    -Value (($runtime | ConvertTo-Json -Depth 10) + "`n") -Encoding utf8NoBOM
+                & git -C $root add -- tools/suite-runtime.json
+            }
 
             return (Resolve-Path -LiteralPath $root).Path
         }
@@ -806,6 +842,7 @@ if ($claim.Status -ne 'complete') {
     Schema = 'skalary/suite-budget@2'
     MeasuredCommand = 'npm test'
     AbsoluteCapSeconds = 900
+    MeasurementRecord = 'tools/suite-runtime.json'
     Platforms = @{
         '$(Get-CurrentPlatformKey)' = @{
             TargetSeconds = 480
@@ -819,6 +856,27 @@ if ($claim.Status -ne 'complete') {
             Should -Be 6 -Because "a budget missing HardCeilingSeconds cannot be enforced, and the suite it ran did not fail: $($incomplete.Output)"
         $incomplete.Output | Should -Match 'BudgetNotDefined'
         $incomplete.Output | Should -Match 'HardCeilingSeconds'
+
+        $missingRecord = New-BudgetSandbox -HardCeilingSeconds 600 -TargetSeconds 480 `
+            -BudgetText @"
+@{
+    Schema = 'skalary/suite-budget@2'
+    MeasuredCommand = 'npm test'
+    AbsoluteCapSeconds = 900
+    Platforms = @{
+        '$(Get-CurrentPlatformKey)' = @{
+            HardCeilingSeconds = 600
+            TargetSeconds = 480
+            CeilingRaises = @()
+        }
+    }
+}
+"@
+        $withoutFreshness = Invoke-Runner -SandboxRoot $missingRecord
+        $withoutFreshness.ExitCode |
+            Should -Be 6 -Because "a budget without freshness evidence must fail closed: $($withoutFreshness.Output)"
+        $withoutFreshness.Output | Should -Match 'BudgetNotDefined'
+        $withoutFreshness.Output | Should -Match 'MeasurementRecord'
     }
 
     It 'test:SuiteBudget.ClockedRunIsMeasuredAsTheWholeCommand charges the runner with the legs that ran before it' {

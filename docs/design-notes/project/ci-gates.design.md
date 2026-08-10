@@ -72,6 +72,9 @@ platform, `7` leaked environment, `8` stale measurement, and `9` invalid measure
 authorization. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted
 nothing forges evidence, since this script is also the `test:` evidence executor.
 
+`MeasurementRecord` is mandatory. Omitting or emptying it exits `6`; a budget cannot disable
+tracked-input freshness while retaining the runtime ceiling.
+
 ## Constraints
 
 - **No `continue-on-error`, and no gate that is not the last statement in its step.** A gate followed by anything else reports that thing's exit code; `test:Ci.SeededFailureIsRed` executes the workflow's own unit-test command against a seeded failing tree and then asserts both properties textually.

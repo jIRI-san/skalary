@@ -7,7 +7,9 @@ Describe 'run unit tests' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
+        $script:fingerprintScript = Join-Path $script:repoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
         $script:sandboxes = [System.Collections.Generic.List[string]]::new()
+        . $script:fingerprintScript
 
         # A sandbox repo root, so the runner is exercised against a tests tree this file
         # controls rather than against the suite it is currently running inside.
@@ -30,11 +32,15 @@ Describe 'run unit tests' {
             # sandbox exercising the Pester-presence branches has to carry a budget it fits
             # inside — otherwise every case here would pass on the budget verdict instead.
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools'))
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'scripts/skalary') -Force)
+            Copy-Item -LiteralPath $script:fingerprintScript `
+                -Destination (Join-Path $root 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') -Encoding utf8 -Value @'
 @{
     Schema = 'skalary/suite-budget@2'
     MeasuredCommand = 'npm test'
     MeasuredLegs = @('validate-plan', 'test:unit', 'validate.ps1')
+    MeasurementRecord = 'tools/suite-runtime.json'
     BoundCeilingSeconds = 600
     AbsoluteCapSeconds = 900
     MaxCeilingRaises = 1
@@ -49,6 +55,34 @@ Describe 'run unit tests' {
             if ($TestFileContent) {
                 Set-Content -LiteralPath (Join-Path $root 'tests/Sandbox.Tests.ps1') -Value $TestFileContent -Encoding utf8
             }
+
+            & git -C $root init --quiet
+            & git -C $root add -- scripts tests tools/suite-budget.psd1
+            $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
+            $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
+            $runtime = [ordered]@{
+                schema          = 'skalary/suite-runtime@2'
+                measuredCommand = 'npm test'
+                platforms       = [ordered]@{
+                    $platform = [ordered]@{
+                        schema              = 'skalary/suite-runtime-row@2'
+                        platform            = $platform
+                        measuredCommand     = 'npm test'
+                        fingerprintProtocol = $fingerprint.Protocol
+                        inputFingerprint    = $fingerprint.Fingerprint
+                        seconds             = 1
+                        succeeded           = $true
+                        measuredAt          = '2026-08-10T00:00:00Z'
+                        commit              = 'fixture'
+                        source              = 'test'
+                        note                = ''
+                        environment         = [ordered]@{}
+                    }
+                }
+            }
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-runtime.json') `
+                -Value (($runtime | ConvertTo-Json -Depth 10) + "`n") -Encoding utf8NoBOM
+            & git -C $root add -- tools/suite-runtime.json
 
             return (Resolve-Path -LiteralPath $root).Path
         }
