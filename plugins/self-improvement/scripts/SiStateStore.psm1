@@ -647,14 +647,28 @@ function Invoke-SiRepair {
         if ($envelope.observationId -ne $Observation -or $calculatedObservation -ne $Observation) {
             throw "Repair observation '$Observation' failed its content-address check."
         }
-        $currentPayload = Get-SiObservationPayload -RepoRoot $RepoRoot -PinnedBaseOid ([string]$envelope.payload.pinnedBaseOid)
-        if (($currentPayload | ConvertTo-Json -Depth 100 -Compress) -ne $payloadJson) {
-            throw "Repair observation '$Observation' is stale; the observed store changed."
-        }
         $backupRoot = Resolve-SiStatePath -RepoRoot $RepoRoot -Segments @('backups', $Observation)
         [void](New-Item -ItemType Directory -Path $backupRoot -Force)
         $backupFilesRoot = Join-Path $backupRoot 'files'
         $repoRootPath = Resolve-SiRepoRoot -RepoRoot $RepoRoot
+        $manifestPath = Get-SiManifestPath -RepoRoot $RepoRoot
+        $journalPath = Join-Path $backupRoot 'apply-journal.json'
+        if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+            throw "Repair observation '$Observation' already has an incomplete apply journal; rollback before retry."
+        }
+        $currentPayload = Get-SiObservationPayload -RepoRoot $RepoRoot `
+            -PinnedBaseOid ([string]$envelope.payload.pinnedBaseOid)
+        if (($currentPayload | ConvertTo-Json -Depth 100 -Compress) -ne $payloadJson) {
+            throw "Repair observation '$Observation' is stale; the observed store changed."
+        }
+        $journal = [ordered]@{
+            schemaVersion = 1
+            observationId = $Observation
+            beforeDigest = Get-SiArtifactDigest -Path $manifestPath
+            stage = 'backup-pending'
+        }
+        [void](Set-AtomicStoreContent -Path $journalPath `
+                -Content ((ConvertTo-SiJson -Value $journal)))
         $stateRootPath = Split-Path -Parent (Get-SiManifestPath -RepoRoot $RepoRoot)
         $statePrefix = $stateRootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
         [System.IO.Path]::DirectorySeparatorChar
@@ -675,18 +689,15 @@ function Invoke-SiRepair {
             }
             [System.IO.File]::Copy($source, $backup, $true)
         }
-        $manifestPath = Get-SiManifestPath -RepoRoot $RepoRoot
         if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
             [System.IO.File]::Copy($manifestPath, (Join-Path $backupRoot 'state.json'), $true)
         }
         else {
             [void](Set-AtomicStoreContent -Path (Join-Path $backupRoot 'manifest.absent') -Content "absent`n")
         }
-        $journalPath = Join-Path $backupRoot 'apply-journal.json'
-        [void](Set-AtomicStoreContent -Path $journalPath -Content (([ordered]@{
-                        observationId = $Observation
-                        beforeDigest  = Get-SiArtifactDigest -Path $manifestPath
-                    } | ConvertTo-Json -Compress) + "`n"))
+        $journal.stage = 'backup-complete'
+        [void](Set-AtomicStoreContent -Path $journalPath `
+                -Content ((ConvertTo-SiJson -Value $journal)))
         $manifest = New-SiManifest
         $quarantineEntries = [System.Collections.Generic.List[object]]::new()
         if ($envelope.payload.status -eq 'migration-required' -and
@@ -734,6 +745,11 @@ function Invoke-SiRepair {
                 @($manifest.recentRuns).Count -gt $script:SiStateContract.Limits.ActiveCompletedRuns) {
                 throw 'capacity-blocked: repair result exceeds active history limits.'
             }
+            if ($quarantineCandidates.Count -gt 0) {
+                $journal.stage = 'mutation-started'
+                [void](Set-AtomicStoreContent -Path $journalPath `
+                        -Content ((ConvertTo-SiJson -Value $journal)))
+            }
             foreach ($runFile in $quarantineCandidates) {
                 $relativeTail = [System.IO.Path]::GetRelativePath(
                     (Split-Path -Parent (Get-SiManifestPath -RepoRoot $RepoRoot)), $runFile.FullName
@@ -767,6 +783,11 @@ function Invoke-SiRepair {
         }
         $manifestJson = ConvertTo-SiJson -Value $manifest
         Test-SiJsonSchema -Json $manifestJson -Schema manifest
+        if ([string]$journal.stage -ne 'mutation-started') {
+            $journal.stage = 'mutation-started'
+            [void](Set-AtomicStoreContent -Path $journalPath `
+                    -Content ((ConvertTo-SiJson -Value $journal)))
+        }
         [void](Set-AtomicStoreContent -Path $manifestPath -Content $manifestJson)
         $after = Get-AtomicStoreGeneration -Path $manifestPath
         $issuedReceipt = New-SiRepairReceipt -RepoRoot $RepoRoot -ObservationId $Observation -Mode apply `
@@ -817,6 +838,13 @@ function Invoke-SiRepair {
         if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
             throw "Observation '$lookup' has no incomplete apply journal; rollback requires its apply receipt."
         }
+        $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -Depth 20
+        if ([string]$journal.observationId -ne $lookup -or
+            [string]$journal.stage -notin @(
+                'backup-pending', 'backup-complete', 'mutation-started'
+            )) {
+            throw "Observation '$lookup' has an invalid apply journal."
+        }
     }
     $backupManifest = Join-Path $backupRoot 'state.json'
     $absentMarker = Join-Path $backupRoot 'manifest.absent'
@@ -824,6 +852,21 @@ function Invoke-SiRepair {
     $beforeRollback = Get-SiArtifactDigest -Path $manifestPath
     if ($applyReceipt -and $beforeRollback -ne [string]$applyReceipt.afterDigest) {
         throw "Repair receipt '$Receipt' is stale; state changed after apply."
+    }
+    if (-not $applyReceipt -and [string]$journal.stage -ne 'mutation-started') {
+        if ($beforeRollback -ne [string]$journal.beforeDigest) {
+            throw "Observation '$lookup' changed before repair mutation; refusing rollback."
+        }
+        Remove-Item -LiteralPath $journalPath -Force
+        $rollbackReceipt = New-SiRepairReceipt -RepoRoot $RepoRoot `
+            -ObservationId $lookup -Mode rollback -BeforeDigest $beforeRollback `
+            -AfterDigest $beforeRollback
+        return [pscustomobject]@{
+            Status = (Get-SiStoreInspection -RepoRoot $RepoRoot).Status
+            ObservationId = $lookup
+            ReceiptId = $rollbackReceipt.ReceiptId
+            Mutated = $false
+        }
     }
     $backupFilesRoot = Join-Path $backupRoot 'files'
     foreach ($backup in @(Get-ChildItem -LiteralPath $backupFilesRoot -File -Recurse -ErrorAction SilentlyContinue)) {
@@ -866,6 +909,7 @@ function Invoke-SiRepair {
 }
 
 Export-ModuleMember -Function Get-SiStateContract, Resolve-SiStatePath, New-SiManifest,
-Read-SiManifest, Get-SiDueId, Get-SiRepoId, Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
+Read-SiManifest, Get-SiManifestPath, Get-SiArtifactDigest, Get-SiDueId, Get-SiRepoId,
+Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
 Invoke-SiManifestUpdate, Add-SiDue, Get-SiStoreInspection, Get-SiObservationPayload,
 Save-SiRepairObservation, New-SiRepairReceipt, Invoke-SiRepair

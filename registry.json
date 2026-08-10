@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T00:45:58.2035511Z",
+  "generatedAt": "2026-08-10T01:51:24.3762588Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1246,6 +1246,11 @@
           "src": "skills/si/scripts/AtomicStore.psm1"
         },
         {
+          "dest": "skills/si/scripts/Complete-SiProposal.ps1",
+          "sha256": "93b77217c7a0d7e306d73d61d33bbf8bc877910a116b68c923d38035a2c8bac6",
+          "src": "scripts/Complete-SiProposal.ps1"
+        },
+        {
           "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
           "sha256": "4510467179eea93b66d2e10dab798efdcd2f694a8c96ceac4de64c50b4bc1fb0",
           "src": "scripts/Enqueue-SiDue.ps1"
@@ -1287,7 +1292,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "cc4a42016fb4f205ad5bd14c0a629c5dd4f00e6f48a57c639fca0acb4b8cd674",
+          "sha256": "79b73a6fa5168d93cd27979cf06b4a5aa4876507a8cdfc8257099c5e9eec01ae",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1356,11 +1361,23 @@
           "trigger": "repair snapshot"
         },
         {
+          "mode": "literal",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-receipts",
+          "trigger": "repair receipt enumeration"
+        },
+        {
           "confine": "Resolve-SiStatePath",
           "mode": "parameterized",
           "owner": "Repair-SiState.ps1",
           "path": "docs/self-improvement/repair-receipts/<receipt>.json",
           "trigger": "repair apply or rollback completion"
+        },
+        {
+          "mode": "literal",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/resolver-receipts",
+          "trigger": "resolver receipt verification"
         },
         {
           "confine": "Resolve-SiStatePath",
@@ -1390,7 +1407,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.38"
+      "version": "1.0.39"
     }
   ]
 }

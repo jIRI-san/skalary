@@ -31,3 +31,8 @@ Phase: 5
 Phase: 6
 
 No entries for this phase.
+
+## Learnings Capture
+Phase: 7
+
+- [7.1] [trigger:rework>1] [concern:security] [req:REQ-7] [review:cr] [source-record:ce492a8bb93a32cbb7c32967b14a9e417a199fd9ac537efab4019d2a5b54efa3] Content-addressed repair artifacts are not authority; merge gates must replay the transition from pinned authoritative state and compare the complete result.

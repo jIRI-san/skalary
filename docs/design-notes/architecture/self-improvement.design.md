@@ -205,6 +205,30 @@ comparison before push and exact remote-head comparison afterward make stale or 
 failures without force-pushing. Disposable-worktree cleanup is checked and a cleanup failure blocks
 success.
 
+`Complete-SiProposal.ps1` is the separate operator-only merge authority; `/si` never invokes it.
+It runs only from a clean detached installed checkout pinned to freshly fetched `origin/main`,
+queries the live fixed-branch PR, fetches and cross-checks that head, and replays the trusted scope,
+trust-anchor, receipt, run, and manifest checks in a disposable worktree. For run PRs it writes the
+recoverable run-first/manifest-second completed transition to the fixed branch before merging.
+Provider failure therefore leaves a resumable completed branch, while authoritative main remains
+pending. The operator passes the retained `lifecycleHeadOid`; completion verifies it is an ancestor
+and that its exact candidate dispositions still match the live run, so a later branch push cannot
+rewrite the operator's choices. Immediately before merge it refreshes the PR and requires the same
+repository, `main` base name/OID, fixed branch, and head OID, then marks a draft ready and calls
+GitHub's merge mutation with `expectedHeadOid` in the same process. An ambiguous provider response
+is reconciled against the merged PR. A later retry fetches the provider's immutable pull-request head
+and reruns the same lifecycle binding, scope, exact-state, or trusted repair replay checks; it never
+substitutes the current mutable manifest for the historical merge tree. Repair PRs use
+`si-repair/<observation-id>` and must carry an
+exact content-addressed observation and final apply/rollback receipt whose after digest matches the
+proposed state.
+
+Repair Apply creates `backups/<observation-id>/apply-journal.json` at `backup-pending` before
+copying backups, advances it to `backup-complete` before any target mutation, and records
+`mutation-started` before quarantine or manifest replacement. Rollback by observation ID is valid
+without a final apply receipt: pre-mutation journals are cancelled only when the authoritative
+manifest digest is unchanged, while mutation-started journals restore the observation-keyed backup.
+
 ## `Test-SiWriteScope.ps1`: the write-scope gate
 
 | Aspect | Contract |

@@ -27,3 +27,8 @@ No entries for this phase.
 Phase: 6
 
 No entries for this phase.
+
+## Capture
+Phase: 7
+
+No entries for this phase.
