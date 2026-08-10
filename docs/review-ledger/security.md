@@ -3,6 +3,7 @@
 - [2026-08-01] A content stripper feeding a bootstrap or security gate must fail closed on malformed input; blanking the remainder turns an authoring slip into a silent gate bypass. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-08-05] A least-privilege assertion written as a denylist passes on contents-read plus checks-write and ignores job-level overrides. Assert the top-level block is exactly the scopes needed and reject job-level blocks. (plan-768d7b, src:autopilot, sev:Med) #phase-8 #req-9
 - [2026-08-01] A machine-readable declaration is only worth its truth: assert the declared confine helper is shipped and called by the declaring unit or the manifest passes the gate while the gap stays open. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
+- [2026-08-10] Adjacent SI modules execute before the trusted checkout identity and cleanliness checks. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
 - [2026-08-09] Candidate JSON types were cast before validation allowing objects numbers and scalar path fields to receive lossy content IDs. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-6 #req-7 #security
 - [2026-08-09] Consumer hostile fixture contained only the marker token and did not exercise a forged boundary marker plus inner fence delimiter. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-6 #security
 - [2026-08-09] Enumerated overflow and receipt child files were read without rechecking physical descent from their confined roots. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
@@ -13,9 +14,13 @@
 - [2026-08-09] Fixed schema diagnostics echoing untrusted stored property names outside the metadata-only Surface contract. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Fixed SI state path confinement following a docs/self-improvement link outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Harvest index output was lexically confined but could follow a symlinked SI state directory outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-7 #security
+- [2026-08-10] HEAD is captured after final validation allowing a concurrent commit to become the pushed unvalidated OID. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
+- [2026-08-10] Installed Invoke-SiProposalSync lacks the latest trusted-checkout immutable-main and cleanup fixes. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-8 #security
 - [2026-08-09] Ledger path confinement was lexical only so a symlinked review-ledger directory could redirect writes outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] PlanState physical confinement used case-insensitive prefix comparison on Unix and could accept case-distinct escape targets. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-05] Removing -SkipPublisherCheck restores a check only if one still runs: Install-PSResource verifies nothing unless -AuthenticodeCheck is passed so the removal alone is a rename rather than a control. (plan-768d7b, src:autopilot, sev:High) #phase-8 #req-9
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
+- [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
 - [2026-08-09] Standalone resolver receipt verification could follow a symlinked receipt directory outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-7 #security
+- [2026-08-10] Trusted proposal sync accepts any external checkout without pinning its HEAD or cleanliness to fetched origin/main. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
