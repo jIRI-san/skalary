@@ -130,6 +130,9 @@ Phase: 5
 - [5.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:0713550c94553a2be7996273ed95efc3288a8ffc521600d565aa06020aec09d6] Fixed fixed-branch capacity omitting retained completed runs, due IDs not being re-derived, run provenance drift, and duplicate manifest due/run references.
 - [5.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-3,REQ-7] [review:cr] [source-record:a6aed97a76a468b737b33a136edf5642841044d58b5ee4714482c02b85467cc3] Fixed non-asserting timestamp formats leaking malformed stored text, canonical candidate/digest hashes not being rechecked, and orphan run due provenance not being validated.
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:bd31f15edf08840805fd2b4c30f079efd6375bb1385435e3c75f53c675d03a2c] Final CR: headless non-blocking degradation is only proven by prompt grep, not by executing a failing installed enqueue writer.
+- [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:83e9610243ccad18f1b72d59d507bf11a2c14580a9c058512de54abaab5f4611] Rubber Duck: the degradation assertion was test-authored and did not bind the runtime writer failure.
+- [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3,REQ-7] [review:cr] [source-record:02e220d4e0c6426dc66cb60d8c81a0f2517efdd73b833e29ed94185e46ef2537] Rubber Duck: blocking the parent directory made the no-mutation assertion structurally vacuous.
+- [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:f3012ceabc1b7b7564835ec1f4a258a128cefe8eaf14e9efc50efb2ccbfe0e8a] Rubber Duck: the continuation flag was unconditional and did not prove a post-failure handoff operation completed.
 
 ## CR Capture
 Phase: 6

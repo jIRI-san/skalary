@@ -177,6 +177,42 @@ Describe 'Headless SI due handoff' {
             Test-Path -LiteralPath (Join-Path $autopilotRoot $installedPath) -PathType Leaf |
                 Should -BeTrue
 
+            Import-Module (
+                Join-Path $autopilotRoot '.github/skills/si/scripts/SiStateStore.psm1'
+            ) -Force
+            $repoId = Get-SiRepoId -RepoRoot $autopilotRoot
+            $manifest = New-SiManifest
+            $manifest.generation = 128
+            $manifest.pending = @(1..128 | ForEach-Object {
+                    $commit = $_.ToString('x40')
+                    [pscustomobject][ordered]@{
+                        dueId = Get-SiDueId -RepoId $repoId -PlanId 1936cb `
+                            -SourceCommit $commit
+                        repoId = $repoId
+                        planId = '1936cb'
+                        sourceCommit = $commit
+                        createdAtUtc = '2026-08-09T00:00:00Z'
+                        deferUntilUtc = $null
+                        status = 'pending'
+                        runId = $null
+                    }
+                })
+            $manifestPath = Join-Path $autopilotRoot 'docs/self-improvement/state.json'
+            Write-SiJson -Path $manifestPath -Value $manifest
+            $beforeFailure = [System.IO.File]::ReadAllBytes($manifestPath)
+            $writerError = $null
+            try {
+                & (Join-Path $autopilotRoot $installedPath) `
+                    -RepoRoot $autopilotRoot -PlanId 1936cb -SourceCommit ('f' * 40)
+            }
+            catch {
+                $writerError = $_
+            }
+            $writerError | Should -Not -BeNullOrEmpty
+            $writerError.Exception.Message | Should -Match 'capacity-blocked'
+            [Convert]::ToHexString([System.IO.File]::ReadAllBytes($manifestPath)) |
+                Should -Be ([Convert]::ToHexString($beforeFailure))
+
             $standaloneVersions = Install-PluginClosure -RootPlugin self-improvement `
                 -TargetRoot $standaloneRoot
             $standaloneVersions.Keys | Should -Contain 'self-improvement'
@@ -200,7 +236,8 @@ Describe 'Headless SI due handoff' {
             $firstBytes = [System.IO.File]::ReadAllBytes($manifestPath)
             $second = & $writer -RepoRoot $standaloneRoot -PlanId 1936cb `
                 -SourceCommit $sourceCommit
-            $first.Status | Should -Be 'complete'
+            $first.Status | Should -Be 'complete' `
+                -Because 'the handoff flow must continue after reporting the prior enqueue degradation'
             $first.Written | Should -BeTrue
             $first.DueId | Should -Be $expectedDue
             $second.Status | Should -Be 'complete'
