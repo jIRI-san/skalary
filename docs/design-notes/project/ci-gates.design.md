@@ -1,10 +1,12 @@
 ---
-description: The repository's gate inventory — every gate CI runs, the two hosts a gate can live in, what each does when it fails, and the typed exclusions for the gates that deliberately do not run. Also the per-platform runtime budget contract. Load before editing .github/workflows/registry-ci.yml, scripts/validate.ps1, scripts/skalary/Run-UnitTests.ps1 or tools/suite-budget.psd1.
+description: The repository's gate inventory — every gate CI runs, the two hosts a gate can live in, what each does when it fails, and the typed exclusions for the gates that deliberately do not run. Also the per-platform runtime budget and tracked-input fingerprint contract.
 globs:
   - .github/workflows/**
   - scripts/validate.ps1
   - scripts/skalary/Run-UnitTests.ps1
+  - scripts/skalary/{Get-SuiteInputFingerprint,Measure-SuiteRuntime}.ps1
   - tools/suite-budget.psd1
+  - tools/suite-runtime.json
 ---
 
 # CI Gates
@@ -59,8 +61,16 @@ That is why `registry-ci.yml` gives every gate its own named step and never chai
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
 | Job timeout | per matrix leg, above that platform's ceiling — a job killed before the gate speaks reports a cancelled run, not an over-budget one |
+| Input identity | `Get-SuiteInputFingerprint.ps1` hashes the protocol tag plus each ordinal tracked regular path and its exact bytes with unsigned 64-bit big-endian length frames. The producer is included. Only `tools/suite-{profile,runtime}.json` and `testResults.xml` are excluded generated outputs. |
+| Ordinary freshness | The current platform's runtime row must carry the current fingerprint and protocol. A stale/missing row exits `8`; another platform is checked by its own runner and refreshed before final approval. |
+| Measurement freshness | `Measure-SuiteRuntime.ps1` computes the fingerprint before launching `npm test`, gives that child tree a process-only token containing the protocol, fingerprint, random nonce, measurement parent PID, and HMAC under a process-local random key, and recomputes after success. `pretest` validates the token, atomically claims its nonce once, and binds that nonce into the repo-scoped budget clock; the final runner consumes that clock and requires the same nonce. Re-running `pretest` with the token hits the claim tombstone and fails, so clock recreation cannot replay it. The gate also validates closed fields, HMAC, fingerprint, and live ancestry; invalid authorization exits `9`. A valid token permits stale or absent rows only for that measured run and never bypasses the elapsed-time ceiling. |
+| Row publication | Successful measurement emits/writes a `suite-runtime-row@2` candidate carrying the fingerprint. Publication retires rows for older fingerprints, so they cannot masquerade as cross-platform evidence; later same-fingerprint imports compose the platform set. Import rejects failed, wrong-command, wrong-schema, or wrong-fingerprint rows. Generated row writes do not change the fingerprint. |
 
-Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
+Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent,
+`3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this
+platform, `7` leaked environment, `8` stale measurement, and `9` invalid measurement
+authorization. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted
+nothing forges evidence, since this script is also the `test:` evidence executor.
 
 ## Constraints
 

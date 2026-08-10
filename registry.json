@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T01:51:24.3762588Z",
+  "generatedAt": "2026-08-10T03:25:44.8958027Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -316,7 +316,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/LedgerStore.psm1",
-          "sha256": "f55a636075f8b0cfe5037260c3ca145377984f3d3d2084987f48a22dbeb9c396",
+          "sha256": "ced06ed4bbec8675ce316caef7bff404761643b48b00b098377fb8fca2b4739a",
           "src": "skills/autopilot/scripts/LedgerStore.psm1"
         },
         {
@@ -410,7 +410,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.13"
+      "version": "1.2.14"
     },
     {
       "author": "jIRI-san",
@@ -574,7 +574,7 @@
         },
         {
           "dest": "skills/ci/scripts/LedgerStore.psm1",
-          "sha256": "f55a636075f8b0cfe5037260c3ca145377984f3d3d2084987f48a22dbeb9c396",
+          "sha256": "ced06ed4bbec8675ce316caef7bff404761643b48b00b098377fb8fca2b4739a",
           "src": "skills/ci/scripts/LedgerStore.psm1"
         },
         {
@@ -684,7 +684,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.39"
+      "version": "1.0.40"
     },
     {
       "author": "jIRI-san",

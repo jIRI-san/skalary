@@ -112,13 +112,40 @@ Describe 'ci workflow' {
             $script:seedSandboxes.Add($root)
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'tests'))
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools'))
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'scripts/skalary') -Force)
 
             # The real budget, copied rather than restated: a sandbox carrying its own ceiling
             # would let this case pass while the ceiling CI enforces says something else.
             Copy-Item -LiteralPath (Join-Path $script:repoRoot 'tools/suite-budget.psd1') `
                 -Destination (Join-Path $root 'tools/suite-budget.psd1')
+            $fingerprintScript = 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot $fingerprintScript) `
+                -Destination (Join-Path $root $fingerprintScript)
 
             Set-Content -LiteralPath (Join-Path $root 'tests/Seeded.Tests.ps1') -Value $TestFileContent -Encoding utf8
+            & git -C $root init --quiet
+            & git -C $root add -- scripts tests tools/suite-budget.psd1
+            . (Join-Path $root $fingerprintScript)
+            $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
+            $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
+            $runtime = [ordered]@{
+                schema          = 'skalary/suite-runtime@2'
+                measuredCommand = 'npm test'
+                platforms       = [ordered]@{
+                    $platform = [ordered]@{
+                        schema              = 'skalary/suite-runtime-row@2'
+                        platform            = $platform
+                        measuredCommand     = 'npm test'
+                        fingerprintProtocol = $fingerprint.Protocol
+                        inputFingerprint    = $fingerprint.Fingerprint
+                        seconds             = 1
+                        succeeded           = $true
+                    }
+                }
+            }
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-runtime.json') `
+                -Value (($runtime | ConvertTo-Json -Depth 10) + "`n") -Encoding utf8NoBOM
+            & git -C $root add -- tools/suite-runtime.json
             return (Resolve-Path -LiteralPath $root).Path
         }
 
@@ -133,11 +160,41 @@ Describe 'ci workflow' {
             Push-Location -LiteralPath $SandboxRoot
             $previousPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
+            $previousToken = [Environment]::GetEnvironmentVariable(
+                'SKALARY_SUITE_MEASUREMENT_TOKEN'
+            )
+            $previousKey = [Environment]::GetEnvironmentVariable(
+                'SKALARY_SUITE_MEASUREMENT_KEY'
+            )
             try {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                    -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                    -ErrorAction SilentlyContinue
                 $output = & pwsh @RunnerArgument -RepoRoot $SandboxRoot 2>&1
                 $exitCode = $LASTEXITCODE
             }
             finally {
+                if ($null -eq $previousToken) {
+                    Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                        -ErrorAction SilentlyContinue
+                }
+                else {
+                    [Environment]::SetEnvironmentVariable(
+                        'SKALARY_SUITE_MEASUREMENT_TOKEN',
+                        $previousToken
+                    )
+                }
+                if ($null -eq $previousKey) {
+                    Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                        -ErrorAction SilentlyContinue
+                }
+                else {
+                    [Environment]::SetEnvironmentVariable(
+                        'SKALARY_SUITE_MEASUREMENT_KEY',
+                        $previousKey
+                    )
+                }
                 $ErrorActionPreference = $previousPreference
                 Pop-Location
             }

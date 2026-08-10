@@ -8,6 +8,8 @@ Describe 'suite budget' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
+        $script:fingerprintScript = Join-Path $script:repoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+        $script:measurementScript = Join-Path $script:repoRoot 'scripts/skalary/Measure-SuiteRuntime.ps1'
         $script:sandboxes = [System.Collections.Generic.List[string]]::new()
         $script:budget = $null
         if (Test-Path -LiteralPath $script:budgetPath -PathType Leaf) {
@@ -16,6 +18,7 @@ Describe 'suite budget' {
         # The budget names its own measurement record, so this file checks the figures the
         # budget claims to have been tightened against rather than a path it chose itself.
         $script:runtimePath = Join-Path $script:repoRoot ([string]$script:budget.MeasurementRecord)
+        . $script:fingerprintScript
 
         function Get-PlanDecisionsText {
             param([string]$PlanId)
@@ -159,7 +162,168 @@ Describe 'sandbox' {
 
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Output = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+            }
+        }
+
+        function New-MeasurementSandbox {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) (
+                'suite-measurement-' + [System.Guid]::NewGuid().ToString('N')
+            )
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'scripts/skalary') -Force)
+            [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools') -Force)
+            $script:sandboxes.Add($root)
+            Copy-Item -LiteralPath $script:fingerprintScript `
+                -Destination (Join-Path $root 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
+            Copy-Item -LiteralPath $script:measurementScript `
+                -Destination (Join-Path $root 'scripts/skalary/Measure-SuiteRuntime.ps1')
+
+            $platform = Get-CurrentPlatformKey
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') `
+                -Encoding utf8NoBOM -Value @"
+@{
+    Schema = 'skalary/suite-budget@2'
+    MeasuredCommand = 'npm test'
+    MeasurementRecord = 'tools/suite-runtime.json'
+    BoundCeilingSeconds = 600
+    AbsoluteCapSeconds = 900
+    MaxCeilingRaises = 1
+    Platforms = @{
+        '$platform' = @{
+            HardCeilingSeconds = 600
+            TargetSeconds = 480
+            CeilingRaises = @()
+        }
+    }
+}
+"@
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-runtime.json') `
+                -Encoding utf8NoBOM -Value @"
+{
+  "schema": "skalary/suite-runtime@1",
+  "measuredCommand": "npm test",
+  "platforms": {
+    "$platform": {
+      "schema": "skalary/suite-runtime-row@1",
+      "platform": "$platform",
+      "measuredCommand": "npm test",
+      "seconds": 1,
+      "succeeded": true
+    }
+  }
+}
+"@
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-profile.json') `
+                -Encoding utf8NoBOM -Value '{"generated":true}'
+            Set-Content -LiteralPath (Join-Path $root 'gate.ps1') -Encoding utf8NoBOM -Value @'
+param([string]$RepoRoot)
+$ErrorActionPreference = 'Stop'
+. (Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
+$budget = Import-PowerShellDataFile -LiteralPath (Join-Path $RepoRoot 'tools/suite-budget.psd1')
+$platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
+$noncePath = Join-Path $RepoRoot '.measurement-nonce'
+$nonce = if (Test-Path -LiteralPath $noncePath -PathType Leaf) {
+    [System.IO.File]::ReadAllText($noncePath)
+}
+else {
+    $null
+}
+Remove-Item -LiteralPath $noncePath -Force -ErrorAction SilentlyContinue
+$result = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
+    -PlatformKey $platform -ExpectedNonce $nonce
+if ($result.Status -eq 'measurement-token-invalid') {
+    Write-Host "MeasurementTokenInvalid: $($result.Reason)"
+    exit 9
+}
+if ($result.Status -ne 'complete') {
+    Write-Host "StaleMeasurement: $($result.Reason)"
+    exit 8
+}
+'@
+            Set-Content -LiteralPath (Join-Path $root 'start.ps1') -Encoding utf8NoBOM -Value @'
+param([string]$RepoRoot)
+$ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($env:SKALARY_SUITE_MEASUREMENT_TOKEN) -and
+    [string]::IsNullOrWhiteSpace($env:SKALARY_SUITE_MEASUREMENT_KEY)) {
+    exit 0
+}
+. (Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
+$fingerprint = Get-SuiteInputFingerprint -RepoRoot $RepoRoot
+$authorization = Test-SuiteMeasurementAuthorization `
+    -Token $env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+    -Key $env:SKALARY_SUITE_MEASUREMENT_KEY `
+    -ExpectedFingerprint $fingerprint.Fingerprint
+if ($authorization.Status -ne 'complete') {
+    Write-Host "MeasurementTokenInvalid: $($authorization.Reason)"
+    exit 9
+}
+$claim = Use-SuiteMeasurementNonce -Nonce $authorization.Nonce `
+    -ParentPid $authorization.ParentPid -ClaimRoot $RepoRoot
+if ($claim.Status -ne 'complete') {
+    Write-Host "MeasurementTokenInvalid: $($claim.Reason)"
+    exit 9
+}
+[System.IO.File]::WriteAllText(
+    (Join-Path $RepoRoot '.measurement-nonce'),
+    $authorization.Nonce,
+    [System.Text.UTF8Encoding]::new($false)
+)
+'@
+            Set-Content -LiteralPath (Join-Path $root 'package.json') -Encoding utf8NoBOM -Value @'
+{
+  "scripts": {
+    "pretest": "pwsh -NoProfile -File start.ps1 -RepoRoot .",
+    "test": "pwsh -NoProfile -File gate.ps1 -RepoRoot ."
+  }
+}
+'@
+            & git -C $root init --quiet
+            & git -C $root add -- gate.ps1 start.ps1 package.json scripts tools
+            if ($LASTEXITCODE -ne 0) { throw "Unable to stage measurement fixture '$root'." }
+            return $root
+        }
+
+        function Invoke-MeasurementFixture {
+            param(
+                [Parameter(Mandatory)][string]$Root,
+                [switch]$NoWrite
+            )
+
+            $arguments = @(
+                '-NoProfile', '-File',
+                (Join-Path $Root 'scripts/skalary/Measure-SuiteRuntime.ps1'),
+                '-RepoRoot', $Root,
+                '-Source', 'test:measurement-mode'
+            )
+            if ($NoWrite) { $arguments += '-NoWrite' }
+            $output = @(& pwsh @arguments 2>&1)
+            return [pscustomobject]@{
+                ExitCode = $LASTEXITCODE
+                Output   = ($output | ForEach-Object { "$_" }) -join "`n"
+            }
+        }
+
+        function Invoke-AuthorizationVerifier {
+            param(
+                [Parameter(Mandatory)][string]$Token,
+                [Parameter(Mandatory)][string]$Key,
+                [Parameter(Mandatory)][string]$Fingerprint
+            )
+
+            $driver = Join-Path ([System.IO.Path]::GetTempPath()) (
+                'suite-auth-' + [guid]::NewGuid().ToString('N') + '.ps1'
+            )
+            Set-Content -LiteralPath $driver -Encoding utf8NoBOM -Value @"
+. '$script:fingerprintScript'
+`$result = Test-SuiteMeasurementAuthorization -Token '$Token' -Key '$Key' ``
+    -ExpectedFingerprint '$Fingerprint'
+`$result | ConvertTo-Json -Compress
+"@
+            try {
+                return (& pwsh -NoProfile -File $driver | ConvertFrom-Json)
+            }
+            finally {
+                Remove-Item -LiteralPath $driver -Force -ErrorAction SilentlyContinue
             }
         }
     }
@@ -315,8 +479,18 @@ Describe 'sandbox' {
 
         $entries = Get-PlatformEntries
         $current = Get-CurrentPlatformKey
-        @($rows | ForEach-Object { $_.Name }) |
-            Should -Contain $current -Because "the platform this suite is running on must carry a measured figure; measure it with scripts/skalary/Measure-SuiteRuntime.ps1"
+        $isMeasurementRun = (
+            -not [string]::IsNullOrWhiteSpace($env:SKALARY_SUITE_MEASUREMENT_TOKEN) -and
+            -not [string]::IsNullOrWhiteSpace($env:SKALARY_SUITE_MEASUREMENT_KEY)
+        )
+        if (-not $isMeasurementRun) {
+            $freshness = Test-SuiteRuntimeFreshness -RepoRoot $script:repoRoot `
+                -Budget $script:budget -PlatformKey $current
+            $freshness.Status |
+                Should -Be 'complete' -Because "the current platform row must be fresh: $($freshness.Reason)"
+            @($rows | ForEach-Object { $_.Name }) |
+                Should -Contain $current -Because "the platform this suite is running on must carry a measured figure; measure it with scripts/skalary/Measure-SuiteRuntime.ps1"
+        }
 
         foreach ($property in $rows) {
             $platform = $property.Name
@@ -340,6 +514,258 @@ Describe 'sandbox' {
             foreach ($field in @('os', 'psVersion', 'processorCount')) {
                 @($row.environment.PSObject.Properties.Name) |
                     Should -Contain $field -Because "'$platform' must record the '$field' its figure was measured under"
+            }
+        }
+    }
+
+    It 'test:SuiteBudget.MeasurementModeRefreshesStaleRows authorizes one stale run and records its exact tracked inputs' {
+        $root = New-MeasurementSandbox
+        $platform = Get-CurrentPlatformKey
+        $runtimePath = Join-Path $root 'tools/suite-runtime.json'
+        $runtime = Get-Content -LiteralPath $runtimePath -Raw | ConvertFrom-Json
+        $runtime.platforms.PSObject.Properties.Remove($platform)
+        Set-Content -LiteralPath $runtimePath -Value (
+            ($runtime | ConvertTo-Json -Depth 10) + "`n"
+        ) -Encoding utf8NoBOM
+        $before = Get-SuiteInputFingerprint -RepoRoot $root
+        $result = Invoke-MeasurementFixture -Root $root
+        $result.ExitCode | Should -Be 0 -Because $result.Output
+        $result.Output | Should -Match 'SUITE-RUNTIME-ROW:'
+
+        $after = Get-SuiteInputFingerprint -RepoRoot $root
+        $after.Fingerprint | Should -Be $before.Fingerprint
+        $runtime = Get-Content -LiteralPath $runtimePath -Raw |
+            ConvertFrom-Json
+        $row = $runtime.platforms.$platform
+        [string]$runtime.schema | Should -Be 'skalary/suite-runtime@2'
+        [string]$row.schema | Should -Be 'skalary/suite-runtime-row@2'
+        [string]$row.fingerprintProtocol | Should -Be $after.Protocol
+        [string]$row.inputFingerprint | Should -Be $after.Fingerprint
+        [double]$row.seconds | Should -BeGreaterThan 0
+        [double]$row.seconds | Should -BeLessOrEqual 600
+
+        Set-Content -LiteralPath (Join-Path $root 'tools/suite-runtime.json') `
+            -Value '{"excluded":"runtime"}' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $root 'tools/suite-profile.json') `
+            -Value '{"excluded":"profile"}' -Encoding utf8NoBOM
+        (Get-SuiteInputFingerprint -RepoRoot $root).Fingerprint |
+            Should -Be $after.Fingerprint -Because 'only the three generated outputs are excluded'
+
+        Add-Content -LiteralPath (
+            Join-Path $root 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+        ) -Value '# producer mutation'
+        (Get-SuiteInputFingerprint -RepoRoot $root).Fingerprint |
+            Should -Not -Be $after.Fingerprint -Because 'the fingerprint producer is an input too'
+    }
+
+    It 'test:SuiteBudget.MeasurementModeRejectsMismatchedOrReplayedToken validates every authorization field and ancestry' {
+        $root = New-MeasurementSandbox
+        $fingerprint = (Get-SuiteInputFingerprint -RepoRoot $root).Fingerprint
+        $authorization = New-SuiteMeasurementAuthorization -Fingerprint $fingerprint -ParentPid $PID
+        $valid = Invoke-AuthorizationVerifier -Token $authorization.Token `
+            -Key $authorization.Key -Fingerprint $fingerprint
+        $valid.Status | Should -Be 'complete'
+
+        $mismatch = Invoke-AuthorizationVerifier -Token $authorization.Token `
+            -Key $authorization.Key -Fingerprint ('0' * 64)
+        $mismatch.Status | Should -Be 'invalid'
+        $mismatch.Reason | Should -Match 'fingerprint'
+
+        $wrongKey = ConvertTo-SuiteBase64Url -Bytes ([byte[]](1..32))
+        $badMac = Invoke-AuthorizationVerifier -Token $authorization.Token `
+            -Key $wrongKey -Fingerprint $fingerprint
+        $badMac.Status | Should -Be 'invalid'
+        $badMac.Reason | Should -Match 'HMAC'
+
+        $replayed = New-SuiteMeasurementAuthorization -Fingerprint $fingerprint `
+            -ParentPid ([int]::MaxValue)
+        $replayResult = Invoke-AuthorizationVerifier -Token $replayed.Token `
+            -Key $replayed.Key -Fingerprint $fingerprint
+        $replayResult.Status | Should -Be 'invalid'
+        $replayResult.Reason | Should -Match 'live ancestor'
+
+        $budget = Import-PowerShellDataFile -LiteralPath (
+            Join-Path $root 'tools/suite-budget.psd1'
+        )
+        $liveParent = Get-SuiteParentProcessId -ProcessId $PID
+        $clockAuthorization = New-SuiteMeasurementAuthorization `
+            -Fingerprint $fingerprint -ParentPid $liveParent
+        $authorizedOnce = Test-SuiteRuntimeFreshness -RepoRoot $root -Budget $budget `
+            -PlatformKey (Get-CurrentPlatformKey) `
+            -MeasurementToken $clockAuthorization.Token `
+            -MeasurementKey $clockAuthorization.Key `
+            -ExpectedNonce $clockAuthorization.Nonce
+        $authorizedOnce.Status | Should -Be 'complete'
+        $consumed = Test-SuiteRuntimeFreshness -RepoRoot $root -Budget $budget `
+            -PlatformKey (Get-CurrentPlatformKey) `
+            -MeasurementToken $clockAuthorization.Token `
+            -MeasurementKey $clockAuthorization.Key
+        $consumed.Status | Should -Be 'measurement-token-invalid'
+        $consumed.Reason | Should -Match 'consumed'
+        $claimRoot = Join-Path $root 'claims'
+        $firstClaim = Use-SuiteMeasurementNonce -Nonce $clockAuthorization.Nonce `
+            -ParentPid $clockAuthorization.ParentPid -ClaimRoot $claimRoot
+        $firstClaim.Status | Should -Be 'complete'
+        $replayClaim = Use-SuiteMeasurementNonce -Nonce $clockAuthorization.Nonce `
+            -ParentPid $clockAuthorization.ParentPid -ClaimRoot $claimRoot
+        $replayClaim.Status | Should -Be 'invalid'
+        $replayClaim.Reason | Should -Match 'already claimed'
+
+        $clockPath = Join-Path $root 'replay-clock.json'
+        $previousToken = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_TOKEN'
+        )
+        $previousKey = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_KEY'
+        )
+        $defaultClaim = $null
+        try {
+            [Environment]::SetEnvironmentVariable(
+                'SKALARY_SUITE_MEASUREMENT_TOKEN',
+                $authorization.Token
+            )
+            [Environment]::SetEnvironmentVariable(
+                'SKALARY_SUITE_MEASUREMENT_KEY',
+                $authorization.Key
+            )
+            & pwsh -NoProfile -File $script:runner -RepoRoot $root `
+                -StartBudgetClock -BudgetClockPath $clockPath
+            $LASTEXITCODE | Should -Be 0
+            & pwsh -NoProfile -File $script:runner -RepoRoot $root `
+                -StartBudgetClock -BudgetClockPath $clockPath
+            $LASTEXITCODE | Should -Be 9
+            $defaultClaim = Use-SuiteMeasurementNonce `
+                -Nonce $authorization.Nonce -ParentPid $authorization.ParentPid
+        }
+        finally {
+            if ($null -ne $defaultClaim -and
+                -not [string]::IsNullOrWhiteSpace([string]$defaultClaim.ClaimPath)) {
+                Remove-Item -LiteralPath $defaultClaim.ClaimPath -Force `
+                    -ErrorAction SilentlyContinue
+            }
+            if ($null -eq $previousToken) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_TOKEN',
+                    $previousToken
+                )
+            }
+            if ($null -eq $previousKey) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_KEY',
+                    $previousKey
+                )
+            }
+        }
+
+        $tokenObject = [System.Text.Encoding]::UTF8.GetString(
+            (ConvertFrom-SuiteBase64Url -Text $authorization.Token)
+        ) | ConvertFrom-Json
+        $tokenObject.protocol = 'wrong-protocol'
+        $mutatedToken = ConvertTo-SuiteBase64Url -Bytes (
+            [System.Text.Encoding]::UTF8.GetBytes(($tokenObject | ConvertTo-Json -Compress))
+        )
+        $badProtocol = Invoke-AuthorizationVerifier -Token $mutatedToken `
+            -Key $authorization.Key -Fingerprint $fingerprint
+        $badProtocol.Status | Should -Be 'invalid'
+        $badProtocol.Reason | Should -Match 'protocol'
+
+        if (-not $IsWindows) {
+            $literalBackslash = [System.IO.Path]::Combine($root, 'literal\name.txt')
+            [System.IO.File]::WriteAllText(
+                $literalBackslash,
+                'literal backslash',
+                [System.Text.UTF8Encoding]::new($false)
+            )
+            & git -C $root add -- 'literal\name.txt'
+            $pathFingerprint = Get-SuiteInputFingerprint -RepoRoot $root
+            $pathFingerprint.Paths |
+                Should -Contain 'literal\name.txt' -Because 'backslash is filename data on Unix, not a separator'
+
+            $linkRoot = New-MeasurementSandbox
+            $linkedDirectory = Join-Path $linkRoot 'linked'
+            [void](New-Item -ItemType Directory -Path $linkedDirectory)
+            Set-Content -LiteralPath (Join-Path $linkedDirectory 'record.txt') `
+                -Value 'inside' -Encoding utf8NoBOM
+            & git -C $linkRoot add -- linked/record.txt
+            Remove-Item -LiteralPath $linkedDirectory -Recurse -Force
+            $outside = Join-Path ([System.IO.Path]::GetTempPath()) (
+                'suite-link-outside-' + [guid]::NewGuid().ToString('N')
+            )
+            [void](New-Item -ItemType Directory -Path $outside)
+            $script:sandboxes.Add($outside)
+            Set-Content -LiteralPath (Join-Path $outside 'record.txt') `
+                -Value 'outside' -Encoding utf8NoBOM
+            [void](New-Item -ItemType SymbolicLink -Path $linkedDirectory -Target $outside)
+            {
+                Get-SuiteInputFingerprint -RepoRoot $linkRoot
+            } | Should -Throw '*traverses a link or reparse point*'
+        }
+    }
+
+    It 'test:SuiteBudget.OrdinaryModeRejectsStaleRows refuses an unmeasured tracked-input change' {
+        $root = New-MeasurementSandbox
+        $previousToken = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_TOKEN'
+        )
+        $previousKey = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_KEY'
+        )
+        try {
+            Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                -ErrorAction SilentlyContinue
+            $result = @(
+                & pwsh -NoProfile -File (Join-Path $root 'gate.ps1') -RepoRoot $root 2>&1
+            )
+            $LASTEXITCODE | Should -Be 8
+            ($result | ForEach-Object { "$_" }) -join "`n" |
+                Should -Match 'StaleMeasurement'
+
+            $measured = Invoke-MeasurementFixture -Root $root
+            $measured.ExitCode | Should -Be 0 -Because $measured.Output
+            $fresh = @(
+                & pwsh -NoProfile -File (Join-Path $root 'gate.ps1') -RepoRoot $root 2>&1
+            )
+            $LASTEXITCODE |
+                Should -Be 0 -Because (($fresh | ForEach-Object { "$_" }) -join "`n")
+
+            Add-Content -LiteralPath (Join-Path $root 'gate.ps1') -Value '# tracked mutation'
+            $stale = @(
+                & pwsh -NoProfile -File (Join-Path $root 'gate.ps1') -RepoRoot $root 2>&1
+            )
+            $LASTEXITCODE | Should -Be 8
+            ($stale | ForEach-Object { "$_" }) -join "`n" |
+                Should -Match 'StaleMeasurement'
+        }
+        finally {
+            if ($null -eq $previousToken) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_TOKEN',
+                    $previousToken
+                )
+            }
+            if ($null -eq $previousKey) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_KEY',
+                    $previousKey
+                )
             }
         }
     }
@@ -406,7 +832,41 @@ Describe 'sandbox' {
         # A clock belonging to a different repo root, started the way `pretest` starts one.
         $clockPattern = Join-Path ([System.IO.Path]::GetTempPath()) 'skalary-suite-budget-clock-*.json'
         $before = @(Get-ChildItem -Path $clockPattern -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
-        & pwsh -NoProfile -File $script:runner -RepoRoot $neighbour -StartBudgetClock
+        $outerToken = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_TOKEN'
+        )
+        $outerKey = [Environment]::GetEnvironmentVariable(
+            'SKALARY_SUITE_MEASUREMENT_KEY'
+        )
+        try {
+            Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                -ErrorAction SilentlyContinue
+            & pwsh -NoProfile -File $script:runner -RepoRoot $neighbour -StartBudgetClock
+        }
+        finally {
+            if ($null -eq $outerToken) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_TOKEN',
+                    $outerToken
+                )
+            }
+            if ($null -eq $outerKey) {
+                Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY `
+                    -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable(
+                    'SKALARY_SUITE_MEASUREMENT_KEY',
+                    $outerKey
+                )
+            }
+        }
         $neighbourClock = @(Get-ChildItem -Path $clockPattern -File -ErrorAction SilentlyContinue |
                 Where-Object { $before -notcontains $_.FullName })
         $neighbourClock.Count |
@@ -429,9 +889,9 @@ Describe 'sandbox' {
         # ceiling would have discarded the clock and passed the run — the worse the overrun,
         # the more certainly it would have been excused.
         Set-Content -LiteralPath $clock -Encoding utf8 -Value (@{
-                schema = 'skalary/suite-budget-clock@1'
+                schema    = 'skalary/suite-budget-clock@1'
                 startedAt = [DateTimeOffset]::UtcNow.AddSeconds(-600).ToString('o')
-                command = 'npm test'
+                command   = 'npm test'
             } | ConvertTo-Json)
 
         $clocked = Invoke-Runner -SandboxRoot $sandbox -BudgetClockPath $clock
@@ -452,9 +912,9 @@ Describe 'sandbox' {
         $red = New-BudgetSandbox -HardCeilingSeconds 120 -TargetSeconds 60 -FailingTest
         $redClock = Join-Path $red 'budget-clock.json'
         Set-Content -LiteralPath $redClock -Encoding utf8 -Value (@{
-                schema = 'skalary/suite-budget-clock@1'
+                schema    = 'skalary/suite-budget-clock@1'
                 startedAt = [DateTimeOffset]::UtcNow.AddSeconds(-600).ToString('o')
-                command = 'npm test'
+                command   = 'npm test'
             } | ConvertTo-Json)
 
         $redRun = Invoke-Runner -SandboxRoot $red -BudgetClockPath $redClock

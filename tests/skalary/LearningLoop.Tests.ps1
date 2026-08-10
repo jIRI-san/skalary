@@ -24,6 +24,9 @@ Describe 'Learning loop distribution contract' {
         $script:marketplace = Get-Content -LiteralPath (
             Join-Path $script:repoRoot '.github/plugin/marketplace.json'
         ) -Raw | ConvertFrom-Json -Depth 100
+        $script:ledgerModule = Join-Path $script:repoRoot 'scripts/skalary/LedgerStore.psm1'
+        Import-Module $script:ledgerModule -Force
+        $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
         $script:siSchemas = @(
             'manifest.schema.json',
@@ -76,6 +79,25 @@ Describe 'Learning loop distribution contract' {
             (Get-FileHash -LiteralPath $Actual -Algorithm SHA256).Hash |
                 Should -Be (Get-FileHash -LiteralPath $Expected -Algorithm SHA256).Hash `
                     -Because $Because
+        }
+
+        function Script:New-LearningLoopLedgerRoot {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) (
+                'learning-loop-ledger-' + [guid]::NewGuid().ToString('N')
+            )
+            [void](New-Item -ItemType Directory -Path (
+                    Join-Path $root 'docs/review-ledger'
+                ) -Force)
+            $script:tempRoots.Add($root)
+            return $root
+        }
+    }
+
+    AfterAll {
+        foreach ($root in $script:tempRoots) {
+            if (Test-Path -LiteralPath $root -PathType Container) {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
@@ -291,5 +313,91 @@ Describe 'Learning loop distribution contract' {
         $validate | Should -Not -Match 'LearningLoop|self-improvement[\\/]evals'
         [string]$package.scripts.build | Should -Not -Match 'npm run eval'
         [string]$package.scripts.test | Should -Not -Match 'npm run eval'
+    }
+
+    It 'test:LedgerStore.ScalarBatchParity keeps scalar and batch results byte-identical' {
+        $scalarRoot = New-LearningLoopLedgerRoot
+        $batchRoot = New-LearningLoopLedgerRoot
+        $entries = @(
+            [pscustomobject]@{
+                Category = 'security'; Plan = '008'; Src = 'ci'; Severity = 'High'
+                Entry = 'Parity lesson'; Tags = @('beta', 'alpha'); Date = '2026-08-10'
+            },
+            [pscustomobject]@{
+                Category = 'security'; Plan = '008'; Src = 'ci'; Severity = 'High'
+                Entry = 'Parity lesson'; Tags = @('alpha', 'beta'); Date = '2026-08-10'
+            },
+            [pscustomobject]@{
+                Category = 'security'; Plan = '007'; Src = 'ci'; Severity = 'High'
+                Entry = 'Parity lesson'; Tags = @('alpha', 'beta'); Date = '2026-08-10'
+            },
+            [pscustomobject]@{
+                Category = 'testing'; Plan = '007'; Src = 'autopilot'; Severity = 'Med'
+                Entry = 'Independent parity lesson'; Tags = @('proof'); Date = '2026-08-10'
+            }
+        )
+
+        $scalarResults = [System.Collections.Generic.List[object]]::new()
+        foreach ($entry in $entries) {
+            $scalarResults.Add((Invoke-LedgerScalar -RepoRoot $scalarRoot `
+                        -Category $entry.Category -Plan $entry.Plan -Src $entry.Src `
+                        -Severity $entry.Severity -Entry $entry.Entry -Tags $entry.Tags `
+                        -Date $entry.Date))
+        }
+        $batchResult = Invoke-LedgerBatch -RepoRoot $batchRoot -Entry $entries
+
+        $batchResult.Status | Should -Be 'complete'
+        [int]$batchResult.Added |
+            Should -Be (@($scalarResults | Measure-Object -Property Added -Sum).Sum)
+        [int]$batchResult.Duplicate |
+            Should -Be (@($scalarResults | Measure-Object -Property Duplicate -Sum).Sum)
+        foreach ($category in @('security', 'testing')) {
+            $scalarBytes = [System.IO.File]::ReadAllBytes(
+                (Join-Path $scalarRoot "docs/review-ledger/$category.md")
+            )
+            $batchBytes = [System.IO.File]::ReadAllBytes(
+                (Join-Path $batchRoot "docs/review-ledger/$category.md")
+            )
+            [Convert]::ToHexString($batchBytes) | Should -Be ([Convert]::ToHexString($scalarBytes))
+        }
+    }
+
+    It 'test:LearningLoop.MaximumBoundRuntime reaches the ledger record ceiling inside the focused runtime bound' {
+        $root = New-LearningLoopLedgerRoot
+        $ledgerPath = Join-Path $root 'docs/review-ledger/security.md'
+        $lines = [System.Collections.Generic.List[string]]::new(10002)
+        $lines.Add('# Security Ledger')
+        $lines.Add('')
+        for ($index = 0; $index -lt 9999; $index++) {
+            $lines.Add(
+                "- [2026-08-10] bounded lesson $($index.ToString('D5')) " +
+                '(plan-007, src:ci, sev:Low)'
+            )
+        }
+        [System.IO.File]::WriteAllText(
+            $ledgerPath,
+            ($lines -join "`n") + "`n",
+            [System.Text.UTF8Encoding]::new($false)
+        )
+
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $result = Invoke-LedgerScalar -RepoRoot $root -Category security -Plan 007 `
+            -Src ci -Severity Low -Entry 'bounded lesson 99999' -Date '2026-08-10'
+        $stopwatch.Stop()
+        $result.Status | Should -Be 'complete'
+        $result.Added | Should -Be 1
+        $stopwatch.Elapsed.TotalSeconds |
+            Should -BeLessOrEqual 60 -Because 'the exact legal ledger maximum is a focused test, not an exemption from the suite budget'
+        @(
+            Get-Content -LiteralPath $ledgerPath |
+                Where-Object { $_ -match '^- \[' }
+            ).Count | Should -Be 10000
+
+            $before = [System.IO.File]::ReadAllBytes($ledgerPath)
+            $plusOne = Invoke-LedgerScalar -RepoRoot $root -Category security -Plan 007 `
+                -Src ci -Severity Low -Entry 'bounded lesson 10000' -Date '2026-08-10'
+            $plusOne.Status | Should -Be 'capacity-blocked'
+            [Convert]::ToHexString([System.IO.File]::ReadAllBytes($ledgerPath)) |
+                Should -Be ([Convert]::ToHexString($before))
     }
 }

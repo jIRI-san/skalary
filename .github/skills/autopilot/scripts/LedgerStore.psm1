@@ -142,18 +142,18 @@ function ConvertTo-LedgerRecord {
     $sortedTags = if ($tagList.Count -eq 0) { '' } else { $tagList -join '|' }
 
     return [pscustomobject]@{
-        Line = $Line
-        Date = [string]$Matches.date
-        Plan = [string]$Matches.plan
-        Src = [string]$Matches.src
-        Severity = [string]$Matches.severity
-        Lesson = $lesson
-        LessonForKey = $lessonForKey
+        Line             = $Line
+        Date             = [string]$Matches.date
+        Plan             = [string]$Matches.plan
+        Src              = [string]$Matches.src
+        Severity         = [string]$Matches.severity
+        Lesson           = $lesson
+        LessonForKey     = $lessonForKey
         NormalizedLesson = $normalizedLesson
-        Tags = $tagList
-        SortedTags = $sortedTags
-        IdempotenceKey = "$Category|$normalizedLesson|$($Matches.plan)|$($Matches.src)|$($Matches.severity)|$sortedTags"
-        RecurrenceKey = "$Category|$normalizedLesson|$sortedTags"
+        Tags             = $tagList
+        SortedTags       = $sortedTags
+        IdempotenceKey   = "$Category|$normalizedLesson|$($Matches.plan)|$($Matches.src)|$($Matches.severity)|$sortedTags"
+        RecurrenceKey    = "$Category|$normalizedLesson|$sortedTags"
     }
 }
 
@@ -163,14 +163,54 @@ function Get-DeterministicLedgerOrder {
 
     return , @(
         $Records | Sort-Object `
-            @{ Expression = { $_.NormalizedLesson } },
-            @{ Expression = { $_.SortedTags } },
-            @{ Expression = { $_.Plan } },
-            @{ Expression = { $_.Src } },
-            @{ Expression = { $_.Severity } },
-            @{ Expression = { $_.Date } },
-            @{ Expression = { $_.Line } }
+        @{ Expression = { $_.NormalizedLesson } },
+        @{ Expression = { $_.SortedTags } },
+        @{ Expression = { $_.Plan } },
+        @{ Expression = { $_.Src } },
+        @{ Expression = { $_.Severity } },
+        @{ Expression = { $_.Date } },
+        @{ Expression = { $_.Line } }
     )
+}
+
+function Set-DeterministicLedgerRecurrence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records,
+        [Parameter(Mandatory)][string]$Category
+    )
+
+    $ordered = Get-DeterministicLedgerOrder -Records $Records
+    $counts = @{}
+    $result = [System.Collections.Generic.List[object]]::new()
+    foreach ($record in $ordered) {
+        $count = if ($counts.ContainsKey($record.RecurrenceKey)) {
+            [int]$counts[$record.RecurrenceKey] + 1
+        }
+        else {
+            1
+        }
+        $counts[$record.RecurrenceKey] = $count
+        $lesson = if ($count -gt 1) {
+            "$($record.LessonForKey) [recurrence:$count]"
+        }
+        else {
+            $record.LessonForKey
+        }
+        $tagSuffix = if ($record.Tags.Count -eq 0) {
+            ''
+        }
+        else {
+            ' ' + ($record.Tags -join ' ')
+        }
+        $line = "- [$($record.Date)] $lesson (plan-$($record.Plan), src:$($record.Src), sev:$($record.Severity))$tagSuffix"
+        $canonical = ConvertTo-LedgerRecord -Line $line -Category $Category
+        if ($null -eq $canonical) {
+            throw 'Failed to construct deterministic ledger recurrence entry.'
+        }
+        $result.Add($canonical)
+    }
+    return , @($result)
 }
 
 function Get-LedgerHeaderLines {
@@ -300,18 +340,18 @@ function ConvertTo-LedgerCandidate {
     $normalizedLesson = Normalize-LedgerLesson -Text $entrySanitized -MaxLength $script:MaxEntryLength
 
     return [pscustomobject]@{
-        Category = $category
-        Plan = $canonicalPlan
-        Src = $src
-        Severity = $severity
-        Entry = $entrySanitized
+        Category         = $category
+        Plan             = $canonicalPlan
+        Src              = $src
+        Severity         = $severity
+        Entry            = $entrySanitized
         NormalizedLesson = $normalizedLesson
-        Tags = $tagSet
-        SortedTags = $sortedTags
-        Date = $date
-        SourceId = $sourceId
-        IdempotenceKey = "$category|$normalizedLesson|$canonicalPlan|$src|$severity|$sortedTags"
-        RecurrenceKey = "$category|$normalizedLesson|$sortedTags"
+        Tags             = $tagSet
+        SortedTags       = $sortedTags
+        Date             = $date
+        SourceId         = $sourceId
+        IdempotenceKey   = "$category|$normalizedLesson|$canonicalPlan|$src|$severity|$sortedTags"
+        RecurrenceKey    = "$category|$normalizedLesson|$sortedTags"
     }
 }
 
@@ -353,9 +393,9 @@ function New-LedgerCategoryState {
         if ($existingMatch.Count -gt 0) {
             $results.Add([pscustomobject]@{
                     SourceId = $item.SourceId
-                    Added = $false
-                    Reason = 'idempotence-duplicate'
-                    Line = $null
+                    Added    = $false
+                    Reason   = 'idempotence-duplicate'
+                    Line     = $null
                     Category = $Category
                 })
             continue
@@ -369,34 +409,42 @@ function New-LedgerCategoryState {
         if ($null -eq $record) { throw 'Failed to construct parseable ledger entry.' }
         $records.Add($record)
         $results.Add([pscustomobject]@{
-                SourceId = $item.SourceId
-                Added = $true
-                Reason = 'added'
-                Line = $line
-                Category = $Category
+                SourceId       = $item.SourceId
+                Added          = $true
+                Reason         = 'added'
+                Line           = $line
+                Category       = $Category
+                IdempotenceKey = $record.IdempotenceKey
             })
     }
 
-    $ordered = Get-DeterministicLedgerOrder -Records @($records)
+    $ordered = Set-DeterministicLedgerRecurrence -Records @($records) -Category $Category
+    foreach ($result in @($results | Where-Object Added)) {
+        $match = @($ordered | Where-Object IdempotenceKey -EQ $result.IdempotenceKey)
+        if ($match.Count -ne 1) {
+            throw "Unable to bind added ledger result to its deterministic recurrence line."
+        }
+        $result.Line = $match[0].Line
+    }
     $content = Build-LedgerContent -HeaderLines $headerLines -EntryLines @($ordered | ForEach-Object { $_.Line })
     $contentBytes = [System.Text.Encoding]::UTF8.GetByteCount($content)
     if ($records.Count -gt $script:MaxRecords -or $contentBytes -gt $script:MaxCategoryBytes) {
         return [pscustomobject]@{
-            Status = 'capacity-blocked'
+            Status   = 'capacity-blocked'
             Category = $Category
-            Path = $path
-            Reason = "ledger category exceeds $($script:MaxRecords) records or $($script:MaxCategoryBytes) bytes"
+            Path     = $path
+            Reason   = "ledger category exceeds $($script:MaxRecords) records or $($script:MaxCategoryBytes) bytes"
         }
     }
 
     return [pscustomobject]@{
-        Status = 'complete'
-        Category = $Category
-        Path = $path
-        Generation = $generation
+        Status          = 'complete'
+        Category        = $Category
+        Path            = $path
+        Generation      = $generation
         ExistingContent = $normalizedExisting
-        Content = $content
-        Results = @($results)
+        Content         = $content
+        Results         = @($results)
     }
 }
 
@@ -415,14 +463,14 @@ function Invoke-LedgerBatch {
     $candidates = @($Entry | ForEach-Object { ConvertTo-LedgerCandidate -InputObject $_ -Root $root })
     $candidates = @(
         $candidates | Sort-Object `
-            @{ Expression = { $_.Category } },
-            @{ Expression = { $_.NormalizedLesson } },
-            @{ Expression = { $_.SortedTags } },
-            @{ Expression = { $_.Plan } },
-            @{ Expression = { $_.Src } },
-            @{ Expression = { $_.Severity } },
-            @{ Expression = { $_.Date } },
-            @{ Expression = { $_.SourceId } }
+        @{ Expression = { $_.Category } },
+        @{ Expression = { $_.NormalizedLesson } },
+        @{ Expression = { $_.SortedTags } },
+        @{ Expression = { $_.Plan } },
+        @{ Expression = { $_.Src } },
+        @{ Expression = { $_.Severity } },
+        @{ Expression = { $_.Date } },
+        @{ Expression = { $_.SourceId } }
     )
     $categories = [string[]]@($candidates.Category | Select-Object -Unique)
     $normalizedLockRoot = Resolve-PhysicalRepoPath -Path $root
@@ -436,14 +484,14 @@ function Invoke-LedgerBatch {
                 -Candidate @($candidates | Where-Object { $_.Category -eq $category })
             if ($state.Status -eq 'capacity-blocked') {
                 return [pscustomobject]@{
-                    Status = 'capacity-blocked'
-                    Added = 0
-                    Duplicate = 0
-                    Results = @()
+                    Status     = 'capacity-blocked'
+                    Added      = 0
+                    Duplicate  = 0
+                    Results    = @()
                     Categories = $categories
-                    Category = $state.Category
-                    Reason = $state.Reason
-                    Attempts = $attempt
+                    Category   = $state.Category
+                    Reason     = $state.Reason
+                    Attempts   = $attempt
                 }
             }
             $states.Add($state)
@@ -467,9 +515,9 @@ function Invoke-LedgerBatch {
                             -Candidate @($candidates | Where-Object { $_.Category -eq $category })
                         if ($refreshed.Status -eq 'capacity-blocked') {
                             return [pscustomobject]@{
-                                Status = 'capacity-blocked'
+                                Status   = 'capacity-blocked'
                                 Category = $refreshed.Category
-                                Reason = $refreshed.Reason
+                                Reason   = $refreshed.Reason
                             }
                         }
                         $activeStates.Add($refreshed)
@@ -495,46 +543,46 @@ function Invoke-LedgerBatch {
         }
         catch [System.TimeoutException] {
             return [pscustomobject]@{
-                Status = 'lock-timeout'
-                Added = 0
-                Duplicate = 0
-                Results = @()
+                Status     = 'lock-timeout'
+                Added      = 0
+                Duplicate  = 0
+                Results    = @()
                 Categories = $categories
-                Attempts = $attempt
+                Attempts   = $attempt
             }
         }
 
         if ($writeResult.Status -eq 'cas-conflict') { continue }
         if ($writeResult.Status -eq 'capacity-blocked') {
             return [pscustomobject]@{
-                Status = 'capacity-blocked'
-                Added = 0
-                Duplicate = 0
-                Results = @()
+                Status     = 'capacity-blocked'
+                Added      = 0
+                Duplicate  = 0
+                Results    = @()
                 Categories = $categories
-                Category = $writeResult.Category
-                Reason = $writeResult.Reason
-                Attempts = $attempt
+                Category   = $writeResult.Category
+                Reason     = $writeResult.Reason
+                Attempts   = $attempt
             }
         }
         $results = @($writeResult.States | ForEach-Object { $_.Results })
         return [pscustomobject]@{
-            Status = 'complete'
-            Added = @($results | Where-Object Added).Count
-            Duplicate = @($results | Where-Object { -not $_.Added }).Count
-            Results = $results
+            Status     = 'complete'
+            Added      = @($results | Where-Object Added).Count
+            Duplicate  = @($results | Where-Object { -not $_.Added }).Count
+            Results    = $results
             Categories = $categories
-            Attempts = $attempt
+            Attempts   = $attempt
         }
     }
 
     return [pscustomobject]@{
-        Status = 'cas-exhausted'
-        Added = 0
-        Duplicate = 0
-        Results = @()
+        Status     = 'cas-exhausted'
+        Added      = 0
+        Duplicate  = 0
+        Results    = @()
         Categories = $categories
-        Attempts = $script:MaxAttempts
+        Attempts   = $script:MaxAttempts
     }
 }
 
@@ -553,14 +601,14 @@ function Invoke-LedgerScalar {
 
     return Invoke-LedgerBatch -RepoRoot $RepoRoot -Entry @([pscustomobject]@{
             Category = $Category
-            Plan = $Plan
-            Src = $Src
+            Plan     = $Plan
+            Src      = $Src
             Severity = $Severity
-            Entry = $Entry
-            Tags = $Tags
-            Date = $Date
+            Entry    = $Entry
+            Tags     = $Tags
+            Date     = $Date
         })
 }
 
 Export-ModuleMember -Function Resolve-LedgerPath, ConvertTo-SafeLedgerText,
-    Invoke-LedgerBatch, Invoke-LedgerScalar
+Invoke-LedgerBatch, Invoke-LedgerScalar

@@ -99,6 +99,10 @@ The hot manifest is bounded to 128 pending dues, 16 in-flight runs, 64 recent re
 archive history is bounded to 4,096 files and 256 files per year/month shard. Every plus-one
 operation returns `capacity-blocked` before mutation. Lifecycle commands fail loudly on invalid,
 stale, forward-version, or exhausted state rather than exposing partial behavior.
+The shared workflow-memory side is proven at its exact 10,000-record ledger ceiling by
+`test:LearningLoop.MaximumBoundRuntime`: the focused operation must finish within 60 seconds,
+reach the boundary, and reject record 10,001 without changing bytes. The full suite remains subject
+to its tighter platform runtime row and tracked-input freshness gate.
 
 `scripts/skalary/AtomicStore.psm1` is the root-canonical persistence primitive. It provides the
 30-second repo-scoped lock, random same-directory temp writes, validation before replace,

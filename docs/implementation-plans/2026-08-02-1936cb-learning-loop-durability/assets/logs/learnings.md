@@ -41,3 +41,4 @@ Phase: 7
 Phase: 8
 
 - [8.1] [trigger:reusable-pattern] [concern:testing-evidence] [req:REQ-8] [review:cr] [source-record:cb80a59e2dda1be2b1ce61566d76996a8d9ca91192b8f5b5931d5fb5dae4c114] Cross-surface drift proofs must bind complete install metadata and canonical source bytes, not only destination names and hashes.
+- [8.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-8] [review:cr] [source-record:6c18b57ce1f34a8ac1d3d3069dbd853223e36bd8298b73ab4b8b0cc4cbbab3b6] A freshness protocol must support absent-row bootstrap, consume authorization at an existing process boundary, and preserve path bytes exactly.
