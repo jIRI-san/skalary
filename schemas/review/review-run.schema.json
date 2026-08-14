@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/review/review-run.schema.json",
+  "title": "Skalary Review Run Envelope",
+  "description": "Plan c21cdc D2/D4. The final `skalary/review-run@1` envelope `Publish` accepts: the frozen plan's identity fields, the digest of the frozen plan it is bound to, the exact frozen task set with its terminal outcomes and bounded diagnostics, and the raw findings each of which names exactly one task. Attendance, counts and run state are derived from `tasks`, never supplied: there is no aggregate property to spoof, because every object here is closed. A completed task carries no diagnostic and every other outcome requires one. That a finding's task exists, is `completed`, that ids and concern/model slots are unique and that the digest matches the frozen plan are cross-record facts the semantic layer owns.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "runId", "reviewType", "scope", "roster", "invocationBudget", "planDigest", "tasks", "findings"],
+  "properties": {
+    "schema": { "$ref": "#/$defs/discriminator" },
+    "runId": { "$ref": "#/$defs/runId" },
+    "reviewType": { "$ref": "#/$defs/reviewType" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "roster": { "$ref": "#/$defs/roster" },
+    "invocationBudget": { "$ref": "#/$defs/invocationBudget" },
+    "planDigest": { "$ref": "#/$defs/digest" },
+    "tasks": { "$ref": "#/$defs/resultTasks" },
+    "findings": { "$ref": "#/$defs/findings" }
+  },
+  "$defs": {
+    "discriminator": { "const": "skalary/review-run@1" },
+    "completedOutcome": { "properties": { "outcome": { "const": "completed" } }, "required": ["outcome"] },
+    "withoutDiagnostic": { "not": { "required": ["diagnostic"] } },
+    "withDiagnostic": { "required": ["diagnostic"] },
+    "resultTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "concern", "model", "outcome"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/taskId" },
+        "concern": { "$ref": "#/$defs/concern" },
+        "model": { "$ref": "#/$defs/model" },
+        "outcome": { "$ref": "#/$defs/outcome" },
+        "diagnostic": { "$ref": "#/$defs/diagnostic" }
+      },
+      "if": { "$ref": "#/$defs/completedOutcome" },
+      "then": { "$ref": "#/$defs/withoutDiagnostic" },
+      "else": { "$ref": "#/$defs/withDiagnostic" }
+    },
+    "resultTasks": { "type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/resultTask" } },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "severity", "title"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/taskId" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "title": { "$ref": "#/$defs/title" },
+        "body": { "$ref": "#/$defs/body" },
+        "action": { "$ref": "#/$defs/action" },
+        "rootCause": { "$ref": "#/$defs/rootCause" },
+        "component": { "$ref": "#/$defs/component" },
+        "references": { "$ref": "#/$defs/references" }
+      }
+    },
+    "findings": { "type": "array", "minItems": 0, "maxItems": 256, "uniqueItems": true, "items": { "$ref": "#/$defs/finding" } },
+    "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "reviewType": { "type": "string", "enum": ["code", "design"] },
+    "scope": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "roster": { "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": { "$ref": "#/$defs/model" } },
+    "invocationBudget": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "taskId": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$" },
+    "concern": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$" },
+    "outcome": { "type": "string", "enum": ["completed", "failed", "timed-out", "omitted", "cancelled", "pending"] },
+    "diagnostic": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "severity": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "body": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "action": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "rootCause": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "component": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "reference": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "references": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/reference" } },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,1437 @@
+{
+  "schema": "skalary/review-schema-cases@1",
+  "description": "Edge and state fixtures for the review schemas. `expectedStructural` is what native Test-Json must say about `instance` under `schema`. A `semantic` case is structurally valid on purpose: it records a hole no single-document schema can close, and names the rule that must close it.",
+  "cases": [
+    {
+      "id": "plan-minimum",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "The smallest legal frozen plan: one run, one slot, no outcomes.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan-two-model-roster",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "One concern dispatched to a two-model roster: two slots, two ids.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a",
+          "model-b"
+        ],
+        "invocationBudget": 28,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          },
+          {
+            "taskId": "security-m2",
+            "concern": "security",
+            "model": "model-b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-minimum",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "A completed task with zero findings is a clean run, not a missing one.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "run-every-outcome-degraded",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Every terminal outcome in one envelope, each non-completed task carrying its diagnostic and owning no finding.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a",
+          "model-b"
+        ],
+        "invocationBudget": 6,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          },
+          {
+            "taskId": "performance-m1",
+            "concern": "performance",
+            "model": "model-a",
+            "outcome": "failed",
+            "diagnostic": "reviewer returned no parsable output"
+          },
+          {
+            "taskId": "testing-evidence-m1",
+            "concern": "testing-evidence",
+            "model": "model-a",
+            "outcome": "timed-out",
+            "diagnostic": "no response within the dispatch window"
+          },
+          {
+            "taskId": "security-m2",
+            "concern": "security",
+            "model": "model-b",
+            "outcome": "omitted",
+            "diagnostic": "outside the selected concern set for this scope"
+          },
+          {
+            "taskId": "performance-m2",
+            "concern": "performance",
+            "model": "model-b",
+            "outcome": "cancelled",
+            "diagnostic": "orchestrator-interrupted"
+          },
+          {
+            "taskId": "testing-evidence-m2",
+            "concern": "testing-evidence",
+            "model": "model-b",
+            "outcome": "pending",
+            "diagnostic": "never dispatched before the run ended"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "Critical",
+            "title": "Unconfined path join",
+            "body": "Caller input reaches Join-Path unchecked.",
+            "rootCause": "unconfined path join",
+            "component": "src/Handler.ps1",
+            "references": [
+              "src/Handler.ps1#L10"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-finding-with-every-field",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "A finding using every optional field, so the closed property set is exercised at its widest.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "Low",
+            "title": "t",
+            "body": "b",
+            "action": "a",
+            "rootCause": "rc",
+            "component": "c",
+            "references": [
+              "one",
+              "two"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "manifest-minimum",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "All four roles, single-segment content-addressed names, digests and byte counts.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-name-at-maximum-length",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "A 96-character artifact name, extension included, is the longest the vocabulary permits and must be accepted.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "suuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu.json",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "status-capability-capable",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "The preflight success object: capability mode carries no run id.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "capability",
+        "exitCode": 0,
+        "state": "capable",
+        "message": "schema capability proven"
+      }
+    },
+    {
+      "id": "status-capability-incapable",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "The preflight rejection object CI depends on: exit 2, state incapable.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "capability",
+        "exitCode": 2,
+        "state": "incapable",
+        "message": "no schema capability on this host"
+      }
+    },
+    {
+      "id": "status-freeze-clean",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Freeze succeeded.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "freeze",
+        "exitCode": 0,
+        "state": "clean",
+        "message": "plan frozen",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-publish-degraded",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Exit 5 is published-and-degraded, which is why it is a success state with artifacts.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 5,
+        "state": "degraded",
+        "message": "published with 2 of 6 tasks not completed",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-publish-invalid",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Exit 2 is parse/schema/semantic/state rejection.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 2,
+        "state": "invalid",
+        "message": "result input does not match the frozen plan",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-publish-admission",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Exit 3 is admission and is terminal for that run id.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 3,
+        "state": "admission",
+        "message": "summary exceeds 32 KiB",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-publish-failed",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "Exit 4 is lock/publication/unexpected failure.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 4,
+        "state": "failed",
+        "message": "lock not acquired within 5 seconds",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "plan-unknown-version",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "RISK-9: a future version must fail closed rather than be read with v1 semantics.",
+      "instance": {
+        "schema": "skalary/review-plan@2",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan-unknown-property",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A closed plan has no room for a caller-supplied aggregate.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ],
+        "completedCount": 1
+      }
+    },
+    {
+      "id": "plan-zero-tasks",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A frozen plan with no task would make every attendance claim vacuous.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": []
+      }
+    },
+    {
+      "id": "plan-one-above-budget-maximum",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "One above the 128 budget maximum.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 129,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan-uppercase-run-id",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Run ids are lowercase UUIDs; two casings of one id are two directories.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8F3C1D2E-5A47-4B90-9C61-2D7E0F4A6B35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan-task-carrying-outcome",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "RISK-2: the frozen plan is written before dispatch, so it cannot carry an outcome.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan-uppercase-task-id",
+      "schema": "review-plan.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Task ids are lowercase slugs so a slot cannot be spelled two ways.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "Security-M1",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-completed-with-diagnostic",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A completed task has nothing to explain; a diagnostic there is an attendance claim in prose.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed",
+            "diagnostic": "ran fine"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "run-failed-without-diagnostic",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Every non-completed outcome must say why, or a silent failure reads as an empty reviewer.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "failed"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "run-aggregate-spoof",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "REQ-3: counts and state are derived from tasks, so there is no aggregate to supply.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [],
+        "completedCount": 1,
+        "attendance": "all"
+      }
+    },
+    {
+      "id": "run-unknown-outcome",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "The outcome vocabulary is closed.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "skipped",
+            "diagnostic": "d"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "run-one-above-title-maximum",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "One character above the 160-character title maximum.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-one-above-reference-maximum",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "One reference above the eight-reference maximum.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "t",
+            "references": [
+              "src/file1.ps1",
+              "src/file2.ps1",
+              "src/file3.ps1",
+              "src/file4.ps1",
+              "src/file5.ps1",
+              "src/file6.ps1",
+              "src/file7.ps1",
+              "src/file8.ps1",
+              "src/file9.ps1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-empty-body",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "An empty body is an absent body; the property is optional rather than nullable.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "t",
+            "body": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "run-finding-claiming-concern",
+      "schema": "review-run.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "REQ-4: concern and model are derived from the finding's task, never restated by the finding.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "t",
+            "concern": "security"
+          }
+        ]
+      }
+    },
+    {
+      "id": "manifest-traversal-name",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A manifest name is one confined segment; traversal would point a reader out of the run root.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "../review-run.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-absolute-name",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "An absolute path is not a name.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "/etc/passwd.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-nested-name",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Nested segments are rejected even without traversal.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "nested/summary.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-missing-role",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A publication missing a view is not a publication.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-unknown-role",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Roles are closed; an unreferenced extra file must not become readable through the manifest.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          },
+          "scratch": {
+            "name": "scratch.json",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-short-digest",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A digest is 64 lowercase hex characters.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:abc",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "manifest-name-one-above-maximum-length",
+      "schema": "review-manifest.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "97 characters is one above maxArtifactNameLength; the name pattern alone would still admit it, so maxLength is what rejects it.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 512
+          },
+          "summary": {
+            "name": "suuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu.json",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    },
+    {
+      "id": "status-capability-with-run-id",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "The preflight validates no run, so a run id there is a claim about work that never happened.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "capability",
+        "exitCode": 0,
+        "state": "capable",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-exit-state-mismatch",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Exit 5 is degraded by definition; a clean state on it would tell the caller the opposite of the truth.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 5,
+        "state": "clean",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-freeze-degraded",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Exit 5 reports a valid degraded publication; Freeze has not published a run and cannot claim that terminal state.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "freeze",
+        "exitCode": 5,
+        "state": "degraded",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-unknown-exit-code",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "The exit vocabulary is closed: 0, 2, 3, 4, 5.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 1,
+        "state": "failed",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-unknown-mode",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "Modes are closed to the two the CLI exposes plus the preflight.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "read",
+        "exitCode": 0,
+        "state": "clean",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
+      }
+    },
+    {
+      "id": "status-run-mode-without-run-id",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A run-mode status that names no run cannot be attributed to one.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 0,
+        "state": "clean",
+        "message": "m"
+      }
+    },
+    {
+      "id": "semantic-plan-duplicate-task-id",
+      "schema": "review-plan.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "Two different slots share one id. uniqueItems compares whole objects, so the schema accepts it.",
+      "semanticRule": "Freeze rejects a plan whose task ids are not unique.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          },
+          {
+            "taskId": "security-m1",
+            "concern": "performance",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "semantic-plan-duplicate-slot",
+      "schema": "review-plan.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "One concern/model slot planned twice under two ids: the objects differ, so no structural keyword sees it.",
+      "semanticRule": "Freeze rejects a plan with two tasks for the same concern and declared model.",
+      "instance": {
+        "schema": "skalary/review-plan@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a"
+          },
+          {
+            "taskId": "security-m1-again",
+            "concern": "security",
+            "model": "model-a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "semantic-run-dangling-finding",
+      "schema": "review-run.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "A finding naming a task the run does not contain. Cross-record references are outside a single-document schema.",
+      "semanticRule": "Publish rejects a finding whose taskId is not in the frozen task set.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m9",
+            "severity": "High",
+            "title": "dangling"
+          }
+        ]
+      }
+    },
+    {
+      "id": "semantic-run-finding-on-failed-task",
+      "schema": "review-run.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "Only a completed task may own findings; the schema cannot correlate the two arrays.",
+      "semanticRule": "Publish rejects findings owned by any task whose outcome is not completed.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "failed",
+            "diagnostic": "reviewer crashed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "from a task that failed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "semantic-run-model-outside-roster",
+      "schema": "review-run.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "A task naming a model the declared roster does not contain.",
+      "semanticRule": "Publish rejects a task whose model is not in the run roster.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-off-roster",
+            "outcome": "completed"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "semantic-run-task-set-differs-from-plan",
+      "schema": "review-run.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "RISK-2: a structurally perfect envelope inventing a task after dispatch. Only the frozen plan digest can catch it.",
+      "semanticRule": "Publish rejects a task set that is not exactly the frozen plan's, and a planDigest that does not match the frozen plan bytes.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          },
+          {
+            "taskId": "invented-m1",
+            "concern": "invented",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": []
+      }
+    },
+    {
+      "id": "semantic-run-body-over-utf8-budget",
+      "schema": "review-run.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "RISK-3: maxLength counts UTF-16 code units, so 4096 accented characters are 8192 UTF-8 bytes and still structurally legal.",
+      "semanticRule": "Publish rejects a body whose UTF-8 byte count exceeds 4096.",
+      "instance": {
+        "schema": "skalary/review-run@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "reviewType": "code",
+        "scope": "1 changed file",
+        "roster": [
+          "model-a"
+        ],
+        "invocationBudget": 1,
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "tasks": [
+          {
+            "taskId": "security-m1",
+            "concern": "security",
+            "model": "model-a",
+            "outcome": "completed"
+          }
+        ],
+        "findings": [
+          {
+            "taskId": "security-m1",
+            "severity": "High",
+            "title": "t",
+            "body": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+          }
+        ]
+      }
+    },
+    {
+      "id": "semantic-status-over-8-kib",
+      "schema": "terminal-status.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "Every string is inside its maximum length while the object is about 18 KiB of UTF-8.",
+      "semanticRule": "The emitter drops diagnostics until the status object is at most 8192 UTF-8 bytes.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 2,
+        "state": "invalid",
+        "message": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "diagnostics": [
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+        ]
+      }
+    },
+    {
+      "id": "semantic-manifest-digest-mismatch",
+      "schema": "review-manifest.schema.json",
+      "layer": "semantic",
+      "expectedStructural": true,
+      "why": "A manifest whose recorded bytes and digest cannot both describe the file it names.",
+      "semanticRule": "The reader recomputes every digest and byte count and refuses a manifest that does not match the files it points at.",
+      "instance": {
+        "schema": "skalary/review-manifest@1",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "state": "published",
+        "planDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "runDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "files": {
+          "plan": {
+            "name": "review-plan.json",
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "bytes": 256
+          },
+          "canonical": {
+            "name": "review-run.0123456789abcdef.json",
+            "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "bytes": 999
+          },
+          "summary": {
+            "name": "summary.0123456789abcdef.md",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "bytes": 128
+          },
+          "full": {
+            "name": "full.0123456789abcdef.md",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "bytes": 1024
+          }
+        }
+      }
+    }
+  ]
+}

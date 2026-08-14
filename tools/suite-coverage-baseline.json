@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-02T15:04:37.8837958+00:00",
-  "commit": "ca720c2e31c0be0f96b5cb0a80b75f10690f02e2",
+  "capturedAt": "2026-08-14T22:19:47.4392596+00:00",
+  "commit": "88fb7e810d6ac88ce8d2c9f6d4899f512e01e442",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 706,
-  "executionCount": 710,
+  "uniqueTestCount": 733,
+  "executionCount": 737,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -3020,6 +3020,141 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization encodes and fences untrusted reviewer text in both views",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization hands step 1.2 a closed new-layout expectation it does not yet satisfy",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization names every merged finding, attendance total, task and raw finding in the two views",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change bytes of the review the corpus stands for",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change semantic projection of every merged finding",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the committed corpus back to the archived report byte for byte",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the corpus to the committed new-layout summary and full bytes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the new layout identically across culture and shuffled task, finding and property order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization returns identical bytes across culture, platform and input order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState carries c21cdc in both consumer dependency markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState proves the same state rule on a synthetic incomplete, complete and archived dependency",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState resolves both edges through the epic rollup and keeps blocked equivalent to an incomplete dependency",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.MaximumEnvelopeFixtureStructural admits the largest legal envelope inside the 2 MiB input cap",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics accepts every minimum and maximum structural fixture",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics accepts the committed 44-finding corpus as plan and envelope",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics bounds an artifact name at 96 characters, extension included",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics cannot be argued into capability by its own test seams",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics closes every object the contract defines",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics commits four canonical schemas with repository ids on one dialect",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 0 with one bounded status object on a capable host",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 2 when Test-Json exposes no -SchemaFile",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 2 with one bounded status object when the host is below PowerShell 7.6",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics keeps every shared limit in one schema-owned vocabulary",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics leaves duplicates, slot mismatch, dangling findings and byte budgets to the semantic layer",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics proves the validator can reject at all",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics rejects unknown versions, unknown properties, one-above maxima, manifest path violations and aggregate spoofs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics runs as a named CI preflight before the repository and unit gates",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/ReviewScope.Tests.ps1",
       "test": "Get-ReviewScope.test:review-scope-modes accepts a mix of file and folder arguments in paths mode",
       "count": 1
@@ -3565,4 +3700,3 @@
     }
   ]
 }
-

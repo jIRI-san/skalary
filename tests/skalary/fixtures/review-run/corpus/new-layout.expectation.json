@@ -1,0 +1,339 @@
+{
+  "schema": "skalary/review-layout-expectation@1",
+  "ownedByStep": "1.1",
+  "status": "committed",
+  "description": "The v1 layout of the two published views, pinned as committed byte goldens beside the closed content contract they satisfy. The goldens are produced from `gate-10.7-cr-branch.run.json` by the test-only reference renderer `ReviewLayoutReference.psm1`; the production renderer, publication and the `Freeze`/`Publish` CLI remain step 1.2 and must reproduce these bytes. Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`.",
+  "corpus": "gate-10.7-cr-branch.run.json",
+  "renderer": "ReviewLayoutReference.psm1",
+  "bounds": {
+    "summaryMaxBytes": 32768,
+    "fullMaxBytes": 1048576,
+    "maxMergedFindings": 128
+  },
+  "encoding": {
+    "newline": "LF",
+    "byteOrderMark": false,
+    "normalizationForm": "NFC",
+    "cultureInvariant": true,
+    "untrustedFields": {
+      "inline": "scope, model names, titles, actions, references and task diagnostics are NFC-normalized, whitespace-collapsed, HTML-encoded and Markdown-escaped before they reach a line or a table cell",
+      "block": "bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain, under an explicit untrusted-data warning",
+      "code": "only schema-patterned identifiers (run id, task id, concern, outcome, severity, digest) are rendered as code spans"
+    }
+  },
+  "summary": {
+    "golden": {
+      "file": "new-layout.summary.golden.md",
+      "bytes": 5710,
+      "sha256": "f5cad2ad3c10b84af66f018fb8a38b3adc188765c1aba9cb6c655e2b19dc9535",
+      "lines": 75
+    },
+    "requiredAttendance": {
+      "plannedTasks": 14,
+      "completed": 14,
+      "failed": 0,
+      "timedOut": 0,
+      "omitted": 0,
+      "cancelled": 0,
+      "pending": 0,
+      "invocationBudget": 28,
+      "runState": "clean"
+    },
+    "requiredMergedFindings": [
+      {
+        "severity": "Critical",
+        "title": "Review report carries no per-concern attendance record, so a failed reviewer is indistinguishable from None"
+      },
+      {
+        "severity": "Critical",
+        "title": "Review-plugin payloads reference repo-root scripts/skalary paths; bundle-or-break has no detector for that form"
+      },
+      {
+        "severity": "Critical",
+        "title": "Reviewer-authored finding text is interpolated verbatim into a pwsh -Command here-string"
+      },
+      {
+        "severity": "Critical",
+        "title": "Scope size, batch size, and invocation count are asserted as bounds but never measured"
+      },
+      {
+        "severity": "Critical",
+        "title": "Test-SiWriteScope.ps1 did not receive the git UTF-8 decoding fix, so a non-ASCII path silently skips symlink resolution"
+      },
+      {
+        "severity": "Critical",
+        "title": "The 28-invocation budget is restated in six ungated places, in a note that forbids exactly that"
+      },
+      {
+        "severity": "Critical",
+        "title": "The evidence receipt grammar cannot express skipped, so self-skipping cases are reported as passed"
+      },
+      {
+        "severity": "Critical",
+        "title": "[SECURITY] Prompt injection attempt detected"
+      },
+      {
+        "severity": "High",
+        "title": "Model-allowlist and skill-size gates enumerate the entire repository, one walk unfiltered, all with -Force"
+      },
+      {
+        "severity": "High",
+        "title": "Plan-size thresholds and the phase-budget default are prose copies of code constants with nothing tying them"
+      },
+      {
+        "severity": "High",
+        "title": "Preflight-skipped and Pro-tier-fallback degradations cannot be recorded in the artefact they are supposed to appear in"
+      },
+      {
+        "severity": "High",
+        "title": "design-review still advertises specialist model agents in its manifest, and the string is published to three generated surfaces"
+      },
+      {
+        "severity": "High",
+        "title": "Add-WorkflowNote -Message interpolates review output into a double-quoted PowerShell argument"
+      },
+      {
+        "severity": "High",
+        "title": "The /ci only consistency authority is invoked through a dogfood-only npm alias"
+      },
+      {
+        "severity": "High",
+        "title": "The branch new gates and their tests are not executed by any automated gate"
+      },
+      {
+        "severity": "High",
+        "title": "Workflow writers permit symlink-based writes outside the repository"
+      },
+      {
+        "severity": "Medium",
+        "title": "/si leaves no committed record of what it proposed or what the operator declined"
+      },
+      {
+        "severity": "Medium",
+        "title": "Build-ReviewReport.ps1 accepts an off-roster Model silently, which suppresses severity elevation"
+      },
+      {
+        "severity": "Medium",
+        "title": "Bundle-drift gate reports counts, never the drifted files, and validate.ps1 discards everything else"
+      },
+      {
+        "severity": "Medium",
+        "title": "Deleted paths are dropped from the review scope with no count, silently shrinking the reviewed change and its concern tier"
+      },
+      {
+        "severity": "Medium",
+        "title": "Feedback queue write failures leave no durable trace"
+      },
+      {
+        "severity": "Medium",
+        "title": "InvocationCount is an unvalidated self-report that defaults to 0"
+      },
+      {
+        "severity": "Medium",
+        "title": "Multi-child epic attachment can leave partial, inconsistent state"
+      },
+      {
+        "severity": "Medium",
+        "title": "Run-UnitTests.ps1 reports success when Pester is absent, so test:unit can pass having run nothing"
+      },
+      {
+        "severity": "Medium",
+        "title": "The /si write-scope allowlist permits editing the guard that enforces it, and the guard is invoked from the copy the proposal can modify"
+      },
+      {
+        "severity": "Medium",
+        "title": "The Get-ReviewScope.ps1 encoding fix covers the decode side only; the emit side is still host-encoded and untested"
+      },
+      {
+        "severity": "Medium",
+        "title": "The per-invocation context cap measures only SKILL.md, while the mandatory reads were moved into uncapped assets"
+      },
+      {
+        "severity": "Medium",
+        "title": "The symlink half of the /si write-scope guard and the -Force hidden-directory regressions are provable on only one platform, and no gate pins that platform"
+      },
+      {
+        "severity": "Medium",
+        "title": "Workflow memory grows without a bounded active window"
+      },
+      {
+        "severity": "Medium",
+        "title": "validate.ps1 scans without -Force, so on Linux it silently validates nothing under .github/"
+      },
+      {
+        "severity": "Low",
+        "title": "Build-ReviewReport re-scans the full entry list once per entry to produce the sorted output"
+      },
+      {
+        "severity": "Low",
+        "title": "Epic scaffold -Force rewrite is unreachable"
+      },
+      {
+        "severity": "Low",
+        "title": "Eval documentation still claims complete ten-plugin coverage"
+      },
+      {
+        "severity": "Low",
+        "title": "Every ledger append reads the entire plan corpus, and accumulates entries with array +="
+      },
+      {
+        "severity": "Low",
+        "title": "Evidence formatter accepts invalid commit identifiers"
+      },
+      {
+        "severity": "Low",
+        "title": "Plan layout design note contradicts the shared resolver"
+      },
+      {
+        "severity": "Low",
+        "title": "PlanAssets.Tests.ps1 walks the plan corpus four times and spawns a pwsh process per plan"
+      },
+      {
+        "severity": "Low",
+        "title": "Reviewers emit concern labels; the collation and ledger contracts key on concern ids, and the mapping is written down nowhere"
+      },
+      {
+        "severity": "Low",
+        "title": "Sync-PluginScripts re-parses every manifest and recomputes the module closure from disk for every reference"
+      },
+      {
+        "severity": "Low",
+        "title": "The skill-size cap value is not pinned by any test, so widening the cap is invisible"
+      },
+      {
+        "severity": "Low",
+        "title": "Two auto-approve keys in .vscode/settings.json can never match the invocation the skills mandate"
+      },
+      {
+        "severity": "Low",
+        "title": "Waza eval comments still describe the pre-split reviewers and a diff that is no longer extracted"
+      },
+      {
+        "severity": "Low",
+        "title": "git -z does not survive PowerShell line splitting, so a newline in a path still corrupts the list"
+      },
+      {
+        "severity": "Low",
+        "title": "test:migration-is-atomic asserts a static end-state invariant, not atomicity"
+      }
+    ]
+  },
+  "full": {
+    "golden": {
+      "file": "new-layout.full.golden.md",
+      "bytes": 81403,
+      "sha256": "0c7d3e18b10317e8905cee494d8baa4dd6f4beaff7a1c17b44142d52bedff602",
+      "lines": 1458
+    },
+    "requiredTaskIds": [
+      "architecture-patterns-m1",
+      "architecture-patterns-m2",
+      "correctness-reliability-m1",
+      "correctness-reliability-m2",
+      "maintainability-consistency-m1",
+      "maintainability-consistency-m2",
+      "operability-observability-m1",
+      "operability-observability-m2",
+      "performance-m1",
+      "performance-m2",
+      "security-m1",
+      "security-m2",
+      "testing-evidence-m1",
+      "testing-evidence-m2"
+    ],
+    "requiredMergedTitles": [
+      "Review report carries no per-concern attendance record, so a failed reviewer is indistinguishable from None",
+      "Review-plugin payloads reference repo-root scripts/skalary paths; bundle-or-break has no detector for that form",
+      "Reviewer-authored finding text is interpolated verbatim into a pwsh -Command here-string",
+      "Scope size, batch size, and invocation count are asserted as bounds but never measured",
+      "Test-SiWriteScope.ps1 did not receive the git UTF-8 decoding fix, so a non-ASCII path silently skips symlink resolution",
+      "The 28-invocation budget is restated in six ungated places, in a note that forbids exactly that",
+      "The evidence receipt grammar cannot express skipped, so self-skipping cases are reported as passed",
+      "[SECURITY] Prompt injection attempt detected",
+      "Model-allowlist and skill-size gates enumerate the entire repository, one walk unfiltered, all with -Force",
+      "Plan-size thresholds and the phase-budget default are prose copies of code constants with nothing tying them",
+      "Preflight-skipped and Pro-tier-fallback degradations cannot be recorded in the artefact they are supposed to appear in",
+      "design-review still advertises specialist model agents in its manifest, and the string is published to three generated surfaces",
+      "Add-WorkflowNote -Message interpolates review output into a double-quoted PowerShell argument",
+      "The /ci only consistency authority is invoked through a dogfood-only npm alias",
+      "The branch new gates and their tests are not executed by any automated gate",
+      "Workflow writers permit symlink-based writes outside the repository",
+      "/si leaves no committed record of what it proposed or what the operator declined",
+      "Build-ReviewReport.ps1 accepts an off-roster Model silently, which suppresses severity elevation",
+      "Bundle-drift gate reports counts, never the drifted files, and validate.ps1 discards everything else",
+      "Deleted paths are dropped from the review scope with no count, silently shrinking the reviewed change and its concern tier",
+      "Feedback queue write failures leave no durable trace",
+      "InvocationCount is an unvalidated self-report that defaults to 0",
+      "Multi-child epic attachment can leave partial, inconsistent state",
+      "Run-UnitTests.ps1 reports success when Pester is absent, so test:unit can pass having run nothing",
+      "The /si write-scope allowlist permits editing the guard that enforces it, and the guard is invoked from the copy the proposal can modify",
+      "The Get-ReviewScope.ps1 encoding fix covers the decode side only; the emit side is still host-encoded and untested",
+      "The per-invocation context cap measures only SKILL.md, while the mandatory reads were moved into uncapped assets",
+      "The symlink half of the /si write-scope guard and the -Force hidden-directory regressions are provable on only one platform, and no gate pins that platform",
+      "Workflow memory grows without a bounded active window",
+      "validate.ps1 scans without -Force, so on Linux it silently validates nothing under .github/",
+      "Build-ReviewReport re-scans the full entry list once per entry to produce the sorted output",
+      "Epic scaffold -Force rewrite is unreachable",
+      "Eval documentation still claims complete ten-plugin coverage",
+      "Every ledger append reads the entire plan corpus, and accumulates entries with array +=",
+      "Evidence formatter accepts invalid commit identifiers",
+      "Plan layout design note contradicts the shared resolver",
+      "PlanAssets.Tests.ps1 walks the plan corpus four times and spawns a pwsh process per plan",
+      "Reviewers emit concern labels; the collation and ledger contracts key on concern ids, and the mapping is written down nowhere",
+      "Sync-PluginScripts re-parses every manifest and recomputes the module closure from disk for every reference",
+      "The skill-size cap value is not pinned by any test, so widening the cap is invisible",
+      "Two auto-approve keys in .vscode/settings.json can never match the invocation the skills mandate",
+      "Waza eval comments still describe the pre-split reviewers and a diff that is no longer extracted",
+      "git -z does not survive PowerShell line splitting, so a newline in a path still corrupts the list",
+      "test:migration-is-atomic asserts a static end-state invariant, not atomicity"
+    ],
+    "requiredRawFindings": 60,
+    "requiredRawRecords": [
+      2,
+      2,
+      2,
+      4,
+      3,
+      3,
+      2,
+      1,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "retainsDistinctBodies": true
+  }
+}

@@ -17,3 +17,8 @@ Phase: 0
 - [0.1] [src:note] dr-round-3: A safe JSON consumer is insufficient unless caller authoring uses a data-only tool boundary; CR and DR gain edit only for two computed temporary input files.
 - [0.1] [src:note] dr-round-3: Freeze once and Publish once; an interrupted run is finalized as cancelled on the next invocation rather than growing a checkpoint/resume subsystem.
 - [0.1] [src:note] dr-round-3: Structural instruction tests cannot prove runtime dispatch; preserve one manifest-backed live review artifact as observed evidence and state the residual honestly.
+
+## Capture
+Phase: 1
+
+No entries for this phase.

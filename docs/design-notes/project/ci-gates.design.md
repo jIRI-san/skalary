@@ -18,6 +18,7 @@ globs:
 | Gate | Proves | Runs in | Invocation | Enforcement |
 |---|---|---|---|---|
 | `gate:script-analyzer` | `scripts/skalary` carries no `Error`-severity analyzer finding; `Warning` findings are counted and printed, not enforced (`exclusion:analyzer-warnings-not-blocking`) | `.github/workflows/registry-ci.yml` | `Invoke-ScriptAnalyzer` | blocking |
+| `gate:review-schema-capability` | this runner implements every JSON Schema keyword the review-run contract validates with, and says so in one bounded status object | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-ReviewSchemaCapability\.ps1` | blocking |
 | `support:suite-budget-clock` | the budget spans the whole `npm test` command rather than the Pester leg | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-StartBudgetClock` | support |
 | `gate:plan-validation` | every plan at or above `drafted` satisfies its own contract | `.github/workflows/registry-ci.yml` | `scripts/skalary/Validate-Plan\.ps1` | blocking |
 | `gate:repository-validation` | every payload file parses, and the six gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1` | blocking |
