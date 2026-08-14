@@ -25,6 +25,14 @@
     ".github/skills/cip/scripts/Set-PlanStage.ps1": true,
     "scripts/skalary/Validate-Plan.ps1": true,
     ".github/skills/cip/scripts/Get-PlanIndex.ps1": true,
-    "scripts/skalary/Test-Plan.ps1": true
+    "scripts/skalary/Test-Plan.ps1": true,
+    ".github/skills/cip/scripts/Add-WorkflowNote.ps1": true,
+    "Resolve-Path": true,
+    "scripts/skalary/New-Epic.ps1": true,
+    "/^pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist\\.ps1$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "Invoke-Pester": true
   }
 }

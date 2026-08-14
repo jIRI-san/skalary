@@ -8,6 +8,11 @@ Group plan folders by epic identity at the start of the folder name. Standalone 
 `standalone` in the same position. Migrate existing plans only when they already use the current hash-name
 schema; legacy numbered plans stay untouched.
 
+## Epic discussion provenance
+
+- Session `e64afe83-10c6-427c-bc6c-9a51069bea14`, turn 8: the operator requested the epic hash at the start of plan-folder names, `standalone` in the same position, and migration only for the new hash-name schema.
+- Epic `bcece1` Plan-folder grouping section records the accepted creation, attachment, re-parenting, migration, and mixed-grammar behavior.
+
 ## Target grammar
 
 - Epic child: `<epic-id>-<yyyy-mm-dd>-<plan-id>-<slug>`.

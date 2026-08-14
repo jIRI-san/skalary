@@ -8,6 +8,11 @@ Allow one host-side orchestrator to implement a whole epic by selecting active c
 separate container autopilot for each plan. Keep epic orchestration on the host; each container remains a
 single-plan executor.
 
+## Epic discussion provenance
+
+- Session `e64afe83-10c6-427c-bc6c-9a51069bea14`, turns 11-13: the operator proposed driving a whole epic through separate child container-autopilot runs and accepted extending `/ci` with host-owned orchestration.
+- Epic `bcece1` Epic autopilot section records the sequential MVP, state machine, ownership boundary, merge gate, and deferred parallelism.
+
 ## Agreed MVP
 
 1. `/ci <epic-id>` offers a whole-epic autonomous mode in addition to existing single-plan modes.

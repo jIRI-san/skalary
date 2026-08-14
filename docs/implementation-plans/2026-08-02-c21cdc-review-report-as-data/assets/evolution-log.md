@@ -1,0 +1,9 @@
+# Design-review evolution
+
+## Round 1
+
+**Issues found:** 42 findings: 23 Critical around pre-dispatch truth, caller-selected policy/paths, artifact lifecycle, exact exits, bounded-output consistency, schema distribution, injection, state-machine completeness, test discovery, migration ordering, publication atomicity, and encoding; 8 High around native schema feasibility, cost/parity/versioning/rollback/digests/coverage; 8 Medium around duplicated gates, authoring, ownership, chat delivery, dependency proof, measured reduction, and timeout sizing; 3 Low around exit consumers, version bumps, and evolution-log indexing.
+
+**Issues fixed:** added immutable pre-dispatch `Freeze`; fixed schema/path resolution to installed/computed locations; selected native `Test-Json` after a draft-2020-12 capability probe; separated structural capacity from byte-budget admission; selected manifest-last publication with lock/digest reader and injectable module boundary; made encoding, state, exits, diagnostics, artifact homes/lifecycle, and v1/v2 policy exact; added `8a0644 -> c21cdc`; reordered migration to keep the old API until both installed callers move; added golden parity, positive capability, discovery, cost, approval, consumer, and representative-size evidence; made bundle sync the schema writer; added durable indexed documentation and forward-repair rollback.
+
+**Deferred/residual:** model compliance beyond installed instruction/eval contracts remains non-mechanical; same-user path replacement after validation remains a documented local TOCTOU residual mitigated by computed low-privilege roots, reparse checks, same-directory publication, and handles where available. Distinct formatter exits remain for diagnostics while callers classify them as clean/degraded/failure.

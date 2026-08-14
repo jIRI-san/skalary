@@ -1,5 +1,6 @@
 # ca8ba8: Review corroboration truth
 <!-- plan-id: ca8ba8 -->
+<!-- depends-on: c21cdc -->
 <!-- epic: 33b1f9 -->
 <!-- cip-stage: scaffolded -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->

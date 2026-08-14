@@ -38,7 +38,7 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `863d97` | evidence-receipt-truth | — |
 | `c21cdc` | review-report-as-data | — |
 | `79cfe1` | concern-registry-and-generated-agents | — |
-| `ca8ba8` | review-corroboration-truth | — |
+| `ca8ba8` | review-corroboration-truth | `c21cdc` |
 | `583308` | autopilot-container-toolchain | — |
 <!-- child-plans:end -->
 
@@ -47,11 +47,6 @@ mirror that `New-Epic.ps1` rewrites. Run `Get-PlanState 33b1f9` for live rollup 
 child plan.
 
 ## Decomposition notes
-
-**Scope transfer (2026-08-14).** Placeholder children `57cc2c` (intent capture and design RFC) and
-`8a0644` (dispatch plan up front) moved to epic `bcece1`, where they are part of an operator-visible
-intent-to-delivery workflow. Neither child had settled requirements or decisions when moved. Review-report,
-corroboration, evidence-receipt, concern-registry, and install-correctness work remains in this epic.
 
 **Source.** The original children trace to evidence from `b0c0d3`: its 44-finding step 10.7 gate, its `/dr` round, the first real `/si` harvest, and the operator's `align:partial` acceptance. The clusters are catalogued in [review-system-enforcement-gaps.design.md](../../../design-notes/explorations/review-system-enforcement-gaps.design.md). Plan `583308` was added from operator feedback after repeated container runs exposed that common agent utilities such as `ripgrep` were absent from the image.
 
