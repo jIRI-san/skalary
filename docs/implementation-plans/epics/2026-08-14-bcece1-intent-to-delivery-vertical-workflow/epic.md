@@ -17,8 +17,9 @@ and `/dr`; makes `/cep` run an epic coherency review before finalizing a decompo
 epic/feature/work item hierarchies to GitHub first through an Azure DevOps-extensible model. Planning and
 review also reuse relevant assets and artifacts from related active and archived plans through bounded,
 index-driven context selection. Plan folders sort by epic through an `<epic-id|standalone>` prefix while
-stable plan IDs remain unchanged. Architecture tests are retired while human-reviewed architecture notes
-and ADRs remain.
+stable plan IDs remain unchanged. A host-side epic autopilot can drive eligible child plans through separate
+container-autopilot runs while preserving plan isolation and merge gates. Architecture tests are retired
+while human-reviewed architecture notes and ADRs remain.
 
 **Success signals.**
 
@@ -34,6 +35,7 @@ and ADRs remain.
 - `/cep` surfaces an independent coherency verdict on goal coverage, verticality, child ownership, overlap, and dependencies before it finalizes an epic cut.
 - `/cip`, `/cep`, `/dr`, and plan-associated `/cr` can identify related plans and selectively reuse relevant intent, design, review, evidence, and learning artifacts with recorded provenance.
 - Hash-schema plan folders use `<epic-id>-<date>-<plan-id>-<slug>` or `standalone-<date>-<plan-id>-<slug>`, and existing hash-schema plans migrate without changing canonical IDs.
+- `/ci <epic-id>` can run a host-owned sequential whole-epic mode that launches one fresh child container at a time, resumes durably, and recomputes the graph after each approved merge.
 
 **Non-goals.**
 
@@ -61,6 +63,7 @@ feedback, and completing the final phase delivers the plan's full desired outcom
 | `669ad3` | epic-prefixed-plan-folder-naming | — |
 | `6a629b` | vertical-implementation-requirement-loop | `57cc2c` |
 | `9fda0b` | github-work-hierarchy-synchronization | `57cc2c` |
+| `a5ad22` | epic-autopilot-orchestration | `8a0644` |
 | `cda9da` | architecture-test-retirement | — |
 <!-- child-plans:end -->
 
@@ -98,6 +101,7 @@ child whose behavior they enable; none is a layer-only child.
 | `6a629b` | Vertical implementation and requirement loop | `57cc2c` |
 | `8a0644` | Bounded specialized-agent and `/cr`/`/dr` review orchestration | planning MVP and implementation loop |
 | `25aa23` | `/cep` epic coherency review | shared fleet orchestration |
+| `a5ad22` | Host-orchestrated sequential container autopilot for a whole epic | shared fleet orchestration |
 | `9fda0b` | GitHub work hierarchy synchronization | `57cc2c` |
 | `cda9da` | Architecture-test retirement | — |
 
@@ -152,6 +156,26 @@ logs, review reports, evidence receipts, capture/learnings, and other explicitly
 Every consumed artifact is treated as untrusted historical input, path-confined to the inventoried plan,
 size-bounded, and recorded by plan ID, kind, path, and relationship in the current plan's references or review
 scope. Missing, stale, or conflicting artifacts are surfaced rather than silently treated as authority.
+
+**Epic autopilot.** `/ci <epic-id>` gains a whole-epic autonomous mode whose control plane stays on the
+host. The host repeatedly reads the deterministic epic rollup, selects `NextChild`, requires that child to
+be drafted and structurally valid, creates or resumes its isolated branch/worktree state, and invokes the
+existing container autopilot for that child only. A container may implement, validate, review, commit, push,
+and produce evidence for its assigned plan; it may not select siblings, mutate epic run state, or launch
+another container. The host validates the terminal receipt and remote head, stops for operator-approved
+merge, then recomputes dependencies from the merged target branch before selecting another child.
+
+The MVP is sequential whole-child execution: one fresh container and one child branch at a time. Durable
+host state records epic ID, target branch, selected child, child branch, runtime/run identity, last verified
+commit, retry count, and outcome from a closed set including `running`, `completed`, `blocked`, `failed`,
+`degraded`, `awaiting-human`, and `merge-conflict`. Exit `42` remains the human-stop contract and exit `43`
+remains the offline-rebundle contract inside one child run. A child failure or degraded receipt pauses the
+epic instead of silently skipping to unrelated work. Whole-epic completion requires an epic-intent
+crosscheck after every child is merged; child checkboxes alone are insufficient.
+
+Parallel child containers are a later extension, not MVP. They may be considered only for dependency-free,
+non-overlapping write scopes and must share the fleet/provider admission cap from `8a0644`; separate
+containers never imply unlimited concurrent LLM calls.
 
 **Epic coherency review.** After the operator accepts a proposed cut, `/cep` runs a focused review through
 the shared bounded fleet before treating the decomposition as final. The review checks that the epic goal
