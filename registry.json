@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-08T13:13:21.4523217Z",
+  "generatedAt": "2026-08-14T14:07:26.3920099Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -284,13 +284,18 @@
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
-          "sha256": "2acb5fb9a9cdeeb4ef16c7d90b63cd72e32bde811d4be001f4302d9ea0490971",
+          "sha256": "e0f0d743ac4b4d62d80fa8bcf3fa17e7b8f6c15d44b864c96cae807351538682",
           "src": "devcontainer/Dockerfile"
         },
         {
           "dest": "skills/autopilot/devcontainer/devcontainer.json",
           "sha256": "213e3fa92cc65a33d62e4853df795e83085d7fea398fbcd8772186a1d9be94ce",
           "src": "devcontainer/devcontainer.json"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/toolchain.tsv",
+          "sha256": "e1e66d09eed7fd83bd81babb9c05e55b080d9fa23b256169aefc6ee245080e6f",
+          "src": "devcontainer/toolchain.tsv"
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
@@ -372,7 +377,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     {
       "author": "jIRI-san",

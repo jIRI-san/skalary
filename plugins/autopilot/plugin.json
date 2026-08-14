@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -80,6 +80,10 @@
     {
       "src": "devcontainer/Dockerfile",
       "dest": "skills/autopilot/devcontainer/Dockerfile"
+    },
+    {
+      "src": "devcontainer/toolchain.tsv",
+      "dest": "skills/autopilot/devcontainer/toolchain.tsv"
     },
     {
       "src": "devcontainer/devcontainer.json",
