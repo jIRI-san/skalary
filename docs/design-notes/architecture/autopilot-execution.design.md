@@ -63,6 +63,33 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
 
+#### Linux container toolchain
+
+`plugins/autopilot/devcontainer/toolchain.tsv` is the sole additional-tool inventory; its
+installed dogfood copy is built through the plugin manifest. The baseline covers search and
+navigation, archive/file operations, native builds, Python helpers, shell linting, process and
+network diagnostics, SSH, and SQLite. Bootstrap dependencies needed to install and launch
+Copilot (`git`, `curl`, `jq`, certificates, GnuPG, Node.js, and npm) remain a separate named
+Dockerfile set and are excluded from baseline equality.
+
+The first apt layer accepts enabled sources only from `deb.debian.org` and
+`security.debian.org`, installs without recommends, and records OS, source, requested-package,
+selected-origin, and installed dependency-closure provenance before cleanup. The image keeps
+the floating .NET 10 base, Debian package versions, and launch-time Copilot version policy:
+one comparison run shares resolved inputs, but rebuilds on different dates are not promised to
+be byte-identical.
+
+The toolchain is Linux-container-only; Windows Sandbox has a separate cache and lifecycle.
+Editors, browsers, language-version managers, cloud CLIs, database servers, and background
+daemons are excluded. Root-owned `fd` and `bat` aliases normalize Debian command names, while
+`container-toolchain-smoke.sh` runs every manifest case as `autopilot` and emits one bounded
+closed-schema JSON line. Image growth is reported against an advisory 250 MiB threshold rather
+than failing solely on size.
+
+`launch-container.ps1` builds with the installed autopilot skill directory as its context.
+`dockerfileExtensions` are inserted at the literal `# Non-root user` anchor, before
+`USER autopilot`; keep that anchor stable and keep all root-owned toolchain setup above it.
+
 ### Sandbox Mode
 
 Windows Sandbox provides isolation with full Win32 support (including WPF/desktop apps that can't build in Linux containers).
@@ -220,7 +247,7 @@ Absolute rules enforced:
 | Rule 5 trust boundary | `.autopilot.json` `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. The committed `npm test` script is the blessed evidence-runner path. |
 | Composite test command | The composite gate lives in `package.json` (`validate-plan` + `validate.ps1` + `test:unit`, in that order). This avoids launcher allowlist rejection of shell-chained `.autopilot.json` commands. `test:unit` runs last because it is where the runtime budget is enforced, and a `pretest` hook starts the clock it measures the whole command with. |
 | Finalization ordering | Escalation ordering remains strict: commit -> push -> `gh pr create --draft` -> write uncommitted gitignored `.autopilot-finalize-needed` marker -> exit 42. |
-| Container dependency | `.devcontainer/autopilot/Dockerfile` pins `Install-Module Pester` so `test:unit` and `test:` evidence are runnable in container-autopilot. |
+| Container dependency | `.github/skills/autopilot/devcontainer/Dockerfile` pins `Install-Module Pester` so `test:unit` and `test:` evidence are runnable in container-autopilot. |
 | Canonical harvest host | Workflow-memory harvest is specified in `autopilot.agent.md` (canonical), not `ci` assets; `/ci` guidance is a marked mirror. |
 | Harvest guardrail | Finalization harvest runs only when repo infra exists (`Test-Path scripts/skalary/Add-LedgerEntry.ps1` and ledger paths). Missing infra falls through to standard branch behavior. |
 | Harvest branch split | Append-harvest executes and commits before branch selection; autonomous branch archives + real PR, escalation branch runs `/udn` + prune + draft PR + marker + exit 42 (never archive). |
