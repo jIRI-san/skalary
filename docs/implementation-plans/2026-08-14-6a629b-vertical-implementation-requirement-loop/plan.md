@@ -1,7 +1,8 @@
-# 34088e: Consumer install correctness
-<!-- plan-id: 34088e -->
+# 6a629b: Vertical implementation and requirement loop
+<!-- plan-id: 6a629b -->
+<!-- depends-on: 57cc2c -->
+<!-- epic: bcece1 -->
 <!-- cip-stage: scaffolded -->
-<!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->

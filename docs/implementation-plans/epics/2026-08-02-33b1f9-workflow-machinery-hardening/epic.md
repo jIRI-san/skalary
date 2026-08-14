@@ -34,12 +34,10 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `1936cb` | learning-loop-durability | — |
 | `2366ad` | cross-repo-si-and-standards | `1936cb`, `34088e` |
 | `34088e` | consumer-install-correctness | — |
-| `57cc2c` | intent-capture-and-rfc | — |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
 | `863d97` | evidence-receipt-truth | — |
 | `c21cdc` | review-report-as-data | — |
 | `79cfe1` | concern-registry-and-generated-agents | — |
-| `8a0644` | dispatch-plan-up-front | — |
 | `ca8ba8` | review-corroboration-truth | — |
 <!-- child-plans:end -->
 
@@ -49,13 +47,18 @@ child plan.
 
 ## Decomposition notes
 
-**Source.** Every child traces to evidence from `b0c0d3`: its 44-finding step 10.7 gate, its `/dr` round, the first real `/si` harvest, and the operator's `align:partial` acceptance. The clusters are catalogued in [review-system-enforcement-gaps.design.md](../../../design-notes/explorations/review-system-enforcement-gaps.design.md).
+**Scope transfer (2026-08-14).** Placeholder children `57cc2c` (intent capture and design RFC) and
+`8a0644` (dispatch plan up front) moved to epic `bcece1`, where they are part of an operator-visible
+intent-to-delivery workflow. Neither child had settled requirements or decisions when moved. Review-report,
+corroboration, evidence-receipt, concern-registry, and install-correctness work remains in this epic.
+
+**Source.** The original children trace to evidence from `b0c0d3`: its 44-finding step 10.7 gate, its `/dr` round, the first real `/si` harvest, and the operator's `align:partial` acceptance. The clusters are catalogued in [review-system-enforcement-gaps.design.md](../../../design-notes/explorations/review-system-enforcement-gaps.design.md).
 
 **Seam chosen: artifact contract, not lifecycle stage.** The operator's done bar names three stages (acquisition, implementation, learning loop), but "implementation" is not one seam — it is three artifacts with independent contracts: the evidence receipt, the review report, and the gates. Cutting on lifecycle alone would produce layer-per-plan, where no child delivers observable value until its siblings land. Cutting on artifact contract gives each child its own revertible surface.
 
 **Why not one plan.** The queue spans ~8 Critical review findings, eight enforcement-gap clusters, three accepted `/si` candidates, six parked explorations and two `/dr` headline findings, across the review, receipt, ledger, install and CI surfaces. `b0c0d3` was smaller and still overran its advisory phase budget on 5 of 10 phases.
 
-**Edges.** Only `cross-repo-si-and-standards` is blocked: it needs the durable proposal record from `learning-loop-durability` and correct consumer installs from `consumer-install-correctness` before a cross-repo protocol can rest on either. The remaining five children are parallel.
+**Edges.** Only `cross-repo-si-and-standards` is blocked: it needs the durable proposal record from `learning-loop-durability` and correct consumer installs from `consumer-install-correctness` before a cross-repo protocol can rest on either. The remaining children are parallel.
 
 **Prior art reconciled.** *Reuses* plan `001`'s agent-safety rules and exit-code contract, and plan `002`'s receipt model, install confinement and hash verification. *Extends* `002`'s receipt concept to the evidence receipt — a different artifact sharing the same inability to describe a degraded run. No prior decision is superseded and none conflicts.
 

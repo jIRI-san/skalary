@@ -1,6 +1,7 @@
 # 8a0644: Dispatch plan up front
 <!-- plan-id: 8a0644 -->
-<!-- epic: 33b1f9 -->
+<!-- depends-on: 57cc2c, 6a629b -->
+<!-- epic: bcece1 -->
 <!-- cip-stage: scaffolded -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 

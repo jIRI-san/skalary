@@ -1,7 +1,8 @@
-# 34088e: Consumer install correctness
-<!-- plan-id: 34088e -->
+# 25aa23: Epic coherency review
+<!-- plan-id: 25aa23 -->
+<!-- depends-on: 8a0644 -->
+<!-- epic: bcece1 -->
 <!-- cip-stage: scaffolded -->
-<!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->

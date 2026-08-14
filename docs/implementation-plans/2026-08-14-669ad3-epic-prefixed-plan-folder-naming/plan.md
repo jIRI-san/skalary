@@ -1,7 +1,7 @@
-# 34088e: Consumer install correctness
-<!-- plan-id: 34088e -->
+# 669ad3: Epic-prefixed plan folder naming
+<!-- plan-id: 669ad3 -->
+<!-- epic: bcece1 -->
 <!-- cip-stage: scaffolded -->
-<!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->

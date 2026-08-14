@@ -1,5 +1,6 @@
 # 2366ad: Cross-repo si and review standards
 <!-- plan-id: 2366ad -->
+<!-- cip-stage: scaffolded -->
 <!-- depends-on: 1936cb, 34088e -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->

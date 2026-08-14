@@ -1,5 +1,6 @@
 # 863d97: Evidence and receipt truth
 <!-- plan-id: 863d97 -->
+<!-- cip-stage: scaffolded -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 

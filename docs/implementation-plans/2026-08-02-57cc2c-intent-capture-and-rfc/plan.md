@@ -1,6 +1,8 @@
 # 57cc2c: Intent capture and design RFC
 <!-- plan-id: 57cc2c -->
-<!-- epic: 33b1f9 -->
+<!-- depends-on: 4dd933 -->
+<!-- cip-stage: scaffolded -->
+<!-- epic: bcece1 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
