@@ -75,10 +75,11 @@ Dockerfile set and are excluded from baseline equality.
 
 The first apt layer accepts enabled sources only from `deb.debian.org` and
 `security.debian.org`, installs without recommends, and records OS, source, requested-package,
-selected-origin, and installed dependency-closure provenance before cleanup. The image keeps
-the floating .NET 10 base, Debian package versions, and launch-time Copilot version policy:
-one comparison run shares resolved inputs, but rebuilds on different dates are not promised to
-be byte-identical.
+selected-origin, and installed dependency-closure provenance before cleanup. The image uses the
+floating `debian:trixie-slim` base and installs the maintained .NET 10 SDK from Microsoft's
+Debian 13 repository after the Debian-only baseline layer. Debian package versions and the
+launch-time Copilot version remain floating: one comparison run shares resolved inputs, but
+rebuilds on different dates are not promised to be byte-identical.
 
 The toolchain is Linux-container-only; Windows Sandbox has a separate cache and lifecycle.
 Editors, browsers, language-version managers, cloud CLIs, database servers, and background

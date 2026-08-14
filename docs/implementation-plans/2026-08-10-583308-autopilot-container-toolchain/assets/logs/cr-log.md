@@ -43,3 +43,9 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Med] Closeout review: nonzero smoke output returned before JSON validation, losing valid failure summaries and misclassifying malformed output.
 - [2.2] [src:code-review] [sev:Med] Detector exported only relevance, so an image-job base checkout retry could erase the detector candidate-only reason and perform a forbidden comparison.
 - [2.2] [src:code-review] [sev:Med] Docker context and Dockerfile-specific ignore paths were absent from runner path closure and could change image inputs while the gate was skipped.
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Low] No significant issues found in the complete phase 3 uncommitted change set.
+- [3.1] [src:code-review] [sev:Low] Rubber-duck: final timing assignment retained the same Int32 Math.Max seed pattern; changed candidate/base timing clamps to Int64 seeds.

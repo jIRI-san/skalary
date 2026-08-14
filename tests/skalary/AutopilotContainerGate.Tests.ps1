@@ -113,6 +113,9 @@ Describe 'Autopilot container gate runner' {
             -CandidateBytes (501MB) -BaseBytes (200MB) -DeltaBytes (301MB) -AdvisoryGrowthMiB 250
         $advisory.advisory | Should -BeTrue
         $advisory.blocking | Should -BeFalse
+        $largeImage = New-ContainerGateReceipt -Outcome success -Relevant $true `
+            -CandidateBytes ([int64]3GB)
+        $largeImage.measurement.candidateBytes | Should -Be ([int64]3GB)
 
         $encoded = ConvertTo-GateMarkdown "x|y`n<script>`${{ hostile }}"
         $encoded | Should -Not -Match '[\r\n]'
@@ -138,10 +141,10 @@ Describe 'Autopilot container gate runner' {
         $directReceipt = Get-Content -LiteralPath $directReceiptPath -Raw | ConvertFrom-Json
         $directReceipt.identities.architecture | Should -Not -BeNullOrEmpty
         $invalidResultReceiptPath = Join-Path $TestDrive 'invalid-result-receipt.json'
-        & pwsh -NoProfile -File $runnerPath -Mode VerifyResult `
+        $invalidResult = Invoke-ContainerToolchainGate -Mode VerifyResult `
             -DetectorConclusion success -Relevance invalid -ImageConclusion skipped `
-            -ReceiptPath $invalidResultReceiptPath | Out-Null
-        $LASTEXITCODE | Should -Be 1
+            -ReceiptPath $invalidResultReceiptPath
+        $invalidResult.ExitCode | Should -Be 1
         (Get-Content -LiteralPath $invalidResultReceiptPath -Raw | ConvertFrom-Json).outcome |
             Should -Be 'unexpected-error'
 
@@ -207,12 +210,14 @@ Describe 'Autopilot container gate runner' {
         }
 
         $payloadFixture = Join-Path $TestDrive 'payload'
-        [void](New-Item -ItemType Directory -Path (Join-Path $payloadFixture 'plugins') -Force)
-        [void](New-Item -ItemType Directory -Path (Join-Path $payloadFixture '.github/skills') -Force)
-        Copy-Item -LiteralPath (Join-Path $repoRoot 'plugins/autopilot') `
-            -Destination (Join-Path $payloadFixture 'plugins/autopilot') -Recurse
-        Copy-Item -LiteralPath (Join-Path $repoRoot '.github/skills/autopilot') `
-            -Destination (Join-Path $payloadFixture '.github/skills/autopilot') -Recurse
+        $fixturePaths = @('plugins/autopilot/plugin.json') + @(
+            $context.Payload | ForEach-Object { $_.CanonicalRelative; $_.InstalledRelative }
+        )
+        foreach ($relativePath in @($fixturePaths | Sort-Object -Unique)) {
+            $destination = Join-Path $payloadFixture $relativePath
+            [void](New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force)
+            Copy-Item -LiteralPath (Join-Path $repoRoot $relativePath) -Destination $destination
+        }
         (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Valid | Should -BeTrue
         Set-Content -LiteralPath (Join-Path $payloadFixture 'plugins/autopilot/.dockerignore') `
             -Value 'artifacts/' -Encoding utf8NoBOM
@@ -242,14 +247,14 @@ Describe 'Autopilot container gate runner' {
         (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Reason | Should -Be 'payload-drift'
         $installedDockerfile = Join-Path $payloadFixture '.github/skills/autopilot/devcontainer/Dockerfile'
         (Get-Content -LiteralPath $installedDockerfile -Raw).Replace(
-            'FROM mcr.microsoft.com/dotnet/sdk:10.0',
+            'FROM debian:trixie-slim',
             'FROM docker.io/library/debian:stable'
         ) | Set-Content -LiteralPath $installedDockerfile -Encoding utf8NoBOM -NoNewline
         (Test-GateDockerfileBase -Path $installedDockerfile) | Should -BeFalse
         (Get-Content -LiteralPath (
                 Join-Path $repoRoot 'plugins/autopilot/devcontainer/Dockerfile') -Raw).Replace(
-            'FROM mcr.microsoft.com/dotnet/sdk:10.0',
-            'FROM --platform=linux/arm64 mcr.microsoft.com/dotnet/sdk:10.0'
+                'FROM debian:trixie-slim',
+                'FROM --platform=linux/arm64 debian:trixie-slim'
         ) | Set-Content -LiteralPath $installedDockerfile -Encoding utf8NoBOM -NoNewline
         (Test-GateDockerfileBase -Path $installedDockerfile) | Should -BeFalse
         $canonicalDockerfile = Join-Path $payloadFixture 'plugins/autopilot/devcontainer/Dockerfile'
@@ -307,18 +312,6 @@ Describe 'Autopilot container gate runner' {
     }
 
     It 'preserves hostile NUL-delimited Git paths with ordinal literal matching' {
-        $fixture = Join-Path $TestDrive 'hostile-repo'
-        [void](New-Item -ItemType Directory -Path $fixture)
-        & git -C $fixture init --quiet
-        & git -C $fixture config user.email test@example.invalid
-        & git -C $fixture config user.name Test
-        Set-Content -LiteralPath (Join-Path $fixture 'seed') -Value seed -NoNewline
-        Set-Content -LiteralPath (Join-Path $fixture 'delete me') -Value delete -NoNewline
-        Set-Content -LiteralPath (Join-Path $fixture "rename`nsource") -Value rename -NoNewline
-        & git -C $fixture add -- .
-        & git -C $fixture commit --quiet -m base
-        $base = (& git -C $fixture rev-parse HEAD).Trim()
-
         $hostileNames = @(
             ' leading-dash',
             '-option',
@@ -327,15 +320,51 @@ Describe 'Autopilot container gate runner' {
             "line`nbreak",
             "tab`tpath"
         )
-        foreach ($name in $hostileNames) {
-            Set-Content -LiteralPath (Join-Path $fixture $name) -Value $name -NoNewline
+        if ($IsWindows) {
+            $records = [System.Collections.Generic.List[string]]::new()
+            foreach ($name in $hostileNames) {
+                $records.Add('A')
+                $records.Add($name)
+            }
+            $records.Add('D')
+            $records.Add('delete me')
+            $records.Add('R100')
+            $records.Add("rename`nsource")
+            $records.Add("renamed`ntarget")
+            Mock Invoke-GateProcess {
+                [pscustomobject]@{
+                    ExitCode = 0
+                    Stderr = ''
+                    Stdout = (($records -join "`0") + "`0")
+                    StdoutOverflow = $false
+                }
+            }
+            $changed = @(Get-GateChangedPaths -CandidateRoot $TestDrive `
+                    -BaseSha ('a' * 40) -CandidateSha ('b' * 40))
         }
-        Remove-Item -LiteralPath (Join-Path $fixture 'delete me')
-        & git -C $fixture mv -- "rename`nsource" "renamed`ntarget"
-        & git -C $fixture add -- .
-        & git -C $fixture commit --quiet -m candidate
-        $candidate = (& git -C $fixture rev-parse HEAD).Trim()
-        $changed = @(Get-GateChangedPaths -CandidateRoot $fixture -BaseSha $base -CandidateSha $candidate)
+        else {
+            $fixture = Join-Path $TestDrive 'hostile-repo'
+            [void](New-Item -ItemType Directory -Path $fixture)
+            & git -C $fixture init --quiet
+            & git -C $fixture config user.email test@example.invalid
+            & git -C $fixture config user.name Test
+            Set-Content -LiteralPath (Join-Path $fixture 'seed') -Value seed -NoNewline
+            Set-Content -LiteralPath (Join-Path $fixture 'delete me') -Value delete -NoNewline
+            Set-Content -LiteralPath (Join-Path $fixture "rename`nsource") -Value rename -NoNewline
+            & git -C $fixture add -- .
+            & git -C $fixture commit --quiet -m base
+            $base = (& git -C $fixture rev-parse HEAD).Trim()
+
+            foreach ($name in $hostileNames) {
+                Set-Content -LiteralPath (Join-Path $fixture $name) -Value $name -NoNewline
+            }
+            Remove-Item -LiteralPath (Join-Path $fixture 'delete me')
+            & git -C $fixture mv -- "rename`nsource" "renamed`ntarget"
+            & git -C $fixture add -- .
+            & git -C $fixture commit --quiet -m candidate
+            $candidate = (& git -C $fixture rev-parse HEAD).Trim()
+            $changed = @(Get-GateChangedPaths -CandidateRoot $fixture -BaseSha $base -CandidateSha $candidate)
+        }
         foreach ($name in $hostileNames) { $changed | Should -Contain $name }
         $changed | Should -Contain 'delete me'
         $changed | Should -Contain "rename`nsource"
@@ -348,7 +377,7 @@ Describe 'Autopilot container gate runner' {
         $childScript = Join-Path $TestDrive 'child.ps1'
         $parentScript = Join-Path $TestDrive 'parent.ps1'
         Set-Content -LiteralPath $childScript -Encoding utf8NoBOM -Value @(
-            'Start-Sleep -Seconds 2',
+            'Start-Sleep -Milliseconds 1200',
             "Set-Content -LiteralPath '$($marker.Replace("'", "''"))' -Value survived"
         )
         Set-Content -LiteralPath $parentScript -Encoding utf8NoBOM -Value @(
@@ -359,7 +388,7 @@ Describe 'Autopilot container gate runner' {
             -ArgumentList @('-NoProfile', '-File', $parentScript) -TimeoutSeconds 1
         $process.TimedOut | Should -BeTrue
         $process.ExitCode | Should -Be -1
-        Start-Sleep -Seconds 3
+        Start-Sleep -Milliseconds 1500
         Test-Path -LiteralPath $marker | Should -BeFalse
         $process.Stdout.Length | Should -BeLessOrEqual 65535
         $process.Stderr.Length | Should -BeLessOrEqual 65535

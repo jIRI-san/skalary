@@ -32,7 +32,7 @@ $ErrorActionPreference = 'Stop'
 
 $script:GateSchema = 'skalary/container-toolchain-receipt@1'
 $script:SmokeSchema = 'skalary/container-toolchain-smoke@1'
-$script:BaseImage = 'mcr.microsoft.com/dotnet/sdk:10.0'
+$script:BaseImage = 'debian:trixie-slim'
 $script:MaxReceiptBytes = 65535
 $script:MaxProcessOutput = 65535
 $script:MaxPayloadFileBytes = 4MB
@@ -689,10 +689,10 @@ function New-ContainerGateReceipt {
             copilotVersion = Limit-GateText $CopilotVersion 64
         }
         provenance = [ordered]@{ sha256 = Limit-GateText $ProvenanceSha256 64 }
-        timing = [ordered]@{ totalMs = [math]::Max(0, $TotalMs); candidateMs = [math]::Max(0, $CandidateMs); baseMs = [math]::Max(0, $BaseMs) }
+        timing = [ordered]@{ totalMs = [math]::Max([int64]0, $TotalMs); candidateMs = [math]::Max([int64]0, $CandidateMs); baseMs = [math]::Max([int64]0, $BaseMs) }
         measurement = [ordered]@{
-            candidateBytes = [math]::Max(0, $CandidateBytes)
-            baseBytes = [math]::Max(0, $BaseBytes)
+            candidateBytes = [math]::Max([int64]0, $CandidateBytes)
+            baseBytes = [math]::Max([int64]0, $BaseBytes)
             deltaBytes = $DeltaBytes
             advisoryGrowthMiB = $AdvisoryGrowthMiB
         }
@@ -1099,10 +1099,10 @@ function Invoke-ContainerToolchainGate {
             else {
                 [int64]$clock.ElapsedMilliseconds
             }
-            $receipt.timing.candidateMs = [math]::Max(0, $candidateEndMs - $candidatePhaseStartMs)
+            $receipt.timing.candidateMs = [math]::Max([int64]0, $candidateEndMs - $candidatePhaseStartMs)
         }
         if ($null -ne $basePhaseStartMs) {
-            $receipt.timing.baseMs = [math]::Max(0, [int64]$clock.ElapsedMilliseconds - $basePhaseStartMs)
+            $receipt.timing.baseMs = [math]::Max([int64]0, [int64]$clock.ElapsedMilliseconds - $basePhaseStartMs)
         }
         $json = Write-ContainerGateReceipt -Receipt $receipt -Path $ReceiptPath
         if ($SummaryPath) { Write-ContainerGateSummary -Receipt $receipt -Path $SummaryPath }

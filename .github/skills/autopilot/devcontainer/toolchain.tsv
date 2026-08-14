@@ -16,7 +16,7 @@ shellcheck-valid	shellcheck	shellcheck
 process-self	procps	ps
 lsof-open	lsof	lsof
 ip-loopback	iproute2	ip
-dig-version	dnsutils	dig
+dig-version	bind9-dnsutils	dig
 nc-help	netcat-openbsd	nc
 ssh-version	openssh-client	ssh
 sqlite-query	sqlite3	sqlite3

@@ -27,7 +27,7 @@ Before installation, reject any enabled apt source whose URI host is not `deb.de
 | `process-self` | Process inspection | `procps` | `ps` | Reports the current process. |
 | `lsof-open` | Open-file inspection | `lsof` | `lsof` | Reports a deliberately opened fixture file. |
 | `ip-loopback` | Network inspection | `iproute2` | `ip` | Reports loopback-link metadata. |
-| `dig-version` | DNS diagnostics | `dnsutils` | `dig` | Reports a version without external DNS. |
+| `dig-version` | DNS diagnostics | `bind9-dnsutils` | `dig` | Reports a version without external DNS. |
 | `nc-help` | TCP diagnostics | `netcat-openbsd` | `nc` | Reports help behavior without opening a listener. |
 | `ssh-version` | SSH client | `openssh-client` | `ssh` | Reports a version without connecting. |
 | `sqlite-query` | Local structured query | `sqlite3` | `sqlite3` | Executes an in-memory scalar query. |
@@ -53,7 +53,7 @@ For each run:
 
 1. Verify candidate checkout identity and manifest-driven canonical/installed byte/hash parity. Candidate parity, build, and smoke are always blocking.
 2. Detection with an all-zero, unreachable, or otherwise unusable base returns `relevant=true`, never false or error. Classify comparison as `comparable` or one closed candidate-only reason: `zero-base`, `base-unreachable`, `base-context-absent`, `base-payload-drift`, `base-build-failed`, or `base-timeout`. Never substitute another base. Candidate-only receipts contain absolute candidate size and no delta.
-3. Pull `mcr.microsoft.com/dotnet/sdk:10.0` once; record the resolved image ID/digest and runner architecture; do not pull again during either build.
+3. Pull `debian:trixie-slim` once; record the resolved image ID/digest and runner architecture; do not pull again during either build. Install the maintained .NET 10 SDK only after the Debian baseline layer, from Microsoft's Debian 13 repository.
 4. Resolve one Copilot CLI version and pass the same explicit build argument to both builds. Use the same daemon, platform (`linux/amd64`), and remaining build arguments.
 5. Build and smoke candidate first under a 25-minute process-tree-killing budget. Only after candidate success, build comparable base under at most 10 residual minutes. Base failure or timeout converts to candidate-only evidence; it cannot consume candidate budget. Use local BuildKit cache only; publish no cache or image.
 6. Enforce a 35-minute runner budget inside a 45-minute image job, and record stage elapsed times.

@@ -23,6 +23,7 @@
 - References — [assets/references.md](assets/references.md)
 - Design-review evolution — [assets/evolution-log.md](assets/evolution-log.md)
 - Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
+- Local image evidence — `assets/measurements/container-toolchain-receipt.json`, `assets/measurements/container-toolchain-provenance.json`
 - Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
@@ -47,7 +48,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Distribution reconciliation
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Run the ordinary suite and structural evals, then invoke `Invoke-ContainerToolchainGate.ps1 -Mode Measure` locally against the synchronized installed candidate and an explicit base. Record candidate/base elapsed times and receipt digest; require candidate build/smoke within 25 minutes, optional base work within 10 residual minutes, runner within 35 minutes, and workflow job within 45 minutes. Prove path closure, third-host gate inventory, payload parity, failure receipts, and generated outputs are clean; if measured growth exceeds 250 MiB, add `assets/decisions/image-size-exception.md` with package attribution and operator rationale before finalization (REQ-3, REQ-4, REQ-5, RISK-1, RISK-3, RISK-4, RISK-6, RISK-7) [after: 2.2] `M`
+- [x] 3.1 Run the ordinary suite and structural evals, then invoke `Invoke-ContainerToolchainGate.ps1 -Mode Measure` locally against the synchronized installed candidate and an explicit base. Record candidate/base elapsed times and receipt digest; require candidate build/smoke within 25 minutes, optional base work within 10 residual minutes, runner within 35 minutes, and workflow job within 45 minutes. Prove path closure, third-host gate inventory, payload parity, failure receipts, and generated outputs are clean; if measured growth exceeds 250 MiB, add `assets/decisions/image-size-exception.md` with package attribution and operator rationale before finalization (REQ-3, REQ-4, REQ-5, RISK-1, RISK-3, RISK-4, RISK-6, RISK-7) [after: 2.2] `M`
 
 ## Finalization (conditional)
 
