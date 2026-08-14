@@ -5,6 +5,7 @@ export LC_ALL=C
 
 manifest_path=/usr/local/share/autopilot/toolchain.tsv
 provenance_dir=/usr/local/share/autopilot/provenance
+fallback_json='{"schema":"skalary/container-toolchain-smoke@1","state":"fail","origin":{"os":"","aptHosts":[]},"digests":{"manifestSha256":"","provenanceSha256":""},"cases":[]}'
 fixture_root="$(mktemp -d)"
 trap 'rm -rf "$fixture_root"' EXIT
 
@@ -14,6 +15,7 @@ mkdir -p "$fixture_dir"
 printf 'known-token\n' > "$fixture_file"
 
 declare -A case_states
+encoder_failed=false
 
 run_case() {
     local case_id="$1"
@@ -178,7 +180,7 @@ fi
 
 cases_json='[]'
 declare -A manifest_cases
-if [[ -r "$manifest_path" ]]; then
+if [[ -f "$manifest_path" && -r "$manifest_path" && -s "$manifest_path" ]]; then
     while IFS=$'\t' read -r case_id package_name command_name; do
         [[ -z "$case_id" || "$case_id" == \#* ]] && continue
         if [[ -n "${manifest_cases[$case_id]+present}" ]]; then
@@ -192,14 +194,22 @@ if [[ -r "$manifest_path" ]]; then
             case_state=fail
             overall_state=fail
         fi
-        cases_json="$(
+        next_cases_json=
+        if next_cases_json="$(
             jq -cn \
                 --argjson cases "$cases_json" \
                 --arg id "$case_id" \
                 --arg state "$case_state" \
                 --arg version "$package_version" \
                 '$cases + [{id:$id,state:$state,version:$version}]'
-        )"
+        )"; then
+            cases_json="$next_cases_json"
+        else
+            cases_json='[]'
+            encoder_failed=true
+            overall_state=fail
+            break
+        fi
     done < "$manifest_path"
 else
     overall_state=fail
@@ -209,28 +219,80 @@ if (( ${#manifest_cases[@]} != ${#case_states[@]} )); then
     overall_state=fail
 fi
 
-os_id="$(sed -n 's/^ID=//p' "$provenance_dir/os-release" | tr -d '"' | head -n 1)"
-os_version="$(sed -n 's/^VERSION_ID=//p' "$provenance_dir/os-release" | tr -d '"' | head -n 1)"
+provenance_files=(
+    apt-sources.txt
+    dependency-closure.tsv
+    os-release
+    requested-packages.tsv
+    selected-origins.txt
+)
+provenance_ready=true
+for provenance_file in "${provenance_files[@]}"; do
+    if [[ ! -f "$provenance_dir/$provenance_file" || ! -r "$provenance_dir/$provenance_file" || ! -s "$provenance_dir/$provenance_file" ]]; then
+        provenance_ready=false
+        overall_state=fail
+    fi
+done
+
+os_id=
+os_version=
+apt_hosts_json='[]'
+if [[ -f "$provenance_dir/os-release" && -r "$provenance_dir/os-release" ]]; then
+    os_id="$(sed -n 's/^ID=//p' "$provenance_dir/os-release" | tr -d '"' | head -n 1)"
+    os_version="$(sed -n 's/^VERSION_ID=//p' "$provenance_dir/os-release" | tr -d '"' | head -n 1)"
+fi
 os_origin="$(printf '%s:%s' "$os_id" "$os_version" | tr -cd 'A-Za-z0-9._:+-' | head -c 64)"
-apt_hosts_json="$(
-    sed -E 's#^https?://([^/:]+).*#\1#' "$provenance_dir/apt-sources.txt" |
-        tr '[:upper:]' '[:lower:]' |
-        LC_ALL=C sort -u |
-        jq -Rsc 'split("\n") | map(select(length > 0) | .[0:253])'
-)"
+if [[ -f "$provenance_dir/apt-sources.txt" && -r "$provenance_dir/apt-sources.txt" ]]; then
+    if ! apt_hosts_json="$(
+        sed -E 's#^https?://([^/:]+).*#\1#' "$provenance_dir/apt-sources.txt" |
+            tr '[:upper:]' '[:lower:]' |
+            LC_ALL=C sort -u |
+            jq -Rsc 'split("\n") | map(select(length > 0) | .[0:253])'
+    )"; then
+        apt_hosts_json='[]'
+        encoder_failed=true
+        overall_state=fail
+    fi
+fi
 
-manifest_digest="$(sha256sum "$manifest_path" | cut -d ' ' -f1)"
-provenance_digest="$(
-    (
-        cd "$provenance_dir" || exit 1
-        for provenance_file in apt-sources.txt dependency-closure.tsv os-release requested-packages.tsv selected-origins.txt; do
-            printf '%s\0' "$provenance_file"
-            sha256sum "$provenance_file"
-        done
-    ) | sha256sum | cut -d ' ' -f1
-)"
+manifest_digest=
+if [[ -f "$manifest_path" && -r "$manifest_path" && -s "$manifest_path" ]]; then
+    if ! manifest_digest="$(sha256sum "$manifest_path" 2>/dev/null | cut -d ' ' -f1)"; then
+        manifest_digest=
+        overall_state=fail
+    fi
+else
+    overall_state=fail
+fi
 
-json="$(
+provenance_digest=
+if [[ "$provenance_ready" == true ]]; then
+    provenance_hashes="$fixture_root/provenance-hashes"
+    : > "$provenance_hashes"
+    for provenance_file in "${provenance_files[@]}"; do
+        file_digest=
+        if file_digest="$(sha256sum "$provenance_dir/$provenance_file" 2>/dev/null | cut -d ' ' -f1)" &&
+            [[ "$file_digest" =~ ^[a-f0-9]{64}$ ]]; then
+            printf '%s\0%s\n' "$provenance_file" "$file_digest" >> "$provenance_hashes"
+        else
+            provenance_ready=false
+            overall_state=fail
+            break
+        fi
+    done
+    if [[ "$provenance_ready" == true ]]; then
+        if ! provenance_digest="$(sha256sum "$provenance_hashes" 2>/dev/null | cut -d ' ' -f1)"; then
+            provenance_digest=
+            overall_state=fail
+        fi
+    fi
+fi
+if [[ ! "$manifest_digest" =~ ^[a-f0-9]{64}$ || ! "$provenance_digest" =~ ^[a-f0-9]{64}$ ]]; then
+    overall_state=fail
+fi
+
+json=
+if ! json="$(
     jq -cn \
         --arg schema 'skalary/container-toolchain-smoke@1' \
         --arg state "$overall_state" \
@@ -246,12 +308,18 @@ json="$(
             digests:{manifestSha256:$manifestSha256,provenanceSha256:$provenanceSha256},
             cases:$cases
         }'
-)"
-
-if (( ${#json} > 65535 )); then
+)"; then
+    encoder_failed=true
     overall_state=fail
-    json='{"schema":"skalary/container-toolchain-smoke@1","state":"fail","origin":{"os":"","aptHosts":[]},"digests":{"manifestSha256":"","provenanceSha256":""},"cases":[]}'
+    json="$fallback_json"
 fi
 
-printf '%s\n' "$json"
+if [[ "$encoder_failed" == true ]] || (( ${#json} > 65535 )); then
+    overall_state=fail
+    json="$fallback_json"
+fi
+
+if ! printf '%s\n' "$json"; then
+    exit 1
+fi
 [[ "$overall_state" == pass ]]

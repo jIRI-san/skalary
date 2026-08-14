@@ -342,6 +342,16 @@ Describe 'Autopilot container toolchain' {
         $smokeContent | Should -Match '\$\{#json\} > 65535'
         $smokeContent | Should -Match 'printf ''%s\\n'' "\$json"'
         $smokeContent | Should -Match '\$cases \+ \[\{id:\$id,state:\$state,version:\$version\}\]'
+        $smokeContent | Should -Match '(?s)if \[\[ ! -f "\$provenance_dir/\$provenance_file" \|\| ! -r "\$provenance_dir/\$provenance_file" \|\| ! -s "\$provenance_dir/\$provenance_file" \]\]; then\s+provenance_ready=false\s+overall_state=fail'
+        $smokeContent | Should -Match '\[\[ -f "\$manifest_path" && -r "\$manifest_path" && -s "\$manifest_path" \]\]'
+        $smokeContent | Should -Match '(?s)if file_digest="\$\(sha256sum "\$provenance_dir/\$provenance_file".*?\)" &&\s+\[\[ "\$file_digest" =~ \^\[a-f0-9\]\{64\}\$ \]\]; then.*?else\s+provenance_ready=false\s+overall_state=fail'
+        $smokeContent | Should -Match '!\s+"\$manifest_digest"\s+=~ \^\[a-f0-9\]\{64\}\$'
+        $smokeContent | Should -Match '!\s+"\$provenance_digest"\s+=~ \^\[a-f0-9\]\{64\}\$'
+        $smokeContent | Should -Match '(?s)if next_cases_json="\$\(.*?jq -cn.*?\)"; then\s+cases_json="\$next_cases_json"\s+else\s+cases_json=''\[\]''\s+encoder_failed=true\s+overall_state=fail'
+        $smokeContent | Should -Match '(?s)if ! apt_hosts_json="\$\(.*?jq -Rsc.*?\)"; then\s+apt_hosts_json=''\[\]''\s+encoder_failed=true\s+overall_state=fail'
+        $smokeContent | Should -Match '(?s)if ! json="\$\(.*?jq -cn.*?\)"; then\s+encoder_failed=true\s+overall_state=fail\s+json="\$fallback_json"'
+        $smokeContent | Should -Match '\[\[ "\$encoder_failed" == true \]\] \|\| \(\( \$\{#json\} > 65535 \)\)'
+        $smokeContent | Should -Match '(?s)if ! printf ''%s\\n'' "\$json"; then\s+exit 1\s+fi\s+\[\[ "\$overall_state" == pass \]\]'
 
         $primarySchemaMatch = [regex]::Match(
             $smokeContent,
@@ -352,7 +362,7 @@ Describe 'Autopilot container toolchain' {
 
         $fallbackMatch = [regex]::Match(
             $smokeContent,
-            "(?m)^\s*json='(?<json>\{`"schema`":`"skalary/container-toolchain-smoke@1`".+\})'\s*$")
+            "(?m)^\s*fallback_json='(?<json>\{`"schema`":`"skalary/container-toolchain-smoke@1`".+\})'\s*$")
         $fallbackMatch.Success | Should -BeTrue
         $fallback = $fallbackMatch.Groups['json'].Value | ConvertFrom-Json
         (@($fallback.PSObject.Properties.Name) -join ',') | Should -Be 'schema,state,origin,digests,cases'
