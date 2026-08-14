@@ -9,6 +9,7 @@ globs:
   - .autopilot.host.json
   - plugins/autopilot/schemas/autopilot.schema.json
   - plugins/autopilot/schemas/autopilot.host.schema.json
+  - scripts/skalary/Invoke-ContainerToolchainGate.ps1
 ---
 
 # Autonomous Plan Execution
@@ -89,6 +90,16 @@ than failing solely on size.
 `launch-container.ps1` builds with the installed autopilot skill directory as its context.
 `dockerfileExtensions` are inserted at the literal `# Non-root user` anchor, before
 `USER autopilot`; keep that anchor stable and keep all root-owned toolchain setup above it.
+
+`Invoke-ContainerToolchainGate.ps1` is the shared Docker-free detector and Docker-backed
+measurement runner for local use and CI. It owns the image-input path set, deriving plugin
+source/destination pairs from `plugin.json` and local `COPY` sources from the Dockerfile.
+Detection consumes NUL-delimited Git output and compares paths ordinally; any unusable base
+forces relevance and a closed candidate-only reason. Candidate payload parity, build, smoke,
+and bounded output are blocking. Comparable base failure or timeout becomes candidate-only
+evidence, while growth above 250 MiB stays advisory. Every invocation writes a bounded
+`skalary/container-toolchain-receipt@1` terminal receipt from `finally`; process budgets kill
+the process tree and reserve the outer job's upload window.
 
 ### Sandbox Mode
 

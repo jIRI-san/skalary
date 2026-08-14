@@ -17,3 +17,27 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] Phase crosscheck final review: jq encoder failures could leave blank stdout while overall state remained pass.
 - [1.2] [src:code-review] [sev:Med] Phase crosscheck review: intermediate jq failures did not force the static failure JSON, despite setting aggregate state fail.
 - [1.2] [src:code-review] [sev:Med] Phase crosscheck review: final state evaluation overwrote printf failure, allowing exit zero when stdout could not be written.
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:High] Large Git diff output could be truncated on a record boundary and falsely classify an owned-path change as irrelevant.
+- [2.1] [src:code-review] [sev:High] Process output was buffered without a memory bound and sanitized before smoke validation, allowing oversized or malformed raw output to pass.
+- [2.1] [src:code-review] [sev:High] Timing out the Docker CLI did not stop its daemon-owned smoke container.
+- [2.1] [src:code-review] [sev:High] Physical-line COPY parsing omitted valid continued Dockerfile sources from path closure.
+- [2.1] [src:code-review] [sev:Med] The provenance digest excluded the newline written to the artifact and could not verify uploaded bytes.
+- [2.1] [src:code-review] [sev:High] A pass top-level smoke state could conceal failed individual cases.
+- [2.1] [src:code-review] [sev:High] Recorded base-image identity was not tied to the Dockerfile FROM source and inspect failures were ignored.
+- [2.1] [src:code-review] [sev:Med] Culture-sensitive sorting made path and provenance ordering locale-dependent.
+- [2.1] [src:code-review] [sev:Low] Rubber-duck: top-level default RunnerArchitecture was omitted by PSBoundParameters forwarding, leaving architecture empty unless explicitly passed.
+- [2.1] [src:code-review] [sev:Med] Re-review: smoke validation accepted null or non-string origin and version fields in a passing payload.
+- [2.1] [src:code-review] [sev:Med] Re-review: linux/amd64 was passed to builds but not pinned for pull, FROM platform, or inspected image identity.
+- [2.1] [src:code-review] [sev:Med] Re-review: case-sensitive COPY parsing omitted valid lowercase Dockerfile instructions from path closure.
+- [2.1] [src:code-review] [sev:Med] Re-review: residual runner time used Max one and uncapped image inspection, allowing the 35-minute deadline to be exceeded.
+- [2.1] [src:code-review] [sev:High] Final review: local Dockerfile ADD inputs were neither included in path closure nor rejected.
+- [2.1] [src:code-review] [sev:Med] Final review: candidate path-set derivation ran before unusable-base classification and could throw instead of forcing relevance.
+- [2.1] [src:code-review] [sev:Med] Final review: receipt candidate and base timing fields omitted parity, pull, inspection, version, and size work.
+- [2.1] [src:code-review] [sev:Med] Final review: floating Copilot package specifications such as latest were accepted instead of a concrete shared version.
+- [2.1] [src:code-review] [sev:High] Closeout review: plugin destinations were not required to match Docker build-context COPY source paths, allowing parity to check different bytes than the build consumed.
+- [2.1] [src:code-review] [sev:Med] Closeout review: payload hashing accepted symlinked files and unbounded file sizes outside process timeouts.
+- [2.1] [src:code-review] [sev:Med] Closeout review: nonzero smoke output returned before JSON validation, losing valid failure summaries and misclassifying malformed output.
