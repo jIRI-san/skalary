@@ -11,6 +11,8 @@ Describe 'ci workflow' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:workflowPath = Join-Path $script:repoRoot '.github/workflows/registry-ci.yml'
+        $script:containerWorkflowPath = Join-Path $script:repoRoot '.github/workflows/autopilot-container-ci.yml'
+        $script:containerRunnerPath = Join-Path $script:repoRoot 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
         # Shared with CiGates.Tests.ps1: one parser for the workflow, because a second copy
         # would be a second thing to drift.
         Import-Module (Join-Path $PSScriptRoot '..' 'CiWorkflow.psm1') -Force -DisableNameChecking
@@ -18,6 +20,10 @@ Describe 'ci workflow' {
         if (Test-Path -LiteralPath $script:workflowPath -PathType Leaf) {
             $script:workflowText = Get-Content -LiteralPath $script:workflowPath -Raw
         }
+        $script:containerWorkflowText = if (Test-Path -LiteralPath $script:containerWorkflowPath -PathType Leaf) {
+            Get-Content -LiteralPath $script:containerWorkflowPath -Raw
+        }
+        else { $null }
 
         # Each gate the workflow is responsible for, and the invocation that proves it ran. The
         # unit-test pattern excludes the clock-start invocation of the same script: that call
@@ -157,6 +163,138 @@ Describe 'ci workflow' {
                 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
+    }
+
+    It 'test:Ci.WorkflowSecurityContract enforces the container workflow trust and result boundaries' {
+                $script:containerWorkflowText |
+                    Should -Not -BeNullOrEmpty -Because 'the stable container check must exist as an operational workflow'
+                $code = Remove-CiComment -Text $script:containerWorkflowText
+                $runnerCode = Remove-CiComment -Text (
+                    Get-Content -LiteralPath $script:containerRunnerPath -Raw)
+                $jobs = @{}
+                foreach ($job in @(Get-CiWorkflowJob -Text $script:containerWorkflowText)) {
+                    $jobs[$job.Name] = $job
+                }
+                @($jobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image')
+
+                $code | Should -Match '(?m)^on:\s*\n\s+pull_request:\s*$'
+                $code | Should -Match '(?ms)^\s+push:\s*\n\s+branches:\s*\n\s+- main\s*$'
+                $code | Should -Not -Match '(?m)^\s+paths(?:-ignore)?:' -Because 'the final required check must be created for every PR and main push'
+                $code | Should -Not -Match '(?m)^\s+pull_request_target:'
+                $code | Should -Match '(?ms)^permissions:\s*\n\s+contents: read\s*$'
+                $code | Should -Not -Match '(?m)^ {4}permissions:'
+                $code | Should -Match '(?ms)^concurrency:\s*\n\s+group:'
+
+                $jobs.detector.Body | Should -Match '(?m)^\s*timeout-minutes: 5\s*$'
+                $jobs.image.Body | Should -Match '(?m)^\s*timeout-minutes: 45\s*$'
+                $jobs.gate.Body | Should -Match '(?m)^\s*name: autopilot container / gate\s*$'
+                $jobs.gate.Body | Should -Match '(?m)^\s*timeout-minutes: 5\s*$'
+                $jobs.gate.Body | Should -Match '(?m)^\s*if: always\(\)\s*$'
+                $jobs.image.Body |
+                    Should -Match "if: needs\.detector\.result == 'success' && needs\.detector\.outputs\.relevance == 'true'"
+
+                $uses = @([regex]::Matches($code, '(?m)^\s*uses:\s*(?<ref>\S+)') |
+                        ForEach-Object { $_.Groups['ref'].Value })
+                $uses.Count | Should -BeGreaterThan 0
+                foreach ($ref in $uses) {
+                    $ref | Should -Match '@[0-9a-f]{40}$' -Because "action '$ref' must be immutable"
+                }
+                $checkoutSteps = @($jobs.Values.Steps | Where-Object {
+                        $_.Body -match 'uses: actions/checkout@'
+                    })
+                $checkoutSteps.Count | Should -Be 7
+                foreach ($checkout in $checkoutSteps) {
+                    $checkout.Body | Should -Match '(?m)^\s*persist-credentials: false\s*$'
+                }
+                $continued = @($jobs.Values.Steps | Where-Object {
+                        $_.Body -match '(?m)^\s*continue-on-error: true\s*$'
+                    })
+                $continued.Count | Should -Be 2 -Because 'only the optional detector/image base checkout may be unavailable'
+                foreach ($step in $continued) { $step.Name | Should -Be 'Checkout event base' }
+
+                $code | Should -Match '(?m)^\s*CANDIDATE_SHA: \$\{\{ github\.sha \}\}\s*$'
+                $code | Should -Match "(?m)^\s*BASE_SHA: \x24\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.sha \|\| github\.event\.before \}\}\s*$"
+                $code | Should -Match "(?m)^\s*CONTROL_SHA: \x24\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.sha \|\| github\.sha \}\}\s*$"
+                $code | Should -Match "path: control"
+                $code | Should -Match "path: candidate"
+                $code | Should -Match "path: base"
+                $code | Should -Match 'Assert-CommitSha -Name CANDIDATE_SHA'
+                $code | Should -Match 'Assert-CommitSha -Name BASE_SHA'
+                $code | Should -Match 'Assert-Head -Name control'
+                $code | Should -Match 'Assert-Head -Name candidate'
+                $code | Should -Match 'Assert-Head -Name base'
+
+                $runnerSteps = @($jobs.Values.Steps | Where-Object {
+                        $_.Body -match 'Invoke-ContainerToolchainGate\.ps1'
+                    })
+                $runnerSteps.Count | Should -Be 3
+                foreach ($step in $runnerSteps) {
+                    $step.Body |
+                        Should -Match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"' -Because 'PR host code must come only from the validated base checkout'
+                    $step.Body |
+                        Should -Not -Match 'CANDIDATE_ROOT/scripts' -Because 'candidate scripts execute only as Docker build/runtime input'
+                }
+                $jobs.detector.Body | Should -Match '-Mode Detect'
+                $jobs.image.Body | Should -Match '-Mode Measure'
+                $jobs.gate.Body | Should -Match '-Mode VerifyResult'
+                $jobs.gate.Body | Should -Match '\$\{\{ needs\.detector\.result \}\}'
+                $jobs.gate.Body | Should -Match '\$\{\{ needs\.detector\.outputs\.relevance \}\}'
+                $jobs.gate.Body | Should -Match '\$\{\{ needs\.image\.result \}\}'
+
+                $code | Should -Not -Match '\$\{\{\s*secrets\.'
+                $code | Should -Not -Match '\bGITHUB_ENV\b'
+                $code | Should -Not -Match 'docker\.sock'
+                $combined = "$code`n$runnerCode"
+                foreach ($forbidden in @(
+                        '(?i)--privileged\b',
+                        '(?i)--device(?:=|\s)',
+                        '(?i)--cap-add(?:=|\s)',
+                        '(?i)--network(?:=|\s+)host\b',
+                        '(?i)(?:^|[\s,''"])--mount(?:=|\s)',
+                        '(?i)(?:^|[\s,''"])(?:-v|--volume)(?:=|\s)'
+                    )) {
+                    $combined | Should -Not -Match $forbidden
+                }
+                $runnerCode |
+                    Should -Match "'run', '--rm', '--network', 'none'" -Because 'candidate smoke must have no network or inherited host channels'
+
+                $jobs.image.Body | Should -Match "(?m)^\s*DOCKER_BUILDKIT: '1'\s*$"
+                $jobs.image.Body | Should -Not -Match '(?i)cache-(?:from|to)|type=gha|docker/setup-buildx' -Because 'the two builds share only the hosted daemon local cache'
+                $jobs.image.Body | Should -Match '(?m)^\s*COPILOT_CLI_VERSION:'
+                $code | Should -Match '(?m)^\s*COPILOT_CLI_VERSION: [0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?\s*$'
+                $jobs.image.Body | Should -Match '-CopilotVersion \$env:COPILOT_CLI_VERSION'
+                $jobs.image.Body | Should -Match '-CandidateBudgetSeconds 1500'
+                $jobs.image.Body | Should -Match '-BaseBudgetSeconds 600'
+                $jobs.image.Body | Should -Match '-RunnerBudgetSeconds 2100'
+                $jobs.image.Body | Should -Match '-AdvisoryGrowthMiB 250'
+                $jobs.detector.Body | Should -Match 'candidate_only_reason=\$candidateOnlyReason'
+                $jobs.image.Body |
+                    Should -Match '-DetectionCandidateOnlyReason \$env:DETECTION_CANDIDATE_ONLY_REASON'
+                $code |
+                    Should -Match 'DETECTION_CANDIDATE_ONLY_REASON: \$\{\{ needs\.detector\.outputs\.candidate_only_reason \}\}'
+                @([regex]::Matches($runnerCode, "'pull', '--platform', 'linux/amd64'")).Count |
+                    Should -Be 1 -Because 'candidate and base must share one resolved base-image pull'
+                $runnerCode.IndexOf('$candidateTag') |
+                    Should -BeLessThan $runnerCode.IndexOf('$baseTag') -Because 'candidate validation owns the first 25 minutes'
+
+                $imageUploads = @($jobs.image.Steps | Where-Object {
+                        $_.Body -match 'uses: actions/upload-artifact@'
+                    })
+                $imageUploads.Count | Should -Be 1
+                $imageUploads[0].Body | Should -Match '(?m)^\s*if: always\(\)\s*$'
+                $imageUploads[0].Body | Should -Match 'receipt\.json'
+                $imageUploads[0].Body | Should -Match 'provenance\.json'
+                $imageUploads[0].Body | Should -Match '(?m)^\s*retention-days: 14\s*$'
+                $summarySteps = @($jobs.Values.Steps | Where-Object {
+                        $_.Body -match 'GITHUB_STEP_SUMMARY'
+                    })
+                foreach ($step in $summarySteps) {
+                    $step.Body | Should -Match 'summary\.md'
+                    $step.Body | Should -Not -Match 'receipt\.json|provenance\.json' -Because 'raw candidate-derived fields never become workflow commands'
+                }
+
+                (Get-Content -LiteralPath (Join-Path $script:repoRoot 'package.json') -Raw) |
+                    Should -Not -Match 'Invoke-ContainerToolchainGate|docker' -Because 'ordinary npm test stays Docker-free'
     }
 
     It 'test:Ci.InvokesRunUnitTests runs the suite through the runner that owns the budget, on both platforms' {

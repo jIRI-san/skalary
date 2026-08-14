@@ -41,3 +41,5 @@ Phase: 2
 - [2.1] [src:code-review] [sev:High] Closeout review: plugin destinations were not required to match Docker build-context COPY source paths, allowing parity to check different bytes than the build consumed.
 - [2.1] [src:code-review] [sev:Med] Closeout review: payload hashing accepted symlinked files and unbounded file sizes outside process timeouts.
 - [2.1] [src:code-review] [sev:Med] Closeout review: nonzero smoke output returned before JSON validation, losing valid failure summaries and misclassifying malformed output.
+- [2.2] [src:code-review] [sev:Med] Detector exported only relevance, so an image-job base checkout retry could erase the detector candidate-only reason and perform a forbidden comparison.
+- [2.2] [src:code-review] [sev:Med] Docker context and Dockerfile-specific ignore paths were absent from runner path closure and could change image inputs while the gate was skipped.

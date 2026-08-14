@@ -36,9 +36,13 @@ Describe 'Autopilot container gate runner' {
                 'plugins/autopilot/devcontainer/Dockerfile',
                 'plugins/autopilot/devcontainer/toolchain.tsv',
                 'plugins/autopilot/devcontainer/container-toolchain-smoke.sh',
+                'plugins/autopilot/.dockerignore',
+                'plugins/autopilot/devcontainer/Dockerfile.dockerignore',
                 'plugins/autopilot/scripts/container-entrypoint.sh',
                 'plugins/autopilot/scripts/launch-container.ps1',
                 '.github/skills/autopilot/devcontainer/Dockerfile',
+                '.github/skills/autopilot/.dockerignore',
+                '.github/skills/autopilot/devcontainer/Dockerfile.dockerignore',
                 'scripts/skalary/Invoke-ContainerToolchainGate.ps1',
                 '.github/workflows/autopilot-container-ci.yml',
                 'tests/skalary/AutopilotContainer.Tests.ps1',
@@ -210,6 +214,10 @@ Describe 'Autopilot container gate runner' {
         Copy-Item -LiteralPath (Join-Path $repoRoot '.github/skills/autopilot') `
             -Destination (Join-Path $payloadFixture '.github/skills/autopilot') -Recurse
         (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Valid | Should -BeTrue
+        Set-Content -LiteralPath (Join-Path $payloadFixture 'plugins/autopilot/.dockerignore') `
+            -Value 'artifacts/' -Encoding utf8NoBOM
+        (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Reason | Should -Be 'context-absent'
+        Remove-Item -LiteralPath (Join-Path $payloadFixture 'plugins/autopilot/.dockerignore') -Force
         $fixturePluginPath = Join-Path $payloadFixture 'plugins/autopilot/plugin.json'
         $fixturePluginText = Get-Content -LiteralPath $fixturePluginPath -Raw
         $fixturePluginText.Replace(

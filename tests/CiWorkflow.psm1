@@ -1,7 +1,7 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Reads `.github/workflows/registry-ci.yml` as the artefact it is — text.
+    Reads the repository's CI workflows as the artefacts they are — text.
 .DESCRIPTION
     The workflow is the only place several of this repo's gates actually run, and nothing
     else parses it, so a rename, a chained script or a dropped step is silent until a
@@ -53,7 +53,44 @@ function Get-CiWorkflowStep {
                 Body = $body
             })
     }
+
     return $steps.ToArray()
+}
+
+function Get-CiWorkflowJob {
+    <#
+    .SYNOPSIS
+        Returns the jobs in a workflow as Name/Body/Steps objects, comments removed.
+    .NOTES
+        Job identity matters once workflows contain conditional detector, image, and final
+        jobs. Flattening their steps would let a gate run in the wrong trust boundary while
+        preserving the same invocation text.
+    #>
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param([string]$Text)
+
+    $code = Remove-CiComment -Text $Text
+    if ($code -notmatch '(?ms)^jobs:[ \t]*\r?\n(?<body>.*)$') { return @() }
+    $body = $Matches['body']
+    if ($body -match '(?ms)^(?<jobs>.*?)^\S') { $body = $Matches['jobs'] }
+
+    $matches = @([regex]::Matches(
+            $body,
+            '(?m)^ {2}(?<name>[A-Za-z][A-Za-z0-9_-]*):[ \t]*(?:\r?\n|$)'
+        ))
+    $jobs = [System.Collections.Generic.List[object]]::new()
+    for ($index = 0; $index -lt $matches.Count; $index++) {
+        $start = $matches[$index].Index + $matches[$index].Length
+        $end = if ($index + 1 -lt $matches.Count) { $matches[$index + 1].Index } else { $body.Length }
+        $jobBody = $body.Substring($start, $end - $start)
+        $jobs.Add([pscustomobject]@{
+                Name  = $matches[$index].Groups['name'].Value
+                Body  = $jobBody
+                Steps = @(Get-CiWorkflowStep -Text $jobBody)
+            })
+    }
+    return $jobs.ToArray()
 }
 
 function Get-CiStepRunLine {
@@ -109,4 +146,4 @@ function Get-CiStepRunLine {
     return $statements.ToArray()
 }
 
-Export-ModuleMember -Function Remove-CiComment, Get-CiWorkflowStep, Get-CiStepRunLine
+Export-ModuleMember -Function Remove-CiComment, Get-CiWorkflowStep, Get-CiWorkflowJob, Get-CiStepRunLine

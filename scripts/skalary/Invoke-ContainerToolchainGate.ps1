@@ -13,6 +13,8 @@ param(
     [string]$DetectorConclusion,
     [string]$Relevance,
     [string]$ImageConclusion,
+    [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift')]
+    [string]$DetectionCandidateOnlyReason,
     [string]$CopilotVersion,
     [string]$RunnerArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant(),
     [ValidateRange(1, 2100)]
@@ -357,15 +359,22 @@ function Get-ContainerGateContext {
     }
     if ($copySources.Count -eq 0) { throw 'Dockerfile has no local COPY sources.' }
 
+    $installedDockerfilePath = Join-Path $CheckoutRoot ".github/$($dockerMapping[0].dest)"
+    $installedContextPath = Split-Path -Parent (Split-Path -Parent $installedDockerfilePath)
     $requiredSources = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     [void]$requiredSources.Add('devcontainer/Dockerfile')
     [void]$requiredSources.Add('devcontainer/toolchain.tsv')
     [void]$requiredSources.Add('devcontainer/container-toolchain-smoke.sh')
     [void]$requiredSources.Add('scripts/launch-container.ps1')
     foreach ($source in $copySources) { [void]$requiredSources.Add($source) }
+    foreach ($optionalSource in @('.dockerignore', 'devcontainer/Dockerfile.dockerignore')) {
+        $canonicalOptional = Join-Path $CheckoutRoot "plugins/autopilot/$optionalSource"
+        $installedOptional = Join-Path $installedContextPath $optionalSource
+        if ((Test-Path -LiteralPath $canonicalOptional) -or (Test-Path -LiteralPath $installedOptional)) {
+            [void]$requiredSources.Add($optionalSource)
+        }
+    }
 
-    $installedDockerfilePath = Join-Path $CheckoutRoot ".github/$($dockerMapping[0].dest)"
-    $installedContextPath = Split-Path -Parent (Split-Path -Parent $installedDockerfilePath)
     $payload = [System.Collections.Generic.List[object]]::new()
     foreach ($source in $requiredSources) {
         $mapping = @($mappings | Where-Object {
@@ -408,12 +417,20 @@ function Get-ContainerGatePathSet {
 
     $context = Get-ContainerGateContext -CheckoutRoot $CheckoutRoot
     $paths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $installedContextRelative = [System.IO.Path]::GetRelativePath(
+        [System.IO.Path]::GetFullPath($CheckoutRoot),
+        [System.IO.Path]::GetFullPath($context.InstalledContextPath)
+    ).Replace('\', '/')
     foreach ($entry in $context.Payload) {
         [void]$paths.Add($entry.CanonicalRelative)
         [void]$paths.Add($entry.InstalledRelative)
     }
     foreach ($owned in @(
             'plugins/autopilot/plugin.json',
+            'plugins/autopilot/.dockerignore',
+            'plugins/autopilot/devcontainer/Dockerfile.dockerignore',
+            "$installedContextRelative/.dockerignore",
+            "$installedContextRelative/devcontainer/Dockerfile.dockerignore",
             'scripts/skalary/Invoke-ContainerToolchainGate.ps1',
             '.github/workflows/autopilot-container-ci.yml',
             'tests/skalary/AutopilotContainer.Tests.ps1',
@@ -748,6 +765,8 @@ function Invoke-ContainerToolchainGate {
         [string]$DetectorConclusion,
         [string]$Relevance,
         [string]$ImageConclusion,
+        [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift')]
+        [string]$DetectionCandidateOnlyReason,
         [string]$CopilotVersion,
         [string]$RunnerArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant(),
         [int]$CandidateBudgetSeconds = 1500,
@@ -787,6 +806,9 @@ function Invoke-ContainerToolchainGate {
         $detection = Get-ContainerGateDetection -BaseSha $BaseSha -CandidateSha $CandidateSha -BaseRoot $BaseRoot -CandidateRoot $CandidateRoot
         $relevant = [bool]$detection.Relevant
         $candidateOnlyReason = [string]$detection.CandidateOnlyReason
+        if ($Mode -eq 'Measure' -and $DetectionCandidateOnlyReason) {
+            $candidateOnlyReason = $DetectionCandidateOnlyReason
+        }
         if ($Mode -eq 'Detect' -or -not $relevant) {
             $outcome = if ($relevant) { 'success' } else { 'irrelevant' }
             $comparison = if ($candidateOnlyReason) { 'candidate-only' } else { 'not-run' }

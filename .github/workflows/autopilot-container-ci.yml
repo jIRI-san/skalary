@@ -1,0 +1,268 @@
+name: autopilot container
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.sha }}
+  BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+  CONTROL_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+
+jobs:
+  detector:
+    name: detect container inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      relevance: ${{ steps.detect.outputs.relevance }}
+      candidate_only_reason: ${{ steps.detect.outputs.candidate_only_reason }}
+    steps:
+      - name: Checkout trusted control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: control
+          ref: ${{ env.CONTROL_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: candidate
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout event base
+        id: base-checkout
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: base
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert checkout identities
+        shell: pwsh
+        env:
+          BASE_CHECKOUT_OUTCOME: ${{ steps.base-checkout.outcome }}
+          CONTROL_ROOT: ${{ github.workspace }}/control
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          BASE_ROOT: ${{ github.workspace }}/base
+        run: |
+          function Assert-CommitSha([string]$Name, [string]$Value) {
+            if ($Value -notmatch '^[0-9A-Fa-f]{40}$') { throw "$Name is not a 40-hex commit SHA." }
+          }
+          function Assert-Head([string]$Name, [string]$Root, [string]$Expected) {
+            $actual = (& git -C $Root rev-parse --verify HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or
+                -not [string]::Equals($actual, $Expected, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "$Name checkout HEAD does not equal its event SHA."
+            }
+          }
+          Assert-CommitSha -Name CANDIDATE_SHA -Value $env:CANDIDATE_SHA
+          Assert-CommitSha -Name BASE_SHA -Value $env:BASE_SHA
+          Assert-CommitSha -Name CONTROL_SHA -Value $env:CONTROL_SHA
+          Assert-Head -Name control -Root $env:CONTROL_ROOT -Expected $env:CONTROL_SHA
+          Assert-Head -Name candidate -Root $env:CANDIDATE_ROOT -Expected $env:CANDIDATE_SHA
+          if ($env:BASE_CHECKOUT_OUTCOME -eq 'success') {
+            Assert-Head -Name base -Root $env:BASE_ROOT -Expected $env:BASE_SHA
+          }
+          else {
+            Remove-Item -LiteralPath $env:BASE_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Detect image relevance
+        id: detect
+        shell: pwsh
+        env:
+          CONTROL_ROOT: ${{ github.workspace }}/control
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          BASE_ROOT: ${{ github.workspace }}/base
+          DETECTOR_RECEIPT: ${{ runner.temp }}/container-toolchain-detect.json
+        run: |
+          & "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Detect -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -ReceiptPath $env:DETECTOR_RECEIPT
+          if ($LASTEXITCODE -ne 0) { throw 'Container input detection failed.' }
+          $receipt = Get-Content -LiteralPath $env:DETECTOR_RECEIPT -Raw | ConvertFrom-Json
+          if ($receipt.schema -ne 'skalary/container-toolchain-receipt@1' -or
+              $receipt.relevant -isnot [bool]) {
+            throw 'Container input detection produced an invalid receipt.'
+          }
+          $relevance = ([string]$receipt.relevant).ToLowerInvariant()
+          if ($relevance -notin @('true', 'false')) { throw 'Container relevance is not closed.' }
+          $candidateOnlyReason = [string]$receipt.candidateOnlyReason
+          if ($candidateOnlyReason -notin @('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift')) {
+            throw 'Container candidate-only reason is not closed for detection.'
+          }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "relevance=$relevance"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "candidate_only_reason=$candidateOnlyReason"
+
+  image:
+    name: build and smoke container
+    needs: detector
+    if: needs.detector.result == 'success' && needs.detector.outputs.relevance == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOCKER_BUILDKIT: '1'
+      BUILDKIT_PROGRESS: plain
+      COPILOT_CLI_VERSION: 1.0.60
+      EVIDENCE_ROOT: ${{ github.workspace }}/artifacts/container-toolchain
+      CONTROL_ROOT: ${{ github.workspace }}/control
+      CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+      BASE_ROOT: ${{ github.workspace }}/base
+      DETECTION_CANDIDATE_ONLY_REASON: ${{ needs.detector.outputs.candidate_only_reason }}
+    steps:
+      - name: Initialize terminal evidence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path $env:EVIDENCE_ROOT -Force | Out-Null
+          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":""},"diagnostic":"measurement did not start"}' |
+            Set-Content -LiteralPath "$env:EVIDENCE_ROOT/receipt.json" -Encoding utf8NoBOM
+          '{"schema":"skalary/container-toolchain-provenance@1","state":"not-produced"}' |
+            Set-Content -LiteralPath "$env:EVIDENCE_ROOT/provenance.json" -Encoding utf8NoBOM
+          "## Autopilot container toolchain`n`n- Outcome: **unexpected\-error**`n- Receipt provenance: unavailable" |
+            Set-Content -LiteralPath "$env:EVIDENCE_ROOT/summary.md" -Encoding utf8NoBOM
+
+      - name: Checkout trusted control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: control
+          ref: ${{ env.CONTROL_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: candidate
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout event base
+        id: base-checkout
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: base
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert checkout identities
+        shell: pwsh
+        env:
+          BASE_CHECKOUT_OUTCOME: ${{ steps.base-checkout.outcome }}
+        run: |
+          function Assert-CommitSha([string]$Name, [string]$Value) {
+            if ($Value -notmatch '^[0-9A-Fa-f]{40}$') { throw "$Name is not a 40-hex commit SHA." }
+          }
+          function Assert-Head([string]$Name, [string]$Root, [string]$Expected) {
+            $actual = (& git -C $Root rev-parse --verify HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or
+                -not [string]::Equals($actual, $Expected, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "$Name checkout HEAD does not equal its event SHA."
+            }
+          }
+          Assert-CommitSha -Name CANDIDATE_SHA -Value $env:CANDIDATE_SHA
+          Assert-CommitSha -Name BASE_SHA -Value $env:BASE_SHA
+          Assert-CommitSha -Name CONTROL_SHA -Value $env:CONTROL_SHA
+          Assert-Head -Name control -Root $env:CONTROL_ROOT -Expected $env:CONTROL_SHA
+          Assert-Head -Name candidate -Root $env:CANDIDATE_ROOT -Expected $env:CANDIDATE_SHA
+          if ($env:BASE_CHECKOUT_OUTCOME -eq 'success') {
+            Assert-Head -Name base -Root $env:BASE_ROOT -Expected $env:BASE_SHA
+          }
+          else {
+            Remove-Item -LiteralPath $env:BASE_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Measure candidate toolchain
+        shell: pwsh
+        run: |
+          & "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Measure -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -ProvenancePath "$env:EVIDENCE_ROOT/provenance.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -CopilotVersion $env:COPILOT_CLI_VERSION -CandidateBudgetSeconds 1500 -BaseBudgetSeconds 600 -RunnerBudgetSeconds 2100 -AdvisoryGrowthMiB 250
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Candidate container toolchain validation failed.'
+          }
+
+      - name: Render encoded result
+        if: always()
+        shell: pwsh
+        run: Get-Content -LiteralPath "$env:EVIDENCE_ROOT/summary.md" | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload terminal evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: autopilot-container-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/container-toolchain/receipt.json
+            artifacts/container-toolchain/provenance.json
+          if-no-files-found: error
+          retention-days: 14
+
+  gate:
+    name: autopilot container / gate
+    needs:
+      - detector
+      - image
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Initialize final receipt
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts/container-toolchain-final -Force | Out-Null
+          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":""},"diagnostic":"final verification did not start"}' |
+            Set-Content -LiteralPath artifacts/container-toolchain-final/receipt.json -Encoding utf8NoBOM
+
+      - name: Checkout trusted control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: control
+          ref: ${{ env.CONTROL_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify final result
+        shell: pwsh
+        env:
+          DETECTOR_CONCLUSION: ${{ needs.detector.result }}
+          RELEVANCE: ${{ needs.detector.outputs.relevance }}
+          IMAGE_CONCLUSION: ${{ needs.image.result }}
+          CONTROL_ROOT: ${{ github.workspace }}/control
+        run: |
+          & "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode VerifyResult -DetectorConclusion $env:DETECTOR_CONCLUSION -Relevance $env:RELEVANCE -ImageConclusion $env:IMAGE_CONCLUSION -ReceiptPath artifacts/container-toolchain-final/receipt.json -SummaryPath artifacts/container-toolchain-final/summary.md
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Autopilot container result combination failed closed.'
+          }
+
+      - name: Render final encoded result
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath artifacts/container-toolchain-final/summary.md -PathType Leaf) {
+            Get-Content -LiteralPath artifacts/container-toolchain-final/summary.md |
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload final receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: autopilot-container-final-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/container-toolchain-final/receipt.json
+          if-no-files-found: error
+          retention-days: 14

@@ -93,13 +93,18 @@ than failing solely on size.
 
 `Invoke-ContainerToolchainGate.ps1` is the shared Docker-free detector and Docker-backed
 measurement runner for local use and CI. It owns the image-input path set, deriving plugin
-source/destination pairs from `plugin.json` and local `COPY` sources from the Dockerfile.
+source/destination pairs from `plugin.json` and local `COPY` sources from the Dockerfile;
+context-level and Dockerfile-specific ignore paths are always relevant and must join parity
+when present.
 Detection consumes NUL-delimited Git output and compares paths ordinally; any unusable base
 forces relevance and a closed candidate-only reason. Candidate payload parity, build, smoke,
 and bounded output are blocking. Comparable base failure or timeout becomes candidate-only
 evidence, while growth above 250 MiB stays advisory. Every invocation writes a bounded
 `skalary/container-toolchain-receipt@1` terminal receipt from `finally`; process budgets kill
 the process tree and reserve the outer job's upload window.
+
+The workflow carries the detector's candidate-only reason into measurement. A later successful
+base-checkout retry cannot turn an unusable detection base into a comparable run.
 
 ### Sandbox Mode
 
