@@ -10,7 +10,7 @@ ARG COPILOT_CLI_VERSION=1.0.60
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-COPY devcontainer/toolchain.tsv /tmp/autopilot-toolchain.tsv
+COPY devcontainer/toolchain.tsv /usr/local/share/autopilot/toolchain.tsv
 
 # Bootstrap dependencies stay distinct from the manifest-owned agent baseline.
 RUN set -eux; \
@@ -23,7 +23,7 @@ RUN set -eux; \
         seen[$1]++ { print "Duplicate toolchain case ID: " $1 > "/dev/stderr"; exit 1 } \
         { count++; print $2 } \
         END { if (count == 0) { print "toolchain.tsv has no package rows" > "/dev/stderr"; exit 1 } } \
-    ' /tmp/autopilot-toolchain.tsv > /tmp/autopilot-toolchain-packages; \
+    ' /usr/local/share/autopilot/toolchain.tsv > /tmp/autopilot-toolchain-packages; \
     mapfile -t toolchain_packages < /tmp/autopilot-toolchain-packages; \
     if apt-config dump | grep -Eiq '^[[:space:]]*Binary::apt-get::Dir([[:space:]]|::)'; then \
         echo "APT apt-get-specific Dir overrides are not allowed" >&2; exit 1; \
@@ -127,7 +127,6 @@ RUN set -eux; \
     mapfile -t dependency_packages < <(cut -f1 /usr/local/share/autopilot/provenance/dependency-closure.tsv); \
     apt-cache policy "${dependency_packages[@]}" > /usr/local/share/autopilot/provenance/selected-origins.txt; \
     rm -f \
-        /tmp/autopilot-toolchain.tsv \
         /tmp/autopilot-toolchain-packages \
         /tmp/autopilot-apt-source-uris \
         /tmp/autopilot-dependency-package-names \
@@ -161,7 +160,15 @@ RUN pwsh -NoProfile -Command "Install-Module Pester -RequiredVersion 5.6.1 -Forc
 
 # Container entry-point script
 COPY scripts/container-entrypoint.sh /usr/local/bin/container-entrypoint.sh
-RUN chmod +x /usr/local/bin/container-entrypoint.sh
+COPY devcontainer/container-toolchain-smoke.sh /usr/local/bin/container-toolchain-smoke
+RUN chmod 0755 /usr/local/bin/container-entrypoint.sh /usr/local/bin/container-toolchain-smoke \
+    && chown root:root \
+        /usr/local/share/autopilot/toolchain.tsv \
+        /usr/local/bin/container-toolchain-smoke \
+    && ln -s /usr/bin/fdfind /usr/local/bin/fd \
+    && ln -s /usr/bin/batcat /usr/local/bin/bat \
+    && test "$(stat -c '%u:%g' /usr/local/bin/fd)" = 0:0 \
+    && test "$(stat -c '%u:%g' /usr/local/bin/bat)" = 0:0
 
 # Non-root user for security — add to docker group for socket access
 RUN groupadd -g 998 docker || true \
