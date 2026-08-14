@@ -39,6 +39,7 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `c21cdc` | review-report-as-data | — |
 | `79cfe1` | concern-registry-and-generated-agents | — |
 | `ca8ba8` | review-corroboration-truth | — |
+| `583308` | autopilot-container-toolchain | — |
 <!-- child-plans:end -->
 
 Membership is the `<!-- epic: 33b1f9 -->` marker in each child `plan.md`; the table above is a generated
@@ -52,7 +53,7 @@ child plan.
 intent-to-delivery workflow. Neither child had settled requirements or decisions when moved. Review-report,
 corroboration, evidence-receipt, concern-registry, and install-correctness work remains in this epic.
 
-**Source.** The original children trace to evidence from `b0c0d3`: its 44-finding step 10.7 gate, its `/dr` round, the first real `/si` harvest, and the operator's `align:partial` acceptance. The clusters are catalogued in [review-system-enforcement-gaps.design.md](../../../design-notes/explorations/review-system-enforcement-gaps.design.md).
+**Source.** The original children trace to evidence from `b0c0d3`: its 44-finding step 10.7 gate, its `/dr` round, the first real `/si` harvest, and the operator's `align:partial` acceptance. The clusters are catalogued in [review-system-enforcement-gaps.design.md](../../../design-notes/explorations/review-system-enforcement-gaps.design.md). Plan `583308` was added from operator feedback after repeated container runs exposed that common agent utilities such as `ripgrep` were absent from the image.
 
 **Seam chosen: artifact contract, not lifecycle stage.** The operator's done bar names three stages (acquisition, implementation, learning loop), but "implementation" is not one seam — it is three artifacts with independent contracts: the evidence receipt, the review report, and the gates. Cutting on lifecycle alone would produce layer-per-plan, where no child delivers observable value until its siblings land. Cutting on artifact contract gives each child its own revertible surface.
 
