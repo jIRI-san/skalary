@@ -19,5 +19,12 @@
     ".github/skills/cip/scripts/Test-Plan.ps1": true,
     ".github/skills/list-plugins/scripts/Find-Plugin.ps1": true,
     ".github/skills/list-plugins/scripts/Get-Plugin.ps1": true,
+    ".github/skills/cep/scripts/New-Plan.ps1": true,
+    ".github/skills/cep/scripts/New-Epic.ps1": true,
+    "scripts/skalary/Get-PlanState.ps1": true,
+    ".github/skills/cip/scripts/Set-PlanStage.ps1": true,
+    "scripts/skalary/Validate-Plan.ps1": true,
+    ".github/skills/cip/scripts/Get-PlanIndex.ps1": true,
+    "scripts/skalary/Test-Plan.ps1": true
   }
 }
