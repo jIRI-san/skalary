@@ -7,8 +7,8 @@ check binding, the taxonomy x maturity gate mapping, and pure-parse receipt read
 .DESCRIPTION
 Both producers and verifiers of arch-test receipts depend on this module so they can never drift:
   * Invoke-ArchTests.ps1 (the runner) computes sourcesHash + binding and mints receipts.
-  * PlanEvidence.psm1 (the arch: evidence marker) recomputes sourcesHash to reject STALE receipts and maps
-    the recorded verdict through the same gate matrix — WITHOUT executing any toolchain.
+  * Get-ArchReviewReport.ps1 recomputes sourcesHash to reject STALE receipts and maps the recorded
+    verdict through the same gate matrix — WITHOUT executing any toolchain.
 
 The hash is a pure content hash over source files (+ synthetic binding records); reading a receipt is a
 pure JSON parse with schema-shape validation. Nothing here shells a toolchain or executes plan/contract text.

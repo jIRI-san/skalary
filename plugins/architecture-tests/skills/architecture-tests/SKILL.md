@@ -141,10 +141,9 @@ absent toolchain and see lock drift. Do not hand-edit receipts; regenerate them 
 
 The `architecture-notes` **review** operation folds these receipts into its tier report via
 `.github/skills/architecture-tests/scripts/Get-ArchReviewReport.ps1` (bundled with this plugin) — a
-**read-only pure-parse** report (never executes a toolchain). For every contract in the config it reuses the
-SAME verifier the `arch:` evidence marker uses (`Invoke-PlanArchEvidence`), so the review is **never laxer
-than the CI gate** (it can never false-green; being opt-in-agnostic and always at crosscheck strictness, it
-may be stricter): a **locked** contract whose receipt is missing / stale / malformed / non-`pass` surfaces as
+**read-only pure-parse** report (never executes a toolchain). For every contract in the config it uses the
+architecture-tests-local receipt verifier, checking identity, freshness, and maturity before mapping the
+recorded verdict: a **locked** contract whose receipt is missing / stale / malformed / non-`pass` surfaces as
 a **blocking** finding (a schema-only review can never false-green a failing or absent locked contract), while
 `draft`/`provisional` and `semantic-eval` are advisory **only once a receipt exists and passes freshness**; a
 `lock-invalidated` receipt is flagged as drift.

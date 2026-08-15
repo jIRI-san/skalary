@@ -6,10 +6,8 @@ never false-green a failing or absent LOCKED contract (REQ-16). Read-only, pure-
 toolchain or plan/contract text.
 
 .DESCRIPTION
-The architecture-notes SKILL `review` operation calls this to fold the arch-tests receipts into its tier
-report. For every check in the arch-test config it reuses the SAME verifier the `arch:` evidence marker uses
-(`Invoke-PlanArchEvidence`) so the review is NEVER LAXER than the CI gate (it can never false-green; being
-opt-in-agnostic and always at crosscheck strictness it may be stricter): a LOCKED contract whose receipt is
+The architecture-tests skill calls this to fold receipts into its tier report. For every check in the
+arch-test config it performs architecture-tests-local receipt verification: a LOCKED contract whose receipt is
 missing / stale / malformed / non-pass surfaces as a BLOCKING finding, while `draft`/`provisional` and
 `semantic-eval` are advisory only once a receipt exists and passes freshness. It also flags a
 `lock-invalidated` receipt (a locked body whose recomputed hash no longer matches `lockedBodySha256`) as drift.
@@ -28,7 +26,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'ArchReceipt.psm1') -Force -DisableNameChecking
 
 function Resolve-ArchReviewConfigPath {
@@ -44,6 +41,7 @@ function Resolve-ArchReviewConfigPath {
         if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { throw "Arch-test config not found: $ConfigPath" }
         return (Resolve-Path -LiteralPath $ConfigPath).Path
     }
+
     $candidates = @(
         (Join-Path $RepoRoot 'arch-test-config.json'),
         (Join-Path $RepoRoot 'docs/architecture-notes/arch-test-config.json')
@@ -52,6 +50,63 @@ function Resolve-ArchReviewConfigPath {
     if ($found.Count -eq 0) { return $null }
     if ($found.Count -gt 1) { throw "Ambiguous arch-test config: $($found -join ', '). Consolidate to one." }
     return (Resolve-Path -LiteralPath $found[0]).Path
+}
+
+function Invoke-ArchReviewEvidence {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)]$Check,
+        [string]$ReceiptDir
+    )
+
+    $contractId = [string]$Check.contractId
+    $receiptPath = Get-ArchReceiptPath -RepoRoot $RepoRoot -ContractId $contractId -ReceiptDir $ReceiptDir
+    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+        return [pscustomobject]@{
+            Success = $false
+            Blocking = $true
+            Message = "No arch-test receipt for contract '$contractId' (unrun)."
+        }
+    }
+
+    try {
+        $receipt = Read-ArchReceipt -Path $receiptPath
+    }
+    catch {
+        return [pscustomobject]@{
+            Success = $false
+            Blocking = $true
+            Message = "Malformed arch-test receipt for '$contractId': $($_.Exception.Message)"
+        }
+    }
+
+    $adapter = if ($Check.PSObject.Properties.Name -contains 'adapter') { [string]$Check.adapter } else { $null }
+    $maturity = Resolve-ArchEffectiveMaturity -Check $Check -RepoRoot $RepoRoot
+    if ($receipt.ContractId -ne $contractId -or
+        ($adapter -and $receipt.Adapter -ne $adapter) -or
+        $receipt.Maturity -ne $maturity) {
+        return [pscustomobject]@{
+            Success = $false
+            Blocking = $true
+            Message = "Arch-test receipt identity does not match config/contract for '$contractId'."
+        }
+    }
+
+    $currentHash = Get-ArchTestCheckSourcesHash -Check $Check -Maturity $maturity -RepoRoot $RepoRoot
+    if ($currentHash -ne $receipt.SourcesHash) {
+        return [pscustomobject]@{
+            Success = $false
+            Blocking = $true
+            Message = "Stale arch-test receipt for '$contractId'."
+        }
+    }
+
+    $outcome = Get-ArchGateOutcome -Maturity $maturity -Verdict $receipt.Verdict -Ran $receipt.Ran -Adapter $adapter
+    return [pscustomobject]@{
+        Success = $outcome -eq 'pass'
+        Blocking = $outcome -eq 'block'
+        Message = "Arch-test receipt for '$contractId' maps to '$outcome' under maturity '$maturity'."
+    }
 }
 
 function Get-ArchReviewReport {
@@ -79,8 +134,7 @@ function Get-ArchReviewReport {
             if (-not ($check.PSObject.Properties.Name -contains 'contractId')) { continue }
             $cid = [string]$check.contractId
 
-            # Reuse the exact CI-gate verifier so the review can never disagree with the gate.
-            $res = Invoke-PlanArchEvidence -RepoRoot $repoRootFull -Marker "arch:$cid" -Stage 'PhaseCrosscheck' -ConfigPath $resolvedConfig -ReceiptDir $ReceiptDir
+            $res = Invoke-ArchReviewEvidence -RepoRoot $repoRootFull -Check $check -ReceiptDir $ReceiptDir
 
             # Effective blocking: the marker's Blocking flag is "would block IF it failed" (stage-scoped, same as
             # the file: evaluator), so a real blocking finding is a NON-pass whose failure is blocking.

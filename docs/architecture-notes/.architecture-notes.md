@@ -12,8 +12,8 @@ tier is the **AI-optimized source of truth**: terse, contract-focused, and auto-
 ## How These Work
 
 - Load this index first. Then read only the arch note(s) and contract(s) relevant to the task.
-- Contracts are machine-checkable (`architecture-contract.schema.json`) and referenced from
-  plans via `arch:<ContractId>` evidence markers.
+- Contracts are schema-validated and locked content is digest-pinned by the architecture-notes
+  write and repository integrity gates.
 - `locked` contracts are reviewer-approved and content-pinned; `draft`/`provisional` are advisory.
   Human promotion is reviewer-enforced policy, not machine-authenticated identity.
 

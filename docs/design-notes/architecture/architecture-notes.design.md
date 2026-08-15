@@ -20,7 +20,7 @@ are auto-loaded (see [copilot-customizations.design.md](../project/copilot-custo
 | Piece | Location | Role |
 |---|---|---|
 | Tier index | `docs/architecture-notes/.architecture-notes.md` | Auto-loaded discovery layer: Contracts / Architecture Notes / **Decision Records (active)** tables |
-| Contracts | `schemas/architecture/<id>.json` (validated by `schemas/architecture/architecture-contract.schema.json`) | Machine-checkable; referenced from plans via `arch:<ContractId>` markers |
+| Contracts | `schemas/architecture/<id>.json` (validated by `schemas/architecture/architecture-contract.schema.json`) | Human-owned boundaries; locked canonical content is digest-pinned |
 | Arch notes | `docs/architecture-notes/<slug>.md` | Terse per-boundary note; path-scoped `globs` frontmatter |
 | Human doc | `docs/architecture-notes/architecture.human.md` | Derived (Mermaid/prose/links); **excluded from auto-load**; freshness-hashed |
 | Quarantine | `docs/architecture-notes/.staging/` | Harvest/ADR output, `reviewed: false`, never indexed |
@@ -74,6 +74,12 @@ digest field itself.
 - **The contract write gate owns lock integrity.** `Test-ArchContract.ps1` validates schema and
   recomputes the canonical digest for every locked contract. `scripts/validate.ps1` runs that gate
   over the complete repository contract set, so locked-content drift cannot bypass authoring flows.
+- **Scaffold schemas are versioned and fail closed.** The shipped schema carries
+  `x-skalary-schema-version`. `Copy-ArchScaffold.ps1` upgrades only the byte-identical known v1
+  scaffold; customized unversioned or unknown-version schemas are refused instead of overwritten.
+- **Human-doc generation validates before rendering.** `New-ArchHumanDoc.ps1` sends every contract
+  through `Test-ArchContract.ps1`; malformed schema or locked-content drift cannot become a
+  fresh-looking generated document.
 
 ## Constraints
 

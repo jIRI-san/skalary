@@ -129,7 +129,7 @@ Describe 'architecture-contract schema evals' {
         }
     }
 
-    It 'Schema-ScaffoldsOnInitNoOverwrite: scaffolds the schema, then never overwrites an existing target' {
+    It 'Schema-ScaffoldsOnInitNoOverwrite: scaffolds the schema and skips a current-version rerun' {
         Test-Path -LiteralPath $script:scaffoldScript -PathType Leaf | Should -BeTrue
         $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-scaffold-" + [guid]::NewGuid().ToString('N'))
         [void](New-Item -ItemType Directory -Path $target -Force)
@@ -140,14 +140,37 @@ Describe 'architecture-contract schema evals' {
             $created[0].Action | Should -Be 'created'
             Test-Path -LiteralPath $created[0].Path -PathType Leaf | Should -BeTrue
 
-            $sentinel = '{ "sentinel": true }'
-            Set-Content -LiteralPath $created[0].Path -Value $sentinel -NoNewline
-
             $second = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
             $rerun = @($second | Where-Object { $_.Path -like '*architecture-contract.schema.json' })
             $rerun.Count | Should -Be 1
             $rerun[0].Action | Should -Be 'skipped'
-            (Get-Content -LiteralPath $created[0].Path -Raw) | Should -Be $sentinel
+        }
+        finally {
+            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:ArchitectureNotes.PreservedWorkflow upgrades the known v1 scaffold and refuses an ambiguous unversioned schema' {
+        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-schema-upgrade-" + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path (Join-Path $target 'schemas/architecture') -Force)
+        try {
+            $schemaPath = Join-Path $target 'schemas/architecture/architecture-contract.schema.json'
+            $startingCommit = (Get-Content -LiteralPath (Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/cda9da-historical-manifest.json') -Raw |
+                    ConvertFrom-Json).startingCommit
+            $legacyLines = @(git -C $script:repoRoot show "${startingCommit}:plugins/architecture-notes/skills/architecture-notes/assets/schemas/architecture-contract.schema.json")
+            $legacyText = ($legacyLines -join "`n") + "`n"
+            [System.IO.File]::WriteAllText($schemaPath, $legacyText, [System.Text.UTF8Encoding]::new($false))
+            (Get-FileHash -LiteralPath $schemaPath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                Should -Be '2ee7b24548076cdcb077ef4ef29cd218c4641a91cbe6e41bd587a2ed3ad9067d'
+
+            $upgrade = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
+            @($upgrade | Where-Object { $_.Path -eq $schemaPath })[0].Action | Should -Be 'upgraded'
+            (Get-Content -LiteralPath $schemaPath -Raw | ConvertFrom-Json).'x-skalary-schema-version' |
+                Should -Be 2
+
+            Set-Content -LiteralPath $schemaPath -Value '{ "customized": true }' -NoNewline
+            { & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot } |
+                Should -Throw '*refusing unsafe overwrite*'
         }
         finally {
             Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
@@ -324,6 +347,13 @@ Describe 'architecture contract validation gate evals' {
         $skill | Should -Not -Match 'Audit locked promotions by authorship'
     }
 
+    It 'test:ArchitectureNotes.PreservedWorkflow reviews contract integrity without runner or receipt semantics' {
+        $skill = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/architecture-notes/SKILL.md') -Raw
+        $skill | Should -Match 'locked digest mismatch as blocking integrity drift'
+        $skill | Should -Match 'Test-ArchContract\.ps1'
+        $skill | Should -Not -Match 'architecture-tests|runner-receipt|fitness coverage|arch-test config'
+    }
+
     It 'ArchContract-Validate: resolves the schema from a scaffolded schemas/ dir without -SchemaPath' {
         $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-repo-" + [guid]::NewGuid().ToString('N'))
         [void](New-Item -ItemType Directory -Path (Join-Path $repo 'schemas/architecture') -Force)
@@ -399,7 +429,7 @@ Describe 'architecture-notes greenfield seeding evals' {
         $script:guidePath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/interview-guide.md'
     }
 
-    It 'Greenfield-SeedsDraftContracts: interview guide ships and seed produces valid draft contracts + human doc' {
+    It 'test:ArchitectureNotes.PreservedWorkflow seeds valid draft contracts and a fresh human doc' {
         Test-Path -LiteralPath $script:guidePath -PathType Leaf | Should -BeTrue
         Test-Path -LiteralPath $script:seedScript -PathType Leaf | Should -BeTrue
 
@@ -594,7 +624,7 @@ Describe 'architecture-notes human-doc generation evals' {
         Remove-Item -LiteralPath $script:fixture -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    It 'HumanDoc-Generated: regenerates the doc from contracts and embeds a real digest' {
+    It 'test:ArchitectureNotes.PreservedWorkflow regenerates the human doc from validated contracts' {
         Test-Path -LiteralPath $script:humanDocScript -PathType Leaf | Should -BeTrue
         $result = & $script:humanDocScript -RepoRoot $script:fixture
         $result.Action | Should -Be 'created'
@@ -701,7 +731,7 @@ Describe 'architecture-notes human-doc generation evals' {
                 ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $bad -SeedSpecPath $spec)
 
-            Set-Content -LiteralPath (Join-Path $bad 'schemas/ARCH-Broken.json') -Value '{ not valid json'
+            Set-Content -LiteralPath (Join-Path $bad 'schemas/architecture/ARCH-Broken.json') -Value '{ not valid json'
             { & $script:humanDocScript -RepoRoot $bad } | Should -Throw
         }
         finally {
@@ -742,7 +772,7 @@ Describe 'architecture-notes human-doc staleness gate evals' {
 
             # Add a contract WITHOUT regenerating the doc -> drift, fail, exit 1.
             @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Only inbound.' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/ARCH-Api.json')
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/architecture/ARCH-Api.json')
             $drift = & $script:freshnessScript -RepoRoot $fx 2>$null
             $driftExit = $LASTEXITCODE
             $drift.Status | Should -Be 'fail'
@@ -883,7 +913,7 @@ Describe 'architecture ADR loop evals (REQ-13)' {
         }
     }
 
-    It 'Adr-HarvestedAtFinalization: ADRs land quarantined (reviewed:false) under .staging, no-overwrite, index untouched' {
+    It 'test:ArchitectureNotes.PreservedWorkflow harvests ADRs into quarantine without auto-loading them' {
         $fx = New-AdrFixture
         try {
             $r = & $script:adrScript -PlanDir $fx.PlanDir -RepoRoot $fx.Repo

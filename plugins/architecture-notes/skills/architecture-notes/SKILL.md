@@ -65,8 +65,7 @@ context: fork
 
 1. Confirm the tier is scaffolded (Step 1.2). The schema lives at
    `schemas/architecture/architecture-contract.schema.json`.
-2. Choose a **stable contract id** (`^[A-Za-z0-9][A-Za-z0-9._-]*$`) that will be referenced by
-   `arch:<id>` evidence markers. Never reuse or renumber an id.
+2. Choose a **stable contract id** (`^[A-Za-z0-9][A-Za-z0-9._-]*$`). Never reuse or renumber an id.
 3. Author the contract JSON at **`maturity: draft`**. Use one or more authoring modes:
    - `rules` — declarative, machine-derivable rules (forbidden-dependency, layer-boundary, ...).
    - `prose` — a terse component/boundary description.
@@ -106,22 +105,14 @@ context: fork
 
 1. Read `.architecture-notes.md` and enumerate contracts with their `maturity`.
 2. Validate each contract file with `Test-ArchContract.ps1`; report any invalid ones.
-3. Report drift: contracts without notes, notes without contracts, and (once available) human-doc
-   staleness. Summarize `locked` vs `draft`/`provisional` counts.
-4. **Surface the runner-receipt verdict per contract** — a schema-valid contract is not a passing one.
-   When the `architecture-tests` plugin is installed, run its `Get-ArchReviewReport.ps1` (pure-parse, no
-   toolchain) against the repo: it reuses the `arch:` gate verifier so a **locked** contract whose receipt is
-   missing / stale / malformed / non-`pass` is a **blocking** finding (a schema-only review can never
-   false-green a failing or absent locked contract; `draft`/`provisional` and `semantic-eval` are advisory
-   **only once a receipt exists and passes freshness**), and a `lock-invalidated` receipt is flagged as drift.
-   Fold its findings into the report.
-5. **Reconcile locked contracts against fitness coverage.** Cross-check every `locked` contract against the
-   arch-test config's `checks[].contractId`; a locked contract with **no** check has no fitness function and
-   must be flagged as a **blocking coverage gap** (an unchecked locked contract would otherwise green by omission).
-6. **Audit locked promotions through review policy.** Confirm reviewer approval outside this
+3. Report drift: contracts without notes, notes without contracts, human-doc staleness, invalid
+   schema, and locked-content digest mismatch. Summarize `locked` vs `draft`/`provisional` counts.
+4. Treat a locked digest mismatch as blocking integrity drift. Draft/provisional validity remains
+   advisory architectural knowledge, not executable fitness evidence.
+5. **Audit locked promotions through review policy.** Confirm reviewer approval outside this
    machine gate. Never infer trustworthy identity from local Git author metadata; flag a promotion
    whose review record cannot be established as pending re-review.
-7. Report only; do not mutate. Recommend the next incremental lock.
+6. Report only; do not mutate. Recommend the next incremental lock.
 
 ## Steps 6-9: Seed, harvest, human-doc regen, ADR harvest
 
