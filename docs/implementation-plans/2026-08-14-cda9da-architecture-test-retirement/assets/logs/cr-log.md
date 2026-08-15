@@ -53,3 +53,6 @@ Phase: 4
 - [4.1] [src:code-review] [sev:Med] Active scan omitted hidden descendants on Unix because recursive enumeration lacked Force.
 - [4.1] [src:code-review] [sev:Med] Active scan violation ordering used culture-dependent Sort-Object instead of ordinal ordering.
 - [4.1] [src:code-review] [sev:Low] Rubber-duck found no blocking issue; the test-local retired path inventory is accepted as a closed physical-runtime guard alongside immutable fixture coverage.
+- [4.2] [src:code-review] [sev:Med] Process-cap guard counted assignment-specific text shapes and could miss helper or Start-Process launches in another expression form.
+- [4.2] [src:code-review] [sev:Med] Generated suite metadata named the pre-change HEAD while measuring uncommitted step code; implementation must be committed before final regeneration.
+- [4.2] [src:code-review] [sev:Low] Rubber-duck found no actionable issue after AST process counting and exact-commit metadata regeneration.

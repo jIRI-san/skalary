@@ -20,3 +20,4 @@ Phase: 3
 Phase: 4
 
 - [4.1] [trigger:rework>1] Include-rooted absence scans must enumerate hidden files, reject reparse ancestors and descendants, and sort findings ordinally across platforms.
+- [4.2] [trigger:rework>1] Commit measured implementation before canonical suite regeneration so coverage, profile, and runtime metadata identify the exact code they exercised.

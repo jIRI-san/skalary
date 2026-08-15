@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-15T17:01:50.7444304+00:00",
-  "commit": "2ed1ec723d5095e07d0317920c066b359ddebff5",
+  "capturedAt": "2026-08-15T18:12:27.3269225+00:00",
+  "commit": "645daa942a8c2c193f4fb74ce010472d7a69598a",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 775,
-  "executionCount": 779,
+  "uniqueTestCount": 777,
+  "executionCount": 781,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -1692,6 +1692,16 @@
     {
       "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
       "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects mutation of a listed file",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary scans only explicit active roots and detects seeded runtime assets",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:PluginRetirement.ReaderRemovalAndResultContract caps process coverage at four launches with one shared timeout",
       "count": 1
     },
     {
