@@ -90,7 +90,7 @@
     },
     "affectedFiles": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -125,6 +125,46 @@
           }
         }
       }
+    },
+    "manualResidue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path",
+          "remedy"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "scaffold",
+              "copilot-cli",
+              "approval-key"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "remedy": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "terminalOutcome": {
+      "enum": [
+        "retired",
+        "residue",
+        "manual-required"
+      ]
+    },
+    "replayCursor": {
+      "type": "integer",
+      "minimum": 0
     },
     "remedy": {
       "type": "string"

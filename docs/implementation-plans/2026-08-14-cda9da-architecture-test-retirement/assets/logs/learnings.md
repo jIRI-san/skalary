@@ -8,3 +8,4 @@ Phase: 1
 Phase: 2
 
 - [2.2] [trigger:rework>1] Crash recovery authority must bind every journal destination to the exact receipt pre-state and retain evidence through all fallible cleanup.
+- [2.3] [trigger:rework>1] Terminal reconciliation needs independent plugin and per-state path cursors so processing caps bound both filesystem work and output while preserving eventual remedy replay.

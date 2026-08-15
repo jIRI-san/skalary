@@ -170,6 +170,50 @@ Describe 'plugin retirement catalog' {
             }
         }
 
+        function New-SyntheticRetirementRegistry {
+            param(
+                [Parameter(Mandatory)]
+                $Fixture,
+
+                [string]$Name = 'removal-fixture',
+
+                [string]$Version = '1.2.3',
+
+                [object[]]$Files,
+
+                [object[]]$ManualResidue = @()
+            )
+
+            if ($null -eq $Files) {
+                $Files = @(
+                    [pscustomobject][ordered]@{
+                        dest = 'skills/removal-fixture/first.txt'
+                        sha256 = $Fixture.FirstSha
+                    },
+                    [pscustomobject][ordered]@{
+                        dest = 'skills/removal-fixture/second.txt'
+                        sha256 = $Fixture.SecondSha
+                    }
+                )
+            }
+            return [pscustomobject]@{
+                plugins = @()
+                retiredPlugins = @([pscustomobject][ordered]@{
+                        name = $Name
+                        retiredAt = '2026-08-15T00:00:00Z'
+                        reason = 'Synthetic retirement fixture.'
+                        payloadSets = @([pscustomobject][ordered]@{
+                                sourceKind = [string]$Fixture.SourceIdentity.kind
+                                sourceIdentity = [string]$Fixture.SourceIdentity.identity
+                                ref = 'd' * 40
+                                version = $Version
+                                files = $Files
+                            })
+                        manualResidue = $ManualResidue
+                    })
+            }
+        }
+
         . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
     }
 
@@ -655,5 +699,253 @@ Describe 'plugin retirement catalog' {
         { Reset-FailedPluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture' } |
             Should -Throw '*content does not match*'
         (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status | Should -Be 'failed'
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery restores a representative hard-killed delete' -Skip:$IsWindows {
+        $fixture = New-RemovalFixture
+        $registry = New-SyntheticRetirementRegistry -Fixture $fixture
+        [void](Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity)
+        $applying = Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $applying.status = 'applying'
+        [void](Write-PluginRetirementState -RepoRoot $fixture.Root -State $applying)
+        $driver = Join-Path $fixture.Root 'hard-kill-driver.ps1'
+        @(
+            '$ErrorActionPreference = ''Stop''',
+            ". '$($script:repoRoot)/scripts/skalary/_Common.ps1'",
+            "Invoke-PluginRemovalPrimitive -RepoRoot '$($fixture.Root)' -PluginName 'removal-fixture' -FaultAt 'pause-after-delete'"
+        ) | Set-Content -LiteralPath $driver -Encoding utf8
+        $process = Start-Process pwsh -ArgumentList @('-NoProfile', '-File', $driver) -PassThru
+        try {
+            $journalPath = Get-PluginRemovalJournalPath -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+            $deadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
+            $deleteObserved = $false
+            while ([DateTimeOffset]::UtcNow -lt $deadline) {
+                if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+                    try {
+                        $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -Depth 100
+                        $deleteObserved = @($journal.entries | Where-Object { [string]$_.phase -eq 'deleted' }).Count -gt 0
+                    }
+                    catch {
+                        $deleteObserved = $false
+                    }
+                    if ($deleteObserved) { break }
+                }
+                Start-Sleep -Milliseconds 50
+            }
+            $deleteObserved | Should -BeTrue
+            $process.Kill($true)
+            $process.WaitForExit()
+        }
+        finally {
+            if (-not $process.HasExited) {
+                $process.Kill($true)
+                $process.WaitForExit()
+            }
+            $process.Dispose()
+        }
+
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        $resumed = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $resumed.Record.outcomes[0].outcome | Should -Be 'retired'
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.ReceiptPath | Should -BeFalse
+        (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status |
+            Should -Be 'retired'
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix previews first, applies an exact preview, and emits one bounded aggregate' {
+        $fixture = New-RemovalFixture
+        $registry = New-SyntheticRetirementRegistry -Fixture $fixture
+
+        $preview = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $preview.ExitCode | Should -Be 0
+        @($preview.Record.outcomes).Count | Should -Be 1
+        $preview.Record.outcomes[0].outcome | Should -Be 'preview'
+        $preview.Record.emittedPaths | Should -Be 2
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeTrue
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+        @((Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').affectedFiles).Count |
+            Should -Be 2
+        $emitted = @(Write-PluginRetirementRecord -Result $preview)
+        $emitted.Count | Should -Be 1
+        $emitted[0] | Should -Match '^RETIREMENT: \{'
+
+        $applied = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $applied.Record.outcomes[0].outcome | Should -Be 'retired'
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.ReceiptPath | Should -BeFalse
+        (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status |
+            Should -Be 'retired'
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix refreshes stale automatic previews but explicit stale apply fails without deletion' {
+        $fixture = New-RemovalFixture
+        $registry = New-SyntheticRetirementRegistry -Fixture $fixture
+        [void](Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity)
+
+        Set-Content -LiteralPath $fixture.FirstPath -Value 'changed-after-preview' -NoNewline -Encoding utf8
+        $explicit = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity -ApplyRetirements
+        $explicit.ExitCode | Should -Be 21
+        $explicit.Record.outcomes[0].outcome | Should -Be 'failed'
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeTrue
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+
+        $automatic = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $automatic.Record.outcomes[0].outcome | Should -Be 'preview'
+        $automatic.Record.outcomes[0].remedy | Should -Match 'zero deletion'
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeTrue
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+        (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').affectedFiles[0].observedSha256 |
+            Should -Be (Get-FileSha256 -Path $fixture.FirstPath)
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix preserves residue and covers the closed outcome table' {
+        $fixture = New-RemovalFixture -ModifySecond
+        $registry = New-SyntheticRetirementRegistry -Fixture $fixture
+        [void](Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity)
+        $result = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $result.Record.outcomes[0].outcome | Should -Be 'residue'
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+        $remaining = Read-PluginReceipt -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $remaining.degraded | Should -BeTrue
+        $remaining.files[0].outcome | Should -Be 'skipped-modified'
+        Mock Get-FileSha256 { throw 'Terminal residue replay must not hash.' }
+        $replay = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $replay.Record.outcomes[0].outcome | Should -Be 'residue'
+        (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status |
+            Should -Be 'residue'
+
+        $protocol = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/decisions/retirement-protocol.md') -Raw
+        $outcomes = @(Get-PluginRetirementOutcomeName)
+        $outcomes.Count | Should -Be 8
+        foreach ($outcome in $outcomes) {
+            $protocol | Should -Match ([regex]::Escape("| ``$outcome`` |"))
+        }
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix distinguishes foreign, manual, no-match, and failed outcomes' {
+        $foreign = New-RemovalFixture
+        $foreignReceipt = Read-JsonFile -Path $foreign.ReceiptPath
+        $foreignReceipt.sourceIdentity = New-PluginSourceIdentity -Repository 'example/foreign'
+        Write-JsonFileStable -Path $foreign.ReceiptPath -InputObject $foreignReceipt
+        $foreignRegistry = New-SyntheticRetirementRegistry -Fixture $foreign
+        $foreignResult = Invoke-PluginRetirementReconciliation -RepoRoot $foreign.Root -Registry $foreignRegistry -SourceIdentity $foreign.SourceIdentity
+        $foreignResult.Record.outcomes[0].outcome | Should -Be 'foreign-source'
+
+        $manual = New-RemovalFixture
+        $manualPath = Join-Path $manual.Root 'docs/manual-residue.txt'
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $manualPath) -Force)
+        Set-Content -LiteralPath $manualPath -Value 'manual' -NoNewline -Encoding utf8
+        $manualRegistry = New-SyntheticRetirementRegistry -Fixture $manual -Version '9.9.9' -ManualResidue @(
+            [pscustomobject][ordered]@{
+                kind = 'scaffold'
+                path = 'docs/manual-residue.txt'
+                remedy = 'Remove after review.'
+            }
+        )
+        $manualResult = Invoke-PluginRetirementReconciliation -RepoRoot $manual.Root -Registry $manualRegistry -SourceIdentity $manual.SourceIdentity
+        $manualResult.Record.outcomes[0].outcome | Should -Be 'manual-required'
+        $manualResult.Record.outcomes[0].paths[0].present | Should -BeTrue
+        $manualState = Read-PluginRetirementState -RepoRoot $manual.Root -PluginName 'removal-fixture'
+        $manualState.terminalOutcome | Should -Be 'manual-required'
+        @($manualState.manualResidue).Count | Should -Be 1
+        $manualReplay = Invoke-PluginRetirementReconciliation -RepoRoot $manual.Root -Registry $manualRegistry -SourceIdentity $manual.SourceIdentity
+        $manualReplay.Record.outcomes[0].outcome | Should -Be 'manual-required'
+
+        $missing = New-RemovalFixture
+        Remove-Item -LiteralPath $missing.ReceiptPath -Force
+        $missingRegistry = New-SyntheticRetirementRegistry -Fixture $missing
+        $direct = Invoke-PluginRetirementReconciliation -RepoRoot $missing.Root -Registry $missingRegistry -SourceIdentity $missing.SourceIdentity -DirectTarget 'removal-fixture'
+        $direct.ExitCode | Should -Be 20
+        $direct.Record.outcomes[0].outcome | Should -Be 'no-match'
+
+        $applyMissingPreview = New-RemovalFixture
+        $applyRegistry = New-SyntheticRetirementRegistry -Fixture $applyMissingPreview
+        $failed = Invoke-PluginRetirementReconciliation -RepoRoot $applyMissingPreview.Root -Registry $applyRegistry -SourceIdentity $applyMissingPreview.SourceIdentity -ApplyRetirements
+        $failed.ExitCode | Should -Be 21
+        $failed.Record.outcomes[0].outcome | Should -Be 'failed'
+        Test-Path -LiteralPath $applyMissingPreview.FirstPath | Should -BeTrue
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix closes an applying state after committed clean removal' {
+        $fixture = New-RemovalFixture
+        $registry = New-SyntheticRetirementRegistry -Fixture $fixture
+        [void](Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity)
+        $state = Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $state.status = 'applying'
+        [void](Write-PluginRetirementState -RepoRoot $fixture.Root -State $state)
+        Remove-Item -LiteralPath $fixture.FirstPath -Force
+        Remove-Item -LiteralPath $fixture.SecondPath -Force
+        Remove-Item -LiteralPath $fixture.ReceiptPath -Force
+
+        $recovered = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $recovered.Record.outcomes[0].outcome | Should -Be 'retired'
+        $terminal = Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $terminal.status | Should -Be 'retired'
+        $terminal.terminalOutcome | Should -Be 'retired'
+        @($terminal.affectedFiles | Where-Object { [string]$_.outcome -eq 'removed' }).Count |
+            Should -Be 2
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix enforces global plugin/path caps and fair terminal replay without hashing' {
+        $fixture = New-RemovalFixture
+        $tombstones = @()
+        for ($pluginIndex = 0; $pluginIndex -lt 10; $pluginIndex++) {
+            $name = "retired-$pluginIndex"
+            $files = @()
+            for ($pathIndex = 0; $pathIndex -lt 10; $pathIndex++) {
+                $files += , [pscustomobject][ordered]@{
+                    dest = "skills/$name/file-$pathIndex.txt"
+                    sha256 = 'a' * 64
+                }
+            }
+            $registry = New-SyntheticRetirementRegistry -Fixture $fixture -Name $name -Files $files
+            $tombstone = $registry.retiredPlugins[0]
+            $tombstones += , $tombstone
+            $state = [pscustomobject][ordered]@{
+                schemaVersion = 1
+                name = $name
+                status = 'residue'
+                transactionId = 'b' * 32
+                updatedAt = '2026-08-15T00:00:00Z'
+                tombstoneSha256 = Get-StableJsonSha256 -InputObject $tombstone
+                prior = [pscustomobject][ordered]@{
+                    sourceIdentity = $fixture.SourceIdentity
+                    ref = 'd' * 40
+                    version = '1.2.3'
+                }
+                affectedFiles = @($files | ForEach-Object {
+                        [pscustomobject][ordered]@{
+                            dest = [string]$_.dest
+                            expectedSha256 = [string]$_.sha256
+                            observedSha256 = 'c' * 64
+                            outcome = 'residue'
+                        }
+                    })
+                remedy = 'Review terminal residue.'
+            }
+            [void](Write-PluginRetirementState -RepoRoot $fixture.Root -State $state)
+        }
+        $registry = [pscustomobject]@{ plugins = @(); retiredPlugins = $tombstones }
+
+        Mock Get-FileSha256 { throw 'Terminal replay must not hash.' }
+        $first = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $first.Record.processedPlugins | Should -Be 8
+        $first.Record.emittedPaths | Should -Be 64
+        @($first.Record.outcomes).Count | Should -Be 8
+
+        $second = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $second.Record.processedPlugins | Should -Be 8
+        @($second.Record.outcomes.name) | Should -Contain 'retired-8'
+        @($second.Record.outcomes.name) | Should -Contain 'retired-9'
+        $cursor = Read-JsonFile -Path (Get-PluginRetirementCursorPath -RepoRoot $fixture.Root)
+        [int]$cursor.nextIndex | Should -Be 6
+
+        $third = Invoke-PluginRetirementReconciliation -RepoRoot $fixture.Root -Registry $registry -SourceIdentity $fixture.SourceIdentity
+        $retiredSix = @($third.Record.outcomes | Where-Object { [string]$_.name -eq 'retired-6' })[0]
+        @($retiredSix.paths.path) | Should -Contain '.github/skills/retired-6/file-4.txt'
     }
 }

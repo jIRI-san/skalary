@@ -93,6 +93,16 @@ expected receipt hash under `degraded`/`skipped-modified` ownership; only explic
 `Remove-Plugin -Force` can remove them. A `failed` retirement state returns to `preview` only after
 journal recovery and exact source/ref/version, receipt ownership, and observed-content verification.
 
+Install and update invoke reconciliation after source/registry verification but before active-name
+lookup and every already-current return. The first capable operation persists a complete preview;
+the next exact automatic operation applies it. Automatic stale input refreshes preview with zero
+deletion, while `-ApplyRetirements` rejects missing/stale previews. One invocation emits at most one
+`RETIREMENT:` JSON record and returns 20 for a direct retired target or 21 for a blocking failure;
+bootstrap propagates both. Terminal residue/manual replay never hashes content, processes at most
+eight plugins and 64 paths globally, and advances both a global plugin cursor and per-state path
+cursor so omitted remedies eventually surface. `applying` recovery handles both journal-backed
+partial transactions and the narrow post-commit/pre-terminal-state crash window.
+
 ## Integrity and Security Model
 
 | Threat | Guard |

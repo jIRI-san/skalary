@@ -12,7 +12,9 @@ param(
 
     [string]$Repository,
 
-    [switch]$Force
+    [switch]$Force,
+
+    [switch]$ApplyRetirements
 )
 
 Set-StrictMode -Version Latest
@@ -131,11 +133,6 @@ $mutationLock = $null
 
 try {
     $mutationLock = Enter-PluginMutationLock -RepoRoot $targetRepoRoot
-    $receipt = Read-PluginReceipt -RepoRoot $targetRepoRoot -PluginName $Name
-    if ($null -eq $receipt) {
-        throw "Plugin '$Name' is not installed (receipt missing)."
-    }
-
     $sourceContext = Get-ResolvedSourceContext -TargetRepoRoot $targetRepoRoot -SourcePath $Source -SourceRef $Ref -RemoteRepository $Repository
     $sourceRepoRoot = [string]$sourceContext.SourceRepoRoot
     $resolvedSha = [string]$sourceContext.Sha
@@ -145,6 +142,17 @@ try {
         throw "registry.json not found at source '$sourceRepoRoot'."
     }
     $registry = Read-JsonFile -Path $registryPath
+
+    $retirementResult = Invoke-PluginRetirementReconciliation -RepoRoot $targetRepoRoot -Registry $registry -SourceIdentity $sourceContext.SourceIdentity -DirectTarget $Name -ApplyRetirements:$ApplyRetirements -LockHeld
+    Write-PluginRetirementRecord -Result $retirementResult
+    if ($retirementResult.ExitCode -ne 0) {
+        exit ([int]$retirementResult.ExitCode)
+    }
+
+    $receipt = Read-PluginReceipt -RepoRoot $targetRepoRoot -PluginName $Name
+    if ($null -eq $receipt) {
+        throw "Plugin '$Name' is not installed (receipt missing)."
+    }
     $plugin = @($registry.plugins | Where-Object { [string]$_.name -eq $Name } | Select-Object -First 1)
     if ($plugin.Count -eq 0) {
         throw "Plugin '$Name' is not present in source registry."
@@ -265,3 +273,4 @@ finally {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+exit 0

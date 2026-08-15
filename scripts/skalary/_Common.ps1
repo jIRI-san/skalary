@@ -721,7 +721,7 @@ function Get-PluginRetirementStateSchema {
     },
     "affectedFiles": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -734,6 +734,21 @@ function Get-PluginRetirementStateSchema {
         }
       }
     },
+    "manualResidue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "remedy"],
+        "properties": {
+          "kind": { "enum": ["scaffold", "copilot-cli", "approval-key"] },
+          "path": { "type": "string", "minLength": 1 },
+          "remedy": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "terminalOutcome": { "enum": ["retired", "residue", "manual-required"] },
+    "replayCursor": { "type": "integer", "minimum": 0 },
     "remedy": { "type": "string" },
     "error": { "type": "string" }
   }
@@ -1403,10 +1418,12 @@ function Reset-FailedPluginRetirementState {
         [string]$RepoRoot,
 
         [Parameter(Mandatory)]
-        [string]$PluginName
+        [string]$PluginName,
+
+        [switch]$LockHeld
     )
 
-    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body {
+    $operation = {
         $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $PluginName
         $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
         $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $PluginName
@@ -1464,6 +1481,10 @@ function Reset-FailedPluginRetirementState {
         [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
         return $state
     }
+    if ($LockHeld) {
+        return & $operation
+    }
+    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
 }
 
 function Get-RetirementRemovalAuthority {
@@ -1537,7 +1558,7 @@ function Invoke-PluginRemovalPrimitive {
 
         [switch]$LockHeld,
 
-        [ValidateSet('', 'after-journal', 'after-backup', 'after-delete', 'after-receipt')]
+        [ValidateSet('', 'after-journal', 'after-backup', 'after-delete', 'after-receipt', 'pause-after-delete')]
         [string]$FaultAt = ''
     )
 
@@ -1717,6 +1738,7 @@ function Invoke-PluginRemovalPrimitive {
                 $journalEntry.phase = 'deleted'
                 [void](Write-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal)
                 if ($FaultAt -eq 'after-delete') { throw 'Injected plugin removal fault after delete.' }
+                if ($FaultAt -eq 'pause-after-delete') { Start-Sleep -Seconds 30 }
             }
 
             $nextFiles = @()
@@ -1789,6 +1811,758 @@ function Invoke-PluginRemovalPrimitive {
         return & $operation
     }
     return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
+}
+
+function Get-PluginRetirementCursorPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath '.skalary/retirement-cursor.json'
+}
+
+function Get-PluginRetirementSelection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$RetiredPlugins,
+
+        [string]$DirectTarget,
+
+        [ValidateRange(1, 8)]
+        [int]$MaxPlugins = 8
+    )
+
+    $ordered = @(Sort-Ordinal -InputObject $RetiredPlugins -Property 'name')
+    if ($ordered.Count -eq 0) {
+        return [pscustomobject]@{ Selected = @(); NextIndex = 0 }
+    }
+
+    $cursorPath = Get-PluginRetirementCursorPath -RepoRoot $RepoRoot
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    $start = 0
+    if (Test-Path -LiteralPath $cursorPath -PathType Leaf) {
+        $cursor = Read-JsonFile -Path $cursorPath
+        $cursorProperties = @($cursor.PSObject.Properties.Name)
+        if ($cursorProperties.Count -ne 2 -or
+            $cursorProperties -notcontains 'schemaVersion' -or
+            $cursorProperties -notcontains 'nextIndex' -or
+            $cursor.schemaVersion -ne 1 -or
+            ($cursor.nextIndex -isnot [long] -and $cursor.nextIndex -isnot [int]) -or
+            [long]$cursor.nextIndex -lt 0) {
+            throw 'Plugin retirement cursor is invalid.'
+        }
+        $start = [int]([long]$cursor.nextIndex % $ordered.Count)
+    }
+
+    $rotated = @()
+    for ($offset = 0; $offset -lt $ordered.Count; $offset++) {
+        $rotated += , $ordered[($start + $offset) % $ordered.Count]
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DirectTarget)) {
+        $direct = @($rotated | Where-Object { [string]$_.name -ceq $DirectTarget } | Select-Object -First 1)
+        if ($direct.Count -gt 0) {
+            $rotated = @($direct[0]) + @($rotated | Where-Object { [string]$_.name -cne $DirectTarget })
+        }
+    }
+
+    $selected = @($rotated | Select-Object -First $MaxPlugins)
+    $nextIndex = ($start + $selected.Count) % $ordered.Count
+    return [pscustomobject]@{ Selected = $selected; NextIndex = $nextIndex }
+}
+
+function Write-PluginRetirementCursor {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$NextIndex
+    )
+
+    $cursorPath = Get-PluginRetirementCursorPath -RepoRoot $RepoRoot
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    $cursorRoot = Split-Path -Parent $cursorPath
+    if (-not (Test-Path -LiteralPath $cursorRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $cursorRoot -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    Write-JsonFileStable -Path $cursorPath -InputObject ([pscustomobject][ordered]@{
+            schemaVersion = 1
+            nextIndex = $NextIndex
+        })
+}
+
+function Get-MatchingPluginRetirementPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $CurrentSourceIdentity
+    )
+
+    $receiptSource = Resolve-PluginReceiptSourceIdentity -Receipt $Receipt
+    if (-not (Test-PluginSourceIdentityEqual -Left $receiptSource -Right $CurrentSourceIdentity)) {
+        return [pscustomobject]@{ Outcome = 'foreign-source'; PayloadSet = $null; SourceIdentity = $receiptSource }
+    }
+
+    foreach ($payloadSet in @($Tombstone.payloadSets)) {
+        $payloadSource = [pscustomobject][ordered]@{
+            version = 1
+            kind = [string]$payloadSet.sourceKind
+            identity = [string]$payloadSet.sourceIdentity
+        }
+        Assert-PluginSourceIdentity -SourceIdentity $payloadSource
+        if ((Test-PluginSourceIdentityEqual -Left $payloadSource -Right $receiptSource) -and
+            [string]$payloadSet.ref -ceq [string]$Receipt.ref -and
+            [string]$payloadSet.version -ceq [string]$Receipt.version) {
+            return [pscustomobject]@{ Outcome = 'match'; PayloadSet = $payloadSet; SourceIdentity = $receiptSource }
+        }
+    }
+    return [pscustomobject]@{ Outcome = 'manual-required'; PayloadSet = $null; SourceIdentity = $receiptSource }
+}
+
+function Get-PluginRetirementAffectedFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $PayloadSet
+    )
+
+    $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in @($Receipt.files)) {
+        $receiptByDest.Add([string]$entry.dest, $entry)
+    }
+
+    $affected = @()
+    foreach ($file in @($PayloadSet.files)) {
+        $dest = [string]$file.dest
+        if (-not $receiptByDest.ContainsKey($dest) -or
+            [string]$receiptByDest[$dest].sha256 -cne [string]$file.sha256) {
+            continue
+        }
+        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        $observed = if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+            Get-FileSha256 -Path $targetPath
+        }
+        else {
+            $null
+        }
+        $affected += , [pscustomobject][ordered]@{
+            dest = $dest
+            expectedSha256 = [string]$file.sha256
+            observedSha256 = $observed
+            outcome = 'pending'
+        }
+    }
+    return $affected
+}
+
+function Test-PluginRetirementPreviewCurrent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State,
+
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [object[]]$AffectedFiles
+    )
+
+    if ([string]$State.status -cne 'preview' -or
+        [string]$State.tombstoneSha256 -cne (Get-StableJsonSha256 -InputObject $Tombstone) -or
+        -not (Test-PluginSourceIdentityEqual -Left $State.prior.sourceIdentity -Right $SourceIdentity) -or
+        [string]$State.prior.ref -cne [string]$Receipt.ref -or
+        [string]$State.prior.version -cne [string]$Receipt.version) {
+        return $false
+    }
+    return (Get-StableJsonSha256 -InputObject @($State.affectedFiles)) -ceq
+        (Get-StableJsonSha256 -InputObject @($AffectedFiles))
+}
+
+function New-PluginRetirementPreviewState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [object[]]$AffectedFiles
+    )
+
+    return [pscustomobject][ordered]@{
+        schemaVersion = 1
+        name = [string]$Tombstone.name
+        status = 'preview'
+        transactionId = [guid]::NewGuid().ToString('N')
+        updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        tombstoneSha256 = Get-StableJsonSha256 -InputObject $Tombstone
+        prior = [pscustomobject][ordered]@{
+            sourceIdentity = $SourceIdentity
+            ref = [string]$Receipt.ref
+            version = [string]$Receipt.version
+        }
+        affectedFiles = $AffectedFiles
+        manualResidue = @($Tombstone.manualResidue)
+        replayCursor = 0
+        remedy = 'Rerun any install/update operation to apply this exact preview, or use -ApplyRetirements.'
+    }
+}
+
+function Get-PluginRetirementReplayPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $State,
+
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$StartIndex = 0,
+
+        [ValidateRange(0, 64)]
+        [int]$MaxPaths = 64
+    )
+
+    $descriptors = @()
+    $payloadEntries = if ([string]$State.status -ceq 'preview') {
+        @($State.affectedFiles)
+    }
+    else {
+        @($State.affectedFiles | Where-Object { [string]$_.outcome -eq 'residue' })
+    }
+    foreach ($entry in $payloadEntries) {
+        $descriptors += , [pscustomobject][ordered]@{
+            kind = 'payload'
+            path = ".github/$([string]$entry.dest)"
+            relativeDest = [string]$entry.dest
+            remedy = if ([string]$State.status -ceq 'preview') {
+                'Rerun an install/update operation to apply this exact preview.'
+            }
+            else {
+                'Run Remove-Plugin -Force after reviewing the modified file.'
+            }
+        }
+    }
+    $manualEntries = if ($State.PSObject.Properties.Name -contains 'manualResidue') {
+        @($State.manualResidue)
+    }
+    else {
+        @($Tombstone.manualResidue)
+    }
+    foreach ($manual in $manualEntries) {
+        $descriptors += , [pscustomobject][ordered]@{
+            kind = [string]$manual.kind
+            path = [string]$manual.path
+            relativeDest = $null
+            remedy = [string]$manual.remedy
+        }
+    }
+
+    if ($descriptors.Count -eq 0 -or $MaxPaths -eq 0) {
+        return [pscustomobject]@{
+            TotalPaths = $descriptors.Count
+            Paths = @()
+            NextIndex = 0
+        }
+    }
+    $start = $StartIndex % $descriptors.Count
+    $take = [Math]::Min($MaxPaths, $descriptors.Count)
+    $paths = @()
+    for ($offset = 0; $offset -lt $take; $offset++) {
+        $descriptor = $descriptors[($start + $offset) % $descriptors.Count]
+        $present = $null
+        if ([string]$descriptor.kind -ceq 'payload') {
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$descriptor.relativeDest)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            $present = [bool](Test-Path -LiteralPath $targetPath)
+        }
+        elseif (Test-GithubRelativePath -RelativePath ([string]$descriptor.path)) {
+            $candidate = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot (([string]$descriptor.path) -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
+            $rootWithSeparator = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+            if ($candidate.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $present = [bool](Test-Path -LiteralPath $candidate)
+            }
+        }
+        $paths += , [pscustomobject][ordered]@{
+            kind = [string]$descriptor.kind
+            path = [string]$descriptor.path
+            present = $present
+            remedy = [string]$descriptor.remedy
+        }
+    }
+    return [pscustomobject]@{
+        TotalPaths = $descriptors.Count
+        Paths = $paths
+        NextIndex = ($start + $take) % $descriptors.Count
+    }
+}
+
+function Get-PluginRetirementOutcomeName {
+    [CmdletBinding()]
+    param()
+
+    return @('no-match', 'preview', 'retired', 'residue', 'foreign-source', 'manual-required', 'recovered', 'failed')
+}
+
+function New-PluginRetirementManualState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [string]$Remedy
+    )
+
+    return [pscustomobject][ordered]@{
+        schemaVersion = 1
+        name = [string]$Tombstone.name
+        status = 'residue'
+        transactionId = [guid]::NewGuid().ToString('N')
+        updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        tombstoneSha256 = Get-StableJsonSha256 -InputObject $Tombstone
+        prior = [pscustomobject][ordered]@{
+            sourceIdentity = $SourceIdentity
+            ref = [string]$Receipt.ref
+            version = [string]$Receipt.version
+        }
+        affectedFiles = @()
+        manualResidue = @($Tombstone.manualResidue)
+        terminalOutcome = 'manual-required'
+        replayCursor = 0
+        remedy = $Remedy
+    }
+}
+
+function Invoke-PluginRetirementReconciliation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Registry,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [string]$DirectTarget,
+
+        [switch]$ApplyRetirements,
+
+        [switch]$LockHeld,
+
+        [ValidateRange(1, 8)]
+        [int]$MaxPlugins = 8,
+
+        [ValidateRange(1, 64)]
+        [int]$MaxPaths = 64
+    )
+
+    Assert-PluginSourceIdentity -SourceIdentity $SourceIdentity
+    $retiredPlugins = if ($Registry.PSObject.Properties.Name -contains 'retiredPlugins') {
+        @($Registry.retiredPlugins)
+    }
+    else {
+        @()
+    }
+    $retiredByName = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($tombstone in $retiredPlugins) {
+        Assert-PluginName -PluginName ([string]$tombstone.name)
+        $retiredByName.Add([string]$tombstone.name, $tombstone)
+    }
+    $directRetired = -not [string]::IsNullOrWhiteSpace($DirectTarget) -and $retiredByName.ContainsKey($DirectTarget)
+    if (@($retiredPlugins).Count -eq 0) {
+        return [pscustomobject]@{
+            Record = $null
+            Failed = $false
+            DirectTargetRetired = $false
+            ExitCode = 0
+        }
+    }
+
+    $operation = {
+        $selection = Get-PluginRetirementSelection -RepoRoot $RepoRoot -RetiredPlugins $retiredPlugins -DirectTarget $DirectTarget -MaxPlugins $MaxPlugins
+        $outcomes = [System.Collections.Generic.List[object]]::new()
+        $failed = $false
+        $emittedPathCount = 0
+
+        foreach ($tombstone in @($selection.Selected)) {
+            $name = [string]$tombstone.name
+            $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $name
+            $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $name
+            foreach ($path in @($receiptPath, $statePath)) {
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $path
+            }
+            $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $name
+            $state = Read-PluginRetirementState -RepoRoot $RepoRoot -PluginName $name
+            $outcome = $null
+            $remedy = ''
+
+            if ($null -ne $state -and [string]$state.status -ceq 'applying') {
+                $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $name
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+                if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+                    [void](Invoke-PluginRemovalRecovery -RepoRoot $RepoRoot -PluginName $name -ExpectedSourceIdentity $state.prior.sourceIdentity -ExpectedRef ([string]$state.prior.ref) -ExpectedVersion ([string]$state.prior.version))
+                    $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $name
+                    $state.status = 'preview'
+                    $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                    [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                }
+                elseif ($null -eq $receipt) {
+                    $allRemoved = $true
+                    foreach ($entry in @($state.affectedFiles)) {
+                        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                            $allRemoved = $false
+                            break
+                        }
+                    }
+                    if ($allRemoved) {
+                        foreach ($entry in @($state.affectedFiles)) {
+                            $entry.observedSha256 = $null
+                            $entry.outcome = 'removed'
+                        }
+                        $state.status = 'retired'
+                        $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue 'retired' -Force
+                        $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                        $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $state.status = 'failed'
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Applying state has no receipt or journal but payload remains; repair manually.'
+                        $state | Add-Member -NotePropertyName error -NotePropertyValue $state.remedy -Force
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                }
+                else {
+                    [void](Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $name -ExpectedSourceIdentity $state.prior.sourceIdentity)
+                    if ([string]$receipt.ref -cne [string]$state.prior.ref -or
+                        [string]$receipt.version -cne [string]$state.prior.version) {
+                        $state.status = 'failed'
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Applying state receipt changed source ref/version; repair manually.'
+                        $state | Add-Member -NotePropertyName error -NotePropertyValue $state.remedy -Force
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+                        foreach ($receiptEntry in @($receipt.files)) {
+                            $receiptByDest.Add([string]$receiptEntry.dest, $receiptEntry)
+                        }
+                        $committed = $false
+                        foreach ($entry in @($state.affectedFiles)) {
+                            $dest = [string]$entry.dest
+                            if (-not $receiptByDest.ContainsKey($dest) -or
+                                [string]$receiptByDest[$dest].outcome -ceq 'skipped-modified') {
+                                $committed = $true
+                                break
+                            }
+                        }
+                        if ($committed) {
+                            $hasResidue = $false
+                            foreach ($entry in @($state.affectedFiles)) {
+                                $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                                if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                                    $entry.observedSha256 = Get-FileSha256 -Path $targetPath
+                                    $entry.outcome = 'residue'
+                                    $hasResidue = $true
+                                }
+                                else {
+                                    $entry.observedSha256 = $null
+                                    $entry.outcome = 'removed'
+                                }
+                            }
+                            $state.status = if ($hasResidue) { 'residue' } else { 'retired' }
+                            $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue ([string]$state.status) -Force
+                            $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                            $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                            $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                            $state.remedy = if ($hasResidue) {
+                                'Review modified residue, then run Remove-Plugin -Force.'
+                            }
+                            else {
+                                'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                            }
+                            [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                        }
+                        else {
+                            $state.status = 'preview'
+                            $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                            [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                        }
+                    }
+                }
+            }
+
+            if ($null -ne $state -and [string]$state.status -in @('retired', 'residue')) {
+                $outcome = if ($state.PSObject.Properties.Name -contains 'terminalOutcome') {
+                    [string]$state.terminalOutcome
+                }
+                else {
+                    [string]$state.status
+                }
+                $remedy = [string]$state.remedy
+            }
+            elseif ($null -ne $state -and [string]$state.status -ceq 'failed') {
+                try {
+                    $state = Reset-FailedPluginRetirementState -RepoRoot $RepoRoot -PluginName $name -LockHeld
+                    $outcome = 'recovered'
+                    $remedy = 'Rerun the operation to apply the recovered preview.'
+                }
+                catch {
+                    $outcome = 'failed'
+                    $remedy = $_.Exception.Message
+                    $failed = $true
+                }
+            }
+            elseif ($null -eq $receipt) {
+                if ($name -ceq $DirectTarget) {
+                    $outcome = 'no-match'
+                    $remedy = 'This plugin name is retired and cannot be installed.'
+                }
+            }
+            else {
+                [void](Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $name)
+                $match = Get-MatchingPluginRetirementPayload -Tombstone $tombstone -Receipt $receipt -CurrentSourceIdentity $SourceIdentity
+                if ([string]$match.Outcome -cne 'match') {
+                    $outcome = [string]$match.Outcome
+                    $remedy = if ($outcome -eq 'foreign-source') {
+                        'Use the catalog that owns this installed receipt.'
+                    }
+                    else {
+                        'Restore the pinned known version or remove the plugin manually.'
+                    }
+                    if ($outcome -eq 'manual-required') {
+                        $state = New-PluginRetirementManualState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -Remedy $remedy
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                }
+                else {
+                    $affected = @(Get-PluginRetirementAffectedFile -RepoRoot $RepoRoot -Receipt $receipt -PayloadSet $match.PayloadSet)
+                    if ($affected.Count -eq 0) {
+                        $outcome = 'manual-required'
+                        $remedy = 'No receipt-owned destination matches this immutable tombstone payload.'
+                        $state = New-PluginRetirementManualState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -Remedy $remedy
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $previewCurrent = $null -ne $state -and
+                            (Test-PluginRetirementPreviewCurrent -State $state -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected)
+                        if ($null -eq $state) {
+                            if ($ApplyRetirements) {
+                                $outcome = 'failed'
+                                $remedy = 'Explicit apply requires an existing exact preview; run without -ApplyRetirements first.'
+                                $failed = $true
+                            }
+                            else {
+                                $state = New-PluginRetirementPreviewState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'preview'
+                                $remedy = [string]$state.remedy
+                            }
+                        }
+                        elseif (-not $previewCurrent) {
+                            if ($ApplyRetirements) {
+                                $outcome = 'failed'
+                                $remedy = 'Explicit apply refused a stale preview; refresh without -ApplyRetirements first.'
+                                $failed = $true
+                            }
+                            else {
+                                $state = New-PluginRetirementPreviewState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'preview'
+                                $remedy = 'Stale retirement preview refreshed with zero deletion; rerun to apply.'
+                            }
+                        }
+                        else {
+                            try {
+                                $state.status = 'applying'
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $result = Invoke-PluginRemovalPrimitive -RepoRoot $RepoRoot -PluginName $name -Mode retirement -PayloadSet $match.PayloadSet -LockHeld
+                                $terminalFiles = @()
+                                $hasResidue = $false
+                                foreach ($entry in $affected) {
+                                    $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                                    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                                    if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                                        $entry.observedSha256 = Get-FileSha256 -Path $targetPath
+                                        $entry.outcome = 'residue'
+                                        $hasResidue = $true
+                                    }
+                                    else {
+                                        $entry.observedSha256 = $null
+                                        $entry.outcome = 'removed'
+                                    }
+                                    $terminalFiles += , $entry
+                                }
+                                $state.status = if ($hasResidue) { 'residue' } else { 'retired' }
+                                $state.transactionId = [guid]::NewGuid().ToString('N')
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                $state.affectedFiles = $terminalFiles
+                                $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                                $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue ([string]$state.status) -Force
+                                $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                                $state.remedy = if ($hasResidue) {
+                                    'Review modified residue, then run Remove-Plugin -Force.'
+                                }
+                                else {
+                                    'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                                }
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = [string]$state.status
+                                $remedy = [string]$state.remedy
+                            }
+                            catch {
+                                $state.status = 'failed'
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                $state.remedy = 'Repair the recorded failure, then rerun to recover to preview.'
+                                $state | Add-Member -NotePropertyName error -NotePropertyValue $_.Exception.Message -Force
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'failed'
+                                $remedy = $_.Exception.Message
+                                $failed = $true
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($null -ne $outcome) {
+                $available = [Math]::Max(0, $MaxPaths - $emittedPathCount)
+                $shown = @()
+                $totalPaths = 0
+                if ($null -ne $state -and [string]$state.status -in @('preview', 'retired', 'residue')) {
+                    $startIndex = if ($state.PSObject.Properties.Name -contains 'replayCursor') {
+                        [int]$state.replayCursor
+                    }
+                    else {
+                        0
+                    }
+                    $replay = Get-PluginRetirementReplayPath -RepoRoot $RepoRoot -State $state -Tombstone $tombstone -StartIndex $startIndex -MaxPaths $available
+                    $shown = @($replay.Paths)
+                    $totalPaths = [int]$replay.TotalPaths
+                    if ($state.PSObject.Properties.Name -contains 'replayCursor') {
+                        $state.replayCursor = [int]$replay.NextIndex
+                    }
+                    else {
+                        $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue ([int]$replay.NextIndex)
+                    }
+                    [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                }
+                elseif ($null -ne $state) {
+                    $allPaths = @($state.affectedFiles | ForEach-Object {
+                            [pscustomobject][ordered]@{
+                                kind = 'payload'
+                                path = ".github/$([string]$_.dest)"
+                                present = $null
+                                remedy = $remedy
+                            }
+                        })
+                    $totalPaths = $allPaths.Count
+                    $shown = @($allPaths | Select-Object -First $available)
+                }
+                $emittedPathCount += $shown.Count
+                $outcomes.Add([pscustomobject][ordered]@{
+                        name = $name
+                        outcome = $outcome
+                        totalPaths = $totalPaths
+                        paths = $shown
+                        omittedPaths = [Math]::Max(0, $totalPaths - $shown.Count)
+                        remedy = $remedy
+                    })
+            }
+        }
+
+        Write-PluginRetirementCursor -RepoRoot $RepoRoot -NextIndex ([int]$selection.NextIndex)
+        $record = if ($outcomes.Count -gt 0) {
+            [pscustomobject][ordered]@{
+                schemaVersion = 1
+                processedPlugins = @($selection.Selected).Count
+                emittedPaths = $emittedPathCount
+                outcomes = $outcomes.ToArray()
+            }
+        }
+        else {
+            $null
+        }
+        return [pscustomobject]@{
+            Record = $record
+            Failed = $failed
+            DirectTargetRetired = $directRetired
+            ExitCode = if ($failed) { 21 } elseif ($directRetired) { 20 } else { 0 }
+        }
+    }
+
+    if ($LockHeld) {
+        return & $operation
+    }
+    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
+}
+
+function Write-PluginRetirementRecord {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Result
+    )
+
+    if ($null -ne $Result.Record) {
+        $json = ConvertTo-SortedObject -InputObject $Result.Record | ConvertTo-Json -Depth 100 -Compress
+        Write-Output "RETIREMENT: $json"
+    }
 }
 
 function Get-PluginReceiptPath {

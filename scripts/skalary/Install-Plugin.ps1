@@ -10,7 +10,9 @@ param(
 
     [string]$Ref,
 
-    [string]$Repository
+    [string]$Repository,
+
+    [switch]$ApplyRetirements
 )
 
 Set-StrictMode -Version Latest
@@ -519,6 +521,12 @@ try {
         Assert-RegistryParityAtCommit -LocalRepoRoot $targetRepoRoot -Sha $resolvedSha -SourceRegistry $registry
     }
 
+    $retirementResult = Invoke-PluginRetirementReconciliation -RepoRoot $targetRepoRoot -Registry $registry -SourceIdentity $sourceContext.SourceIdentity -DirectTarget $Name -ApplyRetirements:$ApplyRetirements -LockHeld
+    Write-PluginRetirementRecord -Result $retirementResult
+    if ($retirementResult.ExitCode -ne 0) {
+        exit ([int]$retirementResult.ExitCode)
+    }
+
     $pluginsByName = @{}
     foreach ($plugin in @($registry.plugins)) {
         $pluginName = [string]$plugin.name
@@ -581,3 +589,4 @@ finally {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+exit 0

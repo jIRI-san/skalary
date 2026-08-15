@@ -32,3 +32,8 @@ Phase: 2
 - [2.2] [src:code-review] [sev:High] Missing-receipt recovery could accept a null post-state journal covering only part of receipt ownership; fixed to require full pre-state coverage.
 - [2.2] [src:code-review] [sev:Med] Recovery evidence was deleted before fallible directory pruning; fixed by retaining journal/backups until cleanup succeeds.
 - [2.2] [src:note] [sev:Low] Rubber-duck found no blocking defects; fixed pre-journal temp residue and added embedded/published journal-schema drift proof.
+- [2.3] [src:code-review] [sev:Med] Terminal residue with a degraded receipt was re-entering preview/apply; fixed by handling terminal states before receipt matching with metadata-only replay.
+- [2.3] [src:code-review] [sev:Med] A hard kill after committed removal could strand state as applying without journal/receipt; fixed with verified applying-state terminal recovery.
+- [2.3] [src:code-review] [sev:Med] The 64-path cap truncated output after statting all paths and had no per-state fairness; fixed with bounded circular replay cursors persisted per state.
+- [2.3] [src:code-review] [sev:Med] Manual-required residue was not persisted or replayed; fixed with schema-valid manual metadata states and bounded terminal reporting.
+- [2.3] [src:note] [sev:Low] Rubber-duck found no blocking defects; added explicit success exits for authoritative bootstrap propagation and parenthesized cursor type validation.

@@ -20,7 +20,7 @@ Apply routes through the same removal primitive as `Remove-Plugin`. Under the ex
 
 Receipt-matching files are removed. If all files are clean, the receipt disappears, while the compact retirement state retains recovery metadata and terminal `retired` status. Modified files are never deleted automatically: the existing receipt remains `degraded` with `skipped-modified` ownership entries, while terminal `residue` state records expected and observed hashes at retirement time. Later automatic reconciliation is metadata-only. Non-force explicit removal preserves both authorities; only `Remove-Plugin -Force` through the shared primitive deletes residue and closes the state. Unrelated `Install-Plugin`/`Update-Plugin -Force` cannot authorize it.
 
-Every invocation emits at most one bounded aggregate `RETIREMENT: <json>` success-stream record. Terminal replay processes at most 8 plugins and 64 re-confined paths per invocation through a persisted fair cursor, stats without hashing, repeats remedies while residue remains, and eventually visits every record.
+Every invocation emits at most one bounded aggregate `RETIREMENT: <json>` success-stream record. Terminal replay processes at most 8 plugins and 64 re-confined paths per invocation through a persisted fair plugin cursor plus per-state path cursor, stats without hashing, repeats remedies while residue remains, and eventually visits every record. An `applying` state resumes from a validated journal; if removal committed before terminal state persistence, verified receipt/payload post-state closes it as `retired` or `residue`.
 
 | Outcome | Mutates payload | Persists state | Unrelated operation | Exit | Remedy |
 |---|---:|---:|---|---:|---|
