@@ -32,3 +32,10 @@ Phase: 1
 - [1.2] [src:code-review] [sev:High] Deleting the content-addressed frozen plan resets state to new and permits a different plan under the same UUID; persist independent frozen-state evidence and fail closed.
 - [1.2] [src:code-review] [sev:Med] Publish compares frozen scope and task fields case-insensitively; bind canonical frozen fields with ordinal equality.
 - [1.2] [src:code-review] [sev:Low] Rubber-duck triage: Publish described a missing generation under committed frozen state as Publish-before-Freeze; distinguish corrupted frozen state in the bounded diagnostic.
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:High] Installed engine selected an unrelated parent schemas/review directory before bundled sidecars; restrict schema resolution to recognized skill bundle layouts.
+- [2.1] [src:code-review] [sev:Low] Schema-root detection keyed on a parent folder named skills and could misclassify a canonical checkout; compare the module path to the canonical source layout instead.
+- [2.1] [src:code-review] [sev:Low] Recursive stale cleanup could remove nested PowerShell files outside the sidecar grammar; recurse only under the managed schemas/review subtree.

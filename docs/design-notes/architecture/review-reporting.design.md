@@ -202,10 +202,12 @@ terminating floor, so it can no longer spin on a size it cannot reach.
 Keeping the logic in the module is deliberate: the failure matrix and the fault seams run in-process
 against the module (RISK-14/RISK-5) instead of spawning a child per case, and it keeps
 `Build-ReviewReport.ps1` a pure formatter whose own text carries no file I/O — the `b0c0d3` contract
-its legacy tests still pin. `Build-ReviewReport.ps1` imports the module through
-`Join-Path -Path $PSScriptRoot -ChildPath` named parameters so the phase-1 bundle closure scanner does
-not pull it into the plugins; distributing the module, reader, cleanup and schemas into the installed
-`cr`/`dr` plugins is step 2.1's explicit mapping.
+its legacy tests still pin. `Build-ReviewReport.ps1` now carries literal `$PSScriptRoot` references
+for the engine, reader, and cleanup helper; the engine carries the closed five-file schema reference
+set. `Sync-PluginScripts.ps1` follows that closure into both `cr` and `dr`, copies schema sidecars only
+from canonical `schemas/review/`, preserves `schemas/review/` below each bundle, recursively prunes
+stale managed files, and bumps each affected plugin once per sync. Every generated file remains an
+explicit `plugin.json` mapping; no alternate manifest field owns sidecars.
 
 ### The production renderer is a verbatim port
 

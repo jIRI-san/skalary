@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T05:03:38.7111595Z",
+  "generatedAt": "2026-08-15T05:38:47.5477385Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -459,8 +459,48 @@
         },
         {
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
-          "sha256": "c043515755d90d43d93fc48c753c3cbbdcb0a83213ac53515198c0f07e55d7b1",
+          "sha256": "1f997b4e9ab6fc089436d060b50056032b8f5011b0f0176c1dcedc9d2b2cab3f",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Get-ReviewRun.ps1",
+          "sha256": "2311f2ac7b922d706290740e88baea677d8ecfbe5a8dfe4e8f4c12974082261b",
+          "src": "skills/cr/scripts/Get-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
+          "sha256": "4a5b4ed48c1f15137d4b50440dd1669dde9b89c0def30cab7e9d4a8166995b08",
+          "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/ReviewRun.psm1",
+          "sha256": "36041cb2cf36e0024bd4c0dffe0177c50b7044b1cba5ac29ed50f050fda4898d",
+          "src": "skills/cr/scripts/ReviewRun.psm1"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-limits.schema.json",
+          "sha256": "91f385fb6d91d9fa836aaeb0d6b7a17d8d4297be4bb5a2cc21847582b4b499b5",
+          "src": "skills/cr/scripts/schemas/review/review-limits.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-manifest.schema.json",
+          "sha256": "f30b7d25c61454e8a257dc1ba1e9c3f8eeafda8a11ee1f70406f5fb692406b0d",
+          "src": "skills/cr/scripts/schemas/review/review-manifest.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-plan.schema.json",
+          "sha256": "f680f58adae55fc26de14040ca2128119e82ce4adc5063301d727264e9f0baea",
+          "src": "skills/cr/scripts/schemas/review/review-plan.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-run.schema.json",
+          "sha256": "9315e327ba64e00ae4604619a2c308d0bd03601eba7ded08e459760dcc79dd64",
+          "src": "skills/cr/scripts/schemas/review/review-run.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/terminal-status.schema.json",
+          "sha256": "6f992d6cf9bae553806a8e5d73df3c702e4dc2b8f953ac08c020a525363fc143",
+          "src": "skills/cr/scripts/schemas/review/terminal-status.schema.json"
         }
       ],
       "license": "MIT",
@@ -471,7 +511,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "author": "jIRI-san",
@@ -921,8 +961,48 @@
         },
         {
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
-          "sha256": "c043515755d90d43d93fc48c753c3cbbdcb0a83213ac53515198c0f07e55d7b1",
+          "sha256": "1f997b4e9ab6fc089436d060b50056032b8f5011b0f0176c1dcedc9d2b2cab3f",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Get-ReviewRun.ps1",
+          "sha256": "2311f2ac7b922d706290740e88baea677d8ecfbe5a8dfe4e8f4c12974082261b",
+          "src": "skills/dr/scripts/Get-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
+          "sha256": "4a5b4ed48c1f15137d4b50440dd1669dde9b89c0def30cab7e9d4a8166995b08",
+          "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/ReviewRun.psm1",
+          "sha256": "36041cb2cf36e0024bd4c0dffe0177c50b7044b1cba5ac29ed50f050fda4898d",
+          "src": "skills/dr/scripts/ReviewRun.psm1"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json",
+          "sha256": "91f385fb6d91d9fa836aaeb0d6b7a17d8d4297be4bb5a2cc21847582b4b499b5",
+          "src": "skills/dr/scripts/schemas/review/review-limits.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-manifest.schema.json",
+          "sha256": "f30b7d25c61454e8a257dc1ba1e9c3f8eeafda8a11ee1f70406f5fb692406b0d",
+          "src": "skills/dr/scripts/schemas/review/review-manifest.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-plan.schema.json",
+          "sha256": "f680f58adae55fc26de14040ca2128119e82ce4adc5063301d727264e9f0baea",
+          "src": "skills/dr/scripts/schemas/review/review-plan.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-run.schema.json",
+          "sha256": "9315e327ba64e00ae4604619a2c308d0bd03601eba7ded08e459760dcc79dd64",
+          "src": "skills/dr/scripts/schemas/review/review-run.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/terminal-status.schema.json",
+          "sha256": "6f992d6cf9bae553806a8e5d73df3c702e4dc2b8f953ac08c020a525363fc143",
+          "src": "skills/dr/scripts/schemas/review/terminal-status.schema.json"
         }
       ],
       "license": "MIT",
@@ -933,7 +1013,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",

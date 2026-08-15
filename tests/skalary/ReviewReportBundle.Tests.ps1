@@ -49,6 +49,50 @@ Describe 'Build-ReviewReport bundling and callers' {
         }
     }
 
+    It 'test:ReviewReport.PayloadOwnershipAndDrift maps the complete root, plugin, dogfood, and registry closure' {
+        $registry = Get-Text -Relative 'registry.json' | ConvertFrom-Json -Depth 100
+        $closure = @(
+            'Build-ReviewReport.ps1'
+            'Get-ReviewRun.ps1'
+            'Remove-ReviewRun.ps1'
+            'ReviewRun.psm1'
+            'schemas/review/review-limits.schema.json'
+            'schemas/review/review-manifest.schema.json'
+            'schemas/review/review-plan.schema.json'
+            'schemas/review/review-run.schema.json'
+            'schemas/review/terminal-status.schema.json'
+        )
+
+        foreach ($review in $script:reviews) {
+            $manifest = Get-Text -Relative "plugins/$($review.Plugin)/plugin.json" | ConvertFrom-Json -Depth 50
+            $registered = @($registry.plugins | Where-Object { [string]$_.name -eq $review.Plugin })
+            $registered.Count | Should -Be 1
+
+            foreach ($relative in $closure) {
+                $canonical = if ($relative.StartsWith('schemas/review/', [System.StringComparison]::Ordinal)) {
+                    Join-Path $script:repoRoot $relative
+                }
+                else {
+                    Join-Path $script:repoRoot "scripts/skalary/$relative"
+                }
+                $pluginRelative = "skills/$($review.Id)/scripts/$relative"
+                $plugin = Join-Path $script:repoRoot "plugins/$($review.Plugin)/$pluginRelative"
+                $dogfood = Join-Path $script:repoRoot ".github/$pluginRelative"
+
+                foreach ($copy in @($plugin, $dogfood)) {
+                    Test-Path -LiteralPath $copy -PathType Leaf | Should -BeTrue
+                    (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+                        Should -Be (Get-FileHash -LiteralPath $canonical -Algorithm SHA256).Hash
+                }
+                @($manifest.files | ForEach-Object { [string]$_.dest }) | Should -Contain $pluginRelative
+                @($registered[0].files | ForEach-Object { [string]$_.dest }) | Should -Contain $pluginRelative
+            }
+
+            $manifest.PSObject.Properties.Name | Should -Not -Contain 'scriptSidecars'
+            $manifest.PSObject.Properties.Name | Should -Not -Contain 'schemas'
+        }
+    }
+
     It 'test:build-reviewreport-bundled makes both orchestrators call the formatter and write what it returns' {
         foreach ($review in $script:reviews) {
             foreach ($tree in @("plugins/$($review.Plugin)/skills/$($review.Id)", ".github/skills/$($review.Id)")) {

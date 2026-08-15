@@ -11,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $scriptsSource = $PSScriptRoot
+$reviewSchemaSource = Join-Path $repoRootPath 'schemas/review'
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 
 if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
@@ -25,6 +26,7 @@ $refRegex = [regex]'\.github/skills/(?<skill>[a-z0-9][a-z0-9-]*)/scripts/(?<name
 # or `. (Join-Path $PSScriptRoot '_Common.ps1')`. `.psm?1` covers both `.psm1` modules
 # and `.ps1` dot-source siblings; the leading `_` allows `_Common.ps1`.
 $moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9_][A-Za-z0-9._-]*\.psm?1)'''
+$schemaRegex = [regex]'\$PSScriptRoot\s+''(?<schema>schemas/review/[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json)'''
 $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 
 # --- Asset reference grammar (REQ-19) -------------------------------------------------
@@ -188,14 +190,15 @@ function Remove-FencedBlocks {
 }
 
 
-function Get-ModuleClosure {
+function Get-BundleClosure {
     param(
         [Parameter(Mandatory)][string]$ScriptName,
-        [Parameter(Mandatory)][string]$SourceDir
+        [Parameter(Mandatory)][string]$SourceDir,
+        [Parameter(Mandatory)][string]$ReviewSchemaDir
     )
 
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $modules = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $files = [ordered]@{}
     $work = [System.Collections.Generic.Queue[string]]::new()
     $work.Enqueue($ScriptName)
 
@@ -207,16 +210,25 @@ function Get-ModuleClosure {
         if (-not (Test-Path -LiteralPath $currentPath -PathType Leaf)) {
             throw "Bundled script source not found: $currentPath"
         }
+        $files[$current] = $currentPath
 
         $content = [System.IO.File]::ReadAllText($currentPath)
         foreach ($match in $moduleRegex.Matches($content)) {
             $mod = $match.Groups['mod'].Value
-            [void]$modules.Add($mod)
             $work.Enqueue($mod)
+        }
+        foreach ($match in $schemaRegex.Matches($content)) {
+            $relative = $match.Groups['schema'].Value
+            $schemaName = [System.IO.Path]::GetFileName($relative)
+            $schemaPath = Join-Path $ReviewSchemaDir $schemaName
+            if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
+                throw "Bundled review schema source not found in canonical schemas/review/: $schemaPath"
+            }
+            $files[$relative] = $schemaPath
         }
     }
 
-    return , @($modules)
+    return $files
 }
 
 function Update-PluginPatchVersion {
@@ -354,13 +366,8 @@ foreach ($manifestPath in $manifestPaths) {
                 continue
             }
 
-            $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            [void]$names.Add($name)
-            if ($name.EndsWith('.ps1')) {
-                foreach ($mod in (Get-ModuleClosure -ScriptName $name -SourceDir $scriptsSource)) {
-                    [void]$names.Add($mod)
-                }
-            }
+            $closure = Get-BundleClosure -ScriptName $name -SourceDir $scriptsSource `
+                -ReviewSchemaDir $reviewSchemaSource
 
             $managedDir = Join-Path $pluginRoot (Join-Path 'skills' (Join-Path $skill 'scripts'))
             $dirKey = ([System.IO.Path]::GetFullPath($managedDir)).ToLowerInvariant()
@@ -374,12 +381,8 @@ foreach ($manifestPath in $manifestPaths) {
                     Files = @{}
                 }
             }
-            foreach ($n in $names) {
-                $sourceScript = Join-Path $scriptsSource $n
-                if (-not (Test-Path -LiteralPath $sourceScript -PathType Leaf)) {
-                    throw "Plugin '$pluginName' references '$n' but scripts/skalary/$n does not exist."
-                }
-                $expected[$dirKey].Files[$n] = $sourceScript
+            foreach ($relative in $closure.Keys) {
+                $expected[$dirKey].Files[$relative] = $closure[$relative]
             }
         }
     }
@@ -402,9 +405,13 @@ foreach ($entry in ($expected.Values | Sort-Object Dir)) {
         [void](New-Item -ItemType Directory -Path $entry.Dir -Force)
     }
 
-    foreach ($name in ($entry.Files.Keys | Sort-Object)) {
-        $sourcePath = $entry.Files[$name]
-        $targetPath = Join-Path $entry.Dir $name
+    foreach ($relative in ($entry.Files.Keys | Sort-Object)) {
+        $sourcePath = $entry.Files[$relative]
+        $targetPath = Join-Path $entry.Dir $relative
+        $targetDir = Split-Path -Parent $targetPath
+        if (-not (Test-Path -LiteralPath $targetDir -PathType Container) -and -not $WhatIfPreference) {
+            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        }
 
         $sourceHash = Get-FileSha256 -Path $sourcePath
         $targetHash = if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
@@ -424,9 +431,18 @@ foreach ($entry in ($expected.Values | Sort-Object Dir)) {
     }
 
     if (Test-Path -LiteralPath $entry.Dir -PathType Container) {
-        $existing = Get-ChildItem -LiteralPath $entry.Dir -File | Where-Object { $_.Extension -in @('.ps1', '.psm1') }
+        $existing = @(
+            Get-ChildItem -LiteralPath $entry.Dir -File |
+                Where-Object { $_.Extension -in @('.ps1', '.psm1') }
+            $schemaBundleDir = Join-Path $entry.Dir 'schemas/review'
+            if (Test-Path -LiteralPath $schemaBundleDir -PathType Container) {
+                Get-ChildItem -LiteralPath $schemaBundleDir -Recurse -File |
+                    Where-Object { $_.Name.EndsWith('.schema.json', [System.StringComparison]::OrdinalIgnoreCase) }
+            }
+        )
         foreach ($existingFile in $existing) {
-            if (-not $entry.Files.ContainsKey($existingFile.Name)) {
+            $relative = [System.IO.Path]::GetRelativePath($entry.Dir, $existingFile.FullName).Replace('\', '/')
+            if (-not $entry.Files.ContainsKey($relative)) {
                 $staleCount++
                 [void]$changedManifests.Add($entry.ManifestPath)
                 if ($PSCmdlet.ShouldProcess($existingFile.FullName, "Remove stale bundled script for plugin '$($entry.PluginName)'")) {

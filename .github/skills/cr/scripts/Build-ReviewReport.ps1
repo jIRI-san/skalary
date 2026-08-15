@@ -85,12 +85,11 @@ if ($PSCmdlet.ParameterSetName -eq 'Persist') {
     # module, so this script's own text carries no file I/O and stdout is exactly one bounded
     # terminal-status object followed by the mode's exit code.
     #
-    # The module path is built with named Join-Path parameters on purpose: phase 1 ships the engine
-    # in scripts/skalary/ only, and the phase-1 bundle closure scanner keys off the bare
-    # `$PSScriptRoot '<name>.psm1'` form. Step 2.1 (REQ-8) is what distributes ReviewRun.psm1, the
-    # reader, the cleanup helper and the schemas into the installed plugins, mapping them explicitly.
-    $moduleName = 'ReviewRun.psm1'
-    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath $moduleName
+    # These literal sidecar references define the complete installed review CLI closure for the bundle
+    # synchronizer. The orchestrator invokes the reader and cleanup helper after the phase 2 migration.
+    # Join-Path $PSScriptRoot 'Get-ReviewRun.ps1'
+    # Join-Path $PSScriptRoot 'Remove-ReviewRun.ps1'
+    $modulePath = Join-Path $PSScriptRoot 'ReviewRun.psm1'
 
     # Last resort, not a fallback: the module bounds every expected failure itself, so anything that
     # reaches here (a broken install, an unreadable schema directory, an unexpected host error) is
