@@ -9,6 +9,7 @@ Describe 'architecture-tests retirement lifecycle' {
         $script:fixtureRoot = Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/architecture-tests-pre-cda9da-v1'
         $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
+        Import-Module (Join-Path $script:repoRoot 'tests/SuiteFixture.psm1') -Force -DisableNameChecking
         . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
 
         $script:registry = Read-JsonFile -Path (Join-Path $script:repoRoot 'registry.json')
@@ -114,16 +115,17 @@ Describe 'architecture-tests retirement lifecycle' {
             })
         $oldInstaller = Join-Path $script:fixtureRoot 'bootstrap/scripts/skalary/Install-Plugin.ps1'
 
-        $output = @(
-            & pwsh -NoProfile -File $oldInstaller `
-                -Name plugin-manager `
-                -RepoRoot $consumer.Root `
-                -Source $script:repoRoot `
-                -Ref HEAD 2>&1
+        $process = Invoke-SuiteFixtureProcess -ArgumentList @(
+            '-NoProfile',
+            '-File', $oldInstaller,
+            '-Name', 'plugin-manager',
+            '-RepoRoot', $consumer.Root,
+            '-Source', $script:repoRoot,
+            '-Ref', 'HEAD'
         )
 
-        $LASTEXITCODE | Should -Be 0
-        ($output -join "`n") | Should -Not -Match 'RETIREMENT:'
+        $process.ExitCode | Should -Be 0
+        $process.Output | Should -Not -Match 'RETIREMENT:'
         $after = @(Get-PayloadFiles -Consumer $consumer | ForEach-Object {
                 "$([System.IO.Path]::GetRelativePath($consumer.PayloadRoot, $_.FullName))|$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
             })
@@ -245,17 +247,18 @@ Describe 'architecture-tests retirement lifecycle' {
         Remove-Item -LiteralPath $consumer.ReceiptPath -Force
         $installer = Join-Path $script:repoRoot 'scripts/skalary/Install-Plugin.ps1'
 
-        $output = @(
-            & pwsh -NoProfile -File $installer `
-                -Name architecture-tests `
-                -RepoRoot $consumer.Root `
-                -Source $script:repoRoot `
-                -Ref HEAD 2>&1
+        $process = Invoke-SuiteFixtureProcess -ArgumentList @(
+            '-NoProfile',
+            '-File', $installer,
+            '-Name', 'architecture-tests',
+            '-RepoRoot', $consumer.Root,
+            '-Source', $script:repoRoot,
+            '-Ref', 'HEAD'
         )
 
-        $LASTEXITCODE | Should -Be 20
-        ($output -join "`n") | Should -Match 'RETIREMENT:'
-        ($output -join "`n") | Should -Match '"outcome":"no-match"'
+        $process.ExitCode | Should -Be 20
+        $process.Output | Should -Match 'RETIREMENT:'
+        $process.Output | Should -Match '"outcome":"no-match"'
         Test-Path -LiteralPath $consumer.PayloadRoot | Should -BeFalse
     }
 

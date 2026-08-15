@@ -99,7 +99,12 @@ function ConvertTo-CanonicalRow {
     $environment = [ordered]@{}
     if ($source.ContainsKey('environment') -and $null -ne $source['environment']) {
         $raw = @{}
-        foreach ($property in $source['environment'].PSObject.Properties) { $raw[$property.Name] = $property.Value }
+        if ($source['environment'] -is [System.Collections.IDictionary]) {
+            foreach ($key in $source['environment'].Keys) { $raw[[string]$key] = $source['environment'][$key] }
+        }
+        else {
+            foreach ($property in $source['environment'].PSObject.Properties) { $raw[$property.Name] = $property.Value }
+        }
         foreach ($field in @('os', 'psVersion', 'pesterVersion', 'processorCount', 'ci', 'runner')) {
             if ($raw.ContainsKey($field)) { $environment[$field] = $raw[$field] }
         }

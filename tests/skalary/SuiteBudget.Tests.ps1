@@ -340,6 +340,8 @@ Describe 'sandbox' {
             foreach ($field in @('os', 'psVersion', 'processorCount')) {
                 @($row.environment.PSObject.Properties.Name) |
                     Should -Contain $field -Because "'$platform' must record the '$field' its figure was measured under"
+                [string]$row.environment.$field |
+                    Should -Not -BeNullOrEmpty -Because "'$platform' must retain the measured '$field' value"
             }
         }
     }

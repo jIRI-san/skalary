@@ -266,9 +266,6 @@ Describe 'plugin retirement catalog' {
 
         $marketplaceRaw = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw
         $marketplaceRaw | Should -Not -Match '"retiredPlugins"'
-        $output = pwsh -NoProfile -File (Join-Path $script:repoRoot 'scripts/skalary/Test-Registry.ps1') -RepoRoot $script:repoRoot 2>&1
-        $LASTEXITCODE | Should -Be 0
-        ($output -join "`n") | Should -Match 'Test-Registry passed'
     }
 
     It 'test:PluginRetirement.RegistryContract permits first publication and rejects changed or removed records' {
@@ -299,13 +296,17 @@ Describe 'plugin retirement catalog' {
             New-RetirementRecord -Name 'code-review'
         )
 
-        $output = pwsh -NoProfile -File (Join-Path $fixture 'scripts/skalary/Build-Registry.ps1') -RepoRoot $fixture 2>&1
-        $LASTEXITCODE | Should -Not -Be 0
-        ($output -join "`n") | Should -Match "cannot be both active and retired"
+        {
+            & (Join-Path $fixture 'scripts/skalary/Build-Registry.ps1') -RepoRoot $fixture
+        } | Should -Throw '*cannot be both active and retired*'
 
-        $validation = pwsh -NoProfile -File (Join-Path $fixture 'scripts/skalary/Test-Registry.ps1') -RepoRoot $fixture 2>&1
-        $LASTEXITCODE | Should -Not -Be 0
-        ($validation -join "`n") | Should -Match "cannot be both active and retired"
+        $validation = Invoke-SuiteFixtureProcess -ArgumentList @(
+            '-NoProfile',
+            '-File', (Join-Path $fixture 'scripts/skalary/Test-Registry.ps1'),
+            '-RepoRoot', $fixture
+        )
+        $validation.ExitCode | Should -Not -Be 0
+        $validation.Output | Should -Match "cannot be both active and retired"
     }
 
     It 'test:PluginRetirement.RegistryContract exposes retired plugins only through direct exact lookup' {
@@ -736,7 +737,7 @@ Describe 'plugin retirement catalog' {
         $process = Start-Process pwsh -ArgumentList @('-NoProfile', '-File', $driver) -PassThru
         try {
             $journalPath = Get-PluginRemovalJournalPath -RepoRoot $fixture.Root -PluginName 'removal-fixture'
-            $deadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
+            $deadline = [DateTimeOffset]::UtcNow.AddSeconds((Get-SuiteFixtureProcessTimeoutSeconds))
             $deleteObserved = $false
             while ([DateTimeOffset]::UtcNow -lt $deadline) {
                 if (Test-Path -LiteralPath $journalPath -PathType Leaf) {

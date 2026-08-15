@@ -27,6 +27,8 @@
 
 Set-StrictMode -Version Latest
 
+$script:FixtureProcessTimeoutSeconds = 30
+
 # The payload roots the registry scripts read. An allowlist rather than "everything
 # except": a file the fixture does not carry is a test that fails loudly, whereas a
 # denylist quietly readmits the cost this fixture exists to remove.
@@ -569,6 +571,63 @@ function Invoke-FixtureGit {
     }
 }
 
+function Get-SuiteFixtureProcessTimeoutSeconds {
+    return $script:FixtureProcessTimeoutSeconds
+}
+
+function Invoke-SuiteFixtureProcess {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList,
+
+        [string]$WorkingDirectory,
+
+        [ValidateRange(1, 300)]
+        [int]$TimeoutSeconds = (Get-SuiteFixtureProcessTimeoutSeconds)
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'pwsh'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    if ($WorkingDirectory) {
+        $startInfo.WorkingDirectory = [System.IO.Path]::GetFullPath($WorkingDirectory)
+    }
+    foreach ($argument in $ArgumentList) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw 'Failed to start the fixture PowerShell process.'
+        }
+        $standardOutput = $process.StandardOutput.ReadToEndAsync()
+        $standardError = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill($true)
+            $process.WaitForExit()
+            throw "Fixture PowerShell process exceeded the shared ${TimeoutSeconds}s timeout."
+        }
+        $process.WaitForExit()
+
+        $output = @(
+            $standardOutput.GetAwaiter().GetResult()
+            $standardError.GetAwaiter().GetResult()
+        ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Output = ($output -join [Environment]::NewLine)
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
 # `Import-Module -Force` removes the previous instance first, so this reclaims a template a
 # re-import would otherwise orphan in TEMP.
 $ExecutionContext.SessionState.Module.OnRemove = { Remove-SkalaryFixtureTemplate }
@@ -576,4 +635,5 @@ $ExecutionContext.SessionState.Module.OnRemove = { Remove-SkalaryFixtureTemplate
 Export-ModuleMember -Function New-SkalaryFixtureRepo, New-SkalaryFixtureRoot, Copy-SkalaryFixtureTree,
     Get-SkalaryFixtureTemplate, Remove-SkalaryFixtureTemplate,
     Copy-SkalaryFixturePayload, Get-SkalaryFixturePayload, Get-SkalaryFixturePayloadEntry,
-    Get-SkalaryFixturePlugins, Test-SkalaryFixturePluginClosure, Get-SkalaryFixtureTag
+    Get-SkalaryFixturePlugins, Test-SkalaryFixturePluginClosure, Get-SkalaryFixtureTag,
+    Get-SuiteFixtureProcessTimeoutSeconds, Invoke-SuiteFixtureProcess
