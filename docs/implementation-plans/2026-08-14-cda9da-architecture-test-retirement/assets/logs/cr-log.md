@@ -44,3 +44,12 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Med] Regenerated suite profile prematurely reset Phase 3 baseline/target and recorded a failing run; defer the Phase 3 profile receipt to step 3.2.
 - [3.1] [src:code-review] [sev:Low] Rubber-duck: preserve the architecture-notes negative assertion against reintroducing the retired architecture-tests reference; guard restored.
 - [3.2] [src:code-review] [sev:Med] Copilot CLI manual residue was treated as a repo-relative literal and replay assertions covered only the approval path; added confined user-home observation plus all-category repeated non-mutation proof.
+
+## CR Capture
+Phase: 4
+
+- [4.1] [src:code-review] [sev:Med] Pinned-ref recovery prose claimed current-source reconciliation re-retires restored payload, but terminal states currently short-circuit.
+- [4.1] [src:code-review] [sev:Med] Active scan include roots did not reject symlink or reparse ancestors before enumeration.
+- [4.1] [src:code-review] [sev:Med] Active scan omitted hidden descendants on Unix because recursive enumeration lacked Force.
+- [4.1] [src:code-review] [sev:Med] Active scan violation ordering used culture-dependent Sort-Object instead of ordinal ordering.
+- [4.1] [src:code-review] [sev:Low] Rubber-duck found no blocking issue; the test-local retired path inventory is accepted as a closed physical-runtime guard alongside immutable fixture coverage.

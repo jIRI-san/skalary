@@ -15,3 +15,8 @@ Phase: 3
 
 - [3.2] [trigger:rework>1] Suite-profile phase numbers belong to archived plan 768d7b receipts, not the executing plan; preserve that green receipt and refresh current runtime metadata only at cda9da step 4.2.
 - [3.2] [trigger:reusable-pattern] git diff --name-only excludes untracked files; step staging must include the explicit untracked paths reported by git status before committing.
+
+## Learnings Capture
+Phase: 4
+
+- [4.1] [trigger:rework>1] Include-rooted absence scans must enumerate hidden files, reject reparse ancestors and descendants, and sort findings ordinally across platforms.

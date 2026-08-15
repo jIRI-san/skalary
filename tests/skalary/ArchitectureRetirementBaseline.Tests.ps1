@@ -9,6 +9,86 @@ Describe 'architecture-test retirement baseline' {
         $script:fixtureRoot = Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/architecture-tests-pre-cda9da-v1'
         $script:historicalManifest = Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/cda9da-historical-manifest.json'
         $script:manifestGate = Join-Path $script:repoRoot 'scripts/skalary/Test-HistoricalManifest.ps1'
+
+        function Get-RetiredArchitectureRuntimeViolation {
+            param(
+                [Parameter(Mandatory)]
+                [string]$Root,
+
+                [Parameter(Mandatory)]
+                [AllowEmptyCollection()]
+                [string[]]$IncludePath
+            )
+
+            if ($IncludePath.Count -eq 0) {
+                throw 'Architecture runtime scan requires at least one include root.'
+            }
+
+            $resolvedRoot = [System.IO.Path]::GetFullPath($Root)
+            $rootPrefix = $resolvedRoot.TrimEnd(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            ) + [System.IO.Path]::DirectorySeparatorChar
+            $files = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+
+            foreach ($include in $IncludePath) {
+                if ([System.IO.Path]::IsPathRooted($include)) {
+                    throw "Architecture runtime scan include must be repository-relative: '$include'."
+                }
+                $resolvedInclude = [System.IO.Path]::GetFullPath((Join-Path $resolvedRoot $include))
+                if (-not $resolvedInclude.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+                    throw "Architecture runtime scan include is not confined to the repository: '$include'."
+                }
+                if (-not (Test-Path -LiteralPath $resolvedInclude)) {
+                    throw "Architecture runtime scan include does not exist: '$include'."
+                }
+
+                $item = Get-Item -LiteralPath $resolvedInclude -Force
+                $ancestor = $item
+                while ($null -ne $ancestor) {
+                    if (($ancestor.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                        throw "Architecture runtime scan include crosses a reparse point: '$include'."
+                    }
+                    if ([string]::Equals(
+                            [System.IO.Path]::GetFullPath($ancestor.FullName),
+                            $resolvedRoot,
+                            [System.StringComparison]::Ordinal
+                        )) {
+                        break
+                    }
+                    $ancestor = $ancestor.Parent
+                }
+
+                if ($item.PSIsContainer) {
+                    foreach ($descendant in (Get-ChildItem -LiteralPath $resolvedInclude -Force -Recurse)) {
+                        if (($descendant.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                            throw "Architecture runtime scan include contains a reparse point: '$include'."
+                        }
+                        if (-not $descendant.PSIsContainer) {
+                            $files.Add($descendant)
+                        }
+                    }
+                }
+                else {
+                    $files.Add($item)
+                }
+            }
+
+            $retiredPathPattern = [regex]::new(
+                '(^|/)(architecture-tests(/|$)|Invoke-ArchTests\.ps1$|Invoke-ArchAdapter\.ps1$|Get-ArchReviewReport\.ps1$|Assert-ArchLock\.ps1$|ArchReceipt\.psm1$|arch-test-(config|receipt)\.schema\.json$|architecture-tests\.design\.md$)',
+                [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+            )
+            $violations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            foreach ($file in $files) {
+                $relative = [System.IO.Path]::GetRelativePath($resolvedRoot, $file.FullName).Replace('\', '/')
+                if ($retiredPathPattern.IsMatch($relative)) {
+                    [void]$violations.Add($relative)
+                }
+            }
+            $ordered = @($violations)
+            [Array]::Sort($ordered, [System.StringComparer]::Ordinal)
+            return $ordered
+        }
     }
 
     It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary freezes a nonempty pre-retirement fixture' {
@@ -112,6 +192,50 @@ Describe 'architecture-test retirement baseline' {
         $result = & $script:manifestGate -ManifestPath $script:historicalManifest -RepoRoot $script:repoRoot
         $result.Count | Should -BeGreaterThan 0
         @($result.Files).Count | Should -Be $result.Count
+    }
+
+    It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary scans only explicit active roots and detects seeded runtime assets' {
+        $activeIncludes = @(
+            'plugins',
+            '.github/skills',
+            '.github/agents',
+            'scripts',
+            'schemas',
+            'tools',
+            'docs/design-notes',
+            'README.md'
+        )
+        @(Get-RetiredArchitectureRuntimeViolation -Root $script:repoRoot -IncludePath $activeIncludes).Count |
+            Should -Be 0
+
+        $suffix = [guid]::NewGuid().ToString('N')
+        $temp = Join-Path ([System.IO.Path]::GetTempPath()) "architecture-active-scan-$suffix"
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) "architecture-active-outside-$suffix"
+        [void](New-Item -ItemType Directory -Path (Join-Path $temp 'plugins/architecture-tests') -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $temp 'plugins/.hidden') -Force)
+        [void](New-Item -ItemType Directory -Path $outside -Force)
+        try {
+            Set-Content -LiteralPath (Join-Path $temp 'plugins/architecture-tests/plugin.json') -Value '{}' -NoNewline
+            Set-Content -LiteralPath (Join-Path $temp 'plugins/.hidden/Invoke-ArchTests.ps1') -Value '# retired' -NoNewline
+            @(Get-RetiredArchitectureRuntimeViolation -Root $temp -IncludePath @('plugins')) |
+                Should -Be @(
+                    'plugins/.hidden/Invoke-ArchTests.ps1',
+                    'plugins/architecture-tests/plugin.json'
+                )
+            { Get-RetiredArchitectureRuntimeViolation -Root $temp -IncludePath @() } |
+                Should -Throw '*at least one include root*'
+            { Get-RetiredArchitectureRuntimeViolation -Root $temp -IncludePath @('../outside') } |
+                Should -Throw '*not confined*'
+
+            $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+            [void](New-Item -ItemType $linkType -Path (Join-Path $temp 'plugins/reparse') -Target $outside)
+            { Get-RetiredArchitectureRuntimeViolation -Root $temp -IncludePath @('plugins') } |
+                Should -Throw '*contains a reparse point*'
+        }
+        finally {
+            Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $outside -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects mutation of a listed file' {

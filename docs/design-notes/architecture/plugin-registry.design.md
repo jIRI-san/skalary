@@ -53,7 +53,8 @@ copies it into skalary `registry.json.retiredPlugins`; the Copilot marketplace r
 Active and retired names are disjoint. `Test-PluginRetirementHistory.ps1` compares explicit files
 without reading Git; CI alone materializes the pull-request base or previous-push commit, treating a
 resolvable commit with no catalog as the empty set and failing when a required commit is unavailable.
-`Test-Registry.ps1` remains Git-free.
+Published records are append-only and immutable: removing or changing one, or reusing its name for
+an active plugin, fails the history or registry gate. `Test-Registry.ps1` remains Git-free.
 
 ## Copilot Skill Metadata Boundary
 
@@ -96,12 +97,19 @@ journal recovery and exact source/ref/version, receipt ownership, and observed-c
 Install and update invoke reconciliation after source/registry verification but before active-name
 lookup and every already-current return. The first capable operation persists a complete preview;
 the next exact automatic operation applies it. Automatic stale input refreshes preview with zero
-deletion, while `-ApplyRetirements` rejects missing/stale previews. One invocation emits at most one
-`RETIREMENT:` JSON record and returns 20 for a direct retired target or 21 for a blocking failure;
-bootstrap propagates both. Terminal residue/manual replay never hashes content, processes at most
-eight plugins and 64 paths globally, and advances both a global plugin cursor and per-state path
-cursor so omitted remedies eventually surface. `applying` recovery handles both journal-backed
-partial transactions and the narrow post-commit/pre-terminal-state crash window.
+deletion, while `-ApplyRetirements` rejects missing/stale previews. Preview is evidence that the
+consumer observed a specific source/ref/version tombstone and receipt; it never grants deletion
+authority. Apply revalidates those inputs and rederives the pinned intersection under the lock.
+
+One invocation emits at most one `RETIREMENT:` JSON record and returns 20 for a direct retired target
+or 21 for a blocking failure; bootstrap propagates both. Terminal residue/manual replay never hashes
+content, processes at most eight plugins and 64 paths globally, and advances both a global plugin
+cursor and per-state path cursor so omitted remedies eventually surface. `applying` recovery handles
+both journal-backed partial transactions and the narrow post-commit/pre-terminal-state crash window.
+The terminal state retains the prior immutable ref so an operator can restore from that exact source
+revision. Restoration is not a rollback of the permanent tombstone: the active catalog still refuses
+fresh acquisition, while the existing terminal state prevents automatic retirement replay against
+operator-restored bytes. The restored receipt remains the authority for later explicit removal.
 Manual-residue presence checks are read-only: repository-relative scaffold/approval paths resolve
 under the consumer root, while `~/...` Copilot CLI paths resolve under the current user profile.
 Both forms reject rooted/traversing tails; neither grants deletion authority.
