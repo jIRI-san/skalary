@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: 0140d8521d72d7e097412b45da20f1ee17445874dd1aa9a6b2ead0ab0450aa72 -->
+<!-- arch-contracts-sha256: d432ff39a0dc715cc08594c6b2061549cd0bb8f0258825e60eba088632a95a31 -->
 
 # Skalary — Architecture Overview
 

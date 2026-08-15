@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "Design review orchestrator with specialist model agents.",
   "author": "jIRI-san",
   "license": "MIT",

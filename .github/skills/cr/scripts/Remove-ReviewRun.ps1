@@ -66,7 +66,8 @@ try {
             "would finalize plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
         }
         elseif ($finalized.CleanupPending) {
-            Write-EncodedStderr -Text "Finalized plan review run '$($finalized.RunId)' as '$($finalized.Verdict)', but live cleanup is pending."
+            $detail = if ([string]::IsNullOrWhiteSpace([string]$finalized.CleanupDiagnostic)) { 'no cleanup diagnosis was available' } else { [string]$finalized.CleanupDiagnostic }
+            Write-EncodedStderr -Text "Finalized plan review run '$($finalized.RunId)' as '$($finalized.Verdict)', but live cleanup is pending: $detail"
             exit 4
         }
         else {

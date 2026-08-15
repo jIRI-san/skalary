@@ -407,6 +407,35 @@ Describe 'review report frozen plan and attendance' {
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
+    It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects credential-shaped branch identities before Git diagnostics' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            $secret = Build-ReviewSecretToken -Segments @(
+                [pscustomobject]@{ literal = 'gh' }
+                [pscustomobject]@{ literal = 'p_' }
+                [pscustomobject]@{ cycle = '0123456789abcdefghijklmnopqrstuvwxyz'; count = 36 }
+            )
+            $scope = [ordered]@{
+                mode = 'branch'
+                base = $secret
+                head = 'HEAD'
+                paths = @([ordered]@{ path = 'forged.ps1'; status = 'modified' })
+            }
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }) -ScopeAuthority $scope
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan
+
+            $result = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
+            $result.ExitCode | Should -Be 2
+            $result.Message | Should -Match 'credential shape'
+            ($result.Diagnostics -join "`n") | Should -Match 'scopeAuthority/base'
+            ($result.Message + ($result.Diagnostics -join "`n")) | Should -Not -Match ([regex]::Escape($secret))
+            Test-Path -LiteralPath (Join-Path $runDir 'review-plan.input.json') | Should -BeFalse
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
     It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix scans the plan strings it is about to persist and destroys a rejected plan input' {
         # Freeze commits scope, roster and task models into a committed artifact before Publish ever
         # runs, so the secret guard has to cover the plan envelope too (RISK-16): a credential quoted

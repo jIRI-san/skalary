@@ -258,6 +258,25 @@ Describe 'sandbox' {
         Set-Content -LiteralPath $fixture -Value $script:skippedReviewEvidenceFile -Encoding utf8NoBOM
         $skipOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
         $LASTEXITCODE | Should -Be 3 -Because "skipped runtime evidence is cannot-test, never green: $($skipOutput | Out-String)"
+
+        $cleanupFixture = Join-Path $TestDrive 'cleanup-cli'
+        [void](New-Item -ItemType Directory -Path $cleanupFixture -Force)
+        Copy-Item -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Remove-ReviewRun.ps1') -Destination $cleanupFixture
+        @'
+function Finalize-ReviewPlanRun {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$RunId, [string]$PlanDir, [string]$Verdict)
+    return [pscustomobject]@{
+        RunId = $RunId; Verdict = $Verdict; Report = 'report'; Receipt = 'receipt'
+        Preview = $false; CleanupPending = $true; CleanupDiagnostic = 'access denied while deleting tombstone'
+    }
+}
+Export-ModuleMember -Function Finalize-ReviewPlanRun
+'@ | Set-Content -LiteralPath (Join-Path $cleanupFixture 'ReviewRun.psm1') -Encoding utf8NoBOM
+        $cleanupOutput = & pwsh -NoProfile -File (Join-Path $cleanupFixture 'Remove-ReviewRun.ps1') `
+            -RunId '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35' -PlanDir 'docs/implementation-plans/example' -Verdict blocked 2>&1
+        $LASTEXITCODE | Should -Be 4 -Because 'durable evidence with pending cleanup is retryable failure, not success'
+        ($cleanupOutput | Out-String) | Should -Match 'access denied while deleting tombstone'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

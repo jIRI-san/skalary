@@ -215,7 +215,7 @@ function Get-ReviewPathItem {
 function Set-ReviewRunFaultSeam {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][ValidateSet('after-canonical', 'after-summary', 'after-full', 'before-manifest-swap', 'during-lock', 'after-final-report', 'during-finalize-cleanup')][string]$Edge,
+        [Parameter(Mandatory)][ValidateSet('after-canonical', 'after-summary', 'after-full', 'before-manifest-swap', 'during-lock', 'after-final-report', 'during-finalize-cleanup', 'during-generic-cleanup')][string]$Edge,
         [ValidateSet('throw')][string]$Action = 'throw'
     )
     $script:FaultSeams[$Edge] = $Action
@@ -3436,6 +3436,54 @@ function Test-ReviewFinalizedPair {
         $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
 }
 
+function Get-ReviewCleanupMarker {
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$Verdict,
+        [Parameter(Mandatory)][object]$Material,
+        [Parameter(Mandatory)][string]$ReportPath,
+        [Parameter(Mandatory)][string]$ReceiptPath
+    )
+
+    return [ordered]@{
+        schema = 'skalary/review-cleanup@1'
+        runId = $RunId
+        verdict = $Verdict
+        report = [ordered]@{ name = [System.IO.Path]::GetFileName($ReportPath); bytes = $Material.ReportBytes.Length; digest = Get-ReviewDigest -Bytes $Material.ReportBytes }
+        receipt = [ordered]@{ name = [System.IO.Path]::GetFileName($ReceiptPath); bytes = $Material.ReceiptBytes.Length; digest = Get-ReviewDigest -Bytes $Material.ReceiptBytes }
+    }
+}
+
+function Read-ReviewCleanupMarker {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$Verdict,
+        [Parameter(Mandatory)][string]$ReportPath,
+        [Parameter(Mandatory)][string]$ReceiptPath,
+        [switch]$SkipPairValidation
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Cleanup marker is missing for '$RunId'." }
+    $marker = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable -Depth 10
+    if ($marker['schema'] -ne 'skalary/review-cleanup@1' -or $marker['runId'] -ne $RunId -or $marker['verdict'] -ne $Verdict) {
+        throw "Cleanup marker for '$RunId' has a different verdict or identity."
+    }
+    if ($SkipPairValidation) { return $marker }
+    foreach ($entry in @(@('report', $ReportPath), @('receipt', $ReceiptPath))) {
+        $role = [string]$entry[0]
+        $path = [string]$entry[1]
+        if ([string]$marker[$role]['name'] -ne [System.IO.Path]::GetFileName($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Cleanup marker '$role' is missing or names a different file."
+        }
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+        if ($marker[$role]['bytes'] -ne $bytes.Length -or $marker[$role]['digest'] -ne (Get-ReviewDigest -Bytes $bytes)) {
+            throw "Cleanup marker '$role' does not match retained evidence."
+        }
+    }
+    return $marker
+}
+
 function Finalize-ReviewPlanRun {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
@@ -3451,6 +3499,7 @@ function Finalize-ReviewPlanRun {
     $runDir = Join-Path $store $RunId
     $cleanupRoot = Join-Path $store '.cleanup'
     $cleanupDir = Join-Path $cleanupRoot $RunId
+    $cleanupMarkerPath = Join-Path $store ".$RunId.cleanup.json"
     $reportPath = Join-Path $store "$RunId.review.md"
     $receiptPath = Join-Path $store "$RunId.receipt.json"
     $lock = Enter-ReviewLock -RunDir $store -LockName ".$RunId.finalize.lock"
@@ -3458,23 +3507,34 @@ function Finalize-ReviewPlanRun {
         $liveExists = Test-Path -LiteralPath $runDir -PathType Container
         if (-not $liveExists) {
             if (Test-Path -LiteralPath $cleanupDir -PathType Container) {
-                $verified = Read-ReviewManifestForFinalization -RunDir $cleanupDir -Boundary $repoFull
-                $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
-                $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
-                    -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
-                if (-not $pairExists -and $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
-                    Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
-                    Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
+                [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict `
+                        -ReportPath $reportPath -ReceiptPath $receiptPath -SkipPairValidation)
+                $pairExists = $true
+                try {
+                    $verified = Read-ReviewManifestForFinalization -RunDir $cleanupDir -Boundary $repoFull
+                    $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
+                    $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
+                        -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
+                    if (-not $pairExists -and $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
+                        Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
+                        Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
+                    }
                 }
+                catch {
+                    [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
+                }
+                [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
                 $cleanupPending = $true
+                $cleanupDiagnostic = $null
                 if ($PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
                     try {
                         Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+                        Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
                         $cleanupPending = $false
                     }
-                    catch { $cleanupPending = $true }
+                    catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
                 }
-                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $WhatIfPreference; CleanupPending = $cleanupPending }
+                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $WhatIfPreference; CleanupPending = $cleanupPending; CleanupDiagnostic = $cleanupDiagnostic }
             }
             if (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath) {
                 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
@@ -3482,6 +3542,10 @@ function Finalize-ReviewPlanRun {
                     throw "Finalized review result '$RunId' has a different verdict or identity."
                 }
                 $cleanupPending = Test-Path -LiteralPath $cleanupDir -PathType Container
+                if (Test-Path -LiteralPath $cleanupMarkerPath -PathType Leaf) {
+                    [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
+                    try { Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop } catch { $cleanupPending = $true }
+                }
                 if ($cleanupPending -and $PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
                     try {
                         Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
@@ -3506,6 +3570,13 @@ function Finalize-ReviewPlanRun {
             }
 
             if (-not $pairExists) {
+                if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
+                    $existing = $null
+                    try { $existing = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20 } catch { }
+                    if ($null -ne $existing -and $existing['runId'] -eq $RunId -and $existing['verdict'] -ne $Verdict) {
+                        throw "Finalized review result '$RunId' has a different verdict."
+                    }
+                }
                 foreach ($path in @($reportPath, $receiptPath)) {
                     if (Test-Path -LiteralPath $path) { Assert-ReviewPathSafe -Path $path -Boundary $repoFull }
                 }
@@ -3521,18 +3592,22 @@ function Finalize-ReviewPlanRun {
         finally { Exit-ReviewLock -Lock $runLock }
 
         $cleanupPending = $false
+        $cleanupDiagnostic = $null
         try {
             if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
             if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
                 [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
             }
             Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
+            $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
+            Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
             Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
             Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
             Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+            Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
         }
-        catch { $cleanupPending = $true }
-        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $false; CleanupPending = $cleanupPending }
+        catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
+        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $false; CleanupPending = $cleanupPending; CleanupDiagnostic = $cleanupDiagnostic }
     }
     finally { Exit-ReviewLock -Lock $lock }
 }
@@ -3709,7 +3784,8 @@ function Remove-ReviewRunDirectory {
     if (-not $PSCmdlet.ShouldProcess($runDir, 'Remove verified generic review run recursively')) {
         return $RunId
     }
-    Remove-Item -LiteralPath $runDir -Recurse -Force
+    Invoke-ReviewFaultSeam -Edge 'during-generic-cleanup'
+    Remove-Item -LiteralPath $runDir -Recurse -Force -ErrorAction Stop
     return $RunId
 }
 

@@ -516,9 +516,12 @@ removed only after both compact files are durable. A cleanup failure returns dur
 live authority reconstructs the complete expected report and receipt and compares exact bytes; a
 partial or tampered pair is repaired before cleanup, including interruption between retained writes.
 Cleanup first atomically renames live authority to `.cleanup/<uuid>` (the UUID leaf keeps normal
-manifest identity verification valid), then recursively removes that tombstone with terminating
-errors. A partial recursive failure therefore cannot be rediscovered as an incomplete review and can
-converge from the verified tombstone on retry. Retrying the same verdict verifies the pair and converges cleanup. Historical
+manifest identity verification valid). Before the rename it atomically writes a stable cleanup marker
+binding run id, verdict, and both retained-file digests. It then recursively removes the tombstone with
+terminating errors. A partial recursive failure therefore cannot be rediscovered as an incomplete
+review and can converge from the marker plus retained pair even if the tombstone manifest was already
+deleted. Marker identity is checked before repair, so a different verdict cannot rewrite evidence.
+Cleanup diagnostics cross the CLI boundary with exit `4`. Retrying the same verdict verifies the pair and converges cleanup. Historical
 live bundles were compacted during migration, so production finalization now accepts only the current
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical
 evidence and require no production legacy verifier. Reader and cleanup exits remain `0`, `2`, or `4`.

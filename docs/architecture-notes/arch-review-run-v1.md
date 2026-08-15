@@ -28,7 +28,8 @@ report and receipt verify as an exact pair.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an
   interrupted pair before cleanup; cleanup atomically renames authority under `.cleanup/<uuid>` so a
-  partial delete remains verifiable and cannot be republished as an interrupted run.
+  partial delete cannot be republished as an interrupted run. A stable marker binds the retained pair
+  and verdict before rename, allowing partial deletion to converge without changing the verdict.
 - Generic published cleanup emits verified full bytes; force cleanup applies only to unpublished
   abandoned runs.
 

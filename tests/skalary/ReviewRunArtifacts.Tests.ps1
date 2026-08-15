@@ -597,6 +597,13 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $receipt.report.digest | Should -Be (Get-ReviewDigest -Bytes $reportBytes)
             $receipt.findings.severity.high | Should -Be 1
 
+            $retainedReportBefore = [System.IO.File]::ReadAllBytes($final.Report)
+            $retainedReceiptBefore = [System.IO.File]::ReadAllBytes($final.Receipt)
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*different verdict*'
+            [System.IO.File]::ReadAllBytes($final.Report) | Should -Be $retainedReportBefore
+            [System.IO.File]::ReadAllBytes($final.Receipt) | Should -Be $retainedReceiptBefore
+
             $tampered = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -AsHashtable -Depth 20
             $tampered['state'] = 'degraded'
             [System.IO.File]::WriteAllText($final.Receipt, (ConvertTo-ReviewCanonicalJson -Node $tampered), [System.Text.UTF8Encoding]::new($false))
@@ -608,6 +615,50 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             (Get-Content -LiteralPath $replay.Receipt -Raw | ConvertFrom-Json).state | Should -Be 'clean'
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
             Should -Throw -ExpectedMessage '*different verdict*'
+        }
+        finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.FinalizedResultCompaction converges from a partially deleted cleanup tombstone' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runId = [guid]::NewGuid().ToString()
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $runDir = Resolve-ReviewRunPreparation -RunId $runId -PlanDir $planDir -RepoRoot $scratch | Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $task = @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $runId -Roster @('model-a') -Tasks @($task))
+            (Invoke-ReviewFreeze -RunId $runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $run = New-ReviewTestRun -RunId $runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            (Invoke-ReviewPublish -RunId $runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            Set-ReviewRunFaultSeam -Edge 'during-finalize-cleanup'
+            $first = Finalize-ReviewPlanRun -RunId $runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch
+            Clear-ReviewRunFaultSeam
+            $first.CleanupPending | Should -BeTrue
+            $cleanupDir = Join-Path (Split-Path -Parent $runDir) ".cleanup/$runId"
+            Remove-Item -LiteralPath (Join-Path $cleanupDir 'review-run.manifest.json') -Force
+
+            $replay = Finalize-ReviewPlanRun -RunId $runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch
+            $replay.CleanupPending | Should -BeFalse
+            Test-Path -LiteralPath $cleanupDir | Should -BeFalse
+            Test-Path -LiteralPath $replay.Report | Should -BeTrue
+            Test-Path -LiteralPath $replay.Receipt | Should -BeTrue
+        }
+        finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection propagates generic cleanup failures' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            Set-ReviewRunFaultSeam -Edge 'during-generic-cleanup'
+            { Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch -RequirePublished:$false } |
+            Should -Throw -ExpectedMessage '*review-run-fault-seam:during-generic-cleanup*'
+            Test-Path -LiteralPath $runDir | Should -BeTrue
         }
         finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
     }
