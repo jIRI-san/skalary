@@ -129,9 +129,11 @@ the header rather than silently spending the credits.
 
 ## 7. After the reviewers return
 
-1. Collect every `## Findings (<Concern>)` section from every dispatched reviewer.
-2. Hand the typed findings to `Build-ReviewReport.ps1` and write the text it returns. The merge rule,
-   the dedup rule, the severity-elevation rule, and the sort order live in that script — never
-   re-derive them in prose.
-3. Map findings to review-ledger categories with [`concern-ledger-map.md`](concern-ledger-map.md)
+1. Keep every returned `## Findings (<Concern>)` section and every task outcome in memory.
+2. Never prime one reviewer with another result, suppress an independent dispatch, or dedupe before
+   publication.
+3. Follow `collation-guide.md`: write one result JSON input, Publish once, and read the verifying
+   summary. Rendering, merge, elevation, ordering, attendance, and artifact persistence belong to the
+   review-run engine — never re-derive them in prose.
+4. Map findings to review-ledger categories with [`concern-ledger-map.md`](concern-ledger-map.md)
    when harvesting; the map is deterministic, so harvest stops being a judgment call.

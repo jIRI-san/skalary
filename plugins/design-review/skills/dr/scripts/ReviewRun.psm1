@@ -87,15 +87,16 @@ $script:BundledSchemaPath = [ordered]@{
     'review-run.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
     'terminal-status.schema.json' = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
 }
+$script:BundledPlanStatePath = Join-Path $PSScriptRoot 'PlanState.psm1'
 $canonicalModulePath = [System.IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..' '..' 'scripts' 'skalary' 'ReviewRun.psm1')
 )
-$isCanonicalSource = [string]::Equals(
+$script:IsCanonicalSource = [string]::Equals(
     [System.IO.Path]::GetFullPath($PSCommandPath),
     $canonicalModulePath,
     [System.StringComparison]::OrdinalIgnoreCase
 )
-if (-not $isCanonicalSource) {
+if (-not $script:IsCanonicalSource) {
     $script:SchemaRoot = Join-Path $PSScriptRoot 'schemas/review'
     foreach ($schemaPath in $script:BundledSchemaPath.Values) {
         if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
@@ -1488,10 +1489,14 @@ function Import-ReviewPlanState {
     #>
     param([Parameter(Mandatory)][string]$RepoRoot)
 
-    $candidates = @(
-        (Join-Path ([System.IO.Path]::GetFullPath($RepoRoot)) (Join-Path 'scripts' (Join-Path 'skalary' 'PlanState.psm1')))
-        (Join-Path (Split-Path -Parent $PSCommandPath) 'PlanState.psm1')
-    )
+    $candidates = if ($script:IsCanonicalSource) {
+        @(
+            (Join-Path ([System.IO.Path]::GetFullPath($RepoRoot)) (Join-Path 'scripts' (Join-Path 'skalary' 'PlanState.psm1')))
+        )
+    }
+    else {
+        @($script:BundledPlanStatePath)
+    }
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
             Import-Module $candidate -Force -DisableNameChecking

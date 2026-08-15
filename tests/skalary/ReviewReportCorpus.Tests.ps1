@@ -9,9 +9,9 @@ $ErrorActionPreference = 'Stop'
 #
 # The corpus is committed as the *input* that produces that report — a frozen plan and a
 # `skalary/review-run@1` envelope — rather than as a second copy of the Markdown. That is what makes
-# it useful to step 1.2, and it is not taken on trust: the first case below renders the committed
-# envelope through the unchanged `Build-ReviewReport.ps1` and requires the bytes to come back
-# identical to the archived file. A reconstruction that got any visible field wrong cannot pass it.
+# it useful to step 1.2. The archived legacy bytes and their normalization receipt remain pinned as
+# historical evidence after step 2.2 retires the object formatter; production rendering is proved
+# independently against the new-layout goldens below.
 #
 # Step 1.1 owns data and layout, not the production renderer. The two new views therefore have
 # committed byte goldens — `new-layout.summary.golden.md` and `new-layout.full.golden.md` — derived
@@ -22,7 +22,6 @@ $ErrorActionPreference = 'Stop'
 Describe 'review report corpus' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
-        $script:formatter = Join-Path $script:repoRoot 'scripts/skalary/Build-ReviewReport.ps1'
         $script:corpusRoot = Join-Path $PSScriptRoot 'fixtures/review-run/corpus'
 
         function Script:Read-Json {
@@ -83,92 +82,8 @@ Describe 'review report corpus' {
             return (ConvertTo-Json -InputObject $reordered -Depth 40 | ConvertFrom-Json -AsHashtable -Depth 40)
         }
 
-        # The legacy call shape, derived from the envelope: concern and model come from the task the
-        # finding names, which is exactly the attribution REQ-4 moves onto the frozen plan.
         $script:taskById = @{}
         foreach ($task in @($script:run.tasks)) { $script:taskById[[string]$task.taskId] = $task }
-
-        $script:legacyFindings = @(foreach ($finding in @($script:run.findings)) {
-                $task = $script:taskById[[string]$finding.taskId]
-                [pscustomobject]@{
-                    Concern = [string]$task.concern
-                    Model = [string]$task.model
-                    Severity = [string]$finding.severity
-                    Title = [string]$finding.title
-                    Body = $(if ($finding.Contains('body')) { [string]$finding.body } else { '' })
-                    References = $(if ($finding.Contains('references')) { @($finding.references) } else { @() })
-                    RootCause = [string]$finding.rootCause
-                    Component = [string]$finding.component
-                }
-            })
-
-        function Script:Invoke-Formatter {
-            param([object[]]$Finding = $script:legacyFindings)
-
-            return & $script:formatter -Finding $Finding -Model @($script:run.roster) `
-                -Scope ([string]$script:run.scope) -ReportTitle 'Code Review' `
-                -InvocationCount @($script:run.tasks).Count -InvocationBudget ([int]$script:run.invocationBudget)
-        }
-
-        function Script:ConvertFrom-RenderedReport {
-            <#
-            .SYNOPSIS
-                The observable semantics of one rendered report: order, title, severity, elevation,
-                concerns, models, bodies, references and the recommendation action.
-            #>
-            param([Parameter(Mandatory)][string]$Text)
-
-            $entries = [System.Collections.Generic.List[object]]::new()
-            $actions = @{}
-            $current = $null
-            $inRecommendations = $false
-
-            foreach ($line in (($Text -replace "`r`n", "`n") -split "`n")) {
-                if ($line -match '^## Recommendations\s*$') {
-                    if ($current) { $entries.Add($current); $current = $null }
-                    $inRecommendations = $true
-                    continue
-                }
-                if ($inRecommendations) {
-                    if ($line -match '^\d+\. \*\*\[\w+\] (?<title>.+?)\*\* [-\u2014] (?<action>.+)$') {
-                        $actions[$Matches['title']] = $Matches['action']
-                    }
-                    continue
-                }
-                if ($line -match '^### \[(?<n>\d+)\] (?<title>.+)$') {
-                    if ($current) { $entries.Add($current) }
-                    $current = [pscustomobject]@{
-                        Order = [int]$Matches['n']
-                        Title = $Matches['title']
-                        Severity = $null
-                        Elevated = $false
-                        Concerns = @()
-                        Models = @()
-                        Bodies = [System.Collections.Generic.List[string]]::new()
-                        References = @()
-                    }
-                    continue
-                }
-                if ($null -eq $current) { continue }
-                if ($line -match '^\| \*\*Severity\*\* \| (?<severity>\w+)(?<elevated> \([^|]*elevated[^|]*\))? \|$') {
-                    $current.Severity = $Matches['severity']
-                    $current.Elevated = $Matches.ContainsKey('elevated')
-                    continue
-                }
-                if ($line -match '^\| \*\*Concerns\*\* \| (?<value>.+) \|$') { $current.Concerns = @($Matches['value'] -split ' · '); continue }
-                if ($line -match '^\| \*\*Models\*\* \| (?<value>.+) \|$') { $current.Models = @($Matches['value'] -split ' · '); continue }
-                if ($line -match '^\*\*References:\*\* (?<value>.+)$') { $current.References = @($Matches['value'] -split ' · '); continue }
-                if ($line -match '^\|' -or $line -match '^---\s*$' -or [string]::IsNullOrWhiteSpace($line)) { continue }
-                if ($line -match '^_Also noted:_ (?<value>.+)$') { $current.Bodies.Add($Matches['value']); continue }
-                $current.Bodies.Add($line)
-            }
-            if ($current) { $entries.Add($current) }
-
-            foreach ($entry in $entries) {
-                Add-Member -InputObject $entry -NotePropertyName 'Action' -NotePropertyValue ([string]$actions[$entry.Title])
-            }
-            return $entries.ToArray()
-        }
     }
 
     It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change bytes of the review the corpus stands for' {
@@ -196,50 +111,25 @@ Describe 'review report corpus' {
         @($script:golden.groups).Count | Should -Be ([int]$script:provenance.reconstruction.mergedFindings)
     }
 
-    It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the committed corpus back to the archived report byte for byte' {
-        $rendered = Invoke-Formatter
-
-        # The archived copy carries two normalizations, both recorded in the provenance file: its em
-        # dashes were flattened to hyphens, and it ends with one more newline than the formatter
-        # emits. Everything else must be identical, which is what makes this corpus the real one.
-        $normalized = ($rendered -replace [string][char]0x2014, '-') + "`n"
+    It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the archived report normalization receipt after legacy retirement' {
         $archived = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($script:archivedPath)) -replace "`r`n", "`n"
 
-        $normalized | Should -Be $archived
-        [System.Text.Encoding]::UTF8.GetByteCount($normalized) | Should -Be ([int]$script:provenance.renderedComparison.bytes)
-        (Get-Sha256 -Bytes ([System.Text.Encoding]::UTF8.GetBytes($normalized))) |
+        [System.Text.Encoding]::UTF8.GetByteCount($archived) | Should -Be ([int]$script:provenance.renderedComparison.bytes)
+        (Get-Sha256 -Bytes ([System.Text.Encoding]::UTF8.GetBytes($archived))) |
             Should -Be ([string]$script:provenance.renderedComparison.sha256)
         @($script:provenance.renderedComparison.normalizations).Count | Should -Be 2
     }
 
     It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change semantic projection of every merged finding' {
-        $rendered = Invoke-Formatter
-        $observed = @(ConvertFrom-RenderedReport -Text $rendered)
         $groups = @($script:golden.groups)
 
-        $observed.Count | Should -Be $groups.Count
-        $observed.Count | Should -Be 44
+        $groups.Count | Should -Be 44
+        @($groups | ForEach-Object { [int]$_.order }) | Should -Be (1..44)
+        @($groups | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.title) }) |
+            Should -BeNullOrEmpty
 
-        $failures = [System.Collections.Generic.List[string]]::new()
-        for ($i = 0; $i -lt $groups.Count; $i++) {
-            $expected = $groups[$i]
-            $actual = $observed[$i]
-
-            # Order is part of the contract, so the comparison is positional rather than by title.
-            if ([int]$expected.order -ne $actual.Order) { $failures.Add("order $($expected.order) rendered at $($actual.Order)") }
-            if ([string]$expected.title -ne $actual.Title) { $failures.Add("title at $($expected.order): '$($actual.Title)'") }
-            if ([string]$expected.severity -ne $actual.Severity) { $failures.Add("severity at $($expected.order): '$($actual.Severity)'") }
-            if ([bool]$expected.elevated -ne $actual.Elevated) { $failures.Add("elevation at $($expected.order): $($actual.Elevated)") }
-            if ((@($expected.concerns) -join '|') -ne (@($actual.Concerns) -join '|')) { $failures.Add("concerns at $($expected.order)") }
-            if ((@($expected.models) -join '|') -ne (@($actual.Models) -join '|')) { $failures.Add("models at $($expected.order)") }
-            if ((@($expected.references) -join '|') -ne (@($actual.References) -join '|')) { $failures.Add("references at $($expected.order)") }
-            if ((@($expected.bodies) -join '|') -ne (@($actual.Bodies) -join '|')) { $failures.Add("bodies at $($expected.order)") }
-            if ([string]$expected.action -ne $actual.Action) { $failures.Add("action at $($expected.order)") }
-        }
-        $failures -join '; ' | Should -BeNullOrEmpty
-
-        # The grouping key is not rendered, so it is pinned from the input side: the key each raw
-        # finding computes under the pre-change rules, and the members that key collects.
+        # Pin the old semantic projection from the authoritative input side: the key each raw finding
+        # computes and the members, attribution, severity, and selection facts that key collects.
         $membersByKey = @{}
         foreach ($finding in @($script:run.findings)) {
             $key = (Get-NormalizedKey -Value ([string]$finding.rootCause)) + [string][char]1 +
@@ -276,7 +166,8 @@ Describe 'review report corpus' {
     }
 
     It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization returns identical bytes across culture, platform and input order' {
-        $reference = Invoke-Formatter
+        $referenceSummary = New-ReviewSummaryView -Run $script:run
+        $referenceFull = New-ReviewFullView -Run $script:run
 
         # Ordinal sorting is the whole reason the formatter does not use Sort-Object. A Turkish
         # locale changes what `i` compares to and a Czech one reorders whole letters, so a report
@@ -288,7 +179,8 @@ Describe 'review report corpus' {
             foreach ($culture in @('tr-TR', 'cs-CZ', 'de-DE', '')) {
                 [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::new($culture)
                 [System.Threading.Thread]::CurrentThread.CurrentUICulture = [System.Globalization.CultureInfo]::new($culture)
-                (Invoke-Formatter) | Should -Be $reference -Because "the report must not depend on the '$culture' culture"
+                (New-ReviewSummaryView -Run $script:run) | Should -Be $referenceSummary
+                (New-ReviewFullView -Run $script:run) | Should -Be $referenceFull
             }
         }
         finally {
@@ -296,13 +188,15 @@ Describe 'review report corpus' {
             [System.Threading.Thread]::CurrentThread.CurrentUICulture = $originalUiCulture
         }
 
-        # Reviewers return in whatever order they finish in; the artifact must not.
-        $shuffled = @($script:legacyFindings[($script:legacyFindings.Count - 1)..0])
-        (Invoke-Formatter -Finding $shuffled) | Should -Be $reference
+        $shuffled = Get-ShuffledRun
+        (New-ReviewSummaryView -Run $shuffled) | Should -Be $referenceSummary
+        (New-ReviewFullView -Run $shuffled) | Should -Be $referenceFull
 
         # Platform: LF, no BOM, no carriage return, on either operating system.
-        $reference | Should -Not -Match "`r"
-        $reference | Should -Not -Match "`u{feff}"
+        $referenceSummary | Should -Not -Match "`r"
+        $referenceSummary | Should -Not -Match "`u{feff}"
+        $referenceFull | Should -Not -Match "`r"
+        $referenceFull | Should -Not -Match "`u{feff}"
         foreach ($name in @('gate-10.7-cr-branch.plan.json', 'gate-10.7-cr-branch.run.json',
                 'gate-10.7-cr-branch.legacy-projection.golden.json', 'gate-10.7-cr-branch.provenance.json',
                 'new-layout.expectation.json', 'new-layout.summary.golden.md', 'new-layout.full.golden.md')) {
@@ -617,11 +511,11 @@ Describe 'review report corpus' {
                 Should -BeTrue -Because "$present is a step 1.2 deliverable"
         }
 
-        # Build-ReviewReport.ps1 now exposes Freeze/Publish beside the legacy object formatter, and
-        # still performs no file I/O of its own — the module owns every write.
-        $formatterText = Get-Content -LiteralPath $script:formatter -Raw
+        # Build-ReviewReport.ps1 is now only the fixed Freeze/Publish CLI; the module owns every write.
+        $formatterText = Get-Content -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Build-ReviewReport.ps1') -Raw
         $formatterText | Should -Match '(?i)\bFreeze\b'
         $formatterText | Should -Match '(?i)\bPublish\b'
+        $formatterText | Should -Not -Match '(?i)ParameterSetName\s*=\s*''Legacy''|-Finding\b'
         $formatterText | Should -Not -Match '(?i)\b(Out-File|Set-Content|Add-Content|New-Item|Remove-Item|WriteAllText|WriteAllLines|Export-Csv)\b'
 
         # The reference renderer stays a test-only fixture that performs no file I/O.

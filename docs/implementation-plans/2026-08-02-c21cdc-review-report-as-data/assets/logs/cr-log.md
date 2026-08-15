@@ -39,3 +39,7 @@ Phase: 2
 - [2.1] [src:code-review] [sev:High] Installed engine selected an unrelated parent schemas/review directory before bundled sidecars; restrict schema resolution to recognized skill bundle layouts.
 - [2.1] [src:code-review] [sev:Low] Schema-root detection keyed on a parent folder named skills and could misclassify a canonical checkout; compare the module path to the canonical source layout instead.
 - [2.1] [src:code-review] [sev:Low] Recursive stale cleanup could remove nested PowerShell files outside the sidecar grammar; recurse only under the managed schemas/review subtree.
+- [2.2] [src:code-review] [sev:High] Installed plan runs preferred repository scripts/skalary/PlanState.psm1 over the bundled module, allowing repository-controlled code execution through the approved writer.
+- [2.2] [src:code-review] [sev:Med] Set-ScriptApproval recognized object-valued rules only on one line, so formatted JSONC rules could duplicate on add and survive remove.
+- [2.2] [src:code-review] [sev:Med] The corpus regenerator still called the retired -Finding API after writing partial fixtures; move historical bytes to the archived authority and keep v1 rendering in the golden generator.
+- [2.2] [src:code-review] [sev:Med] Appending approvals after a final multiline object without a comma could produce invalid JSONC; normalize the separator from parsed entry spans.

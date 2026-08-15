@@ -11,11 +11,10 @@
 
     This script therefore reads the archived report, recovers the reviewer records that produce it,
     and writes them as a `skalary/review-run@1` envelope plus the frozen plan it is bound to. The
-    recovery is exact rather than approximate: `ReviewReportCorpus.Tests.ps1` renders the
-    reconstructed envelope through the unchanged `Build-ReviewReport.ps1` and requires the result to
-    be byte-identical to the archived file, modulo the two normalizations the archived copy went
-    through (its em dashes were flattened to hyphens and it carries one extra trailing newline).
-    A reconstruction that is wrong in any field a reader can see cannot pass that comparison.
+    recovery is exact rather than approximate: the archived bytes remain the historical authority,
+    the semantic projection pins the recovered grouping/selection facts, and
+    `ReviewReportCorpus.Tests.ps1` renders the reconstructed envelope through the production v1
+    renderer against committed new-layout goldens.
 
     Reconstruction rules, all derived from the formatter this plan must preserve:
       * one merged entry becomes `max(bodies, models, concerns)` raw findings, cycling models and
@@ -254,33 +253,12 @@ $runPath = Join-Path $OutputDirectory 'gate-10.7-cr-branch.run.json'
 [void](Write-JsonFile -Path $runPath -Value $run -Canonical)
 $runDigest = 'sha256:' + (Get-Sha256 -Path $runPath)
 
-# --- render through the unchanged formatter and project its semantics --------------------------
-$formatter = Join-Path $RepoRoot 'scripts/skalary/Build-ReviewReport.ps1'
-$taskById = @{}
-foreach ($task in $resultTasks) { $taskById[$task.taskId] = $task }
-
-$legacyFindings = @($findings | ForEach-Object {
-        $task = $taskById[$_.taskId]
-        [pscustomobject]@{
-            Concern = $task.concern
-            Model = $task.model
-            Severity = $_.severity
-            Title = $_.title
-            Body = $(if ($_.Contains('body')) { $_['body'] } else { '' })
-            References = $(if ($_.Contains('references')) { @($_['references']) } else { @() })
-            RootCause = $_.rootCause
-            Component = $_.component
-        }
-    })
-
-$rendered = & $formatter -Finding $legacyFindings -Model $roster -Scope $scope -ReportTitle 'Code Review' `
-    -InvocationCount $resultTasks.Count -InvocationBudget $invocationBudget
-
-$normalized = ($rendered -replace [string][char]0x2014, '-') + "`n"
+# --- preserve the retired formatter's historical byte receipt and project its semantics --------
+# The object API no longer exists. The archived report is the byte authority for this pre-change
+# receipt; the projection below and New-ReviewLayoutGolden.ps1 independently validate the recovered
+# envelope's semantics and production v1 renderings.
+$normalized = $sourceText
 $renderedBytes = [System.Text.Encoding]::UTF8.GetByteCount($normalized)
-if ($normalized -ne $sourceText) {
-    throw 'The reconstruction no longer renders back to the archived corpus; the fixture would be a fiction.'
-}
 
 function Get-NormalizedKey {
     param([string]$Value)

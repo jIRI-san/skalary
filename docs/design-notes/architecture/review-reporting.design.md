@@ -533,3 +533,24 @@ Focused suites, one evidence id each, all in-process except the budget child:
 `test:ReviewReport.EncodingExitDiagnosticAndLockContract`,
 `test:ReviewReport.MaximumEnvelopeBudget`. The legacy `Build-ReviewReport.ps1` object formatter and its
 `b0c0d3` tests stay green; the object API is retired only in the phase 2 caller migration (REQ-13).
+
+## CR/DR caller adoption (step 2.2)
+
+The legacy `-Finding`/`-Model` parameter set and its generated `[pscustomobject]` examples are gone.
+CR and DR share one lifecycle asset: finalize frozen orphans as cancelled, Freeze the complete task
+matrix before dispatch, dispatch independently with no prior-result priming or suppression, retain
+results in memory, Publish once, then read through the digest-verifying reader. Plan runs preserve
+their manifest and generations; generic runs use the cleanup helper only after summary delivery.
+
+The orchestrator agents add `edit`, but their absolute rule permits only
+`.review-plan.input.tmp` and `.review-result.input.tmp` under their computed UUID root. Fixed inputs
+appear only through the local atomic rename. Terminal text contains paths/UUIDs, never reviewer data.
+Every concern reviewer redacts suspected credential values before return, and the engine remains the
+independent fail-closed secret guard for both generic and plan-associated inputs.
+
+Terminal handling is complete: `0` clean; `5` published degraded and propagated after delivery; `2`
+invalid; `3` terminal for the UUID and followed by a new narrower-scope Freeze/dispatch rather than
+mutation; `4` retryable only with identical input after the publication fault is corrected. The two
+writer approvals are anchored full-command regex keys with object values
+`{"approve":true,"matchCommandLine":true}`; no prefix approval can authorize extra writer flags or a
+chained command.

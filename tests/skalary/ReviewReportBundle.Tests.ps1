@@ -3,49 +3,27 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Plan b0c0d3 REQ-18: report collation is a script both review types call, not prose each of them
-# re-derives. These tests pin the two halves of that: the script is actually installed with each
-# skill, and neither orchestrator describes the layout it produces.
-Describe 'Build-ReviewReport bundling and callers' {
+Describe 'review-run consumer distribution and callers' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
-        $script:sourceScript = Join-Path $script:repoRoot 'scripts/skalary/Build-ReviewReport.ps1'
-
         $script:reviews = @(
-            [pscustomobject]@{ Id = 'cr'; Plugin = 'code-review'; ReportTitle = 'Code Review' }
-            [pscustomobject]@{ Id = 'dr'; Plugin = 'design-review'; ReportTitle = 'Design Review' }
+            [pscustomobject]@{ Id = 'cr'; Plugin = 'code-review'; Type = 'code' }
+            [pscustomobject]@{ Id = 'dr'; Plugin = 'design-review'; Type = 'design' }
         )
 
         function Script:Get-Text {
             param([Parameter(Mandatory)][string]$Relative)
             $path = Join-Path $script:repoRoot $Relative
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Expected file not found: $Relative" }
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Expected file not found: $Relative"
+            }
             return [System.IO.File]::ReadAllText($path)
         }
-    }
 
-    It 'test:build-reviewreport-bundled ships the formatter with both review skills, declared and registered' {
-        $sourceText = [System.IO.File]::ReadAllText($script:sourceScript)
-        $registry = Get-Text -Relative 'registry.json' | ConvertFrom-Json -Depth 100
-
-        foreach ($review in $script:reviews) {
-            $relative = "plugins/$($review.Plugin)/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
-
-            # Bundled by Sync-PluginScripts, so the copy must be byte-identical to its canonical
-            # source; a hand-edited copy is a second formatter with the same name.
-            (Get-Text -Relative $relative) | Should -Be $sourceText
-            (Get-Text -Relative ".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1") | Should -Be $sourceText
-
-            $manifest = Get-Text -Relative "plugins/$($review.Plugin)/plugin.json" | ConvertFrom-Json -Depth 50
-            @($manifest.files | ForEach-Object { [string]$_.dest }) |
-                Should -Contain "skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
-
-            # Consumer installs resolve against the registry, so an unregistered bundle is a
-            # collation step that fails on every installed repo.
-            $plugin = @($registry.plugins | Where-Object { [string]$_.name -eq $review.Plugin })
-            $plugin.Count | Should -Be 1
-            @($plugin[0].files | ForEach-Object { [string]$_.dest }) |
-                Should -Contain "skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
+        function Script:Write-JsonNoBom {
+            param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Object)
+            $json = (ConvertTo-Json -InputObject $Object -Depth 30 -Compress) + "`n"
+            [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
         }
     }
 
@@ -54,6 +32,7 @@ Describe 'Build-ReviewReport bundling and callers' {
         $closure = @(
             'Build-ReviewReport.ps1'
             'Get-ReviewRun.ps1'
+            'PlanState.psm1'
             'Remove-ReviewRun.ps1'
             'ReviewRun.psm1'
             'schemas/review/review-limits.schema.json'
@@ -76,10 +55,9 @@ Describe 'Build-ReviewReport bundling and callers' {
                     Join-Path $script:repoRoot "scripts/skalary/$relative"
                 }
                 $pluginRelative = "skills/$($review.Id)/scripts/$relative"
-                $plugin = Join-Path $script:repoRoot "plugins/$($review.Plugin)/$pluginRelative"
-                $dogfood = Join-Path $script:repoRoot ".github/$pluginRelative"
-
-                foreach ($copy in @($plugin, $dogfood)) {
+                foreach ($copy in @(
+                        (Join-Path $script:repoRoot "plugins/$($review.Plugin)/$pluginRelative"),
+                        (Join-Path $script:repoRoot ".github/$pluginRelative"))) {
                     Test-Path -LiteralPath $copy -PathType Leaf | Should -BeTrue
                     (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
                         Should -Be (Get-FileHash -LiteralPath $canonical -Algorithm SHA256).Hash
@@ -93,97 +71,194 @@ Describe 'Build-ReviewReport bundling and callers' {
         }
     }
 
-    It 'test:build-reviewreport-bundled makes both orchestrators call the formatter and write what it returns' {
-        foreach ($review in $script:reviews) {
-            foreach ($tree in @("plugins/$($review.Plugin)/skills/$($review.Id)", ".github/skills/$($review.Id)")) {
-                $skill = Get-Text -Relative "$tree/SKILL.md"
-                $scriptPath = ".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
+    It 'test:ReviewReport.SharedCallerExitIndependenceAndAbandonment pins one lifecycle for both callers' {
+        $crGuide = Get-Text -Relative 'plugins/code-review/skills/cr/assets/collation-guide.md'
+        $drGuide = Get-Text -Relative 'plugins/design-review/skills/dr/assets/collation-guide.md'
+        $drGuide | Should -Be $crGuide
 
-                # The findings are objects, so the documented call must keep them in-process:
-                # `pwsh -File` binds every argument as a string and the script fails loud on the
-                # first finding. Pin the working form, not just the script name.
-                $skill | Should -Match ([regex]::Escape("& $scriptPath"))
-                $skill | Should -Not -Match ([regex]::Escape("-File $scriptPath"))
-                $skill | Should -Match '-Finding\s+\$findings'
-                $skill | Should -Match '-Model\s+\$roster'
-                $skill | Should -Match ([regex]::Escape("-ReportTitle '$($review.ReportTitle)'"))
-                # The returned text is the report: transcribing or reformatting it would reintroduce
-                # exactly the per-run drift the script removes.
-                $skill | Should -Match 'returns\s+\*\*verbatim\*\*'
+        foreach ($required in @(
+                'Get-ReviewRun\.ps1 -ListIncomplete',
+                'orchestrator-interrupted',
+                'Freeze before dispatch',
+                'Dispatch every frozen task exactly once',
+                'Do not show one reviewer''s output to another reviewer',
+                'Publish once',
+                '\| `0` \|',
+                '\| `5` \|',
+                '\| `2` \|',
+                '\| `3` \|',
+                '\| `4` \|',
+                'new UUID',
+                'narrower scope',
+                'review-run\.manifest\.json',
+                'Remove-ReviewRun\.ps1')) {
+            $crGuide | Should -Match $required
+        }
+        $crGuide.IndexOf('Freeze before dispatch') | Should -BeLessThan $crGuide.IndexOf('Independent dispatch')
+
+        foreach ($review in $script:reviews) {
+            $skill = Get-Text -Relative "plugins/$($review.Plugin)/skills/$($review.Id)/SKILL.md"
+            $agent = Get-Text -Relative "plugins/$($review.Plugin)/agents/$($review.Id).agent.md"
+            $skill | Should -Match 'finalize every earlier frozen orphan'
+            $skill | Should -Match 'Freeze exactly once'
+            $skill | Should -Match 'Do not include any prior reviewer''s result'
+            $skill | Should -Match 'retain all\s+outputs/outcomes in memory'
+            $skill | Should -Not -Match '(?i)-Finding|\[pscustomobject\]|pwsh\s+-NoProfile\s+-Command'
+            $agent | Should -Match '(?m)^tools:.*\bedit\b'
+            $agent | Should -Match 'Absolute edit rule'
+            $agent | Should -Match 'only the two computed review-run temporary JSON inputs'
+
+            foreach ($concern in Get-ChildItem -LiteralPath (Join-Path $script:repoRoot "plugins/$($review.Plugin)/agents") `
+                    -File -Filter "$($review.Id)-*.agent.md") {
+                [System.IO.File]::ReadAllText($concern.FullName) |
+                    Should -Match 'Never reproduce a suspected credential value'
             }
         }
     }
 
-    It 'test:build-reviewreport-bundled round-trips typed findings through each bundled copy' {
-        # The documented call is only useful if objects survive it. Execute the bundled copy the way
-        # the skill says to, with the object shape the collation guide defines.
-        $findings = @(
-            [pscustomobject]@{ Concern = 'security'; Model = 'Model A'; Severity = 'High'
-                Title = 'Unvalidated path'; Body = 'Path is not confined.'; References = 'src/a.ps1' }
-            [pscustomobject]@{ Concern = 'correctness-reliability'; Model = 'Model B'; Severity = 'High'
-                Title = 'Unvalidated path'; Body = 'Same root cause.'; References = 'src/a.ps1' }
-        )
-
+    It 'test:ReviewReport.ConsumerInstallInvocation freezes, publishes, reads, and cleans through each isolated install' {
         foreach ($review in $script:reviews) {
-            $bundled = Join-Path $script:repoRoot ".github/skills/$($review.Id)/scripts/Build-ReviewReport.ps1"
-            $text = & $bundled -Finding $findings -Model @('Model A', 'Model B') -Scope 'unit test' `
-                -ReportTitle $review.ReportTitle -InvocationCount 2
+            $fixture = Join-Path ([System.IO.Path]::GetTempPath()) (
+                "review-consumer-$($review.Id)-" + [guid]::NewGuid().ToString('N')
+            )
+            try {
+                New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+                git init -q $fixture 2>$null | Out-Null
+                $installed = Join-Path $fixture ".github/skills/$($review.Id)/scripts"
+                New-Item -ItemType Directory -Path $installed -Force | Out-Null
+                Copy-Item -Path (Join-Path $script:repoRoot "plugins/$($review.Plugin)/skills/$($review.Id)/scripts/*") `
+                    -Destination $installed -Recurse
 
-            $text | Should -Match ([regex]::Escape("## $($review.ReportTitle)"))
-            $text | Should -Match 'Unvalidated path'
-            # Both models flagged one root cause: it merges to a single entry and elevates.
-            @([regex]::Matches($text, '(?m)^###\s*\[\d+\]')).Count | Should -Be 1
-            $text | Should -Match 'Critical'
+                $runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+                $planArgs = @()
+                if ($review.Id -eq 'dr') {
+                    $planDir = Join-Path $fixture 'docs/implementation-plans/2026-01-01-abc123-consumer'
+                    $hostileModuleDir = Join-Path $fixture 'scripts/skalary'
+                    New-Item -ItemType Directory -Path $hostileModuleDir -Force | Out-Null
+                    Set-Content -LiteralPath (Join-Path $hostileModuleDir 'PlanState.psm1') `
+                        -Value "throw 'repository PlanState must not execute from an installed review bundle'" `
+                        -Encoding utf8NoBOM
+                    New-Item -ItemType Directory -Path (Join-Path $planDir 'assets') -Force | Out-Null
+                    Set-Content -LiteralPath (Join-Path $planDir 'plan.md') `
+                        -Value "# abc123: Consumer`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
+                    Set-Content -LiteralPath (Join-Path $planDir 'assets/requirements.md') `
+                        -Value "# Requirements`n`n| ID | Requirement | Acceptance Criteria | Phases/Steps |`n|---|---|---|---|`n| REQ-1 | Test | Test | 1.1 |`n" -Encoding utf8NoBOM
+                    $runDir = Join-Path $planDir "assets/reviews/$runId"
+                    $planArgs = @('-PlanDir', $planDir)
+                }
+                else {
+                    $runDir = Join-Path $fixture ".github/.skalary/review-runs/$runId"
+                }
+                New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+                $plan = [ordered]@{
+                    schema = 'skalary/review-plan@1'
+                    runId = $runId
+                    reviewType = $review.Type
+                    scope = 'isolated consumer invocation'
+                    roster = @('model-a')
+                    invocationBudget = 28
+                    tasks = @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' })
+                }
+                $planTmp = Join-Path $runDir '.review-plan.input.tmp'
+                Write-JsonNoBom -Path $planTmp -Object $plan
+                [System.IO.File]::Move($planTmp, (Join-Path $runDir 'review-plan.input.json'), $true)
+
+                $cli = Join-Path $installed 'Build-ReviewReport.ps1'
+                $status = & pwsh -NoProfile -File $cli -Mode Freeze -RunId $runId @planArgs | ConvertFrom-Json
+                $LASTEXITCODE | Should -Be 0
+                $status.exitCode | Should -Be 0
+                $digest = ([System.IO.File]::ReadAllText((Join-Path $runDir '.review-run.frozen'))).Trim()
+
+                $run = [ordered]@{
+                    schema = 'skalary/review-run@1'
+                    runId = $runId
+                    reviewType = $review.Type
+                    scope = 'isolated consumer invocation'
+                    roster = @('model-a')
+                    invocationBudget = 28
+                    planDigest = $digest
+                    tasks = @(@{
+                            taskId = 'security-m1'
+                            concern = 'security'
+                            model = 'model-a'
+                            outcome = 'completed'
+                        })
+                    findings = @()
+                }
+                $resultTmp = Join-Path $runDir '.review-result.input.tmp'
+                Write-JsonNoBom -Path $resultTmp -Object $run
+                [System.IO.File]::Move($resultTmp, (Join-Path $runDir 'review-result.input.json'), $true)
+
+                $status = & pwsh -NoProfile -File $cli -Mode Publish -RunId $runId @planArgs | ConvertFrom-Json
+                $LASTEXITCODE | Should -Be 0
+                $status.exitCode | Should -Be 0
+                $summary = & pwsh -NoProfile -File (Join-Path $installed 'Get-ReviewRun.ps1') -RunId $runId @planArgs
+                $LASTEXITCODE | Should -Be 0
+                ($summary -join "`n") | Should -Match 'Merged findings \(0 of 0 raw\)[\s\S]*None\.'
+                if ($review.Id -eq 'cr') {
+                    & pwsh -NoProfile -File (Join-Path $installed 'Remove-ReviewRun.ps1') -RunId $runId *> $null
+                    $LASTEXITCODE | Should -Be 0
+                    Test-Path -LiteralPath $runDir | Should -BeFalse
+                }
+                else {
+                    Test-Path -LiteralPath (Join-Path $runDir 'review-run.manifest.json') -PathType Leaf |
+                        Should -BeTrue -Because 'plan-associated authority is preserved for commit and evidence'
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
-    It 'test:build-reviewreport-bundled leaves the report layout to the script, never to prose' {
-        # Every markdown surface a review run reads: skills, their assets, the agent shims, and the
-        # prompts. If any of them re-describes the layout, two definitions exist and only one is tested.
-        $surfaces = [System.Collections.Generic.List[string]]::new()
+    It 'test:ReviewReport.AtomicLegacyRetirement removes the object API only after both consumers are installed' {
+        $writer = Get-Text -Relative 'scripts/skalary/Build-ReviewReport.ps1'
+        $writer | Should -Not -Match '(?i)ParameterSetName\s*=\s*''Legacy''|-Finding\b|-Model\b|InvocationCount|ReportTitle'
+        $writer | Should -Match '\[ValidateSet\(''Freeze'', ''Publish''\)\]'
+        Test-Path -LiteralPath (Join-Path $script:repoRoot 'tests/skalary/Build-ReviewReport.Tests.ps1') |
+            Should -BeFalse
+
+        foreach ($review in $script:reviews) {
+            foreach ($tree in @(
+                    "plugins/$($review.Plugin)/skills/$($review.Id)",
+                    ".github/skills/$($review.Id)")) {
+                foreach ($file in Get-ChildItem -LiteralPath (Join-Path $script:repoRoot $tree) -Recurse -File) {
+                    if ($file.Extension -notin @('.md', '.ps1')) { continue }
+                    $text = [System.IO.File]::ReadAllText($file.FullName)
+                    $text | Should -Not -Match '(?i)-Finding\b|generated\s+\[pscustomobject\]|pwsh\s+-NoProfile\s+-Command'
+                }
+            }
+        }
+    }
+
+    It 'keeps report layout in the renderer, never in caller prose' {
+        $patterns = @(
+            '###\s*\[\d+\]',
+            '\|\s*\*\*Severity\*\*\s*\|',
+            '(?m)^##\s+Recommendations\s*$',
+            'Repeat for each finding'
+        )
         foreach ($review in $script:reviews) {
             foreach ($root in @("plugins/$($review.Plugin)", '.github')) {
                 foreach ($candidate in @(
-                        "$root/skills/$($review.Id)/SKILL.md"
-                        "$root/skills/$($review.Id)/assets"
-                        "$root/agents/$($review.Id).agent.md"
-                        "$root/prompts/$($review.Id).prompt.md"
-                    )) {
+                        "$root/skills/$($review.Id)/SKILL.md",
+                        "$root/skills/$($review.Id)/assets",
+                        "$root/agents/$($review.Id).agent.md",
+                        "$root/prompts/$($review.Id).prompt.md")) {
                     $full = Join-Path $script:repoRoot $candidate
-                    if (Test-Path -LiteralPath $full -PathType Container) {
-                        foreach ($file in (Get-ChildItem -LiteralPath $full -Recurse -File -Filter '*.md')) {
-                            $surfaces.Add($file.FullName)
-                        }
+                    $files = if (Test-Path -LiteralPath $full -PathType Container) {
+                        @(Get-ChildItem -LiteralPath $full -Recurse -File -Filter '*.md')
                     }
                     elseif (Test-Path -LiteralPath $full -PathType Leaf) {
-                        $surfaces.Add($full)
+                        @(Get-Item -LiteralPath $full)
+                    }
+                    else { @() }
+                    foreach ($file in $files) {
+                        $raw = [System.IO.File]::ReadAllText($file.FullName)
+                        foreach ($pattern in $patterns) { $raw | Should -Not -Match $pattern }
                     }
                 }
             }
         }
-
-        @($surfaces).Count | Should -BeGreaterThan 8
-
-        # Layout tokens emitted by Build-ReviewReport.ps1 itself.
-        $layoutPatterns = @(
-            '###\s*\[\d+\]'
-            '\|\s*\*\*Severity\*\*\s*\|'
-            '\|\s*\*\*Models\*\*\s*\|'
-            '(?m)^##\s+Recommendations\s*$'
-            'sorted severity descending'
-            'Repeat for each finding'
-        )
-
-        $offenders = [System.Collections.Generic.List[string]]::new()
-        foreach ($file in $surfaces) {
-            $raw = [System.IO.File]::ReadAllText($file)
-            foreach ($pattern in $layoutPatterns) {
-                if ($raw -match $pattern) {
-                    $offenders.Add("$($file.Substring($script:repoRoot.Length).Replace('\','/').TrimStart('/')) :: $pattern")
-                }
-            }
-        }
-
-        $offenders | Should -BeNullOrEmpty -Because 'the report layout has exactly one definition: Build-ReviewReport.ps1'
     }
 }
