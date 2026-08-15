@@ -94,7 +94,10 @@ the image from the trusted host — `docker create --network none` plus `docker 
 - the copied Debian baseline sources against the two-host Debian allowlist;
 - the copied final sources against the four-host final allowlist;
 - the image's live `/etc/apt` tree — every `sources.list`, `*.list` and `*.sources` file, comments
-  skipped and keyrings not read — against the same final allowlist, and it must name at least one host;
+  skipped and keyrings not read — against the same final allowlist, and it must name at least one host.
+  The compared token is the whole URI authority minus any port, exactly as the recorded-file reader
+  produces it, so `https://download.docker.com@evil.example.com/…` — which apt resolves against
+  `evil.example.com` — cannot read as an allowed host in one reader and a rejected one in the other;
 - the smoke object's `digests.manifestSha256` and `origin.aptHosts` against those attested values.
 
 Disagreement is `candidate-output-invalid`. No candidate code runs on the host in this path: `docker cp`

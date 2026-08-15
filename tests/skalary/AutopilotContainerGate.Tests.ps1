@@ -565,6 +565,26 @@ Describe 'Autopilot container gate runner' {
         $withEvil | Should -Contain 'evil.invalid'
         (Test-GateAllowedAptHost -Value $withEvil -Allowed $script:AllowedAptHosts) | Should -BeFalse
         Get-GateAptConfigHost -Root (Join-Path $TestDrive 'absent-apt') | Should -BeNullOrEmpty
+
+        # apt resolves a URI with userinfo against the part after the '@'. Reading only up to the
+        # delimiter would report the allowed name and pass, so the whole authority is the token —
+        # the same one `Get-GateAptHost` produces from the recorded file.
+        $userinfoRoot = Join-Path $TestDrive 'etc-apt-userinfo'
+        [void](New-Item -ItemType Directory -Path (Join-Path $userinfoRoot 'sources.list.d') -Force)
+        Set-Content -LiteralPath (Join-Path $userinfoRoot 'sources.list.d/docker.list') -Encoding utf8NoBOM `
+            -Value 'deb [arch=amd64] https://download.docker.com@evil.example.com/linux/debian trixie stable'
+        $userinfoHosts = @(Get-GateAptConfigHost -Root $userinfoRoot)
+        $userinfoHosts | Should -Be @('download.docker.com@evil.example.com')
+        (Test-GateAllowedAptHost -Value $userinfoHosts -Allowed $script:AllowedAptHosts) | Should -BeFalse
+        @(Get-GateAptHost -SourceText 'https://download.docker.com@evil.example.com/linux/debian') |
+            Should -Be $userinfoHosts -Because 'both readers must agree on what a host is'
+
+        # A port is not a different host, and both readers drop it.
+        $portRoot = Join-Path $TestDrive 'etc-apt-port'
+        [void](New-Item -ItemType Directory -Path $portRoot -Force)
+        Set-Content -LiteralPath (Join-Path $portRoot 'sources.list') -Encoding utf8NoBOM `
+            -Value 'deb http://deb.debian.org:8080/debian trixie main'
+        @(Get-GateAptConfigHost -Root $portRoot) | Should -Be @('deb.debian.org')
     }
 
     It 'reaches every terminal Measure outcome without a Docker daemon' {

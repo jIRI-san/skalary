@@ -68,3 +68,4 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Med] Docker key was dearmored whole and only checked for presence of the pinned fingerprint; keyring now built by exporting exactly that key and asserting one primary.
 - [3.1] [src:code-review] [sev:Med] Attestation read only candidate-authored provenance and accepted a zero-case manifest; now reads live /etc/apt, requires a non-empty case set, and the note records what attestation cannot prove.
 - [3.1] [src:code-review] [sev:Med] Gate bootstrap step ignored needs.detector.result, so a failed detector produced a green required gate; it now fails unless the detector succeeded.
+- [3.1] [src:code-review] [sev:Med] Live apt-config reader stopped at a URI userinfo delimiter, so it disagreed with the recorded-file reader about the host; both now compare the full authority minus port.

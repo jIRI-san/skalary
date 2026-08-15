@@ -826,8 +826,14 @@ function Get-GateAptConfigHost {
         foreach ($line in ([System.IO.File]::ReadAllLines($file.FullName))) {
             $value = $line.Trim()
             if (-not $value -or $value.StartsWith('#')) { continue }
-            foreach ($match in [regex]::Matches($value, '(?i)\bhttps?://(?<host>[A-Za-z0-9._-]{1,253})')) {
-                [void]$hosts.Add($match.Groups['host'].Value.ToLowerInvariant())
+            foreach ($match in [regex]::Matches($value, '(?i)\bhttps?://(?<authority>[^/\s]+)')) {
+                # The whole authority is kept, port aside, exactly as `Get-GateAptHost` keeps it.
+                # Narrowing to a host character class would stop at the userinfo delimiter, so
+                # `https://download.docker.com@evil.example.com/...` — which apt resolves against
+                # `evil.example.com` — would be reported as the allowed host, and the two parsers
+                # holding the image to one allowlist would disagree about what a host is.
+                $authority = $match.Groups['authority'].Value.ToLowerInvariant() -replace ':[0-9]+$', ''
+                if ($authority) { [void]$hosts.Add($authority) }
             }
         }
     }

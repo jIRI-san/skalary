@@ -12,3 +12,4 @@ Phase: 2
 Phase: 3
 
 - [3.1] [trigger:plan-contradiction] The floating mcr.microsoft.com/dotnet/sdk:10.0 tag changed from Debian to Ubuntu; distro trust boundaries must pin the distro family separately from the floating SDK package.
+- [3.1] [trigger:reusable-pattern] Two readers enforcing one allowlist must agree on the token they compare; test both against the same hostile input in one assertion.
