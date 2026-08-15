@@ -758,6 +758,11 @@ function Test-GateSmokeOutput {
     $expectedIds = @(Sort-GateOrdinal @(Get-Content -LiteralPath $ManifestPath | Where-Object {
             $_ -and -not $_.TrimStart().StartsWith('#')
         } | ForEach-Object { ($_ -split "`t", 3)[0] }))
+    if ($expectedIds.Count -eq 0) {
+        # An empty manifest would otherwise produce `0 cases; state=pass`: a green run that
+        # exercised nothing, which is the one verdict this gate must never report.
+        return [pscustomobject]@{ Valid = $false; Summary = 'Toolchain manifest declares no cases.'; FailedCases = @(); Value = $null }
+    }
     $actualIds = [System.Collections.Generic.List[string]]::new()
     $failedIds = [System.Collections.Generic.List[string]]::new()
     foreach ($case in @($value.cases)) {
@@ -797,17 +802,55 @@ function Test-GateSmokeOutput {
     }
 }
 
+function Get-GateAptConfigHost {
+    <#
+    .SYNOPSIS
+        Returns every http(s) host named by a non-comment line under a copied /etc/apt tree.
+    .NOTES
+        This is deliberately conservative rather than directive-aware: any disallowed host
+        appearing in a source-list file fails, which needs no model of apt's syntax and cannot
+        be evaded by a form of source line this parser does not know. Comment lines are skipped
+        because Debian's own `.sources` file names `snapshot.debian.org` in one, and only
+        `sources.list`, `*.list` and `*.sources` are read so that binary keyrings cannot make
+        the scan report a host. Returns $null when the tree cannot be read within its bounds.
+    #>
+    param([Parameter(Mandatory)][string]$Root)
+
+    if (-not (Test-Path -LiteralPath $Root)) { return $null }
+    $hosts = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+    $files = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq 'sources.list' -or $_.Extension -in @('.list', '.sources') })
+    if ($files.Count -gt 256) { return $null }
+    foreach ($file in $files) {
+        if ($file.LinkType -or $file.Length -gt $script:MaxPayloadFileBytes) { return $null }
+        foreach ($line in ([System.IO.File]::ReadAllLines($file.FullName))) {
+            $value = $line.Trim()
+            if (-not $value -or $value.StartsWith('#')) { continue }
+            foreach ($match in [regex]::Matches($value, '(?i)\bhttps?://(?<host>[A-Za-z0-9._-]{1,253})')) {
+                [void]$hosts.Add($match.Groups['host'].Value.ToLowerInvariant())
+            }
+        }
+    }
+    return @($hosts)
+}
+
 function Test-GateImageAttestation {
     <#
     .SYNOPSIS
-        Verifies image contents from the trusted host instead of trusting candidate smoke output.
+        Reads image contents from the trusted host instead of believing candidate smoke output.
     .DESCRIPTION
         The smoke program runs inside the candidate image and reports its own manifest digest
         and apt origins, so a hostile candidate can print a passing object while installing
-        from anywhere. This copies the manifest and the recorded apt sources out of the image
-        with `docker cp` — a trusted-host read of the image filesystem — hashes and parses them
-        here, and compares them against the trusted checkout and the origin allowlist. Smoke
-        output is only believed where it agrees with this.
+        from anywhere. This copies the manifest, the recorded apt sources, and the image's live
+        `/etc/apt` tree out with `docker cp` — a trusted-host read of the image filesystem —
+        hashes and parses them here, and compares them against the trusted checkout and the
+        origin allowlist. Smoke output is only believed where it agrees with this.
+
+        What this does *not* establish: the recorded provenance files are written by the
+        candidate's own Dockerfile, so a Dockerfile that installs from elsewhere and then
+        rewrites both the record and `/etc/apt` still passes. This detects a lying smoke
+        program and an inconsistent image, not a hostile build recipe; the recipe is what human
+        review of the diff is for, and the design note records that limit.
     #>
     [CmdletBinding()]
     param(
@@ -872,6 +915,32 @@ function Test-GateImageAttestation {
             return [pscustomobject]@{
                 Valid = $false
                 Reason = ('attestation-origin-disallowed:' + (@($finalHosts) -join ','))
+                ManifestSha256 = $manifestSha
+                AptHosts = @($finalHosts)
+                DebianAptHosts = @($debianHosts)
+            }
+        }
+
+        # The record above is a file the image wrote about itself; this reads the configuration
+        # apt actually carries, so a record that disagrees with the image it describes fails.
+        $configRoot = Join-Path $workRoot 'etc-apt'
+        $configCopy = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
+            'cp', "${containerId}:/etc/apt", $configRoot
+        ) -TimeoutSeconds ([math]::Min(60, $TimeoutSeconds))
+        $liveHosts = if ($configCopy.ExitCode -eq 0) { Get-GateAptConfigHost -Root $configRoot } else { $null }
+        if ($null -eq $liveHosts -or @($liveHosts).Count -eq 0) {
+            return [pscustomobject]@{
+                Valid = $false
+                Reason = 'attestation-apt-config-unreadable'
+                ManifestSha256 = $manifestSha
+                AptHosts = @($finalHosts)
+                DebianAptHosts = @($debianHosts)
+            }
+        }
+        if (-not (Test-GateAllowedAptHost -Value $liveHosts -Allowed $script:AllowedAptHosts)) {
+            return [pscustomobject]@{
+                Valid = $false
+                Reason = ('attestation-live-origin-disallowed:' + (@($liveHosts) -join ','))
                 ManifestSha256 = $manifestSha
                 AptHosts = @($finalHosts)
                 DebianAptHosts = @($debianHosts)
@@ -1277,10 +1346,22 @@ function Invoke-ContainerToolchainGate {
                 $receipt = New-ContainerGateReceipt -Outcome 'candidate-timeout' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -ProvenanceSha256 $provenanceSha -Diagnostic 'Candidate budget elapsed before Copilot version resolution.' -AdvisoryGrowthMiB $AdvisoryGrowthMiB
                 return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
             }
-            $versionResult = Invoke-GateProcess -FilePath 'npm' -ArgumentList @(
-                'view', '@github/copilot', 'version', '--json'
-            ) -TimeoutSeconds ([math]::Min(30, $candidateRemaining))
-            if ($versionResult.ExitCode -eq 0 -and -not $versionResult.StdoutOverflow -and -not $versionResult.StdoutInvalidControl) {
+            # `npm` is a shim: `npm.cmd` on Windows, a plain executable elsewhere. Process.Start
+            # resolves neither by shell, so the platform's actual file name is named here rather
+            # than letting a local run die on a missing-file exception CI never sees.
+            $npmFile = if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+                    [System.Runtime.InteropServices.OSPlatform]::Windows)) { 'npm.cmd' } else { 'npm' }
+            # An unusable npm is not a gate failure: the Dockerfile's pinned ARG below is the
+            # authoritative version anyway, and the registry probe only refreshes it.
+            $versionResult = $null
+            try {
+                $versionResult = Invoke-GateProcess -FilePath $npmFile -ArgumentList @(
+                    'view', '@github/copilot', 'version', '--json'
+                ) -TimeoutSeconds ([math]::Min(30, $candidateRemaining))
+            }
+            catch { $versionResult = $null }
+            if ($null -ne $versionResult -and $versionResult.ExitCode -eq 0 -and
+                -not $versionResult.StdoutOverflow -and -not $versionResult.StdoutInvalidControl) {
                 $CopilotVersion = $versionResult.Stdout.Trim().Trim('"')
             }
             if ([string]::IsNullOrWhiteSpace($CopilotVersion)) {

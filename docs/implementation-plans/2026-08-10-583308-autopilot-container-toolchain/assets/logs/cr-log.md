@@ -65,3 +65,6 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Low] PR review: Invoke-GateProcess read ExitCode while the process was still running, which throws on some hosts; the exit code is read only after exit.
 - [3.1] [src:code-review] [sev:Low] PR review: measurement re-derived relevance and could skip blocking work the truth table still expected; the detector verdict is now passed in and contradiction resolves toward the blocking path.
 - [3.1] [src:code-review] [sev:Low] PR review: provenance was captured before later root layers, so a layer added below the record escaped it; capture moved to a final root layer.
+- [3.1] [src:code-review] [sev:Med] Docker key was dearmored whole and only checked for presence of the pinned fingerprint; keyring now built by exporting exactly that key and asserting one primary.
+- [3.1] [src:code-review] [sev:Med] Attestation read only candidate-authored provenance and accepted a zero-case manifest; now reads live /etc/apt, requires a non-empty case set, and the note records what attestation cannot prove.
+- [3.1] [src:code-review] [sev:Med] Gate bootstrap step ignored needs.detector.result, so a failed detector produced a green required gate; it now fails unless the detector succeeded.

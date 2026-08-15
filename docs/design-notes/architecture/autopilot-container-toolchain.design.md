@@ -30,6 +30,12 @@ CLI `.deb`, and the Docker apt signing key. A rotated upstream artifact fails th
 is deliberate: an unpinned root install is a supply-chain hole, and a build that stops because
 Microsoft republished its configuration package is a maintenance task, not a security incident.
 
+The Docker key is pinned by construction, not by inspection. The fetched armored file is imported into
+a throwaway `GNUPGHOME`, and only the pinned fingerprint is exported into the keyring named by
+`signed-by=`, which is then asserted to hold exactly one primary key. Dearmoring the fetched file whole
+and checking that the expected fingerprint appears in it would accept a file carrying the genuine
+Docker key *and* an attacker's, and apt would trust both.
+
 ## Provenance describes the shipped image
 
 The Debian baseline provenance capture runs inside the first apt layer, so on its own it describes
@@ -87,10 +93,26 @@ the image from the trusted host — `docker create --network none` plus `docker 
 - the copied `/usr/local/share/autopilot/toolchain.tsv` digest against the trusted checkout's manifest;
 - the copied Debian baseline sources against the two-host Debian allowlist;
 - the copied final sources against the four-host final allowlist;
+- the image's live `/etc/apt` tree — every `sources.list`, `*.list` and `*.sources` file, comments
+  skipped and keyrings not read — against the same final allowlist, and it must name at least one host;
 - the smoke object's `digests.manifestSha256` and `origin.aptHosts` against those attested values.
 
 Disagreement is `candidate-output-invalid`. No candidate code runs on the host in this path: `docker cp`
 extracts files, and no mount, socket, or elevated flag is involved.
+
+What this establishes is bounded, and the bound matters. The manifest digest is compared against the
+trusted checkout, so that comparison has a trusted side. The provenance files do not: they are written
+by the candidate's own Dockerfile, so a Dockerfile that installs from an unlisted host and then writes
+a clean record — and a matching `/etc/apt` — still passes. Reading the live configuration raises the
+cost of that lie from one file to a consistent forgery across the image, and cross-checking smoke
+against both catches a lying smoke program outright, but neither turns a candidate-authored record into
+independent provenance. The hostile *build recipe* is caught by human review of the diff, which is
+exactly what the Dockerfile's visibility in the pull request is for. The gate detects an image that
+contradicts itself; it does not certify one that lies consistently.
+
+A smoke payload with no cases is rejected outright. An emptied manifest would otherwise render
+`0 cases; state=pass` — a green run that exercised nothing, which is the one verdict this gate must
+never report.
 
 When smoke reports failures, the receipt and job summary name the failing case IDs (bounded to 32),
 because a bare count tells a reader nothing they can act on.
@@ -184,7 +206,13 @@ other event, absence is a deletion of the control plane and fails.
 The candidate's own copy of the runner is never promoted to fill the gap. That fallback would let a pull
 request supply the code that judges it, which is the exact authority this design exists to deny; a gate
 that verifies nothing and says so is strictly safer than one that verifies with candidate-supplied logic.
-The bootstrap path closes permanently once this workflow is on `main`.
+
+Bootstrap covers exactly one condition: the base carries no runner. The gate's bootstrap step reads
+`needs.detector.result` and fails when it is anything other than `success`, so an infrastructure failure
+stays red instead of borrowing the bootstrap pass. The path closes for pull requests based on a commit
+that carries this workflow; it stays open indefinitely for pull requests based on older long-lived
+branches, and that is inherent — such a base genuinely has nothing to verify with. The receipt says so
+in words rather than implying a verification happened.
 
 The workflow is secretless for candidate execution: no repository/organization secret, token-bearing
 build argument, persisted checkout credential, host Docker-socket/workspace mount into candidate
@@ -219,3 +247,8 @@ incident/PR record.
   it changes the maintenance model for the whole image.
 - Digest-pinned third-party `.deb` artifacts fail closed on upstream rotation and require a maintenance
   commit to refresh.
+- Provenance files are authored by the image's own build recipe. Host-side attestation proves the image
+  agrees with its record and that smoke did not lie about either; it cannot prove a Dockerfile that
+  forges both consistently. Human review of the Dockerfile diff is the control for that case.
+- A pull request based on a branch that predates this workflow records a bootstrap pass forever, because
+  such a base has no trusted runner to verify with. The receipt states that nothing was verified.

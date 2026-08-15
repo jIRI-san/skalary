@@ -205,6 +205,20 @@ Describe 'Autopilot container toolchain' {
                 $errors.Add("Dockerfile has $($rootInstallFetches.Count) root-trusted network fetches but $verifications digest or fingerprint verifications.")
             }
 
+            # A fetched key file may carry more than one key. Dearmoring the whole file into the
+            # keyring named by `signed-by=` would trust every key in it, and a check that the
+            # pinned fingerprint is merely present cannot tell that case from the honest one, so
+            # the keyring must be built by exporting exactly the pinned key.
+            if ($Dockerfile -match '(?m)--dearmor[^\n]*/usr/share/keyrings') {
+                $errors.Add('Dockerfile must not dearmor a fetched key file straight into a signed-by keyring.')
+            }
+            if ($Dockerfile -notmatch '(?m)gpg --batch --export 9DC858229FC7DD38854AE2D88D81803C0EBFCD88') {
+                $errors.Add('Dockerfile must export only the pinned Docker key into its keyring.')
+            }
+            if ($Dockerfile -notmatch '(?m)test "\$\(wc -l < /tmp/docker-primaries\.txt\)" -eq 1') {
+                $errors.Add('Dockerfile must assert the Docker keyring holds exactly one primary key.')
+            }
+
             $hostPolicy = Get-AptHostPolicy -Dockerfile $Dockerfile
             if ($null -eq $hostPolicy) {
                 $errors.Add('Dockerfile apt host policy cannot be parsed.')

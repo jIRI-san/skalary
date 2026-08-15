@@ -520,6 +520,53 @@ Describe 'Autopilot container gate runner' {
         $unavailable.Reason | Should -Be 'attestation-container-unavailable'
     }
 
+    It 'refuses an empty manifest and reads the live apt configuration from the image' {
+        # `0 cases; state=pass` is the one verdict this gate must never report: a green run that
+        # exercised nothing. A manifest emptied to comments produces exactly that unless rejected.
+        $emptyManifest = Join-Path $TestDrive 'empty-toolchain.tsv'
+        Set-Content -LiteralPath $emptyManifest -Value @('# id	kind	value', '') -Encoding utf8NoBOM
+        $emptySmoke = [ordered]@{
+            schema = 'skalary/container-toolchain-smoke@1'
+            state = 'pass'
+            origin = [ordered]@{ os = 'debian:13'; aptHosts = @('deb.debian.org') }
+            digests = [ordered]@{ manifestSha256 = ('a' * 64); provenanceSha256 = ('b' * 64) }
+            cases = @()
+        }
+        $emptyResult = Test-GateSmokeOutput -Output ($emptySmoke | ConvertTo-Json -Depth 8 -Compress) `
+            -ManifestPath $emptyManifest
+        $emptyResult.Valid | Should -BeFalse
+        $emptyResult.Summary | Should -Match 'no cases'
+
+        # The recorded provenance file is written by the candidate's own Dockerfile, so the
+        # attestation also reads the configuration apt actually carries. Comments are skipped
+        # because Debian's own sources file names snapshot.debian.org in one, and keyrings are not
+        # read at all so their bytes cannot invent a host.
+        $aptRoot = Join-Path $TestDrive 'etc-apt'
+        [void](New-Item -ItemType Directory -Path (Join-Path $aptRoot 'sources.list.d') -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $aptRoot 'trusted.gpg.d') -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $aptRoot 'apt.conf.d') -Force)
+        Set-Content -LiteralPath (Join-Path $aptRoot 'sources.list.d/debian.sources') -Encoding utf8NoBOM -Value @(
+            '# Mirrors are archived at https://snapshot.debian.org/'
+            'Types: deb'
+            'URIs: http://deb.debian.org/debian'
+            'Suites: trixie'
+        )
+        Set-Content -LiteralPath (Join-Path $aptRoot 'sources.list.d/docker.list') -Encoding utf8NoBOM -Value @(
+            'deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable'
+        )
+        Set-Content -LiteralPath (Join-Path $aptRoot 'trusted.gpg.d/vendor.gpg') -Encoding utf8NoBOM -Value 'binary blob http://evil.invalid/x'
+        Set-Content -LiteralPath (Join-Path $aptRoot 'apt.conf.d/00notes') -Encoding utf8NoBOM -Value 'http://evil.invalid/x' -Force
+        @(Get-GateAptConfigHost -Root $aptRoot) |
+            Should -Be @('deb.debian.org', 'download.docker.com')
+
+        Add-Content -LiteralPath (Join-Path $aptRoot 'sources.list.d/extra.list') -Encoding utf8NoBOM `
+            -Value 'deb https://evil.invalid/debian trixie main'
+        $withEvil = @(Get-GateAptConfigHost -Root $aptRoot)
+        $withEvil | Should -Contain 'evil.invalid'
+        (Test-GateAllowedAptHost -Value $withEvil -Allowed $script:AllowedAptHosts) | Should -BeFalse
+        Get-GateAptConfigHost -Root (Join-Path $TestDrive 'absent-apt') | Should -BeNullOrEmpty
+    }
+
     It 'reaches every terminal Measure outcome without a Docker daemon' {
         # Until now no test drove Measure at all: the orchestration that decides pass/fail was
         # covered only by its helpers. These cases pin the outcome, blocking flag, and diagnostic

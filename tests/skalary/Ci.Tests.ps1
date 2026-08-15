@@ -380,6 +380,18 @@ Describe 'ci workflow' {
         $recordReceipt.outcome | Should -Be 'irrelevant'
         $recordRun | Should -Not -Match 'CANDIDATE_ROOT'
 
+        # Bootstrap covers exactly one condition: the base has no runner. A detector job that
+        # failed for any other reason must not inherit that pass, so the step reads the detector's
+        # conclusion and fails when it is anything but success.
+        $record[0].Value['env'].Value['DETECTOR_CONCLUSION'].Value |
+            Should -Be '${{ needs.detector.result }}'
+        $recordRun | Should -Match "DETECTOR_CONCLUSION -ne 'success'"
+        $recordRun | Should -Match 'throw'
+        ([regex]::Match($recordRun, "(?ms)DETECTOR_CONCLUSION -ne 'success'.*?\}")).Value |
+            Should -Match 'throw' -Because 'the conclusion check must be what raises, not merely precede a raise'
+        $recordRun.IndexOf("DETECTOR_CONCLUSION -ne 'success'") |
+            Should -BeLessThan $recordRun.IndexOf('container-toolchain-receipt@1') -Because 'the check must precede writing a passing receipt'
+
         # The image job never runs on the bootstrap path, but if it ever did, it must still refuse
         # to fall back to the candidate's runner.
         $imageSteps = @($jobsNode.Value['image'].Value['steps'].Value)

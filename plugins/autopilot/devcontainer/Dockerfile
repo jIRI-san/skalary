@@ -154,14 +154,24 @@ RUN set -eux; \
     rm /tmp/gh.deb
 
 # Docker CLI (for Testcontainers — talks to host Docker daemon via socket mount)
+# The key is pinned by fingerprint, and only the pinned key is exported into the keyring named by
+# `signed-by=`. Asserting that the fingerprint is merely *present* would accept a served file
+# carrying the genuine Docker key alongside an attacker's, and apt would then trust both.
 RUN set -eux; \
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.asc; \
-    gpg --batch --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.asc; \
-    rm /tmp/docker.asc; \
+    GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
+    gpg --batch --import /tmp/docker.asc; \
+    gpg --batch --export 9DC858229FC7DD38854AE2D88D81803C0EBFCD88 \
+        > /usr/share/keyrings/docker-archive-keyring.gpg; \
+    rm -rf "$GNUPGHOME" /tmp/docker.asc; unset GNUPGHOME; \
+    test -s /usr/share/keyrings/docker-archive-keyring.gpg; \
     gpg --batch --no-default-keyring --keyring /usr/share/keyrings/docker-archive-keyring.gpg \
         --list-keys --with-colons \
-        | awk -F: '$1 == "fpr" { print $10 }' \
-        | grep -qx 9DC858229FC7DD38854AE2D88D81803C0EBFCD88; \
+        | awk -F: '$1 == "pub" { primary = 1; next } $1 == "fpr" && primary { print $10; primary = 0 }' \
+        > /tmp/docker-primaries.txt; \
+    test "$(wc -l < /tmp/docker-primaries.txt)" -eq 1; \
+    grep -qx 9DC858229FC7DD38854AE2D88D81803C0EBFCD88 /tmp/docker-primaries.txt; \
+    rm -f /tmp/docker-primaries.txt; \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" \
         > /etc/apt/sources.list.d/docker.list; \
     apt-get update; \
