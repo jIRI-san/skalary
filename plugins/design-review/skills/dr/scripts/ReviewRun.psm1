@@ -1988,6 +1988,21 @@ function Remove-ReviewInputSecurely {
     }
 }
 
+function Remove-ReviewCommittedInput {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Boundary
+    )
+
+    try {
+        Remove-ReviewInputSecurely -Path $Path -Boundary $Boundary
+        return @()
+    }
+    catch {
+        return @("Committed review authority is intact, but the consumed input could not be removed: $($_.Exception.Message)")
+    }
+}
+
 # --------------------------------------------------------------------------------------------------
 # Exclusive run lock. The default timeout is the vocabulary's 5 seconds; a test may lower it through
 # the module scope to prove the timeout without stalling the suite. The CLI never lowers it.
@@ -2002,9 +2017,12 @@ function Get-ReviewLockTimeoutSeconds {
 }
 
 function Enter-ReviewLock {
-    param([Parameter(Mandatory)][string]$RunDir)
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [string]$LockName = $script:LockName
+    )
 
-    $path = Join-Path $RunDir $script:LockName
+    $path = Join-Path $RunDir $LockName
     $timeout = Get-ReviewLockTimeoutSeconds
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($true) {
@@ -2602,9 +2620,9 @@ function Invoke-ReviewFreezeCore {
                 return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
                     -Message 'A different plan is already frozen and published under this run id; freeze is immutable.' -RunId $RunId
             }
-            Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+            $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
             return New-ReviewResult -Mode freeze -ExitCode 0 -State clean `
-                -Message 'Plan already frozen under a published run (idempotent).' -RunId $RunId
+                -Message 'Plan already frozen under a published run (idempotent).' -RunId $RunId -Diagnostic $cleanup
         }
 
         if ($state -eq 'frozen') {
@@ -2620,8 +2638,8 @@ function Invoke-ReviewFreezeCore {
                     -Message 'A different plan is already frozen under this run id; freeze is immutable.' -RunId $RunId
             }
             # Idempotent replay of an identical plan.
-            Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-            return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan already frozen (idempotent).' -RunId $RunId
+            $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
+            return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan already frozen (idempotent).' -RunId $RunId -Diagnostic $cleanup
         }
 
         # A generation without its marker is an interrupted Freeze. It can be completed only by an
@@ -2639,8 +2657,8 @@ function Invoke-ReviewFreezeCore {
                     -Message 'A different plan generation already exists under this run id; freeze is immutable.' -RunId $RunId
             }
             Write-ReviewFrozenMarker -RunDir $runDir -PlanDigest $canonicalDigest
-            Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-            return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan freeze completed (idempotent).' -RunId $RunId
+            $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
+            return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan freeze completed (idempotent).' -RunId $RunId -Diagnostic $cleanup
         }
 
         Write-ReviewBytesAtomic -Path (Join-Path $runDir (Get-ReviewContentName -Role 'plan' -Bytes $canonicalBytes)) -Bytes $canonicalBytes
@@ -2648,8 +2666,8 @@ function Invoke-ReviewFreezeCore {
     }
     finally { Exit-ReviewLock -Lock $lock }
 
-    Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-    return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan frozen.' -RunId $RunId
+    $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
+    return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan frozen.' -RunId $RunId -Diagnostic $cleanup
 }
 
 # --------------------------------------------------------------------------------------------------
@@ -2863,12 +2881,12 @@ function Invoke-ReviewPublishCore {
                     -Message "The published manifest under this run id is unreadable; refusing to overwrite committed authority: $($_.Exception.Message)" -RunId $RunId
             }
             if ($prior.RunDigest -eq $runDigest) {
-                Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+                $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
                 $exit = $(if ($runState -eq 'clean') { 0 } else { 5 })
-                return New-ReviewResult -Mode publish -ExitCode $exit -State $runState -Message 'Run already published (idempotent).' -RunId $RunId -Summary $summaryText
+                return New-ReviewResult -Mode publish -ExitCode $exit -State $runState -Message 'Run already published (idempotent).' -RunId $RunId -Summary $summaryText -Diagnostic $cleanup
             }
-            Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-            return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'A different result is already published under this run id; publication is immutable.' -RunId $RunId
+            $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
+            return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'A different result is already published under this run id; publication is immutable.' -RunId $RunId -Diagnostic $cleanup
         }
 
         # The frozen plan is re-verified under the lock: it is the authority this result was bound to.
@@ -2935,9 +2953,9 @@ function Invoke-ReviewPublishCore {
     }
     finally { Exit-ReviewLock -Lock $lock }
 
-    Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+    $cleanup = @(Remove-ReviewCommittedInput -Path $inputPath -Boundary $repoFull)
     $exit = $(if ($runState -eq 'clean') { 0 } else { 5 })
-    return New-ReviewResult -Mode publish -ExitCode $exit -State $runState -Message $(if ($runState -eq 'clean') { 'Run published (clean).' } else { 'Run published (degraded).' }) -RunId $RunId -Summary $summaryText
+    return New-ReviewResult -Mode publish -ExitCode $exit -State $runState -Message $(if ($runState -eq 'clean') { 'Run published (clean).' } else { 'Run published (degraded).' }) -RunId $RunId -Summary $summaryText -Diagnostic $cleanup
 }
 
 # --------------------------------------------------------------------------------------------------
@@ -3063,6 +3081,7 @@ function Read-ReviewManifest {
     }
 
     $verified = [ordered]@{}
+    $verifiedBytes = [ordered]@{}
     foreach ($role in @('plan', 'canonical', 'summary', 'full')) {
         $artifact = $manifest['files'][$role]
         $name = [string]$artifact['name']
@@ -3094,19 +3113,20 @@ function Read-ReviewManifest {
         # Independent of the manifest: the role's own byte budget and the artifact encoding.
         Assert-ReviewArtifactContent -Role $role -Bytes $bytes
         $verified[$role] = $filePath
+        $verifiedBytes[$role] = $bytes
     }
 
-    if ([string]$manifest['runDigest'] -ne (Get-ReviewDigest -Bytes ([System.IO.File]::ReadAllBytes($verified['canonical'])))) {
+    if ([string]$manifest['runDigest'] -ne (Get-ReviewDigest -Bytes $verifiedBytes['canonical'])) {
         throw 'runDigest is not the digest of the canonical file'
     }
-    if ([string]$manifest['planDigest'] -ne (Get-ReviewDigest -Bytes ([System.IO.File]::ReadAllBytes($verified['plan'])))) {
+    if ([string]$manifest['planDigest'] -ne (Get-ReviewDigest -Bytes $verifiedBytes['plan'])) {
         throw 'planDigest is not the digest of the plan file'
     }
 
     # Identity binding: the canonical envelope must name this run and the plan the manifest names.
-    $canonical = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($verified['canonical'])) |
+    $canonical = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['canonical']) |
     ConvertFrom-Json -AsHashtable -Depth 40
-    $plan = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($verified['plan'])) |
+    $plan = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['plan']) |
     ConvertFrom-Json -AsHashtable -Depth 40
     if (-not [string]::Equals([string](Get-ReviewValue -Node $canonical -Name 'runId'), [string]$manifest['runId'], [System.StringComparison]::Ordinal)) {
         throw 'the canonical envelope names a different run id than the manifest'
@@ -3129,6 +3149,8 @@ function Read-ReviewManifest {
         PlanDigest = [string]$manifest['planDigest']
         RunDigest  = [string]$manifest['runDigest']
         Files      = $verified
+        Bytes      = $verifiedBytes
+        Documents  = [ordered]@{ plan = $plan; canonical = $canonical }
         Boundary   = $boundaryFull
         Manifest   = $manifest
     }
@@ -3152,11 +3174,7 @@ function Get-ReviewRunViewText {
 
     $verified = Read-ReviewManifest -RunDir $RunDir -Boundary $Boundary
     $role = $View.ToLowerInvariant()
-    $viewPath = $verified.Files[$role]
-    # Re-checked once more immediately before this second open: the verification above proved the
-    # bytes, this proves the path is still the same kind of object it was.
-    Assert-ReviewPathSafe -Path $viewPath -Boundary $verified.Boundary
-    return [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($viewPath))
+    return [System.Text.Encoding]::UTF8.GetString($verified.Bytes[$role])
 }
 
 function Get-ReviewRunSummaryText {
@@ -3359,29 +3377,33 @@ function Read-ReviewManifestForFinalization {
         [Parameter(Mandatory)][string]$Boundary
     )
 
-    try {
-        $verified = Read-ReviewManifest -RunDir $RunDir -Boundary $Boundary
-        $manifestBytes = [System.IO.File]::ReadAllBytes((Join-Path $RunDir $script:ManifestName))
-        $runBytes = [System.IO.File]::ReadAllBytes($verified.Files['canonical'])
-        return [pscustomobject]@{
-            RunId = $verified.RunId
-            PlanDigest = $verified.PlanDigest
-            RunDigest = $verified.RunDigest
-            Files = $verified.Files
-            Boundary = $verified.Boundary
-            Manifest = $verified.Manifest
-            ManifestDigest = Get-ReviewDigest -Bytes $manifestBytes
-            Legacy = $false
-            Run = [System.Text.Encoding]::UTF8.GetString($runBytes) | ConvertFrom-Json -AsHashtable -Depth 40
-        }
-    }
-    catch {
+    $runDirFull = [System.IO.Path]::GetFullPath($RunDir).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    Assert-ReviewPathSafe -Path $runDirFull -Boundary $Boundary
+    $manifestPath = Join-Path $runDirFull $script:ManifestName
+    Assert-ReviewPathSafe -Path $manifestPath -Boundary $Boundary
+    $manifestShape = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($manifestPath)) |
+    ConvertFrom-Json -AsHashtable -Depth 20
+    if (-not $manifestShape.Contains('contentTrust') -and -not $manifestShape.Contains('scopeDigest')) {
         return Read-LegacyReviewManifestForFinalization -RunDir $RunDir -Boundary $Boundary
+    }
+
+    $verified = Read-ReviewManifest -RunDir $RunDir -Boundary $Boundary
+    $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    return [pscustomobject]@{
+        RunId = $verified.RunId
+        PlanDigest = $verified.PlanDigest
+        RunDigest = $verified.RunDigest
+        Files = $verified.Files
+        Boundary = $verified.Boundary
+        Manifest = $verified.Manifest
+        ManifestDigest = Get-ReviewDigest -Bytes $manifestBytes
+        Legacy = $false
+        Run = $verified.Documents['canonical']
     }
 }
 
 function Finalize-ReviewPlanRun {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$PlanDir,
@@ -3395,6 +3417,8 @@ function Finalize-ReviewPlanRun {
     $runDir = Join-Path $store $RunId
     $reportPath = Join-Path $store "$RunId.review.md"
     $receiptPath = Join-Path $store "$RunId.receipt.json"
+    $lock = Enter-ReviewLock -RunDir $store -LockName ".$RunId.finalize.lock"
+    try {
 
     if (-not (Test-Path -LiteralPath $runDir -PathType Container)) {
         if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf) -or -not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
@@ -3406,7 +3430,7 @@ function Finalize-ReviewPlanRun {
             $receipt['report']['bytes'] -ne $reportBytes.Length -or $receipt['report']['digest'] -ne (Get-ReviewDigest -Bytes $reportBytes)) {
             throw "Finalized review result '$RunId' does not verify or has a different verdict."
         }
-        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true }
+        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $false }
     }
 
     $verified = Read-ReviewManifestForFinalization -RunDir $runDir -Boundary $repoFull
@@ -3456,13 +3480,19 @@ function Finalize-ReviewPlanRun {
     }
     $receiptBytes = $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
 
+    if (-not $PSCmdlet.ShouldProcess($runDir, "Finalize plan review as '$Verdict', write compact evidence, and remove the live run")) {
+        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false; Preview = $true }
+    }
+
     foreach ($path in @($reportPath, $receiptPath)) {
         if (Test-Path -LiteralPath $path) { Assert-ReviewPathSafe -Path $path -Boundary $repoFull }
     }
     Write-ReviewBytesAtomic -Path $reportPath -Bytes $reportBytes
     Write-ReviewBytesAtomic -Path $receiptPath -Bytes $receiptBytes
     Remove-Item -LiteralPath $runDir -Recurse -Force
-    return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false }
+    return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false; Preview = $false }
+    }
+    finally { Exit-ReviewLock -Lock $lock }
 }
 
 function Get-ReviewAdmissionRollup {
@@ -3578,7 +3608,7 @@ function Remove-ReviewRunDirectory {
         Generic cleanup: removes a published generic run directory after verifying its manifest and
         that it lives under the generic store. Refuses to touch a plan-associated (committed) run.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(Mandatory)][string]$RunId,
         [string]$RepoRoot = (Get-ReviewRepoRoot),
@@ -3602,6 +3632,9 @@ function Remove-ReviewRunDirectory {
     if ($RequirePublished) {
         # Verifies the manifest before removal, so a corrupt/partial run is not silently discarded.
         [void](Read-ReviewManifest -RunDir $runDir -Boundary $repoFull)
+    }
+    if (-not $PSCmdlet.ShouldProcess($runDir, 'Remove verified generic review run recursively')) {
+        return $RunId
     }
     Remove-Item -LiteralPath $runDir -Recurse -Force
     return $RunId

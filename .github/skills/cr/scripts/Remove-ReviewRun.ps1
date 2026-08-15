@@ -19,7 +19,7 @@
 .EXAMPLE
     & Remove-ReviewRun.ps1 -RunId 8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35 -PlanDir docs/implementation-plans/example -Verdict blocked
 #>
-[CmdletBinding(DefaultParameterSetName = 'Generic')]
+[CmdletBinding(DefaultParameterSetName = 'Generic', SupportsShouldProcess, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory)]
     [string]$RunId,
@@ -61,11 +61,11 @@ catch {
 
 try {
     $message = if ($PSCmdlet.ParameterSetName -eq 'Plan') {
-        $finalized = Finalize-ReviewPlanRun -RunId $RunId -PlanDir $PlanDir -Verdict $Verdict
+        $finalized = Finalize-ReviewPlanRun -RunId $RunId -PlanDir $PlanDir -Verdict $Verdict -WhatIf:$WhatIfPreference
         "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
     }
     else {
-        $removed = Remove-ReviewRunDirectory -RunId $RunId -RequirePublished:(-not $Force)
+        $removed = Remove-ReviewRunDirectory -RunId $RunId -RequirePublished:(-not $Force) -WhatIf:$WhatIfPreference
         "removed generic review run $removed"
     }
     $bytes = $utf8.GetBytes($message + "`n")

@@ -107,6 +107,8 @@ Describe 'review-run consumer distribution and callers' {
             $skill | Should -Match 'Freeze exactly once'
             $skill | Should -Match 'Do not include any prior reviewer''s result'
             $skill | Should -Match 'retain all\s+outputs/outcomes in memory'
+            $skill | Should -Match 'digest-verifying summary and full view'
+            $skill | Should -Match 'generic run only after both verified views'
             $skill | Should -Not -Match '(?i)-Finding|\[pscustomobject\]|pwsh\s+-NoProfile\s+-Command'
             $agent | Should -Match '(?m)^tools:.*\bedit\b'
             $agent | Should -Match 'Absolute edit rule'
@@ -116,6 +118,10 @@ Describe 'review-run consumer distribution and callers' {
                     -File -Filter "$($review.Id)-*.agent.md") {
                 [System.IO.File]::ReadAllText($concern.FullName) |
                     Should -Match 'Never reproduce a suspected credential value'
+                [System.IO.File]::ReadAllText($concern.FullName) |
+                    Should -Match 'not a path allowlist'
+                [System.IO.File]::ReadAllText($concern.FullName) |
+                    Should -Match 'do not flag syntax alone'
             }
 
             foreach ($root in @("plugins/$($review.Plugin)", '.github')) {

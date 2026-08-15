@@ -151,8 +151,9 @@ Describe 'review-report test and eval discovery' {
             ConvertFrom-Json
         [string]$required.schema | Should -Be 'skalary/structural-eval-required@1'
         @($required.caseIds) | Should -Be @($script:expectedEvalIds.CR + $script:expectedEvalIds.DR)
-        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Test-Evals.ps1') -Raw) |
-            Should -Match 'required structural eval' -Because 'the runtime gate must verify required outcomes, not only discover case declarations'
+        $inventory = Get-TestInventory
+        @($inventory.tests | Where-Object { [string]$_.test -match 'test:ReviewReport\.StructuralEvalEnforcement(?=$|\s)' }).Count |
+            Should -Be 1 -Because 'the runtime gate must be executed against missing, skipped, and duplicate required outcomes'
     }
 
     It 'test:ReviewReport.TestAndEvalDiscovery discovers every required ordinary marker and the exact structural eval sets' {

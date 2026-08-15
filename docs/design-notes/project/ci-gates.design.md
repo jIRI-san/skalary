@@ -75,6 +75,9 @@ The isolated review-consumer matrix is a separate blocking gate rather than part
 suite: it starts many child PowerShell processes to prove installed CLI exits and would consume about
 half of the Windows unit-suite ceiling by itself. Splitting the host keeps that evidence mandatory on
 both legs without making every local `npm test` pay the integration cost.
+The gate host's `-TestPath` parameter is fixture-only executable evidence for its pass/fail exit
+contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
+`ReviewConsumerInstall.Tests.ps1` matrix.
 
 Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
 

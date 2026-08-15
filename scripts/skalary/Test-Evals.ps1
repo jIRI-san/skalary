@@ -2,7 +2,9 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
-    [string]$OutputRoot
+    [string]$OutputRoot,
+    [string]$PluginsRoot,
+    [string]$RequiredContractPath
 )
 
 Set-StrictMode -Version Latest
@@ -214,7 +216,7 @@ function ConvertTo-EvalMarkdownReport {
 }
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$pluginsRoot = Join-Path $repoRootPath 'plugins'
+$pluginsRoot = if ($PluginsRoot) { [System.IO.Path]::GetFullPath($PluginsRoot) } else { Join-Path $repoRootPath 'plugins' }
 
 $outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot } else { Join-Path $repoRootPath 'tests/evals/output' }
 $runStamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
@@ -250,7 +252,7 @@ else {
 }
 
 $entryArray = @($entries)
-$requiredPath = Join-Path $repoRootPath 'tools/structural-eval-required.json'
+$requiredPath = if ($RequiredContractPath) { [System.IO.Path]::GetFullPath($RequiredContractPath) } else { Join-Path $repoRootPath 'tools/structural-eval-required.json' }
 $requiredCaseIds = @()
 $requiredFailures = [System.Collections.Generic.List[string]]::new()
 if (Test-Path -LiteralPath $requiredPath -PathType Leaf) {

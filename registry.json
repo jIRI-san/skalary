@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T15:55:12.3037200Z",
+  "generatedAt": "2026-08-15T16:52:58.4002861Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -384,37 +384,37 @@
       "files": [
         {
           "dest": "agents/cr-architecture-patterns.agent.md",
-          "sha256": "bff0787c56973d2d82a0ee08aca618c985795e5f671d8abb6b84dd4d13cdcda6",
+          "sha256": "0ffd319431ce36ee16db6626c4a201be612e12ab099161514d2e52fb56596f43",
           "src": "agents/cr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/cr-correctness-reliability.agent.md",
-          "sha256": "3adb2684e16c145cca6c9132dfef5712b8b781df7e1754a8ef5e396672ec1c38",
+          "sha256": "d97726d8ffe3b671c73e3aa0660189d6a22451730497c805d6c4530ecd8caacc",
           "src": "agents/cr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/cr-maintainability-consistency.agent.md",
-          "sha256": "856f5fe9cdcf7ab1b6f43717527056bf9be3dd77114da002125791271016c78c",
+          "sha256": "565165120825209e7497b0ff827fe8be48fdee6f0e126a27d07859d7e873f934",
           "src": "agents/cr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/cr-operability-observability.agent.md",
-          "sha256": "d058a9e7cdf5d0317e81dd0251c740034f0fcfdffb6b675583820aa579d05e1b",
+          "sha256": "2cd39682ce0d7a8bab016dcb203bc16a540b91f37f274bfe461c83529de3ca59",
           "src": "agents/cr-operability-observability.agent.md"
         },
         {
           "dest": "agents/cr-performance.agent.md",
-          "sha256": "dbb50bf40b365060c33d3b7f1f576068d107745f13826bc2ef9dc2b2ba9960d8",
+          "sha256": "6f4e0d823cf6a3f03eecc71c4e299178466104f5297013305552b02e7a4d25c6",
           "src": "agents/cr-performance.agent.md"
         },
         {
           "dest": "agents/cr-security.agent.md",
-          "sha256": "34ab1dd2616ef37b96ca0cccf327be9a648315a668962da05397dbd4961e994e",
+          "sha256": "37f10370daf92d1977c8659fddf7853d9b96dbf2e4b8471cf8c4c510275ab11f",
           "src": "agents/cr-security.agent.md"
         },
         {
           "dest": "agents/cr-testing-evidence.agent.md",
-          "sha256": "d0c3f5cccc11ea7447b13dda3222eda805abd7429e0bb84d9f51e485f07a8fb2",
+          "sha256": "4c3abd98a58e5d9301430a0da182cd13be29d951bb18355c02cfb5f34f096ab4",
           "src": "agents/cr-testing-evidence.agent.md"
         },
         {
@@ -434,7 +434,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "088f39a86ef36d4de6c37db1a96bd779167dd172c30dbeab90119321f6b16a67",
+          "sha256": "ad5fc65c7a769527c966b40559eb4d1ff29922afee8d2fb22dcfee2afb6f6249",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -474,12 +474,12 @@
         },
         {
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "058faa60b2a206c28e2dd2b1b7d0158cffdb467faad2c529161020ba762351ea",
+          "sha256": "65db611d12cebfe874461dae7bc35d3d847ac958311b973a402032473891df06",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "68f6d566582e4c7f9f7888f745f2ed5fbdee9105f1997223d912fc90ecaacf0d",
+          "sha256": "9dc514bf1c324c0c5782e063a205982c37f80613fbf9c06dbf895f55e7eef82e",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.15"
+      "version": "1.0.16"
     },
     {
       "author": "jIRI-san",
@@ -901,37 +901,37 @@
       "files": [
         {
           "dest": "agents/dr-architecture-patterns.agent.md",
-          "sha256": "c8569aa1d6c83a81e4b01eaaac76db332e99613354880e870175ebdc12a5e14f",
+          "sha256": "9d99b72f9cd0ed211073a353b67f407e913357f792d3c4e34941392d50b6f43c",
           "src": "agents/dr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/dr-correctness-reliability.agent.md",
-          "sha256": "771819cc98f809e2c670dd245c8a4843b19747b5d9225952b357271230d741b0",
+          "sha256": "95d381eda89877e81b231345cb5c7ff579439c438aacd28489b38888ed59b3c4",
           "src": "agents/dr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/dr-maintainability-consistency.agent.md",
-          "sha256": "31659cf93705a8e139e24e556b843208123a3c31beb3fbe5e02b7b98b7f2bae2",
+          "sha256": "e96bdce755d0af36e6ad70e6a2c9ddcea600d7839357c6444d543afbbd5200c1",
           "src": "agents/dr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/dr-operability-observability.agent.md",
-          "sha256": "771eef6c01a6b7791728b2f2afb9c42eb74a02fc30a566094a0983e1bdca33eb",
+          "sha256": "6c81ac38b339673a142fcffe1ef127bcd35e98ee6da91d3fb05dbb97bda05b11",
           "src": "agents/dr-operability-observability.agent.md"
         },
         {
           "dest": "agents/dr-performance.agent.md",
-          "sha256": "77df9af9e6388b8bde8ebb8eb31d2998a9c4f7003c46605ff2035e65d985adda",
+          "sha256": "4d4aad68d8766cc0279e0021f185631b7acab537fe3044b9bdc9b024d57e6c63",
           "src": "agents/dr-performance.agent.md"
         },
         {
           "dest": "agents/dr-security.agent.md",
-          "sha256": "47c15065e954a6647b28285902176d45730d6da839411cca77f83fb928cfcdef",
+          "sha256": "758aa585ad155e1874fcda9d572aa1b93b278a3ad79aba456706db9a7b0b836b",
           "src": "agents/dr-security.agent.md"
         },
         {
           "dest": "agents/dr-testing-evidence.agent.md",
-          "sha256": "b870ace28fd8dccab7c58f97593e0d846c2ee4da92ce01cf3820fddc90a4b635",
+          "sha256": "edf215bbeffb58d5abe22ab74dc46850ea1879c7c3bb7a388956987cff0fdd38",
           "src": "agents/dr-testing-evidence.agent.md"
         },
         {
@@ -946,7 +946,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3603af438dc137ec62a4f6b2b2a64ed93bca0576fced8e8ee3ca6d6719ad93ef",
+          "sha256": "3a27597e06d844078f94452b3ca2fa6eaf9e61182ac49367ab092eca4f57fff9",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -986,12 +986,12 @@
         },
         {
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "058faa60b2a206c28e2dd2b1b7d0158cffdb467faad2c529161020ba762351ea",
+          "sha256": "65db611d12cebfe874461dae7bc35d3d847ac958311b973a402032473891df06",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "68f6d566582e4c7f9f7888f745f2ed5fbdee9105f1997223d912fc90ecaacf0d",
+          "sha256": "9dc514bf1c324c0c5782e063a205982c37f80613fbf9c06dbf895f55e7eef82e",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1033,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.14"
+      "version": "1.0.15"
     },
     {
       "author": "jIRI-san",

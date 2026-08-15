@@ -46,6 +46,57 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
+    It 'test:ReviewReport.CommittedAuthorityCleanupTruth keeps committed Freeze and Publish outcomes truthful when post-commit shredding fails' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' })
+            [void](Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan)
+            $planInput = [System.IO.Path]::GetFullPath((Join-Path $runDir 'review-plan.input.json'))
+            Set-ReviewPathItemProvider -Provider ({
+                    param($Path)
+                    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+                    if ($item -and [string]::Equals([System.IO.Path]::GetFullPath($Path), $planInput, [System.StringComparison]::OrdinalIgnoreCase) -and
+                        (Test-Path -LiteralPath (Join-Path $runDir '.review-run.frozen'))) {
+                        return [pscustomobject]@{ Attributes = $item.Attributes -bor [System.IO.FileAttributes]::ReparsePoint }
+                    }
+                    return $item
+                }.GetNewClosure())
+
+            $freeze = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
+            $freeze.ExitCode | Should -Be 0
+            $freeze.Diagnostics | Should -HaveCount 1
+            $freeze.Diagnostics[0] | Should -Match 'authority is intact'
+            (Get-ReviewRunState -RunDir $runDir) | Should -Be 'frozen'
+            Test-Path -LiteralPath $planInput | Should -BeTrue
+
+            Clear-ReviewPathItemProvider
+            Remove-Item -LiteralPath $planInput -Force
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+            [void](Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run)
+            $resultInput = [System.IO.Path]::GetFullPath((Join-Path $runDir 'review-result.input.json'))
+            Set-ReviewPathItemProvider -Provider ({
+                    param($Path)
+                    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+                    if ($item -and [string]::Equals([System.IO.Path]::GetFullPath($Path), $resultInput, [System.StringComparison]::OrdinalIgnoreCase) -and
+                        (Test-Path -LiteralPath (Join-Path $runDir 'review-run.manifest.json'))) {
+                        return [pscustomobject]@{ Attributes = $item.Attributes -bor [System.IO.FileAttributes]::ReparsePoint }
+                    }
+                    return $item
+                }.GetNewClosure())
+
+            $publish = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
+            $publish.ExitCode | Should -Be 0
+            $publish.Diagnostics | Should -HaveCount 1
+            $publish.Diagnostics[0] | Should -Match 'authority is intact'
+            (Get-ReviewRunState -RunDir $runDir) | Should -Be 'published'
+            { Read-ReviewManifest -RunDir $runDir -Boundary $scratch } | Should -Not -Throw
+            Test-Path -LiteralPath $resultInput | Should -BeTrue
+        }
+        finally { Clear-ReviewPathItemProvider; Remove-ReviewScratchRoot -Path $scratch }
+    }
+
     It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection never consumes a .tmp the caller did not rename' {
         # The engine reads only the fixed input names. A `.tmp` still being written — or abandoned
         # half-written by a crashed caller — is not an input, and neither mode may pick it up.
@@ -453,6 +504,9 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             [void](Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch)
 
             Test-Path -LiteralPath $runDir | Should -BeTrue
+            $preview = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch -WhatIf
+            $preview | Should -Be $script:runId
+            Test-Path -LiteralPath $runDir | Should -BeTrue
             $removed = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch
             $removed | Should -Be $script:runId
             Test-Path -LiteralPath $runDir | Should -BeFalse
@@ -483,6 +537,25 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             Should -Throw -ExpectedMessage '*requires a clean run with no Critical or High*'
             Test-Path -LiteralPath $runDir | Should -BeTrue
 
+            $preview = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch -WhatIf
+            $preview.Preview | Should -BeTrue
+            Test-Path -LiteralPath $runDir | Should -BeTrue
+            Test-Path -LiteralPath $preview.Report | Should -BeFalse
+            Test-Path -LiteralPath $preview.Receipt | Should -BeFalse
+
+            $store = Split-Path -Parent $runDir
+            $held = Enter-ReviewLock -RunDir $store -LockName ".$script:runId.finalize.lock"
+            try {
+                Set-ReviewRunLockTimeoutOverride -Seconds 0.2
+                { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch } |
+                Should -Throw -ExpectedMessage '*lock not acquired*'
+                Test-Path -LiteralPath $runDir | Should -BeTrue
+            }
+            finally {
+                Set-ReviewRunLockTimeoutOverride -Seconds $null
+                Exit-ReviewLock -Lock $held
+            }
+
             $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             Test-Path -LiteralPath $runDir | Should -BeFalse
             Test-Path -LiteralPath $final.Report | Should -BeTrue
@@ -503,6 +576,32 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $replay.Replayed | Should -BeTrue
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
             Should -Throw -ExpectedMessage '*different verdict*'
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.FinalizedResultCompaction never falls back to legacy verification for a malformed current manifest' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $runDir = Resolve-ReviewRunPreparation -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch | Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $task = @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @($task))
+            (Invoke-ReviewFreeze -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            (Invoke-ReviewPublish -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            $manifestPath = Join-Path $runDir 'review-run.manifest.json'
+            $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+            [void]$manifest.Remove('scopeDigest')
+            [System.IO.File]::WriteAllText($manifestPath, ((ConvertTo-Json $manifest -Depth 20 -Compress) + "`n"), [System.Text.UTF8Encoding]::new($false))
+
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*manifest fails the review-manifest schema*'
+            Test-Path -LiteralPath $runDir | Should -BeTrue
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }

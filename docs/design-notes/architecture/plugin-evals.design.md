@@ -21,6 +21,10 @@ globs:
 
 `Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` is the deterministic CI/pre-commit gate; it verifies every id in `tools/structural-eval-required.json` executed exactly once and passed. `npm run eval:llm` remains the opt-in, auth+premium-cost path.
 
+`-PluginsRoot` and `-RequiredContractPath` are executable test seams: ordinary tests point them at
+fixture evals to prove missing, skipped, and duplicate required IDs fail. Production and CI omit both,
+so the runner always resolves the repository `plugins/` tree and committed required-ID contract.
+
 ## File Layout and Contracts
 
 | Surface | Contract |

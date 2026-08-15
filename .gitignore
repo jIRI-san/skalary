@@ -14,6 +14,8 @@ session-transcript-*.md
 # `<uuid>.receipt.json` siblings remain trackable under the same reviews directory.
 docs/implementation-plans/**/assets/reviews/*/
 docs/implementation-plans/**/reviews/*/
+docs/implementation-plans/**/assets/reviews/.*.finalize.lock
+docs/implementation-plans/**/reviews/.*.finalize.lock
 
 # Autopilot host-command configuration — machine-specific, never committed.
 # `.autopilot.json` is deliberately tracked: it is the run contract (model, timeouts,

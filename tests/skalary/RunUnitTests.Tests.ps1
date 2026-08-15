@@ -244,6 +244,16 @@ Describe 'sandbox' {
         (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
         $workflow | Should -Match 'name:\s*Review consumer install matrix'
         $workflow | Should -Match 'scripts/skalary/Test-ReviewConsumerInstall\.ps1'
+        $workflow | Should -Not -Match 'Test-ReviewConsumerInstall\.ps1[^\r\n]*-TestPath'
+
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $fixture = Join-Path $sandbox 'tests/Sandbox.Tests.ps1'
+        $passOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($passOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:failingTestFile -Encoding utf8NoBOM
+        $failOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 1 -Because ($failOutput | Out-String)
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

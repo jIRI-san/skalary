@@ -2,15 +2,17 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
-    [string]$TestResultPath
+    [string]$TestResultPath,
+    [string[]]$TestPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$testPath = Join-Path $RepoRoot 'tests/skalary/ReviewConsumerInstall.Tests.ps1'
-if (-not (Test-Path -LiteralPath $testPath -PathType Leaf)) {
-    Write-Error "Review consumer install test not found: $testPath"
+$testPath = if ($TestPath) { @($TestPath | ForEach-Object { [System.IO.Path]::GetFullPath($_) }) } else { @((Join-Path $RepoRoot 'tests/skalary/ReviewConsumerInstall.Tests.ps1')) }
+$missingTestPath = @($testPath | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+if ($missingTestPath.Count -gt 0) {
+    Write-Error "Review consumer install test not found: $($missingTestPath -join ', ')"
     exit 3
 }
 
