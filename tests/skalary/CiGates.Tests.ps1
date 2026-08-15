@@ -178,7 +178,7 @@ Describe 'ci gate inventory' {
                 $swallowsVerdict = $lastStatement -match '^(exit +0\b|\$(global:)?LASTEXITCODE *=)'
                 $throwsOnFinding = @($statements | Where-Object { $_ -match '^throw\b' }).Count -gt 0
                 $enforces = (-not $swallowsVerdict) -and
-                    ($lastStatement -match '^(pwsh|git)\b|-EnableExit\b' -or $throwsOnFinding)
+                    ($lastStatement -match '^(pwsh|git|npm)\b|-EnableExit\b' -or $throwsOnFinding)
 
                 if ($row.Enforcement -eq 'blocking') {
                     $enforces |

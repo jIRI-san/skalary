@@ -16,10 +16,10 @@ globs:
 
 | Tier | Scope | Execution mode | Gate policy |
 |---|---|---|---|
-| Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Always-on in `npm run eval`; not part of `npm test` / `scripts/validate.ps1` |
+| Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Blocking `npm run eval` CI step on both platform legs; separate from `npm test` / `scripts/validate.ps1` |
 | LLM (Tier-2) | Declarative **waza** specs in `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`) run by the `copilot-sdk` executor and scored by graders (deterministic `text` pre-check + LLM `prompt` judge, plus `tool_constraint`/`behavior` where a tool contract exists) | Opt-in via `npm run eval:llm` → `scripts/skalary/Invoke-WazaEvals.ps1` | Never part of `npm test` / `scripts/validate.ps1` / `npm run eval` |
 
-`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` (Tier-1) is the documented pre-commit path; `npm run eval:llm` (Tier-2) is the opt-in, auth+premium-cost path.
+`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` is the deterministic CI/pre-commit gate; it verifies every id in `tools/structural-eval-required.json` executed exactly once and passed. `npm run eval:llm` remains the opt-in, auth+premium-cost path.
 
 ## File Layout and Contracts
 

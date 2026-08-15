@@ -163,6 +163,45 @@ Describe 'review report corpus' {
             if ([string]$expected.keyComponent -ne (Get-NormalizedKey -Value ([string]$members[0].component))) { $keyFailures.Add("component key for '$($expected.title)'") }
         }
         $keyFailures -join '; ' | Should -BeNullOrEmpty
+
+        # Reconstruct the entire closed legacy projection from the committed envelope. The expected
+        # projection was recovered from the independently archived report and is provenance-bound to
+        # its bytes; it is never read by the derivation below. An envelope edit therefore changes the
+        # reconstructed object and fails here even when the archived receipt itself remains unchanged.
+        $projection = ConvertTo-ReviewProjection -Run $script:run
+        $derivedGroups = [System.Collections.Generic.List[object]]::new()
+        $order = 0
+        foreach ($entry in @($projection.Findings)) {
+            $order++
+            $keyParts = ([string]$entry.Key).Split([char]1)
+            $keyParts.Count | Should -Be 2 -Because 'a legacy merge key has exactly two normalized components'
+            $derivedGroups.Add([ordered]@{
+                    order = $order
+                    key = [string]$entry.Key
+                    keyRootCause = [string]$keyParts[0]
+                    keyComponent = [string]$keyParts[1]
+                    title = [string]$entry.Title
+                    rank = [int]$entry.Rank
+                    severity = [string]$entry.Severity
+                    elevated = [bool]$entry.Elevated
+                    concerns = @($entry.Concerns)
+                    models = @($entry.Models)
+                    bodies = @($entry.Bodies)
+                    references = @($entry.References)
+                    action = [string]$entry.Action
+                    rawFindings = [int]$entry.RawCount
+                })
+        }
+        $derived = [ordered]@{
+            schema = 'skalary/review-legacy-projection@1'
+            description = [string]$script:golden.description
+            corpus = 'gate-10.7-cr-branch.run.json'
+            formatter = 'scripts/skalary/Build-ReviewReport.ps1'
+            roster = @($projection.Roster)
+            groups = @($derivedGroups)
+        }
+        (ConvertTo-Json -InputObject $derived -Depth 20 -Compress) |
+            Should -Be (ConvertTo-Json -InputObject $script:golden -Depth 20 -Compress) -Because 'the committed envelope must reconstruct every field of the independently archived legacy semantic projection'
     }
 
     It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization returns identical bytes across culture, platform and input order' {
@@ -376,8 +415,11 @@ Describe 'review report corpus' {
         # out of exactly the two places it could.
         $full = [System.Text.Encoding]::UTF8.GetString($script:fullGoldenBytes)
         $summary = [System.Text.Encoding]::UTF8.GetString($script:summaryGoldenBytes)
-        ($full -replace '<!-- skalary/review-full@1 -->', '') | Should -Not -Match '<'
+        ($full -replace '<!-- skalary/review-full@1 -->', '' -replace '<!-- content-trust: reviewer-authored-data -->', '') | Should -Not -Match '<'
         ($summary -replace '<!-- skalary/review-summary@1 -->', '') | Should -Not -Match '<'
+        $trustedHeader = $full.Substring(0, $full.IndexOf('## Tasks'))
+        $trustedHeader | Should -Not -Match '(?im)^\s*(do not|never|ignore|follow instructions)\b' -Because 'the renderer records trust structurally rather than inserting AI-directed prose'
+        $trustedHeader | Should -Match '<!-- content-trust: reviewer-authored-data -->'
 
         $hostile = @{
             findings = @(

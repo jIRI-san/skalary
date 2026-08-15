@@ -17,16 +17,16 @@
     "cultureInvariant": true,
     "untrustedFields": {
       "inline": "scope, model names, titles, actions, references and task diagnostics are NFC-normalized, whitespace-collapsed, HTML-encoded and Markdown-escaped before they reach a line or a table cell",
-      "block": "bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain, under an explicit untrusted-data warning",
+      "block": "bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain; content trust is carried by the schema field and rendered marker rather than directive prose",
       "code": "only schema-patterned identifiers (run id, task id, concern, outcome, severity, digest) are rendered as code spans"
     }
   },
   "summary": {
     "golden": {
       "file": "new-layout.summary.golden.md",
-      "bytes": 5710,
-      "sha256": "f5cad2ad3c10b84af66f018fb8a38b3adc188765c1aba9cb6c655e2b19dc9535",
-      "lines": 75
+      "bytes": 6075,
+      "sha256": "21afe8193fe266a4820e3c04411971d6da0d9843faa959b208c112a26d476df8",
+      "lines": 77
     },
     "requiredAttendance": {
       "plannedTasks": 14,
@@ -221,8 +221,8 @@
   "full": {
     "golden": {
       "file": "new-layout.full.golden.md",
-      "bytes": 81403,
-      "sha256": "0c7d3e18b10317e8905cee494d8baa4dd6f4beaff7a1c17b44142d52bedff602",
+      "bytes": 82430,
+      "sha256": "d2d908aa98c95efb5d50135e9d5ed4e2fbd6c72c2503813e66541ee0300a6bdc",
       "lines": 1458
     },
     "requiredTaskIds": [

@@ -394,7 +394,7 @@ function Test-ReviewRunStructuralInvariant {
         }
         'RendererOwnedMarkdown' {
             Assert-ReviewEvalMatch $Context.Collation 'Do not hand-build Markdown' 'Caller-authored Markdown is not forbidden.'
-            Assert-ReviewEvalMatch $Context.Skill 'read only\s+the digest-verifying summary' 'The skill does not require the verifying reader.'
+            Assert-ReviewEvalMatch $Context.Collation 'Get-ReviewRun\.ps1 -View Summary\|Full' 'The caller does not require both verifying reader modes.'
             foreach ($text in @($Context.Skill, $Context.Agent, $Context.Dispatch, $Context.Collation)) {
                 Assert-ReviewEvalNotMatch $text '###\s*\[\d+\]|\|\s*\*\*Severity\*\*\s*\||(?m)^##\s+Recommendations\s*$' 'Report layout leaked into caller prose.'
             }
@@ -410,12 +410,12 @@ function Test-ReviewRunStructuralInvariant {
             if (($parameters -join ',') -cne 'Mode,RunId,PlanDir') {
                 throw "The installed writer exposes alternate parameters: $($parameters -join ', ')"
             }
-            Assert-ReviewEvalMatch $Context.Collation 'For a generic run, `<run-root>` is `\.github/\.skalary/review-runs/<uuid>`' 'The generic root is not fixed.'
+            Assert-ReviewEvalMatch $Context.Collation 'Use only the returned `runRoot`; never derive a generic or plan layout in the caller' 'The engine-owned root is not authoritative.'
             Assert-ReviewEvalNotMatch $Context.Collation '(?i)-(Schema|Policy|RepoRoot|OutputRoot)\b' 'Caller-selectable policy or roots are documented.'
         }
         'DegradedArtifactPreservation' {
-            Assert-ReviewEvalMatch $Context.Collation '\| `5` \| Read and deliver the degraded summary and artifact path, then propagate non-success' 'Exit 5 does not deliver artifacts before failure propagation.'
-            Assert-ReviewEvalMatch $Context.Collation 'remove a generic run only after delivery' 'Generic cleanup can precede delivery.'
+            Assert-ReviewEvalMatch $Context.Collation '\| `5` \| Read and deliver the degraded summary and verified full detail with `-View Full`' 'Exit 5 does not deliver verified full detail before failure propagation.'
+            Assert-ReviewEvalMatch $Context.Collation 'remove a generic run only after both are delivered' 'Generic cleanup can precede verified summary/full delivery.'
             Assert-ReviewEvalMatch $Context.Skill 'Preserve plan-associated\s+artifacts' 'Plan-associated degraded artifacts are not preserved.'
         }
         'BoundedRetry' {

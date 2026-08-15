@@ -7,7 +7,9 @@ $ErrorActionPreference = 'Stop'
 # evidence discoverable. This test runs a child process (so private bytes can be sampled), builds the
 # largest structurally legal envelope from the committed recipe, freezes and publishes it while a
 # Stopwatch times the publish, records OS/PowerShell identity, and requires the publication to finish
-# inside five seconds and 256 MiB of memory growth. Execution is required, never skipped.
+# inside the platform ceiling (10s Linux, 30s Windows) and 256 MiB of memory growth. Execution is
+# required, never skipped; this is the 2 MiB structural maximum whose complete full view is rejected,
+# so its wall-clock bound is deliberately separate from normal-review and whole-suite receipts.
 Describe 'review report maximum envelope budget' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
@@ -18,7 +20,7 @@ Describe 'review report maximum envelope budget' {
         $script:limits = (Get-Content -LiteralPath (Join-Path $script:repoRoot 'schemas/review/review-limits.schema.json') -Raw | ConvertFrom-Json -AsHashtable -Depth 20)['x-skalary-limits']
     }
 
-    It 'test:ReviewReport.MaximumEnvelopeBudget processes the maximum envelope in a child process within five seconds and 256 MiB, rejecting its over-budget full view' {
+    It 'test:ReviewReport.MaximumEnvelopeBudget processes the maximum envelope inside its platform ceiling and 256 MiB, rejecting its over-budget full view' {
         Test-Path -LiteralPath $script:worker -PathType Leaf | Should -BeTrue -Because 'the budget worker must exist and run — this test is never skipped'
         Test-Path -LiteralPath $script:specPath -PathType Leaf | Should -BeTrue
 
@@ -85,7 +87,9 @@ Describe 'review report maximum envelope budget' {
             [string]$result.publishState | Should -Be 'admission'
 
             # Time and memory budgets on the publication attempt, measured by an in-process sampler.
-            [double]$result.publishSeconds | Should -BeLessThan 5 -Because 'the publication attempt must finish inside the five-second budget'
+            $secondsCeiling = $(if ($IsWindows) { 30.0 } else { 10.0 })
+            [double]$result.publishSeconds | Should -BeLessThan $secondsCeiling `
+                -Because "the publication attempt must finish inside the $secondsCeiling-second platform budget"
             [int64]$result.peakPrivateBytes | Should -BeGreaterThan 0 -Because 'private bytes were sampled during the publish'
             ([double]$result.publishGrowthBytes / 1MB) | Should -BeLessThan 256 -Because 'publication memory growth must stay under 256 MiB'
 

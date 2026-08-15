@@ -4,6 +4,7 @@ globs:
   - .github/workflows/**
   - scripts/validate.ps1
   - scripts/skalary/Run-UnitTests.ps1
+  - scripts/skalary/Test-ReviewConsumerInstall.ps1
   - tools/suite-budget.psd1
 ---
 
@@ -19,10 +20,12 @@ globs:
 |---|---|---|---|---|
 | `gate:script-analyzer` | `scripts/skalary` carries no `Error`-severity analyzer finding; `Warning` findings are counted and printed, not enforced (`exclusion:analyzer-warnings-not-blocking`) | `.github/workflows/registry-ci.yml` | `Invoke-ScriptAnalyzer` | blocking |
 | `gate:review-schema-capability` | this runner implements every JSON Schema keyword the review-run contract validates with, and says so in one bounded status object | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-ReviewSchemaCapability\.ps1` | blocking |
+| `gate:structural-evals` | deterministic Tier-1 plugin evals pass, including exact once-only execution of every id in `tools/structural-eval-required.json` | `.github/workflows/registry-ci.yml` | `npm run eval` | blocking |
 | `support:suite-budget-clock` | the budget spans the whole `npm test` command rather than the Pester leg | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-StartBudgetClock` | support |
 | `gate:plan-validation` | every plan at or above `drafted` satisfies its own contract | `.github/workflows/registry-ci.yml` | `scripts/skalary/Validate-Plan\.ps1` | blocking |
 | `gate:repository-validation` | every payload file parses, and the six gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1` | blocking |
 | `gate:unit-suite` | the Pester suite passes and the run is inside its platform's ceiling | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)` | blocking |
+| `gate:review-consumer-install` | isolated CR and DR installs execute the complete review-run CLI exit and artifact matrix without repository fallbacks | `.github/workflows/registry-ci.yml` | `Test-ReviewConsumerInstall\.ps1` | blocking |
 | `gate:registry-validation` | `registry.json` matches the plugin sources it claims to describe | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-Registry\.ps1` | blocking |
 | `gate:dogfood-drift` | the repo's own installed copies match `plugins/` | `.github/workflows/registry-ci.yml` | `scripts/skalary/Sync-Dogfood\.ps1` | blocking |
 | `gate:generated-output-drift` | `registry.json` and `README.md` are what the generator produces now | `.github/workflows/registry-ci.yml` | `scripts/skalary/Build-Registry\.ps1` | blocking |
@@ -40,7 +43,7 @@ globs:
 | Exclusion | Decided by | Why |
 |---|---|---|
 | `exclusion:analyzer-warnings-not-blocking` | plan `768d7b` step 9.2, narrowed 2026-08-06 | The step no longer merely reports: it separates severities and throws on any `Error`, so the gate can go red (`test:Ci.LintStepCanFail`). What remains excluded is the **warning** tier. Measured 2026-08-05: 472 findings over `scripts/skalary`, all `Warning`, 0 `Error` — 344 `PSUseConsistentWhitespace` and 115 `PSUseConsistentIndentation`. Enforcing those is a repo-wide formatting change and its own plan; the count is recorded so the debt is a number rather than an impression |
-| `exclusion:llm-eval-tier` | plan `005` REQ-12, RISK-3 | The LLM tier needs a model token and returns a judged verdict, not a deterministic one. `npm run eval:llm` stays operator-invoked; the structural eval tier runs inside `gate:unit-suite` as ordinary Pester files under `tests/evals/` |
+| `exclusion:llm-eval-tier` | plan `005` REQ-12, RISK-3 | The LLM tier needs a model token and returns a judged verdict, not a deterministic one. `npm run eval:llm` stays operator-invoked; deterministic Tier-1 runs as its own `gate:structural-evals` step on both platform legs. |
 | `exclusion:arch-tier-not-seeded` | plan `768d7b` decision D11 | `docs/architecture-notes/receipts/` and `arch-test-config.json` do not exist, so an `arch:` gate would assert against an unminted tier. `gate:arch-doc-freshness` covers the part of that tier which does exist |
 
 ## Two hosts, one reason
@@ -61,6 +64,17 @@ That is why `registry-ci.yml` gives every gate its own named step and never chai
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
 | Job timeout | per matrix leg, above that platform's ceiling — a job killed before the gate speaks reports a cancelled run, not an over-budget one |
 | Measurement receipt | `Measure-SuiteRuntime.ps1` records non-empty OS/PowerShell/Pester/processor identity plus both HEAD commit and the pre-measurement staged git tree hash. The tree binds a measurement taken before the step commit to the exact staged inputs the suite read; the receipt rewrite itself necessarily lands afterward. Callers stage every tracked implementation/input change before measuring and leave only the output receipt unstaged. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. Failed runs are emitted but never recorded. |
+
+`platforms.Linux` and `platforms.Windows` are authoritative only when their source is the matching
+`ci:ubuntu-latest` / `ci:windows-latest` leg and `environment.ci` is true. A local container run may
+be retained under `supplementalMeasurements`, but it is never compared with the CI ceiling and never
+replaces a platform row. The historical Linux row predates tree attribution; its measured commit's
+tree was added during migration without changing its timing or claiming a new CI run.
+
+The isolated review-consumer matrix is a separate blocking gate rather than part of the ordinary
+suite: it starts many child PowerShell processes to prove installed CLI exits and would consume about
+half of the Windows unit-suite ceiling by itself. Splitting the host keeps that evidence mandatory on
+both legs without making every local `npm test` pay the integration cost.
 
 Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
 

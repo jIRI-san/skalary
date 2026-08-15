@@ -33,6 +33,7 @@ consumer closure, and the structural/runtime evidence that keeps those installed
 | `schemas/review/review-plan.schema.json` | the frozen planned-task set, before any reviewer is dispatched | `Freeze` |
 | `schemas/review/review-run.schema.json` | the final `skalary/review-run@1` envelope | `Publish` |
 | `schemas/review/review-manifest.schema.json` | the publication commit point, replaced last | `Publish` |
+| `schemas/review/review-admission.schema.json` | strict terminal-admission state and optional preserved-source descriptor | `Publish`/`Freeze` |
 | `schemas/review/terminal-status.schema.json` | the single JSON object every terminal path prints | every mode, including the preflight |
 | `schemas/review/review-limits.schema.json` | the shared limit and leaf-type vocabulary | nothing — it is read, never emitted |
 
@@ -42,7 +43,7 @@ attendance and run state are derived from `tasks`.
 
 ## Why the vocabulary is embedded rather than referenced
 
-`review-limits.schema.json` owns every shared definition. The four validation schemas **embed** the
+`review-limits.schema.json` owns every shared definition. The five validation schemas **embed** the
 definitions they need and point at them with internal `#/$defs/...` pointers only.
 
 An external `$ref` does resolve on PowerShell 7.6, but step 2.1 distributes these files one at a
@@ -65,6 +66,8 @@ The schema decides structure, closedness, vocabularies, patterns, cardinality an
 | unique task ids, unique concern/model slots | `uniqueItems` compares whole objects |
 | findings tied to an existing, `completed` task | cross-record correlation between two arrays |
 | task set identical to the frozen plan, digest match | needs a second document |
+| scope digest, canonical path uniqueness, code/design source rules | derived across the frozen descriptor and path records |
+| model-selection coverage and fallback/degradation consistency | correlated with the declared roster |
 | UTF-8 byte budgets (4 KiB body, 2 KiB diagnostic, 8 KiB status) | `maxLength` is not a byte count |
 | the 128 **merged**-finding maximum | the merged count is a function of the renderer's grouping key, not of `maxItems` |
 | manifest digests and byte counts matching the files named | needs the files |
@@ -103,12 +106,13 @@ bound to it by digest, a provenance file pinning the archived bytes and digest, 
 semantic projection golden (grouping key, selected title and bodies, derived action, rank/elevation,
 model/concern/reference sets, order).
 
-The reconstruction is verified, not asserted: `ReviewReportCorpus.Tests.ps1` renders the committed
-envelope through the unchanged formatter and requires byte equality with the archived file, modulo
-the two normalizations recorded in the provenance file (em dashes flattened to hyphens, one extra
-trailing newline). Regenerate with
+The legacy binding is semantic, not a claim that the retired formatter still runs:
+`ReviewReportCorpus.Tests.ps1` reconstructs every field of the closed legacy projection from the
+committed envelope and compares it with the projection recovered from the independently archived,
+digest-pinned report. The archived bytes remain a historical provenance receipt, including the two
+recorded normalizations; they are not compared to output from the new renderer. Regenerate with
 `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewCorpusFixture.ps1`; the generator
-refuses to write a fixture that no longer renders back, and finishes by invoking
+rebuilds the envelope and projection from that archived source, and finishes by invoking
 `New-ReviewLayoutGolden.ps1` so the new-layout goldens can never describe a superseded envelope.
 
 `new-layout.expectation.json` is the closed content contract for the two published views, and it is
@@ -132,8 +136,8 @@ invariant culture, or that changes when the task and finding arrays are reversed
 
 | View | Bound | Contains |
 |---|---|---|
-| `summary` | 32 KiB | identity table (run, type, state, plan digest, scope, models, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming its severity and title |
-| `full` | 1 MiB | the same identity table, an untrusted-data warning, one row per planned task (concern, model, outcome, raw-finding count, diagnostic), every merged finding with its severities/concerns/models, distinct bodies, references and the raw records behind it, then the numbered recommendations |
+| `summary` | 32 KiB | identity table (run, type, state, plan/scope digests, structural content trust, requested/declared model state, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming its severity and title |
+| `full` | 1 MiB | the same identity table and structural trust marker, one row per planned task (concern, declared model label, outcome, raw-finding count, diagnostic), every merged finding with its severities/concerns/declared model labels, distinct bodies, references and raw records, then recommendations |
 
 Untrusted-field handling is part of the layout, not a later addition:
 
@@ -143,6 +147,9 @@ Untrusted-field handling is part of the layout, not a later addition:
 - **block** — bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence *longer*
   than any backtick run they contain, so a body cannot close its own fence and continue the
   document;
+- **trust** — `contentTrust: reviewer-authored-data` is schema-required, manifest-bound, and rendered
+  as a machine-readable marker/table value. Artifacts contain no AI-directed imperative warning;
+  trusted readers/UI choose handling from the structural field;
 - **code spans** — only schema-patterned identifiers (run id, task id, concern, outcome, severity,
   digest) are rendered as code, because they are the only values a pattern already confines.
 
@@ -169,7 +176,8 @@ gap in the fixture — it is a real case, and
 indented, schema-valid, over-cap envelope that must be terminal exit `3`.) The structural maximum's 256
 findings carry 1 MiB of bodies alone, so its full view is ~1.8 MiB and is correctly rejected as
 admission; `test:ReviewReport.MaximumEnvelopeBudget` proves the whole render-and-admit decision stays
-inside five seconds and 256 MiB of sampled private-byte growth in a child process. The worker records
+inside the platform ceiling (10 seconds on Linux, 30 seconds on Windows) and 256 MiB of sampled
+private-byte growth in a child process. The worker records
 OS and PowerShell identity with its measured wall-clock/private-byte result, and the named test is
 mandatory on both Windows and Linux CI legs—never skipped—so "cross-platform" means the same committed
 recipe executes under each supported host rather than extrapolating one local measurement.
@@ -213,7 +221,7 @@ terminating floor, so it can no longer spin on a size it cannot reach.
 | Script | Modes | Owns |
 |---|---|---|
 | `Build-ReviewReport.ps1` | `-Mode Freeze\|Publish -RunId <uuid> [-PlanDir]` | freeze and publish through the fixed installed boundary |
-| `Get-ReviewRun.ps1` | `-RunId [-PlanDir]`, `-ListIncomplete` | the only verifying reader |
+| `Get-ReviewRun.ps1` | `-RunId [-PlanDir] [-View Summary\|Full]`, `-ListIncomplete`, preparation/admission/rollup modes | the only verifying reader; both views verify the complete manifest and selected role bound |
 | `Remove-ReviewRun.ps1` | `-RunId [-Force]` | generic-run cleanup |
 
 Keeping the logic in the module is deliberate: the broad failure matrix and the fault seams run
@@ -244,7 +252,7 @@ unaffected, which is exactly why the corpus cannot be the only proof and each ca
 Publish computes the merged projection once and renders both views from it; calling either exported
 view helper with `-Run` still computes its own projection for compatibility. The shared projection is
 required for the maximum-envelope cost bound—doing the same grouping pass once per view wastes most
-of the five-second budget without changing bytes.
+of the platform budget without changing bytes.
 
 ### Lifecycle, state and idempotency
 
@@ -268,8 +276,10 @@ candidate, and both are detected.
 
 - **Freeze** reads `review-plan.input.json` (the caller renamed it; see the handshake below), enforces
   the input byte budget on the bytes on disk, validates structurally (`Test-Json`) then semantically
-  (1–128 unique ids, unique concern/model slots, **and every task model inside the frozen roster**),
-  scans the untrusted plan strings it is about to persist for credential shapes, canonicalizes, and
+  after canonicalization (so NFC/LF cannot collapse uniqueness after validation), computes a missing
+  engine-owned scope digest, verifies canonical path/status records, code base/head or design-source
+  identity, exact model-selection coverage, and every task model inside the frozen roster, scans the
+  untrusted plan strings it is about to persist for credential shapes, and
   writes `review-plan.<digest>.json` and then its independent frozen-state marker **under the run
   lock**. An identical replay is idempotent; a
   *different* plan under a frozen run id is exit `2` — freeze is immutable. Under that same lock it
@@ -281,7 +291,8 @@ candidate, and both are detected.
   replacement plan generation**.
 - **Publish** requires exactly one frozen plan whose bytes match its own content address (else exit
   `2`), reads `review-result.input.json`, and binds the result to the plan: the `planDigest` must equal
-  the digest of the frozen bytes and the task set must be *exactly* the frozen one (RISK-2). It then
+  the digest of the frozen bytes and all scope/model/trust/task authority must be *exactly* the frozen
+  one (RISK-2). It canonicalizes first and reruns structural and semantic validation, then
   canonicalizes, renders both views, checks the byte budgets, takes the lock and — under it — decides
   admission, idempotency and changed reuse before replacing the manifest last. A published run id is
   answered from a manifest verified in full by the same reader a consumer uses (schema, confined
@@ -424,12 +435,15 @@ behavior — component falls back to the canonical first reference — holds ide
   the bytes actually on disk *before* anything parses them — an oversized envelope must never be
   materialized just to be refused — and again on the canonical bytes. Over budget is exit `3`, never a
   retryable `4`. The same applies to a rendered view over its budget: exit `3` before the manifest
-  changes, never truncated, never dropping a finding. An admission that is actually recorded writes a
-  small deterministic `.review-run.admission.json` marker (run id, mode, machine-readable reason
-  codes — no reviewer text, no rejected bytes), so admission outlives the process that decided it: a
+  changes, never truncated, never dropping a finding. A pre-parse/invalid admission is non-restartable.
+  A render admission preserves the validated canonical result as a content-addressed source and writes
+  a strict `.review-run.admission.json` marker binding its digest, finding count, plan/scope digests,
+  and hard limits (`maxRestarts: 1`, `maxPartitions: 16`), so admission outlives the process that decided it: a
   later `Publish` on that UUID is exit `3` again and cannot publish a quietly reduced set, a later
   `Freeze` cannot reopen it, and `Find-IncompleteReviewRun` does not report it as an interrupted run
-  to finalize. The caller abandons the UUID and starts a narrower-scope review.
+  to finalize. Child plans carry parent run/digest plus ordered partition index/count. The final reader
+  rollup accepts only published children whose path/status records exactly cover the parent scope and
+  whose canonical raw-finding multiset exactly equals the preserved source; gaps and duplicates fail.
 
   The marker is a state transition like any other, so it is decided *atomically with state* under the
   same lock: `Freeze` may admit only a `new` run and `Publish` only a `frozen` one. An
@@ -444,7 +458,8 @@ behavior — component falls back to the canonical first reference — holds ide
 
 ### The verifying reader and cleanup
 
-`Get-ReviewRun.ps1` reads only the manifest: it schema-validates it, confines every name to a single
+`Get-ReviewRun.ps1` verifies manifests, admission markers/sources, preparation roots, and final
+admission rollups. For a published run it reads only the manifest: it schema-validates it, confines every name to a single
 path segment, requires each name to be the content address of the bytes it names, verifies each file's
 byte count and SHA-256, checks `runDigest`/`planDigest` against the canonical and plan files, requires
 `runId` to be the run directory's own id (compared ordinally), and requires the canonical envelope's
@@ -486,9 +501,12 @@ unreadable, `4` for an unexpected failure such as a broken install.
 A plan run resolves through the `ReviewRuns` kind of `Resolve-PlanAssetPath`
 (`<plan>/assets/reviews/<uuid>/`); a generic run resolves under the gitignored
 `.github/.skalary/review-runs/<uuid>/`. The caller chooses only a run id and, for a plan run, a plan
-directory — repo, schema and output roots are computed from the installed script location.
+directory — repo, schema and output roots are computed from the installed script location. Before any
+caller `New-Item` or `edit`, `Get-ReviewRun.ps1 -Prepare` checks the plan directory, `plan.md`, assets
+layout anchors, store and run leaf for reparses, then returns the sole run root without writing it.
+Freeze refuses to create a missing root.
 
-A plan directory is validated **through the plan inventory**, not by path shape: it must live under
+A plan directory is confined **before** inventory/layout reads, then validated through the plan inventory, not by path shape: it must live under
 `docs/implementation-plans/`, carry a `plan.md`, appear in `Get-PlanInventory`, and its inventory id
 must resolve back to the same folder through `Resolve-Plan`. Immediately before any write, removal or
 verified read, `Assert-ReviewPathSafe` walks from the target up to the repository root and refuses if
@@ -571,8 +589,8 @@ Every concern reviewer redacts suspected credential values before return, and th
 independent fail-closed secret guard for both generic and plan-associated inputs.
 
 Terminal handling is complete: `0` clean; `5` published degraded and propagated after delivery; `2`
-invalid; `3` terminal for the UUID and followed by a new narrower-scope Freeze/dispatch rather than
-mutation; `4` retryable only with identical input after the publication fault is corrected. The two
+invalid; `3` terminal for the UUID and either non-restartable or followed by the single bounded
+partition generation plus verified rollup; `4` retryable only with identical input after the publication fault is corrected. The two
 writer approvals are anchored full-command regex keys with object values
 `{"approve":true,"matchCommandLine":true}`; no prefix approval can authorize extra writer flags or a
 chained command.

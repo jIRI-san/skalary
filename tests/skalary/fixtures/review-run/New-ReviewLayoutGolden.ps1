@@ -129,7 +129,7 @@ $expectation['encoding'] = [ordered]@{
     cultureInvariant = $true
     untrustedFields = [ordered]@{
         inline = 'scope, model names, titles, actions, references and task diagnostics are NFC-normalized, whitespace-collapsed, HTML-encoded and Markdown-escaped before they reach a line or a table cell'
-        block = 'bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain, under an explicit untrusted-data warning'
+        block  = 'bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain; content trust is carried by the schema field and rendered marker rather than directive prose'
         code = 'only schema-patterned identifiers (run id, task id, concern, outcome, severity, digest) are rendered as code spans'
     }
 }

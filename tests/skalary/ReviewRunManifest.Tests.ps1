@@ -37,7 +37,7 @@ Describe 'review report manifest, reader and exit matrix' {
         }
     }
 
-    AfterEach { Clear-ReviewRunFaultSeam }
+    AfterEach { Clear-ReviewRunFaultSeam; Clear-ReviewPathItemProvider }
 
     It 'test:ReviewReport.ManifestReaderPublicationAndExitMatrix commits the manifest last and reads it back verifying every digest' {
         $case = New-FrozenCase
@@ -50,9 +50,13 @@ Describe 'review report manifest, reader and exit matrix' {
             $verified.RunId | Should -Be $script:runId
             @($verified.Files.Keys | Sort-Object) | Should -Be @('canonical', 'full', 'plan', 'summary')
 
-            # The reader emits the summary, separate from any terminal status.
+            # The reader emits either bounded view only after verifying the same complete manifest.
             $summary = Get-ReviewRunSummaryText -RunDir $case.RunDir
             $summary | Should -Match '(?m)^# Code Review — summary$'
+            $full = Get-ReviewRunViewText -RunDir $case.RunDir -View Full
+            $full | Should -Match '(?m)^# Code Review — full report$'
+            $full | Should -Match '(?m)^## Tasks \(2\)$'
+            $full | Should -Match '(?m)^### \[1\] One$'
 
             # Reader ignores files the manifest does not reference.
             Set-Content -LiteralPath (Join-Path $case.RunDir 'stray.md') -Value 'ignored'
@@ -265,13 +269,20 @@ Describe 'review report manifest, reader and exit matrix' {
             $admission.ExitCode | Should -Be 3
             Get-ReviewRunState -RunDir $runDir | Should -Be 'admission'
 
-            # The marker is small, deterministic and carries no reviewer text.
+            # The marker is small and binds a preserved canonical source without embedding reviewer text.
             $marker = Get-Content -LiteralPath (Join-Path $runDir '.review-run.admission.json') -Raw
-            $marker.Length | Should -BeLessThan 512
-            ($marker | ConvertFrom-Json).runId | Should -Be $script:runId
-            ($marker | ConvertFrom-Json).state | Should -Be 'admission'
-            $marker | Should -Not -Match 'finding'
+            $marker.Length | Should -BeLessThan 1024
+            $markerObject = $marker | ConvertFrom-Json
+            $markerObject.runId | Should -Be $script:runId
+            $markerObject.state | Should -Be 'admission'
+            $markerObject.restartable | Should -BeTrue
+            $markerObject.maxRestarts | Should -Be 1
+            $markerObject.maxPartitions | Should -Be 16
             $marker | Should -Not -Match '&lt;'
+            $verifiedAdmission = Read-ReviewAdmissionMarker -RunDir $runDir -Boundary $scratch
+            Test-Path -LiteralPath $verifiedAdmission.SourcePath -PathType Leaf | Should -BeTrue
+            (Get-ReviewDigest -Bytes ([System.IO.File]::ReadAllBytes($verifiedAdmission.SourcePath))) |
+                Should -Be ([string]$markerObject.parentRunDigest)
 
             # A narrower, perfectly publishable result under the same UUID is still exit 3, and nothing
             # is published: the caller must start a new run id.
@@ -290,6 +301,80 @@ Describe 'review report manifest, reader and exit matrix' {
 
             # An admission-terminal run is finished, so it is not an interrupted run to finalize.
             @(Find-IncompleteReviewRun -RepoRoot $scratch) | Should -Not -Contain $script:runId
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.ManifestReaderPublicationAndExitMatrix verifies bounded admission partitions preserve scope and every raw finding' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $parentRunId = $script:runId
+            $parentDir = Join-Path $scratch ".github/.skalary/review-runs/$parentRunId"
+            $pathRecords = @(1..5 | ForEach-Object { [ordered]@{ path = "src/part$_.ps1"; status = 'modified' } })
+            $parentScope = [ordered]@{ mode = 'branch'; base = 'main'; head = 'feature'; paths = $pathRecords }
+            $parentScope['digest'] = Get-ReviewScopeDigest -ScopeAuthority $parentScope
+            $tasks = @(
+                @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+                @{ taskId = 'correctness-m1'; concern = 'correctness'; model = 'model-a' }
+            )
+            $resultTasks = @($tasks | ForEach-Object { @{ taskId = $_.taskId; concern = $_.concern; model = $_.model; outcome = 'completed' } })
+            $parentPlan = New-ReviewTestPlan -RunId $parentRunId -Roster @('model-a') -Tasks $tasks -ScopeAuthority $parentScope -Scope 'five canonical partitions'
+            Set-ReviewHandshake -RunDir $parentDir -Kind plan -Object $parentPlan
+            (Invoke-ReviewFreeze -RunId $parentRunId -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            $body = '<' * 4096
+            $parentFindings = @(1..128 | ForEach-Object {
+                    @{ taskId = 'security-m1'; severity = 'High'; title = ('finding {0:d3}' -f $_); body = $body; rootCause = ('root-{0:d3}' -f $_); component = ('component-{0:d3}' -f $_) }
+                })
+            $parentRun = New-ReviewTestRun -RunId $parentRunId -PlanDigest (Get-ReviewFrozenDigest -RunDir $parentDir) `
+                -Roster @('model-a') -Tasks $resultTasks -Findings $parentFindings -ScopeAuthority $parentScope -Scope 'five canonical partitions'
+            Set-ReviewHandshake -RunDir $parentDir -Kind result -Object $parentRun
+            (Invoke-ReviewPublish -RunId $parentRunId -RepoRoot $scratch).ExitCode | Should -Be 3
+            $admission = Read-ReviewAdmissionMarker -RunDir $parentDir -Boundary $scratch
+            $parentRunDigest = [string]$admission.Marker['parentRunDigest']
+
+            $childIds = @(
+                '11111111-1111-4111-8111-111111111111',
+                '22222222-2222-4222-8222-222222222222',
+                '33333333-3333-4333-8333-333333333333',
+                '44444444-4444-4444-8444-444444444444',
+                '55555555-5555-4555-8555-555555555555'
+            )
+            for ($partition = 1; $partition -le 5; $partition++) {
+                $childId = $childIds[$partition - 1]
+                $childDir = Join-Path $scratch ".github/.skalary/review-runs/$childId"
+                $childScope = [ordered]@{ mode = 'branch'; base = 'main'; head = 'feature'; paths = @($pathRecords[$partition - 1]) }
+                $childScope['digest'] = Get-ReviewScopeDigest -ScopeAuthority $childScope
+                $restart = [ordered]@{
+                    parentRunId = $parentRunId
+                    parentRunDigest = $parentRunDigest
+                    restartOrdinal = 1
+                    partitionIndex = $partition
+                    partitionCount = 5
+                }
+                $childPlan = New-ReviewTestPlan -RunId $childId -Roster @('model-a') -Tasks $tasks -ScopeAuthority $childScope `
+                    -Scope "partition $partition of 5" -Restart $restart
+                Set-ReviewHandshake -RunDir $childDir -Kind plan -Object $childPlan
+                (Invoke-ReviewFreeze -RunId $childId -RepoRoot $scratch).ExitCode | Should -Be 0
+
+                $first = [int][Math]::Floor((($partition - 1) * 128) / 5)
+                $last = [int][Math]::Floor(($partition * 128) / 5) - 1
+                $childFindings = @($parentFindings[$first..$last])
+                $childRun = New-ReviewTestRun -RunId $childId -PlanDigest (Get-ReviewFrozenDigest -RunDir $childDir) `
+                    -Roster @('model-a') -Tasks $resultTasks -Findings $childFindings -ScopeAuthority $childScope `
+                    -Scope "partition $partition of 5" -Restart $restart
+                Set-ReviewHandshake -RunDir $childDir -Kind result -Object $childRun
+                $childPublish = Invoke-ReviewPublish -RunId $childId -RepoRoot $scratch
+                $childPublish.ExitCode | Should -Be 0 -Because ($childPublish.Message + ' ' + ($childPublish.Diagnostics -join '; '))
+            }
+
+            $rollup = Get-ReviewAdmissionRollup -ParentRunId $parentRunId -RepoRoot $scratch
+            $rollup.state | Should -Be 'verified'
+            $rollup.parentRunDigest | Should -Be $parentRunDigest
+            $rollup.scopeDigest | Should -Be ([string]$parentScope.digest)
+            $rollup.findingCount | Should -Be 128
+            @($rollup.partitions).Count | Should -Be 5
+            @($rollup.partitions.index) | Should -Be @(1, 2, 3, 4, 5)
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
@@ -403,30 +488,26 @@ Describe 'review report manifest, reader and exit matrix' {
             # 1. A leaf artifact replaced by a link to identical bytes elsewhere: every digest still
             # verifies, so only the reparse-point check can refuse it.
             $summaryPath = Get-ReviewRunArtifact -RunDir $case.RunDir -Role summary
-            $outside = Join-Path $case.Scratch 'outside-summary.md'
-            Copy-Item -LiteralPath $summaryPath -Destination $outside -Force
-            Remove-Item -LiteralPath $summaryPath -Force
-            $linked = $true
-            try { [void](New-Item -ItemType SymbolicLink -Path $summaryPath -Target $outside -ErrorAction Stop) }
-            catch { $linked = $false }
-            if (-not $linked) {
-                Copy-Item -LiteralPath $outside -Destination $summaryPath -Force
-                Set-ItResult -Skipped -Because 'this platform does not allow this user to create symbolic links'
-                return
-            }
-            [System.IO.File]::ReadAllBytes($summaryPath).Length |
-                Should -Be ([System.IO.File]::ReadAllBytes($outside).Length) -Because 'the link really does resolve to the same bytes'
+            $summaryFull = [System.IO.Path]::GetFullPath($summaryPath)
+            Set-ReviewPathItemProvider -Provider ({
+                    param($Path)
+                    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+                    if ($item -and [string]::Equals([System.IO.Path]::GetFullPath($Path), $summaryFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        return [pscustomobject]@{ Attributes = $item.Attributes -bor [System.IO.FileAttributes]::ReparsePoint }
+                    }
+                    return $item
+                }.GetNewClosure())
             { Read-ReviewManifest -RunDir $case.RunDir } | Should -Throw -ExpectedMessage '*symlink or reparse point*'
             { Get-ReviewRunSummaryText -RunDir $case.RunDir } | Should -Throw -ExpectedMessage '*symlink or reparse point*'
-            Remove-Item -LiteralPath $summaryPath -Force
-            Copy-Item -LiteralPath $outside -Destination $summaryPath -Force
+            Clear-ReviewPathItemProvider
             { Read-ReviewManifest -RunDir $case.RunDir } | Should -Not -Throw -Because 'the run itself was never damaged'
 
             # 2. The run directory itself reached through a link inside the store.
             $store = Join-Path $case.Scratch '.github/.skalary/review-runs'
             $aliasId = '0e1d2c3b-4a59-4867-9a5b-1c2d3e4f5a6b'
             $alias = Join-Path $store $aliasId
-            [void](New-Item -ItemType SymbolicLink -Path $alias -Target $case.RunDir -ErrorAction Stop)
+            $linkType = $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' })
+            [void](New-Item -ItemType $linkType -Path $alias -Target $case.RunDir -ErrorAction Stop)
             { Read-ReviewManifest -RunDir $alias } | Should -Throw -ExpectedMessage '*symlink or reparse point*'
             { Get-ReviewRunSummaryText -RunDir $alias -Boundary $case.Scratch } | Should -Throw -ExpectedMessage '*symlink or reparse point*'
 
@@ -438,7 +519,7 @@ Describe 'review report manifest, reader and exit matrix' {
 
             # The reader CLI turns both refusals into its bounded exit 2.
             $reader = Join-Path $script:repoRoot 'scripts/skalary/Get-ReviewRun.ps1'
-            [void](New-Item -ItemType SymbolicLink -Path $alias -Target $case.RunDir -ErrorAction Stop)
+            [void](New-Item -ItemType $linkType -Path $alias -Target $case.RunDir -ErrorAction Stop)
             & pwsh -NoProfile -File $reader -RunId $aliasId *> $null
             $LASTEXITCODE | Should -Be 2
             Remove-Item -LiteralPath $alias -Force

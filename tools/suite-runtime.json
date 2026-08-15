@@ -6,20 +6,20 @@
       "schema": "skalary/suite-runtime-row@1",
       "platform": "Linux",
       "measuredCommand": "npm test",
-      "seconds": 168.096,
+      "seconds": 108.998,
       "succeeded": true,
-      "measuredAt": "2026-08-15T08:59:44.6184730+00:00",
-      "commit": "c53d83ef345979c3a8dde1c87c4658dcc0e16658",
-      "tree": "ad2e3dcb096b4caa60e444ff7dc3af9cdfc0969c",
-      "source": "container:autopilot",
-      "note": "plan c21cdc phase 3 final reviewed tree",
+      "measuredAt": "2026-08-05T20:06:01.5128558+00:00",
+      "commit": "c99d5d10421839eb4cda26c6d2616a792db89b83",
+      "tree": "53749d518c8759a17c148f9cd342a2d5bc4cf74e",
+      "source": "ci:ubuntu-latest",
+      "note": "historical CI row migrated to the tree-attributed receipt schema; timing was not re-measured",
       "environment": {
         "os": "Ubuntu 24.04.4 LTS",
-        "psVersion": "7.6.5",
-        "pesterVersion": "5.6.1",
-        "processorCount": 16,
-        "ci": false,
-        "runner": "b4d01ee35b08"
+        "psVersion": "7.6.3",
+        "pesterVersion": "5.9.0",
+        "processorCount": 4,
+        "ci": true,
+        "runner": "GitHub Actions 1000000128"
       }
     },
     "Windows": {
@@ -42,6 +42,28 @@
         "runner": "GitHub Actions 1000000127"
       }
     }
-  }
+  },
+  "supplementalMeasurements": [
+    {
+      "schema": "skalary/suite-runtime-row@1",
+      "platform": "Linux",
+      "measuredCommand": "npm test",
+      "seconds": 168.096,
+      "succeeded": true,
+      "measuredAt": "2026-08-15T08:59:44.6184730+00:00",
+      "commit": "c53d83ef345979c3a8dde1c87c4658dcc0e16658",
+      "tree": "ad2e3dcb096b4caa60e444ff7dc3af9cdfc0969c",
+      "source": "container:autopilot",
+      "note": "local 16-core container measurement; supplemental only and not comparable to the enforced ubuntu-latest CI ceiling",
+      "environment": {
+        "os": "Ubuntu 24.04.4 LTS",
+        "psVersion": "7.6.5",
+        "pesterVersion": "5.6.1",
+        "processorCount": 16,
+        "ci": false,
+        "runner": "b4d01ee35b08"
+      }
+    }
+  ]
 }
 

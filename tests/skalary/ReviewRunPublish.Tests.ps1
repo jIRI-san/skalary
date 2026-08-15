@@ -21,11 +21,12 @@ Describe 'review report output admission, completeness and secret guard' {
 
             $scratch = New-ReviewScratchRoot
             $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
-            $plan = New-ReviewTestPlan -RunId $script:runId -Roster $Roster -Tasks $Tasks
+            $budget = [Math]::Max(6, @($Tasks).Count)
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster $Roster -Tasks $Tasks -InvocationBudget $budget
             Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan
             [void](Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch)
             $digest = Get-ReviewFrozenDigest -RunDir $runDir
-            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest $digest -Roster $Roster -Tasks $ResultTasks -Findings $Findings
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest $digest -Roster $Roster -Tasks $ResultTasks -Findings $Findings -InvocationBudget $budget
             Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
             $result = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
             return [pscustomobject]@{ Scratch = $scratch; RunDir = $runDir; Result = $result; Run = $run }
@@ -176,13 +177,13 @@ Describe 'review report output admission, completeness and secret guard' {
         try {
             $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
             $tasks = @(1..128 | ForEach-Object { @{ taskId = ('t{0:d3}' -f $_); concern = ('concern-{0:d3}' -f $_); model = 'model-a' } })
-            # Eleven tasks carry maximum diagnostics (a completed task may not), the rest completed.
+                # Eight tasks carry maximum diagnostics (a completed task may not), the rest completed.
             $resultTasks = @(1..128 | ForEach-Object {
                     $task = @{ taskId = ('t{0:d3}' -f $_); concern = ('concern-{0:d3}' -f $_); model = 'model-a'; outcome = 'completed' }
-                    if ($_ -le 11) { $task['outcome'] = 'failed'; $task['diagnostic'] = ('d' * 2048) }
+                    if ($_ -le 8) { $task['outcome'] = 'failed'; $task['diagnostic'] = ('d' * 2048) }
                     $task
                 })
-            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks $tasks)
+                Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks $tasks -InvocationBudget 128)
             (Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
 
             # 256 findings at the per-record maxima over the completed tasks. Every record is legal;
@@ -198,7 +199,7 @@ Describe 'review report output admission, completeness and secret guard' {
                     # own structural maximum.
                     $group = (($i - 1) % 128) + 1
                     @{
-                        taskId = ('t{0:d3}' -f ((($i - 1) % 117) + 12))
+                        taskId = ('t{0:d3}' -f ((($i - 1) % 120) + 9))
                         severity = 'High'
                         title = (('title-{0:d3}-' -f $i) + ('t' * 146))
                         body = $body
@@ -209,7 +210,7 @@ Describe 'review report output admission, completeness and secret guard' {
                     }
                 })
             $run = New-ReviewTestRun -RunId $script:runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
-                -Tasks $resultTasks -Findings $findings
+                -Tasks $resultTasks -Findings $findings -InvocationBudget 128
             Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
 
             $inputPath = Join-Path $runDir 'review-result.input.json'
@@ -449,7 +450,7 @@ Describe 'review report output admission, completeness and secret guard' {
             # Replaced deterministically by the Unicode Control Picture for U+0001, so the whole name
             # is still readable and still distinguishable from any other model.
             $full | Should -Match ([regex]::Escape("model-a$([char]0x2401)x · model-b"))
-            $full | Should -Match 'elevated — flagged by every dispatched model'
+            $full | Should -Match 'elevated — flagged under every declared model label'
         }
         finally { Remove-ReviewScratchRoot -Path $case.Scratch }
     }

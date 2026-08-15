@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T08:54:33.7680059Z",
+  "generatedAt": "2026-08-15T12:52:00.8623139Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -439,7 +439,7 @@
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "1d4a10b602775db1eba58e44622528e117ef6d6a13ec0c7adf7ccfa7cbf5aa74",
+          "sha256": "8be8176e059abbeb86ae3903dc7d5ae9377de41e803b9c3b25a9b0db3467c71a",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -449,7 +449,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "b2d4aeb66b0d787e7a84f97722330a6c7880c0763c9df07165ce6186f96d69ee",
+          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -464,7 +464,7 @@
         },
         {
           "dest": "skills/cr/scripts/Get-ReviewRun.ps1",
-          "sha256": "2311f2ac7b922d706290740e88baea677d8ecfbe5a8dfe4e8f4c12974082261b",
+          "sha256": "f131a5ad81a20d13e3193577b8112b9895f6b18aaf73a42545b36f750472f8e6",
           "src": "skills/cr/scripts/Get-ReviewRun.ps1"
         },
         {
@@ -479,27 +479,32 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "601ee67858de55cd521ede67882d727c63a18d6d9156be3364e865a9d406515b",
+          "sha256": "452a76d8bd841d69b063e04be2772f7ce80b2797a7150561bea79a5a8d1fb214",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
+          "dest": "skills/cr/scripts/schemas/review/review-admission.schema.json",
+          "sha256": "f6a6558e1c0c0d1151b0959f2d1e4b003ce75ef9baa9938616a4f9759bd01312",
+          "src": "skills/cr/scripts/schemas/review/review-admission.schema.json"
+        },
+        {
           "dest": "skills/cr/scripts/schemas/review/review-limits.schema.json",
-          "sha256": "91f385fb6d91d9fa836aaeb0d6b7a17d8d4297be4bb5a2cc21847582b4b499b5",
+          "sha256": "5feed5f98937efe2dfcff1fd42cdb23ed38e2beb1b77dcf915a4e8c71c610f65",
           "src": "skills/cr/scripts/schemas/review/review-limits.schema.json"
         },
         {
           "dest": "skills/cr/scripts/schemas/review/review-manifest.schema.json",
-          "sha256": "f30b7d25c61454e8a257dc1ba1e9c3f8eeafda8a11ee1f70406f5fb692406b0d",
+          "sha256": "d466c7739f57bb51978dedc0d060caa033d8d3f4b50f0f73df33a5de83f5cbb7",
           "src": "skills/cr/scripts/schemas/review/review-manifest.schema.json"
         },
         {
           "dest": "skills/cr/scripts/schemas/review/review-plan.schema.json",
-          "sha256": "f680f58adae55fc26de14040ca2128119e82ce4adc5063301d727264e9f0baea",
+          "sha256": "3fd9780e35fcaa45803b169d30bce9717e6965a400c309608689c36c6e467393",
           "src": "skills/cr/scripts/schemas/review/review-plan.schema.json"
         },
         {
           "dest": "skills/cr/scripts/schemas/review/review-run.schema.json",
-          "sha256": "9315e327ba64e00ae4604619a2c308d0bd03601eba7ded08e459760dcc79dd64",
+          "sha256": "538359585a09be63fecdb7d85825add1e67c2a0cffa0a092e22984a91008cc0e",
           "src": "skills/cr/scripts/schemas/review/review-run.schema.json"
         },
         {
@@ -516,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.10"
+      "version": "1.0.12"
     },
     {
       "author": "jIRI-san",
@@ -946,7 +951,7 @@
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "1d4a10b602775db1eba58e44622528e117ef6d6a13ec0c7adf7ccfa7cbf5aa74",
+          "sha256": "8be8176e059abbeb86ae3903dc7d5ae9377de41e803b9c3b25a9b0db3467c71a",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -956,7 +961,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "b2d4aeb66b0d787e7a84f97722330a6c7880c0763c9df07165ce6186f96d69ee",
+          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -971,7 +976,7 @@
         },
         {
           "dest": "skills/dr/scripts/Get-ReviewRun.ps1",
-          "sha256": "2311f2ac7b922d706290740e88baea677d8ecfbe5a8dfe4e8f4c12974082261b",
+          "sha256": "f131a5ad81a20d13e3193577b8112b9895f6b18aaf73a42545b36f750472f8e6",
           "src": "skills/dr/scripts/Get-ReviewRun.ps1"
         },
         {
@@ -986,27 +991,32 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "601ee67858de55cd521ede67882d727c63a18d6d9156be3364e865a9d406515b",
+          "sha256": "452a76d8bd841d69b063e04be2772f7ce80b2797a7150561bea79a5a8d1fb214",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
+          "dest": "skills/dr/scripts/schemas/review/review-admission.schema.json",
+          "sha256": "f6a6558e1c0c0d1151b0959f2d1e4b003ce75ef9baa9938616a4f9759bd01312",
+          "src": "skills/dr/scripts/schemas/review/review-admission.schema.json"
+        },
+        {
           "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json",
-          "sha256": "91f385fb6d91d9fa836aaeb0d6b7a17d8d4297be4bb5a2cc21847582b4b499b5",
+          "sha256": "5feed5f98937efe2dfcff1fd42cdb23ed38e2beb1b77dcf915a4e8c71c610f65",
           "src": "skills/dr/scripts/schemas/review/review-limits.schema.json"
         },
         {
           "dest": "skills/dr/scripts/schemas/review/review-manifest.schema.json",
-          "sha256": "f30b7d25c61454e8a257dc1ba1e9c3f8eeafda8a11ee1f70406f5fb692406b0d",
+          "sha256": "d466c7739f57bb51978dedc0d060caa033d8d3f4b50f0f73df33a5de83f5cbb7",
           "src": "skills/dr/scripts/schemas/review/review-manifest.schema.json"
         },
         {
           "dest": "skills/dr/scripts/schemas/review/review-plan.schema.json",
-          "sha256": "f680f58adae55fc26de14040ca2128119e82ce4adc5063301d727264e9f0baea",
+          "sha256": "3fd9780e35fcaa45803b169d30bce9717e6965a400c309608689c36c6e467393",
           "src": "skills/dr/scripts/schemas/review/review-plan.schema.json"
         },
         {
           "dest": "skills/dr/scripts/schemas/review/review-run.schema.json",
-          "sha256": "9315e327ba64e00ae4604619a2c308d0bd03601eba7ded08e459760dcc79dd64",
+          "sha256": "538359585a09be63fecdb7d85825add1e67c2a0cffa0a092e22984a91008cc0e",
           "src": "skills/dr/scripts/schemas/review/review-run.schema.json"
         },
         {
@@ -1023,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.9"
+      "version": "1.0.11"
     },
     {
       "author": "jIRI-san",
@@ -1045,7 +1055,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "dc6e19a823237e1affbf09e4c4cac0875646f2dd7aa74bb2a49cecefe5503974",
+          "sha256": "b3b9fa9bfaacab4a024125d68de6fdf99d19f320340fb2af45881c3469a1d9f2",
           "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -1085,7 +1095,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "dc6e19a823237e1affbf09e4c4cac0875646f2dd7aa74bb2a49cecefe5503974",
+          "sha256": "b3b9fa9bfaacab4a024125d68de6fdf99d19f320340fb2af45881c3469a1d9f2",
           "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -1117,7 +1127,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",

@@ -17,9 +17,9 @@
   },
   "reconstruction": {
     "planFile": "gate-10.7-cr-branch.plan.json",
-    "planDigest": "sha256:467f42dc9306d1e0731eab298fb8799c8f04cc73d9376c2605529a5af7603ba6",
+    "planDigest": "sha256:a5f2e30998a87f4673e4163df140ede5c9d8dfcf8ccc4f7de439d57edea748bf",
     "runFile": "gate-10.7-cr-branch.run.json",
-    "runDigest": "sha256:4980fbbeef019a0b1d4b93d8ebb5a91b495e1f3b45fcc077bf9a573386a5dcf6",
+    "runDigest": "sha256:6a1206f28309a6db2be5381ec9a750513cee0dd1d356db38d1f6bff922b32574",
     "plannedTasks": 14,
     "rawFindings": 60,
     "mergedFindings": 44,
@@ -43,13 +43,13 @@
     "expectation": "new-layout.expectation.json",
     "summary": {
       "file": "new-layout.summary.golden.md",
-      "bytes": 5710,
-      "sha256": "f5cad2ad3c10b84af66f018fb8a38b3adc188765c1aba9cb6c655e2b19dc9535"
+      "bytes": 6075,
+      "sha256": "21afe8193fe266a4820e3c04411971d6da0d9843faa959b208c112a26d476df8"
     },
     "full": {
       "file": "new-layout.full.golden.md",
-      "bytes": 81403,
-      "sha256": "0c7d3e18b10317e8905cee494d8baa4dd6f4beaff7a1c17b44142d52bedff602"
+      "bytes": 82430,
+      "sha256": "d2d908aa98c95efb5d50135e9d5ed4e2fbd6c72c2503813e66541ee0300a6bdc"
     },
     "mergedFindings": 44,
     "rawFindings": 60,

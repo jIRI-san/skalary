@@ -3694,6 +3694,16 @@
   ],
   "removals": [
     {
+      "test": "reviewer dispatch guide.test:dispatch-budget-reported states the 28-invocation budget as reported, not enforced",
+      "reason": "Plan c21cdc makes the persisted invocation budget enforceable at Freeze while retaining derived attendance reporting; test:dispatch-budget-enforced now pins both behaviors.",
+      "step": "4.1-remediation"
+    },
+    {
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics commits four canonical schemas with repository ids on one dialect",
+      "reason": "Plan c21cdc adds the canonical review-admission schema during final-review remediation; the renamed test now requires all five schemas on the same dialect.",
+      "step": "4.1-remediation"
+    },
+    {
       "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
       "reason": "Superseded by 'cep skill.preserves preliminary epic context while delegating full child drafting to /cip', which retains drafting delegation and adds the child-context preservation contract.",
       "step": "epic-scaffold-context-preservation"
@@ -3775,7 +3785,7 @@
     },
     {
       "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the committed corpus back to the archived report byte for byte",
-      "reason": "The case invoked the retired object formatter. Step 2.2 replaces it with a normalization-receipt assertion over the committed archived bytes, while production new-layout parity remains covered by the other GoldenSemanticParityAndCanonicalization cases.",
+      "reason": "The case invoked the retired object formatter, so byte reconstruction is no longer claimed. Step 2.2 replaces it with two independent checks: a digest-pinned receipt over the archived bytes, and a complete envelope-derived reconstruction of the closed legacy semantic projection. Production new-layout byte parity remains covered by the other GoldenSemanticParityAndCanonicalization cases.",
       "step": "2.2"
     }
   ]

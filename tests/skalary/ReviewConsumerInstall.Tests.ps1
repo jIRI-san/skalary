@@ -84,6 +84,7 @@ Describe 'isolated review-run consumer installs' {
             [void](New-Item -ItemType Directory -Path $poisonedSchemas -Force)
             foreach ($name in @(
                     'review-limits.schema.json',
+                    'review-admission.schema.json',
                     'review-manifest.schema.json',
                     'review-plan.schema.json',
                     'review-run.schema.json',
@@ -111,6 +112,8 @@ Describe 'isolated review-run consumer installs' {
                 Reader = Join-Path $installed 'Get-ReviewRun.ps1'
                 Cleaner = Join-Path $installed 'Remove-ReviewRun.ps1'
                 Module = Join-Path $installed 'ReviewRun.psm1'
+                TerminalSchema = Join-Path $installed 'schemas/review/terminal-status.schema.json'
+                LimitsSchema = Join-Path $installed 'schemas/review/review-limits.schema.json'
             }
         }
 
@@ -131,14 +134,32 @@ Describe 'isolated review-run consumer installs' {
                 [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Tasks,
                 [string]$Scope = 'isolated consumer lifecycle'
             )
+            $scopeAuthority = if ($Fixture.ReviewType -eq 'design') {
+                [ordered]@{
+                    mode = 'design'
+                    paths = @([ordered]@{ path = 'docs/implementation-plans/2026-01-01-abc123-consumer/plan.md'; status = 'modified' })
+                    designSource = [ordered]@{
+                        kind = 'plan'
+                        path = 'docs/implementation-plans/2026-01-01-abc123-consumer/plan.md'
+                        digest = 'sha256:' + ('1' * 64)
+                    }
+                }
+            }
+            else {
+                [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+            }
+            $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
             return [ordered]@{
                 schema = 'skalary/review-plan@1'
                 runId = $RunId
                 reviewType = $Fixture.ReviewType
+                contentTrust = 'reviewer-authored-data'
                 scope = $Scope
+                scopeAuthority = $scopeAuthority
                 roster = @('model-a')
+                modelSelection   = @([ordered]@{ requested = 'model-a'; declared = 'model-a'; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' })
                 invocationBudget = 28
-                tasks = @($Tasks)
+                tasks            = @($Tasks)
             }
         }
 
@@ -151,16 +172,34 @@ Describe 'isolated review-run consumer installs' {
                 [object[]]$Findings = @(),
                 [string]$Scope = 'isolated consumer lifecycle'
             )
+            $scopeAuthority = if ($Fixture.ReviewType -eq 'design') {
+                [ordered]@{
+                    mode         = 'design'
+                    paths        = @([ordered]@{ path = 'docs/implementation-plans/2026-01-01-abc123-consumer/plan.md'; status = 'modified' })
+                    designSource = [ordered]@{
+                        kind   = 'plan'
+                        path   = 'docs/implementation-plans/2026-01-01-abc123-consumer/plan.md'
+                        digest = 'sha256:' + ('1' * 64)
+                    }
+                }
+            }
+            else {
+                [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+            }
+            $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
             return [ordered]@{
-                schema = 'skalary/review-run@1'
-                runId = $RunId
-                reviewType = $Fixture.ReviewType
-                scope = $Scope
-                roster = @('model-a')
+                schema           = 'skalary/review-run@1'
+                runId            = $RunId
+                reviewType       = $Fixture.ReviewType
+                contentTrust     = 'reviewer-authored-data'
+                scope            = $Scope
+                scopeAuthority   = $scopeAuthority
+                roster           = @('model-a')
+                modelSelection   = @([ordered]@{ requested = 'model-a'; declared = 'model-a'; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' })
                 invocationBudget = 28
-                planDigest = $PlanDigest
-                tasks = @($Tasks)
-                findings = @($Findings)
+                planDigest       = $PlanDigest
+                tasks            = @($Tasks)
+                findings         = @($Findings)
             }
         }
 
@@ -183,11 +222,15 @@ Describe 'isolated review-run consumer installs' {
                 })
             $statusLine.Count | Should -Be 1 -Because "$($Fixture.Id) $Mode must emit exactly one terminal status object"
             [string]$statusLine[0] | Should -Match '^\{'
+            [System.Text.Encoding]::UTF8.GetByteCount(([string]$statusLine[0]) + "`n") |
+            Should -BeLessOrEqual 8192 -Because 'the installed terminal status is schema-bounded'
+            ([string]$statusLine[0] | Test-Json -SchemaFile $Fixture.TerminalSchema -ErrorAction SilentlyContinue) |
+            Should -BeTrue -Because "$($Fixture.Id) $Mode stdout must be one schema-valid status object"
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Status = ([string]$statusLine[0] | ConvertFrom-Json)
-                Stdout = [string]$statusLine[0]
-                Stderr = ($stderr -join "`n")
+                Status   = ([string]$statusLine[0] | ConvertFrom-Json)
+                Stdout   = [string]$statusLine[0]
+                Stderr   = ($stderr -join "`n")
             }
         }
 
@@ -196,11 +239,13 @@ Describe 'isolated review-run consumer installs' {
                 [Parameter(Mandatory)]$Fixture,
                 [AllowEmptyString()][string]$RunId,
                 [switch]$Plan,
-                [switch]$ListIncomplete
+                [switch]$ListIncomplete,
+                [ValidateSet('Summary', 'Full')][string]$View = 'Summary'
             )
 
             $arguments = @('-NoProfile', '-File', $Fixture.Reader)
             if ($ListIncomplete) { $arguments += '-ListIncomplete' } else { $arguments += @('-RunId', $RunId) }
+            if (-not $ListIncomplete) { $arguments += @('-View', $View) }
             if ($Plan) { $arguments += @('-PlanDir', $Fixture.PlanDir) }
             $output = @(& pwsh @arguments 2>&1)
             $exitCode = $LASTEXITCODE
@@ -208,8 +253,8 @@ Describe 'isolated review-run consumer installs' {
             $stdout = @($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Text = ($stdout -join "`n")
-                Stderr = ($stderr -join "`n")
+                Text     = ($stdout -join "`n")
+                Stderr   = ($stderr -join "`n")
             }
         }
 
@@ -238,19 +283,13 @@ Describe 'isolated review-run consumer installs' {
                 [Parameter(Mandatory)][string]$RunId,
                 [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Tasks,
                 [switch]$Plan,
-                [switch]$UseCli,
                 [string]$Scope = 'isolated consumer lifecycle'
             )
 
             $runDir = Get-ConsumerRunDir -Fixture $Fixture -RunId $RunId -Plan:$Plan
             Write-JsonHandshake -RunDir $runDir -Kind plan `
                 -Value (New-ConsumerPlan -Fixture $Fixture -RunId $RunId -Tasks $Tasks -Scope $Scope)
-            $freeze = if ($UseCli) {
-                Invoke-ConsumerWriter -Fixture $Fixture -Mode Freeze -RunId $RunId -Plan:$Plan
-            }
-            else {
-                Invoke-ReviewFreeze -RunId $RunId -RepoRoot $Fixture.Root -PlanDir $(if ($Plan) { $Fixture.PlanDir } else { $null })
-            }
+            $freeze = Invoke-ConsumerWriter -Fixture $Fixture -Mode Freeze -RunId $RunId -Plan:$Plan
             return [pscustomobject]@{
                 RunDir = $runDir
                 Result = $freeze
@@ -295,7 +334,7 @@ Describe 'isolated review-run consumer installs' {
 
             # Clean publication with a finding, then a verifying-reader tamper rejection.
             $cleanId = [guid]::NewGuid().ToString()
-            $clean = Freeze-ConsumerRun -Fixture $fixture -RunId $cleanId -Tasks $oneTask -UseCli
+            $clean = Freeze-ConsumerRun -Fixture $fixture -RunId $cleanId -Tasks $oneTask
             Assert-ConsumerExit -Result $clean.Result -Expected 0 -Context "$Id clean Freeze"
             $cleanRun = New-ConsumerResult -Fixture $fixture -RunId $cleanId -PlanDigest $clean.Digest -Tasks @(
                 @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
@@ -308,24 +347,28 @@ Describe 'isolated review-run consumer installs' {
             $read = Invoke-ConsumerReader -Fixture $fixture -RunId $cleanId
             Assert-ConsumerExit -Result $read -Expected 0 -Context "$Id verifying read"
             $read.Text | Should -Match 'Installed finding'
+            $fullRead = Invoke-ConsumerReader -Fixture $fixture -RunId $cleanId -View Full
+            Assert-ConsumerExit -Result $fullRead -Expected 0 -Context "$Id verifying full read"
+            $fullRead.Text | Should -Match '(?m)^## Tasks \(1\)$'
+            $fullRead.Text | Should -Match '(?m)^### \[1\] Installed finding$'
 
             $manifest = Get-Content -LiteralPath (Join-Path $clean.RunDir 'review-run.manifest.json') -Raw |
-                ConvertFrom-Json
+            ConvertFrom-Json
             Add-Content -LiteralPath (Join-Path $clean.RunDir $manifest.files.summary.name) -Value 'tamper'
             { Get-ReviewRunSummaryText -RunDir $clean.RunDir -Boundary $fixture.Root } | Should -Throw
             Remove-ReviewRunDirectory -RunId $cleanId -RepoRoot $fixture.Root -RequirePublished:$false | Should -Be $cleanId
 
             # A completed zero-finding review is clean and generic cleanup follows verified delivery.
             $zeroId = [guid]::NewGuid().ToString()
-            $zero = Freeze-ConsumerRun -Fixture $fixture -RunId $zeroId -Tasks $oneTask -UseCli
+            $zero = Freeze-ConsumerRun -Fixture $fixture -RunId $zeroId -Tasks $oneTask
             $zeroRun = New-ConsumerResult -Fixture $fixture -RunId $zeroId -PlanDigest $zero.Digest -Tasks @(
                 @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
             )
             Write-JsonHandshake -RunDir $zero.RunDir -Kind result -Value $zeroRun
-            $zeroPublished = Invoke-ReviewPublish -RunId $zeroId -RepoRoot $fixture.Root
+            $zeroPublished = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $zeroId
             Assert-ConsumerExit -Result $zeroPublished -Expected 0 -Context "$Id zero-finding Publish"
             (Get-ReviewRunSummaryText -RunDir $zero.RunDir -Boundary $fixture.Root) |
-                Should -Match 'Merged findings \(0 of 0 raw\)[\s\S]*None\.'
+            Should -Match 'Merged findings \(0 of 0 raw\)[\s\S]*None\.'
             (Remove-GenericConsumerRun -Fixture $fixture -RunId $zeroId) | Should -Be 0
             Test-Path -LiteralPath $zero.RunDir | Should -BeFalse
 
@@ -333,16 +376,39 @@ Describe 'isolated review-run consumer installs' {
             $emptyId = [guid]::NewGuid().ToString()
             $empty = Freeze-ConsumerRun -Fixture $fixture -RunId $emptyId -Tasks @()
             Assert-ConsumerExit -Result $empty.Result -Expected 2 -Context "$Id zero-task Freeze"
-            $empty.Result.State | Should -Be 'invalid'
+            $empty.Result.Status.state | Should -Be 'invalid'
             Remove-ReviewRunDirectory -RunId $emptyId -RepoRoot $fixture.Root -RequirePublished:$false |
-                Should -Be $emptyId
+            Should -Be $emptyId
+
+            # Byte admission is terminal and observable through the installed Publish CLI.
+            $admissionId = [guid]::NewGuid().ToString()
+            $admissionCase = Freeze-ConsumerRun -Fixture $fixture -RunId $admissionId -Tasks $oneTask
+            $admissionRun = New-ConsumerResult -Fixture $fixture -RunId $admissionId `
+                -PlanDigest $admissionCase.Digest -Tasks @(
+                @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+            )
+            Write-JsonHandshake -RunDir $admissionCase.RunDir -Kind result -Value $admissionRun
+            $maxEnvelopeBytes = [int](Get-Content -LiteralPath $fixture.LimitsSchema -Raw |
+                ConvertFrom-Json).'x-skalary-limits'.maxEnvelopeBytes
+            [System.IO.File]::AppendAllText(
+                (Join-Path $admissionCase.RunDir 'review-result.input.json'),
+                (' ' * ($maxEnvelopeBytes + 1)),
+                [System.Text.UTF8Encoding]::new($false)
+            )
+            $admitted = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $admissionId
+            Assert-ConsumerExit -Result $admitted -Expected 3 -Context "$Id admission Publish"
+            $admitted.Status.State | Should -Be 'admission'
+            Test-Path -LiteralPath (Join-Path $admissionCase.RunDir '.review-run.admission.json') -PathType Leaf |
+            Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $admissionCase.RunDir 'review-run.manifest.json') |
+            Should -BeFalse
 
             # Degraded and all-failure plan runs publish useful authority before propagating exit 5.
             $planCleanupChecked = $false
             foreach ($case in @(
                     @{
-                        Name = 'degraded'
-                        Tasks = @(
+                        Name      = 'degraded'
+                        Tasks     = @(
                             @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
                             @{ taskId = 'performance-m1'; concern = 'performance'; model = 'model-a'; outcome = 'timed-out'; diagnostic = 'review timed out' }
                         )
@@ -350,11 +416,11 @@ Describe 'isolated review-run consumer installs' {
                             @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
                             @{ taskId = 'performance-m1'; concern = 'performance'; model = 'model-a' }
                         )
-                        Findings = @(@{ taskId = 'security-m1'; severity = 'Medium'; title = 'Preserved'; body = 'useful' })
+                        Findings  = @(@{ taskId = 'security-m1'; severity = 'Medium'; title = 'Preserved'; body = 'useful' })
                     }
                     @{
-                        Name = 'all-failure'
-                        Tasks = @(
+                        Name      = 'all-failure'
+                        Tasks     = @(
                             @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'failed'; diagnostic = 'review failed' }
                             @{ taskId = 'performance-m1'; concern = 'performance'; model = 'model-a'; outcome = 'timed-out'; diagnostic = 'review timed out' }
                         )
@@ -362,7 +428,7 @@ Describe 'isolated review-run consumer installs' {
                             @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
                             @{ taskId = 'performance-m1'; concern = 'performance'; model = 'model-a' }
                         )
-                        Findings = @()
+                        Findings  = @()
                     }
                 )) {
                 $runId = [guid]::NewGuid().ToString()
@@ -370,11 +436,15 @@ Describe 'isolated review-run consumer installs' {
                 $run = New-ConsumerResult -Fixture $fixture -RunId $runId -PlanDigest $frozen.Digest `
                     -Tasks $case.Tasks -Findings $case.Findings
                 Write-JsonHandshake -RunDir $frozen.RunDir -Kind result -Value $run
-                $published = Invoke-ReviewPublish -RunId $runId -RepoRoot $fixture.Root -PlanDir $fixture.PlanDir
+                $published = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $runId -Plan
                 Assert-ConsumerExit -Result $published -Expected 5 -Context "$Id $($case.Name) Publish"
                 Test-Path -LiteralPath (Join-Path $frozen.RunDir 'review-run.manifest.json') | Should -BeTrue
-                Get-ReviewRunSummaryText -RunDir $frozen.RunDir -Boundary $fixture.Root |
-                    Should -Match '\*\*State\*\*\s*\|\s*`degraded`'
+                $degradedSummary = Invoke-ConsumerReader -Fixture $fixture -RunId $runId -Plan
+                Assert-ConsumerExit -Result $degradedSummary -Expected 0 -Context "$Id $($case.Name) summary read"
+                $degradedSummary.Text | Should -Match '\*\*State\*\*\s*\|\s*`degraded`'
+                $degradedFull = Invoke-ConsumerReader -Fixture $fixture -RunId $runId -Plan -View Full
+                Assert-ConsumerExit -Result $degradedFull -Expected 0 -Context "$Id $($case.Name) full read"
+                $degradedFull.Text | Should -Match '(?m)^## Tasks \(2\)$'
                 if (-not $planCleanupChecked) {
                     & pwsh -NoProfile -File $fixture.Cleaner -RunId $runId *> $null
                     $LASTEXITCODE | Should -Be 2 -Because 'generic cleanup cannot remove plan authority'
@@ -393,32 +463,32 @@ Describe 'isolated review-run consumer installs' {
                 @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'cancelled'; diagnostic = 'orchestrator-interrupted' }
             )
             Write-JsonHandshake -RunDir $orphan.RunDir -Kind result -Value $cancelled
-            $orphanPublished = Invoke-ReviewPublish -RunId $orphanId -RepoRoot $fixture.Root
+            $orphanPublished = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $orphanId
             Assert-ConsumerExit -Result $orphanPublished -Expected 5 -Context "$Id orphan cancellation"
             Get-ReviewRunSummaryText -RunDir $orphan.RunDir -Boundary $fixture.Root |
-                Should -Match '\| `cancelled` \| 1 \|'
+            Should -Match '\| `cancelled` \| 1 \|'
             $orphanManifest = Get-Content -LiteralPath (Join-Path $orphan.RunDir 'review-run.manifest.json') -Raw |
-                ConvertFrom-Json
+            ConvertFrom-Json
             Get-Content -LiteralPath (Join-Path $orphan.RunDir $orphanManifest.files.canonical.name) -Raw |
-                Should -Match 'orchestrator-interrupted'
+            Should -Match 'orchestrator-interrupted'
             Remove-ReviewRunDirectory -RunId $orphanId -RepoRoot $fixture.Root | Should -Be $orphanId
 
             # Frozen-plan mutation remains invalid through the installed CLI.
             $mutationId = [guid]::NewGuid().ToString()
             $mutation = Freeze-ConsumerRun -Fixture $fixture -RunId $mutationId -Tasks $oneTask
             $frozenPlan = Get-ChildItem -LiteralPath $mutation.RunDir -File -Filter 'review-plan.*.json' |
-                Select-Object -First 1
+            Select-Object -First 1
             Add-Content -LiteralPath $frozenPlan.FullName -Value ' '
             $mutationRun = New-ConsumerResult -Fixture $fixture -RunId $mutationId `
                 -PlanDigest $mutation.Digest -Tasks @(
-                    @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
-                )
+                @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+            )
             Write-JsonHandshake -RunDir $mutation.RunDir -Kind result -Value $mutationRun
-                $mutationRejected = Invoke-ReviewPublish -RunId $mutationId -RepoRoot $fixture.Root
-                Assert-ConsumerExit -Result $mutationRejected -Expected 2 -Context "$Id frozen-plan mutation"
+            $mutationRejected = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $mutationId
+            Assert-ConsumerExit -Result $mutationRejected -Expected 2 -Context "$Id frozen-plan mutation"
             Test-Path -LiteralPath (Join-Path $mutation.RunDir 'review-run.manifest.json') | Should -BeFalse
             Remove-ReviewRunDirectory -RunId $mutationId -RepoRoot $fixture.Root -RequirePublished:$false |
-                Should -Be $mutationId
+            Should -Be $mutationId
 
             # Plan publication rejects a reconstructed credential shape and destroys the input.
             $secretId = [guid]::NewGuid().ToString()
@@ -433,17 +503,17 @@ Describe 'isolated review-run consumer installs' {
             $secretRejected = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $secretId -Plan
             Assert-ConsumerExit -Result $secretRejected -Expected 2 -Context "$Id secret rejection"
             Test-Path -LiteralPath (Join-Path $secretCase.RunDir 'review-result.input.json') |
-                Should -BeFalse
+            Should -BeFalse
             Test-Path -LiteralPath (Join-Path $secretCase.RunDir 'review-run.manifest.json') |
-                Should -BeFalse
+            Should -BeFalse
             @($secretRejected.Stdout, $secretRejected.Stderr | Where-Object { $_.Contains($secret) }).Count |
-                Should -Be 0 -Because 'rejected credential bytes must not reach terminal output'
+            Should -Be 0 -Because 'rejected credential bytes must not reach terminal output'
             @(Get-ChildItem -LiteralPath $secretCase.RunDir -Recurse -File -Force | Where-Object {
                     [System.IO.File]::ReadAllText($_.FullName).Contains($secret)
                 }).Count | Should -Be 0 -Because 'rejected credential bytes must not remain in the run'
 
-            # Installed module seams prove retry after a publication fault and lock release.
-            foreach ($retryCase in @('fault', 'lock')) {
+            # A real cross-process lock proves installed CLI exit 4 and successful unchanged retry.
+            foreach ($retryCase in @('lock')) {
                 $retryId = [guid]::NewGuid().ToString()
                 $retry = Freeze-ConsumerRun -Fixture $fixture -RunId $retryId -Tasks $oneTask
                 $retryRun = New-ConsumerResult -Fixture $fixture -RunId $retryId -PlanDigest $retry.Digest -Tasks @(
@@ -455,36 +525,34 @@ Describe 'isolated review-run consumer installs' {
 
                 $held = $null
                 try {
-                    if ($retryCase -eq 'fault') {
-                        Set-ReviewRunFaultSeam -Edge after-summary
-                    }
-                    else {
-                        $held = Enter-ReviewLock -RunDir $retry.RunDir
-                        Set-ReviewRunLockTimeoutOverride -Seconds 0.1
-                    }
-                    $blocked = Invoke-ReviewPublish -RunId $retryId -RepoRoot $fixture.Root
+                    $held = [System.IO.File]::Open(
+                        (Join-Path $retry.RunDir '.review-run.lock'),
+                        [System.IO.FileMode]::OpenOrCreate,
+                        [System.IO.FileAccess]::ReadWrite,
+                        [System.IO.FileShare]::None
+                    )
+                    $blocked = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $retryId
                     Assert-ConsumerExit -Result $blocked -Expected 4 -Context "$Id $retryCase retryable failure"
                     Test-Path -LiteralPath (Join-Path $retry.RunDir 'review-run.manifest.json') |
-                        Should -BeFalse
+                    Should -BeFalse
                     Test-Path -LiteralPath $retryInputPath -PathType Leaf | Should -BeTrue
                     [System.IO.File]::ReadAllBytes($retryInputPath) | Should -Be $retryInputBytes
                 }
                 finally {
-                    Clear-ReviewRunFaultSeam
-                    Set-ReviewRunLockTimeoutOverride -Seconds $null
-                    if ($held) { Exit-ReviewLock -Lock $held }
+                    if ($held) { $held.Dispose() }
                 }
 
-                $retried = Invoke-ReviewPublish -RunId $retryId -RepoRoot $fixture.Root
+                $retried = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $retryId
                 Assert-ConsumerExit -Result $retried -Expected 0 -Context "$Id $retryCase retry"
                 Remove-ReviewRunDirectory -RunId $retryId -RepoRoot $fixture.Root | Should -Be $retryId
             }
 
             # Poisoned repository fallbacks remain untouched; the installed closure supplied everything.
             Get-Content -LiteralPath (Join-Path $fixture.Root 'scripts/skalary/ReviewRun.psm1') -Raw |
-                Should -Match 'must not execute'
+            Should -Match 'must not execute'
             foreach ($name in @(
                     'review-limits.schema.json',
+                    'review-admission.schema.json',
                     'review-manifest.schema.json',
                     'review-plan.schema.json',
                     'review-run.schema.json',

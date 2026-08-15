@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -51,6 +51,10 @@
     {
       "src": "skills/cr/scripts/ReviewRun.psm1",
       "dest": "skills/cr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-admission.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-admission.schema.json"
     },
     {
       "src": "skills/cr/scripts/schemas/review/review-limits.schema.json",

@@ -23,6 +23,28 @@
             "concern": "security",
             "model": "model-a"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -53,6 +75,35 @@
             "concern": "security",
             "model": "model-b"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          },
+          {
+            "requested": "model-b",
+            "declared": "model-b",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -80,7 +131,29 @@
             "outcome": "completed"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -155,6 +228,35 @@
               "src/Handler.ps1#L10"
             ]
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          },
+          {
+            "requested": "model-b",
+            "declared": "model-b",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -196,6 +298,28 @@
               "two"
             ]
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -232,7 +356,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -268,7 +394,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -410,6 +538,28 @@
             "concern": "security",
             "model": "model-a"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -435,7 +585,29 @@
             "model": "model-a"
           }
         ],
-        "completedCount": 1
+        "completedCount": 1,
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -453,7 +625,29 @@
           "model-a"
         ],
         "invocationBudget": 1,
-        "tasks": []
+        "tasks": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -476,6 +670,28 @@
             "taskId": "security-m1",
             "concern": "security",
             "model": "model-a"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -500,6 +716,28 @@
             "taskId": "security-m1",
             "concern": "security",
             "model": "model-a"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -526,6 +764,28 @@
             "model": "model-a",
             "outcome": "completed"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -549,6 +809,28 @@
             "taskId": "Security-M1",
             "concern": "security",
             "model": "model-a"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -578,7 +860,29 @@
             "diagnostic": "ran fine"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -605,7 +909,29 @@
             "outcome": "failed"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -634,7 +960,29 @@
         ],
         "findings": [],
         "completedCount": 1,
-        "attendance": "all"
+        "attendance": "all",
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -662,7 +1010,29 @@
             "diagnostic": "d"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -694,6 +1064,28 @@
             "taskId": "security-m1",
             "severity": "High",
             "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -739,6 +1131,28 @@
               "src/file9.ps1"
             ]
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -773,6 +1187,28 @@
             "title": "t",
             "body": ""
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -806,6 +1242,28 @@
             "severity": "High",
             "title": "t",
             "concern": "security"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -843,7 +1301,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -879,7 +1339,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -915,7 +1377,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -946,7 +1410,9 @@
             "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
             "bytes": 128
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -987,7 +1453,9 @@
             "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
             "bytes": 1
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -1023,7 +1491,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -1059,7 +1529,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -1209,6 +1681,28 @@
             "concern": "performance",
             "model": "model-a"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -1238,6 +1732,28 @@
             "taskId": "security-m1-again",
             "concern": "security",
             "model": "model-a"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -1272,6 +1788,28 @@
             "taskId": "security-m9",
             "severity": "High",
             "title": "dangling"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -1308,6 +1846,28 @@
             "severity": "High",
             "title": "from a task that failed"
           }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
         ]
       }
     },
@@ -1336,7 +1896,29 @@
             "outcome": "completed"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -1370,7 +1952,29 @@
             "outcome": "completed"
           }
         ],
-        "findings": []
+        "findings": [],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
+          }
+        ]
       }
     },
     {
@@ -1404,6 +2008,28 @@
             "severity": "High",
             "title": "t",
             "body": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+          }
+        ],
+        "contentTrust": "reviewer-authored-data",
+        "scopeAuthority": {
+          "mode": "branch",
+          "base": "main",
+          "head": "HEAD",
+          "paths": [
+            {
+              "path": "README.md",
+              "status": "modified"
+            }
+          ],
+          "digest": "sha256:6e75d186346022e791e46518db5571be645eb093c7c0b718f1a7124fc05c8e42"
+        },
+        "modelSelection": [
+          {
+            "requested": "model-a",
+            "declared": "model-a",
+            "preflight": "available",
+            "degradation": "none",
+            "servedIdentity": "unverified"
           }
         ]
       }
@@ -1476,7 +2102,9 @@
             "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
             "bytes": 1024
           }
-        }
+        },
+        "contentTrust": "reviewer-authored-data",
+        "scopeDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
     }
   ]

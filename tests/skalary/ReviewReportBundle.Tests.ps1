@@ -29,6 +29,7 @@ Describe 'review-run consumer distribution and callers' {
             'PlanState.psm1'
             'Remove-ReviewRun.ps1'
             'ReviewRun.psm1'
+            'schemas/review/review-admission.schema.json'
             'schemas/review/review-limits.schema.json'
             'schemas/review/review-manifest.schema.json'
             'schemas/review/review-plan.schema.json'
@@ -84,6 +85,8 @@ Describe 'review-run consumer distribution and callers' {
                 '\| `4` \|',
                 'new UUID',
                 'narrower scope',
+                'Get-ReviewRun\.ps1 -View Summary\|Full',
+                'verified full detail',
                 'review-run\.manifest\.json',
                 'Remove-ReviewRun\.ps1')) {
             $crGuide | Should -Match $required

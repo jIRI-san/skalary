@@ -55,6 +55,7 @@ $roster = @('Claude Opus 5 (copilot)', 'GPT-5.6 Sol (copilot)')
 $invocationBudget = 28
 $severityRank = @{ 'Critical' = 4; 'High' = 3; 'Medium' = 2; 'Low' = 1 }
 $rankSeverity = @{ 4 = 'Critical'; 3 = 'High'; 2 = 'Medium'; 1 = 'Low' }
+Import-Module (Join-Path $RepoRoot 'scripts/skalary/ReviewRun.psm1') -Force -DisableNameChecking
 
 function ConvertTo-CanonicalNode {
     <#
@@ -183,12 +184,26 @@ foreach ($concern in $concerns) {
     }
 }
 
+$scopeAuthority = [ordered]@{
+    mode = 'branch'
+    base = 'main'
+    head = 'feature/2026-07-31-b0c0d3-review-split-plan-assets-self-improvement'
+    paths = @([ordered]@{ path = $sourceRelative; status = 'modified' })
+}
+$scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
+$modelSelection = @($roster | ForEach-Object {
+        [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' }
+    })
+
 $plan = [ordered]@{
     schema = 'skalary/review-plan@1'
     runId = $runId
     reviewType = 'code'
+    contentTrust = 'reviewer-authored-data'
     scope = $scope
+    scopeAuthority = $scopeAuthority
     roster = $roster
+    modelSelection = $modelSelection
     invocationBudget = $invocationBudget
     tasks = @($tasks)
 }
@@ -198,7 +213,7 @@ if (-not (Test-Path -LiteralPath $OutputDirectory -PathType Container)) {
 }
 
 $planPath = Join-Path $OutputDirectory 'gate-10.7-cr-branch.plan.json'
-[void](Write-JsonFile -Path $planPath -Value $plan -Canonical)
+[System.IO.File]::WriteAllBytes($planPath, [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-ReviewCanonicalJson -Node $plan)))
 $planDigest = 'sha256:' + (Get-Sha256 -Path $planPath)
 
 # --- final envelope: the raw findings that render back to the archived report ------------------
@@ -241,8 +256,11 @@ $run = [ordered]@{
     schema = 'skalary/review-run@1'
     runId = $runId
     reviewType = 'code'
+    contentTrust = 'reviewer-authored-data'
     scope = $scope
+    scopeAuthority = $scopeAuthority
     roster = $roster
+    modelSelection = $modelSelection
     invocationBudget = $invocationBudget
     planDigest = $planDigest
     tasks = $resultTasks
@@ -250,7 +268,7 @@ $run = [ordered]@{
 }
 
 $runPath = Join-Path $OutputDirectory 'gate-10.7-cr-branch.run.json'
-[void](Write-JsonFile -Path $runPath -Value $run -Canonical)
+[System.IO.File]::WriteAllBytes($runPath, [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-ReviewCanonicalJson -Node $run)))
 $runDigest = 'sha256:' + (Get-Sha256 -Path $runPath)
 
 # --- preserve the retired formatter's historical byte receipt and project its semantics --------

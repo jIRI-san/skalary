@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/review/review-admission.schema.json",
+  "title": "Skalary Review Admission Marker",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "runId", "mode", "reasons", "restartable", "maxRestarts", "maxPartitions"],
+  "properties": {
+    "schema": { "$ref": "#/$defs/discriminator" },
+    "state": { "$ref": "#/$defs/state" },
+    "runId": { "$ref": "#/$defs/runId" },
+    "mode": { "$ref": "#/$defs/mode" },
+    "reasons": { "$ref": "#/$defs/reasons" },
+    "restartable": { "$ref": "#/$defs/restartable" },
+    "maxRestarts": { "$ref": "#/$defs/maxRestarts" },
+    "maxPartitions": { "$ref": "#/$defs/maxPartitions" },
+    "planDigest": { "$ref": "#/$defs/digest" },
+    "scopeDigest": { "$ref": "#/$defs/digest" },
+    "parentRunDigest": { "$ref": "#/$defs/digest" },
+    "findingCount": { "$ref": "#/$defs/findingCount" },
+    "source": { "$ref": "#/$defs/artifact" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "restartable": { "$ref": "#/$defs/trueValue" } }, "required": ["restartable"] },
+      "then": { "required": ["planDigest", "scopeDigest", "parentRunDigest", "findingCount", "source"] },
+      "else": { "allOf": [ { "not": { "required": ["source"] } }, { "not": { "required": ["parentRunDigest"] } } ] }
+    }
+  ],
+  "$defs": {
+    "discriminator": { "const": "skalary/review-admission@1" },
+    "state": { "const": "admission" },
+    "mode": { "type": "string", "enum": ["freeze", "publish"] },
+    "reason": { "type": "string", "enum": ["input-bytes-over-limit", "canonical-bytes-over-limit", "summary-over-budget", "full-over-budget"] },
+    "reasons": { "type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/reason" } },
+    "restartable": { "type": "boolean" },
+    "trueValue": { "const": true },
+    "maxRestarts": { "const": 1 },
+    "maxPartitions": { "const": 16 },
+    "findingCount": { "type": "integer", "minimum": 0, "maximum": 256 },
+    "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifactName": { "type": "string", "maxLength": 96, "pattern": "^[a-z0-9][a-z0-9._-]{0,94}\\.(json|md)$" },
+    "byteCount": { "type": "integer", "minimum": 1, "maximum": 2097152 },
+    "artifact": { "type": "object", "additionalProperties": false, "required": ["name", "digest", "bytes"], "properties": { "name": { "$ref": "#/$defs/artifactName" }, "digest": { "$ref": "#/$defs/digest" }, "bytes": { "$ref": "#/$defs/byteCount" } } }
+  }
+}

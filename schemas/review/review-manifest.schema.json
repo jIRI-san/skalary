@@ -5,11 +5,26 @@
   "description": "Plan c21cdc D13/D20. The only publication commit point: immutable content-addressed generation files become visible when this manifest is atomically replaced last, and the reader trusts nothing else in the run directory. Each role names one file, its SHA-256 and its byte count. Names are confined single path segments — no separator, no drive, no parent segment — so a manifest can never point a reader outside the run root. That the named files exist, that their bytes hash to the recorded digest, that the byte counts match and that `runDigest` is the digest of the canonical file are verification facts the reader owns; a name that satisfies this schema is only a candidate.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "runId", "state", "planDigest", "runDigest", "files"],
+  "required": [
+    "schema",
+    "runId",
+    "state",
+    "contentTrust",
+    "scopeDigest",
+    "planDigest",
+    "runDigest",
+    "files"
+  ],
   "properties": {
     "schema": { "$ref": "#/$defs/discriminator" },
     "runId": { "$ref": "#/$defs/runId" },
     "state": { "$ref": "#/$defs/state" },
+    "contentTrust": {
+      "$ref": "#/$defs/contentTrust"
+    },
+    "scopeDigest": {
+      "$ref": "#/$defs/digest"
+    },
     "planDigest": { "$ref": "#/$defs/digest" },
     "runDigest": { "$ref": "#/$defs/digest" },
     "files": { "$ref": "#/$defs/files" }
@@ -39,6 +54,9 @@
       }
     },
     "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "contentTrust": {
+      "const": "reviewer-authored-data"
+    },
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "artifactName": { "type": "string", "maxLength": 96, "pattern": "^[a-z0-9][a-z0-9._-]{0,94}\\.(json|md)$" },
     "byteCount": { "type": "integer", "minimum": 1, "maximum": 2097152 }

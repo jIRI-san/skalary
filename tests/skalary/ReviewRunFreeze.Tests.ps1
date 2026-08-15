@@ -281,6 +281,95 @@ Describe 'review report frozen plan and attendance' {
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
+    It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects identities that become duplicates after canonicalization' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            $decomposed = "Cafe`u{0301}"
+            $composed = 'Caf' + [char]0x00E9
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster @($composed, $decomposed) -Tasks @(
+                @{ taskId = 'security-m1'; concern = 'security'; model = $composed }
+                @{ taskId = 'security-m2'; concern = 'security'; model = $decomposed }
+            )
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan
+
+            $result = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
+
+            $result.ExitCode | Should -Be 2
+            $result.Message | Should -Match 'Canonical plan fails'
+            (Get-ReviewRunArtifact -RunDir $runDir -Role plan) | Should -BeNullOrEmpty
+            Test-Path -LiteralPath (Join-Path $runDir 'review-plan.input.json') | Should -BeFalse
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix binds canonical scope records and explicit model degradation without claiming served identity' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            $scopeAuthority = [ordered]@{
+                mode = 'branch'
+                base = 'base-sha'
+                head = 'head-sha'
+                paths = @(
+                    [ordered]@{ path = 'src/z.ps1'; status = 'deleted' }
+                    [ordered]@{ path = 'src/a.ps1'; status = 'modified' }
+                )
+            }
+            $modelSelection = @([ordered]@{
+                    requested = 'Claude Opus 5 (copilot)'
+                    declared = 'Claude Sonnet 4.6 (copilot)'
+                    preflight = 'unavailable'
+                    fallback = 'Claude Sonnet 4.6 (copilot)'
+                    degradation = 'fallback'
+                    servedIdentity = 'unverified'
+                })
+            $tasks = @(@{ taskId = 'security-m1'; concern = 'security'; model = 'Claude Sonnet 4.6 (copilot)' })
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster @('Claude Sonnet 4.6 (copilot)') -Tasks $tasks `
+                -ScopeAuthority $scopeAuthority -ModelSelection $modelSelection -Scope 'two paths including deletion'
+            $plan.scopeAuthority.Remove('digest')
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan
+
+            (Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
+            $frozen = Read-ReviewFrozenPlan -RunDir $runDir
+            @($frozen.Plan.scopeAuthority.paths.path) | Should -Be @('src/a.ps1', 'src/z.ps1')
+            @($frozen.Plan.scopeAuthority.paths.status) | Should -Contain 'deleted'
+            [string]$frozen.Plan.scopeAuthority.digest | Should -Be (Get-ReviewScopeDigest -ScopeAuthority $frozen.Plan.scopeAuthority)
+            [string]$frozen.Plan.modelSelection[0].requested | Should -Be 'Claude Opus 5 (copilot)'
+            [string]$frozen.Plan.modelSelection[0].declared | Should -Be 'Claude Sonnet 4.6 (copilot)'
+            [string]$frozen.Plan.modelSelection[0].servedIdentity | Should -Be 'unverified'
+
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest $frozen.Digest -Roster @('Claude Sonnet 4.6 (copilot)') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'Claude Sonnet 4.6 (copilot)'; outcome = 'completed' }) `
+                -ScopeAuthority $frozen.Plan.scopeAuthority -ModelSelection $modelSelection -Scope 'two paths including deletion'
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            (Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
+            $summary = Get-ReviewRunSummaryText -RunDir $runDir -Boundary $scratch
+            $summary | Should -Match 'Requested → declared models'
+            $summary | Should -Match 'served identity: unverified'
+            $summary | Should -Not -Match '(?i)served model'
+            $manifest = Read-ReviewManifest -RunDir $runDir -Boundary $scratch
+            [string]$manifest.Manifest.scopeDigest | Should -Be ([string]$frozen.Plan.scopeAuthority.digest)
+            [string]$manifest.Manifest.contentTrust | Should -Be 'reviewer-authored-data'
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+
+        $designScratch = New-ReviewScratchRoot
+        try {
+            $designRunId = '99999999-9999-4999-8999-999999999999'
+            $designDir = Join-Path $designScratch ".github/.skalary/review-runs/$designRunId"
+            $designScope = [ordered]@{ mode = 'design'; paths = @([ordered]@{ path = 'docs/plan.md'; status = 'modified' }) }
+            $designScope['digest'] = Get-ReviewScopeDigest -ScopeAuthority $designScope
+            $badPlan = New-ReviewTestPlan -RunId $designRunId -ReviewType design -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'architecture-m1'; concern = 'architecture'; model = 'model-a' }) -ScopeAuthority $designScope
+            Set-ReviewHandshake -RunDir $designDir -Kind plan -Object $badPlan
+            $rejected = Invoke-ReviewFreeze -RunId $designRunId -RepoRoot $designScratch
+            $rejected.ExitCode | Should -Be 2
+            ($rejected.Diagnostics -join ' ') | Should -Match 'design source descriptor'
+        }
+        finally { Remove-ReviewScratchRoot -Path $designScratch }
+    }
+
     It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix scans the plan strings it is about to persist and destroys a rejected plan input' {
         # Freeze commits scope, roster and task models into a committed artifact before Publish ever
         # runs, so the secret guard has to cover the plan envelope too (RISK-16): a credential quoted

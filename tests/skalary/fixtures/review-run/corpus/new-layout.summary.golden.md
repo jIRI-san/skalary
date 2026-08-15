@@ -7,9 +7,11 @@
 | **Run** | `8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35` |
 | **Review type** | `code` |
 | **State** | `clean` |
-| **Plan digest** | `sha256:467f42dc9306d1e0731eab298fb8799c8f04cc73d9376c2605529a5af7603ba6` |
+| **Plan digest** | `sha256:a5f2e30998a87f4673e4163df140ede5c9d8dfcf8ccc4f7de439d57edea748bf` |
+| **Scope digest** | `sha256:df64b7a7f5d212776cef5c99a2d6ae20d124d2cff7a646b6ebeecd973a6912b1` |
 | **Scope** | branch feature/2026-07-31-b0c0d3-review-split-plan-assets-self-improvement vs main - 260 changed files (deleted paths excluded) |
-| **Models** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
+| **Content trust** | `reviewer-authored-data` |
+| **Requested → declared models** | GPT-5.6 Sol (copilot) → GPT-5.6 Sol (copilot) (preflight: available; degradation: none; served identity: unverified) · Claude Opus 5 (copilot) → Claude Opus 5 (copilot) (preflight: available; degradation: none; served identity: unverified) |
 | **Invocations** | 14 of 28 budgeted |
 
 ## Attendance

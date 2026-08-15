@@ -71,10 +71,11 @@ Describe 'reviewer dispatch guide' {
         $script:flat | Should -Match "one ``assets/`` file per batch"
     }
 
-    It 'test:dispatch-budget-reported states the 28-invocation budget as reported, not enforced' {
+    It 'test:dispatch-budget-enforced freezes and reports the 28-invocation budget' {
         $script:flat | Should -Match 'Budget: 28 invocations'
-        $script:flat | Should -Match 'reports against'
-        $script:flat | Should -Match 'not an enforced gate'
+        $script:flat | Should -Match 'Freeze enforces'
+        $script:flat | Should -Match 'planned task count does not'
+        $script:flat | Should -Match 'exceed the persisted invocation budget'
         $script:flat | Should -Match 'of 28 budgeted invocations'
     }
 

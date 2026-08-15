@@ -122,6 +122,14 @@ Describe 'sandbox' {
 }
 '@
 
+        $script:skippedReviewEvidenceFile = @'
+Describe 'skipped evidence' {
+    It 'test:ReviewReport.MandatorySeam executes' {
+        Set-ItResult -Skipped -Because 'seeded missing mandatory seam'
+    }
+}
+'@
+
         # Unbalanced brace: the file fails to parse during discovery, so Pester counts it as a
         # failed container and none of its tests exist to be counted anywhere else.
         $script:undiscoverableTestFile = @'
@@ -215,6 +223,27 @@ Describe 'sandbox' {
         $ran.ExitCode | Should -Be 1 -Because "a run that discovered and failed tests reports a failed run: $($ran.Output)"
         $discoveredNothing.ExitCode | Should -Not -Be $ran.ExitCode
         $nothingToDiscover.ExitCode | Should -Not -Be $ran.ExitCode
+    }
+
+    It 'test:RunUnitTests.RequiredReviewEvidenceSkippedFails exits 8 when a review-report evidence marker is skipped' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:skippedReviewEvidenceFile
+        $result = Invoke-Runner -SandboxRoot $sandbox
+
+        $result.ExitCode | Should -Be 8
+        $result.Output | Should -Match 'RequiredEvidenceSkipped'
+        $result.Output | Should -Match 'test:ReviewReport\.MandatorySeam'
+    }
+
+    It 'test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI' {
+        $runnerText = Get-Content -LiteralPath $script:runner -Raw
+        $dedicated = Join-Path $script:repoRoot 'scripts/skalary/Test-ReviewConsumerInstall.ps1'
+        $workflow = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/workflows/registry-ci.yml') -Raw
+
+        $runnerText | Should -Match "ExcludePath\s*=.*ReviewConsumerInstall\.Tests\.ps1"
+        Test-Path -LiteralPath $dedicated -PathType Leaf | Should -BeTrue
+        (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
+        $workflow | Should -Match 'name:\s*Review consumer install matrix'
+        $workflow | Should -Match 'scripts/skalary/Test-ReviewConsumerInstall\.ps1'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

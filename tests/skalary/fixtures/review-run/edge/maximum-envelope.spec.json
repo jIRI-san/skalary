@@ -11,7 +11,7 @@
     "tasks": 128,
     "findings": 256,
     "mergedGroups": 128,
-    "diagnosticTasks": 11,
+    "diagnosticTasks": 8,
     "diagnosticLength": 2048,
     "rosterModels": 16,
     "invocationBudget": 128,
@@ -24,7 +24,7 @@
     "componentLength": 256,
     "references": 8,
     "referenceLength": 256,
-    "grouping": "`rootCause` and `component` are seeded from the group index rather than the finding index, so the 256 raw findings collapse into exactly `mergedGroups` merge keys — the merged maximum the vocabulary declares — while every string still sits at its structural maximum. Eleven tasks use maximum diagnostics; findings rotate only over the remaining completed tasks. A twelfth maximum diagnostic would cross the 2 MiB input admission cap.",
+    "grouping": "`rootCause` and `component` are seeded from the group index rather than the finding index, so the 256 raw findings collapse into exactly `mergedGroups` merge keys — the merged maximum the vocabulary declares — while every string still sits at its structural maximum. Eight tasks use maximum diagnostics; findings rotate only over the remaining completed tasks. Additional diagnostic capacity is reserved for the required scope-authority and model-selection records while the whole fixture stays under the 2 MiB input cap.",
     "seeds": {
       "scope": "scope",
       "model": "model-<rosterIndex>",
@@ -41,9 +41,9 @@
     }
   },
   "expected": {
-    "envelopeBytes": 2095422,
+    "envelopeBytes": 2095287,
     "maxEnvelopeBytes": 2097152,
-    "headroomBytes": 1730,
+    "headroomBytes": 1865,
     "mergedGroups": 128,
     "maxMergedFindings": 128,
     "findingsPerGroup": 2,

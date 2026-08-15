@@ -18,6 +18,8 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
         $script:secretCorpus = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'fixtures/review-run/secrets/allow-block-corpus.json') -Raw | ConvertFrom-Json -Depth 20
     }
 
+    AfterEach { Clear-ReviewPathItemProvider }
+
     It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection consumes only the caller-renamed fixed input and removes it after a successful freeze and publish' {
         $scratch = New-ReviewScratchRoot
         try {
@@ -103,6 +105,46 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
+    It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection prepares the sole run root without writing and Freeze never creates it' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $prepared = Resolve-ReviewRunPreparation -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch
+
+            $prepared.schema | Should -Be 'skalary/review-prepare@1'
+            $prepared.runId | Should -Be $script:runId
+            $prepared.runRoot | Should -Be (Resolve-ReviewRunRoot -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch)
+            Test-Path -LiteralPath $prepared.runRoot | Should -BeFalse -Because 'Prepare is read-only'
+
+            $missing = Invoke-ReviewFreeze -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch
+            $missing.ExitCode | Should -Be 2
+            $missing.Message | Should -Match 'Prepare operation'
+            Test-Path -LiteralPath $prepared.runRoot | Should -BeFalse -Because 'Freeze cannot create a caller root before confinement'
+
+            [void](New-Item -ItemType Directory -Path $prepared.runRoot -Force)
+            Set-ReviewHandshake -RunDir $prepared.runRoot -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(
+                    @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }))
+            (Invoke-ReviewFreeze -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection rejects a reparse plan leaf before inventory or layout reads' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $target = Join-Path $scratch 'outside-plan-target'
+            Move-Item -LiteralPath $planDir -Destination $target
+            $linkType = $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' })
+            [void](New-Item -ItemType $linkType -Path $planDir -Target $target -ErrorAction Stop)
+
+            { Resolve-ReviewRunPreparation -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*symlink or reparse point*'
+            Test-Path -LiteralPath (Join-Path $target 'assets/reviews') | Should -BeFalse
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
     It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection validates a plan directory through the plan inventory and refuses every hostile path' {
         # A path prefix plus a `plan.md` is not proof of a plan: a hand-made folder, a traversal that
         # lands back inside the tree and an ambiguous folder all satisfy it. The inventory the rest of
@@ -122,7 +164,7 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             Set-Content -LiteralPath (Join-Path $impostor 'plan.md') -Value '# not a plan'
             Set-Content -LiteralPath (Join-Path $impostor 'assets/requirements.md') -Value '# Requirements'
             { Resolve-ReviewRunRoot -RunId $script:runId -PlanDir $impostor -RepoRoot $scratch } |
-                Should -Throw -ExpectedMessage '*inventory*'
+            Should -Throw -ExpectedMessage '*inventory*'
             { Find-IncompleteReviewRun -PlanDir $impostor -RepoRoot $scratch } | Should -Throw -ExpectedMessage '*inventory*'
 
             # A traversal out of the tree, and one that climbs out and back in through a sibling.
@@ -136,24 +178,18 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
 
             # The plans root itself is not a plan.
             { Resolve-ReviewRunRoot -RunId $script:runId -PlanDir (Join-Path $scratch 'docs/implementation-plans') -RepoRoot $scratch } |
-                Should -Throw
+            Should -Throw
 
             # A run directory reached through a symlinked ancestor is refused before anything is
             # written, even though the resolved string still sits under the store (RISK-6).
             $link = Join-Path $scratch '.github/.skalary/review-runs-link'
             $target = Join-Path $scratch '.github/.skalary/review-runs'
             [void](New-Item -ItemType Directory -Path $target -Force)
-            $linked = $false
-            try {
-                [void](New-Item -ItemType SymbolicLink -Path $link -Target $target -ErrorAction Stop)
-                $linked = $true
-            }
-            catch { $linked = $false }
-            if ($linked) {
-                { Assert-ReviewPathSafe -Path (Join-Path $link $script:runId) -Boundary $scratch } |
-                    Should -Throw -ExpectedMessage '*symlink or reparse point*'
-                { Assert-ReviewPathSafe -Path (Join-Path $target $script:runId) -Boundary $scratch } | Should -Not -Throw
-            }
+            $linkType = $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' })
+            [void](New-Item -ItemType $linkType -Path $link -Target $target -ErrorAction Stop)
+            { Assert-ReviewPathSafe -Path (Join-Path $link $script:runId) -Boundary $scratch } |
+            Should -Throw -ExpectedMessage '*symlink or reparse point*'
+            { Assert-ReviewPathSafe -Path (Join-Path $target $script:runId) -Boundary $scratch } | Should -Not -Throw
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
@@ -166,13 +202,8 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             [void](New-Item -ItemType Directory -Path $real -Force)
             [void](New-Item -ItemType Directory -Path (Split-Path -Parent $store) -Force)
 
-            $linked = $true
-            try { [void](New-Item -ItemType SymbolicLink -Path $store -Target $real -ErrorAction Stop) }
-            catch { $linked = $false }
-            if (-not $linked) {
-                Set-ItResult -Skipped -Because 'this platform does not allow this user to create symbolic links'
-                return
-            }
+            $linkType = $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' })
+            [void](New-Item -ItemType $linkType -Path $store -Target $real -ErrorAction Stop)
 
             $runDir = Join-Path $store $script:runId
             Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }))
@@ -180,92 +211,75 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $r.ExitCode | Should -Be 4 -Because 'a swapped ancestor is refused, and the refusal is still a bounded exit'
             $r.Message | Should -Match 'symlink or reparse point'
             @(Get-ChildItem -LiteralPath $real -Recurse -File -Force | Where-Object { $_.Name -cmatch '^review-plan\.[0-9a-f]{64}\.json$' }).Count |
-                Should -Be 0 -Because 'nothing is written through the link'
+            Should -Be 0 -Because 'nothing is written through the link'
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
-    It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection refuses a fixed input leaf that is a symlink and never reads, shreds or unlinks its target' {
-        # The two fixed input names are the one path inside a run directory whose *content* an
-        # untrusted caller supplies, and the engine both parses that leaf and destroys it in place —
-        # `Remove-ReviewInputSecurely` overwrites the bytes before unlinking. The ancestor walk never
-        # saw a swapped leaf, because every ancestor was still a real directory this engine created, so
-        # a link renamed onto the fixed name turned the D16 handshake into an arbitrary-file read and
-        # an arbitrary-file shredder outside the store. The leaf is confined before it is accepted,
-        # read, overwritten or deleted, the link is never followed, and the refusal is a bounded exit
-        # 4 (RISK-6).
-        $victimRoot = Join-Path (Get-ReviewKitRepoRoot) ('.github/.skalary/test-scratch/victim-' + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $victimRoot -Force)
-        $victim = Join-Path $victimRoot 'victim.txt'
-        $victimBytes = [System.Text.Encoding]::UTF8.GetBytes("bytes outside the store that must survive`n")
-
-        function Script:New-LinkedInput {
-            <#  A symlink standing where the caller's renamed fixed input belongs.  #>
-            param([Parameter(Mandatory)][string]$RunDir, [Parameter(Mandatory)][string]$Kind, [Parameter(Mandatory)][string]$Target)
-            [void](New-Item -ItemType Directory -Path $RunDir -Force)
-            $link = Join-Path $RunDir (Get-ReviewInputName -Kind $Kind)
-            try { [void](New-Item -ItemType SymbolicLink -Path $link -Target $Target -ErrorAction Stop) }
-            catch { return $null }
-            return $link
+    It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection deterministically refuses a fixed input leaf reported as a reparse point before read or destruction' {
+        function Script:Set-PathAsReparsePoint {
+            param([Parameter(Mandatory)][string]$UnsafePath)
+            $unsafeFull = [System.IO.Path]::GetFullPath($UnsafePath)
+            Set-ReviewPathItemProvider -Provider ({
+                    param($Path)
+                    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+                    if ($item -and [string]::Equals([System.IO.Path]::GetFullPath($Path), $unsafeFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        return [pscustomobject]@{ Attributes = $item.Attributes -bor [System.IO.FileAttributes]::ReparsePoint }
+                    }
+                    return $item
+                }.GetNewClosure())
         }
 
+        # Freeze refuses the fixed plan input before parsing or consuming it.
+        $scratch = New-ReviewScratchRoot
         try {
-            # 1. Freeze: the plan input is a link. Nothing is frozen and the target is untouched.
-            $scratch = New-ReviewScratchRoot
-            try {
-                [System.IO.File]::WriteAllBytes($victim, $victimBytes)
-                $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
-                $link = New-LinkedInput -RunDir $runDir -Kind plan -Target $victim
-                if (-not $link) {
-                    Set-ItResult -Skipped -Because 'this platform does not allow this user to create symbolic links'
-                    return
-                }
-
-                $r = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
-                $r.ExitCode | Should -Be 4 -Because 'a path-safety refusal is bounded, never an acceptance and never an unhandled error'
-                $r.Message | Should -Match 'symlink or reparse point'
-                [System.IO.File]::ReadAllBytes($victim) | Should -Be $victimBytes -Because 'the link is never followed to read, overwrite or unlink its target'
-                (Get-ReviewRunArtifact -RunDir $runDir -Role plan) | Should -BeNullOrEmpty
-                Get-ReviewRunState -RunDir $runDir | Should -Be 'new'
-            }
-            finally { Remove-ReviewScratchRoot -Path $scratch }
-
-            # 2. Publish: the result input is a link on a frozen run. Nothing is published.
-            $scratch = New-ReviewScratchRoot
-            try {
-                [System.IO.File]::WriteAllBytes($victim, $victimBytes)
-                $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
-                Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }))
-                (Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
-                [void](New-LinkedInput -RunDir $runDir -Kind result -Target $victim)
-
-                $r = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
-                $r.ExitCode | Should -Be 4
-                $r.Message | Should -Match 'symlink or reparse point'
-                [System.IO.File]::ReadAllBytes($victim) | Should -Be $victimBytes
-                Test-Path -LiteralPath (Join-Path $runDir 'review-run.manifest.json') | Should -BeFalse
-                Get-ReviewRunState -RunDir $runDir | Should -Be 'frozen'
-            }
-            finally { Remove-ReviewScratchRoot -Path $scratch }
-
-            # 3. The pre-scan destruction is the earliest a link could have been followed: Publish
-            # before Freeze destroys the staged result input before it ever reads it. It must refuse
-            # the link instead of shredding whatever it points at.
-            $scratch = New-ReviewScratchRoot
-            try {
-                [System.IO.File]::WriteAllBytes($victim, $victimBytes)
-                $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
-                [void](New-LinkedInput -RunDir $runDir -Kind result -Target $victim)
-
-                $r = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
-                $r.ExitCode | Should -Be 4
-                $r.Message | Should -Match 'symlink or reparse point'
-                [System.IO.File]::ReadAllBytes($victim) | Should -Be $victimBytes -Because 'Remove-ReviewPendingInput must not shred through a link'
-                (Get-Item -LiteralPath $victim).Length | Should -Be $victimBytes.Length
-            }
-            finally { Remove-ReviewScratchRoot -Path $scratch }
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }))
+            $input = Join-Path $runDir 'review-plan.input.json'
+            $before = [System.IO.File]::ReadAllBytes($input)
+            Set-PathAsReparsePoint -UnsafePath $input
+            $result = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
+            $result.ExitCode | Should -Be 4
+            $result.Message | Should -Match 'symlink or reparse point'
+            [System.IO.File]::ReadAllBytes($input) | Should -Be $before
+            (Get-ReviewRunArtifact -RunDir $runDir -Role plan) | Should -BeNullOrEmpty
         }
-        finally { Remove-Item -LiteralPath $victimRoot -Recurse -Force -ErrorAction SilentlyContinue }
+        finally { Clear-ReviewPathItemProvider; Remove-ReviewScratchRoot -Path $scratch }
+
+        # Publish refuses the fixed result input on a frozen run before reading or deleting it.
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }))
+            (Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            $input = Join-Path $runDir 'review-result.input.json'
+            $before = [System.IO.File]::ReadAllBytes($input)
+            Set-PathAsReparsePoint -UnsafePath $input
+            $result = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
+            $result.ExitCode | Should -Be 4
+            $result.Message | Should -Match 'symlink or reparse point'
+            [System.IO.File]::ReadAllBytes($input) | Should -Be $before
+            Test-Path -LiteralPath (Join-Path $runDir 'review-run.manifest.json') | Should -BeFalse
+        }
+        finally { Clear-ReviewPathItemProvider; Remove-ReviewScratchRoot -Path $scratch }
+
+        # Publish-before-freeze destruction also refuses the reported reparse leaf.
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $input = Join-Path $runDir 'review-result.input.json'
+            [System.IO.File]::WriteAllText($input, "{}`n", [System.Text.UTF8Encoding]::new($false))
+            $before = [System.IO.File]::ReadAllBytes($input)
+            Set-PathAsReparsePoint -UnsafePath $input
+            $result = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
+            $result.ExitCode | Should -Be 4
+            $result.Message | Should -Match 'symlink or reparse point'
+            [System.IO.File]::ReadAllBytes($input) | Should -Be $before
+        }
+        finally { Clear-ReviewPathItemProvider; Remove-ReviewScratchRoot -Path $scratch }
     }
 
     It 'test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection destroys the rejected input immediately and leaves no trace of the secret' {

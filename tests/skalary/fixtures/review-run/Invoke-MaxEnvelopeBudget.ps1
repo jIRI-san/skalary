@@ -63,9 +63,14 @@ $findings = @(1..$g.findings | ForEach-Object {
         }
     })
 
+$scopeAuthority = [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+$scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
+$modelSelection = @($roster | ForEach-Object { [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' } })
 $plan = [ordered]@{
     schema = 'skalary/review-plan@1'; runId = $RunId; reviewType = 'code'
+    contentTrust = 'reviewer-authored-data'
     scope = New-Filler -Length $g.scopeLength -Seed 'scope'; roster = $roster
+    scopeAuthority = $scopeAuthority; modelSelection = $modelSelection
     invocationBudget = $g.invocationBudget; tasks = $planTasks
 }
 
@@ -84,7 +89,9 @@ $planDigest = 'sha256:' + ((([System.Security.Cryptography.SHA256]::Create().Com
 
 $run = [ordered]@{
     schema = 'skalary/review-run@1'; runId = $RunId; reviewType = 'code'
+    contentTrust = 'reviewer-authored-data'
     scope = New-Filler -Length $g.scopeLength -Seed 'scope'; roster = $roster
+    scopeAuthority = $scopeAuthority; modelSelection = $modelSelection
     invocationBudget = $g.invocationBudget; planDigest = $planDigest
     tasks = $resultTasks; findings = $findings
 }
@@ -102,7 +109,7 @@ $summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryV
 # Free the in-memory envelope the harness built so the sampled growth is the publication's own cost —
 # reading the input from disk, canonicalizing, rendering both views and deciding admission — rather
 # than the test harness's hashtable construction.
-$plan = $null; $run = $null; $findings = $null; $resultTasks = $null; $planTasks = $null; $roster = $null
+$plan = $null; $run = $null; $findings = $null; $resultTasks = $null; $planTasks = $null; $roster = $null; $scopeAuthority = $null; $modelSelection = $null
 [System.GC]::Collect(); [System.GC]::WaitForPendingFinalizers(); [System.GC]::Collect()
 
 $baseline = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64

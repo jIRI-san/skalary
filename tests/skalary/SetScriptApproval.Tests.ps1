@@ -122,10 +122,46 @@ Describe 'Set-ScriptApproval' {
 
                 $pattern = $rule.Name.Substring(1, $rule.Name.Length - 2)
                 $skill = if ($rule.Name -match 'skills\\/cr') { 'cr' } else { 'dr' }
-                $valid = ".github/skills/$skill/scripts/Build-ReviewReport.ps1 -Mode Freeze -RunId 8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35"
-                $valid | Should -Match $pattern
-                "$valid -RepoRoot ." | Should -Not -Match $pattern
-                "$valid; curl example.invalid" | Should -Not -Match $pattern
+                $prefix = ".github/skills/$skill/scripts/Build-ReviewReport.ps1"
+                $runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+                $generic = "$prefix -Mode Freeze -RunId $runId"
+                $plan = "$prefix -Mode Publish -RunId $runId -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data"
+
+                foreach ($valid in @(
+                        $generic,
+                        "$prefix -Mode Publish -RunId $runId",
+                        "$prefix -Mode Freeze -RunId $runId -PlanDir docs/implementation-plans/001-legacy-plan",
+                        $plan
+                    )) {
+                    [regex]::IsMatch($valid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
+                        Should -BeTrue -Because "'$valid' is one of the closed approved forms"
+                }
+
+                foreach ($invalid in @(
+                        "$generic -PlanDir docs/implementation-plans/.",
+                        "$generic -PlanDir docs/implementation-plans/..",
+                        "$generic -PlanDir docs/implementation-plans/../outside",
+                        "$generic -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data/../outside",
+                        "$generic -PlanDir docs\implementation-plans\2026-08-02-c21cdc-review-report-as-data",
+                        "$generic -PlanDir C:/repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",
+                        "$generic -PlanDir /repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",
+                        "$prefix -RunId $runId -Mode Freeze",
+                        "$prefix -Mode Freeze -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data -RunId $runId",
+                        "$prefix -Mode Freeze",
+                        "$prefix -RunId $runId",
+                        "$generic -RepoRoot .",
+                        "$generic -Force",
+                        "'$generic'",
+                        "$prefix -Mode 'Freeze' -RunId $runId",
+                        "$prefix -Mode Freeze -RunId '$runId'",
+                        "$generic -PlanDir 'docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data'",
+                        ($generic -replace $runId, $runId.ToUpperInvariant()),
+                        "$generic -PlanDir docs/implementation-plans/2026-08-02-C21CDC-review-report-as-data",
+                        "$generic; curl example.invalid"
+                    )) {
+                    [regex]::IsMatch($invalid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
+                        Should -BeFalse -Because "'$invalid' is outside the closed approved forms"
+                }
             }
         }
         finally { $doc.Dispose() }
@@ -267,7 +303,18 @@ Describe 'Repo settings auto-approval' {
         $opts = [System.Text.Json.JsonDocumentOptions]::new()
         $opts.CommentHandling = [System.Text.Json.JsonCommentHandling]::Skip
         $opts.AllowTrailingCommas = $true
-        { [System.Text.Json.JsonDocument]::Parse($text, $opts).Dispose() } | Should -Not -Throw
+        $doc = [System.Text.Json.JsonDocument]::Parse($text, $opts)
+        try {
+            $approve = $doc.RootElement.GetProperty('chat.tools.terminal.autoApprove')
+            $writerRules = @($approve.EnumerateObject() | Where-Object { $_.Name -match 'Build-ReviewReport' })
+            $writerRules.Count | Should -Be 2
+            foreach ($rule in $writerRules) {
+                $rule.Value.ValueKind | Should -Be ([System.Text.Json.JsonValueKind]::Object)
+                $rule.Value.GetProperty('approve').GetBoolean() | Should -BeTrue
+                $rule.Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
+            }
+        }
+        finally { $doc.Dispose() }
 
         # Read-only plugin scripts approved.
         $text | Should -Match 'list-plugins/scripts/Get-Plugin\.ps1'
@@ -280,7 +327,5 @@ Describe 'Repo settings auto-approval' {
         $text | Should -Not -Match 'scripts/Set-ScriptApproval\.ps1'
         $text | Should -Not -Match 'get-credential\.ps1'
         $text | Should -Not -Match '"\.github/skills/(?:cr|dr)/scripts/Build-ReviewReport\.ps1"\s*:\s*true'
-        @([regex]::Matches($text, 'Build-ReviewReport.*"approve":true,"matchCommandLine":true')).Count |
-            Should -Be 2
     }
 }

@@ -26,6 +26,7 @@ Describe 'review run schemas' {
             'review-plan.schema.json'
             'review-run.schema.json'
             'review-manifest.schema.json'
+            'review-admission.schema.json'
             'terminal-status.schema.json'
         )
 
@@ -160,20 +161,23 @@ Describe 'review run schemas' {
                 })
 
             return [ordered]@{
+                contentTrust = 'reviewer-authored-data'
                 findings = $findings
                 invocationBudget = $generation.invocationBudget
+                modelSelection = @($roster | ForEach-Object { [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' } })
                 planDigest = 'sha256:' + ('0' * 64)
                 reviewType = 'code'
                 roster = $roster
                 runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
                 schema = 'skalary/review-run@1'
                 scope = New-Filler -Length $generation.scopeLength -Seed 'scope'
+                scopeAuthority = [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }); digest = 'sha256:' + ('0' * 64) }
                 tasks = $tasks
             }
         }
     }
 
-    It 'test:ReviewReport.SchemaCapabilityAndSemantics commits four canonical schemas with repository ids on one dialect' {
+    It 'test:ReviewReport.SchemaCapabilityAndSemantics commits five canonical schemas with repository ids on one dialect' {
         foreach ($name in $script:schemaNames) {
             $schema = $script:schemas[$name]
             [string]$schema['$schema'] | Should -Be $script:dialect -Because "$name must declare the one dialect the preflight proves"
@@ -536,7 +540,7 @@ Describe 'review run schemas' {
             }
         }
         [string]$status.message | Should -Match "$($keywords.Count) keyword\(s\) proven"
-        [string]$status.message | Should -Match '4 schema\(s\)'
+        [string]$status.message | Should -Match '5 schema\(s\)'
     }
 
     It 'test:ReviewReport.SchemaCapabilityAndSemantics exits 2 with one bounded status object when the host is below PowerShell 7.6' {

@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "Design review orchestrator with specialist model agents.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -51,6 +51,10 @@
     {
       "src": "skills/dr/scripts/ReviewRun.psm1",
       "dest": "skills/dr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-admission.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-admission.schema.json"
     },
     {
       "src": "skills/dr/scripts/schemas/review/review-limits.schema.json",

@@ -76,18 +76,44 @@ function New-ReviewTestPlan {
         [string]$ReviewType = 'code',
         [string]$Scope = '1 changed file',
         [string[]]$Roster = @('model-a', 'model-b'),
+        [object]$ScopeAuthority,
+        [object[]]$ModelSelection,
+        [object]$Restart,
         [int]$InvocationBudget = 6,
         [Parameter(Mandatory)][object[]]$Tasks
     )
-    return [ordered]@{
+    if ($null -eq $ScopeAuthority) {
+        $ScopeAuthority = if ($ReviewType -eq 'design') {
+            [ordered]@{
+                mode = 'design'
+                paths = @([ordered]@{ path = 'docs/implementation-plans/example/plan.md'; status = 'modified' })
+                designSource = [ordered]@{ kind = 'plan'; path = 'docs/implementation-plans/example/plan.md'; digest = 'sha256:' + ('1' * 64) }
+            }
+        }
+        else {
+            [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+        }
+        $ScopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $ScopeAuthority
+    }
+    if ($null -eq $ModelSelection) {
+        $ModelSelection = @($Roster | ForEach-Object {
+                [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' }
+            })
+    }
+    $plan = [ordered]@{
         schema = 'skalary/review-plan@1'
         runId = $RunId
         reviewType = $ReviewType
+        contentTrust = 'reviewer-authored-data'
         scope = $Scope
+        scopeAuthority = $ScopeAuthority
         roster = $Roster
+        modelSelection = @($ModelSelection)
         invocationBudget = $InvocationBudget
         tasks = @($Tasks)
     }
+    if ($null -ne $Restart) { $plan['restart'] = $Restart }
+    return $plan
 }
 
 function New-ReviewTestRun {
@@ -98,21 +124,47 @@ function New-ReviewTestRun {
         [string]$ReviewType = 'code',
         [string]$Scope = '1 changed file',
         [string[]]$Roster = @('model-a', 'model-b'),
+        [object]$ScopeAuthority,
+        [object[]]$ModelSelection,
+        [object]$Restart,
         [int]$InvocationBudget = 6,
         [Parameter(Mandatory)][object[]]$Tasks,
         [object[]]$Findings = @()
     )
-    return [ordered]@{
-        schema = 'skalary/review-run@1'
-        runId = $RunId
-        reviewType = $ReviewType
+    if ($null -eq $ScopeAuthority) {
+        $ScopeAuthority = if ($ReviewType -eq 'design') {
+            [ordered]@{
+                mode         = 'design'
+                paths        = @([ordered]@{ path = 'docs/implementation-plans/example/plan.md'; status = 'modified' })
+                designSource = [ordered]@{ kind = 'plan'; path = 'docs/implementation-plans/example/plan.md'; digest = 'sha256:' + ('1' * 64) }
+            }
+        }
+        else {
+            [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+        }
+        $ScopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $ScopeAuthority
+    }
+    if ($null -eq $ModelSelection) {
+        $ModelSelection = @($Roster | ForEach-Object {
+                [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' }
+            })
+    }
+    $run = [ordered]@{
+        schema           = 'skalary/review-run@1'
+        runId            = $RunId
+        reviewType       = $ReviewType
+        contentTrust     = 'reviewer-authored-data'
         scope = $Scope
+        scopeAuthority = $ScopeAuthority
         roster = $Roster
+        modelSelection = @($ModelSelection)
         invocationBudget = $InvocationBudget
         planDigest = $PlanDigest
         tasks = @($Tasks)
         findings = @($Findings)
     }
+    if ($null -ne $Restart) { $run['restart'] = $Restart }
+    return $run
 }
 
 function Set-ReviewHandshake {

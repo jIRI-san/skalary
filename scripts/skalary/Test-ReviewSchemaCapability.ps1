@@ -171,8 +171,11 @@ function New-PlanInstance {
         schema = 'skalary/review-plan@1'
         runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
         reviewType = 'code'
+        contentTrust = 'reviewer-authored-data'
         scope = '1 changed file'
+        scopeAuthority = @{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @(@{ path = 'README.md'; status = 'modified' }); digest = 'sha256:' + ('0' * 64) }
         roster = @('model-a')
+        modelSelection = @(@{ requested = 'model-a'; declared = 'model-a'; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' })
         invocationBudget = 1
         tasks = $tasks
     }
@@ -187,12 +190,15 @@ function New-RunInstance {
         schema = 'skalary/review-run@1'
         runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
         reviewType = 'code'
+        contentTrust = 'reviewer-authored-data'
         scope = '1 changed file'
+        scopeAuthority = @{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @(@{ path = 'README.md'; status = 'modified' }); digest = 'sha256:' + ('0' * 64) }
         roster = @('model-a')
+        modelSelection   = @(@{ requested = 'model-a'; declared = 'model-a'; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' })
         invocationBudget = 1
-        planDigest = 'sha256:' + ('0' * 64)
-        tasks = @(@{ taskId = 't001'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
-        findings = @(@{ taskId = 't001'; severity = 'High'; title = 'One finding' })
+        planDigest       = 'sha256:' + ('0' * 64)
+        tasks            = @(@{ taskId = 't001'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+        findings         = @(@{ taskId = 't001'; severity = 'High'; title = 'One finding' })
     }
 }
 
@@ -202,16 +208,18 @@ function New-ManifestInstance {
     param()
 
     return @{
-        schema = 'skalary/review-manifest@1'
-        runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
-        state = 'published'
-        planDigest = 'sha256:' + ('0' * 64)
-        runDigest = 'sha256:' + ('1' * 64)
-        files = @{
-            plan = @{ name = 'review-plan.json'; digest = 'sha256:' + ('0' * 64); bytes = 128 }
+        schema       = 'skalary/review-manifest@1'
+        runId        = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+        state        = 'published'
+        contentTrust = 'reviewer-authored-data'
+        scopeDigest  = 'sha256:' + ('0' * 64)
+        planDigest   = 'sha256:' + ('0' * 64)
+        runDigest    = 'sha256:' + ('1' * 64)
+        files        = @{
+            plan      = @{ name = 'review-plan.json'; digest = 'sha256:' + ('0' * 64); bytes = 128 }
             canonical = @{ name = 'review-run.0123456789abcdef.json'; digest = 'sha256:' + ('1' * 64); bytes = 256 }
-            summary = @{ name = 'summary.0123456789abcdef.md'; digest = 'sha256:' + ('2' * 64); bytes = 64 }
-            full = @{ name = 'full.0123456789abcdef.md'; digest = 'sha256:' + ('3' * 64); bytes = 512 }
+            summary   = @{ name = 'summary.0123456789abcdef.md'; digest = 'sha256:' + ('2' * 64); bytes = 64 }
+            full      = @{ name = 'full.0123456789abcdef.md'; digest = 'sha256:' + ('3' * 64); bytes = 512 }
         }
     }
 }
@@ -222,11 +230,24 @@ function New-StatusInstance {
     param()
 
     return @{
-        schema = 'skalary/review-terminal-status@1'
-        mode = 'capability'
+        schema   = 'skalary/review-terminal-status@1'
+        mode     = 'capability'
         exitCode = 0
-        state = 'capable'
-        message = 'probe'
+        state    = 'capable'
+        message  = 'probe'
+    }
+}
+
+function New-AdmissionInstance {
+    return @{
+        schema        = 'skalary/review-admission@1'
+        state         = 'admission'
+        runId         = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+        mode          = 'freeze'
+        reasons       = @('input-bytes-over-limit')
+        restartable   = $false
+        maxRestarts   = 1
+        maxPartitions = 16
     }
 }
 
@@ -368,6 +389,11 @@ function Get-Probe {
     }
     $probes.Add((New-Probe -Id 'status-freeze-degraded-rejected' -Schema 'terminal-status.schema.json' -Instance $statusFreezeDegraded -Expected $false -Proves @('allOf', 'if', 'then', 'enum')))
 
+    $admission = New-AdmissionInstance
+    $probes.Add((New-Probe -Id 'admission-minimum-accepted' -Schema 'review-admission.schema.json' -Instance $admission -Expected $true -Proves @('allOf', 'if', 'then', 'else')))
+    $admissionUnbound = New-AdmissionInstance; $admissionUnbound['restartable'] = $true
+    $probes.Add((New-Probe -Id 'admission-restart-without-source-rejected' -Schema 'review-admission.schema.json' -Instance $admissionUnbound -Expected $false -Proves @('required', 'if', 'then')))
+
     return $probes.ToArray()
 }
 
@@ -400,7 +426,7 @@ if ($absent.Count -gt 0) {
 
 # --- the committed schemas, on this host ------------------------------------------------------
 $failures = [System.Collections.Generic.List[string]]::new()
-$schemaFiles = @('review-plan.schema.json', 'review-run.schema.json', 'review-manifest.schema.json', 'terminal-status.schema.json')
+$schemaFiles = @('review-plan.schema.json', 'review-run.schema.json', 'review-manifest.schema.json', 'review-admission.schema.json', 'terminal-status.schema.json')
 $usedKeywords = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 
 foreach ($name in $schemaFiles) {

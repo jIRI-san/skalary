@@ -344,10 +344,22 @@ Describe 'sandbox' {
                 [string]$row.environment.$field |
                     Should -Not -BeNullOrEmpty -Because "'$platform' must record a non-empty '$field' value"
             }
-            if ($platform -eq $current) {
-                [string]$row.tree |
-                    Should -Match '^[0-9a-f]{40}$' -Because "the current '$platform' measurement must identify the exact staged tree it measured"
-            }
+            [string]$row.tree |
+                Should -Match '^[0-9a-f]{40}$' -Because "the '$platform' measurement must identify the exact staged tree it measured or was truthfully migrated to"
+
+            $expectedSource = if ($platform -eq 'Linux') { 'ci:ubuntu-latest' } else { 'ci:windows-latest' }
+            [string]$row.source | Should -Be $expectedSource -Because "the authoritative '$platform' budget row must come from the CI leg that enforces it"
+            [bool]$row.environment.ci | Should -BeTrue
+            [int]$row.environment.processorCount | Should -Be 4 -Because 'the two authoritative CI rows must remain comparable runner classes'
+        }
+
+        $supplemental = @($runtime.supplementalMeasurements)
+        $supplemental.Count | Should -BeGreaterThan 0 -Because 'local measurements remain useful evidence without replacing CI authority'
+        foreach ($row in $supplemental) {
+            [string]$row.source | Should -Not -Match '^ci:'
+            [bool]$row.environment.ci | Should -BeFalse
+            @($rows | Where-Object { $_.Value.source -eq $row.source -and $_.Value.tree -eq $row.tree }) |
+                Should -BeNullOrEmpty -Because 'a supplemental row must never also occupy an authoritative platform slot'
         }
     }
 
