@@ -66,7 +66,8 @@ try {
             "would finalize plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
         }
         elseif ($finalized.CleanupPending) {
-            "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); durable report=$($finalized.Report); receipt=$($finalized.Receipt); live cleanup pending"
+            Write-EncodedStderr -Text "Finalized plan review run '$($finalized.RunId)' as '$($finalized.Verdict)', but live cleanup is pending."
+            exit 4
         }
         else {
             "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"

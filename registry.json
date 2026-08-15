@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T20:04:55.8705431Z",
+  "generatedAt": "2026-08-15T21:03:59.7716743Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -439,7 +439,7 @@
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "2b753e6d84786df227ca2a186449c3130b2e8c0e3c471166f32ac2ff0712ce47",
+          "sha256": "2a25e9df7898e0ad84592698f9e2f66db161a7ccd35757eeba8788859bba84a8",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -474,12 +474,12 @@
         },
         {
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "8dc2ad2bc68790bb275f3e20591b031ae0a843e48ad9b6b32efd9473ad38a28e",
+          "sha256": "f3e7a7420fa4c199efee1824b6a6852b8c0c0e5b94744de7e70e9b257576607a",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "f213fe592b91d345118d8e92c4cee43b3e5fd6f2a100cb5b30a28c72da2c5f31",
+          "sha256": "352cad1b1bb89637daa6cce1abce19107073dad527b51490facdec5090d98304",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.18"
+      "version": "1.0.20"
     },
     {
       "author": "jIRI-san",
@@ -951,7 +951,7 @@
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "2b753e6d84786df227ca2a186449c3130b2e8c0e3c471166f32ac2ff0712ce47",
+          "sha256": "2a25e9df7898e0ad84592698f9e2f66db161a7ccd35757eeba8788859bba84a8",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -986,12 +986,12 @@
         },
         {
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "8dc2ad2bc68790bb275f3e20591b031ae0a843e48ad9b6b32efd9473ad38a28e",
+          "sha256": "f3e7a7420fa4c199efee1824b6a6852b8c0c0e5b94744de7e70e9b257576607a",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "f213fe592b91d345118d8e92c4cee43b3e5fd6f2a100cb5b30a28c72da2c5f31",
+          "sha256": "352cad1b1bb89637daa6cce1abce19107073dad527b51490facdec5090d98304",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1033,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.17"
+      "version": "1.0.19"
     },
     {
       "author": "jIRI-san",

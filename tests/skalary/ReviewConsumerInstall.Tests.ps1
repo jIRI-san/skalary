@@ -146,7 +146,7 @@ Describe 'isolated review-run consumer installs' {
                 }
             }
             else {
-                [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+                [ordered]@{ mode = 'paths'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
             }
             $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
             return [ordered]@{
@@ -184,7 +184,7 @@ Describe 'isolated review-run consumer installs' {
                 }
             }
             else {
-                [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+                [ordered]@{ mode = 'paths'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
             }
             $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
             return [ordered]@{
@@ -356,7 +356,8 @@ Describe 'isolated review-run consumer installs' {
             ConvertFrom-Json
             Add-Content -LiteralPath (Join-Path $clean.RunDir $manifest.files.summary.name) -Value 'tamper'
             { Get-ReviewRunSummaryText -RunDir $clean.RunDir -Boundary $fixture.Root } | Should -Throw
-            Remove-ReviewRunDirectory -RunId $cleanId -RepoRoot $fixture.Root -RequirePublished:$false | Should -Be $cleanId
+            { Remove-ReviewRunDirectory -RunId $cleanId -RepoRoot $fixture.Root -RequirePublished:$false } |
+            Should -Throw -ExpectedMessage '*published authority requires verified delivery*'
 
             # A completed zero-finding review is clean and generic cleanup follows verified delivery.
             $zeroId = [guid]::NewGuid().ToString()
@@ -448,9 +449,16 @@ Describe 'isolated review-run consumer installs' {
                 if (-not $planCleanupChecked) {
                     & pwsh -NoProfile -File $fixture.Cleaner -RunId $runId *> $null
                     $LASTEXITCODE | Should -Be 2 -Because 'generic cleanup cannot remove plan authority'
+                    & pwsh -NoProfile -File $fixture.Cleaner -RunId $runId -PlanDir $fixture.PlanDir -Verdict blocked -WhatIf *> $null
+                    $LASTEXITCODE | Should -Be 0
+                    Test-Path -LiteralPath $frozen.RunDir | Should -BeTrue
+                    & pwsh -NoProfile -File $fixture.Cleaner -RunId $runId -PlanDir $fixture.PlanDir -Verdict blocked *> $null
+                    $LASTEXITCODE | Should -Be 0
+                    Test-Path -LiteralPath $frozen.RunDir | Should -BeFalse
+                    Test-Path -LiteralPath (Join-Path $fixture.PlanDir "assets/reviews/$runId.review.md") | Should -BeTrue
+                    Test-Path -LiteralPath (Join-Path $fixture.PlanDir "assets/reviews/$runId.receipt.json") | Should -BeTrue
                     $planCleanupChecked = $true
                 }
-                Test-Path -LiteralPath $frozen.RunDir | Should -BeTrue
             }
 
             # The next invocation discovers and abandons a frozen orphan as cancelled.

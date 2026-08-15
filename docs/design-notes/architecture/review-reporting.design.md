@@ -276,10 +276,11 @@ candidate, and both are detected.
 
 - **Freeze** reads `review-plan.input.json` (the caller renamed it; see the handshake below), enforces
   the input byte budget on the bytes on disk, validates structurally (`Test-Json`) then semantically
-  after canonicalization (so NFC/LF cannot collapse uniqueness after validation), computes a missing
-  engine-owned scope digest, verifies canonical path/status records, code base/head or design-source
-  identity, exact model-selection coverage, and every task model inside the frozen roster, scans the
-  untrusted plan strings it is about to persist for credential shapes, and
+  after canonicalization (so NFC/LF cannot collapse uniqueness after validation). For branch mode it
+  resolves base/head through Git to full commit SHAs and replaces caller path/status claims with
+  `git diff --name-status --no-renames`; other modes retain their canonical records. It scans every
+  untrusted plan string for credential shapes before any value-bearing semantic diagnostic, then
+  verifies scope, exact model-selection coverage, and every task model inside the frozen roster, and
   writes `review-plan.<digest>.json` and then its independent frozen-state marker **under the run
   lock**. An identical replay is idempotent; a
   *different* plan under a frozen run id is exit `2` — freeze is immutable. Under that same lock it
@@ -442,8 +443,9 @@ behavior — component falls back to the canonical first reference — holds ide
   later `Publish` on that UUID is exit `3` again and cannot publish a quietly reduced set, a later
   `Freeze` cannot reopen it, and `Find-IncompleteReviewRun` does not report it as an interrupted run
   to finalize. Child plans carry parent run/digest plus ordered partition index/count. The final reader
-  rollup accepts only published children whose path/status records exactly cover the parent scope and
-  whose canonical raw-finding multiset exactly equals the preserved source; gaps and duplicates fail.
+  rollup accepts only published children whose path/status records exactly cover the parent scope,
+  whose canonical raw-finding multiset exactly equals the preserved source, and whose task/outcome
+  records exactly equal the parent source in every child; gaps, duplicates, or outcome changes fail.
 
   The marker is a state transition like any other, so it is decided *atomically with state* under the
   same lock: `Freeze` may admit only a `new` run and `Publish` only a `frozen` one. An
@@ -454,7 +456,7 @@ behavior — component falls back to the canonical first reference — holds ide
   `failed`, never an exit `3` claiming a terminal decision no later invocation could see. The
   rejected input is already destroyed by then, which the diagnostics of those paths say plainly.
 - **Error precedence.** Input-byte admission (a gate that must precede parsing) → parse/schema →
-  semantic → secret → render admission → publication.
+  secret → semantic → render admission → publication. Secret rejection emits only type/location.
 
 ### The verifying reader and cleanup
 
@@ -499,7 +501,8 @@ store root and each candidate run directory before enumerating or deciding state
 `Remove-ReviewRun.ps1` removes a generic run, confined to `.github/.skalary/review-runs/`, only from
 authority returned by that reader. The cleanup operation itself emits and flushes the verified full
 bytes before deletion, so a caller cannot claim delivery with an unchecked digest; direct published
-cleanup without verified authority is refused. For a plan run, `-PlanDir` plus explicit
+cleanup without verified authority is refused, and `-Force` is limited to unpublished abandoned runs.
+For a plan run, `-PlanDir` plus explicit
 `-Verdict approved|blocked` verifies the bundle, emits compact sibling files, then removes the live
 directory. `<uuid>.review.md` is human evidence bounded by `maxRetainedReportBytes` (8 KiB): identity,
 source scope, gate verdict, attendance, severity totals, and bounded blocking titles only. The closed
@@ -509,7 +512,10 @@ Live `<uuid>/` directories are gitignored; only those compact siblings are commi
 serialized by a stable ignored store-level lock and the run publication lock, and supports PowerShell
 `ShouldProcess`/`-WhatIf`; dry runs report `would finalize` and write nothing. The live directory is
 removed only after both compact files are durable. A cleanup failure returns durable evidence with
-`CleanupPending = true`; retrying the same verdict verifies the pair and converges cleanup. Historical
+`CleanupPending = true`, and the CLI exits `4` rather than reporting complete success. Every retry with
+live authority reconstructs the complete expected report and receipt and compares exact bytes; a
+partial or tampered pair is repaired before cleanup, including interruption between retained writes.
+Retrying the same verdict verifies the pair and converges cleanup. Historical
 live bundles were compacted during migration, so production finalization now accepts only the current
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical
 evidence and require no production legacy verifier. Reader and cleanup exits remain `0`, `2`, or `4`.

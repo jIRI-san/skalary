@@ -215,7 +215,7 @@ function Get-ReviewPathItem {
 function Set-ReviewRunFaultSeam {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][ValidateSet('after-canonical', 'after-summary', 'after-full', 'before-manifest-swap', 'during-lock', 'during-finalize-cleanup')][string]$Edge,
+        [Parameter(Mandatory)][ValidateSet('after-canonical', 'after-summary', 'after-full', 'before-manifest-swap', 'during-lock', 'after-final-report', 'during-finalize-cleanup')][string]$Edge,
         [ValidateSet('throw')][string]$Action = 'throw'
     )
     $script:FaultSeams[$Edge] = $Action
@@ -1032,6 +1032,66 @@ function Get-ReviewScopeDigest {
         $copy[[string]$key] = $ScopeAuthority[$key]
     }
     return Get-ReviewDigest -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $copy))
+}
+
+function Invoke-ReviewGit {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $RepoRoot
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = $script:Utf8NoBom
+    $start.StandardErrorEncoding = $script:Utf8NoBom
+    foreach ($argument in $Arguments) { [void]$start.ArgumentList.Add($argument) }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    [void]$process.Start()
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0) {
+        throw "git $($Arguments[0]) failed while deriving review scope: $($stderr.Trim())"
+    }
+    return $stdout
+}
+
+function Resolve-ReviewBranchScopeAuthority {
+    param(
+        [Parameter(Mandatory)][object]$ScopeAuthority,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    if ([string](Get-ReviewValue -Node $ScopeAuthority -Name 'mode') -ne 'branch') { return }
+    $resolved = [ordered]@{}
+    foreach ($name in @('base', 'head')) {
+        $identity = [string](Get-ReviewValue -Node $ScopeAuthority -Name $name)
+        if ([string]::IsNullOrWhiteSpace($identity)) { throw "branch scope authority requires a $name identity" }
+        $resolved[$name] = (Invoke-ReviewGit -RepoRoot $RepoRoot -Arguments @('rev-parse', '--verify', '--end-of-options', "$identity^{commit}" )).Trim()
+    }
+
+    $raw = Invoke-ReviewGit -RepoRoot $RepoRoot -Arguments @('diff', '--name-status', '--no-renames', '-z', "$($resolved.base)...$($resolved.head)", '--')
+    $parts = @($raw.Split([char]0) | Where-Object { -not [string]::IsNullOrEmpty($_) })
+    if (($parts.Count % 2) -ne 0) { throw 'git returned a malformed branch scope record stream' }
+    $paths = [System.Collections.Generic.List[object]]::new()
+    for ($index = 0; $index -lt $parts.Count; $index += 2) {
+        $status = switch -Regex ($parts[$index]) {
+            '^A' { 'added'; break }
+            '^D' { 'deleted'; break }
+            default { 'modified' }
+        }
+        $paths.Add([ordered]@{ path = $parts[$index + 1].Replace('\', '/'); status = $status })
+    }
+    if ($paths.Count -eq 0) { throw 'branch scope resolves to no changed paths' }
+    $ScopeAuthority['base'] = $resolved.base
+    $ScopeAuthority['head'] = $resolved.head
+    $ScopeAuthority['paths'] = @($paths | Sort-Object { [string]$_.path }, { [string]$_.status })
+    $ScopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $ScopeAuthority
 }
 
 # --------------------------------------------------------------------------------------------------
@@ -2533,6 +2593,11 @@ function Invoke-ReviewFreezeCore {
     # The digest is engine-owned: callers author the source descriptor and ordered path records, then
     # Freeze computes the canonical digest that the frozen schema and every result must carry.
     $scopeAuthority = Get-ReviewValue -Node $plan -Name 'scopeAuthority'
+    try { Resolve-ReviewBranchScopeAuthority -ScopeAuthority $scopeAuthority -RepoRoot $repoFull }
+    catch {
+        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+        return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Branch scope authority could not be derived from Git.' -RunId $RunId -Diagnostic @($_.Exception.Message)
+    }
     if ($scopeAuthority -is [System.Collections.IDictionary] -and -not $scopeAuthority.Contains('digest')) {
         $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
     }
@@ -2557,15 +2622,6 @@ function Invoke-ReviewFreezeCore {
         return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Plan runId does not match the requested run id.' -RunId $RunId
     }
 
-    $failures = @(
-        @(Test-ReviewPlanSemantic -Plan $plan)
-        @(Test-ReviewRestartAuthority -Plan $plan -RunDir $runDir -Boundary $repoFull)
-    )
-    if ($failures.Count -gt 0) {
-        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-        return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Plan input fails semantic validation.' -RunId $RunId -Diagnostic $failures
-    }
-
     # The frozen plan is a committed artifact, so its untrusted strings (scope, roster, task models)
     # are scanned before they are persisted — not one mode later, when the plan is already immutable.
     $secrets = @(Find-ReviewSecret -Run $plan)
@@ -2574,6 +2630,15 @@ function Invoke-ReviewFreezeCore {
         return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
             -Message 'Plan input carries a high-confidence credential shape; rejected and destroyed before acceptance.' `
             -RunId $RunId -Diagnostic @($secrets | ForEach-Object { "$($_.Type) at $($_.Location)" })
+    }
+
+    $failures = @(
+        @(Test-ReviewPlanSemantic -Plan $plan)
+        @(Test-ReviewRestartAuthority -Plan $plan -RunDir $runDir -Boundary $repoFull)
+    )
+    if ($failures.Count -gt 0) {
+        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+        return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Plan input fails semantic validation.' -RunId $RunId -Diagnostic $failures
     }
 
     $canonicalBytes = $script:Utf8NoBom.GetBytes($canonicalJson)
@@ -2781,7 +2846,7 @@ function Invoke-ReviewPublishCore {
         return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Result input is not valid JSON.' -RunId $RunId
     }
 
-    # Error precedence: input-byte admission -> parse -> canonical schema -> semantic/state -> secret
+    # Error precedence: input-byte admission -> parse -> canonical schema -> secret -> semantic/state
     # -> render admission -> publication. Validate the representation that will be persisted: NFC/LF
     # normalization can collapse identities that were distinct in the raw JSON, while a second full
     # schema pass over the raw 2 MiB envelope adds no authority and doubles the dominant validation cost.
@@ -2797,18 +2862,18 @@ function Invoke-ReviewPublishCore {
         return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Result runId does not match the requested run id.' -RunId $RunId
     }
 
-    $failures = @(Test-ReviewRunSemantic -Run $run -FrozenPlan $frozenPlan -FrozenPlanDigest $frozenPlanDigest)
-    if ($failures.Count -gt 0) {
-        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-        return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Result input fails semantic validation.' -RunId $RunId -Diagnostic $failures
-    }
-
     # Secrets are rejected before any lossless artifact is written, and the input is destroyed at once.
     $secrets = @(Find-ReviewSecret -Run $run)
     if ($secrets.Count -gt 0) {
         Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
         $redacted = @($secrets | ForEach-Object { "$($_.Type) at $($_.Location)" })
         return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Result input carries a high-confidence credential shape; rejected and destroyed before acceptance.' -RunId $RunId -Diagnostic $redacted
+    }
+
+    $failures = @(Test-ReviewRunSemantic -Run $run -FrozenPlan $frozenPlan -FrozenPlanDigest $frozenPlanDigest)
+    if ($failures.Count -gt 0) {
+        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+        return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Result input fails semantic validation.' -RunId $RunId -Diagnostic $failures
     }
 
     # Canonical authority and both views are rendered before the manifest can change (D6).
@@ -3300,6 +3365,78 @@ function Read-ReviewManifestForFinalization {
     }
 }
 
+function Get-ReviewFinalizationMaterial {
+    param(
+        [Parameter(Mandatory)][object]$Verified,
+        [Parameter(Mandatory)][ValidateSet('approved', 'blocked')][string]$Verdict,
+        [Parameter(Mandatory)][string]$ReportPath
+    )
+
+    $projection = ConvertTo-ReviewProjection -Run $Verified.Run
+    $reportBytes = $script:Utf8NoBom.GetBytes((Get-ReviewRetainedReportText -Projection $projection -Verdict $Verdict))
+    $authority = $projection.ScopeAuthority
+    $severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    foreach ($finding in @($projection.Findings)) { $severity[[string]$finding.Severity.ToLowerInvariant()]++ }
+    $source = [ordered]@{
+        mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
+        pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
+        digest = [string](Get-ReviewValue -Node $authority -Name 'digest')
+    }
+    foreach ($name in @('base', 'head')) {
+        $identity = [string](Get-ReviewValue -Node $authority -Name $name)
+        if (-not [string]::IsNullOrWhiteSpace($identity)) { $source[$name] = $identity }
+    }
+    $receipt = [ordered]@{
+        schema = 'skalary/review-result-receipt@1'
+        runId = $Verified.RunId
+        reviewType = $projection.ReviewType
+        verdict = $Verdict
+        state = $projection.State
+        source = $source
+        planDigest = $Verified.PlanDigest
+        runDigest = $Verified.RunDigest
+        manifestDigest = $Verified.ManifestDigest
+        legacySource = $false
+        attendance = $projection.Attendance
+        findings = [ordered]@{
+            merged = $projection.Findings.Count
+            raw = $projection.RawFindingCount
+            severity = $severity
+        }
+        report = [ordered]@{
+            name = [System.IO.Path]::GetFileName($ReportPath)
+            bytes = $reportBytes.Length
+            digest = Get-ReviewDigest -Bytes $reportBytes
+        }
+    }
+    return [pscustomobject]@{
+        ReportBytes = $reportBytes
+        ReceiptBytes = $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
+    }
+}
+
+function Test-ReviewFinalizedPair {
+    param(
+        [Parameter(Mandatory)][string]$ReportPath,
+        [Parameter(Mandatory)][string]$ReceiptPath,
+        [byte[]]$ExpectedReportBytes,
+        [byte[]]$ExpectedReceiptBytes
+    )
+
+    if (-not (Test-Path -LiteralPath $ReportPath -PathType Leaf) -or -not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { return $false }
+    $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
+    $receiptBytes = [System.IO.File]::ReadAllBytes($ReceiptPath)
+    if ($null -ne $ExpectedReportBytes -and
+        ($reportBytes.Length -ne $ExpectedReportBytes.Length -or (Get-ReviewDigest -Bytes $reportBytes) -ne (Get-ReviewDigest -Bytes $ExpectedReportBytes))) { return $false }
+    if ($null -ne $ExpectedReceiptBytes -and
+        ($receiptBytes.Length -ne $ExpectedReceiptBytes.Length -or (Get-ReviewDigest -Bytes $receiptBytes) -ne (Get-ReviewDigest -Bytes $ExpectedReceiptBytes))) { return $false }
+    try { $receipt = [System.Text.Encoding]::UTF8.GetString($receiptBytes) | ConvertFrom-Json -AsHashtable -Depth 20 }
+    catch { return $false }
+    return $receipt['schema'] -eq 'skalary/review-result-receipt@1' -and
+        $receipt['report']['bytes'] -eq $reportBytes.Length -and
+        $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
+}
+
 function Finalize-ReviewPlanRun {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
@@ -3317,85 +3454,41 @@ function Finalize-ReviewPlanRun {
     $receiptPath = Join-Path $store "$RunId.receipt.json"
     $lock = Enter-ReviewLock -RunDir $store -LockName ".$RunId.finalize.lock"
     try {
-        $finalizedExists = (Test-Path -LiteralPath $reportPath -PathType Leaf) -or (Test-Path -LiteralPath $receiptPath -PathType Leaf)
-        if ($finalizedExists) {
-            if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf) -or -not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
-                throw "Finalized review result '$RunId' is incomplete."
-            }
-            $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
-            $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
-            if ($receipt['schema'] -ne 'skalary/review-result-receipt@1' -or $receipt['runId'] -ne $RunId -or $receipt['verdict'] -ne $Verdict -or
-                $receipt['report']['bytes'] -ne $reportBytes.Length -or $receipt['report']['digest'] -ne (Get-ReviewDigest -Bytes $reportBytes)) {
-                throw "Finalized review result '$RunId' does not verify or has a different verdict."
-            }
-            $cleanupPending = Test-Path -LiteralPath $runDir -PathType Container
-            if ($cleanupPending -and $PSCmdlet.ShouldProcess($runDir, 'Remove live run after verified compact evidence already exists')) {
-                try {
-                    Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
-                    Remove-Item -LiteralPath $runDir -Recurse -Force
-                    $cleanupPending = $false
+        $liveExists = Test-Path -LiteralPath $runDir -PathType Container
+        if (-not $liveExists) {
+            if (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath) {
+                $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+                if ($receipt['runId'] -ne $RunId -or $receipt['verdict'] -ne $Verdict) {
+                    throw "Finalized review result '$RunId' has a different verdict or identity."
                 }
-                catch { $cleanupPending = $true }
+                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $WhatIfPreference; CleanupPending = $false }
             }
-            return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $WhatIfPreference; CleanupPending = $cleanupPending }
-        }
-
-        if (-not (Test-Path -LiteralPath $runDir -PathType Container)) {
             throw "No live or finalized plan review run for '$RunId'."
         }
 
         $runLock = Enter-ReviewLock -RunDir $runDir
         try {
             $verified = Read-ReviewManifestForFinalization -RunDir $runDir -Boundary $repoFull
-            $projection = ConvertTo-ReviewProjection -Run $verified.Run
-            $reportText = Get-ReviewRetainedReportText -Projection $projection -Verdict $Verdict
-            $reportBytes = $script:Utf8NoBom.GetBytes($reportText)
-            $authority = $projection.ScopeAuthority
-            $severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
-            foreach ($finding in @($projection.Findings)) { $severity[[string]$finding.Severity.ToLowerInvariant()]++ }
-            $source = [ordered]@{
-                mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
-                pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
-                digest = [string](Get-ReviewValue -Node $authority -Name 'digest')
-            }
-            foreach ($name in @('base', 'head')) {
-                $identity = [string](Get-ReviewValue -Node $authority -Name $name)
-                if (-not [string]::IsNullOrWhiteSpace($identity)) { $source[$name] = $identity }
-            }
-            $receipt = [ordered]@{
-                schema = 'skalary/review-result-receipt@1'
-                runId = $RunId
-                reviewType = $projection.ReviewType
-                verdict = $Verdict
-                state = $projection.State
-                source = $source
-                planDigest = $verified.PlanDigest
-                runDigest = $verified.RunDigest
-                manifestDigest = $verified.ManifestDigest
-                legacySource = $false
-                attendance = $projection.Attendance
-                findings = [ordered]@{
-                    merged = $projection.Findings.Count
-                    raw = $projection.RawFindingCount
-                    severity = $severity
-                }
-                report = [ordered]@{
-                    name = [System.IO.Path]::GetFileName($reportPath)
-                    bytes = $reportBytes.Length
-                    digest = Get-ReviewDigest -Bytes $reportBytes
-                }
-            }
-            $receiptBytes = $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
+            $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
+            $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
+                -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
 
             if (-not $PSCmdlet.ShouldProcess($runDir, "Finalize plan review as '$Verdict', write compact evidence, and remove the live run")) {
                 return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false; Preview = $true; CleanupPending = $true }
             }
 
-            foreach ($path in @($reportPath, $receiptPath)) {
-                if (Test-Path -LiteralPath $path) { Assert-ReviewPathSafe -Path $path -Boundary $repoFull }
+            if (-not $pairExists) {
+                foreach ($path in @($reportPath, $receiptPath)) {
+                    if (Test-Path -LiteralPath $path) { Assert-ReviewPathSafe -Path $path -Boundary $repoFull }
+                }
+                Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
+                Invoke-ReviewFaultSeam -Edge 'after-final-report'
+                Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
+                if (-not (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
+                        -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes)) {
+                    throw "Finalized review result '$RunId' did not verify after publication."
+                }
             }
-            Write-ReviewBytesAtomic -Path $reportPath -Bytes $reportBytes
-            Write-ReviewBytesAtomic -Path $receiptPath -Bytes $receiptBytes
         }
         finally { Exit-ReviewLock -Lock $runLock }
 
@@ -3405,7 +3498,7 @@ function Finalize-ReviewPlanRun {
             Remove-Item -LiteralPath $runDir -Recurse -Force
         }
         catch { $cleanupPending = $true }
-        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false; Preview = $false; CleanupPending = $cleanupPending }
+        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $false; CleanupPending = $cleanupPending }
     }
     finally { Exit-ReviewLock -Lock $lock }
 }
@@ -3464,6 +3557,13 @@ function Get-ReviewAdmissionRollup {
     $actualFindings = @($orderedChildren | ForEach-Object { @(Get-ReviewValue -Node $_.Run -Name 'findings') } | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
     if (((Sort-ReviewOrdinal -Value $actualFindings) -join "`n") -cne ((Sort-ReviewOrdinal -Value $expectedFindings) -join "`n")) {
         throw 'partition findings do not exactly preserve the parent admission source'
+    }
+    $expectedTasks = @((Get-ReviewValue -Node $parentRun -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+    foreach ($child in $orderedChildren) {
+        $actualTasks = @((Get-ReviewValue -Node $child.Run -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+        if (($actualTasks -join "`n") -cne ($expectedTasks -join "`n")) {
+            throw "partition '$($child.RunId)' task outcomes do not exactly preserve the parent admission source"
+        }
     }
 
     return [pscustomobject]@{
@@ -3554,6 +3654,9 @@ function Remove-ReviewRunDirectory {
         $stdout = [Console]::OpenStandardOutput()
         $stdout.Write($fullBytes, 0, $fullBytes.Length)
         $stdout.Flush()
+    }
+    elseif (Test-Path -LiteralPath (Join-Path $runDir $script:ManifestName) -PathType Leaf) {
+        throw 'Force cleanup is limited to unpublished abandoned runs; published authority requires verified delivery.'
     }
     if (-not $PSCmdlet.ShouldProcess($runDir, 'Remove verified generic review run recursively')) {
         return $RunId

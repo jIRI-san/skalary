@@ -91,7 +91,7 @@ function New-ReviewTestPlan {
             }
         }
         else {
-            [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+            [ordered]@{ mode = 'paths'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
         }
         $ScopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $ScopeAuthority
     }
@@ -140,7 +140,7 @@ function New-ReviewTestRun {
             }
         }
         else {
-            [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+            [ordered]@{ mode = 'paths'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
         }
         $ScopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $ScopeAuthority
     }

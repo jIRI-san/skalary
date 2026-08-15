@@ -44,6 +44,7 @@ if ($TestResultPath) {
 
 $result = Invoke-Pester -Configuration $configuration
 if ($null -eq $result -or [int]$result.TotalCount -le 0) { exit 3 }
+if ([int]$result.SkippedCount -gt 0 -or [int]$result.NotRunCount -gt 0) { exit 3 }
 if ([int]$result.FailedContainersCount -gt 0) { exit 4 }
 if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) { exit 1 }
 exit 0

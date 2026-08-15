@@ -311,7 +311,7 @@ Describe 'review report manifest, reader and exit matrix' {
             $parentRunId = $script:runId
             $parentDir = Join-Path $scratch ".github/.skalary/review-runs/$parentRunId"
             $pathRecords = @(1..5 | ForEach-Object { [ordered]@{ path = "src/part$_.ps1"; status = 'modified' } })
-            $parentScope = [ordered]@{ mode = 'branch'; base = 'main'; head = 'feature'; paths = $pathRecords }
+            $parentScope = [ordered]@{ mode = 'paths'; paths = $pathRecords }
             $parentScope['digest'] = Get-ReviewScopeDigest -ScopeAuthority $parentScope
             $tasks = @(
                 @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
@@ -343,7 +343,7 @@ Describe 'review report manifest, reader and exit matrix' {
             for ($partition = 1; $partition -le 5; $partition++) {
                 $childId = $childIds[$partition - 1]
                 $childDir = Join-Path $scratch ".github/.skalary/review-runs/$childId"
-                $childScope = [ordered]@{ mode = 'branch'; base = 'main'; head = 'feature'; paths = @($pathRecords[$partition - 1]) }
+                $childScope = [ordered]@{ mode = 'paths'; paths = @($pathRecords[$partition - 1]) }
                 $childScope['digest'] = Get-ReviewScopeDigest -ScopeAuthority $childScope
                 $restart = [ordered]@{
                     parentRunId = $parentRunId

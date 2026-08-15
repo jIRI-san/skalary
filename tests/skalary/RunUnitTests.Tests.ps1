@@ -254,6 +254,10 @@ Describe 'sandbox' {
         Set-Content -LiteralPath $fixture -Value $script:failingTestFile -Encoding utf8NoBOM
         $failOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
         $LASTEXITCODE | Should -Be 1 -Because ($failOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:skippedReviewEvidenceFile -Encoding utf8NoBOM
+        $skipOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 3 -Because "skipped runtime evidence is cannot-test, never green: $($skipOutput | Out-String)"
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

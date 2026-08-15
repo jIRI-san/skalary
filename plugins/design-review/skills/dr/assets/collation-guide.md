@@ -64,7 +64,7 @@ declared dispatch roster. Stable task ids are `<concern>-m<one-based-roster-inde
     "mode": "branch",
     "base": "<base commit identity>",
     "head": "<head commit identity>",
-    "paths": [{ "path": "<canonical repo-relative path>", "status": "modified" }]
+    "paths": [{ "path": "<advisory path; Freeze replaces branch records from Git>", "status": "modified" }]
   },
   "roster": ["<declared dispatch model>"],
   "modelSelection": [{
@@ -80,6 +80,11 @@ declared dispatch roster. Stable task ids are `<concern>-m<one-based-roster-inde
   ]
 }
 ```
+
+For branch review, `base` and `head` must resolve to commits in the repository. Freeze resolves both
+to full immutable SHAs and replaces every caller path/status record with
+`git diff --name-status --no-renames <base>...<head>` before computing the scope digest. A caller
+cannot narrow or widen a branch review by supplying its own records.
 
 For design review, use `scopeAuthority.mode = "design"` and include a `designSource` with `kind`,
 canonical repository-relative `path`, and SHA-256 `digest`; `paths` names the reviewed plan/design

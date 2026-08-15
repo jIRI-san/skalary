@@ -63,7 +63,7 @@ $findings = @(1..$g.findings | ForEach-Object {
         }
     })
 
-$scopeAuthority = [ordered]@{ mode = 'branch'; base = 'main'; head = 'HEAD'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
+$scopeAuthority = [ordered]@{ mode = 'paths'; paths = @([ordered]@{ path = 'README.md'; status = 'modified' }) }
 $scopeAuthority['digest'] = Get-ReviewScopeDigest -ScopeAuthority $scopeAuthority
 $modelSelection = @($roster | ForEach-Object { [ordered]@{ requested = $_; declared = $_; preflight = 'available'; degradation = 'none'; servedIdentity = 'unverified' } })
 $plan = [ordered]@{

@@ -308,9 +308,7 @@ Describe 'review report frozen plan and attendance' {
         try {
             $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
             $scopeAuthority = [ordered]@{
-                mode = 'branch'
-                base = 'base-sha'
-                head = 'head-sha'
+                mode = 'paths'
                 paths = @(
                     [ordered]@{ path = 'src/z.ps1'; status = 'deleted' }
                     [ordered]@{ path = 'src/a.ps1'; status = 'modified' }
@@ -368,6 +366,45 @@ Describe 'review report frozen plan and attendance' {
             ($rejected.Diagnostics -join ' ') | Should -Match 'design source descriptor'
         }
         finally { Remove-ReviewScratchRoot -Path $designScratch }
+    }
+
+    It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix derives branch identities and path records from Git instead of caller claims' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            git -C $scratch init -q
+            git -C $scratch config user.name 'Review Test'
+            git -C $scratch config user.email 'review@example.invalid'
+            [void](New-Item -ItemType Directory -Path (Join-Path $scratch 'src') -Force)
+            Set-Content -LiteralPath (Join-Path $scratch 'src/app.ps1') -Value "'base'`n" -Encoding utf8NoBOM
+            git -C $scratch add -- registry.json scripts/skalary/PlanState.psm1 src/app.ps1
+            git -C $scratch commit -q -m base
+            $base = (git -C $scratch rev-parse HEAD).Trim()
+            Set-Content -LiteralPath (Join-Path $scratch 'src/app.ps1') -Value "'head'`n" -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $scratch 'src/new.ps1') -Value "'new'`n" -Encoding utf8NoBOM
+            git -C $scratch add -- src/app.ps1 src/new.ps1
+            git -C $scratch commit -q -m head
+            $head = (git -C $scratch rev-parse HEAD).Trim()
+
+            $runDir = Join-Path $scratch ".github/.skalary/review-runs/$script:runId"
+            $forged = [ordered]@{
+                mode = 'branch'
+                base = $base
+                head = $head
+                paths = @([ordered]@{ path = 'forged.ps1'; status = 'deleted' })
+            }
+            $plan = New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }) -ScopeAuthority $forged
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $plan
+
+            (Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch).ExitCode | Should -Be 0
+            $frozen = (Read-ReviewFrozenPlan -RunDir $runDir).Plan.scopeAuthority
+            $frozen.base | Should -Be $base
+            $frozen.head | Should -Be $head
+            @($frozen.paths.path) | Should -Be @('src/app.ps1', 'src/new.ps1')
+            @($frozen.paths.status) | Should -Be @('modified', 'added')
+            $frozen.digest | Should -Be (Get-ReviewScopeDigest -ScopeAuthority $frozen)
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
     It 'test:ReviewReport.FrozenPlanAndAttendanceMatrix scans the plan strings it is about to persist and destroys a rejected plan input' {

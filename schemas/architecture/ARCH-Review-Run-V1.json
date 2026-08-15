@@ -1,0 +1,7 @@
+{
+  "id": "ARCH-Review-Run-V1",
+  "title": "Review-run v1 authority and evidence",
+  "maturity": "provisional",
+  "prose": "Review execution authority is a frozen schema-valid plan plus a manifest-last published canonical run whose content-addressed artifacts are verified before use. Branch scope is derived from Git commit identities and diff records by the engine. Live run directories are transient authority; plan finalization derives a bounded report and digest-bound receipt from verified live authority, verifies both retained files exactly, and removes live authority only after durable evidence exists. Generic published runs require verified full-view delivery before cleanup; force cleanup is limited to unpublished abandoned runs.",
+  "description": "Defines the interface-level boundary between frozen review scope, published execution authority, verified delivery, and compact durable plan evidence."
+}

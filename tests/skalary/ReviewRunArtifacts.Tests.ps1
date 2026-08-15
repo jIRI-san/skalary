@@ -569,6 +569,14 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $verified.Documents['canonical']['runId'] | Should -Be $script:runId -Because 'verified parsed authority is not reopened after verification'
             [System.IO.File]::WriteAllBytes($canonicalPath, $verified.Bytes['canonical'])
 
+            Set-ReviewRunFaultSeam -Edge 'after-final-report'
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*review-run-fault-seam:after-final-report*'
+            Clear-ReviewRunFaultSeam
+            Test-Path -LiteralPath $runDir | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $store "$script:runId.review.md") | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $store "$script:runId.receipt.json") | Should -BeFalse
+
             Set-ReviewRunFaultSeam -Edge 'during-finalize-cleanup'
             $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             Clear-ReviewRunFaultSeam
@@ -588,10 +596,14 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $receipt.report.digest | Should -Be (Get-ReviewDigest -Bytes $reportBytes)
             $receipt.findings.severity.high | Should -Be 1
 
+            $tampered = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+            $tampered['state'] = 'degraded'
+            [System.IO.File]::WriteAllText($final.Receipt, (ConvertTo-ReviewCanonicalJson -Node $tampered), [System.Text.UTF8Encoding]::new($false))
             $replay = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
-            $replay.Replayed | Should -BeTrue
+            $replay.Replayed | Should -BeFalse -Because 'tampered retained evidence is reconstructed from verified live authority'
             $replay.CleanupPending | Should -BeFalse
             Test-Path -LiteralPath $runDir | Should -BeFalse
+            (Get-Content -LiteralPath $replay.Receipt -Raw | ConvertFrom-Json).state | Should -Be 'clean'
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
             Should -Throw -ExpectedMessage '*different verdict*'
         }
