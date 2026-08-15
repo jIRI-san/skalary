@@ -1,18 +1,21 @@
 ---
-description: The review-run data contract — canonical schemas under schemas/review/, the schema-owned limit vocabulary, the structural/semantic layer split, the PowerShell 7.6 capability preflight and the committed corpus/edge fixtures. Load before touching schemas/review/**, scripts/skalary/Test-ReviewSchemaCapability.ps1, scripts/skalary/Build-ReviewReport.ps1 or tests/skalary/fixtures/review-run/**.
+description: The review-run data contract and its v1 engine — canonical schemas under schemas/review/, the schema-owned limit vocabulary, the structural/semantic layer split, the PowerShell 7.6 capability preflight, the committed corpus/edge fixtures, and the step-1.2 module that freezes, canonicalizes, renders, publishes and reads a run. Load before touching schemas/review/**, scripts/skalary/{Test-ReviewSchemaCapability,Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun}.ps1, scripts/skalary/ReviewRun.psm1 or tests/skalary/fixtures/review-run/**.
 globs:
   - schemas/review/**
   - scripts/skalary/Test-ReviewSchemaCapability.ps1
   - scripts/skalary/Build-ReviewReport.ps1
+  - scripts/skalary/ReviewRun.psm1
+  - scripts/skalary/Get-ReviewRun.ps1
+  - scripts/skalary/Remove-ReviewRun.ps1
   - tests/skalary/fixtures/review-run/**
 ---
 
 # Review reporting
 
-Plan `c21cdc` turns a review run into one versioned data artifact. This note covers what exists
-today: the schemas, the capability gate and the fixtures. Publication, canonicalization, rendering
-and the `Freeze`/`Publish` CLI are step 1.2 and are described here only where the data contract
-already constrains them.
+Plan `c21cdc` turns a review run into one versioned data artifact. Step 1.1 committed the schemas, the
+capability gate and the fixtures; step 1.2 added the engine that freezes a plan, canonicalizes and
+renders a result, publishes it under a manifest and reads it back. This note covers both, with the
+data contract framing the engine.
 
 ## Artifacts and their schemas
 
@@ -54,6 +57,7 @@ The schema decides structure, closedness, vocabularies, patterns, cardinality an
 | findings tied to an existing, `completed` task | cross-record correlation between two arrays |
 | task set identical to the frozen plan, digest match | needs a second document |
 | UTF-8 byte budgets (4 KiB body, 2 KiB diagnostic, 8 KiB status) | `maxLength` is not a byte count |
+| the 128 **merged**-finding maximum | the merged count is a function of the renderer's grouping key, not of `maxItems` |
 | manifest digests and byte counts matching the files named | needs the files |
 
 `tests/skalary/fixtures/review-run/edge/cases.json` holds both halves. A case marked `semantic` is
@@ -141,7 +145,17 @@ arithmetic only: 128 tasks and 256 findings at every maximum are 2,072,751 bytes
 `(rootCause, component)` merge keys — seeded per group rather than per finding — because
 `maxMergedFindings` is 128: a fixture with 256 keys would describe an envelope the contract does not
 admit while calling itself the maximum. Every other field stays at its own maximum, and the group
-count is asserted against the vocabulary. Publication runtime and memory are step 1.2.
+count is asserted against the vocabulary.
+
+The step-1.2 budget worker writes that envelope as **compact** JSON, because the recipe's arithmetic is
+compact-JSON arithmetic: an indented copy of the same records is over the 2 MiB input cap and would be
+refused by input-byte admission before the render budget the fixture exists to measure. (That is not a
+gap in the fixture — it is a real case, and
+`test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard` covers it separately with an
+indented, schema-valid, over-cap envelope that must be terminal exit `3`.) The structural maximum's 256
+findings carry 1 MiB of bodies alone, so its full view is ~1.8 MiB and is correctly rejected as
+admission; `test:ReviewReport.MaximumEnvelopeBudget` proves the whole render-and-admit decision stays
+inside five seconds and 256 MiB of sampled private-byte growth in a child process.
 
 ## Artifact names
 
@@ -152,3 +166,360 @@ pins the two against each other. `edge/cases.json` sits on both sides of the bou
 extension counted in the total: `manifest-name-at-maximum-length` (96 characters, accepted) and
 `manifest-name-one-above-maximum-length` (97, rejected). Both satisfy the pattern, so only the
 length bound can be what separates them.
+
+The schema bounds the *shape* of a name; the engine narrows it further to a content address
+(`<role>.<sha256-hex>.<ext>`, 79–82 characters, comfortably inside the bound) and the reader requires
+that narrower form. Keeping the schema at the general pattern is deliberate: it describes what a
+manifest may say, while verification — name equals digest equals bytes — is a reader fact, exactly as
+the manifest schema's own description states.
+
+## Terminal status and a rejected run id
+
+`terminal-status.schema.json` requires a `runId` on every `freeze`/`publish` status, because a status
+that names no run cannot be attributed to one. A caller-supplied run id that is *not* a UUID is the one
+exception: it is unbounded text (a 9 KiB argument both breaks the 8 KiB stdout budget and violates the
+schema's UUID pattern), so it is never echoed. Those statuses carry `runIdRejected: true` instead, and
+the schema binds that to exactly the invalid exit `2` and forbids carrying both fields — a status
+cannot both name a run and say its id was rejected. `Get-ReviewTerminalStatusJson` and
+`Write-ReviewTerminalStatus` are exported and therefore reachable from callers no CLI path controls, so
+they **normalize** rather than trust: a rejected id offered with any other exit or state is emitted as
+that one bound combination, and the writer returns the exit code the object states, so stdout and the
+process exit can never disagree. Bounded, schema-valid output is preferred over throwing, which would
+leave a caller with no terminal object at all. The emitter shrinks a status to fit by dropping
+diagnostics from the end and then halving the message, always strictly monotonically and with a
+terminating floor, so it can no longer spin on a size it cannot reach.
+
+## The engine (step 1.2)
+
+`scripts/skalary/ReviewRun.psm1` is the whole engine. The three CLIs are thin shells over it:
+
+| Script | Modes | Owns |
+|---|---|---|
+| `Build-ReviewReport.ps1` | `-Mode Freeze\|Publish -RunId <uuid> [-PlanDir]` | freeze and publish; still the legacy `-Finding`/`-Model` formatter in its default parameter set |
+| `Get-ReviewRun.ps1` | `-RunId [-PlanDir]`, `-ListIncomplete` | the only verifying reader |
+| `Remove-ReviewRun.ps1` | `-RunId [-Force]` | generic-run cleanup |
+
+Keeping the logic in the module is deliberate: the failure matrix and the fault seams run in-process
+against the module (RISK-14/RISK-5) instead of spawning a child per case, and it keeps
+`Build-ReviewReport.ps1` a pure formatter whose own text carries no file I/O — the `b0c0d3` contract
+its legacy tests still pin. `Build-ReviewReport.ps1` imports the module through
+`Join-Path -Path $PSScriptRoot -ChildPath` named parameters so the phase-1 bundle closure scanner does
+not pull it into the plugins; distributing the module, reader, cleanup and schemas into the installed
+`cr`/`dr` plugins is step 2.1's explicit mapping.
+
+### The production renderer is a verbatim port
+
+The projection and both views are a line-for-line port of the test-only
+`ReviewLayoutReference.psm1`. Step 1.1 committed byte goldens the reference renderer produces; the
+production renderer must reproduce those exact bytes, so `ReviewReportCorpus.Tests.ps1` renders the
+corpus through **both** (the production module is imported there under a `Prod` prefix) and requires
+each to equal the committed goldens. The two derivations are held equal by the fixture, never by each
+other. Any change to merge, elevation, ordering or encoding must move the goldens and both renderers
+together or the corpus test fails.
+
+"Verbatim" covers layout, not defects: the production renderer additionally uses ordinal maps
+throughout, preserves colliding raw records, sorts model/title/body records instead of packed strings,
+and replaces C0 controls with Control Pictures (see canonicalization below). Those paths are unreachable
+for the corpus — it is ASCII, LF, control-free and every model is in the roster — so the goldens are
+unaffected, which is exactly why the corpus cannot be the only proof and each case is pinned separately.
+
+### Lifecycle, state and idempotency
+
+The state machine is `new -> frozen -> published`, with `admission` as a terminal side state, decided
+by which files are on disk: a `review-run.manifest.json` means published, a `.review-run.admission.json`
+means the run reached a terminal byte-budget decision, and a `review-plan.<sha256>.json` without either
+means frozen.
+
+Only three names are fixed: the two `.input.json` files the caller renames into place and
+`review-run.manifest.json`, the sole commit point. **Every generation file — the frozen plan
+included — is content-addressed** as `<role>.<sha256-hex>.<ext>` (`review-plan.<hex>.json`,
+`review-run.<hex>.json`, `review-summary.<hex>.md`, `review-full.<hex>.md`). A name is therefore a
+claim about bytes that both `Publish` and the reader verify. A mutable fixed-name frozen plan could be
+edited in place and still look like a plan; a content-addressed one cannot be edited without either
+breaking its own name or creating a second candidate, and both are detected.
+
+- **Freeze** reads `review-plan.input.json` (the caller renamed it; see the handshake below), enforces
+  the input byte budget on the bytes on disk, validates structurally (`Test-Json`) then semantically
+  (1–128 unique ids, unique concern/model slots, **and every task model inside the frozen roster**),
+  scans the untrusted plan strings it is about to persist for credential shapes, canonicalizes, and
+  writes `review-plan.<digest>.json` **under the run lock**. An identical replay is idempotent; a
+  *different* plan under a frozen run id is exit `2` — freeze is immutable. Under that same lock it
+  decides `published` state **explicitly** rather than inferring "no plan file, therefore new": a
+  published run whose plan generation was removed or renamed presents exactly that way, and writing a
+  fresh plan into it would leave a run whose committed manifest and whose frozen plan disagree. A
+  published run id is verified through the manifest reader — identical plan is an idempotent exit `0`,
+  a different plan or a manifest that does not verify is exit `2` — and **no branch writes a
+  replacement plan generation**.
+- **Publish** requires exactly one frozen plan whose bytes match its own content address (else exit
+  `2`), reads `review-result.input.json`, and binds the result to the plan: the `planDigest` must equal
+  the digest of the frozen bytes and the task set must be *exactly* the frozen one (RISK-2). It then
+  canonicalizes, renders both views, checks the byte budgets, takes the lock and — under it — decides
+  admission, idempotency and changed reuse before replacing the manifest last. A published run id is
+  answered from a manifest verified in full by the same reader a consumer uses (schema, confined
+  content-addressed names, byte counts, every digest, run-directory identity and the canonical
+  plan/run binding), never by parsing the file inline and trusting `runDigest` alone: identical
+  replay is idempotent only over an authority that verifies, a changed result under a published run
+  id is exit `2`, and a manifest that fails verification is exit `2` with nothing overwritten.
+
+Run state derives from the task set alone (D4): only an all-`completed` run is `clean` (exit `0`);
+every other structurally valid mix is `degraded` (exit `5`, returned only after the artifacts exist).
+
+Every module and CLI path is bounded to `0/2/3/4/5` with exactly one terminal-status object. What used
+to escape as an unhandled error — a malformed or tampered frozen plan, an unreadable published
+manifest, a run directory that cannot be created — is now a named exit: `2` for state the engine
+refuses to trust or overwrite, `4` for an unexpected failure. `Build-ReviewReport.ps1` wraps the whole
+persistence path in a last-resort guard that turns anything still escaping (a broken install, for
+instance) into an explicit exit `4` status; it is a reporter, not a fallback, and never retries or
+suppresses.
+
+### Schema capability is checked in-module (D12)
+
+The wrapper stays `#requires -Version 7.0`, so the engine cannot assume `Test-Json -SchemaFile` exists.
+`Test-ReviewHostSchemaCapability` checks the two halves (PowerShell 7.6+, and the parameter itself) and
+`Freeze`/`Publish` return a bounded exit `2` naming what is missing rather than throwing a parameter
+error. `Set-ReviewSchemaCapabilitySimulation` is a test-only seam with the same semantics as
+`Test-ReviewSchemaCapability.ps1`'s: the simulated version applies as a *minimum* against the real one
+and the switch can only remove a capability, so no invocation can talk a real host into skipping a check.
+
+### Canonicalization (D15)
+
+`ConvertTo-ReviewCanonicalJson` puts an envelope in the one form two equivalent documents must share:
+
+- **Every string is NFC and LF.** The two representational differences a JSON string can carry without
+  being a different document — the composition of a grapheme (`Café` versus `Cafe` + U+0301) and the
+  line ending (`\r\n`/`\r` versus `\n`) — are removed, so a CRLF-authored envelope and its LF twin have
+  one digest, one content address and one publication rather than two conflicting ones. An unpaired
+  surrogate is replaced with U+FFFD *before* the digest is taken, because the UTF-8 encoder would
+  substitute it anyway and the canonical text and the canonical bytes must agree.
+- **Every schema-valid integral number is written as an integer.** Draft 2020-12 accepts `1.0` wherever
+  it accepts `1`, and `ConvertFrom-Json` returns a double, so `"invocationBudget": 1.0` used to
+  serialize back as `1.0` and hash differently from the identical document spelled `1`. A genuinely
+  fractional value, and anything outside the exact `2^53` round trip, is left untouched.
+- **Object keys are ordered ordinally** — never `Sort-Object`, whose culture sensitivity is the whole
+  reason — and so are the set-valued arrays (`roster`, `tasks` by id, `findings` by an ordinal field
+  tuple, each finding's `references`). Ordinal is also why the key map is an `OrderedDictionary` with
+  `StringComparer.Ordinal` rather than `[ordered]@{}`: PowerShell's ordered dictionary compares keys
+  case-insensitively, which would silently merge two case-distinct members of a "lossless" document.
+  The same rule holds inside the projection (task map, merge map, sort map): a case-insensitive
+  hashtable is how a merged group disappears.
+- **Output is compact JSON, one trailing `\n`, UTF-8 without BOM.**
+
+Apart from the NFC/LF normalization (and the surrogate substitution above), canonicalization is
+lossless: control characters, whitespace and case inside reviewer text survive into the canonical
+authority exactly as they arrived. Canonicalization is idempotent — re-canonicalizing a canonical
+document returns the same bytes — which is what makes an equivalent replay an *idempotent* replay
+rather than a second generation.
+
+The digest is taken **after** canonicalization, so it is stable across raw property order, task/finding
+order and culture — proven by rendering the same envelope under `cs-CZ`, `tr-TR`, `de-DE` and the
+invariant culture and requiring identical bytes and digests. This reproduces the committed corpus plan
+bytes exactly, which is how the corpus `planDigest` binding holds; the corpus is ASCII with LF and
+integer numbers, so the added normalizations are a no-op on it and its committed digests are unchanged.
+
+Reduction is a *render-time* property, never a lossy one: two structurally distinct findings can
+normalize to the same merge tuple (a title differing only in surrounding whitespace, an explicit
+`rootCause` equal to another finding's defaulted one), and every one of them survives into the
+projection and the full view in a deterministic ordinal order. Keying a dictionary by that tuple — the
+earlier implementation — turned legal input into a crashed publication.
+
+### Untrusted text never becomes a delimiter
+
+Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a
+body may legally contain `U+0001`. Anywhere such a value was packed into a delimited key, the delimiter
+was forgeable, so those keys are now either structured or length-prefixed:
+
+- **Model attribution and unanimity.** The models of a merged group are ordered by sorting *records*
+  and carrying the original value through; the sort key is derived and discarded. Packing
+  `<roster index>·<model>` and reading the value back from the last delimiter truncated a model
+  containing `U+0001` to whatever followed it, which named a model nobody dispatched and — because the
+  truncated name no longer matched the roster — silently stopped unanimous agreement from elevating.
+  Titles and bodies are ordered the same way.
+- **Roster equality and concern/model slots.** Both compare `Get-ReviewOrdinalTupleKey` length-prefixed
+  tuples. Joining a roster with `U+0001` made `["a\u0001b"]` compare equal to `["a", "b"]`, so a result
+  could claim an attendance set the frozen plan never declared.
+- **The merge key and the merged-entry sort key stay delimited, and nothing forgeable is packed into
+  them.** Both halves of a merge key come from `Get-ReviewNormalizedKey`, whose output is `[a-z0-9 ]*`;
+  the sort key's numeric fields are fixed width, its title is control-safe (see below), and its
+  trailing merge key contributes exactly one delimiter, so the composite decomposes uniquely.
+
+**Rendered views never emit a raw C0 control.** `ConvertTo-ReviewInlineText` and
+`ConvertTo-ReviewFencedBlock` replace the C0 range and DEL with their Unicode Control Pictures
+(U+2400 + code point; DEL → U+2421), keeping block line breaks and tabs. The substitution is
+deterministic and injective, so attribution stays complete and readable instead of carrying an
+invisible byte a human and a parser read differently. Canonical JSON is untouched by it — this runs in
+the render path only, which is exactly the split the contract draws between lossless authority and
+bounded views.
+
+### The merged maximum is a semantic rule
+
+`maxMergedFindings` (128) bounds the *merged* set, which no single-document keyword can count: 256 raw
+findings are structurally legal and may collapse into anything between one group and 256.
+`Test-ReviewRunSemantic` counts distinct `Get-ReviewMergeKey` values — the renderer's own key,
+fallbacks included, shared by one function so the two cannot drift — and a run that would render more
+groups than the contract admits is exit `2` **before** anything is canonicalized, rendered or written.
+It is invalid input, not a byte-budget admission: the input is malformed against the contract rather
+than too big for it, and no marker makes the UUID terminal.
+
+**One function is not enough on its own: the key must also be order-invariant.** Validation runs on the
+raw document while the renderer runs on the canonical one, and canonicalization sorts `references`
+ordinally on canonical text. Taking the component fallback from `references[0]` of each therefore gave
+the two callers a different component for the same finding, so the count and the render disagreed in
+both directions: raw arrays all leading with one shared reference counted 65 groups, passed the
+maximum, and then rendered 130; arrays differing only in order counted 129 where the renderer merges
+128, falsely rejecting a legal run. `Get-ReviewMergeKey` therefore applies the *same* canonical text
+and the *same* ordinal sort before it picks the first non-blank reference, so the key is a function of
+the document rather than of the array order the caller happened to write, and the approved grouping
+behavior — component falls back to the canonical first reference — holds identically in both callers.
+
+### Publication safety
+
+- **Manifest last, under a stable lock.** Generation files are written first; the manifest — the sole
+  commit point a reader trusts — is replaced last while an exclusive lock on `.review-run.lock` is
+  held. The lock file is created once and **never unlinked**: deleting it on release is what breaks
+  mutual exclusion, because a process that opens the path after the delete holds a different inode than
+  one that opened it before, and both would believe they hold the lock. `Freeze` takes the same lock —
+  it decides immutable state — and every state decision (admission, idempotent replay, changed reuse,
+  the frozen-plan re-verification) happens *inside* it, so two concurrent calls cannot both pass their
+  checks and then both commit. The timeout is the vocabulary's `lockTimeoutSeconds` (5); a test may
+  lower it through a module-scoped override, and the CLI never lowers it. A lock it cannot acquire is
+  exit `4`.
+- **Fault seams (RISK-5).** `Set-ReviewRunFaultSeam` arms a named edge — `during-lock`,
+  `after-canonical`, `after-summary`, `after-full`, `before-manifest-swap` — that throws. The CLI never
+  arms one, so there is no production failpoint. A fault removes **only the generation files this
+  attempt itself wrote**, and only while no committed manifest names them; a directory-wide sweep of
+  `*.tmp-*` (the earlier behavior, and after the lock was released at that) would delete a concurrent
+  process's staging. Atomic writes clean up their own temporary file and nothing else.
+- **Byte admission is terminal, and comes first (D6/D21).** The 2 MiB envelope budget is enforced on
+  the bytes actually on disk *before* anything parses them — an oversized envelope must never be
+  materialized just to be refused — and again on the canonical bytes. Over budget is exit `3`, never a
+  retryable `4`. The same applies to a rendered view over its budget: exit `3` before the manifest
+  changes, never truncated, never dropping a finding. An admission that is actually recorded writes a
+  small deterministic `.review-run.admission.json` marker (run id, mode, machine-readable reason
+  codes — no reviewer text, no rejected bytes), so admission outlives the process that decided it: a
+  later `Publish` on that UUID is exit `3` again and cannot publish a quietly reduced set, a later
+  `Freeze` cannot reopen it, and `Find-IncompleteReviewRun` does not report it as an interrupted run
+  to finalize. The caller abandons the UUID and starts a narrower-scope review.
+
+  The marker is a state transition like any other, so it is decided *atomically with state* under the
+  same lock: `Freeze` may admit only a `new` run and `Publish` only a `frozen` one. An
+  already-`admission` run repeats its terminal answer and rewrites nothing; any other state — a
+  `published` run above all — is exit `2` with **no marker written**, because an oversized or
+  over-budget retry must not be able to stamp `admission` onto committed authority and make a
+  verified publication unreadable; and a lock or marker write that fails is an explicit exit `4`
+  `failed`, never an exit `3` claiming a terminal decision no later invocation could see. The
+  rejected input is already destroyed by then, which the diagnostics of those paths say plainly.
+- **Error precedence.** Input-byte admission (a gate that must precede parsing) → parse/schema →
+  semantic → secret → render admission → publication.
+
+### The verifying reader and cleanup
+
+`Get-ReviewRun.ps1` reads only the manifest: it schema-validates it, confines every name to a single
+path segment, requires each name to be the content address of the bytes it names, verifies each file's
+byte count and SHA-256, checks `runDigest`/`planDigest` against the canonical and plan files, requires
+`runId` to be the run directory's own id (compared ordinally), and requires the canonical envelope's
+`runId` and `planDigest` to agree with the manifest — so a manifest copied from another run cannot read
+as this one. Only then does it write the summary to stdout as raw LF-terminated UTF-8, separate from the
+8 KiB terminal-status object the publisher prints.
+
+Two of those checks are the reader's *own*, not the manifest's:
+
+- **Per-role byte budgets.** The manifest's `byteCount` is bounded only by the generic 2 MiB envelope
+  maximum, so a 900 KiB summary is a structurally valid — and, if the file really carries those bytes,
+  digest-consistent — manifest entry. The reader re-derives each role's budget from the schema-owned
+  vocabulary (`plan`/`canonical` ≤ `maxEnvelopeBytes`, `summary` ≤ `maxSummaryBytes`, `full` ≤
+  `maxFullBytes`) instead of trusting the generic maximum beside the file.
+- **Artifact encoding.** Every artifact this engine writes is UTF-8 without a BOM, LF-only and NFC, so
+  one that is not is not an artifact this engine produced, whatever its digest agrees with. The NFC
+  comparison is ordinal on purpose: PowerShell's own comparison operators are culture-sensitive, and a
+  culture-sensitive comparison treats a decomposed string as equal to its composed form — precisely the
+  difference being checked.
+
+**Confinement applies to reads exactly as it does to writes.** `Assert-ReviewPathSafe` re-checks the run
+directory and every concrete file the manifest names immediately before opening it, so a run directory
+or a single leaf artifact swapped for a symlink is refused rather than read from outside the store.
+`Read-ReviewManifest` and `Get-ReviewRunSummaryText` take an optional `Boundary`: `Publish`, cleanup and
+the CLIs pass the repository root they already resolved, and a direct call with none derives one from
+the run directory itself, which can only make the walk longer and therefore stricter. Same-user TOCTOU
+inside the remaining window stays a documented residual risk.
+
+`-ListIncomplete` reports frozen-but-unpublished runs through the *same* store resolver Freeze/Publish
+use, so a listing is not a second, weaker way to point the engine at a directory, and it validates the
+store root and each candidate run directory before enumerating or deciding state.
+`Remove-ReviewRun.ps1` removes a **generic** run only, confined to `.github/.skalary/review-runs/`,
+after verifying its manifest through that same reader; plan-associated runs are committed and removed
+through version control. Reader and cleanup exits are bounded the same way: `0`, `2` for unresolvable or
+unreadable, `4` for an unexpected failure such as a broken install.
+
+### Locations and the handshake (D14/D16)
+
+A plan run resolves through the `ReviewRuns` kind of `Resolve-PlanAssetPath`
+(`<plan>/assets/reviews/<uuid>/`); a generic run resolves under the gitignored
+`.github/.skalary/review-runs/<uuid>/`. The caller chooses only a run id and, for a plan run, a plan
+directory — repo, schema and output roots are computed from the installed script location.
+
+A plan directory is validated **through the plan inventory**, not by path shape: it must live under
+`docs/implementation-plans/`, carry a `plan.md`, appear in `Get-PlanInventory`, and its inventory id
+must resolve back to the same folder through `Resolve-Plan`. Immediately before any write, removal or
+verified read, `Assert-ReviewPathSafe` walks from the target up to the repository root and refuses if
+any existing component is a symlink or reparse point (RISK-6); same-user TOCTOU inside the remaining
+window stays a documented residual risk.
+
+The handshake belongs to the **caller** (D16): it writes `.review-plan.input.tmp` /
+`.review-result.input.tmp` and atomically renames it onto `review-plan.input.json` /
+`review-result.input.json`. The engine consumes only those two fixed names — it performs no rename — so
+a `.tmp` still being written, or abandoned half-written by a crashed caller, is not an input at all and
+is neither read nor removed. Input is destroyed after use: removed on success, and overwritten before
+unlinking whenever it was rejected.
+
+**The input leaf is confined too, not just its ancestors.** Those two fixed names are the one path
+inside a run directory whose content an untrusted caller supplies, and the engine both parses that leaf
+and destroys it *in place* — `Remove-ReviewInputSecurely` overwrites the bytes before unlinking. The
+ancestor walk never saw a swapped leaf, because every ancestor was still a real directory this engine
+created, so a symlink renamed onto the fixed name turned the handshake into an arbitrary-file read and,
+worse, an arbitrary-file shredder outside the store. `Assert-ReviewInputLeafSafe` therefore runs before
+the leaf is accepted (`Get-ReviewInputPath`), read (`Read-ReviewInputText`) and destroyed
+(`Remove-ReviewInputSecurely`, including the pre-scan `Remove-ReviewPendingInput`): it reads the leaf's
+attributes with `-Force`, which stats the link rather than its target, refuses a reparse point outright,
+and then walks the concrete path to the repository boundary. Every one of those helpers takes the
+`Boundary` its mode already resolved. The link is never followed — the target is neither opened, nor
+overwritten, nor unlinked — and the refusal surfaces as the contract's bounded exit `4`; the link
+itself is simply left where it is.
+
+**Every terminal exit destroys the input, including the ones decided before the secret scan runs.** The
+scan needs a frozen plan to bind the result to, so three `Publish` exits are decided before it: an
+already-`admission` run, an existing run directory with no frozen plan, and a frozen plan that does not
+verify. Each used to return leaving staged reviewer text — which nothing had scanned — on disk. A
+retryable exit `4` is the deliberate exception and keeps the input, because the caller is expected to
+run the same input again.
+
+### The secret guard (D18/RISK-16)
+
+Before any lossless artifact is written — including the *frozen plan*, which is a committed artifact
+one mode before `Publish` ever runs — `Find-ReviewSecret` scans every untrusted field for a
+high-confidence credential shape (GitHub PAT/OAuth/fine-grained, AWS access key, Google API key, Slack,
+Stripe, npm, PEM private-key banner). For a plan that is `scope`, the roster and every task model; for
+a result it is additionally each task diagnostic and every finding string and reference. A hit is exit
+`2`: the input is irreversibly destroyed at once (`Remove-ReviewInputSecurely` overwrites then unlinks)
+and only the redacted *type* and *location* are reported — never the value.
+
+The allow list is exact, not fuzzy. Only the published AWS documentation key verbatim, or a recognized
+provider prefix whose **entire** body is a mask run (`XXXX…`, `****…`) or an exact repetition of a
+synthetic marker (`REDACTEDREDACTED…`), is allowed. A substring match — the earlier rule — waved
+through any live credential whose body happened to contain `example` or `redacted`, which is precisely
+the value the guard exists to stop. The patterns are character classes, never literal tokens. The
+behavior is pinned by `tests/skalary/fixtures/review-run/secrets/allow-block-corpus.json`, a
+**versioned** corpus that stores only inert fragments and a reconstruction recipe; the test assembles
+each token-shaped string at runtime, so no complete provider-token signature is ever committed and
+repository push protection cannot trip on the fixture.
+
+### Test inventory (step 1.2)
+
+Focused suites, one evidence id each, all in-process except the budget child:
+`test:ReviewReport.FrozenPlanAndAttendanceMatrix`,
+`test:ReviewReport.GoldenSemanticParityAndCanonicalization` (extended for the production renderer),
+`test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard`,
+`test:ReviewReport.ManifestReaderPublicationAndExitMatrix`,
+`test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection`,
+`test:ReviewReport.EncodingExitDiagnosticAndLockContract`,
+`test:ReviewReport.MaximumEnvelopeBudget`. The legacy `Build-ReviewReport.ps1` object formatter and its
+`b0c0d3` tests stay green; the object API is retired only in the phase 2 caller migration (REQ-13).

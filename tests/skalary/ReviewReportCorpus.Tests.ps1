@@ -62,6 +62,11 @@ Describe 'review report corpus' {
         # The v1 layout is committed as bytes. They are read once, as bytes, and never handed to the
         # renderer: the renderer derives both views from the envelope alone.
         Import-Module (Join-Path $PSScriptRoot 'fixtures/review-run/ReviewLayoutReference.psm1') -Force -DisableNameChecking
+        # Step 1.2's production engine, imported under a `Prod` prefix so its renderers
+        # (`Get-ProdReviewRunSummaryView`, `Get-ProdReviewRunFullView`) sit beside the test-only
+        # reference renderer without either shadowing the other. The corpus goldens are the fixture;
+        # both derivations must reproduce them, and this file compares each independently.
+        Import-Module (Join-Path $script:repoRoot 'scripts/skalary/ReviewRun.psm1') -Force -DisableNameChecking -Prefix Prod
         $script:summaryGoldenBytes = [System.IO.File]::ReadAllBytes((Join-Path $script:corpusRoot 'new-layout.summary.golden.md'))
         $script:fullGoldenBytes = [System.IO.File]::ReadAllBytes((Join-Path $script:corpusRoot 'new-layout.full.golden.md'))
 
@@ -583,26 +588,45 @@ Describe 'review report corpus' {
             Should -Be @('Alpha', 'alpha') -Because 'ordinal raw-record sorting must not overwrite case-distinct legal findings'
     }
 
-    It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization hands step 1.2 a closed new-layout expectation it does not yet satisfy' {
-        # The layout is committed; the production renderer is not. Step 1.1 adds no `Freeze`, no
-        # `Publish` and no schema use to the shipped formatter, and the renderer that produces the
-        # goldens is a test fixture rather than something a consumer can install.
-        $formatterText = Get-Content -LiteralPath $script:formatter -Raw
-        $formatterText | Should -Not -Match '(?i)\bFreeze\b'
-        $formatterText | Should -Not -Match '(?i)\bPublish\b'
-        $formatterText | Should -Not -Match '(?i)Test-Json'
-        $formatterText | Should -Not -Match 'ReviewLayoutReference'
+    It 'test:ReviewReport.GoldenSemanticParityAndCanonicalization reproduces the committed goldens through the step 1.2 production renderer and ships its module and CLIs' {
+        # Step 1.2 now owns the production renderer, the module and the Freeze/Publish/read/cleanup
+        # CLIs. The production views must reproduce the committed goldens byte for byte — the same
+        # target the test-only reference renderer meets — so the two derivations are held equal by the
+        # fixture rather than by each other.
+        $prodSummary = Get-ProdReviewRunSummaryView -Run $script:run
+        $prodFull = Get-ProdReviewRunFullView -Run $script:run
+        $prodSummaryBytes = [System.Text.Encoding]::UTF8.GetBytes($prodSummary)
+        $prodFullBytes = [System.Text.Encoding]::UTF8.GetBytes($prodFull)
 
-        $referenceModule = Join-Path $script:corpusRoot '..' 'ReviewLayoutReference.psm1'
-        Test-Path -LiteralPath $referenceModule -PathType Leaf | Should -BeTrue
-        (Resolve-Path $referenceModule).Path | Should -Match '[\\/]tests[\\/]' -Because 'the reference renderer is test-only'
-        $moduleText = Get-Content -LiteralPath $referenceModule -Raw
-        $moduleText | Should -Not -Match '(?m)^\s*(Set-Content|Out-File|\[System\.IO\.File\]::Write)' -Because 'the reference renderer performs no file I/O'
-        [string]$script:expectation.renderer | Should -Be 'ReviewLayoutReference.psm1'
+        (Compare-Object -ReferenceObject $prodSummaryBytes -DifferenceObject $script:summaryGoldenBytes -SyncWindow 0) |
+            Should -BeNullOrEmpty -Because 'the production summary renderer must reproduce the committed golden bytes'
+        (Compare-Object -ReferenceObject $prodFullBytes -DifferenceObject $script:fullGoldenBytes -SyncWindow 0) |
+            Should -BeNullOrEmpty -Because 'the production full renderer must reproduce the committed golden bytes'
 
-        foreach ($absent in @('Get-ReviewRun.ps1', 'Remove-ReviewRun.ps1', 'Publish-ReviewRun.ps1', 'ReviewRun.psm1')) {
-            Test-Path -LiteralPath (Join-Path $script:repoRoot "scripts/skalary/$absent") |
-                Should -BeFalse -Because "$absent is step 1.2, and the committed layout is not evidence that it exists"
+        # It matches the test-only reference renderer as well, so neither can drift silently.
+        $prodSummary | Should -Be (New-ReviewSummaryView -Run $script:run)
+        $prodFull | Should -Be (New-ReviewFullView -Run $script:run)
+
+        # The digests recorded in the expectation are the production renderer's digests too.
+        (Get-Sha256 -Bytes $prodSummaryBytes) | Should -Be ([string]$script:expectation.summary.golden.sha256)
+        (Get-Sha256 -Bytes $prodFullBytes) | Should -Be ([string]$script:expectation.full.golden.sha256)
+
+        # The engine, its bundled reader and the generic-cleanup helper now exist in scripts/skalary.
+        foreach ($present in @('ReviewRun.psm1', 'Get-ReviewRun.ps1', 'Remove-ReviewRun.ps1')) {
+            Test-Path -LiteralPath (Join-Path $script:repoRoot "scripts/skalary/$present") -PathType Leaf |
+                Should -BeTrue -Because "$present is a step 1.2 deliverable"
         }
+
+        # Build-ReviewReport.ps1 now exposes Freeze/Publish beside the legacy object formatter, and
+        # still performs no file I/O of its own — the module owns every write.
+        $formatterText = Get-Content -LiteralPath $script:formatter -Raw
+        $formatterText | Should -Match '(?i)\bFreeze\b'
+        $formatterText | Should -Match '(?i)\bPublish\b'
+        $formatterText | Should -Not -Match '(?i)\b(Out-File|Set-Content|Add-Content|New-Item|Remove-Item|WriteAllText|WriteAllLines|Export-Csv)\b'
+
+        # The reference renderer stays a test-only fixture that performs no file I/O.
+        $referenceModule = Join-Path $script:corpusRoot '..' 'ReviewLayoutReference.psm1'
+        (Resolve-Path $referenceModule).Path | Should -Match '[\\/]tests[\\/]' -Because 'the reference renderer is test-only'
+        [string]$script:expectation.renderer | Should -Be 'ReviewLayoutReference.psm1'
     }
 }

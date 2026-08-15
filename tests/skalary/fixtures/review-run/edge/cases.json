@@ -360,6 +360,21 @@
       }
     },
     {
+      "id": "status-rejected-run-id",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": true,
+      "why": "A run id the engine rejected is never echoed — it is unbounded caller text and not a UUID — so the status records the rejection instead. Always the invalid exit 2.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "freeze",
+        "exitCode": 2,
+        "state": "invalid",
+        "message": "Run id must be a lowercase UUID.",
+        "runIdRejected": true
+      }
+    },
+    {
       "id": "status-publish-failed",
       "schema": "terminal-status.schema.json",
       "layer": "structural",
@@ -1134,6 +1149,37 @@
         "exitCode": 0,
         "state": "clean",
         "message": "m"
+      }
+    },
+    {
+      "id": "status-rejected-run-id-and-run-id",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A status cannot both name a run and claim its id was rejected; one of the two is a lie.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "freeze",
+        "exitCode": 2,
+        "state": "invalid",
+        "message": "m",
+        "runId": "8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35",
+        "runIdRejected": true
+      }
+    },
+    {
+      "id": "status-rejected-run-id-non-rejection-exit",
+      "schema": "terminal-status.schema.json",
+      "layer": "structural",
+      "expectedStructural": false,
+      "why": "A rejected run id can only accompany the invalid exit 2: nothing else can have happened to a run that was never identified.",
+      "instance": {
+        "schema": "skalary/review-terminal-status@1",
+        "mode": "publish",
+        "exitCode": 5,
+        "state": "degraded",
+        "message": "m",
+        "runIdRejected": true
       }
     },
     {

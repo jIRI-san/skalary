@@ -3697,6 +3697,11 @@
       "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
       "reason": "Superseded by 'cep skill.preserves preliminary epic context while delegating full child drafting to /cip', which retains drafting delegation and adds the child-context preservation contract.",
       "step": "epic-scaffold-context-preservation"
+    },
+    {
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization hands step 1.2 a closed new-layout expectation it does not yet satisfy",
+      "reason": "The guard asserted the step 1.2 production renderer, module and Freeze/Publish/read/cleanup CLIs did not yet exist. Step 1.2 implements them, so the assertion is inverted into 'review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization reproduces the committed goldens through the step 1.2 production renderer and ships its module and CLIs', which proves the production renderer reproduces the committed goldens and the CLIs exist.",
+      "step": "1.2"
     }
   ]
 }

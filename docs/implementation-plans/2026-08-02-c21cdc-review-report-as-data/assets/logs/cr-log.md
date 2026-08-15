@@ -10,3 +10,22 @@ Phase: 1
 - [1.1] [src:code-review] [sev:Med] Maximum-envelope fixture omitted maximum diagnostics and therefore did not exercise the largest semantically valid near-cap record mix.
 - [1.1] [src:code-review] [sev:Med] Reference raw-record lookup used a case-insensitive delimiter key that could overwrite distinct legal findings.
 - [1.1] [src:code-review] [sev:Med] Schema capability preflight could ignore unlisted assertion keywords and count validator exceptions as successful negative probes.
+- [1.2] [src:code-review] [sev:Critical] Canonical object keys use culture-sensitive Sort-Object, producing different digests across locales.
+- [1.2] [src:code-review] [sev:High] Malformed frozen plans or manifests escape the bounded exit contract with process exit 1 and no status object.
+- [1.2] [src:code-review] [sev:High] Semantically duplicate raw findings collide in the renderer dictionary and crash publication.
+- [1.2] [src:code-review] [sev:High] Oversized invalid run identifiers can make terminal-status shrinking loop forever.
+- [1.2] [src:code-review] [sev:High] Admission exit 3 leaves no terminal marker, allowing lossy same-UUID republish.
+- [1.2] [src:code-review] [sev:High] Over-2-MiB canonical envelopes reach manifest generation and return retryable exit 4 instead of terminal admission.
+- [1.2] [src:code-review] [sev:Med] Invalid run-id terminal statuses violate their own schema.
+- [1.2] [src:code-review] [sev:Med] Lock deletion, pre-lock state checks, and post-unlock global staging cleanup permit concurrent authority overwrite.
+- [1.2] [src:code-review] [sev:Med] ListIncomplete bypasses PlanDir confinement and inventory validation.
+- [1.2] [src:code-review] [sev:Med] Freeze persists unscanned scope text into committed plan artifacts before Publish can reject a credential shape.
+- [1.2] [src:code-review] [sev:High] Triage: root/bundled script drift remains intentionally deferred to step 2.1, which distributes the module, schemas, reader and cleanup atomically; syncing wrappers alone would install broken CLIs.
+- [1.2] [src:code-review] [sev:Med] Pre-scan Publish exits leave untrusted result input on disk instead of securely destroying it.
+- [1.2] [src:code-review] [sev:Med] Verifying reader omits reparse-point confinement on concrete manifest and artifact reads.
+- [1.2] [src:code-review] [sev:Low] Exported terminal-status emitter permits schema-invalid rejected-id combinations outside current CLI paths.
+- [1.2] [src:note] [sev:High] Rubber Duck: semantic validation does not enforce the schema-owned 128 merged-finding cap.
+- [1.2] [src:note] [sev:High] Rubber Duck: canonicalization preserves CRLF and integral floating representations, so equivalent semantic input can hash differently.
+- [1.2] [src:note] [sev:High] Rubber Duck: control characters in schema-valid model names corrupt delimiter-packed attribution and unanimity.
+- [1.2] [src:note] [sev:Med] Rubber Duck: reader does not independently enforce per-role summary/full byte bounds and canonical text encoding.
+- [1.2] [src:note] [sev:Med] Rubber Duck: Freeze can write a plan generation into corrupted published state when the manifest remains but the prior plan file is missing.

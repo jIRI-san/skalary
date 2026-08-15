@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/jIRI-san/skalary/schemas/review/terminal-status.schema.json",
   "title": "Skalary Review Terminal Status",
-  "description": "Plan c21cdc D7/D12/D17. The single JSON object every terminal path writes to stdout — the schema-capability preflight as well as `Freeze` and `Publish`. Mode, exit code and state are one closed vocabulary bound to each other: `0` is a clean run or a capable host, `2` is invalid input or an absent schema capability, `3` is admission, `4` is lock/publication/unexpected failure and `5` is a valid degraded publication. Degradation is Publish-only; Freeze can return only 0, 2, 3, or 4. The capability mode has no run to name and therefore carries no `runId`; every other mode requires one. The 8 KiB stdout budget is a UTF-8 byte count the emitter enforces; the per-string and per-array limits here bound it structurally but cannot express it.",
+  "description": "Plan c21cdc D7/D12/D17. The single JSON object every terminal path writes to stdout — the schema-capability preflight as well as `Freeze` and `Publish`. Mode, exit code and state are one closed vocabulary bound to each other: `0` is a clean run or a capable host, `2` is invalid input or an absent schema capability, `3` is admission, `4` is lock/publication/unexpected failure and `5` is a valid degraded publication. Degradation is Publish-only; Freeze can return only 0, 2, 3, or 4. The capability mode has no run to name and therefore carries no `runId`; every other mode names the run it acted on, except when the caller's run id was itself rejected — an id that is not a UUID is never echoed (it is unbounded, caller-controlled text), so those statuses carry `runIdRejected: true` instead of a `runId` and are always the invalid exit `2`. The 8 KiB stdout budget is a UTF-8 byte count the emitter enforces; the per-string and per-array limits here bound it structurally but cannot express it.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "mode", "exitCode", "state", "message"],
@@ -10,6 +10,7 @@
     "schema": { "$ref": "#/$defs/discriminator" },
     "mode": { "$ref": "#/$defs/mode" },
     "runId": { "$ref": "#/$defs/runId" },
+    "runIdRejected": { "$ref": "#/$defs/runIdRejected" },
     "exitCode": { "$ref": "#/$defs/exitCode" },
     "state": { "$ref": "#/$defs/state" },
     "message": { "$ref": "#/$defs/statusMessage" },
@@ -33,13 +34,23 @@
     "capabilityShape": {
       "not": { "required": ["runId"] },
       "properties": {
+        "runIdRejected": false,
         "exitCode": { "enum": [0, 2] },
         "state": { "enum": ["capable", "incapable"] }
       }
     },
     "runShape": {
-      "required": ["runId"],
-      "properties": { "state": { "enum": ["clean", "degraded", "invalid", "admission", "failed"] } }
+      "properties": { "state": { "enum": ["clean", "degraded", "invalid", "admission", "failed"] } },
+      "if": { "required": ["runIdRejected"] },
+      "then": { "$ref": "#/$defs/rejectedRunIdShape" },
+      "else": { "required": ["runId"] }
+    },
+    "rejectedRunIdShape": {
+      "not": { "required": ["runId"] },
+      "properties": {
+        "exitCode": { "const": 2 },
+        "state": { "const": "invalid" }
+      }
     },
     "freezeShape": {
       "properties": {
@@ -58,6 +69,7 @@
     "failedState": { "properties": { "state": { "const": "failed" } } },
     "degradedState": { "properties": { "state": { "const": "degraded" } } },
     "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "runIdRejected": { "const": true },
     "exitCode": { "type": "integer", "enum": [0, 2, 3, 4, 5] },
     "statusMessage": { "type": "string", "minLength": 1, "maxLength": 1024 },
     "statusDiagnostics": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
