@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "startingCommit": "bb0daf9b621ebf9d172aea1cb1ee92b17c6fafc6",
+  "files": [
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/2e924941-4d5d-4ff6-9c0e-1eb6eb99df6a/review-full.b838025291fc4b045402f448daeca99e2b8623ff9005a7e39d86b29146652ab5.md",
+      "sha256": "b838025291fc4b045402f448daeca99e2b8623ff9005a7e39d86b29146652ab5"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/2e924941-4d5d-4ff6-9c0e-1eb6eb99df6a/review-run.6a3b70cc327d0c94413789fe4130f902d1f28e60575aaf7fdaac60521077defe.json",
+      "sha256": "6a3b70cc327d0c94413789fe4130f902d1f28e60575aaf7fdaac60521077defe"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/3c8e9a73-5f88-411c-b71e-8a783550da0d/review-full.0cc103cef07de561592059795854a127222a3bb8a01861ece1a0d9fa01f6d723.md",
+      "sha256": "0cc103cef07de561592059795854a127222a3bb8a01861ece1a0d9fa01f6d723"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/3c8e9a73-5f88-411c-b71e-8a783550da0d/review-run.8bb452a7e60d9aa7761d13671aa169f3dd639d25526ee33a2f559627989c4a2e.json",
+      "sha256": "8bb452a7e60d9aa7761d13671aa169f3dd639d25526ee33a2f559627989c4a2e"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/c7e47a7f-7aba-4bfd-b8f4-b5c02e6ac5dd/review-full.b92171d6077fae9b2480c0699413702b35da8f4fa4e948ab431573116c6dc5d6.md",
+      "sha256": "b92171d6077fae9b2480c0699413702b35da8f4fa4e948ab431573116c6dc5d6"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/c7e47a7f-7aba-4bfd-b8f4-b5c02e6ac5dd/review-run.d298c60a7a876a9a2238253c518ec35b6ca0124e9059d9c3ddcbdd1cdaf9190d.json",
+      "sha256": "d298c60a7a876a9a2238253c518ec35b6ca0124e9059d9c3ddcbdd1cdaf9190d"
+    },
+    {
+      "path": "docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/reviews/c7e47a7f-7aba-4bfd-b8f4-b5c02e6ac5dd/review-summary.c2104f85bd27773e762c07cb979c5363c9afe353dd7fc41dfae907a0b9213258.md",
+      "sha256": "c2104f85bd27773e762c07cb979c5363c9afe353dd7fc41dfae907a0b9213258"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/capture.md",
+      "sha256": "ab52dcfd722a856d52ac4a8743d93a7601826210606137cb37956bb57462a56e"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/cr-log.md",
+      "sha256": "8b906477dbcc0c866386009fc2fc5796882d7ae42eea063c3613ee92863cef51"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/decisions/enforcement-model.md",
+      "sha256": "c09fbc887bb664d7e355efa4e7c44e3a4b470f7edf353244e6e5eb086ddf9bf8"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/evidence.md",
+      "sha256": "5a2d203930debdaaae9a42ab91abc34e4213a01e4eee2b4d12db57e917e282ef"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/evolution-log.md",
+      "sha256": "3f97765bb74481c1ba2d3c140a7edce585fd350da5f63be660e9f860485d68bb"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/learnings.md",
+      "sha256": "f56f469651b87d562e2566daacf204d4a04c9f5590fddc32b7c5a10d085e05a1"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-07-03-21f21d-architecture-guardrails/plan.md",
+      "sha256": "1d37250fd75e81744e758283cce3b3589b6473e051628617241d24d1dc5cedfc"
+    },
+    {
+      "path": "docs/implementation-plans/archived/2026-08-02-768d7b-gates-real-and-affordable/assets/decisions.md",
+      "sha256": "188a265e53523464e43cfd579f53080a954f677bb104bb3aa86fc7965d6ab746"
+    }
+  ]
+}

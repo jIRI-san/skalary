@@ -33,7 +33,7 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 |---|---|---|
 | `1936cb` | learning-loop-durability | — |
 | `2366ad` | cross-repo-si-and-standards | `1936cb`, `34088e` |
-| `34088e` | consumer-install-correctness | — |
+| `34088e` | consumer-install-correctness | `cda9da` |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
 | `863d97` | evidence-receipt-truth | — |
 | `c21cdc` | review-report-as-data | — |

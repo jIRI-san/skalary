@@ -52,6 +52,7 @@ function Get-ComparableJson {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         $InputObject
     )
 
@@ -142,6 +143,8 @@ function Test-DependencyCycles {
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 $registryPath = Join-Path $repoRootPath 'registry.json'
+$retirementsPath = Join-Path $repoRootPath 'registry-retirements.json'
+$retirementsSchemaPath = Join-Path $repoRootPath 'schemas/registry/plugin-retirement.schema.json'
 $readmePath = Join-Path $repoRootPath 'README.md'
 
 $errors = [System.Collections.Generic.List[string]]::new()
@@ -153,6 +156,51 @@ if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
 
 $registry = Read-JsonFile -Path $registryPath
 $registryPlugins = @(Sort-Ordinal -InputObject @($registry.plugins) -Property 'name' -Comparer $script:CatalogComparer)
+$registryRetiredPlugins = @(
+    if ($registry.PSObject.Properties.Name -contains 'retiredPlugins') {
+        Sort-Ordinal -InputObject @($registry.retiredPlugins) -Property 'name' -Comparer $script:CatalogComparer
+    }
+    else {
+        Add-RegistryError -Errors $errors -Message 'registry.json is missing retiredPlugins.'
+    }
+)
+
+$canonicalRetiredPlugins = @()
+if (-not (Test-Path -LiteralPath $retirementsPath -PathType Leaf)) {
+    Add-RegistryError -Errors $errors -Message "Plugin-retirement catalog not found: $retirementsPath"
+}
+elseif (-not (Test-Path -LiteralPath $retirementsSchemaPath -PathType Leaf)) {
+    Add-RegistryError -Errors $errors -Message "Plugin-retirement schema not found: $retirementsSchemaPath"
+}
+else {
+    $retirementsRaw = Get-Content -LiteralPath $retirementsPath -Raw
+    if (-not ($retirementsRaw | Test-Json -SchemaFile $retirementsSchemaPath -ErrorAction SilentlyContinue)) {
+        Add-RegistryError -Errors $errors -Message "Plugin-retirement catalog is invalid: $retirementsPath"
+    }
+    else {
+        $retirements = $retirementsRaw | ConvertFrom-Json -Depth 100
+        $canonicalRetiredPlugins = @(Sort-Ordinal -InputObject @($retirements.retiredPlugins) -Property 'name' -Comparer $script:CatalogComparer)
+    }
+}
+
+if (-not [string]::Equals(
+        (Get-ComparableJson -InputObject $registryRetiredPlugins),
+        (Get-ComparableJson -InputObject $canonicalRetiredPlugins),
+        [System.StringComparison]::Ordinal)) {
+    Add-RegistryError -Errors $errors -Message 'registry.json retiredPlugins drift from registry-retirements.json.'
+}
+
+$retiredByName = @{}
+foreach ($retiredPlugin in $canonicalRetiredPlugins) {
+    $retiredName = [string]$retiredPlugin.name
+    if ($retiredByName.ContainsKey($retiredName)) {
+        Add-RegistryError -Errors $errors -Message "Duplicate plugin-retirement record '$retiredName'."
+    }
+    else {
+        $retiredByName[$retiredName] = $retiredPlugin
+    }
+}
+
 $registryByName = @{}
 foreach ($plugin in $registryPlugins) {
     $name = [string]$plugin.name
@@ -161,6 +209,9 @@ foreach ($plugin in $registryPlugins) {
         continue
     }
     $registryByName[$name] = $plugin
+    if ($retiredByName.ContainsKey($name)) {
+        Add-RegistryError -Errors $errors -Message "Plugin '$name' cannot be both active and retired."
+    }
 }
 
 $manifestByName = @{}
@@ -399,4 +450,3 @@ if ($errors.Count -gt 0) {
 
 Write-Host 'Test-Registry passed.' -ForegroundColor Green
 exit 0
-

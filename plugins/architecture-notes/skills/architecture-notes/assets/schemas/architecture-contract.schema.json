@@ -2,7 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/jIRI-san/skalary/schemas/architecture/architecture-contract.schema.json",
   "title": "Architecture Contract",
-  "description": "A single interface-level architectural contract. Human-owned source of truth; agents derive framework tests from it, never the reverse. Multi-modal authoring: at least one of rules, prose, or interfaces must be present.",
+  "description": "A single human-owned interface-level architectural contract. Multi-modal authoring: at least one of rules, prose, or interfaces must be present.",
+  "x-skalary-schema-version": 2,
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "title", "maturity"],
@@ -18,7 +19,7 @@
         "properties": { "maturity": { "const": "locked" } }
       },
       "then": {
-        "required": ["lockedBodySha256"]
+        "required": ["lockedContentSha256"]
       }
     }
   ],
@@ -26,7 +27,7 @@
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "Stable contract id referenced by arch:<id> evidence markers. Never reuse or renumber an id; retire instead."
+      "description": "Stable contract id. Never reuse or renumber an id; retire instead."
     },
     "title": {
       "type": "string",
@@ -42,12 +43,12 @@
     "maturity": {
       "type": "string",
       "enum": ["locked", "draft", "provisional"],
-      "description": "locked = blocking (only a human-authored/reviewed commit may promote draft->locked); draft and provisional are warn-only on every non-pass verdict."
+      "description": "locked = reviewer-approved and content-pinned; draft and provisional remain advisory. Promotion is reviewer-enforced policy, not machine-authenticated identity."
     },
-    "lockedBodySha256": {
+    "lockedContentSha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$",
-      "description": "SHA-256 of the reviewed executable test body. The runner refuses to execute a locked contract whose derived body hash does not match this value."
+      "description": "SHA-256 of the canonical contract JSON excluding only this property."
     },
     "targets": {
       "type": "array",
@@ -71,16 +72,7 @@
           }
         }
       },
-      "description": "Source roots and globs the contract is evaluated against."
-    },
-    "frameworks": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["netarchtest", "ts-arch", "dependency-cruiser"]
-      },
-      "uniqueItems": true,
-      "description": "Deterministic adapters that realize this contract. LLM semantic checks are advisory and configured under llm."
+      "description": "Source roots and globs the contract applies to."
     },
     "rules": {
       "type": "array",
@@ -104,7 +96,7 @@
         },
         "description": "Extra framework-specific parameters (from, to, pattern, ...) are permitted alongside the required id and description."
       },
-      "description": "Declarative, machine-derivable rules the deterministic adapters translate into framework assertions."
+      "description": "Declarative interface-level rules."
     },
     "prose": {
       "type": "string",
@@ -135,17 +127,6 @@
         }
       },
       "description": "Real C#/TS interface stubs the human owns as the contract surface."
-    },
-    "llm": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "promoted": {
-          "type": "boolean",
-          "description": "When true, raises the report severity of an LLM semantic finding; it never turns an advisory verdict into a build-breaking gate."
-        }
-      },
-      "description": "Optional semantic-eval (advisory) configuration."
     }
   }
 }

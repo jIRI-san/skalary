@@ -6,19 +6,19 @@
       "schema": "skalary/suite-runtime-row@1",
       "platform": "Linux",
       "measuredCommand": "npm test",
-      "seconds": 108.998,
+      "seconds": 179.695,
       "succeeded": true,
-      "measuredAt": "2026-08-05T20:06:01.5128558+00:00",
-      "commit": "c99d5d10421839eb4cda26c6d2616a792db89b83",
-      "source": "ci:ubuntu-latest",
-      "note": "",
+      "measuredAt": "2026-08-15T18:28:04.1372066+00:00",
+      "commit": "645daa942a8c2c193f4fb74ce010472d7a69598a",
+      "source": "container:autopilot",
+      "note": "Architecture-test retirement final current-tree measurement.",
       "environment": {
         "os": "Ubuntu 24.04.4 LTS",
-        "psVersion": "7.6.3",
-        "pesterVersion": "5.9.0",
-        "processorCount": 4,
-        "ci": true,
-        "runner": "GitHub Actions 1000000128"
+        "psVersion": "7.6.5",
+        "pesterVersion": "5.6.1",
+        "processorCount": 16,
+        "ci": false,
+        "runner": "4758162d0ec0"
       }
     },
     "Windows": {

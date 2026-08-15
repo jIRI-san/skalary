@@ -15,8 +15,7 @@ globs:
 
 ## Contracts
 
-<!-- Reference the machine-checkable contract ids that govern this boundary. Plans cite these
-     via `arch:<ContractId>` markers. -->
+<!-- Reference the machine-checkable contract ids that govern this boundary. -->
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|

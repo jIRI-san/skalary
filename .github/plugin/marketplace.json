@@ -19,21 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.5"
-    },
-    {
-      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
-      "license": "MIT",
-      "name": "architecture-tests",
-      "source": "plugins/architecture-tests",
-      "strict": false,
-      "tags": [
-        "architecture",
-        "architecture-tests",
-        "fitness-functions",
-        "skill"
-      ],
-      "version": "1.0.20"
+      "version": "1.0.6"
     },
     {
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
@@ -73,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.33"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -85,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.33"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -125,7 +111,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.3"
+      "version": "1.0.17"
     },
     {
       "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",
@@ -153,8 +139,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.21"
+      "version": "1.0.26"
     }
   ]
 }
-

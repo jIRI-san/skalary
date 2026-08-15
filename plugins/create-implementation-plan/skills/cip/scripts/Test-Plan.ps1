@@ -377,31 +377,6 @@ function Test-PlanMetadata {
                 continue
             }
 
-            if ($marker.StartsWith('arch:')) {
-                # Verified by PURE-PARSING the integrity/freshness receipt (no toolchain execution). A missing/
-                # stale/malformed receipt fails loud; the taxonomy x maturity gate decides blocking vs advisory.
-                try {
-                    $result = Invoke-PlanArchEvidence -RepoRoot $Metadata.RepoRoot -Marker $marker -Stage $Stage
-                    if (-not $result.Success) {
-                        if ($result.Blocking -and $isOptedIn) {
-                            $errors.Add("$($requirement.Id): $($result.Message) [$marker]")
-                        }
-                        else {
-                            $warnings.Add("$($requirement.Id): $($result.Message) [$marker]")
-                        }
-                    }
-                }
-                catch {
-                    if ($isOptedIn) {
-                        $errors.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
-                    }
-                    else {
-                        $warnings.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
-                    }
-                }
-                continue
-            }
-
             $message = "$($requirement.Id): unknown evidence marker '$marker'."
             if ($isOptedIn) {
                 $errors.Add($message)

@@ -1,0 +1,111 @@
+{
+  "author": "jIRI-san",
+  "dependencies": [],
+  "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
+  "evals": {
+    "status": "none"
+  },
+  "files": [
+    {
+      "dest": "skills/architecture-tests/SKILL.md",
+      "sha256": "76b617bae5d61e60df566dc77c7e11d187d9cf7e824908685f6274f804e9df34",
+      "src": "skills/architecture-tests/SKILL.md"
+    },
+    {
+      "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
+      "sha256": "ea948ec9ad4d006749aba6ec244a41ed79b8bf5a2a7c50b8764bbc54148367f1",
+      "src": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json"
+    },
+    {
+      "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
+      "sha256": "87e7338ea8b803e130607e0746c953d40617a5bb5196e78f70e93ee69f25d0de",
+      "src": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
+      "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0",
+      "src": "skills/architecture-tests/scripts/ArchReceipt.psm1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
+      "sha256": "b067c8d92c3cde5d7560d8d87a889bb92affefda718df23c9779f69db1098fa1",
+      "src": "skills/architecture-tests/scripts/Assert-ArchLock.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1",
+      "sha256": "af4cc3736f182a0bec80bc4f3043ced862e3dd4b98bda65684c6f074d5e0adca",
+      "src": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1",
+      "sha256": "d1231dd0a5064d287e5b1827492f801e40a306351600d0c93c8e6b29dd193d7e",
+      "src": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
+      "sha256": "849dd5ad51bb7e09749fb426ddbda524fb12fd9aa497590cd7f22b41db369798",
+      "src": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/PlanEvidence.psm1",
+      "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f",
+      "src": "skills/architecture-tests/scripts/PlanEvidence.psm1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
+      "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5",
+      "src": "scripts/adapters/NetArchTest.Adapter.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
+      "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e",
+      "src": "scripts/adapters/TsArch.Adapter.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
+      "sha256": "28e747b9bce41ed79bec15be20f0e1960e2c9233b67e15fc55ed05f6ec911327",
+      "src": "scripts/providers/Custom.Provider.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/providers/Mock.Provider.ps1",
+      "sha256": "928fa754aa45fceed8982c6843f9856c737403fb14cb73626a1bb8042f365c5b",
+      "src": "scripts/providers/Mock.Provider.ps1"
+    },
+    {
+      "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
+      "sha256": "a1eb60dddbe662c5a089b4adb74afbafc49327ce88a30b8342c1005e04120b4b",
+      "src": "scripts/providers/SemanticEvalProvider.ps1"
+    }
+  ],
+  "license": "MIT",
+  "name": "architecture-tests",
+  "scaffolds": [
+    {
+      "mode": "literal",
+      "owner": "/architecture-tests init",
+      "path": "docs/architecture-notes/arch-test-config.json",
+      "trigger": "runner init"
+    },
+    {
+      "mode": "literal",
+      "owner": "Invoke-ArchTests.ps1",
+      "path": "docs/architecture-notes/receipts",
+      "trigger": "first runner invocation"
+    },
+    {
+      "confine": "Resolve-ArchReceiptPath",
+      "mode": "parameterized",
+      "owner": "Invoke-ArchTests.ps1",
+      "path": "docs/architecture-notes/receipts/<contractId>.arch-receipt.json",
+      "trigger": "first runner invocation"
+    }
+  ],
+  "status": "partial",
+  "tags": [
+    "architecture",
+    "architecture-tests",
+    "fitness-functions",
+    "skill"
+  ],
+  "version": "1.0.20"
+}

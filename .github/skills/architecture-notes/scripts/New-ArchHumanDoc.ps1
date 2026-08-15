@@ -43,8 +43,11 @@ if (-not (Test-Path -LiteralPath $RepoRoot -PathType Container)) {
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 
 $hashScript = Join-Path $PSScriptRoot 'Get-ArchContractsHash.ps1'
-if (-not (Test-Path -LiteralPath $hashScript -PathType Leaf)) {
-    throw "Required sibling script missing: $hashScript"
+$contractGate = Join-Path $PSScriptRoot 'Test-ArchContract.ps1'
+foreach ($requiredScript in @($hashScript, $contractGate)) {
+    if (-not (Test-Path -LiteralPath $requiredScript -PathType Leaf)) {
+        throw "Required sibling script missing: $requiredScript"
+    }
 }
 . $hashScript  # dot-source Get-ArchContractsHash
 
@@ -118,8 +121,11 @@ if (Test-Path -LiteralPath $schemasDir -PathType Container) {
     $fileList.Sort([System.Comparison[object]] { param($a, $b) [string]::CompareOrdinal($a.Name, $b.Name) })
     $contracts = @(
         foreach ($f in $fileList) {
-            try { Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json }
-            catch { throw "Contract JSON is unparseable: $($f.FullName). Fix or remove it before regenerating (a silently dropped contract would leave a stale-but-'fresh' doc)." }
+            $validation = & $contractGate -ContractPath $f.FullName -NoExit
+            if (-not $validation.Valid) {
+                throw "Contract is invalid and cannot enter the generated human doc: $($f.FullName): $($validation.Errors -join '; ')"
+            }
+            Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json
         }
     )
 }
