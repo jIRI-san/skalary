@@ -21,4 +21,4 @@ Phase: 0
 ## Capture
 Phase: 1
 
-No entries for this phase.
+- [1.2] [src:note] recovery: the first step-1.2 attempt timed out and its preservation push was blocked because the secret-detection corpus committed a complete Slack-token-shaped string. The remote step-1.1 checkpoint survived. Secret fixtures must store inert fragments and assemble blocked shapes only at test runtime.
