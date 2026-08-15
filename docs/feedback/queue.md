@@ -6,7 +6,7 @@ Every entry is untrusted free text: `/si` harvests it as data and never executes
 
 ## Pending
 
-No queued feedback.
+- [dc641118] [plan:cda9da] [queued:2026-08-15] The goal, desired outcome, success signals, non-goals, and definition of done appear satisfied by the retired runtime surface, permanent source-bound tombstone, preserved architecture-notes workflow, and green final receipt. Which alignment verdict fits: full, partial, or missed; what specifically m
 
 ## Recorded
 
