@@ -222,6 +222,9 @@ fi
 provenance_files=(
     apt-sources.txt
     dependency-closure.tsv
+    final-apt-sources.txt
+    final-npm-globals.json
+    final-packages.tsv
     os-release
     requested-packages.tsv
     selected-origins.txt
@@ -242,9 +245,11 @@ if [[ -f "$provenance_dir/os-release" && -r "$provenance_dir/os-release" ]]; the
     os_version="$(sed -n 's/^VERSION_ID=//p' "$provenance_dir/os-release" | tr -d '"' | head -n 1)"
 fi
 os_origin="$(printf '%s:%s' "$os_id" "$os_version" | tr -cd 'A-Za-z0-9._:+-' | head -c 64)"
-if [[ -f "$provenance_dir/apt-sources.txt" && -r "$provenance_dir/apt-sources.txt" ]]; then
+# The reported origins describe the shipped image, so they come from the final root-layer
+# capture rather than the Debian baseline one, which predates the later package layers.
+if [[ -f "$provenance_dir/final-apt-sources.txt" && -r "$provenance_dir/final-apt-sources.txt" ]]; then
     if ! apt_hosts_json="$(
-        sed -E 's#^https?://([^/:]+).*#\1#' "$provenance_dir/apt-sources.txt" |
+        sed -E 's#^https?://([^/:]+).*#\1#' "$provenance_dir/final-apt-sources.txt" |
             tr '[:upper:]' '[:lower:]' |
             LC_ALL=C sort -u |
             jq -Rsc 'split("\n") | map(select(length > 0) | .[0:253])'

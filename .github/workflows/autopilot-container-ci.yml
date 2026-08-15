@@ -24,8 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      relevance: ${{ steps.detect.outputs.relevance }}
+      relevance: ${{ steps.detect.outputs.relevance || steps.bootstrap.outputs.relevance }}
       candidate_only_reason: ${{ steps.detect.outputs.candidate_only_reason }}
+      control_plane_present: ${{ steps.control.outputs.present }}
     steps:
       - name: Checkout trusted control plane
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,7 +54,28 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Resolve trusted control plane
+        id: control
+        shell: pwsh
+        env:
+          CONTROL_ROOT: ${{ github.workspace }}/control
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # The control plane is the base checkout, so a pull request opened before this workflow
+          # first merged has no runner to execute. Falling back to the candidate's copy would hand
+          # the candidate the trusted role this design exists to deny, so the run reports the
+          # bootstrap outcome and executes nothing. Absence on any other event is a real deletion
+          # of the control plane and fails.
+          $runnerPath = Join-Path $env:CONTROL_ROOT 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
+          $present = Test-Path -LiteralPath $runnerPath -PathType Leaf
+          if (-not $present -and $env:EVENT_NAME -ne 'pull_request') {
+            throw 'The trusted control plane does not contain the container toolchain runner.'
+          }
+          $value = if ($present) { 'true' } else { 'false' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "present=$value"
+
       - name: Assert checkout identities
+        if: steps.control.outputs.present == 'true'
         shell: pwsh
         env:
           BASE_CHECKOUT_OUTCOME: ${{ steps.base-checkout.outcome }}
@@ -85,6 +107,7 @@ jobs:
 
       - name: Detect image relevance
         id: detect
+        if: steps.control.outputs.present == 'true'
         shell: pwsh
         env:
           CONTROL_ROOT: ${{ github.workspace }}/control
@@ -108,6 +131,20 @@ jobs:
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "relevance=$relevance"
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "candidate_only_reason=$candidateOnlyReason"
 
+      - name: Report control-plane bootstrap
+        id: bootstrap
+        if: steps.control.outputs.present != 'true'
+        shell: pwsh
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'relevance=false'
+          @(
+            '## Autopilot container toolchain'
+            ''
+            '- Outcome: **bootstrap**'
+            '- The base commit has no container toolchain runner, so no measurement ran.'
+            '- Candidate code was not executed: the trusted control plane is the base checkout only.'
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
   image:
     name: build and smoke container
     needs: detector
@@ -123,17 +160,20 @@ jobs:
       CANDIDATE_ROOT: ${{ github.workspace }}/candidate
       BASE_ROOT: ${{ github.workspace }}/base
       DETECTION_CANDIDATE_ONLY_REASON: ${{ needs.detector.outputs.candidate_only_reason }}
+      DETECTION_RELEVANCE: ${{ needs.detector.outputs.relevance }}
     steps:
       - name: Initialize terminal evidence
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path $env:EVIDENCE_ROOT -Force | Out-Null
-          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":""},"diagnostic":"measurement did not start"}' |
+          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":"","failedCases":[]},"diagnostic":"measurement did not start"}' |
             Set-Content -LiteralPath "$env:EVIDENCE_ROOT/receipt.json" -Encoding utf8NoBOM
           '{"schema":"skalary/container-toolchain-provenance@1","state":"not-produced"}' |
             Set-Content -LiteralPath "$env:EVIDENCE_ROOT/provenance.json" -Encoding utf8NoBOM
           "## Autopilot container toolchain`n`n- Outcome: **unexpected\-error**`n- Receipt provenance: unavailable" |
             Set-Content -LiteralPath "$env:EVIDENCE_ROOT/summary.md" -Encoding utf8NoBOM
+          '# container toolchain diagnostics' |
+            Set-Content -LiteralPath "$env:EVIDENCE_ROOT/diagnostics.log" -Encoding utf8NoBOM
 
       - name: Checkout trusted control plane
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -181,6 +221,9 @@ jobs:
           Assert-CommitSha -Name CONTROL_SHA -Value $env:CONTROL_SHA
           Assert-Head -Name control -Root $env:CONTROL_ROOT -Expected $env:CONTROL_SHA
           Assert-Head -Name candidate -Root $env:CANDIDATE_ROOT -Expected $env:CANDIDATE_SHA
+          if (-not (Test-Path -LiteralPath "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -PathType Leaf)) {
+            throw 'The trusted control plane does not contain the container toolchain runner.'
+          }
           if ($env:BASE_CHECKOUT_OUTCOME -eq 'success') {
             Assert-Head -Name base -Root $env:BASE_ROOT -Expected $env:BASE_SHA
           }
@@ -191,7 +234,7 @@ jobs:
       - name: Measure candidate toolchain
         shell: pwsh
         run: |
-          & "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Measure -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -ProvenancePath "$env:EVIDENCE_ROOT/provenance.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -CopilotVersion $env:COPILOT_CLI_VERSION -CandidateBudgetSeconds 1500 -BaseBudgetSeconds 600 -RunnerBudgetSeconds 2100 -AdvisoryGrowthMiB 250
+          & "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Measure -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -DetectionRelevance $env:DETECTION_RELEVANCE -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -ProvenancePath "$env:EVIDENCE_ROOT/provenance.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -DiagnosticLogPath "$env:EVIDENCE_ROOT/diagnostics.log" -CopilotVersion $env:COPILOT_CLI_VERSION -CandidateBudgetSeconds 1500 -BaseBudgetSeconds 600 -RunnerBudgetSeconds 2100 -AdvisoryGrowthMiB 250
           if ($LASTEXITCODE -ne 0) {
             throw 'Candidate container toolchain validation failed.'
           }
@@ -209,6 +252,8 @@ jobs:
           path: |
             artifacts/container-toolchain/receipt.json
             artifacts/container-toolchain/provenance.json
+            artifacts/container-toolchain/summary.md
+            artifacts/container-toolchain/diagnostics.log
           if-no-files-found: error
           retention-days: 14
 
@@ -225,7 +270,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path artifacts/container-toolchain-final -Force | Out-Null
-          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":""},"diagnostic":"final verification did not start"}' |
+          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":"","failedCases":[]},"diagnostic":"final verification did not start"}' |
             Set-Content -LiteralPath artifacts/container-toolchain-final/receipt.json -Encoding utf8NoBOM
 
       - name: Checkout trusted control plane
@@ -236,7 +281,40 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Resolve trusted control plane
+        id: control
+        shell: pwsh
+        env:
+          CONTROL_ROOT: ${{ github.workspace }}/control
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $runnerPath = Join-Path $env:CONTROL_ROOT 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
+          $present = Test-Path -LiteralPath $runnerPath -PathType Leaf
+          if (-not $present -and $env:EVENT_NAME -ne 'pull_request') {
+            throw 'The trusted control plane does not contain the container toolchain runner.'
+          }
+          $value = if ($present) { 'true' } else { 'false' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "present=$value"
+
+      - name: Record control-plane bootstrap
+        if: steps.control.outputs.present != 'true'
+        shell: pwsh
+        run: |
+          # A pull request whose base predates this workflow has no trusted runner to verify with.
+          # The gate records that fact and passes rather than promoting the candidate's own copy of
+          # the runner, which would defeat the trust boundary.
+          '{"schema":"skalary/container-toolchain-receipt@1","outcome":"irrelevant","relevant":false,"comparison":"not-run","candidateOnlyReason":"","blocking":false,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":"","failedCases":[]},"diagnostic":"control plane absent from base; gate bootstrapped without executing candidate code"}' |
+            Set-Content -LiteralPath artifacts/container-toolchain-final/receipt.json -Encoding utf8NoBOM
+          @(
+            '## Autopilot container toolchain'
+            ''
+            '- Outcome: **bootstrap**'
+            '- The base commit has no container toolchain runner, so nothing was verified.'
+            '- Candidate code was not executed with trusted permissions.'
+          ) | Set-Content -LiteralPath artifacts/container-toolchain-final/summary.md -Encoding utf8NoBOM
+
       - name: Verify final result
+        if: steps.control.outputs.present == 'true'
         shell: pwsh
         env:
           DETECTOR_CONCLUSION: ${{ needs.detector.result }}

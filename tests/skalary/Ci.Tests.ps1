@@ -224,13 +224,16 @@ Describe 'ci workflow' {
                 $code | Should -Match 'Assert-Head -Name candidate'
                 $code | Should -Match 'Assert-Head -Name base'
 
-                $runnerSteps = @($jobs.Values.Steps | Where-Object {
+                $runnerMentions = @($jobs.Values.Steps | Where-Object {
                         $_.Body -match 'Invoke-ContainerToolchainGate\.ps1'
                     })
-                $runnerSteps.Count | Should -Be 3
-                foreach ($step in $runnerSteps) {
-                    $step.Body |
-                        Should -Match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"' -Because 'PR host code must come only from the validated base checkout'
+                $runnerSteps = @($runnerMentions | Where-Object {
+                        $_.Body -match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"'
+                    })
+                $runnerSteps.Count | Should -Be 3 -Because 'the runner is invoked once per mode and nowhere else'
+                foreach ($step in $runnerMentions) {
+                    # Presence probes name the runner without invoking it; whether a step invokes or
+                    # only inspects, the path it names must be the trusted control plane's.
                     $step.Body |
                         Should -Not -Match 'CANDIDATE_ROOT/scripts' -Because 'candidate scripts execute only as Docker build/runtime input'
                 }
@@ -289,12 +292,145 @@ Describe 'ci workflow' {
                         $_.Body -match 'GITHUB_STEP_SUMMARY'
                     })
                 foreach ($step in $summarySteps) {
-                    $step.Body | Should -Match 'summary\.md'
-                    $step.Body | Should -Not -Match 'receipt\.json|provenance\.json' -Because 'raw candidate-derived fields never become workflow commands'
+                    $step.Body |
+                        Should -Not -Match 'receipt\.json|provenance\.json|diagnostics\.log' -Because 'raw candidate-derived fields never become workflow commands'
+                    if ($step.Body -match 'Get-Content') {
+                        # A step may echo a file into the summary only if that file is the runner's
+                        # own escaped rendering; the bootstrap step emits workflow literals instead.
+                        $step.Body |
+                            Should -Match 'summary\.md' -Because 'only the escaped summary rendering is echoed'
+                    }
                 }
 
                 (Get-Content -LiteralPath (Join-Path $script:repoRoot 'package.json') -Raw) |
                     Should -Not -Match 'Invoke-ContainerToolchainGate|docker' -Because 'ordinary npm test stays Docker-free'
+    }
+
+    It 'test:Ci.ContainerControlPlaneBootstrap keeps a base without the runner passing without running candidate code' {
+        # A pull request whose base predates this workflow has no trusted runner. The only two ways
+        # out are to run the candidate's copy — which is the trust boundary this design exists to
+        # deny — or to record the bootstrap and pass, so the shape of that second path is asserted
+        # structurally rather than by matching text that could sit inside a comment or a script.
+        $parsed = ConvertFrom-CiWorkflowYaml -Text $script:containerWorkflowText
+        $jobsNode = $parsed.Document.Value['jobs']
+        @($jobsNode.Value.Keys) | Should -Be @('detector', 'image', 'gate')
+
+        foreach ($jobName in @('detector', 'gate')) {
+            $steps = @($jobsNode.Value[$jobName].Value['steps'].Value)
+            $stepNames = @($steps | ForEach-Object {
+                    if ($_.Value.Contains('name')) { $_.Value['name'].Value } else { '' }
+                })
+            $stepNames | Should -Contain 'Resolve trusted control plane'
+
+            $resolve = @($steps | Where-Object {
+                    $_.Value.Contains('name') -and $_.Value['name'].Value -eq 'Resolve trusted control plane'
+                })
+            $resolve.Count | Should -Be 1
+            $resolve[0].Value['id'].Value | Should -Be 'control'
+            $resolveRun = $resolve[0].Value['run'].Value
+            $resolveRun |
+                Should -Match "EVENT_NAME -ne 'pull_request'" -Because 'only a pull request may find the runner missing from its base'
+            $resolveRun | Should -Match 'throw'
+            $resolveRun | Should -Match 'present='
+            $resolve[0].Value.Contains('if') |
+                Should -BeFalse -Because 'the resolution itself must always run, or absence is never detected'
+
+            # Every step that invokes the runner is gated on the runner existing, and every step
+            # that handles its absence is gated on the complement. No third state can exist.
+            foreach ($step in $steps) {
+                if (-not $step.Value.Contains('run')) { continue }
+                $run = $step.Value['run'].Value
+                $guard = if ($step.Value.Contains('if')) { $step.Value['if'].Value } else { '' }
+                if ($run -match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"') {
+                    $guard | Should -Be "steps.control.outputs.present == 'true'"
+                }
+                if ($run -match '(?m)Outcome: \*\*bootstrap\*\*|control plane absent from base') {
+                    $guard | Should -BeIn @("steps.control.outputs.present != 'true'", 'always()')
+                }
+            }
+        }
+
+        # The detector's relevance output must survive the bootstrap step, or the gate reads an
+        # empty relevance and the truth table fails closed on a PR that could never have passed.
+        $detectorOutputs = $jobsNode.Value['detector'].Value['outputs'].Value
+        $detectorOutputs['relevance'].Value |
+            Should -Be '${{ steps.detect.outputs.relevance || steps.bootstrap.outputs.relevance }}'
+        $detectorOutputs['control_plane_present'].Value | Should -Be '${{ steps.control.outputs.present }}'
+
+        $bootstrapSteps = @($jobsNode.Value['detector'].Value['steps'].Value | Where-Object {
+                $_.Value.Contains('id') -and $_.Value['id'].Value -eq 'bootstrap'
+            })
+        $bootstrapSteps.Count | Should -Be 1
+        $bootstrapSteps[0].Value['if'].Value | Should -Be "steps.control.outputs.present != 'true'"
+        $bootstrapSteps[0].Value['run'].Value | Should -Match 'relevance=false'
+
+        # The bootstrap receipt must be a closed, non-blocking one: a blocking bootstrap receipt
+        # would make the first pull request unmergeable for a reason no author can fix.
+        $gateSteps = @($jobsNode.Value['gate'].Value['steps'].Value)
+        $record = @($gateSteps | Where-Object {
+                $_.Value.Contains('name') -and $_.Value['name'].Value -eq 'Record control-plane bootstrap'
+            })
+        $record.Count | Should -Be 1
+        $recordRun = $record[0].Value['run'].Value
+        $recordReceipt = ([regex]::Match($recordRun, "(?m)^'(?<json>\{.*\})' \|")).Groups['json'].Value |
+            ConvertFrom-Json
+        $recordReceipt.schema | Should -Be 'skalary/container-toolchain-receipt@1'
+        $recordReceipt.blocking | Should -BeFalse
+        $recordReceipt.relevant | Should -BeFalse
+        $recordReceipt.outcome | Should -Be 'irrelevant'
+        $recordRun | Should -Not -Match 'CANDIDATE_ROOT'
+
+        # The image job never runs on the bootstrap path, but if it ever did, it must still refuse
+        # to fall back to the candidate's runner.
+        $imageSteps = @($jobsNode.Value['image'].Value['steps'].Value)
+        $imageAssertions = @($imageSteps | Where-Object {
+                $_.Value.Contains('run') -and
+                $_.Value['run'].Value -match 'Invoke-ContainerToolchainGate\.ps1'
+            })
+        $imageAssertions.Count | Should -BeGreaterThan 0
+        @($imageAssertions | Where-Object { $_.Value['run'].Value -match 'CANDIDATE_ROOT/scripts' }).Count |
+            Should -Be 0
+    }
+
+    It 'test:Ci.WorkflowYamlParserIsStrict refuses the shapes a text split silently accepts' {
+        # The step boundaries every workflow assertion rests on used to come from splitting on
+        # '- name:'. A run block that contains that text is a script, not a step, and a parser
+        # that cannot tell them apart lets a gate disappear while the tests stay green.
+        $decoy = @(
+            'jobs:',
+            '  probe:',
+            '    steps:',
+            '      - name: real step',
+            '        run: |',
+            '          echo "      - name: fake step"',
+            '          echo done'
+        ) -join "`n"
+        $steps = @(Get-CiWorkflowStep -Text $decoy)
+        $steps.Count | Should -Be 1
+        $steps[0].Name | Should -Be 'real step'
+        $steps[0].Body | Should -Match 'fake step'
+
+        foreach ($unsupported in @(
+                "jobs:`n  a: &anchor`n    b: c",
+                "jobs:`n  a: { b: c }",
+                "---`njobs:`n  a:`n    b: c",
+                "jobs:`n`tprobe:`n    steps: []",
+                "jobs:`n  probe:`n    name: one`n    name: two"
+            )) {
+            { Get-CiWorkflowJob -Text $unsupported } |
+                Should -Throw -Because 'an unreadable workflow must fail loudly, not parse into a convenient shape'
+        }
+
+        # The real workflows must remain inside the supported subset, or the assertions built on
+        # the parser stop describing them.
+        foreach ($workflow in @(Get-ChildItem -LiteralPath (Join-Path $script:repoRoot '.github/workflows') -Filter '*.yml')) {
+            $jobs = @(Get-CiWorkflowJob -Text (Get-Content -LiteralPath $workflow.FullName -Raw))
+            $jobs.Count | Should -BeGreaterThan 0 -Because "$($workflow.Name) must parse into jobs"
+            foreach ($job in $jobs) {
+                @($job.Steps).Count | Should -BeGreaterThan 0 -Because "$($workflow.Name)/$($job.Name) must parse into steps"
+                foreach ($step in $job.Steps) { $step.Name | Should -Not -BeNullOrEmpty }
+            }
+        }
     }
 
     It 'test:Ci.InvokesRunUnitTests runs the suite through the runner that owns the budget, on both platforms' {

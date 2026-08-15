@@ -49,3 +49,19 @@ Phase: 3
 
 - [3.1] [src:code-review] [sev:Low] No significant issues found in the complete phase 3 uncommitted change set.
 - [3.1] [src:code-review] [sev:Low] Rubber-duck: final timing assignment retained the same Int32 Math.Max seed pattern; changed candidate/base timing clamps to Int64 seeds.
+- [3.1] [src:code-review] [sev:Critical] PR review: a passing top-level smoke state hid failing individual cases from the receipt and the job summary; failed case ids are now carried in smoke.failedCases and named in both.
+- [3.1] [src:code-review] [sev:Critical] PR review: image provenance was trusted as the image reported it; the host now attests it out of a --network none container with docker cp and compares the claim against what it read.
+- [3.1] [src:code-review] [sev:Critical] PR review: head-only capture truncation dropped the tail where build and smoke failures print, so failures were diagnosed from the wrong bytes; capture is head+tail with an explicit truncation marker and a diagnostics artifact.
+- [3.1] [src:code-review] [sev:Critical] PR review: root-trusted network fetches of the Microsoft and GitHub CLI debs and the Docker apt key were unverified downloads; each is now pinned by sha256 or key fingerprint with curl -f.
+- [3.1] [src:code-review] [sev:Critical] PR review: the workflow required a runner that a first pull request base cannot contain, making the required check unpassable without promoting candidate code; control-plane resolution now reports a closed non-blocking bootstrap instead.
+- [3.1] [src:code-review] [sev:Critical] PR review: no test drove Measure orchestration at all, so every pass/fail decision was unverified; a Docker-free table now reaches every terminal outcome.
+- [3.1] [src:code-review] [sev:Critical] PR review: the approved toolchain contract lived in the plan folder the archive step moves, which would have silently disabled the test enforcing it; it now lives in docs/design-notes/architecture.
+- [3.1] [src:code-review] [sev:High] PR review: parity failures reported a reason without the differing path, so a drift verdict could not be acted on; parity now returns a bounded detail.
+- [3.1] [src:code-review] [sev:High] PR review: the job summary omitted sizes, delta, threshold and failing cases, forcing a reviewer to download the artifact to learn the result.
+- [3.1] [src:code-review] [sev:High] PR review: the timeout test asserted on fixed sleeps and was a race; it now waits on a started marker and heartbeat stability.
+- [3.1] [src:code-review] [sev:High] PR review: plan evidence and measurement receipts were stale relative to the implementation they claim to prove.
+- [3.1] [src:code-review] [sev:High] PR review: detector relevance had no test over real git history, so the path set could stop matching changed paths silently.
+- [3.1] [src:code-review] [sev:Med] PR review: workflow assertions split text on - name:, which cannot distinguish a step from that text inside a run block; a strict block-YAML subset parser now owns structure and throws on what it cannot model.
+- [3.1] [src:code-review] [sev:Low] PR review: Invoke-GateProcess read ExitCode while the process was still running, which throws on some hosts; the exit code is read only after exit.
+- [3.1] [src:code-review] [sev:Low] PR review: measurement re-derived relevance and could skip blocking work the truth table still expected; the detector verdict is now passed in and contradiction resolves toward the blocking path.
+- [3.1] [src:code-review] [sev:Low] PR review: provenance was captured before later root layers, so a layer added below the record escaped it; capture moved to a final root layer.

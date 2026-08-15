@@ -248,8 +248,10 @@ Describe 'ci gate inventory' {
         }
         @($containerJobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image')
         foreach ($entry in $expectedModeByJob.GetEnumerator()) {
+            # Steps that only probe for the runner's presence name it without invoking it; the
+            # placement rule is about which job actually executes a mode.
             $runnerSteps = @($containerJobs[$entry.Key].Steps | Where-Object {
-                    $_.Body -match 'Invoke-ContainerToolchainGate\.ps1'
+                    $_.Body -match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"'
                 })
             $runnerSteps.Count |
                 Should -Be 1 -Because "container job '$($entry.Key)' owns exactly one runner mode"

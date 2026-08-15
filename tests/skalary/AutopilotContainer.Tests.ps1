@@ -11,7 +11,7 @@ Describe 'Autopilot container toolchain' {
         $script:manifestPath = Join-Path $script:pluginRoot 'devcontainer/toolchain.tsv'
         $script:dockerfilePath = Join-Path $script:pluginRoot 'devcontainer/Dockerfile'
         $script:smokePath = Join-Path $script:pluginRoot 'devcontainer/container-toolchain-smoke.sh'
-        $script:contractPath = Join-Path $script:repoRoot 'docs/implementation-plans/2026-08-10-583308-autopilot-container-toolchain/assets/decisions/container-toolchain-contract.md'
+        $script:contractPath = Join-Path $script:repoRoot 'docs/design-notes/architecture/autopilot-container-toolchain.design.md'
 
         function Read-ToolchainRows {
             param([Parameter(Mandatory)][string]$Content)
@@ -173,12 +173,36 @@ Describe 'Autopilot container toolchain' {
                 '/usr/local/share/autopilot/provenance/apt-sources.txt',
                 '/usr/local/share/autopilot/provenance/requested-packages.tsv',
                 '/usr/local/share/autopilot/provenance/dependency-closure.tsv',
-                '/usr/local/share/autopilot/provenance/selected-origins.txt'
+                '/usr/local/share/autopilot/provenance/selected-origins.txt',
+                '/usr/local/share/autopilot/provenance/final-apt-sources.txt',
+                '/usr/local/share/autopilot/provenance/final-packages.tsv',
+                '/usr/local/share/autopilot/provenance/final-npm-globals.json',
+                'sha256sum -c -',
+                'd0c2f69250c6ce0d4c6220b142f999d039a3c560af7f980b943687d106ca8e38',
+                '14720066647ceac6138e4134c5d0c31790e81e5cbc4719611323ea0e4ed231ba',
+                '9DC858229FC7DD38854AE2D88D81803C0EBFCD88'
             )
             foreach ($token in $requiredDockerTokens) {
                 if (-not $Dockerfile.Contains($token)) {
                     $errors.Add("Dockerfile is missing contract token '$token'.")
                 }
+            }
+
+            # Every network fetch that is later installed with root trust must be bound to a digest
+            # or key fingerprint in this file; an unverified root install is the hole these tokens
+            # exist to close, and counting them keeps a new fetch from slipping in unpinned.
+            $curlFetches = @([regex]::Matches($Dockerfile, '(?m)curl\s+(?<flags>-[A-Za-z]+)\s'))
+            foreach ($fetch in $curlFetches) {
+                if ($fetch.Groups['flags'].Value -notmatch 'f') {
+                    $errors.Add('Dockerfile curl fetches must fail on HTTP error status.')
+                    break
+                }
+            }
+            $rootInstallFetches = @([regex]::Matches($Dockerfile, '-o\s+/tmp/[^\s]+\.(?:deb|asc)'))
+            $verifications = @([regex]::Matches($Dockerfile, 'sha256sum -c -')).Count +
+                @([regex]::Matches($Dockerfile, '(?m)grep -qx [0-9A-F]{40}')).Count
+            if ($rootInstallFetches.Count -ne $verifications) {
+                $errors.Add("Dockerfile has $($rootInstallFetches.Count) root-trusted network fetches but $verifications digest or fingerprint verifications.")
             }
 
             $hostPolicy = Get-AptHostPolicy -Dockerfile $Dockerfile
@@ -242,6 +266,27 @@ Describe 'Autopilot container toolchain' {
                 }
             }
 
+            $finalProvenanceIndex = $Dockerfile.IndexOf('> /usr/local/share/autopilot/provenance/final-apt-sources.txt;', [System.StringComparison]::Ordinal)
+            $dockerCliIndex = $Dockerfile.IndexOf('docker-ce-cli;', [System.StringComparison]::Ordinal)
+            $nonRootIndex = $Dockerfile.IndexOf('USER autopilot', [System.StringComparison]::Ordinal)
+            if ($finalProvenanceIndex -lt 0 -or $dockerCliIndex -lt 0 -or $nonRootIndex -lt 0) {
+                $errors.Add('Dockerfile is missing the final root-layer provenance, Docker CLI, or non-root anchor.')
+            }
+            elseif ($finalProvenanceIndex -lt $dockerCliIndex -or $finalProvenanceIndex -gt $nonRootIndex) {
+                # Provenance captured before the last root install describes an image that is never
+                # shipped, which is exactly the gap the final capture exists to close.
+                $errors.Add('Final provenance capture must run after the last root install and before the non-root user.')
+            }
+
+            if (-not $Smoke.Contains('"$provenance_dir/final-apt-sources.txt"')) {
+                $errors.Add('Smoke must report origins from the final root-layer apt source capture.')
+            }
+            foreach ($provenanceFile in @('final-apt-sources.txt', 'final-packages.tsv', 'final-npm-globals.json')) {
+                if (-not [regex]::IsMatch($Smoke, "(?m)^\s+$([regex]::Escape($provenanceFile))\s*$")) {
+                    $errors.Add("Smoke provenance digest set is missing '$provenanceFile'.")
+                }
+            }
+
             return @($errors)
         }
 
@@ -252,6 +297,11 @@ Describe 'Autopilot container toolchain' {
     }
 
     It 'test:AutopilotContainer.ToolchainContract enforces the manifest, image, smoke, and distribution contract' {
+        # The contract must live outside the plan folder: plan folders are moved to archived/ on
+        # completion, which would leave this test reading a path that no longer exists.
+        $contractPath | Should -Not -Match 'implementation-plans'
+        Test-Path -LiteralPath $contractPath -PathType Leaf | Should -BeTrue
+
         $errors = @(Get-ToolchainContractErrors `
                 -Manifest $manifestContent `
                 -Dockerfile $dockerfileContent `

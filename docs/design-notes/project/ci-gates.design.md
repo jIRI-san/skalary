@@ -51,7 +51,21 @@ A gate runs from `registry-ci.yml` when its failure is worth its own red step, f
 
 That is why `registry-ci.yml` gives every gate its own named step and never chains two into one script, and why the drift gates carry their enforcing command rather than only their generator: `Build-Registry.ps1` alone rewrites the catalog and reports success — `git diff --exit-code` is the gate. Same shape for `Sync-Dogfood.ps1 -WhatIf`: a sync that writes cannot also detect drift.
 
-`autopilot-container-ci.yml` is deliberately split into detector, image, and final jobs. Universal inventory rules recognize every `Invoke-ContainerToolchainGate.ps1 -Mode ...` call; registry-specific rules continue to recognize ordinary repository scripts, npm, analyzer, and drift commands only in `registry-ci.yml`; container-specific rules require `Detect`, `Measure`, and `VerifyResult` in their respective jobs. This prevents image support steps and receipt rendering from becoming accidental gates while still making a moved control-plane invocation red.
+`autopilot-container-ci.yml` is deliberately split into detector, image, and final jobs. Universal inventory rules recognize every `Invoke-ContainerToolchainGate.ps1 -Mode ...` call; registry-specific rules continue to recognize ordinary repository scripts, npm, analyzer, and drift commands only in `registry-ci.yml`; container-specific rules require `Detect`, `Measure`, and `VerifyResult` in their respective jobs. This prevents image support steps and receipt rendering from becoming accidental gates while still making a moved control-plane invocation red. Inventory rules match *invocations* — `& "$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1"` — not mentions, because the control-plane resolution steps name the runner's path in order to test that it exists.
+
+### The first pull request has no control plane
+
+The container gate's trusted code is the **base** checkout, so a pull request whose base predates this workflow finds no runner to execute. Two ways out exist and only one is admissible: falling back to the candidate's own copy would hand candidate code the trusted role the whole design denies. So the detector and final jobs each resolve the control plane first (`id: control`, output `present`), and:
+
+- absent on `pull_request` → the detector reports `relevance=false`, the final job writes a closed, **non-blocking** `irrelevant` receipt whose diagnostic says the control plane was absent, and the required check passes having verified nothing and executed nothing;
+- absent on any other event → a real deletion of the control plane, and the step throws;
+- present → every runner invocation runs under `if: steps.control.outputs.present == 'true'`, unchanged.
+
+The bootstrap path is honest about being a hole: it asserts *no* property of the candidate. It exists because the alternative — a required check that can never pass on the first PR, or one that passes by promoting candidate code — is worse. Once merged, the control plane exists in every subsequent base and the path is unreachable. `test:Ci.ContainerControlPlaneBootstrap` pins the guard on every runner invocation, the complementary guard on the bootstrap steps, the receipt being non-blocking, and the detector output surviving the bootstrap branch.
+
+### Workflow assertions read a parse, not a split
+
+`tests/CiWorkflow.psm1` parses a strict block-YAML subset (mappings, sequences, block scalars, flow scalars) and throws on anchors, aliases, flow collections, multiple documents, tabs, and duplicate keys. Step boundaries used to come from splitting on `- name:`, which cannot distinguish a step from that same text inside a `run:` block scalar — and it silently gave the last step of a job a body that ran into the next job. Every step and job body still carries the raw committed text, minus comment lines, so assertions describe what is actually in the file; only the boundaries and the structure come from the parse. `test:Ci.WorkflowYamlParserIsStrict` proves the decoy case and that the repository's own workflows stay inside the subset.
 
 ## The budget contract
 

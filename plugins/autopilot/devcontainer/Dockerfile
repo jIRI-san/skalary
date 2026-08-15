@@ -134,23 +134,39 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # PowerShell and .NET 10 SDK
-RUN curl -sSL https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb \
-    && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && rm /tmp/packages-microsoft-prod.deb \
-    && apt-get update && apt-get install -y --no-install-recommends dotnet-sdk-10.0 powershell \
-    && rm -rf /var/lib/apt/lists/*
+# The .deb and the Docker signing key are fetched over the network and then installed as root,
+# so each is bound to a digest or fingerprint recorded here. A rotated upstream artifact fails
+# the build closed instead of installing an unreviewed payload with root trust.
+RUN set -eux; \
+    curl -fsSL https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb; \
+    echo "d0c2f69250c6ce0d4c6220b142f999d039a3c560af7f980b943687d106ca8e38  /tmp/packages-microsoft-prod.deb" | sha256sum -c -; \
+    dpkg -i /tmp/packages-microsoft-prod.deb; \
+    rm /tmp/packages-microsoft-prod.deb; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends dotnet-sdk-10.0 powershell; \
+    rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
-RUN curl -sSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.deb" -o /tmp/gh.deb \
-    && dpkg -i /tmp/gh.deb \
-    && rm /tmp/gh.deb
+RUN set -eux; \
+    curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.deb" -o /tmp/gh.deb; \
+    echo "14720066647ceac6138e4134c5d0c31790e81e5cbc4719611323ea0e4ed231ba  /tmp/gh.deb" | sha256sum -c -; \
+    dpkg -i /tmp/gh.deb; \
+    rm /tmp/gh.deb
 
 # Docker CLI (for Testcontainers — talks to host Docker daemon via socket mount)
-RUN curl -sSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" \
-       > /etc/apt/sources.list.d/docker.list \
-    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
-    && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.asc; \
+    gpg --batch --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.asc; \
+    rm /tmp/docker.asc; \
+    gpg --batch --no-default-keyring --keyring /usr/share/keyrings/docker-archive-keyring.gpg \
+        --list-keys --with-colons \
+        | awk -F: '$1 == "fpr" { print $10 }' \
+        | grep -qx 9DC858229FC7DD38854AE2D88D81803C0EBFCD88; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" \
+        > /etc/apt/sources.list.d/docker.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends docker-ce-cli; \
+    rm -rf /var/lib/apt/lists/*
 
 # GitHub Copilot CLI
 RUN npm install -g @github/copilot@${COPILOT_CLI_VERSION}
@@ -169,6 +185,60 @@ RUN chmod 0755 /usr/local/bin/container-entrypoint.sh /usr/local/bin/container-t
     && ln -s /usr/bin/batcat /usr/local/bin/bat \
     && test "$(stat -c '%u:%g' /usr/local/bin/fd)" = 0:0 \
     && test "$(stat -c '%u:%g' /usr/local/bin/bat)" = 0:0
+
+# Final root-layer provenance — the baseline capture above predates the PowerShell, GitHub CLI,
+# Docker CLI and npm layers, so on its own it cannot describe the image that is actually shipped.
+# This records the apt origins and package set as they stand after the last root install, which is
+# what the gate attests against.
+RUN set -eux; \
+    : > /tmp/autopilot-final-apt-uris; \
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do \
+        [[ -f "$source_file" && ! -L "$source_file" ]] || continue; \
+        awk ' \
+            /^[[:space:]]*#/ { collecting = 0; next } \
+            /^[[:space:]]*deb(-src)?[[:space:]]/ { \
+                line = $0; \
+                sub(/^[[:space:]]*deb(-src)?[[:space:]]+/, "", line); \
+                sub(/^\[[^]]*\][[:space:]]+/, "", line); \
+                split(line, fields, /[[:space:]]+/); \
+                if (fields[1] != "") print fields[1]; \
+                collecting = 0; next \
+            } \
+            /^[[:space:]]*[Uu][Rr][Ii][Ss]:/ { \
+                line = $0; \
+                sub(/^[[:space:]]*[Uu][Rr][Ii][Ss]:[[:space:]]*/, "", line); \
+                count = split(line, values, /[[:space:]]+/); \
+                for (i = 1; i <= count; i++) if (values[i] != "") print values[i]; \
+                collecting = 1; next \
+            } \
+            collecting && /^[[:space:]]+[^[:space:]]/ { \
+                line = $0; \
+                sub(/^[[:space:]]+/, "", line); \
+                count = split(line, values, /[[:space:]]+/); \
+                for (i = 1; i <= count; i++) if (values[i] != "") print values[i]; \
+                next \
+            } \
+            { collecting = 0 } \
+        ' "$source_file" >> /tmp/autopilot-final-apt-uris; \
+    done; \
+    LC_ALL=C sort -u /tmp/autopilot-final-apt-uris \
+        > /usr/local/share/autopilot/provenance/final-apt-sources.txt; \
+    rm -f /tmp/autopilot-final-apt-uris; \
+    test -s /usr/local/share/autopilot/provenance/final-apt-sources.txt; \
+    awk '!/^https?:\/\/[^[:space:]]+$/ { print "Unsupported final apt source URI: " $0 > "/dev/stderr"; exit 1 }' \
+        /usr/local/share/autopilot/provenance/final-apt-sources.txt; \
+    dpkg-query -W -f='${db:Status-Status}\t${binary:Package}\t${Version}\t${Architecture}\n' \
+        | awk -F '\t' '$1 == "installed" { print $2 "\t" $3 "\t" $4 }' \
+        | LC_ALL=C sort -u > /usr/local/share/autopilot/provenance/final-packages.tsv; \
+    test -s /usr/local/share/autopilot/provenance/final-packages.tsv; \
+    npm ls -g --depth 0 --json > /usr/local/share/autopilot/provenance/final-npm-globals.json; \
+    test -s /usr/local/share/autopilot/provenance/final-npm-globals.json; \
+    chown root:root /usr/local/share/autopilot/provenance/final-apt-sources.txt \
+        /usr/local/share/autopilot/provenance/final-packages.tsv \
+        /usr/local/share/autopilot/provenance/final-npm-globals.json; \
+    chmod 0644 /usr/local/share/autopilot/provenance/final-apt-sources.txt \
+        /usr/local/share/autopilot/provenance/final-packages.tsv \
+        /usr/local/share/autopilot/provenance/final-npm-globals.json
 
 # Non-root user for security — add to docker group for socket access
 RUN groupadd -g 998 docker || true \

@@ -66,6 +66,11 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 
 #### Linux container toolchain
 
+The approved toolchain baseline, its acquisition and pinning rules, the provenance and
+attestation contract, and the gate's outcome table live in
+`docs/design-notes/architecture/autopilot-container-toolchain.design.md`; the structural test
+reads that note, so it must stay outside the plan folder that gets archived.
+
 `plugins/autopilot/devcontainer/toolchain.tsv` is the sole additional-tool inventory; its
 installed dogfood copy is built through the plugin manifest. The baseline covers search and
 navigation, archive/file operations, native builds, Python helpers, shell linting, process and
@@ -81,12 +86,23 @@ Debian 13 repository after the Debian-only baseline layer. Debian package versio
 launch-time Copilot version remain floating: one comparison run shares resolved inputs, but
 rebuilds on different dates are not promised to be byte-identical.
 
+Every root-trusted fetch that is not an apt package is pinned to a digest or a key fingerprint —
+Microsoft's `packages-microsoft-prod.deb` and the GitHub CLI `.deb` by SHA-256, the Docker apt
+signing key by full fingerprint — and `curl` runs with `-f` so an error page can never be
+installed as a package. A rotated upstream file fails the build closed rather than installing an
+unverified one; that maintenance cost is the point. The provenance the smoke script reports is
+captured in a **final** root layer, after the last root-owned install, so a layer added below the
+recorded one cannot escape the record. Sources are parsed directive-aware (`deb`/`deb-src` lines
+and `URIs:` fields, comments skipped) because Debian's own `.sources` file carries a
+`snapshot.debian.org` URL inside a comment that a naive URL scan would report as an enabled
+origin.
+
 The toolchain is Linux-container-only; Windows Sandbox has a separate cache and lifecycle.
 Editors, browsers, language-version managers, cloud CLIs, database servers, and background
 daemons are excluded. Root-owned `fd` and `bat` aliases normalize Debian command names, while
 `container-toolchain-smoke.sh` runs every manifest case as `autopilot` and emits one bounded
-closed-schema JSON line. Image growth is reported against an advisory 250 MiB threshold rather
-than failing solely on size.
+closed-schema JSON line naming each failing case. Image growth is reported against an advisory
+250 MiB threshold rather than failing solely on size.
 
 `launch-container.ps1` builds with the installed autopilot skill directory as its context.
 `dockerfileExtensions` are inserted at the literal `# Non-root user` anchor, before
@@ -104,8 +120,25 @@ evidence, while growth above 250 MiB stays advisory. Every invocation writes a b
 `skalary/container-toolchain-receipt@1` terminal receipt from `finally`; process budgets kill
 the process tree and reserve the outer job's upload window.
 
-The workflow carries the detector's candidate-only reason into measurement. A later successful
-base-checkout retry cannot turn an unusable detection base into a comparable run.
+The smoke JSON is written **by the image being judged**, so on its own it is a claim, not
+evidence. The runner therefore attests the claim from the host: it creates a container with
+`--network none`, copies the recorded provenance files out with `docker cp`, and hashes and
+parses them outside the image. No mount, no volume, no host path is handed to candidate code,
+and the container is removed in a `finally`. Attested apt origins are checked against a
+four-host allowlist, and disagreement between what the image claimed and what the host read is
+itself a failure — an image that reports a clean smoke while its provenance says otherwise is
+exactly the case a self-report cannot catch.
+
+Process capture is head+tail bounded (16 KiB head, the remainder as tail, with an explicit
+`...[N characters truncated]...` marker), and a failing build or smoke also writes its bounded
+capture to a diagnostics log the workflow uploads. A truncated middle is stated rather than
+implied, and the exit code of a still-running process is never read.
+
+The workflow carries the detector's candidate-only reason and its relevance verdict into
+measurement. A later successful base-checkout retry cannot turn an unusable detection base into
+a comparable run, and a measurement-time re-detection that contradicts the detector's `true`
+resolves toward the blocking path rather than silently skipping the work the truth table still
+expects.
 
 ### Sandbox Mode
 
