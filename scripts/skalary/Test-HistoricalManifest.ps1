@@ -80,6 +80,29 @@ function Assert-NoReparsePath {
     }
 }
 
+function Resolve-CurrentHistoricalPath {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string]$RelativePath
+    )
+
+    $candidate = [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $RelativePath))
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+        return [pscustomobject]@{ FullPath = $candidate; RelativePath = $RelativePath }
+    }
+
+    if ($RelativePath -match '^docs/implementation-plans/(?<plan>[^/]+)/(?<asset>.+)$' -and
+        $Matches.plan -notin @('archived', 'epics')) {
+        $archivedRelative = "docs/implementation-plans/archived/$($Matches.plan)/$($Matches.asset)"
+        $archivedCandidate = [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $archivedRelative))
+        if (Test-Path -LiteralPath $archivedCandidate -PathType Leaf) {
+            return [pscustomobject]@{ FullPath = $archivedCandidate; RelativePath = $archivedRelative }
+        }
+    }
+
+    throw "Historical manifest path is missing: '$RelativePath'."
+}
+
 $files = @($manifest.files)
 if ($files.Count -eq 0) {
     throw 'Historical manifest must list at least one file.'
@@ -101,15 +124,21 @@ foreach ($entry in $files) {
         throw "Historical manifest has an invalid SHA256 for '$relative'."
     }
 
-    $fullPath = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
+    $currentPath = if ($BaselineOnly) {
+        [pscustomobject]@{
+            FullPath     = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
+            RelativePath = $relative
+        }
+    }
+    else {
+        Resolve-CurrentHistoricalPath -RepositoryRoot $root -RelativePath $relative
+    }
+    $fullPath = $currentPath.FullPath
     if (-not $fullPath.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
         throw "Historical manifest path escapes the repository: '$relative'."
     }
     if (-not $BaselineOnly) {
-        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-            throw "Historical manifest path is missing: '$relative'."
-        }
-        Assert-NoReparsePath -RepositoryRoot $root -RelativePath $relative
+        Assert-NoReparsePath -RepositoryRoot $root -RelativePath $currentPath.RelativePath
     }
 
     $actual = if ($BaselineOnly) {
@@ -126,7 +155,12 @@ foreach ($entry in $files) {
     if (-not [string]::Equals($baseline, [string]$entry.sha256, [System.StringComparison]::Ordinal)) {
         throw "Historical manifest baseline mismatch for '$relative': starting commit contains $baseline, manifest records $($entry.sha256)."
     }
-    $verified.Add([pscustomobject]@{ Path = $relative; Sha256 = $actual; BaselineSha256 = $baseline })
+    $verified.Add([pscustomobject]@{
+            Path           = $relative
+            CurrentPath    = $currentPath.RelativePath
+            Sha256         = $actual
+            BaselineSha256 = $baseline
+        })
 }
 
 [pscustomobject]@{

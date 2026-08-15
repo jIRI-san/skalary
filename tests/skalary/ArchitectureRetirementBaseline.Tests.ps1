@@ -202,6 +202,40 @@ Describe 'architecture-test retirement baseline' {
         @($result.Files).Count | Should -Be $result.Count
     }
 
+    It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary follows the sanctioned plan archive move' {
+        $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("historical-archive-" + [guid]::NewGuid().ToString('N'))
+        $activeRelative = 'docs/implementation-plans/2026-08-15-a1b2c3-example/assets/review.md'
+        $archivedRelative = 'docs/implementation-plans/archived/2026-08-15-a1b2c3-example/assets/review.md'
+        $activePath = Join-Path $temp $activeRelative
+        try {
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $activePath) -Force)
+            git -C $temp init --quiet
+            git -C $temp config user.email 'fixture@example.invalid'
+            git -C $temp config user.name 'Fixture'
+            Set-Content -LiteralPath $activePath -Value 'reviewed bytes' -NoNewline
+            git -C $temp add $activeRelative
+            git -C $temp commit --quiet -m baseline
+            $commit = (git -C $temp rev-parse HEAD).Trim()
+            $hash = (Get-FileHash -LiteralPath $activePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $archivedPath = Join-Path $temp $archivedRelative
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $archivedPath) -Force)
+            Move-Item -LiteralPath $activePath -Destination $archivedPath
+            @{
+                version        = 1
+                startingCommit = $commit
+                files          = @(@{ path = $activeRelative; sha256 = $hash })
+            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $temp 'manifest.json')
+
+            $result = & $script:manifestGate -ManifestPath (Join-Path $temp 'manifest.json') -RepoRoot $temp
+            $result.Count | Should -Be 1
+            $result.Files[0].Path | Should -Be $activeRelative
+            $result.Files[0].CurrentPath | Should -Be $archivedRelative
+        }
+        finally {
+            Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary scans only explicit active roots and detects seeded runtime assets' {
         $activeIncludes = @(
             'plugins',

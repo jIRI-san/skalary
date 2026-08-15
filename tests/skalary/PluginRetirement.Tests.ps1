@@ -838,7 +838,7 @@ Describe 'plugin retirement catalog' {
         (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status |
             Should -Be 'residue'
 
-        $protocol = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement/assets/decisions/retirement-protocol.md') -Raw
+        $protocol = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/implementation-plans/archived/2026-08-14-cda9da-architecture-test-retirement/assets/decisions/retirement-protocol.md') -Raw
         $outcomes = @(Get-PluginRetirementOutcomeName)
         $outcomes.Count | Should -Be 8
         foreach ($outcome in $outcomes) {
