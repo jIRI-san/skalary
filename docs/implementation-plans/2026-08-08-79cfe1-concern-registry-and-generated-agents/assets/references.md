@@ -9,6 +9,12 @@ constraints have no counterpart here: one registry is the single source of truth
 list, and concern bodies are authored once with per-surface variants **generated at sync time so
 the surfaces cannot drift**.
 
+## Epic discussion provenance
+
+- Session `8706d364-f92e-4056-bb1b-40a59b015d38`, turns 90-92 (2026-08-08): the operator supplied a parallel implementation description, then selected the highest-value missing ideas for separate epic children.
+- The accepted grouping combines "one concern registry" with "generated per-surface agent variants" because a registry that drives nothing is another copy rather than a source of truth.
+- Epic `33b1f9` non-goal keeps the existing seven-concern taxonomy closed.
+
 ## The gap
 
 **Concern list is authored in several places.** It appears in the `DispatchGuide.Tests.ps1` test

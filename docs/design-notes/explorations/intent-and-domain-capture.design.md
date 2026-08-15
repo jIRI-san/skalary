@@ -8,7 +8,7 @@ globs:
 
 # Intent and Domain Capture
 
-Operator notes captured 2026-07-31 during `b0c0d3` execution. **Not yet analysed** — recorded for the align phase to pull into the next plan. Three linked problems; the operator explicitly tied domain modelling to intent capture.
+Operator notes captured 2026-07-31 during `b0c0d3` execution. Three linked problems; the operator explicitly tied domain modelling to intent capture. **Partially resolved 2026-08-14:** `/cep` now preserves accepted epic discussion, preliminary child intent, decomposition decisions, rejected alternatives, and uncertainty in each scaffolded child's assets. Full `/cip` per-point provenance and domain modelling remain open.
 
 ## The shared failure
 
@@ -55,3 +55,8 @@ Wanted: a way to capture the domain when starting on a new problem, and to keep 
 ## Interaction with shipped work
 
 `b0c0d3` delivers `assets/intent.md` (REQ-4) and the `intent` gate. That is the substrate these three build on — none of them require undoing it, and all three extend it rather than replacing it.
+
+The `/cep` `child-context` gate now closes the epic-scaffold variant of the provenance gap: accepted context
+is copied into child `intent.md`, `decisions.md`, and `references.md` immediately, and `/cip` must preserve
+and refine it. This does not settle verbatim-versus-summary provenance for every `/cip` interview point,
+confirmation-token enforcement, or the repository-level domain-knowledge tier.

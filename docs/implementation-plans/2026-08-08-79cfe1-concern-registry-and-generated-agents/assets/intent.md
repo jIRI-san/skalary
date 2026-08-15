@@ -1,23 +1,28 @@
 # Intent
 
-<!-- Captured during the /cip interview. Placeholder — replace before drafting. -->
+> Preliminary context captured from the 2026-08-08 comparison discussion for epic `33b1f9`. `/cip` must confirm and refine it.
 
 ## Goal
 
-TBD
+Make the existing review concern taxonomy and concern-agent bodies single-authored so code-review and design-review surfaces cannot drift.
 
 ## Desired outcome
 
-TBD
+One concern registry defines the settled seven concerns and drives generated `cr-*` and `dr-*` agent variants plus related mappings. A deterministic sync command produces installed payloads, and a drift gate proves generated files match their source.
 
 ## Success signals
 
-- TBD
+- Adding or renaming a concern requires one authoritative edit rather than synchronized hand edits.
+- Shared concern guidance reaches both review surfaces while preserving explicit surface-specific variants.
+- Generated agents, manifests, dogfood copies, marketplace data, and registry hashes remain synchronized.
+- Existing injection guards, read-only stance, and concern completeness tests remain enforced.
 
 ## Non-goals
 
-- TBD
+- Changing which seven concerns exist or what they mean.
+- Merging code review and design review into one generic reviewer.
+- A registry that nothing derives from and therefore becomes another copy of the list.
 
 ## Definition of done
 
-- TBD
+- All concern agents and mappings are reproducibly generated from one source, and committed drift fails validation.

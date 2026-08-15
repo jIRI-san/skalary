@@ -7,6 +7,11 @@
 Planning and review must consider useful assets and artifacts from related older, archived, active, sibling,
 and dependency plans, not only their indexed requirements, risks, and decisions.
 
+## Epic discussion provenance
+
+- Session `e64afe83-10c6-427c-bc6c-9a51069bea14`, turns 6-7: the operator asked whether older and other plan assets were considered during planning and review, then requested a dedicated plan when the answer was only partial.
+- Epic `bcece1` Cross-plan artifact context section records the accepted bounded resolver, consumer set, artifact candidates, and provenance requirements.
+
 ## Existing behavior to extend
 
 - `b0c0d3` REQ-6 and `Get-PlanIndex.ps1` provide deterministic topic discovery across active and archived

@@ -59,6 +59,20 @@ Describe 'Skill contract token guards' {
         $text | Should -Match 'allowlist-clean'
     }
 
+    It 'test:focused-validation keeps step checks local and the complete gate at plan completion' {
+        $autopilot = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
+        $execution = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
+        $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+        $drafting = Get-SkillText -RelativePath 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
+
+        $autopilot | Should -Match '(?i)affected surface'
+        $autopilot | Should -Match '(?i)complete project validation.*once.*plan completion'
+        $execution | Should -Match '(?i)affected surface'
+        $execution | Should -Match '(?i)direct consumers'
+        $crosscheck | Should -Match '(?i)complete project validation'
+        $drafting | Should -Match '(?i)focused validation'
+    }
+
     It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {
         $sync = Join-Path $repoRoot 'scripts/skalary/Sync-Dogfood.ps1'
         $output = & $sync -WhatIf *>&1

@@ -18,7 +18,7 @@ context: fork
 - An epic is an **index**, never a container: child plans stay ordinary sibling folders under `docs/implementation-plans/` so every existing consumer resolves them unchanged.
 - Membership is the `<!-- epic: <id> -->` marker in the child's `plan.md`; ordering is the existing `<!-- depends-on: ... -->` marker. Both are written by `New-Epic.ps1` — never hand-edited.
 - Every child must be **independently executable**: it can be implemented, validated, reviewed, and merged on its own once its declared dependencies are done.
-- `/cep` scaffolds and wires; it does **not** draft child plans. Each child goes through `/cip` for its own intent, requirements, risks, and evidence.
+- `/cep` scaffolds, wires, and preserves the accepted decomposition context; it does **not** draft requirements, risks, evidence, or steps. Each child goes through `/cip` to confirm and refine its preliminary intent and decisions, then complete the draft.
 - The epic carries goal-level intent only. A child with no intent of its own is not a plan, it is a phase in disguise.
 
 ## Step 1: Load context and resolve the epic
@@ -37,11 +37,11 @@ context: fork
 
 Follow the epic question bank and the `epic-intent` and `seams` gates in the decomposition asset. Capture the goal, desired outcome, success signals, non-goals, and definition of done into the epic's **Goal** section before proposing any cut, then read it back for confirmation.
 
-Per-child interviews belong to `/cip`, not here — asking them now produces detail that goes stale before the child is drafted.
+Per-child implementation interviews belong to `/cip`, but accepted epic discussion must not disappear. While interviewing and decomposing, keep a preliminary context record for every proposed child: the operator discussion points that motivated it, the slice and outcome, boundaries and non-goals, dependency rationale, settled decisions, rejected alternatives, and named uncertainties. This is planning provenance, not a substitute for the later `/cip` interview.
 
 ## Step 3: Decompose into child plans (`./assets/decomposition-guide.md`)
 
-Propose the cut, present it for confirmation, and revise until the operator accepts. Apply the independent-executability test, the vertical-slice rule, the dependency rules, and the anti-pattern list from the decomposition asset. Never scaffold a cut the operator has not confirmed.
+Propose the cut, present it for confirmation, and revise until the operator accepts. Apply the independent-executability test, the vertical-slice rule, the dependency rules, and the anti-pattern list from the decomposition asset. Before scaffolding, pass the asset's `child-context` gate: every accepted child has enough recorded context to explain weeks later why it exists and what was decided. Never scaffold a cut the operator has not confirmed.
 
 ## Step 4: Scaffold and wire the children
 
@@ -60,9 +60,17 @@ pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -C
 
 `-DependsOn` takes one child per invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk.
 
+Immediately after `New-Plan.ps1` creates each child, replace the scaffold-only content in these assets before moving to the next child:
+
+- `assets/intent.md` — preliminary Goal, Desired outcome, Success signals, Non-goals, and Definition of done derived from the accepted cut and operator discussion.
+- `assets/decisions.md` — every settled decomposition decision and its reason; explicitly label unresolved choices and rejected alternatives instead of dropping them.
+- `assets/references.md` — epic ID, relevant prior plans/assets, and a dated **Epic discussion provenance** summary containing the operator's material discussion points.
+
+Prefix preliminary sections with `Preliminary context captured by /cep; /cip must confirm and refine it.` Do not leave a `TBD` placeholder where the epic discussion supplied an answer. Never invent missing operator intent: mark it as an unresolved question with the surrounding discussion that made it relevant. `/cip` extends these assets in place and must not reset them to templates.
+
 ## Step 5: Draft each child and finish
 
-1. Hand each child to `/cip <child-ref>` for its own interview, requirements, risks, evidence, and DR rounds. Draft dependency-free children first — their decisions constrain the ones that follow.
+1. Hand each child to `/cip <child-ref>` to confirm and refine the captured preliminary context, then add requirements, risks, evidence, steps, and DR rounds. Draft dependency-free children first — their decisions constrain the ones that follow.
 2. Confirm each drafted child passes:
 
    ```powershell
@@ -75,4 +83,5 @@ pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -C
 
 - **Structure authority:** `New-Epic.ps1` owns epic folders, membership markers, dependency markers, and the child table. Hand-editing any of them is drift.
 - **Membership authority:** the `<!-- epic: <id> -->` marker in each child plan — not `epic.md` — decides what belongs to the epic.
-- **Drafting authority:** `/cip` owns child plan content; `/cep` never writes requirements, risks, or steps into a child.
+- **Context authority:** `/cep` owns the preliminary discussion provenance and accepted decomposition decisions in child intent, decisions, and references; `/cip` preserves, confirms, and refines them.
+- **Drafting authority:** `/cip` owns child requirements, risks, evidence, and steps; `/cep` never writes those sections.

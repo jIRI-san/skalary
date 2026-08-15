@@ -57,7 +57,7 @@ feedback, and completing the final phase delivers the plan's full desired outcom
 | Plan | Slug | Depends on |
 |---|---|---|
 | `57cc2c` | intent-capture-and-rfc | `4dd933` |
-| `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b` |
+| `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b`, `c21cdc` |
 | `25aa23` | epic-coherency-review | `8a0644` |
 | `4dd933` | cross-plan-artifact-context | `669ad3` |
 | `669ad3` | epic-prefixed-plan-folder-naming | — |

@@ -9,6 +9,12 @@ implementation claims two controls this repo lacks: near-identical findings from
 different models are flagged rather than counted as agreement, and the report header states the
 corroboration behind findings and never downgrades it silently.
 
+## Epic discussion provenance
+
+- Session `8706d364-f92e-4056-bb1b-40a59b015d38`, turns 90-92 (2026-08-08): the operator selected the most valuable missing review controls; suspicious similarity and truthful corroboration were kept together as one control.
+- The session explicitly rejected splitting measurement from reporting: a similarity detector nobody reports and a corroboration claim with no evidence are each incomplete.
+- Epic `33b1f9` keeps this child independent of `8a0644` while requiring the two together to make review execution truthful.
+
 ## The gap
 
 `plugins/code-review/skills/cr/assets/dispatch-guide.md` §"What the preflight cannot see" already
@@ -45,7 +51,10 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 - `docs/design-notes/explorations/review-system-enforcement-gaps.design.md` — the enforcement-gap
   clusters this epic decomposes.
 
-## Boundary to settle before drafting
+## Settled boundary
 
-Sibling `c21cdc review-report-as-data` is undrafted and also owns `Build-ReviewReport.ps1`. Decide
-which plan owns the report's shape before either starts, or the second rewrites the first.
+This child depends on `c21cdc review-report-as-data`. `c21cdc` owns immutable v1 frozen-task/result
+schemas, validation, persistence, derived attendance, and deterministic rendering. This child consumes
+that published v1 artifact to detect near-identical output and decide corroboration/elevation policy. It
+does not rewrite v1 in place: any additional persisted evidence or semantic change introduces an explicit
+v2 plus migration. Served-model identity remains unobservable; similarity is evidence, not identity proof.

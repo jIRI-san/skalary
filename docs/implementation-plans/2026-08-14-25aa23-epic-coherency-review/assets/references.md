@@ -7,6 +7,11 @@
 `/cep` must run a focused epic coherency review in addition to its interview, seams gate, and operator cut
 confirmation. This review is distinct from the detailed implementation-plan review each child receives.
 
+## Epic discussion provenance
+
+- Session `e64afe83-10c6-427c-bc6c-9a51069bea14`, turns 4-5: the operator asked whether epics receive review and directed that `/cep` run a coherency review after learning only plans had formal `/dr` coverage.
+- Epic `bcece1` Epic coherency review section records the accepted boundary and finding disposition flow.
+
 ## Intended review boundary
 
 - Verify goal, desired outcome, success signals, non-goals, and definition of done are collectively covered.

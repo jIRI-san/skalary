@@ -1,23 +1,28 @@
 # Intent
 
-<!-- Captured during the /cip interview. Placeholder — replace before drafting. -->
+> Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
 
 ## Goal
 
-TBD
+Group hash-schema plan folders by epic at the start of their names, using `standalone` for plans with no epic, while preserving canonical plan identity.
 
 ## Desired outcome
 
-TBD
+New child folders use `<epic-id>-<yyyy-mm-dd>-<plan-id>-<slug>` immediately and direct `/cip` plans use `standalone-...`. A script-owned migration safely renames eligible active and archived hash-schema folders, while resolution, archival, re-parenting, and all consumers support both old and target grammars during rollout.
 
 ## Success signals
 
-- TBD
+- Plans sort into navigable epic groups in the filesystem without changing their six-hex IDs.
+- `/cep` never creates a temporary standalone child name before attaching it.
+- Migration is confined, collision-preflighted, idempotent, supports `-WhatIf`, and emits an old-to-new manifest.
+- Legacy `NNN-<slug>` plans remain untouched and resolvable.
 
 ## Non-goals
 
-- TBD
+- Renaming legacy numbered plans.
+- Using folder prefixes as canonical identity.
+- Changing epic-folder naming unless the later `/cip` interview explicitly expands scope.
 
 ## Definition of done
 
-- TBD
+- New creation, attachment, re-parenting, archival, migration, and resolution paths preserve identity and work across mixed legacy, old-hash, and prefixed-hash inventories.

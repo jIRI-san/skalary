@@ -3557,6 +3557,12 @@
       "reason": "Executable evidence that a failed install leaves no partial writes behind."
     }
   ],
-  "removals": []
+  "removals": [
+    {
+      "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
+      "reason": "Superseded by 'cep skill.preserves preliminary epic context while delegating full child drafting to /cip', which retains drafting delegation and adds the child-context preservation contract.",
+      "step": "epic-scaffold-context-preservation"
+    }
+  ]
 }
 

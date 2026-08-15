@@ -59,16 +59,17 @@ documented **non-containing sandbox**, not a true container.
 
 1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
-3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
+3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`). Keep execution focused on the phase's affected surface and named evidence; do not run complete project validation here.
 4. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
 5. Fail phase completion if blocking criteria are unsatisfied.
 
 ## Plan crosscheck
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
-2. Validate all REQ and RISK rows before completion.
-3. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
-4. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
+2. Run complete project validation once: the project's full build and test commands. This is the integration gate for interactions outside the affected surfaces checked during step and phase loops.
+3. Validate all REQ and RISK rows before completion.
+4. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
+5. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
 
 ## archival-gate
 

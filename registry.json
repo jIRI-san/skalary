@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-14T19:35:59.6059951Z",
+  "generatedAt": "2026-08-14T20:23:55.0383031Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "52248347a191888abc5b7086a46fd23bc7acea9ba0a9854aaa128d1c53492edd",
+          "sha256": "6257711e250414ae5673f0537361dbcce85c9f99da941e7b0566f98a317d7475",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -501,12 +501,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
+          "sha256": "629e7faf92e677cfb915dc1bd5b56c8f5610ea0e24adcc5a5a9cbca1069bd3f2",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "89965ccfee8f02d4c9cdbdf166b0c646d5629f12796ef73d89121fc60afbf3c7",
+          "sha256": "22d15f09c3c66942602e0ffd1d58cb2931ade64f2927309e736c6f842c582a37",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -627,12 +627,12 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "55ad12759a39d671df109405b0e61b40fbfeaa88c2bae90b18e2bcbc93df21f1",
+          "sha256": "62e923947922cbd3ae56f1b52fcd78b769e8f6ca71a8337b52032aa703ab458b",
           "src": "skills/cep/SKILL.md"
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "ca80f950df74b71b5de860ec520a7ff36f1905cd9a0bf4793280d65e48a6e3e9",
+          "sha256": "cc9765a39b3a305f7e8d2cbb759eefe909d2ea5fcb542409624f7a35e5091f66",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -682,7 +682,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "1dbc561c2ec24ca455242174ac768cb9d5d2921c5c54f8c39db72accb8fad499",
+          "sha256": "cd95634e5ed8ed00f30d98fd4b92f7b6b3380ff652dd214816ccfae4cfee3feb",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -692,7 +692,7 @@
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "84a93b249e38f20720042737371dff56353bee84f063c9f3ddc8520831353019",
+          "sha256": "676499d3abdaf81b09b72fce1419ff606037618ae5ddb42fa5fac239a5e03ad3",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -779,7 +779,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.27"
+      "version": "1.0.28"
     },
     {
       "author": "jIRI-san",
