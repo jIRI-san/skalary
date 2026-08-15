@@ -135,41 +135,6 @@ Describe 'retired arch evidence marker' {
             $manifest = Get-Content -LiteralPath (Join-Path $script:repoRoot "plugins/$pluginName/plugin.json") -Raw
             $manifest | Should -Not -Match 'ArchReceipt\.psm1'
         }
-        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'plugins/architecture-tests/plugin.json') -Raw) |
-            Should -Not -Match 'PlanEvidence\.psm1'
-    }
-
-    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch preserves architecture-tests-local receipt review' {
-        . (Join-Path $script:repoRoot 'scripts/skalary/Get-ArchReviewReport.ps1')
-        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-review-local-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path (Join-Path $root 'src') -Force)
-        try {
-            @{
-                id = 'ARCH-Local'
-                title = 'Local review'
-                maturity = 'locked'
-                prose = 'Reviewed boundary.'
-                lockedBodySha256 = 'a' * 64
-            } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'contract.json')
-            @{
-                version = '1'
-                checks = @(@{
-                        contractId = 'ARCH-Local'
-                        contractPath = 'contract.json'
-                        adapter = 'netarchtest'
-                        targets = @('src')
-                        testProject = 'tests/arch.csproj'
-                    })
-            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'arch-test-config.json')
-
-            $report = Get-ArchReviewReport -RepoRoot $root
-            $report.Blocking | Should -Be 1
-            @($report.Contracts).Count | Should -Be 1
-            $report.Contracts[0].Message | Should -Match 'No arch-test receipt'
-        }
-        finally {
-            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
-        }
     }
 
     It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch is red at Draft and PhaseCrosscheck with seeded known evidence' {

@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-02T15:04:37.8837958+00:00",
-  "commit": "ca720c2e31c0be0f96b5cb0a80b75f10690f02e2",
+  "capturedAt": "2026-08-15T16:21:32.8115591+00:00",
+  "commit": "30eb9fc421712d2fdfcb0cd9338a126071895930",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 706,
-  "executionCount": 710,
+  "uniqueTestCount": 768,
+  "executionCount": 772,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -900,76 +900,6 @@
       "count": 1
     },
     {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:live-tree-clean — the convention cannot write outside a disposable workspace.test:live-tree-clean no spec/task references an absolute or UNC path (gate-a escape vector)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:no-legacy-architecture-tests-llm — the plugin ships waza, never legacy llm JSON.test:no-legacy-architecture-tests-llm leaves no plugins/architecture-tests/evals/llm/*.eval.json",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape all tasks are reasoning-only (no tool_constraint / code graders — architecture-tests produces no tool calls to assert)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape each task grades a deterministic text pre-check at the draft turn (checkpoints after_turn: 1)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape each task has col-0 inputs: and graders: keys in order",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the final-turn graders block has NO text grader (the pre-check moved to the draft-turn checkpoint)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the forced turn is nested inside the inputs block (not the graders block)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the prompt (judge) grader RESUMES the session (continue_session: true, never false)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares NO adversarial block (injection case is a functional inline scenario)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares NO spec-level graders/tool_constraint (SKILL.md has no tools: frontmatter)",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares three tasks covering gate/advisory/injection",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape pins schemaVersion 1.2",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape resolves the real skill bundle via ../../skills",
-      "count": 1
-    },
-    {
-      "file": "tests/evals/WazaArchitectureTestsConvention.Tests.ps1",
-      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape targets the architecture-tests skill via copilot-sdk with pinned model + judge_model",
-      "count": 1
-    },
-    {
       "file": "tests/evals/WazaAutopilotConvention.Tests.ps1",
       "test": "autopilot waza convention.test:live-tree-clean — the convention cannot write outside a disposable workspace.test:live-tree-clean no spec/task references an absolute or UNC path (gate-a escape vector)",
       "count": 1
@@ -1716,82 +1646,52 @@
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.extraction (REQ-11).Marker-ArchRecognized: an arch marker is extracted from acceptance criteria",
+      "test": "retired arch evidence marker.test:PlanEvidence.MarkerTokenizationAndRetiredArch extracts every mixed occurrence in every parser bundle",
       "count": 1
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.extraction (REQ-11).Marker-UnknownPrefixFailsLoud: a marker-shaped token with an unknown prefix is surfaced, never dropped",
+      "test": "retired arch evidence marker.test:PlanEvidence.MarkerTokenizationAndRetiredArch is red at Draft and PhaseCrosscheck with seeded known evidence",
       "count": 1
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchFailsWhenReceiptMissingOrStale: a missing or stale receipt is a blocking failure",
+      "test": "retired arch evidence marker.test:PlanEvidence.MarkerTokenizationAndRetiredArch keeps retired and missing-file failures visible on an empty root",
       "count": 1
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchReadsReceiptNoExec: a fresh locked pass receipt greens WITHOUT running any test project",
+      "test": "retired arch evidence marker.test:PlanEvidence.MarkerTokenizationAndRetiredArch removes the evaluator and ArchReceipt workflow closure",
       "count": 1
     },
     {
       "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchReadsReceiptNoExec: the evaluator never invokes a build toolchain (pure parse)",
+      "test": "retired arch evidence marker.test:PlanEvidence.MarkerTokenizationAndRetiredArch synchronizes the manifest-derived parser closure",
       "count": 1
     },
     {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchRejectsForgedGateFields: forging the receipt adapter or maturity on a fresh locked fail still blocks",
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary binds copied fixture bytes and generated inventories to the starting state",
       "count": 1
     },
     {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchRejectsMalformed: a malformed receipt is a blocking failure, never a false-green",
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary freezes a nonempty pre-retirement fixture",
       "count": 1
     },
     {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.SKILL review surfaces the runner taxonomy (REQ-16).Review-SurfacesRunnerTaxonomy: the review report surfaces each contract's receipt verdict; a locked non-pass or absent receipt is a blocking finding",
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rehashes every bounded historical artifact",
       "count": 1
     },
     {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-DraftWarnsOnly: a draft contract with a fail receipt warns (never blocks)",
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects an empty historical manifest",
       "count": 1
     },
     {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-ErrorDoesNotFalseGreenLocked: a locked error never greens and blocks",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-LockedBlocksOnFail: a locked contract with a fail receipt blocks",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-SkipDoesNotFalseGreenLocked: a locked skip-absent-toolchain never greens and blocks",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).semantic-eval stays advisory: a locked semantic-eval fail warns, never blocks",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "ci arch-runner integration (REQ-12).Ci-CrosscheckRunsArchRunner: the ci crosscheck guide wires the runner as an opt-in, gated, non-bundled run",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "ci arch-runner integration (REQ-12).Runner-OptInRealRun: the runner produces the taxonomy receipt the marker reads (deterministic mock = pass/ran)",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/ArchEvidence.Tests.ps1",
-      "test": "ci arch-runner integration (REQ-12).Validate-StructuralOnly-NoToolchainShell: no npm-test structural leg shells a build toolchain",
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects mutation of a listed file",
       "count": 1
     },
     {
@@ -1970,6 +1870,66 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/BuildRegistryCollation.Tests.ps1",
+      "test": "catalog collation stability.test:BuildRegistry.CzechCollationFixtureIsStable rebuilds byte-identical catalogs under cs-CZ and en-US",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/BuildRegistryCollation.Tests.ps1",
+      "test": "catalog collation stability.test:BuildRegistry.FixtureIsRedBeforeFix proves the fixture ids collate differently per culture",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.ActionsAndModulesPinnedWithoutSkipPublisherCheck pins what it installs and does not disarm the checks on it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.ArtifactNamePerPlatform names the report after the platform that produced it, and uploads it even when the run is red",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.DeclaresLeastPrivilege gives the workflow read-only credentials it does not keep",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.GatesRunAsSeparateSteps gives every gate its own step so one failure cannot mask another",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.InvokesRunUnitTests runs the suite through the runner that owns the budget, on both platforms",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.LintStepCanFail makes the analyzer step able to go red instead of only reporting",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.SeededFailureIsRed turns the command CI runs red on a seeded failure, and leaves no step a way to swallow it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.TimeoutExceedsHardCeiling gives every leg longer than the ceiling it is enforcing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/CiGates.Tests.ps1",
+      "test": "ci gate inventory.test:CiGates.ClusterRetirementIsRecorded keeps the resolved clusters retired and the deferred one addressed",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/CiGates.Tests.ps1",
+      "test": "ci gate inventory.test:CiGates.InventoryMatchesWorkflow keeps every gate on both sides, or red",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/ConcernAgents.Tests.ps1",
       "test": "concern reviewer agents.gives each concern its own lens and output section rather than a comprehensive sweep",
       "count": 1
@@ -2031,7 +1991,7 @@
     },
     {
       "file": "tests/skalary/DesignNotes.Tests.ps1",
-      "test": "design-notes index integrity.DesignNotes-IndexRowsPresent: the two architecture-guardrails design notes exist and are indexed, and both indexes auto-load",
+      "test": "design-notes index integrity.DesignNotes-IndexRowsPresent: architecture notes remain indexed and both indexes auto-load",
       "count": 1
     },
     {
@@ -2136,7 +2096,7 @@
     },
     {
       "file": "tests/skalary/Epic.Tests.ps1",
-      "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
+      "test": "cep skill.preserves preliminary epic context while delegating full child drafting to /cip",
       "count": 1
     },
     {
@@ -2536,7 +2496,17 @@
     },
     {
       "file": "tests/skalary/New-Plan.Tests.ps1",
+      "test": "New-Plan scaffolding.test:new-plan-scaffold does not become a second writer of the stage anchor",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/New-Plan.Tests.ps1",
       "test": "New-Plan scaffolding.test:new-plan-scaffold honors an explicit -PlanId",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/New-Plan.Tests.ps1",
+      "test": "New-Plan scaffolding.test:new-plan-scaffold stamps the scaffolded stage through the single anchor writer",
       "count": 1
     },
     {
@@ -2547,6 +2517,31 @@
     {
       "file": "tests/skalary/New-Plan.Tests.ps1",
       "test": "New-Plan scaffolding.test:new-plan-traversal sanitizes a traversal slug and confines the folder to the plans root",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PayloadScope.Tests.ps1",
+      "test": "validation payload scope.test:Validate.DotPrefixedPayloadEnumerated parses payload under dot-prefixed roots",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PayloadScope.Tests.ps1",
+      "test": "validation payload scope.test:Validate.FileCountEqualAcrossPlatforms returns exactly the declared payload, whatever the host",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PayloadScope.Tests.ps1",
+      "test": "validation payload scope.test:Validate.GitDirectoryNotEnumerated keeps .git and vendored trees out of the parsed set",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PayloadScope.Tests.ps1",
+      "test": "validation payload scope.test:Validate.PayloadRootsCoverRepository keeps the allowlist abreast of the repository",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PayloadScope.Tests.ps1",
+      "test": "validation payload scope.test:Validate.ReparsePointNotFollowed refuses a symlinked payload root",
       "count": 1
     },
     {
@@ -2846,6 +2841,36 @@
     },
     {
       "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order accepts every published stage as a floor",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order collapses every dr round onto one rank",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order fails loudly on a value outside the closed set",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order ranks the lifecycle from scaffolded through done",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order rejects an unknown stage at the single anchor writer",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
+      "test": "PlanState plan stage order.test:plan-stage-order treats a missing anchor as drafted rather than unknown",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanState.Tests.ps1",
       "test": "PlanState Resolve-Plan.errors when nothing matches",
       "count": 1
     },
@@ -2892,6 +2917,126 @@
     {
       "file": "tests/skalary/PlanState.Tests.ps1",
       "test": "PlanState Resolve-Plan.test:resolve-plan-legacy-number resolves a 3-digit legacy id",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginCatalog.GeneratedArtifacts keeps generated catalogs aligned with retirement sources",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.InstallConfinement preserves the existing .github write boundary while retirement is catalog-only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReaderRemovalAndResultContract derives retirement deletes from the exact tombstone and receipt intersection",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReaderRemovalAndResultContract preserves modified ownership and force-removes through one primitive",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix closes an applying state after committed clean removal",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix confines and validates complete durable state while bounding summaries only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix distinguishes foreign, manual, no-match, and failed outcomes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix enforces global plugin/path caps and fair terminal replay without hashing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix preserves residue and covers the closed outcome table",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix previews first, applies an exact preview, and emits one bounded aggregate",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.ReconciliationStateMatrix refreshes stale automatic previews but explicit stale apply fails without deletion",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract exposes retired plugins only through direct exact lookup",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract keeps Test-Registry Git-free and wires explicit CI SHAs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract permits first publication and rejects changed or removed records",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract publishes the immutable architecture-tests tombstone into skalary registry only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract rejects active-name reuse during generation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.RegistryContract treats a resolvable missing catalog as empty and rejects unavailable baseline commits",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.SourceIdentityAndSecretGuard uses one credential-free versioned identity across receipts and retirement state",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery rejects hostile journals and mixed-version recovery",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery rejects linked destinations before state read or mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery restores a representative hard-killed delete",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery restores exact payload and receipt at every deterministic fault seam",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery serializes removal before reading mutable authority",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginRetirement.Tests.ps1",
+      "test": "plugin retirement catalog.test:PluginRetirement.TransactionRecovery transitions failed state only after exact recovery verification",
       "count": 1
     },
     {
@@ -3125,6 +3270,36 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.EnvironmentLeakFails fails a passing suite that leaves the caller-s environment changed",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.MissingPesterExitsNonZero fails and names the install command when Pester is absent",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.WritesNUnitToRequestedPath puts the report where CI asked, creating the folder it named",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.ZeroTestsDiscoveredFails fails when Pester is present but discovers nothing",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/SelfImprovement.Tests.ps1",
       "test": "Self-improvement harvest contract.test:si-offered-at-completion.test:si-offered-at-completion documents the consumer-repo flow as manual",
       "count": 1
@@ -3162,6 +3337,11 @@
     {
       "file": "tests/skalary/SelfImprovement.Tests.ps1",
       "test": "Self-improvement harvest contract.test:si-wraps-harvested-sources.test:si-wraps-harvested-sources wraps every source in UNTRUSTED_INPUT markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Set-PlanStage.Tests.ps1",
+      "test": "Set-PlanStage.test:set-planstage anchors the header even when the body quotes an anchor",
       "count": 1
     },
     {
@@ -3365,6 +3545,11 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/Skalary.Tests.ps1",
+      "test": "skalary plugin registry scripts.test:PluginRetirement.ReaderRemovalAndResultContract propagates direct retired and failed exits before active lookup",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/SkillContracts.Tests.ps1",
       "test": "Skill contract token guards.test:autopilot-dual-format emits the shared golden receipt and harvests from capture.md",
       "count": 1
@@ -3392,6 +3577,11 @@
     {
       "file": "tests/skalary/SkillContracts.Tests.ps1",
       "test": "Skill contract token guards.test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SkillContracts.Tests.ps1",
+      "test": "Skill contract token guards.test:focused-validation keeps step checks local and the complete gate at plan completion",
       "count": 1
     },
     {
@@ -3436,7 +3626,27 @@
     },
     {
       "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.CeilingIsPerPlatform gives every platform its own ceiling and leaves none to a shared default",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.ClockedRunIsMeasuredAsTheWholeCommand charges the runner with the legs that ran before it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
       "test": "suite budget.test:SuiteBudget.MeasuresFullNpmTest budgets the whole npm test command, not the Pester leg alone",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.OverBudgetRunFails fails a run over its platform ceiling and names both figures",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.WithinHardCeiling keeps every recorded platform figure under its own ceiling",
       "count": 1
     },
     {
@@ -3450,13 +3660,83 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.CarriesTagsForVersionResolution keeps the tag Build-Registry resolves the bootstrap ref from",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.CaseRootIsFresh refuses a root that already exists",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.CasesGetPrivateCopies keeps one case's writes out of the next case's fixture",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.CommitIsDeterministic gives every fixture the same commit so registry parity still runs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.PayloadIsAnAllowlist carries the roots the registry scripts read and none of the history",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteFixture.Tests.ps1",
+      "test": "suite fixture.test:SuiteFixture.PluginSetIsScopedToTestsUnderTest carries the plugins the cases name and nothing else",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteOrdering.Tests.ps1",
+      "test": "suite ordering.test:SuiteOrdering.ProbesWouldSeeALeak",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteOrdering.Tests.ps1",
+      "test": "suite ordering.test:SuiteOrdering.RandomisedOrderGivesIdenticalResults",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/SuiteProfile.Tests.ps1",
       "test": "suite cost model.test:SuiteProfile.CoversWholeTestTree profiles every test subtree rather than a single file",
       "count": 1
     },
     {
       "file": "tests/skalary/SuiteProfile.Tests.ps1",
+      "test": "suite cost model.test:SuiteProfile.PhaseTargetsMet fails a reduction phase that missed the saving it declared",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteProfile.Tests.ps1",
       "test": "suite cost model.test:SuiteProfile.RecordsPerOperationCosts records call counts and aggregate seconds per costly operation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "test": "suite script host.test:SuiteScriptHost.LeavesNoStateBehindForTheNextCase",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "test": "suite script host.test:SuiteScriptHost.MergesEveryStreamTheCallerUsedToReadOffStderr",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "test": "suite script host.test:SuiteScriptHost.RefusesAScriptWhoseExitCodeItCannotVouchFor",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "test": "suite script host.test:SuiteScriptHost.ReportsTheExitCodeTheScriptChose",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
+      "test": "suite script host.test:SuiteScriptHost.UnhandledErrorIsReportedAsExitOne",
       "count": 1
     },
     {
@@ -3538,6 +3818,36 @@
       "file": "tests/skalary/Test-Plan.Tests.ps1",
       "test": "Test-Plan validator.warns when plan is oversize",
       "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.DraftedPlanStillValidated treats a plan with no stage anchor as drafted",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.DraftedPlanStillValidated validates a drafted plan and still fails a broken one",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.ScaffoldedPlanReportsSkipped keeps both npm test legs on one floor",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.ScaffoldedPlanReportsSkipped reports a skip when no plan reaches the floor",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.ScaffoldedPlanReportsSkipped skips a scaffold with a signal no check can read as a pass",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ValidatePlan.Tests.ps1",
+      "test": "Validate-Plan stage gate.test:ValidatePlan.UnknownStageFailsLoud refuses to resolve an unrecognised stage to a skip",
+      "count": 1
     }
   ],
   "mustKeep": [
@@ -3562,6 +3872,161 @@
       "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
       "reason": "Superseded by 'cep skill.preserves preliminary epic context while delegating full child drafting to /cip', which retains drafting delegation and adds the child-context preservation contract.",
       "step": "epic-scaffold-context-preservation"
+    },
+    {
+      "test": "architecture-tests waza convention.test:live-tree-clean — the convention cannot write outside a disposable workspace.test:live-tree-clean no spec/task references an absolute or UNC path (gate-a escape vector)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:no-legacy-architecture-tests-llm — the plugin ships waza, never legacy llm JSON.test:no-legacy-architecture-tests-llm leaves no plugins/architecture-tests/evals/llm/*.eval.json",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape all tasks are reasoning-only (no tool_constraint / code graders — architecture-tests produces no tool calls to assert)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape each task grades a deterministic text pre-check at the draft turn (checkpoints after_turn: 1)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape each task has col-0 inputs: and graders: keys in order",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the final-turn graders block has NO text grader (the pre-check moved to the draft-turn checkpoint)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the forced turn is nested inside the inputs block (not the graders block)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — each task separates inputs from graders and uses a resume-session judge.test:waza-spec-shape the prompt (judge) grader RESUMES the session (continue_session: true, never false)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares NO adversarial block (injection case is a functional inline scenario)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares NO spec-level graders/tool_constraint (SKILL.md has no tools: frontmatter)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape declares three tasks covering gate/advisory/injection",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape pins schemaVersion 1.2",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape resolves the real skill bundle via ../../skills",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "architecture-tests waza convention.test:waza-spec-shape — eval.yaml declares the pinned schema and executor.test:waza-spec-shape targets the architecture-tests skill via copilot-sdk with pinned model + judge_model",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.extraction (REQ-11).Marker-ArchRecognized: an arch marker is extracted from acceptance criteria",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.extraction (REQ-11).Marker-UnknownPrefixFailsLoud: a marker-shaped token with an unknown prefix is surfaced, never dropped",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchFailsWhenReceiptMissingOrStale: a missing or stale receipt is a blocking failure",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchReadsReceiptNoExec: a fresh locked pass receipt greens WITHOUT running any test project",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchReadsReceiptNoExec: the evaluator never invokes a build toolchain (pure parse)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchRejectsForgedGateFields: forging the receipt adapter or maturity on a fresh locked fail still blocks",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.receipt pure-parse verification (REQ-11/REQ-17).Marker-ArchRejectsMalformed: a malformed receipt is a blocking failure, never a false-green",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.SKILL review surfaces the runner taxonomy (REQ-16).Review-SurfacesRunnerTaxonomy: the review report surfaces each contract's receipt verdict; a locked non-pass or absent receipt is a blocking finding",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-DraftWarnsOnly: a draft contract with a fail receipt warns (never blocks)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-ErrorDoesNotFalseGreenLocked: a locked error never greens and blocks",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-LockedBlocksOnFail: a locked contract with a fail receipt blocks",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).Maturity-SkipDoesNotFalseGreenLocked: a locked skip-absent-toolchain never greens and blocks",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "arch evidence marker.taxonomy x maturity gate mapping (REQ-16).semantic-eval stays advisory: a locked semantic-eval fail warns, never blocks",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "ci arch-runner integration (REQ-12).Ci-CrosscheckRunsArchRunner: the ci crosscheck guide wires the runner as an opt-in, gated, non-bundled run",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "ci arch-runner integration (REQ-12).Runner-OptInRealRun: the runner produces the taxonomy receipt the marker reads (deterministic mock = pass/ran)",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "ci arch-runner integration (REQ-12).Validate-StructuralOnly-NoToolchainShell: no npm-test structural leg shells a build toolchain",
+      "reason": "Retired with the architecture-test execution subsystem; preserved marker tokenization and architecture-note authority are covered separately.",
+      "step": "cda9da:3.1"
+    },
+    {
+      "test": "design-notes index integrity.DesignNotes-IndexRowsPresent: the two architecture-guardrails design notes exist and are indexed, and both indexes auto-load",
+      "reason": "Retired with the architecture-test design note; the remaining index test still covers the preserved architecture-notes tier.",
+      "step": "cda9da:3.1"
     }
   ]
 }

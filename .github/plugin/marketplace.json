@@ -22,20 +22,6 @@
       "version": "1.0.6"
     },
     {
-      "description": "Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin.",
-      "license": "MIT",
-      "name": "architecture-tests",
-      "source": "plugins/architecture-tests",
-      "strict": false,
-      "tags": [
-        "architecture",
-        "architecture-tests",
-        "fitness-functions",
-        "skill"
-      ],
-      "version": "1.0.24"
-    },
-    {
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
       "license": "MIT",
       "name": "autopilot",

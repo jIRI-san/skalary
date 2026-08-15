@@ -223,18 +223,37 @@ Describe 'plugin retirement catalog' {
         }
     }
 
-    It 'test:PluginRetirement.RegistryContract ships an empty valid canonical catalog into skalary registry only' {
+    It 'test:PluginRetirement.RegistryContract publishes the immutable architecture-tests tombstone into skalary registry only' {
         $canonicalPath = Join-Path $script:repoRoot 'registry-retirements.json'
         $canonicalRaw = Get-Content -LiteralPath $canonicalPath -Raw
         $canonicalRaw | Test-Json -SchemaFile $script:retirementSchema | Should -BeTrue
         $canonical = $canonicalRaw | ConvertFrom-Json -Depth 100
-        @($canonical.retiredPlugins).Count | Should -Be 0
+        @($canonical.retiredPlugins).Count | Should -Be 1
+        $tombstone = @($canonical.retiredPlugins)[0]
+        [string]$tombstone.name | Should -Be 'architecture-tests'
+        @($tombstone.payloadSets).Count | Should -Be 2
+        @($tombstone.payloadSets | ForEach-Object { [string]$_.sourceIdentity } | Select-Object -Unique) |
+            Should -Be @('github.com/jiri-san/skalary')
+        @($tombstone.manualResidue.kind) |
+            Should -Be @('scaffold', 'scaffold', 'scaffold', 'copilot-cli', 'approval-key')
+
+        $frozenReceipt = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/architecture-tests-pre-cda9da-v1/receipt/architecture-tests.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $frozenSet = @($tombstone.payloadSets | Where-Object {
+                [string]$_.ref -ceq [string]$frozenReceipt.ref -and
+                [string]$_.version -ceq [string]$frozenReceipt.version
+            })
+        $frozenSet.Count | Should -Be 1
+        @($frozenSet[0].files | ForEach-Object { "$($_.dest)|$($_.sha256)" } | Sort-Object) |
+            Should -Be @($frozenReceipt.files | ForEach-Object { "$($_.dest)|$($_.sha256)" } | Sort-Object)
 
         $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw | ConvertFrom-Json -Depth 100
-        @($registry.retiredPlugins).Count | Should -Be 0
+        @($registry.plugins.name) | Should -Not -Contain 'architecture-tests'
+        @($registry.retiredPlugins).Count | Should -Be 1
         $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
             ConvertFrom-Json -Depth 100
         $marketplace.PSObject.Properties.Name | Should -Not -Contain 'retiredPlugins'
+        @($marketplace.plugins.name) | Should -Not -Contain 'architecture-tests'
     }
 
     It 'test:PluginCatalog.GeneratedArtifacts keeps generated catalogs aligned with retirement sources' {
@@ -242,8 +261,8 @@ Describe 'plugin retirement catalog' {
             ConvertFrom-Json -Depth 100
         $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
             ConvertFrom-Json -Depth 100
-        (@($registry.retiredPlugins) | ConvertTo-Json -Depth 100 -Compress) |
-            Should -Be (@($canonical.retiredPlugins) | ConvertTo-Json -Depth 100 -Compress)
+        Get-StableJsonSha256 -InputObject @($registry.retiredPlugins) |
+            Should -Be (Get-StableJsonSha256 -InputObject @($canonical.retiredPlugins))
 
         $marketplaceRaw = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw
         $marketplaceRaw | Should -Not -Match '"retiredPlugins"'
@@ -355,7 +374,7 @@ Describe 'plugin retirement catalog' {
             ConvertFrom-Json
         [string]$contract.prose | Should -Match 'only inside.*\.github'
         @((Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry-retirements.json') -Raw |
-                ConvertFrom-Json).retiredPlugins).Count | Should -Be 0
+                ConvertFrom-Json).retiredPlugins).Count | Should -Be 1
     }
 
     It 'test:PluginRetirement.SourceIdentityAndSecretGuard uses one credential-free versioned identity across receipts and retirement state' {

@@ -37,3 +37,9 @@ Phase: 2
 - [2.3] [src:code-review] [sev:Med] The 64-path cap truncated output after statting all paths and had no per-state fairness; fixed with bounded circular replay cursors persisted per state.
 - [2.3] [src:code-review] [sev:Med] Manual-required residue was not persisted or replayed; fixed with schema-valid manual metadata states and bounded terminal reporting.
 - [2.3] [src:note] [sev:Low] Rubber-duck found no blocking defects; added explicit success exits for authoritative bootstrap propagation and parenthesized cursor type validation.
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Med] Regenerated suite profile prematurely reset Phase 3 baseline/target and recorded a failing run; defer the Phase 3 profile receipt to step 3.2.
+- [3.1] [src:code-review] [sev:Low] Rubber-duck: preserve the architecture-notes negative assertion against reintroducing the retired architecture-tests reference; guard restored.

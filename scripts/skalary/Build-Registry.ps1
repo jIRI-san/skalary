@@ -310,7 +310,7 @@ $bootstrap = New-BootstrapMetadata -Ref $bootstrapRef
 $registryBody = [pscustomobject]@{
     bootstrap = $bootstrap
     plugins = $pluginEntries
-    retiredPlugins = $retiredPlugins
+    retiredPlugins = [object[]]$retiredPlugins
 }
 
 $generatedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -318,12 +318,11 @@ if ($null -ne $existingRegistry -and $existingRegistry.PSObject.Properties.Name 
     $existingBody = [pscustomobject]@{
         bootstrap = $existingRegistry.bootstrap
         plugins = $existingRegistry.plugins
-        retiredPlugins = if ($existingRegistry.PSObject.Properties.Name -contains 'retiredPlugins') {
-            @($existingRegistry.retiredPlugins)
-        }
-        else {
-            @()
-        }
+        retiredPlugins = [object[]]@(
+            if ($existingRegistry.PSObject.Properties.Name -contains 'retiredPlugins') {
+                $existingRegistry.retiredPlugins
+            }
+        )
     }
     if ([string]::Equals(
             (Get-ComparableJson -InputObject $existingBody),
@@ -355,7 +354,7 @@ $registry = [pscustomobject]@{
     bootstrap = $bootstrap
     generatedAt = $generatedAt
     plugins = $pluginEntries
-    retiredPlugins = $retiredPlugins
+    retiredPlugins = [object[]]$retiredPlugins
 }
 
 Write-JsonFileStable -Path $registryPath -InputObject $registry

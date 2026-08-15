@@ -68,7 +68,6 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.6 | partial | — | 18 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `architecture-tests` | 1.0.24 | partial | — | 13 | Architecture-tests runner — executes architecture-contract checks via deterministic (NetArchTest, ts-arch; dependency-cruiser reserved) or advisory semantic-eval adapters and emits freshness-bound receipts (parent-commit + sources hash) whose verdict maps to a maturity-aware gate. Companion to the architecture-notes plugin. |
 | `autopilot` | 1.2.3 | partial | — | 20 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.4 | stable | — | 16 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.33 | stable | autopilot, code-review | 13 | Code implementation workflow skill with autonomous execution guidance. |

@@ -68,7 +68,7 @@ digest field itself.
   **procedural/human-enforced**, not an automated pruner. See SKILL Step 9.
 - **Containment rests on the human-review gate, not runtime fencing.** Auto-load works by
   `copilot-instructions.md` telling the agent to read the index + notes *directly* — there is **no
-  wrapping/fencing on that path** (GUID-fencing lives only in the semantic-eval *provider*). So
+  wrapping/fencing on that path**. So
   harvested/contract prose is contained by: quarantine (`.staging/`, not indexed) + `reviewed:false`
   + no-`globs` on staged files + terse template-constrained format + human review before promotion.
 - **The contract write gate owns lock integrity.** `Test-ArchContract.ps1` validates schema and
