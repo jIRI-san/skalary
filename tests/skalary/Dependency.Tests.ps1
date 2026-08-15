@@ -48,7 +48,6 @@ Describe 'Plan dependency start-gate' {
             Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1') -Destination (Join-Path $root 'scripts/skalary/Test-Plan.ps1') -Force
             Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/PlanEvidence.psm1') -Destination (Join-Path $root 'scripts/skalary/PlanEvidence.psm1') -Force
             Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Destination (Join-Path $root 'scripts/skalary/PlanState.psm1') -Force
-            Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/ArchReceipt.psm1') -Destination (Join-Path $root 'scripts/skalary/ArchReceipt.psm1') -Force
 
             Set-Content -LiteralPath (Join-Path $root 'README.md') -Value "# Fixture`n" -Encoding utf8NoBOM
             Set-Content -LiteralPath (Join-Path $root 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md') -Value "Use Test-Plan.ps1 for validation.`n" -Encoding utf8NoBOM

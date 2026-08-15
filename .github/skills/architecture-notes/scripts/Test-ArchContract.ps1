@@ -6,20 +6,21 @@ Validates an architecture contract file against architecture-contract.schema.jso
 .DESCRIPTION
 The single mutation guard the architecture-notes skill calls after writing or editing a
 contract. It resolves the contract schema (scaffolded copy first, shipped asset as fallback),
-validates the contract JSON against it, and reports the outcome as an object:
-{ Path, Valid, SchemaPath, Errors[] }. Exit code is 0 when valid, 1 otherwise, so it doubles as
-a CLI gate.
+validates the contract JSON against it, verifies a locked contract's canonical content digest,
+and reports the outcome as an object: { Path, Valid, SchemaPath, Errors[] }. Exit code is 0 when
+valid, 1 otherwise, so it doubles as a CLI gate.
 
-It never mutates the contract; it only reports. Lock promotion (draft -> locked) is deliberately
-NOT granted here — that is a human-commit-bound step enforced by the runner, not a self-service
-schema check.
+It never mutates the contract and does not authenticate who promoted it. Human promotion is a
+reviewer-enforced policy; this gate proves only deterministic shape and content integrity.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ContractPath,
 
     # Explicit schema path. Auto-resolved when omitted.
-    [string]$SchemaPath
+    [string]$SchemaPath,
+
+    [switch]$NoExit
 )
 
 Set-StrictMode -Version Latest
@@ -79,6 +80,30 @@ catch {
     $errors.Add($_.Exception.Message)
 }
 
+if ($valid) {
+    try {
+        $contract = $raw | ConvertFrom-Json -Depth 100
+        if ([string]$contract.maturity -eq 'locked') {
+            $hashScript = Join-Path $PSScriptRoot 'Get-ArchContractContentHash.ps1'
+            if (-not (Test-Path -LiteralPath $hashScript -PathType Leaf)) {
+                throw "Required sibling script missing: $hashScript"
+            }
+            $actualDigest = (& $hashScript -ContractPath $ContractPath).Digest
+            if (-not [string]::Equals(
+                    [string]$contract.lockedContentSha256,
+                    $actualDigest,
+                    [System.StringComparison]::Ordinal)) {
+                $errors.Add("lockedContentSha256 mismatch: expected $actualDigest.")
+                $valid = $false
+            }
+        }
+    }
+    catch {
+        $errors.Add($_.Exception.Message)
+        $valid = $false
+    }
+}
+
 $result = [pscustomobject]@{
     Path       = (Resolve-Path -LiteralPath $ContractPath).Path
     Valid      = $valid
@@ -89,7 +114,7 @@ $result = [pscustomobject]@{
 # Emit the object for in-process (& script) consumers, e.g. evals.
 $result
 
-if (-not $valid) {
+if (-not $valid -and -not $NoExit) {
     # `exit` tears down the runspace before the default formatter flushes buffered
     # pipeline output, so stdout can be empty on the CLI gate path. Write diagnostics
     # synchronously to stderr so the caller always receives the schema errors.

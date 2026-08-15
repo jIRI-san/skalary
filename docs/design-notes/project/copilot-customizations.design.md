@@ -36,7 +36,6 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/skills/ci/SKILL.md` | Skill (`/ci`) | Continue Implementation — executes a plan step-by-step, manages git worktrees, build/test iteration, `cr` review, explicit commit gate |
 | `.github/skills/architecture-notes/SKILL.md` | Skill (`architecture-notes`) | Interface-contract tier authoring — create/update/promote/review contracts, seed/harvest, human doc, ADR harvest; `/can` + `/uan` are thin wrappers |
 | `.github/prompts/{can,uan}.prompt.md` | Prompts (`/can`, `/uan`) | Thin wrappers deferring to the architecture-notes skill (create / update; `/uan` also runs finalization ADR harvest) |
-| `.github/skills/architecture-tests/SKILL.md` + scripts | Skill (`architecture-tests`) + runner | Freshness-bound receipts, taxonomy × maturity gate, human-only lock gate, adapters/providers; see [architecture-tests.design.md](../architecture/architecture-tests.design.md) |
 | `.github/skills/pfb/SKILL.md` + `.github/prompts/pfb.prompt.md` | Skill (`pfb`) + Prompt (`/pfb`) | Post-plan feedback — compares delivered work against the plan's captured intent, records the operator's verdict through `Update-FeedbackQueue.ps1`, and can hand off to `/cip` for a correction plan. Offered at the `/ci` archival gate, never blocking; headless runs queue the question instead of asking it |
 | `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Two-tier plugin eval runner (`npm run eval`) for structural + opt-in LLM evals |
 

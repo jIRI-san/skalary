@@ -90,7 +90,14 @@ Describe 'catalog collation stability' {
                     -Value ($manifest | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
             }
 
-            & git -C $root add -- plugins | Out-Null
+            $retirementSchemaTarget = Join-Path $root 'schemas/registry/plugin-retirement.schema.json'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $retirementSchemaTarget) -Force)
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot 'schemas/registry/plugin-retirement.schema.json') `
+                -Destination $retirementSchemaTarget
+            Set-Content -LiteralPath (Join-Path $root 'registry-retirements.json') `
+                -Value "{`n  `"retiredPlugins`": [],`n  `"version`": 1`n}" -Encoding utf8NoBOM
+
+            & git -C $root add -- plugins schemas/registry/plugin-retirement.schema.json registry-retirements.json | Out-Null
             $previousAuthorDate = $env:GIT_AUTHOR_DATE
             $previousCommitterDate = $env:GIT_COMMITTER_DATE
             $env:GIT_AUTHOR_DATE = '2000-01-01T00:00:00+00:00'

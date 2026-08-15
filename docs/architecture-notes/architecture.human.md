@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: f429c5142c6fc749a1b7a7a92bf725e722b888132e665cdab59f7ac590ef6045 -->
+<!-- arch-contracts-sha256: bbd1b37063b33326ac1ab7f0daf51a60320327d26278aa940c3bec48e27c4af9 -->
 
 # Skalary — Architecture Overview
 
@@ -38,7 +38,7 @@ graph TD
 ### Installer .github confinement
 
 - **Governing contract:** `ARCH-Install-Confinement` (provisional)
-- **Boundary:** Security boundary: a plugin manifest (untrusted for this purpose) can never cause a write outside .github/. Enforced by Resolve-GithubConstrainedPath and Test-Registry; covered by install/remove tests.
+- **Boundary:** Security boundary: untrusted plugin metadata and recovery state can never cause mutation outside .github/ or through linked parents. Enforced by confinement, link rejection, the shared mutation lock, journal validation, and registry/install/remove tests.
 
 <!-- END GENERATED: contracts -->
 
