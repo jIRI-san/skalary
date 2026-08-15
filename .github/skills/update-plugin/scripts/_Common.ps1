@@ -2043,6 +2043,42 @@ function New-PluginRetirementPreviewState {
     }
 }
 
+function Resolve-PluginManualResidueObservationPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$ManualPath,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+    )
+
+    $root = $RepoRoot
+    $relative = $ManualPath
+    if ($ManualPath -match '^~[\\/](?<tail>.+)$') {
+        if ([string]::IsNullOrWhiteSpace($UserHome)) {
+            return $null
+        }
+        $root = $UserHome
+        $relative = $Matches.tail
+    }
+    if (-not (Test-GithubRelativePath -RelativePath $relative)) {
+        return $null
+    }
+
+    $normalizedRoot = [System.IO.Path]::GetFullPath($root)
+    $relativeSystemPath = $relative -replace '[\\/]', [System.IO.Path]::DirectorySeparatorChar
+    $candidate = [System.IO.Path]::GetFullPath((Join-Path $normalizedRoot $relativeSystemPath))
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $rootWithSeparator = $normalizedRoot.TrimEnd($separator) + $separator
+    if (-not $candidate.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $null
+    }
+    return $candidate
+}
+
 function Get-PluginRetirementReplayPath {
     [CmdletBinding()]
     param(
@@ -2059,7 +2095,9 @@ function Get-PluginRetirementReplayPath {
         [int]$StartIndex = 0,
 
         [ValidateRange(0, 64)]
-        [int]$MaxPaths = 64
+        [int]$MaxPaths = 64,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
     )
 
     $descriptors = @()
@@ -2115,10 +2153,12 @@ function Get-PluginRetirementReplayPath {
             Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
             $present = [bool](Test-Path -LiteralPath $targetPath)
         }
-        elseif (Test-GithubRelativePath -RelativePath ([string]$descriptor.path)) {
-            $candidate = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot (([string]$descriptor.path) -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
-            $rootWithSeparator = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
-            if ($candidate.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        else {
+            $candidate = Resolve-PluginManualResidueObservationPath `
+                -RepoRoot $RepoRoot `
+                -ManualPath ([string]$descriptor.path) `
+                -UserHome $UserHome
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
                 $present = [bool](Test-Path -LiteralPath $candidate)
             }
         }
@@ -2201,7 +2241,9 @@ function Invoke-PluginRetirementReconciliation {
         [int]$MaxPlugins = 8,
 
         [ValidateRange(1, 64)]
-        [int]$MaxPaths = 64
+        [int]$MaxPaths = 64,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
     )
 
     Assert-PluginSourceIdentity -SourceIdentity $SourceIdentity
@@ -2491,7 +2533,7 @@ function Invoke-PluginRetirementReconciliation {
                     else {
                         0
                     }
-                    $replay = Get-PluginRetirementReplayPath -RepoRoot $RepoRoot -State $state -Tombstone $tombstone -StartIndex $startIndex -MaxPaths $available
+                    $replay = Get-PluginRetirementReplayPath -RepoRoot $RepoRoot -State $state -Tombstone $tombstone -StartIndex $startIndex -MaxPaths $available -UserHome $UserHome
                     $shown = @($replay.Paths)
                     $totalPaths = [int]$replay.TotalPaths
                     if ($state.PSObject.Properties.Name -contains 'replayCursor') {

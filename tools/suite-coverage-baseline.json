@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-15T16:21:32.8115591+00:00",
-  "commit": "30eb9fc421712d2fdfcb0cd9338a126071895930",
+  "capturedAt": "2026-08-15T17:01:50.7444304+00:00",
+  "commit": "2ed1ec723d5095e07d0317920c066b359ddebff5",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 768,
-  "executionCount": 772,
+  "uniqueTestCount": 775,
+  "executionCount": 779,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -1692,6 +1692,41 @@
     {
       "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
       "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects mutation of a listed file",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:ArchitectureTestRetirement.RuntimeSurfaceAbsent keeps fresh consumers runtime-free",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReaderRemovalAndResultContract proves the frozen old installer cannot claim retirement",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReaderRemovalAndResultContract repeatedly reports manual residue without mutating it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReaderRemovalAndResultContract returns exit 20 for a direct real retired target",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReconciliationStateMatrix previews, refreshes stale input without deletion, then preserves residue",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReconciliationStateMatrix reports foreign, manual-required, and recovered real states",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureTestRetirement.Tests.ps1",
+      "test": "architecture-tests retirement lifecycle.test:PluginRetirement.ReconciliationStateMatrix retires only the real tombstone and receipt intersection",
       "count": 1
     },
     {

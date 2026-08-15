@@ -102,6 +102,9 @@ bootstrap propagates both. Terminal residue/manual replay never hashes content, 
 eight plugins and 64 paths globally, and advances both a global plugin cursor and per-state path
 cursor so omitted remedies eventually surface. `applying` recovery handles both journal-backed
 partial transactions and the narrow post-commit/pre-terminal-state crash window.
+Manual-residue presence checks are read-only: repository-relative scaffold/approval paths resolve
+under the consumer root, while `~/...` Copilot CLI paths resolve under the current user profile.
+Both forms reject rooted/traversing tails; neither grants deletion authority.
 
 ## Integrity and Security Model
 

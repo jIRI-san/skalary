@@ -13,4 +13,4 @@ Phase: 2
 ## Learnings Capture
 Phase: 3
 
-No entries for this phase.
+- [3.2] [trigger:rework>1] Suite-profile phase numbers belong to archived plan 768d7b receipts, not the executing plan; preserve that green receipt and refresh current runtime metadata only at cda9da step 4.2.
