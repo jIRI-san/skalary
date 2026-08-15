@@ -5,7 +5,15 @@
   "description": "Per-plugin installation tracking stored in .github/.skalary/receipts/<name>.json.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "version", "source", "ref", "installedAt", "files"],
+  "required": ["name", "version", "ref", "installedAt", "files"],
+  "anyOf": [
+    {
+      "required": ["sourceIdentity"]
+    },
+    {
+      "required": ["source"]
+    }
+  ],
   "properties": {
     "name": {
       "type": "string",
@@ -17,11 +25,30 @@
     },
     "source": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Legacy source label. New writers use sourceIdentity; retirement refuses labels that cannot be upgraded unambiguously."
+    },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "kind", "identity"],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["github", "local"]
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^(github\\.com/[a-z0-9-]+/[a-z0-9._-]+|sha256:[a-f0-9]{64})$"
+        }
+      }
     },
     "ref": {
       "type": "string",
-      "pattern": "^[a-f0-9]{40}$",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$",
       "description": "Resolved immutable commit SHA used for both registry and payload fetch."
     },
     "installedAt": {

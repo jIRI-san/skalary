@@ -12,3 +12,14 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] Architecture-tests review report still called the removed plan evidence evaluator.
 - [1.2] [src:code-review] [sev:High] Rubber-duck found the architecture-tests-local review helper nested inside config resolution and unavailable on real report calls.
 - [1.3] [src:code-review] [sev:Low] Code-review and rubber-duck found no actionable defect in the retirement catalog or history gate.
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:High] Retirement-state paths required link/reparse rejection in addition to lexical .github confinement; fixed before every read/write.
+- [2.1] [src:code-review] [sev:Med] Source identity version validation coerced non-integer values to version 1; fixed with exact integer-type validation.
+- [2.1] [src:code-review] [sev:Med] Receipt schema allowed SHA-1 refs only while runtime accepts SHA-256 object IDs; fixed to allow 40 or 64 hex.
+- [2.1] [src:code-review] [sev:Med] Marketplace metadata lagged the generated plugin-manager version bump; regenerated marketplace.
+- [2.1] [src:note] [sev:Low] Rubber-duck second opinion found no high-confidence defects after review fixes.
+- [2.1] [src:code-review] [sev:Med] Canonical identity validation used case-insensitive PowerShell comparisons; fixed to reject non-canonical kind and identity casing.
+- [2.1] [src:code-review] [sev:Med] GitHub URI parsing accepted arbitrary schemes and rejected explicit standard SSH ports; fixed with a closed transport/port allowlist.

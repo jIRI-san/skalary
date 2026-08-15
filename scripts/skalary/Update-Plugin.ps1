@@ -50,9 +50,9 @@ function Get-ResolvedSourceContext {
 
         return [pscustomobject]@{
             IsRemote = $false
-            Label = "local:$sourceRepoRoot"
             Ref = $resolvedRef
             Sha = $resolvedSha
+            SourceIdentity = New-PluginSourceIdentity -LocalPath $sourceRepoRoot
             SourceRepoRoot = $sourceTempPath
             TempPath = $sourceTempPath
         }
@@ -67,7 +67,18 @@ function Get-ResolvedSourceContext {
     }
 
     $resolvedRef = if ([string]::IsNullOrWhiteSpace($SourceRef)) { 'HEAD' } else { $SourceRef }
-    $resolvedRefs = @(git ls-remote $remote $resolvedRef)
+    $sourceIdentity = $null
+    try {
+        $sourceIdentity = New-PluginSourceIdentity -Repository $remote
+    }
+    catch {
+        if (-not (Test-Path -LiteralPath $remote)) {
+            throw
+        }
+        $sourceIdentity = New-PluginSourceIdentity -LocalPath (Resolve-RepoRoot -StartPath $remote)
+    }
+
+    $resolvedRefs = @(git ls-remote $remote $resolvedRef 2>$null)
     $resolvedLine = $null
     foreach ($line in $resolvedRefs) {
         if ($line -match '\^\{\}\s*$') {
@@ -80,20 +91,20 @@ function Get-ResolvedSourceContext {
     }
     $resolvedSha = if ($null -ne $resolvedLine) { ($resolvedLine -split '\s+')[0] } else { $null }
     if ([string]::IsNullOrWhiteSpace($resolvedSha)) {
-        throw "Unable to resolve remote ref '$resolvedRef' in '$remote'."
+        throw "Unable to resolve remote ref '$resolvedRef' for source '$([string]$sourceIdentity.identity)'."
     }
 
     $sourceTempPath = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-update-" + [System.Guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $sourceTempPath -Force)
 
     if ($resolvedRef -eq 'HEAD') {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath | Out-Null
+        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath 2>$null | Out-Null
     }
     else {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath | Out-Null
+        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath 2>$null | Out-Null
     }
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to clone '$remote' (ref '$resolvedRef')."
+        throw "Failed to clone source '$([string]$sourceIdentity.identity)' (ref '$resolvedRef')."
     }
 
     $clonedSha = (git -C $sourceTempPath rev-parse HEAD).Trim()
@@ -106,9 +117,9 @@ function Get-ResolvedSourceContext {
 
     return [pscustomobject]@{
         IsRemote = $true
-        Label = "remote:$remote"
         Ref = $resolvedRef
         Sha = $resolvedSha
+        SourceIdentity = $sourceIdentity
         SourceRepoRoot = $sourceTempPath
         TempPath = $sourceTempPath
     }
@@ -126,7 +137,6 @@ try {
     $sourceContext = Get-ResolvedSourceContext -TargetRepoRoot $targetRepoRoot -SourcePath $Source -SourceRef $Ref -RemoteRepository $Repository
     $sourceRepoRoot = [string]$sourceContext.SourceRepoRoot
     $resolvedSha = [string]$sourceContext.Sha
-    $sourceLabel = [string]$sourceContext.Label
 
     $registryPath = Join-Path $sourceRepoRoot 'registry.json'
     if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
@@ -227,7 +237,7 @@ try {
         installedAt = (Get-Date).ToUniversalTime().ToString('o')
         name = $Name
         ref = $resolvedSha
-        source = "$sourceLabel@$resolvedSha"
+        sourceIdentity = $sourceContext.SourceIdentity
         version = $receiptVersion
     }
     if (-not $allUpdated) {

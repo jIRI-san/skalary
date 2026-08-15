@@ -3,3 +3,8 @@ Phase: 1
 
 - [1.1] [trigger:rework>1] Use a token-preserving JSON writer for canonical hashes; PowerShell pipeline returns collapse empty and singleton arrays.
 - [1.2] [trigger:rework>1] Tokenize complete backtick markers first, then unquoted word-boundary tokens; prefix regexes cannot preserve file regex spaces or reject review prefix extensions.
+
+## Learnings Capture
+Phase: 2
+
+No entries for this phase.

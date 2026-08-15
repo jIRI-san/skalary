@@ -41,9 +41,9 @@ function Get-ResolvedSourceContext {
 
         return [pscustomobject]@{
             IsRemote = $false
-            Label = "local:$sourceRepoRoot"
             Ref = $resolvedRef
             Sha = $resolvedSha
+            SourceIdentity = New-PluginSourceIdentity -LocalPath $sourceRepoRoot
             SourceRepoRoot = $sourceRepoRoot
             TempPath = $null
         }
@@ -64,7 +64,18 @@ function Get-ResolvedSourceContext {
     }
 
     $resolvedRef = if ([string]::IsNullOrWhiteSpace($SourceRef)) { 'HEAD' } else { $SourceRef }
-    $resolvedRefs = @(git ls-remote $remote $resolvedRef)
+    $sourceIdentity = $null
+    try {
+        $sourceIdentity = New-PluginSourceIdentity -Repository $remote
+    }
+    catch {
+        if (-not (Test-Path -LiteralPath $remote)) {
+            throw
+        }
+        $sourceIdentity = New-PluginSourceIdentity -LocalPath (Resolve-RepoRoot -StartPath $remote)
+    }
+
+    $resolvedRefs = @(git ls-remote $remote $resolvedRef 2>$null)
     $resolvedLine = $null
     foreach ($line in $resolvedRefs) {
         if ($line -match '\^\{\}\s*$') {
@@ -77,20 +88,20 @@ function Get-ResolvedSourceContext {
     }
     $resolvedSha = if ($null -ne $resolvedLine) { ($resolvedLine -split '\s+')[0] } else { $null }
     if ([string]::IsNullOrWhiteSpace($resolvedSha)) {
-        throw "Unable to resolve remote ref '$resolvedRef' in '$remote'."
+        throw "Unable to resolve remote ref '$resolvedRef' for source '$([string]$sourceIdentity.identity)'."
     }
 
     $sourceTempPath = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-install-" + [System.Guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $sourceTempPath -Force)
 
     if ($resolvedRef -eq 'HEAD') {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath | Out-Null
+        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath 2>$null | Out-Null
     }
     else {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath | Out-Null
+        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath 2>$null | Out-Null
     }
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to clone '$remote' (ref '$resolvedRef')."
+        throw "Failed to clone source '$([string]$sourceIdentity.identity)' (ref '$resolvedRef')."
     }
 
     $clonedSha = (git -C $sourceTempPath rev-parse HEAD).Trim()
@@ -103,9 +114,9 @@ function Get-ResolvedSourceContext {
 
     return [pscustomobject]@{
         IsRemote = $true
-        Label = "remote:$remote"
         Ref = $resolvedRef
         Sha = $resolvedSha
+        SourceIdentity = $sourceIdentity
         SourceRepoRoot = $sourceTempPath
         TempPath = $sourceTempPath
     }
@@ -363,7 +374,7 @@ function Get-PluginReceiptContent {
         $Plugin,
 
         [Parameter(Mandatory)]
-        [string]$SourceLabel,
+        $SourceIdentity,
 
         [Parameter(Mandatory)]
         [string]$RefSha,
@@ -392,7 +403,7 @@ function Get-PluginReceiptContent {
         installedAt = (Get-Date).ToUniversalTime().ToString('o')
         name = [string]$Plugin.name
         ref = $RefSha
-        source = "$SourceLabel@$RefSha"
+        sourceIdentity = $SourceIdentity
         version = [string]$Plugin.version
     }
 }
@@ -407,7 +418,7 @@ function Write-ReceiptSet {
         [object[]]$PendingPlugins,
 
         [Parameter(Mandatory)]
-        [string]$SourceLabel,
+        $SourceIdentity,
 
         [Parameter(Mandatory)]
         [string]$RefSha,
@@ -427,7 +438,7 @@ function Write-ReceiptSet {
         $pluginName = [string]$plugin.name
         $existingReceipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $pluginName
         $outcome = if ($null -ne $existingReceipt) { 'updated' } else { 'installed' }
-        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceLabel $SourceLabel -RefSha $RefSha -Outcome $outcome
+        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceIdentity $SourceIdentity -RefSha $RefSha -Outcome $outcome
 
         $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $pluginName
         $stagedPath = Join-Path $stagedReceiptsRoot "$pluginName.json"
@@ -544,9 +555,9 @@ try {
     $appliedEntries = Invoke-InstallTransaction -Operations $operations -BackupRoot $backupRoot
     Set-Content -LiteralPath (Join-Path $operationRoot 'success.marker') -Value ((Get-Date).ToUniversalTime().ToString('o')) -NoNewline -Encoding utf8
 
-    $receiptEntries = Write-ReceiptSet -RepoRoot $targetRepoRoot -PendingPlugins $pendingPlugins -SourceLabel ([string]$sourceContext.Label) -RefSha $resolvedSha -OperationRoot $operationRoot
+    $receiptEntries = Write-ReceiptSet -RepoRoot $targetRepoRoot -PendingPlugins $pendingPlugins -SourceIdentity $sourceContext.SourceIdentity -RefSha $resolvedSha -OperationRoot $operationRoot
 
-    Write-Host "Installed plugin '$Name' with $($pendingPlugins.Count) plugin(s) from '$([string]$sourceContext.Label)' at '$resolvedSha'."
+    Write-Host "Installed plugin '$Name' with $($pendingPlugins.Count) plugin(s) from '$([string]$sourceContext.SourceIdentity.identity)' at '$resolvedSha'."
 }
 catch {
     if ($receiptEntries.Count -gt 0) {

@@ -56,6 +56,42 @@ Describe 'plugin retirement catalog' {
             $script:tempRoots.Add($root)
             return $root
         }
+
+        function New-RetirementState {
+            param(
+                [string]$Name = 'retired-example',
+                [string]$Status = 'preview',
+                [int]$FileCount = 1
+            )
+
+            $files = @(
+                for ($index = 0; $index -lt $FileCount; $index++) {
+                    [pscustomobject][ordered]@{
+                        dest = "skills/example/file-$index.txt"
+                        expectedSha256 = 'b' * 64
+                        observedSha256 = $null
+                        outcome = 'pending'
+                    }
+                }
+            )
+            return [pscustomobject][ordered]@{
+                schemaVersion = 1
+                name = $Name
+                status = $Status
+                transactionId = 'a' * 32
+                updatedAt = '2026-08-15T00:00:00Z'
+                tombstoneSha256 = 'c' * 64
+                prior = [pscustomobject][ordered]@{
+                    sourceIdentity = New-PluginSourceIdentity -Repository 'jIRI-san/skalary'
+                    ref = 'd' * 40
+                    version = '1.2.3'
+                }
+                affectedFiles = $files
+                remedy = 'Rerun the operation to apply the preview.'
+            }
+        }
+
+        . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
     }
 
     AfterAll {
@@ -183,7 +219,6 @@ Describe 'plugin retirement catalog' {
     }
 
     It 'test:PluginRetirement.InstallConfinement preserves the existing .github write boundary while retirement is catalog-only' {
-        . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
         $root = New-TestRoot
         git -C $root init --quiet
         $valid = Resolve-GithubConstrainedPath -RepoRoot $root -RelativePath 'skills/example/SKILL.md'
@@ -198,5 +233,128 @@ Describe 'plugin retirement catalog' {
         [string]$contract.prose | Should -Match 'only inside.*\.github'
         @((Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry-retirements.json') -Raw |
                 ConvertFrom-Json).retiredPlugins).Count | Should -Be 0
+    }
+
+    It 'test:PluginRetirement.SourceIdentityAndSecretGuard uses one credential-free versioned identity across receipts and retirement state' {
+        $secret = 'SENTINEL-RETIREMENT-SECRET'
+        $sha = 'e' * 40
+        $github = New-PluginSourceIdentity -Repository "https://x-access-token:$secret@GitHub.com/JIRI-san/Skalary.git?token=$secret#fragment"
+        $ssh = New-PluginSourceIdentity -Repository 'git@github.com:jiri-SAN/SKALARY.git'
+        $localRoot = New-TestRoot
+        $local = New-PluginSourceIdentity -LocalPath $localRoot
+
+        $github.version | Should -Be 1
+        $github.kind | Should -Be 'github'
+        $github.identity | Should -Be 'github.com/jiri-san/skalary'
+        (Test-PluginSourceIdentityEqual -Left $github -Right $ssh) | Should -BeTrue
+        (New-PluginSourceIdentity -Repository 'ssh://git@github.com:22/jIRI-san/skalary.git').identity |
+            Should -Be 'github.com/jiri-san/skalary'
+        { New-PluginSourceIdentity -Repository 'file://github.com/jIRI-san/skalary' } | Should -Throw
+        { New-PluginSourceIdentity -Repository 'foo://github.com/jIRI-san/skalary' } | Should -Throw
+        $local.kind | Should -Be 'local'
+        $local.identity | Should -Match '^sha256:[a-f0-9]{64}$'
+        ($local | ConvertTo-Json -Compress) | Should -Not -Match ([regex]::Escape($localRoot))
+        foreach ($invalidVersion in @('1', 1.1, $true)) {
+            {
+                Assert-PluginSourceIdentity -SourceIdentity ([pscustomobject]@{
+                        version = $invalidVersion
+                        kind = 'github'
+                        identity = 'github.com/jiri-san/skalary'
+                    })
+            } | Should -Throw
+        }
+        foreach ($nonCanonical in @(
+                [pscustomobject]@{ version = 1; kind = 'GITHUB'; identity = 'github.com/jiri-san/skalary' },
+                [pscustomobject]@{ version = 1; kind = 'github'; identity = 'GitHub.com/JIRI-san/Skalary' },
+                [pscustomobject]@{ version = 1; kind = 'local'; identity = "SHA256:$('A' * 64)" }
+            )) {
+            { Assert-PluginSourceIdentity -SourceIdentity $nonCanonical } | Should -Throw
+        }
+
+        $legacy = [pscustomobject]@{
+            source = "remote:https://x-access-token:$secret@github.com/jIRI-san/skalary.git@$sha"
+            ref = $sha
+        }
+        $upgraded = Resolve-PluginReceiptSourceIdentity -Receipt $legacy
+        $upgraded.identity | Should -Be 'github.com/jiri-san/skalary'
+        ($upgraded | ConvertTo-Json -Compress) | Should -Not -Match $secret
+
+        $ambiguousError = $null
+        try {
+            Resolve-PluginReceiptSourceIdentity -Receipt ([pscustomobject]@{
+                    source = "remote:https://x-access-token:$secret@github.com/jIRI-san/skalary.git"
+                    ref = $sha
+                })
+        }
+        catch {
+            $ambiguousError = $_.Exception.Message
+        }
+        $ambiguousError | Should -Match 'ambiguous'
+        $ambiguousError | Should -Not -Match $secret
+
+        $receipt = [pscustomobject][ordered]@{
+            name = 'retired-example'
+            version = '1.2.3'
+            sourceIdentity = $github
+            ref = $sha
+            installedAt = '2026-08-15T00:00:00Z'
+            files = @([pscustomobject][ordered]@{
+                    dest = 'skills/example/SKILL.md'
+                    sha256 = 'f' * 64
+                    outcome = 'installed'
+                })
+        }
+        $receiptJson = $receipt | ConvertTo-Json -Depth 20
+        $receiptJson | Test-Json -SchemaFile (Join-Path $script:repoRoot 'schemas/receipt/receipt.schema.json') | Should -BeTrue
+        $receiptJson | Should -Not -Match $secret
+        $receiptJson | Should -Not -Match ([regex]::Escape($sha + '@'))
+        ($receiptJson.Replace($sha, ('a' * 64))) |
+            Test-Json -SchemaFile (Join-Path $script:repoRoot 'schemas/receipt/receipt.schema.json') |
+            Should -BeTrue
+
+        foreach ($scriptName in @('Install-Plugin.ps1', 'Update-Plugin.ps1')) {
+            $scriptText = Get-Content -LiteralPath (Join-Path $script:repoRoot "scripts/skalary/$scriptName") -Raw
+            $scriptText | Should -Match 'New-PluginSourceIdentity'
+            $scriptText | Should -Match 'sourceIdentity'
+            $scriptText | Should -Not -Match 'source\s*=\s*"\$sourceLabel@'
+        }
+    }
+
+    It 'test:PluginRetirement.ReconciliationStateMatrix confines and validates complete durable state while bounding summaries only' {
+        $root = New-TestRoot
+        [void](New-Item -ItemType Directory -Path (Join-Path $root '.github') -Force)
+        $state = New-RetirementState -FileCount 12
+
+        $statePath = Write-PluginRetirementState -RepoRoot $root -State $state
+        $statePath | Should -Be (Join-Path $root '.github/.skalary/retirements/retired-example.json')
+        $raw = Get-Content -LiteralPath $statePath -Raw
+        $raw | Test-Json -SchemaFile (Join-Path $script:repoRoot 'schemas/retirement/retirement-state.schema.json') | Should -BeTrue
+
+        $persisted = Read-PluginRetirementState -RepoRoot $root -PluginName 'retired-example'
+        @($persisted.affectedFiles).Count | Should -Be 12
+        $summary = Get-PluginRetirementSummary -State $persisted -MaxPaths 3
+        $summary.totalPaths | Should -Be 12
+        @($summary.paths).Count | Should -Be 3
+        $summary.omittedPaths | Should -Be 9
+        @((Read-PluginRetirementState -RepoRoot $root -PluginName 'retired-example').affectedFiles).Count | Should -Be 12
+
+        foreach ($status in @('preview', 'applying', 'retired', 'residue', 'failed')) {
+            { Test-PluginRetirementState -State (New-RetirementState -Status $status) } | Should -Not -Throw
+        }
+
+        $hostile = New-RetirementState
+        $hostile.affectedFiles[0].dest = '../outside.txt'
+        { Write-PluginRetirementState -RepoRoot $root -State $hostile } | Should -Throw
+        { Get-PluginRetirementStatePath -RepoRoot $root -PluginName '../outside' } | Should -Throw
+        Test-Path -LiteralPath (Join-Path $root 'outside.json') | Should -BeFalse
+
+        if (-not $IsWindows) {
+            $linkedRoot = New-TestRoot
+            $outsideRoot = New-TestRoot
+            [void](New-Item -ItemType Directory -Path (Join-Path $linkedRoot '.github') -Force)
+            [void](New-Item -ItemType SymbolicLink -Path (Join-Path $linkedRoot '.github/.skalary') -Target $outsideRoot)
+            { Write-PluginRetirementState -RepoRoot $linkedRoot -State (New-RetirementState) } | Should -Throw '*link or reparse point*'
+            Test-Path -LiteralPath (Join-Path $outsideRoot 'retirements/retired-example.json') | Should -BeFalse
+        }
     }
 }

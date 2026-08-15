@@ -21,6 +21,7 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 | Plugin source | `plugins/<name>/` | Authoring bundle with manifest + payload | `plugins/*/plugin.json`, payload files |
 | Registry index | `registry.json` | Generated install catalog with file hashes and bootstrap metadata | `scripts/skalary/Build-Registry.ps1` output |
 | Runtime state | `.github/.skalary/receipts/<name>.json` | Per-plugin installation tracking, merge-safe | install/update/remove verbs |
+| Retirement state | `.github/.skalary/retirements/<name>.json` | Durable, source-bound preview/apply/result authority | retirement reconciler and shared removal engine |
 | Dogfood target | `.github/**` | Installed copies used by local tooling | `Sync-Dogfood.ps1` |
 | Skill script bundle | `plugins/<name>/skills/<skill>/scripts/**` | Per-plugin copies of the workflow scripts a skill invokes at runtime, generated from `scripts/skalary/` | `Sync-PluginScripts.ps1` |
 
@@ -32,8 +33,20 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 | `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256`, the plugin's `scaffolds[]`, and bootstrap metadata (`ref`, script URL, one-liner). |
 | `schemas/receipt/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
 | `schemas/registry/plugin-retirement.schema.json` | Closed permanent tombstone catalog: immutable source/ref/version payload sets plus manual residue remedies. |
+| `schemas/retirement/retirement-state.schema.json` | Closed versioned consumer state for `preview`, `applying`, `retired`, `residue`, and `failed`, including the complete affected path/hash set and prior source/ref/version. |
 
 Design choice: per-plugin receipts replace a shared lock file to avoid cross-branch merge conflicts.
+
+Receipt writers use the shared version 1 `sourceIdentity` API in `_Common.ps1`. GitHub sources
+persist only canonical `github.com/<owner>/<repository>` identity; local sources persist only a
+SHA-256 digest of the canonical path. The immutable commit `ref` remains a separate field. Legacy
+`source` labels are accepted for ordinary receipt reads but retirement can upgrade them only when
+their kind and exact `@<ref>` suffix are unambiguous; otherwise reconciliation fails closed.
+
+Retirement state names pass the plugin-name grammar before path construction, and the resulting
+path is resolved through the same `.github` confinement helper as payload destinations. Reads and
+writes validate the closed embedded version 1 schema. Durable state never truncates affected files;
+only summaries cap displayed paths and carry total/omitted counts.
 
 `registry-retirements.json` is the canonical permanent retirement catalog. `Build-Registry.ps1`
 copies it into skalary `registry.json.retiredPlugins`; the Copilot marketplace remains active-only.

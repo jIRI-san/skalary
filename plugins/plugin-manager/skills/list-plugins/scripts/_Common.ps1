@@ -68,6 +68,210 @@ function Resolve-RegistryPath {
     throw "No skalary registry found under '$RepoRoot' (looked for registry.json and scripts/skalary/registry.json). This is not a skalary-managed repo - run scripts/skalary/bootstrap.ps1 first, or pass -RegistryPath."
 }
 
+function Assert-PluginName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    if ($PluginName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw 'Plugin name must contain only lowercase letters, digits, and hyphens, and must start with a letter or digit.'
+    }
+}
+
+function Get-StringSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Value
+    )
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    return [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
+function ConvertTo-CanonicalGithubRepository {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Repository
+    )
+
+    $value = $Repository.Trim()
+    $owner = $null
+    $name = $null
+
+    if ($value -match '^github\.com/(?<owner>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/(?<name>[A-Za-z0-9._-]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    elseif ($value -match '^(?<owner>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/(?<name>[A-Za-z0-9._-]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    elseif ($value -match '^(?:[^@\s]+@)?github\.com:(?<owner>[^/\s]+)/(?<name>[^/\s]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    else {
+        $uri = $null
+        if (-not [System.Uri]::TryCreate($value, [System.UriKind]::Absolute, [ref]$uri) -or
+            $uri.Host -ne 'github.com') {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+
+        $validTransport = switch ($uri.Scheme.ToLowerInvariant()) {
+            'https' { $uri.IsDefaultPort -or $uri.Port -eq 443 }
+            'http' { $uri.IsDefaultPort -or $uri.Port -eq 80 }
+            'ssh' { $uri.Port -eq -1 -or $uri.Port -eq 22 }
+            'git' { $uri.Port -eq -1 -or $uri.Port -eq 9418 }
+            default { $false }
+        }
+        if (-not $validTransport) {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+
+        $segments = @($uri.AbsolutePath.Trim('/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries))
+        if ($segments.Count -ne 2) {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+        $owner = $segments[0]
+        $name = $segments[1] -replace '\.git$', ''
+    }
+
+    if ($owner -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$' -or
+        $name -notmatch '^[A-Za-z0-9._-]+$') {
+        throw 'Repository source is not a supported GitHub repository identity.'
+    }
+
+    return "github.com/$($owner.ToLowerInvariant())/$($name.ToLowerInvariant())"
+}
+
+function New-PluginSourceIdentity {
+    [CmdletBinding(DefaultParameterSetName = 'Github')]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Github')]
+        [string]$Repository,
+
+        [Parameter(Mandatory, ParameterSetName = 'Local')]
+        [string]$LocalPath
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Local') {
+        $canonicalPath = [System.IO.Path]::GetFullPath($LocalPath)
+        return [pscustomobject][ordered]@{
+            version = 1
+            kind = 'local'
+            identity = "sha256:$(Get-StringSha256 -Value $canonicalPath)"
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+        version = 1
+        kind = 'github'
+        identity = ConvertTo-CanonicalGithubRepository -Repository $Repository
+    }
+}
+
+function Assert-PluginSourceIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $SourceIdentity
+    )
+
+    $properties = @($SourceIdentity.PSObject.Properties.Name)
+    $version = $SourceIdentity.version
+    $isIntegerVersion = ($version -is [byte] -or
+        $version -is [sbyte] -or
+        $version -is [int16] -or
+        $version -is [uint16] -or
+        $version -is [int32] -or
+        $version -is [uint32] -or
+        $version -is [int64] -or
+        $version -is [uint64])
+    if ($properties.Count -ne 3 -or
+        $properties -notcontains 'version' -or
+        $properties -notcontains 'kind' -or
+        $properties -notcontains 'identity' -or
+        -not $isIntegerVersion -or
+        $version -ne 1) {
+        throw 'Plugin source identity has an unsupported or ambiguous shape.'
+    }
+
+    $kind = [string]$SourceIdentity.kind
+    $identity = [string]$SourceIdentity.identity
+    if ($kind -ceq 'github') {
+        if ($identity -cne (ConvertTo-CanonicalGithubRepository -Repository $identity)) {
+            throw 'GitHub plugin source identity is not canonical.'
+        }
+    }
+    elseif ($kind -ceq 'local') {
+        if ($identity -cnotmatch '^sha256:[a-f0-9]{64}$') {
+            throw 'Local plugin source identity is invalid.'
+        }
+    }
+    else {
+        throw 'Plugin source identity kind is unsupported.'
+    }
+}
+
+function Resolve-PluginReceiptSourceIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Receipt
+    )
+
+    if ($Receipt.PSObject.Properties.Name -contains 'sourceIdentity') {
+        Assert-PluginSourceIdentity -SourceIdentity $Receipt.sourceIdentity
+        return $Receipt.sourceIdentity
+    }
+
+    if ($Receipt.PSObject.Properties.Name -notcontains 'source' -or
+        $Receipt.PSObject.Properties.Name -notcontains 'ref') {
+        throw 'Legacy plugin receipt source identity is missing and cannot be reconciled safely.'
+    }
+
+    $legacy = [string]$Receipt.source
+    $ref = [string]$Receipt.ref
+    $suffix = "@$ref"
+    if ([string]::IsNullOrWhiteSpace($legacy) -or
+        $ref -notmatch '^[a-f0-9]{40}([a-f0-9]{24})?$' -or
+        -not $legacy.EndsWith($suffix, [System.StringComparison]::Ordinal) -or
+        $legacy.Length -le $suffix.Length) {
+        throw 'Legacy plugin receipt source identity is ambiguous and requires an explicit migration.'
+    }
+
+    $label = $legacy.Substring(0, $legacy.Length - $suffix.Length)
+    if ($label.StartsWith('remote:', [System.StringComparison]::Ordinal)) {
+        return New-PluginSourceIdentity -Repository $label.Substring('remote:'.Length)
+    }
+    if ($label.StartsWith('local:', [System.StringComparison]::Ordinal)) {
+        return New-PluginSourceIdentity -LocalPath $label.Substring('local:'.Length)
+    }
+
+    throw 'Legacy plugin receipt source identity is ambiguous and requires an explicit migration.'
+}
+
+function Test-PluginSourceIdentityEqual {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Left,
+
+        [Parameter(Mandatory)]
+        $Right
+    )
+
+    Assert-PluginSourceIdentity -SourceIdentity $Left
+    Assert-PluginSourceIdentity -SourceIdentity $Right
+    return ([int]$Left.version -eq [int]$Right.version -and
+        [string]$Left.kind -ceq [string]$Right.kind -and
+        [string]$Left.identity -ceq [string]$Right.identity)
+}
+
 function Test-GithubRelativePath {
     [CmdletBinding()]
     param(
@@ -438,6 +642,215 @@ function Write-JsonFileStable {
     Set-Content -LiteralPath $Path -Value "$json`n" -Encoding utf8
 }
 
+function Get-PluginRetirementStateSchema {
+    [CmdletBinding()]
+    param()
+
+    return @'
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "status", "transactionId", "updatedAt", "tombstoneSha256", "prior", "affectedFiles", "remedy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "status": { "enum": ["preview", "applying", "retired", "residue", "failed"] },
+    "transactionId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "tombstoneSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "prior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceIdentity", "ref", "version"],
+      "properties": {
+        "sourceIdentity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "kind", "identity"],
+          "properties": {
+            "version": { "const": 1 },
+            "kind": { "enum": ["github", "local"] },
+            "identity": {
+              "type": "string",
+              "pattern": "^(github\\.com/[a-z0-9-]+/[a-z0-9._-]+|sha256:[a-f0-9]{64})$"
+            }
+          }
+        },
+        "ref": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+        }
+      }
+    },
+    "affectedFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dest", "expectedSha256", "observedSha256", "outcome"],
+        "properties": {
+          "dest": { "type": "string", "minLength": 1 },
+          "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "observedSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "outcome": { "enum": ["pending", "removed", "residue"] }
+        }
+      }
+    },
+    "remedy": { "type": "string" },
+    "error": { "type": "string" }
+  }
+}
+'@
+}
+
+function Get-PluginRetirementStatePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    Assert-PluginName -PluginName $PluginName
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ".skalary/retirements/$PluginName.json"
+}
+
+function Assert-PluginRetirementStatePathSafe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $githubRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot '.github'))
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    $relative = [System.IO.Path]::GetRelativePath($githubRoot, $candidate)
+    if ($relative.StartsWith('..') -or [System.IO.Path]::IsPathRooted($relative)) {
+        throw 'Plugin retirement state path escapes the .github root.'
+    }
+
+    $current = $githubRoot
+    foreach ($segment in @($relative.Split(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringSplitOptions]::RemoveEmptyEntries))) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+                throw "Plugin retirement state path traverses a link or reparse point at '$current'."
+            }
+        }
+        $current = Join-Path $current $segment
+    }
+
+    if (Test-Path -LiteralPath $current) {
+        $item = Get-Item -LiteralPath $current -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+            throw "Plugin retirement state path resolves to a link or reparse point at '$current'."
+        }
+    }
+}
+
+function Test-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State
+    )
+
+    $json = ConvertTo-SortedObject -InputObject $State | ConvertTo-Json -Depth 100
+    if (-not ($json | Test-Json -Schema (Get-PluginRetirementStateSchema) -ErrorAction SilentlyContinue)) {
+        throw 'Plugin retirement state does not satisfy the version 1 schema.'
+    }
+    Assert-PluginName -PluginName ([string]$State.name)
+    Assert-PluginSourceIdentity -SourceIdentity $State.prior.sourceIdentity
+
+    foreach ($entry in @($State.affectedFiles)) {
+        if (-not (Test-GithubRelativePath -RelativePath ([string]$entry.dest))) {
+            throw 'Plugin retirement state contains an invalid affected destination.'
+        }
+    }
+}
+
+function Write-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $State
+    )
+
+    Test-PluginRetirementState -State $State
+    $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName ([string]$State.name)
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    $stateRoot = Split-Path -Parent $statePath
+    if (-not (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $stateRoot -Force)
+    }
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    Write-JsonFileStable -Path $statePath -InputObject $State
+    return $statePath
+}
+
+function Read-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $PluginName
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+        return $null
+    }
+
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    $state = Read-JsonFile -Path $statePath
+    Test-PluginRetirementState -State $state
+    if ([string]$state.name -cne $PluginName) {
+        throw 'Plugin retirement state name does not match its confined file name.'
+    }
+    return $state
+}
+
+function Get-PluginRetirementSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State,
+
+        [ValidateRange(0, 64)]
+        [int]$MaxPaths = 8
+    )
+
+    Test-PluginRetirementState -State $State
+    $allPaths = @($State.affectedFiles | ForEach-Object { [string]$_.dest })
+    $shown = @($allPaths | Select-Object -First $MaxPaths)
+    return [pscustomobject][ordered]@{
+        name = [string]$State.name
+        status = [string]$State.status
+        totalPaths = $allPaths.Count
+        paths = $shown
+        omittedPaths = [Math]::Max(0, $allPaths.Count - $shown.Count)
+        remedy = [string]$State.remedy
+    }
+}
+
 function Get-PluginReceiptPath {
     [CmdletBinding()]
     param(
@@ -448,8 +861,8 @@ function Get-PluginReceiptPath {
         [string]$PluginName
     )
 
-    $receiptsRoot = Join-Path $RepoRoot '.github/.skalary/receipts'
-    return Join-Path $receiptsRoot "$PluginName.json"
+    Assert-PluginName -PluginName $PluginName
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ".skalary/receipts/$PluginName.json"
 }
 
 function Read-PluginReceipt {
