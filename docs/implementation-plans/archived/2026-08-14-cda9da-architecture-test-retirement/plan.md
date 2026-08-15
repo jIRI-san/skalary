@@ -1,4 +1,4 @@
-# cda9da: Architecture-test retirement
+# cda9da: Architecture-test retirement [DONE]
 <!-- plan-id: cda9da -->
 <!-- epic: bcece1 -->
 <!-- cip-stage: dr-round-3 -->
