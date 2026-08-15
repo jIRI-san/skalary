@@ -86,6 +86,11 @@ keyword inventory is read out of the schema files, so a schema that starts using
 turns the gate red rather than trusting the host. Absence is exit `2` plus one bounded terminal
 status object; success is exit `0` plus the same shape.
 
+Installed CR/DR consumers therefore must provision PowerShell 7.6+ before dispatch. The runtime has
+no package or vendored-validator fallback: an incapable host receives the bounded exit-2 diagnosis
+and runs zero reviewers. The repository README and both installed collation guides carry this
+prerequisite; the wrapper's lower `#requires` is diagnostic compatibility, not runtime support.
+
 Two simulation seams (`-SimulateVersion`, `-SimulateMissingSchemaFile`) exist for the suite. Both can
 only lower reported capability: the simulated version is applied as a minimum against the real one,
 and the switch can only remove a parameter. No invocation can talk a real host into skipping a check.
@@ -164,7 +169,10 @@ gap in the fixture — it is a real case, and
 indented, schema-valid, over-cap envelope that must be terminal exit `3`.) The structural maximum's 256
 findings carry 1 MiB of bodies alone, so its full view is ~1.8 MiB and is correctly rejected as
 admission; `test:ReviewReport.MaximumEnvelopeBudget` proves the whole render-and-admit decision stays
-inside five seconds and 256 MiB of sampled private-byte growth in a child process.
+inside five seconds and 256 MiB of sampled private-byte growth in a child process. The worker records
+OS and PowerShell identity with its measured wall-clock/private-byte result, and the named test is
+mandatory on both Windows and Linux CI legs—never skipped—so "cross-platform" means the same committed
+recipe executes under each supported host rather than extrapolating one local measurement.
 
 ## Artifact names
 
@@ -233,6 +241,10 @@ throughout, preserves colliding raw records, sorts model/title/body records inst
 and replaces C0 controls with Control Pictures (see canonicalization below). Those paths are unreachable
 for the corpus — it is ASCII, LF, control-free and every model is in the roster — so the goldens are
 unaffected, which is exactly why the corpus cannot be the only proof and each case is pinned separately.
+Publish computes the merged projection once and renders both views from it; calling either exported
+view helper with `-Run` still computes its own projection for compatibility. The shared projection is
+required for the maximum-envelope cost bound—doing the same grouping pass once per view wastes most
+of the five-second budget without changing bytes.
 
 ### Lifecycle, state and idempotency
 

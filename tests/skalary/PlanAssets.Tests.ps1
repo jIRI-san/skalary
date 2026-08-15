@@ -140,6 +140,7 @@ Describe 'Plan assets layout' {
             foreach ($asset in @('assets/intent.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
                 $template | Should -Match ([regex]::Escape($asset))
             }
+            $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>/'))
 
             $template | Should -Match '<!-- plan-id:'
             $template | Should -Match '(?m)^## Phase 1:'
@@ -173,6 +174,8 @@ Describe 'Plan assets layout' {
                     # Placeholder, never zero content — "present-but-empty" must stay distinguishable from "authored".
                     (Get-Content -LiteralPath $assetPath -Raw).Trim() | Should -Not -BeNullOrEmpty
                 }
+                Test-Path -LiteralPath (Join-Path $assetsDir 'reviews') |
+                    Should -BeFalse -Because 'ReviewRuns is conditional output, not an empty scaffold'
 
                 $metadata = Get-PlanMetadata -Path (Join-Path $planDir 'plan.md') -RepoRoot $tempRoot
                 $metadata.Layout | Should -Be 'assets'

@@ -60,6 +60,7 @@ That is why `registry-ci.yml` gives every gate its own named step and never chai
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
 | Job timeout | per matrix leg, above that platform's ceiling — a job killed before the gate speaks reports a cancelled run, not an over-budget one |
+| Measurement receipt | `Measure-SuiteRuntime.ps1` records non-empty OS/PowerShell/Pester/processor identity plus both HEAD commit and the pre-measurement staged git tree hash. The tree binds a measurement taken before the step commit to the exact staged inputs the suite read; the receipt rewrite itself necessarily lands afterward. Callers stage every tracked implementation/input change before measuring and leave only the output receipt unstaged. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. Failed runs are emitted but never recorded. |
 
 Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
 

@@ -683,9 +683,15 @@ function Get-ReviewSeverityCell {
 
 function Get-ReviewRunSummaryView {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object]$Run)
+    param(
+        [object]$Run,
+        [object]$Projection
+    )
 
-    $projection = ConvertTo-ReviewProjection -Run $Run
+    $projection = if ($null -ne $Projection) { $Projection } else {
+        if ($null -eq $Run) { throw 'Run or Projection is required.' }
+        ConvertTo-ReviewProjection -Run $Run
+    }
     $lines = [System.Collections.Generic.List[string]]::new()
 
     $lines.Add("# $(Get-ReviewReportTitle -ReviewType $projection.ReviewType) — summary")
@@ -729,9 +735,15 @@ function Get-ReviewRunSummaryView {
 
 function Get-ReviewRunFullView {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object]$Run)
+    param(
+        [object]$Run,
+        [object]$Projection
+    )
 
-    $projection = ConvertTo-ReviewProjection -Run $Run
+    $projection = if ($null -ne $Projection) { $Projection } else {
+        if ($null -eq $Run) { throw 'Run or Projection is required.' }
+        ConvertTo-ReviewProjection -Run $Run
+    }
     $lines = [System.Collections.Generic.List[string]]::new()
 
     $lines.Add("# $(Get-ReviewReportTitle -ReviewType $projection.ReviewType) — full report")
@@ -2451,8 +2463,9 @@ function Invoke-ReviewPublishCore {
             -Diagnostic @("canonical result is $($canonicalBytes.Length) bytes, over the $($limits.maxEnvelopeBytes) budget")
     }
     $canonicalRun = $canonicalJson | ConvertFrom-Json -AsHashtable -Depth 40
-    $summaryText = Get-ReviewRunSummaryView -Run $canonicalRun
-    $fullText = Get-ReviewRunFullView -Run $canonicalRun
+    $projection = ConvertTo-ReviewProjection -Run $canonicalRun
+    $summaryText = Get-ReviewRunSummaryView -Projection $projection
+    $fullText = Get-ReviewRunFullView -Projection $projection
     $summaryBytes = $script:Utf8NoBom.GetBytes($summaryText)
     $fullBytes = $script:Utf8NoBom.GetBytes($fullText)
 
@@ -2475,7 +2488,6 @@ function Invoke-ReviewPublishCore {
     }
 
     $runDigest = Get-ReviewDigest -Bytes $canonicalBytes
-    $projection = ConvertTo-ReviewProjection -Run $canonicalRun
     $runState = [string]$projection.State
 
     # Everything that decides state — admission, idempotent replay, changed reuse and the publication

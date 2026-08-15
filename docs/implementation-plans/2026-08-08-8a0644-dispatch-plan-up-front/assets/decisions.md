@@ -8,3 +8,4 @@
 - **Never hide omissions.** Work dropped by scope or budget is named with a reason; throttling cannot silently convert a full run into partial attendance.
 - **Preserve independent passes.** Reading batches do not multiply concern passes, and selected concern/model pairs still run independently once.
 - **Bound retries, then report degradation.** Rejected: replacement calls or unlimited retries that obscure what actually ran.
+- **Emit the `c21cdc` v1 task contract.** The scheduler produces frozen task-plan records through the existing adapter; it does not introduce a second attendance, persistence, or rendering format.

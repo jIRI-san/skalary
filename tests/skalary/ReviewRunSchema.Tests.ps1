@@ -420,7 +420,17 @@ Describe 'review run schemas' {
         @($envelope.findings).Count | Should -Be ([int]$script:maximumSpec.generation.findings)
         @($envelope.tasks | Where-Object { $_.outcome -ne 'completed' }).Count |
             Should -Be ([int]$script:maximumSpec.generation.diagnosticTasks)
-        @($envelope.tasks | Where-Object { $_.diagnostic.Length -eq $script:maximumSpec.generation.diagnosticLength }).Count |
+        @($envelope.tasks | Where-Object {
+                $diagnostic = if ($_ -is [System.Collections.IDictionary]) {
+                    if ($_.Contains('diagnostic')) { [string]$_['diagnostic'] } else { $null }
+                }
+                elseif ($_.PSObject.Properties.Name -contains 'diagnostic') {
+                    [string]$_.diagnostic
+                }
+                else { $null }
+                $null -ne $diagnostic -and
+                $diagnostic.Length -eq $script:maximumSpec.generation.diagnosticLength
+            }).Count |
             Should -Be ([int]$script:maximumSpec.generation.diagnosticTasks)
         @($envelope.findings | Where-Object {
                 $taskId = $_.taskId

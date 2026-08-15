@@ -6,4 +6,4 @@
 - **Suspicion can only lower confidence.** Near-identical nominally independent findings are flagged and excluded from corroboration or severity elevation.
 - **State the corroboration regime explicitly.** Reports distinguish independently corroborated, single-source, suspicious, and degraded findings from the declared model roster.
 - **Preserve independent discovery.** Rejected: feed model A's findings to model B; it destroys unanchored agreement and serializes the fanout.
-- **Keep report-shape ownership with `c21cdc`.** This plan extends its machine-readable envelope with corroboration semantics rather than independently redesigning `Build-ReviewReport.ps1`.
+- **Keep v1 ownership with `c21cdc`.** This plan consumes the published `skalary/review-run@1` artifact and never mutates v1 semantics in place; persisted similarity evidence or changed elevation semantics require an explicit v2 plus migration.

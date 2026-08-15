@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T06:03:41.3162410Z",
+  "generatedAt": "2026-08-15T08:54:33.7680059Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -434,12 +434,12 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "b7a91e3498c1d2798df51bae7b77c82f5bb6e4dd26a25f05da3ba5576b77762f",
+          "sha256": "088f39a86ef36d4de6c37db1a96bd779167dd172c30dbeab90119321f6b16a67",
           "src": "skills/cr/SKILL.md"
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "79a1e1c61ea228516f6611a75b3634365f5a4d4b478dbf8e56ff5260ed5c091f",
+          "sha256": "1d4a10b602775db1eba58e44622528e117ef6d6a13ec0c7adf7ccfa7cbf5aa74",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -479,7 +479,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "6cad7337d876de7f576e66a148dec934904702718056c95ecd567c4271d2628e",
+          "sha256": "601ee67858de55cd521ede67882d727c63a18d6d9156be3364e865a9d406515b",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -516,7 +516,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.7"
+      "version": "1.0.10"
     },
     {
       "author": "jIRI-san",
@@ -672,7 +672,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "sha256": "bb84bc10386226bea5ba91fffbe07b8f1a1b68872bc07fcd871ff02608cc67b4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -742,7 +742,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "sha256": "bb84bc10386226bea5ba91fffbe07b8f1a1b68872bc07fcd871ff02608cc67b4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -814,7 +814,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.29"
+      "version": "1.0.30"
     },
     {
       "author": "jIRI-san",
@@ -946,7 +946,7 @@
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "79a1e1c61ea228516f6611a75b3634365f5a4d4b478dbf8e56ff5260ed5c091f",
+          "sha256": "1d4a10b602775db1eba58e44622528e117ef6d6a13ec0c7adf7ccfa7cbf5aa74",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -986,7 +986,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "6cad7337d876de7f576e66a148dec934904702718056c95ecd567c4271d2628e",
+          "sha256": "601ee67858de55cd521ede67882d727c63a18d6d9156be3364e865a9d406515b",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1023,7 +1023,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.6"
+      "version": "1.0.9"
     },
     {
       "author": "jIRI-san",

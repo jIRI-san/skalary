@@ -8,6 +8,7 @@ Describe 'suite budget' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
+        $script:measurementScript = Join-Path $script:repoRoot 'scripts/skalary/Measure-SuiteRuntime.ps1'
         $script:sandboxes = [System.Collections.Generic.List[string]]::new()
         $script:budget = $null
         if (Test-Path -LiteralPath $script:budgetPath -PathType Leaf) {
@@ -340,8 +341,24 @@ Describe 'sandbox' {
             foreach ($field in @('os', 'psVersion', 'processorCount')) {
                 @($row.environment.PSObject.Properties.Name) |
                     Should -Contain $field -Because "'$platform' must record the '$field' its figure was measured under"
+                [string]$row.environment.$field |
+                    Should -Not -BeNullOrEmpty -Because "'$platform' must record a non-empty '$field' value"
+            }
+            if ($platform -eq $current) {
+                [string]$row.tree |
+                    Should -Match '^[0-9a-f]{40}$' -Because "the current '$platform' measurement must identify the exact staged tree it measured"
             }
         }
+    }
+
+    It 'test:SuiteBudget.MeasurementReceipt binds a clean stable staged tree' {
+        $source = Get-Content -LiteralPath $script:measurementScript -Raw
+        $source | Should -Match 'diff --quiet --ignore-submodules'
+        $source | Should -Match 'ls-files --others --exclude-standard'
+        ([regex]::Matches($source, 'write-tree')).Count | Should -BeGreaterOrEqual 2
+        $source | Should -Match 'The index changed while'
+        $source | Should -Match 'The working tree changed while'
+        $source | Should -Match 'tree = \$treeBefore'
     }
 
     It 'test:SuiteBudget.OverBudgetRunFails fails a run over its platform ceiling and names both figures' {

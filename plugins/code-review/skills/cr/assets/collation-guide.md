@@ -4,6 +4,14 @@ This guide owns the caller contract for `skalary/review-run@1`. Both installed c
 byte-identical. The writer, reader, and cleanup scripts are bundled under
 `.github/skills/<skill>/scripts/`.
 
+## Runtime prerequisite
+
+The installed writer requires PowerShell 7.6 or newer. Native
+`Test-Json -SchemaFile` provides the draft-2020-12 validation boundary; no vendored validator or
+package fallback exists. Consumer environments must provision PowerShell 7.6+ before review
+dispatch. If the host lacks the required version or schema capability, Freeze returns bounded exit
+`2` and the orchestrator stops before any reviewer runs.
+
 ## Absolute write boundary
 
 The orchestrator's `edit` tool may write **only** these two files for the UUID it allocated:

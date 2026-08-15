@@ -79,3 +79,10 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Med] Evidence token extraction lacked an end boundary and could accept a longer suffixed test ID.
 - [3.1] [src:code-review] [sev:Med] Writer-scope rejection recognized too few permission phrasings; any non-prohibitive write clause targeting forbidden surfaces now fails.
 - [3.1] [src:code-review] [sev:High] Manifest-driven fixture installation joined source and destination strings without canonical confinement, so a traversal mapping could escape the plugin or fixture root.
+- [3.2] [src:code-review] [sev:Med] Suite runtime canonicalization treated ordered environment dictionaries as PSObject metadata, recording null identity values and only HEAD rather than the measured staged tree.
+- [3.2] [src:code-review] [sev:Med] Plan workflow docs said ReviewRuns directories appear only after publication, but callers create conditional state before Freeze and may leave frozen unpublished orphans.
+- [3.2] [src:code-review] [sev:High] The new current-platform tree assertion would fail Windows because its historical runtime row lacked tree attribution; the row was migrated through the supported import flow using its committed tree.
+- [3.2] [src:code-review] [sev:Med] A staged tree hash identifies pre-measurement inputs, not the post-run receipt rewrite; the flow now requires all tracked inputs staged and only the receipt left unstaged.
+- [3.2] [src:code-review] [sev:Low] The refreshed Linux receipt is a transparent 16-core container measurement rather than the earlier 4-core CI reference; source and environment remain explicit and the result stays below the platform target.
+- [3.2] [src:code-review] [sev:Med] Accepted Publish recomputed the merged projection after both views had already consumed it; run state now reuses the shared projection.
+- [3.2] [src:code-review] [sev:Med] Runtime measurement executed the working tree but recorded the index without cleanliness or stability checks; it now requires a clean tree and verifies pre/post index identity.

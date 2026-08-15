@@ -93,13 +93,23 @@ function ConvertTo-CanonicalRow {
     #>
     param($Row)
 
-    $source = @{}
-    foreach ($property in $Row.PSObject.Properties) { $source[$property.Name] = $property.Value }
+    function ConvertTo-PropertyMap {
+        param($Value)
+        $map = @{}
+        if ($Value -is [System.Collections.IDictionary]) {
+            foreach ($key in $Value.Keys) { $map[[string]$key] = $Value[$key] }
+        }
+        else {
+            foreach ($property in $Value.PSObject.Properties) { $map[$property.Name] = $property.Value }
+        }
+        return $map
+    }
+
+    $source = ConvertTo-PropertyMap -Value $Row
 
     $environment = [ordered]@{}
     if ($source.ContainsKey('environment') -and $null -ne $source['environment']) {
-        $raw = @{}
-        foreach ($property in $source['environment'].PSObject.Properties) { $raw[$property.Name] = $property.Value }
+        $raw = ConvertTo-PropertyMap -Value $source['environment']
         foreach ($field in @('os', 'psVersion', 'pesterVersion', 'processorCount', 'ci', 'runner')) {
             if ($raw.ContainsKey($field)) { $environment[$field] = $raw[$field] }
         }
@@ -109,7 +119,7 @@ function ConvertTo-CanonicalRow {
     }
 
     $canonical = [ordered]@{}
-    foreach ($field in @('schema', 'platform', 'measuredCommand', 'seconds', 'succeeded', 'measuredAt', 'commit', 'source', 'note')) {
+    foreach ($field in @('schema', 'platform', 'measuredCommand', 'seconds', 'succeeded', 'measuredAt', 'commit', 'tree', 'source', 'note')) {
         if ($source.ContainsKey($field)) { $canonical[$field] = $source[$field] }
     }
     $canonical['environment'] = $environment
@@ -180,6 +190,21 @@ if ($PSCmdlet.ParameterSetName -eq 'Import') {
 
 $pesterModule = Get-Module -ListAvailable -Name Pester | Sort-Object Version -Descending | Select-Object -First 1
 
+$null = & git -C $repoRootPath diff --quiet --ignore-submodules --
+if ($LASTEXITCODE -ne 0) {
+    throw "Refusing to measure tracked working-tree content that differs from the index. Stage every input before measuring '$measuredCommand'."
+}
+$untrackedBefore = @(& git -C $repoRootPath ls-files --others --exclude-standard 2>$null)
+if ($LASTEXITCODE -ne 0) { throw "Cannot inspect untracked inputs before measuring '$measuredCommand'." }
+if ($untrackedBefore.Count -gt 0) {
+    throw "Refusing to measure with untracked inputs: $($untrackedBefore -join '; ')"
+}
+$treeBefore = (& git -C $repoRootPath write-tree 2>$null)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace([string]$treeBefore)) {
+    throw 'Cannot resolve the staged tree before measurement.'
+}
+$treeBefore = ([string]$treeBefore).Trim()
+
 Push-Location -LiteralPath $repoRootPath
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 try {
@@ -192,6 +217,19 @@ finally {
     Pop-Location
 }
 
+$treeAfter = (& git -C $repoRootPath write-tree 2>$null)
+if ($LASTEXITCODE -ne 0 -or ([string]$treeAfter).Trim() -cne $treeBefore) {
+    throw "The index changed while '$measuredCommand' ran; refusing to attribute the result to a moving staged tree."
+}
+$null = & git -C $repoRootPath diff --quiet --ignore-submodules --
+if ($LASTEXITCODE -ne 0) {
+    throw "The working tree changed while '$measuredCommand' ran; refusing to record a receipt for inputs that differ from staged tree '$treeBefore'."
+}
+$untrackedAfter = @(& git -C $repoRootPath ls-files --others --exclude-standard 2>$null)
+if ($LASTEXITCODE -ne 0 -or $untrackedAfter.Count -gt 0) {
+    throw "Untracked inputs appeared while '$measuredCommand' ran; refusing to record a receipt for staged tree '$treeBefore'."
+}
+
 $commit = (& git -C $repoRootPath rev-parse HEAD 2>$null)
 $row = [ordered]@{
     schema = $rowSchema
@@ -201,6 +239,7 @@ $row = [ordered]@{
     succeeded = ($exitCode -eq 0)
     measuredAt = [DateTimeOffset]::UtcNow.ToString('o')
     commit = if ($commit) { ([string]$commit).Trim() } else { 'unknown' }
+    tree = $treeBefore
     source = $Source
     note = $Note
     environment = [ordered]@{

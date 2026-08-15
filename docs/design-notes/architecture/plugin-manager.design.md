@@ -43,7 +43,7 @@ The same `plugins/*/plugin.json` sources feed two independent catalogs; neither 
 | Guard | Rule |
 |---|---|
 | Verb allowlist | Only `Get`/`Find`/`Test`/`Validate` scripts (read-only). `Install`/`Uninstall`/`Update`/`Remove`/`Set`/`bootstrap` are never approved, so a prompt-injected `-Repository`/`-Ref`/`-Source` cannot ride an approval into a silent remote install. |
-| Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. |
+| Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. Approval authorizes only that command shape—it does not provision the writer's PowerShell 7.6+ prerequisite. |
 | Sensitive-name deny-list | A script whose name contains `credential`/`secret`/`token`/`password`/`passphrase` is never approved even if its verb is read-only (e.g. `get-credential.ps1`). |
 | Key shape | Plain path string (`.github/skills/<skill>/scripts/<Script>.ps1`), matching the existing settings convention. VS Code prefix-matches it per sub-command, so a chained `<script> ; curl … | sh` still prompts (the second sub-command matches no key). |
 | Confinement | Keys are resolved from registry `files[]`, confined to `.github/`, and only written for scripts that exist on disk. |

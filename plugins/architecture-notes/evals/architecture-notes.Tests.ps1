@@ -621,7 +621,7 @@ Describe 'architecture-notes human-doc generation evals' {
                 ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $bad -SeedSpecPath $spec)
 
-            Set-Content -LiteralPath (Join-Path $bad 'schemas/ARCH-Broken.json') -Value '{ not valid json'
+            Set-Content -LiteralPath (Join-Path $bad 'schemas/architecture/ARCH-Broken.json') -Value '{ not valid json'
             { & $script:humanDocScript -RepoRoot $bad } | Should -Throw
         }
         finally {
@@ -662,7 +662,7 @@ Describe 'architecture-notes human-doc staleness gate evals' {
 
             # Add a contract WITHOUT regenerating the doc -> drift, fail, exit 1.
             @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Only inbound.' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/ARCH-Api.json')
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/architecture/ARCH-Api.json')
             $drift = & $script:freshnessScript -RepoRoot $fx 2>$null
             $driftExit = $LASTEXITCODE
             $drift.Status | Should -Be 'fail'
