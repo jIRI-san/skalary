@@ -57,7 +57,7 @@ feedback, and completing the final phase delivers the plan's full desired outcom
 | Plan | Slug | Depends on |
 |---|---|---|
 | `57cc2c` | intent-capture-and-rfc | `4dd933` |
-| `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b`, `c21cdc` |
+| `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b`, `c21cdc`, `34088e` |
 | `25aa23` | epic-coherency-review | `8a0644` |
 | `4dd933` | cross-plan-artifact-context | `669ad3` |
 | `669ad3` | epic-prefixed-plan-folder-naming | — |
@@ -99,7 +99,7 @@ child whose behavior they enable; none is a layer-only child.
 | `4dd933` | Bounded cross-plan artifact context for planning and review | plan-folder naming |
 | `57cc2c` | Complete operator-aligned plan organized as MVP-first vertical phases | cross-plan artifact context |
 | `6a629b` | Vertical implementation and requirement loop | `57cc2c` |
-| `8a0644` | Bounded specialized-agent and `/cr`/`/dr` review orchestration | planning MVP and implementation loop |
+| `8a0644` | Bounded specialized-agent and `/cr`/`/dr` review orchestration | planning MVP, implementation loop, review-run v1, and workflow-limit parity |
 | `25aa23` | `/cep` epic coherency review | shared fleet orchestration |
 | `a5ad22` | Host-orchestrated sequential container autopilot for a whole epic | shared fleet orchestration |
 | `9fda0b` | GitHub work hierarchy synchronization | `57cc2c` |
@@ -123,8 +123,14 @@ notes tier and two-index decision remain. This retirement is supported by `768d7
 correctness) remain in `33b1f9`. They harden artifact contracts or distribution and are not silently folded
 into this epic's operator-facing workflow goal.
 
+**Cross-epic contract edges.** `8a0644` depends on `c21cdc` for review-run v1 and on `34088e` for the
+owner-local workflow-limit descriptor/parity protocol; `34088e` depends on `cda9da` for source-bound plugin
+retirement. Each contract keeps one owner. The generated child table records only dependencies of bcece1
+members; regenerating `33b1f9` is a consistency check, not a second mirror of `8a0644`'s edge.
+
 **Initial execution policy.** Parallelize Designer, Requirements Validator, Judge, Implementor, and reviewer
-roles through one shared fleet scheduler. This is not a review-only throttle: `/cip` and `/ci` orchestration,
+roles through one shared fleet scheduler. The values in this accepted epic prose are decision provenance,
+not executable limit consumers; `8a0644` owns and registers the machine descriptor. This is not a review-only throttle: `/cip` and `/ci` orchestration,
 `/dr`, and `/cr` use the same admission, wave, attendance, and provider-throttling contract, and `/dr` plus
 `/cr` adopt it in the same delivery rather than growing separate implementations. At most **four agent
 invocations** may be in flight in one orchestrated fleet. A normal 14-invocation review therefore runs in

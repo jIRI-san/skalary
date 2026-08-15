@@ -9,3 +9,4 @@
 - **Preserve independent passes.** Reading batches do not multiply concern passes, and selected concern/model pairs still run independently once.
 - **Bound retries, then report degradation.** Rejected: replacement calls or unlimited retries that obscure what actually ran.
 - **Emit the `c21cdc` v1 task contract.** The scheduler produces frozen task-plan records through the existing adapter; it does not introduce a second attendance, persistence, or rendering format.
+- **Own the cap, reuse the parity protocol.** This plan owns the four-in-flight scheduler value and its admission semantics, but depends on `34088e` for the `skalary/workflow-limits@1` descriptor/discovery contract; rejected: another prose or code literal with no registered owner.
