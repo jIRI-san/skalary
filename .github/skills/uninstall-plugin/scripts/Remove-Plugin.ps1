@@ -79,94 +79,19 @@ function Assert-NoInstalledDependent {
     }
 }
 
-function Invoke-ParentDirectoryPrune {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string[]]$Directories,
-
-        [Parameter(Mandatory)]
-        [string]$GithubRoot
-    )
-
-    $separator = [System.IO.Path]::DirectorySeparatorChar
-    $normalizedGithubRoot = [System.IO.Path]::GetFullPath($GithubRoot).TrimEnd($separator)
-    $rootWithSeparator = $normalizedGithubRoot + $separator
-    $queue = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-    foreach ($directory in $Directories) {
-        if ([string]::IsNullOrWhiteSpace($directory)) {
-            continue
-        }
-        $current = [System.IO.Path]::GetFullPath($directory)
-        while (-not [string]::IsNullOrWhiteSpace($current) -and $current.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
-            if (-not $queue.Add($current)) {
-                break
-            }
-
-            $parent = Split-Path -Parent $current
-            if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $current) {
-                break
-            }
-            $current = $parent
-        }
-    }
-
-    foreach ($directory in ($queue | Sort-Object Length -Descending)) {
-        if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-            continue
-        }
-
-        $childCount = @(Get-ChildItem -LiteralPath $directory -Force).Count
-        if ($childCount -eq 0) {
-            Remove-Item -LiteralPath $directory -Force
-        }
-    }
-}
-
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$receipt = Read-PluginReceipt -RepoRoot $repoRootPath -PluginName $Name
-if ($null -eq $receipt) {
-    throw "Plugin '$Name' is not installed (receipt missing)."
-}
-
-if (-not $Force) {
-    Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name -RegistryPath $RegistryPath
-}
-
-$removedCount = 0
-$skippedModified = 0
-$deletedParentDirs = @()
-foreach ($entry in @($receipt.files)) {
-    $dest = [string]$entry.dest
-    if ([string]::IsNullOrWhiteSpace($dest)) {
-        continue
+$mutationLock = Enter-PluginMutationLock -RepoRoot $repoRootPath
+try {
+    if (-not $Force) {
+        Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name -RegistryPath $RegistryPath
     }
 
-    $targetPath = Resolve-GithubConstrainedPath -RepoRoot $repoRootPath -RelativePath $dest
-    if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
-        continue
-    }
-
-    $actualSha = Get-FileSha256 -Path $targetPath
-    $expectedSha = [string]$entry.sha256
-    if (-not $Force -and $actualSha -ne $expectedSha) {
-        Write-Warning "Skipping modified file '$dest' (expected '$expectedSha', actual '$actualSha')."
-        $skippedModified++
-        continue
-    }
-
-    Remove-Item -LiteralPath $targetPath -Force
-    $removedCount++
-    $deletedParentDirs += , (Split-Path -Parent $targetPath)
+    $result = Invoke-PluginRemovalPrimitive -RepoRoot $repoRootPath -PluginName $Name -Mode explicit -Force:$Force -LockHeld
 }
-
-$githubRoot = Join-Path $repoRootPath '.github'
-Invoke-ParentDirectoryPrune -Directories $deletedParentDirs -GithubRoot $githubRoot
-
-$receiptPath = Get-PluginReceiptPath -RepoRoot $repoRootPath -PluginName $Name
-if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
-    Remove-Item -LiteralPath $receiptPath -Force
+finally {
+    $mutationLock.Dispose()
 }
-
-Write-Output "Removed plugin '$Name'. Deleted file count: $removedCount. Skipped modified files: $skippedModified."
+if ($result.ModifiedCount -gt 0) {
+    Write-Warning "Plugin '$Name' retains $($result.ModifiedCount) modified file(s) under a degraded receipt. Use -Force to remove them."
+}
+Write-Output "Removed plugin '$Name'. Deleted file count: $($result.RemovedCount). Skipped modified files: $($result.ModifiedCount)."

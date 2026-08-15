@@ -79,11 +79,25 @@ Install/update behavior is implemented in `scripts/skalary/Install-Plugin.ps1` a
 | Rollback | Any failure restores backups, removes staged files, writes no new receipt. |
 | `evals/` handling | Files under `evals/` are always excluded from installation. |
 
+Explicit uninstall and automatic retirement call one `Invoke-PluginRemovalPrimitive` in
+`_Common.ps1`. The primitive serializes through `.github/.skalary/mutation.lock`, validates all
+payload/state/journal/backup paths and existing parent chains before state reads or mutation, and
+writes a schema-validated journal before backup/delete/receipt boundaries. Recovery treats that
+journal as untrusted: plugin/source/transaction identity, receipt pre/post hashes, confined
+transaction-derived backup paths, and backup content hashes must all agree before rollback.
+
+Retirement authority is never read from preview or journal state. Under the lock, the primitive
+rederives the exact intersection of the tombstone's immutable source/ref/version destination hashes
+and the current same-source receipt. Modified files remain on disk and retain their original
+expected receipt hash under `degraded`/`skipped-modified` ownership; only explicit
+`Remove-Plugin -Force` can remove them. A `failed` retirement state returns to `preview` only after
+journal recovery and exact source/ref/version, receipt ownership, and observed-content verification.
+
 ## Integrity and Security Model
 
 | Threat | Guard |
 |---|---|
-| Path traversal / escape from `.github/` | Full-path resolution guard rejects `..`, absolute, UNC, drive-relative, and ADS destinations. |
+| Path traversal / escape from `.github/` | Full-path resolution rejects `..`, absolute, UNC, drive-relative, and ADS destinations; managed mutation also rejects links/reparse points in destinations and parent chains. |
 | Payload tampering | Staged payload hash must match `registry.json` before any move. |
 | Cross-plugin overwrite/remove collisions | Registry-wide destination uniqueness validation + runtime ownership map from receipts. |
 | Destructive overwrite/remove of user edits | Update/remove verify receipt hash and mark modified files as skipped unless `-Force`. |

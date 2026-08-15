@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T15:08:07.5247071Z",
+  "generatedAt": "2026-08-15T15:44:41.1675373Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -935,7 +935,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
-          "sha256": "e5740a71085c99e062aeb5d5ef9383caa2bd5fdb7e5de1732091b601e42895d0",
+          "sha256": "68cb71afec10ed255164017e595f2b2a9e7745e2478747771836797b74bd7859",
           "src": "skills/install-plugin/scripts/Install-Plugin.ps1"
         },
         {
@@ -945,7 +945,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/_Common.ps1",
-          "sha256": "223ae3892fe77010859555b21a5eb85992f3cbca0acb1ba5c167ee87ac4a06e2",
+          "sha256": "87a2d6ea6ca63cf80cbbb7560fd4c7f37a6c130784cb1f3f27e9c646979c6326",
           "src": "skills/install-plugin/scripts/_Common.ps1"
         },
         {
@@ -965,7 +965,7 @@
         },
         {
           "dest": "skills/list-plugins/scripts/_Common.ps1",
-          "sha256": "223ae3892fe77010859555b21a5eb85992f3cbca0acb1ba5c167ee87ac4a06e2",
+          "sha256": "87a2d6ea6ca63cf80cbbb7560fd4c7f37a6c130784cb1f3f27e9c646979c6326",
           "src": "skills/list-plugins/scripts/_Common.ps1"
         },
         {
@@ -975,7 +975,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
-          "sha256": "6e2a3839196446aaccdaaf8db367974d33e4d2b55c71d7c1890637da2df75be7",
+          "sha256": "8048f285a6096e2664b096ac0ad0c955fbb21026510d8924b7fbd8841b2f9d31",
           "src": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1"
         },
         {
@@ -985,7 +985,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
-          "sha256": "223ae3892fe77010859555b21a5eb85992f3cbca0acb1ba5c167ee87ac4a06e2",
+          "sha256": "87a2d6ea6ca63cf80cbbb7560fd4c7f37a6c130784cb1f3f27e9c646979c6326",
           "src": "skills/uninstall-plugin/scripts/_Common.ps1"
         },
         {
@@ -995,12 +995,12 @@
         },
         {
           "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
-          "sha256": "1b78a28592568f53cd94cc6643b707ee3805018eadb7f61def8389fbc7478dfe",
+          "sha256": "2e18a7932112147bb6d64706640095868d000cea945eb4f591515c6726663000",
           "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
         },
         {
           "dest": "skills/update-plugin/scripts/_Common.ps1",
-          "sha256": "223ae3892fe77010859555b21a5eb85992f3cbca0acb1ba5c167ee87ac4a06e2",
+          "sha256": "87a2d6ea6ca63cf80cbbb7560fd4c7f37a6c130784cb1f3f27e9c646979c6326",
           "src": "skills/update-plugin/scripts/_Common.ps1"
         }
       ],
@@ -1012,7 +1012,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.8"
+      "version": "1.0.13"
     },
     {
       "author": "jIRI-san",
@@ -1137,4 +1137,3 @@
   ],
   "retiredPlugins": []
 }
-

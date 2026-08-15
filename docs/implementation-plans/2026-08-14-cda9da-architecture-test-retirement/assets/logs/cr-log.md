@@ -23,3 +23,12 @@ Phase: 2
 - [2.1] [src:note] [sev:Low] Rubber-duck second opinion found no high-confidence defects after review fixes.
 - [2.1] [src:code-review] [sev:Med] Canonical identity validation used case-insensitive PowerShell comparisons; fixed to reject non-canonical kind and identity casing.
 - [2.1] [src:code-review] [sev:Med] GitHub URI parsing accepted arbitrary schemes and rejected explicit standard SSH ports; fixed with a closed transport/port allowlist.
+- [2.2] [src:code-review] [sev:High] Non-force removal could delete update-owned skipped-modified files whose receipt hash matched current content; fixed to require force for that outcome.
+- [2.2] [src:code-review] [sev:High] Untrusted journals did not bind restored destinations to receipt pre-state ownership; fixed with exact ordinal destination/hash and post-state transition validation.
+- [2.2] [src:code-review] [sev:High] Journal and receipt JSON rewrites were not crash-atomic; fixed with flushed same-directory temporary files and atomic replacement.
+- [2.2] [src:code-review] [sev:High] Install/update and the explicit dependent check did not share the removal mutation lock; fixed by locking all plugin mutators.
+- [2.2] [src:code-review] [sev:Med] Retirement intersection used case-insensitive hashtables; fixed with ordinal dictionaries and a case-mismatch zero-mutation test.
+- [2.2] [src:code-review] [sev:High] Recovery scoped journals by source but not expected immutable ref/version before mutation; fixed with pre-restore scope validation.
+- [2.2] [src:code-review] [sev:High] Missing-receipt recovery could accept a null post-state journal covering only part of receipt ownership; fixed to require full pre-state coverage.
+- [2.2] [src:code-review] [sev:Med] Recovery evidence was deleted before fallible directory pruning; fixed by retaining journal/backups until cleanup succeeds.
+- [2.2] [src:note] [sev:Low] Rubber-duck found no blocking defects; fixed pre-journal temp residue and added embedded/published journal-schema drift proof.

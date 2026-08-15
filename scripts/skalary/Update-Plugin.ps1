@@ -127,8 +127,10 @@ function Get-ResolvedSourceContext {
 
 $targetRepoRoot = Resolve-RepoRoot -StartPath $RepoRoot
 $sourceContext = $null
+$mutationLock = $null
 
 try {
+    $mutationLock = Enter-PluginMutationLock -RepoRoot $targetRepoRoot
     $receipt = Read-PluginReceipt -RepoRoot $targetRepoRoot -PluginName $Name
     if ($null -eq $receipt) {
         throw "Plugin '$Name' is not installed (receipt missing)."
@@ -256,6 +258,9 @@ try {
     }
 }
 finally {
+    if ($null -ne $mutationLock) {
+        $mutationLock.Dispose()
+    }
     if ($null -ne $sourceContext -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }

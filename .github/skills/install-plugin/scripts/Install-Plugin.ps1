@@ -502,8 +502,10 @@ $sourceContext = $null
 $operationRoot = $null
 $appliedEntries = @()
 $receiptEntries = @()
+$mutationLock = $null
 
 try {
+    $mutationLock = Enter-PluginMutationLock -RepoRoot $targetRepoRoot
     $sourceContext = Get-ResolvedSourceContext -TargetRepoRoot $targetRepoRoot -SourcePath $Source -SourceRef $Ref -RemoteRepository $Repository
     $sourceRepoRoot = [string]$sourceContext.SourceRepoRoot
     $resolvedSha = [string]$sourceContext.Sha
@@ -572,6 +574,9 @@ catch {
     throw
 }
 finally {
+    if ($null -ne $mutationLock) {
+        $mutationLock.Dispose()
+    }
     if ($null -ne $sourceContext -and $sourceContext.IsRemote -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }

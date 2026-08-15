@@ -91,6 +91,85 @@ Describe 'plugin retirement catalog' {
             }
         }
 
+        function New-RemovalFixture {
+            param(
+                [switch]$ModifySecond
+            )
+
+            $root = New-TestRoot
+            $payloadRoot = Join-Path $root '.github/skills/removal-fixture'
+            [void](New-Item -ItemType Directory -Path $payloadRoot -Force)
+            $firstPath = Join-Path $payloadRoot 'first.txt'
+            $secondPath = Join-Path $payloadRoot 'second.txt'
+            Set-Content -LiteralPath $firstPath -Value 'first' -NoNewline -Encoding utf8
+            Set-Content -LiteralPath $secondPath -Value 'second' -NoNewline -Encoding utf8
+            $firstSha = (Get-FileHash -LiteralPath $firstPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $secondSha = (Get-FileHash -LiteralPath $secondPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $sourceIdentity = New-PluginSourceIdentity -Repository 'jIRI-san/skalary'
+            $receipt = [pscustomobject][ordered]@{
+                name = 'removal-fixture'
+                version = '1.2.3'
+                sourceIdentity = $sourceIdentity
+                ref = 'd' * 40
+                installedAt = '2026-08-15T00:00:00Z'
+                files = @(
+                    [pscustomobject][ordered]@{
+                        dest = 'skills/removal-fixture/first.txt'
+                        sha256 = $firstSha
+                        outcome = 'installed'
+                    },
+                    [pscustomobject][ordered]@{
+                        dest = 'skills/removal-fixture/second.txt'
+                        sha256 = $secondSha
+                        outcome = 'installed'
+                    }
+                )
+            }
+            $receiptPath = Get-PluginReceiptPath -RepoRoot $root -PluginName 'removal-fixture'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $receiptPath) -Force)
+            Write-JsonFileStable -Path $receiptPath -InputObject $receipt
+            if ($ModifySecond) {
+                Set-Content -LiteralPath $secondPath -Value 'modified-second' -NoNewline -Encoding utf8
+            }
+            return [pscustomobject]@{
+                Root = $root
+                Receipt = $receipt
+                ReceiptPath = $receiptPath
+                FirstPath = $firstPath
+                FirstSha = $firstSha
+                SecondPath = $secondPath
+                SecondSha = $secondSha
+                SourceIdentity = $sourceIdentity
+            }
+        }
+
+        function New-RemovalPayloadSet {
+            param(
+                [Parameter(Mandatory)]
+                $Fixture,
+
+                [switch]$IncludeSecond
+            )
+
+            $files = @([pscustomobject][ordered]@{
+                    dest = 'skills/removal-fixture/first.txt'
+                    sha256 = $Fixture.FirstSha
+                })
+            if ($IncludeSecond) {
+                $files += , [pscustomobject][ordered]@{
+                    dest = 'skills/removal-fixture/second.txt'
+                    sha256 = $Fixture.SecondSha
+                }
+            }
+            return [pscustomobject][ordered]@{
+                sourceKind = 'github'
+                sourceIdentity = 'github.com/jiri-san/skalary'
+                ref = 'd' * 40
+                version = '1.2.3'
+                files = $files
+            }
+        }
+
         . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
     }
 
@@ -282,7 +361,7 @@ Describe 'plugin retirement catalog' {
         $ambiguousError = $null
         try {
             Resolve-PluginReceiptSourceIdentity -Receipt ([pscustomobject]@{
-                    source = "remote:https://x-access-token:$secret@github.com/jIRI-san/skalary.git"
+                    source = "opaque:$secret"
                     ref = $sha
                 })
         }
@@ -356,5 +435,225 @@ Describe 'plugin retirement catalog' {
             { Write-PluginRetirementState -RepoRoot $linkedRoot -State (New-RetirementState) } | Should -Throw '*link or reparse point*'
             Test-Path -LiteralPath (Join-Path $outsideRoot 'retirements/retired-example.json') | Should -BeFalse
         }
+    }
+
+    It 'test:PluginRetirement.ReaderRemovalAndResultContract preserves modified ownership and force-removes through one primitive' {
+        $fixture = New-RemovalFixture -ModifySecond
+        $modifiedSha = Get-FileSha256 -Path $fixture.SecondPath
+        $updatedReceipt = Read-JsonFile -Path $fixture.ReceiptPath
+        $updatedReceipt.files[1].sha256 = $modifiedSha
+        $updatedReceipt.files[1].outcome = 'skipped-modified'
+        Write-JsonFileStable -Path $fixture.ReceiptPath -InputObject $updatedReceipt
+        $result = Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $result.RemovedCount | Should -Be 1
+        $result.ModifiedCount | Should -Be 1
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+
+        $degraded = Read-PluginReceipt -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $degraded.degraded | Should -BeTrue
+        @($degraded.files).Count | Should -Be 1
+        [string]$degraded.files[0].dest | Should -Be 'skills/removal-fixture/second.txt'
+        [string]$degraded.files[0].sha256 | Should -Be $modifiedSha
+        [string]$degraded.files[0].outcome | Should -Be 'skipped-modified'
+
+        $forced = Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture' -Force
+        $forced.RemovedCount | Should -Be 1
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.ReceiptPath | Should -BeFalse
+    }
+
+    It 'test:PluginRetirement.ReaderRemovalAndResultContract derives retirement deletes from the exact tombstone and receipt intersection' {
+        $fixture = New-RemovalFixture
+        $payloadSet = New-RemovalPayloadSet -Fixture $fixture
+        $result = Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture' -Mode retirement -PayloadSet $payloadSet
+
+        $result.RemovedCount | Should -Be 1
+        Test-Path -LiteralPath $fixture.FirstPath | Should -BeFalse
+        Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+        $remaining = Read-PluginReceipt -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        @($remaining.files).Count | Should -Be 1
+        [string]$remaining.files[0].dest | Should -Be 'skills/removal-fixture/second.txt'
+
+        $mismatch = New-RemovalFixture
+        $foreign = New-RemovalPayloadSet -Fixture $mismatch -IncludeSecond
+        $foreign.sourceIdentity = 'github.com/example/foreign'
+        {
+            Invoke-PluginRemovalPrimitive -RepoRoot $mismatch.Root -PluginName 'removal-fixture' -Mode retirement -PayloadSet $foreign
+        } | Should -Throw '*source does not match*'
+        Test-Path -LiteralPath $mismatch.FirstPath | Should -BeTrue
+        Test-Path -LiteralPath $mismatch.SecondPath | Should -BeTrue
+
+        $wrongVersion = New-RemovalPayloadSet -Fixture $mismatch -IncludeSecond
+        $wrongVersion.version = '9.9.9'
+        {
+            Invoke-PluginRemovalPrimitive -RepoRoot $mismatch.Root -PluginName 'removal-fixture' -Mode retirement -PayloadSet $wrongVersion
+        } | Should -Throw '*ref/version does not match*'
+
+        $caseMismatch = New-RemovalFixture
+        $casePayload = New-RemovalPayloadSet -Fixture $caseMismatch
+        $casePayload.files[0].dest = 'Skills/removal-fixture/first.txt'
+        $beforeReceiptSha = Get-StableJsonSha256 -InputObject (Read-JsonFile -Path $caseMismatch.ReceiptPath)
+        $caseResult = Invoke-PluginRemovalPrimitive -RepoRoot $caseMismatch.Root -PluginName 'removal-fixture' -Mode retirement -PayloadSet $casePayload
+        $caseResult.RemovedCount | Should -Be 0
+        Test-Path -LiteralPath $caseMismatch.FirstPath | Should -BeTrue
+        Get-StableJsonSha256 -InputObject (Read-JsonFile -Path $caseMismatch.ReceiptPath) | Should -Be $beforeReceiptSha
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery restores exact payload and receipt at every deterministic fault seam' {
+        foreach ($fault in @('after-journal', 'after-backup', 'after-delete', 'after-receipt')) {
+            $fixture = New-RemovalFixture
+            $receiptBefore = Get-StableJsonSha256 -InputObject (Read-JsonFile -Path $fixture.ReceiptPath)
+            {
+                Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture' -FaultAt $fault
+            } | Should -Throw "*Injected plugin removal fault*"
+
+            Test-Path -LiteralPath $fixture.FirstPath | Should -BeTrue
+            Test-Path -LiteralPath $fixture.SecondPath | Should -BeTrue
+            Get-FileSha256 -Path $fixture.FirstPath | Should -Be $fixture.FirstSha
+            Get-FileSha256 -Path $fixture.SecondPath | Should -Be $fixture.SecondSha
+            Get-StableJsonSha256 -InputObject (Read-JsonFile -Path $fixture.ReceiptPath) | Should -Be $receiptBefore
+            Test-Path -LiteralPath (Get-PluginRemovalJournalPath -RepoRoot $fixture.Root -PluginName 'removal-fixture') |
+                Should -BeFalse
+            @(Get-ChildItem -LiteralPath (Join-Path $fixture.Root '.github/.skalary/tmp') -Directory -Filter 'removal-*' -ErrorAction SilentlyContinue).Count |
+                Should -Be 0
+        }
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery rejects hostile journals and mixed-version recovery' {
+        $fixture = New-RemovalFixture
+        $transactionId = 'a' * 32
+        $operationRoot = ".skalary/tmp/removal-$transactionId"
+        $backupRelative = "$operationRoot/backups/00000.bak"
+        $backupPath = Resolve-GithubConstrainedPath -RepoRoot $fixture.Root -RelativePath $backupRelative
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $backupPath) -Force)
+        Copy-Item -LiteralPath $fixture.FirstPath -Destination $backupPath
+        $receiptBefore = Read-JsonFile -Path $fixture.ReceiptPath
+        $receiptAfter = Read-JsonFile -Path $fixture.ReceiptPath
+        $receiptAfter.files = @($receiptAfter.files[1])
+        $receiptAfter | Add-Member -NotePropertyName degraded -NotePropertyValue $true
+        $journal = [pscustomobject][ordered]@{
+            schemaVersion = 1
+            transactionId = $transactionId
+            pluginName = 'removal-fixture'
+            mode = 'retirement'
+            sourceIdentity = $fixture.SourceIdentity
+            operationRoot = $operationRoot
+            receiptBefore = $receiptBefore
+            receiptBeforeSha256 = Get-StableJsonSha256 -InputObject $receiptBefore
+            receiptAfter = $receiptAfter
+            receiptAfterSha256 = Get-StableJsonSha256 -InputObject $receiptAfter
+            entries = @([pscustomobject][ordered]@{
+                    dest = 'skills/removal-fixture/first.txt'
+                    expectedSha256 = $fixture.FirstSha
+                    originalSha256 = $fixture.FirstSha
+                    backupRelativePath = $backupRelative
+                    backupSha256 = $fixture.FirstSha
+                    phase = 'backed-up'
+                })
+            updatedAt = '2026-08-15T00:00:00Z'
+        }
+        ($journal | ConvertTo-Json -Depth 30) |
+            Test-Json -SchemaFile (Join-Path $script:repoRoot 'schemas/retirement/removal-journal.schema.json') |
+            Should -BeTrue
+        $embeddedSchema = Get-PluginRemovalJournalSchema | ConvertFrom-Json -Depth 100
+        $publishedSchema = Get-Content -LiteralPath (Join-Path $script:repoRoot 'schemas/retirement/removal-journal.schema.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        foreach ($metadata in @('$id', 'title', 'description')) {
+            $publishedSchema.PSObject.Properties.Remove($metadata)
+        }
+        Get-StableJsonSha256 -InputObject $embeddedSchema |
+            Should -Be (Get-StableJsonSha256 -InputObject $publishedSchema)
+        [void](Write-PluginRemovalJournal -RepoRoot $fixture.Root -Journal $journal)
+
+        $changedReceipt = Read-JsonFile -Path $fixture.ReceiptPath
+        $changedReceipt.version = '2.0.0'
+        Write-JsonFileStable -Path $fixture.ReceiptPath -InputObject $changedReceipt
+        {
+            Invoke-PluginRemovalRecovery -RepoRoot $fixture.Root -PluginName 'removal-fixture' -ExpectedSourceIdentity $fixture.SourceIdentity
+        } | Should -Throw '*mixed-version rollback*'
+
+        $journal.entries[0].backupRelativePath = '../outside.bak'
+        { Test-PluginRemovalJournal -RepoRoot $fixture.Root -Journal $journal } | Should -Throw
+        $journal.entries[0].backupRelativePath = $backupRelative
+        $journal.entries[0].backupSha256 = 'f' * 64
+        { Test-PluginRemovalJournal -RepoRoot $fixture.Root -Journal $journal } | Should -Throw '*backup hash is invalid*'
+
+        $journal.entries[0].backupSha256 = $fixture.FirstSha
+        $journal.entries[0].dest = 'workflows/unrelated.yml'
+        { Test-PluginRemovalJournal -RepoRoot $fixture.Root -Journal $journal } |
+            Should -Throw '*not owned by its receipt pre-state*'
+
+        $journal.entries[0].dest = 'skills/removal-fixture/first.txt'
+        {
+            Invoke-PluginRemovalRecovery -RepoRoot $fixture.Root -PluginName 'removal-fixture' -ExpectedSourceIdentity $fixture.SourceIdentity -ExpectedRef ('e' * 40) -ExpectedVersion '1.2.3'
+        } | Should -Throw '*immutable ref does not match*'
+
+        $journal.receiptAfter = $null
+        $journal.receiptAfterSha256 = $null
+        [void](Write-PluginRemovalJournal -RepoRoot $fixture.Root -Journal $journal)
+        Remove-Item -LiteralPath $fixture.ReceiptPath -Force
+        { Invoke-PluginRemovalRecovery -RepoRoot $fixture.Root -PluginName 'removal-fixture' -ExpectedSourceIdentity $fixture.SourceIdentity } |
+            Should -Throw '*does not cover every pre-state destination*'
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery serializes removal before reading mutable authority' {
+        $fixture = New-RemovalFixture
+        $lockPath = Resolve-GithubConstrainedPath -RepoRoot $fixture.Root -RelativePath '.skalary/mutation.lock'
+        $lockStream = [System.IO.File]::Open(
+            $lockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None)
+        try {
+            { Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture' } | Should -Throw
+            Test-Path -LiteralPath $fixture.FirstPath | Should -BeTrue
+            Test-Path -LiteralPath $fixture.ReceiptPath | Should -BeTrue
+        }
+        finally {
+            $lockStream.Dispose()
+        }
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery rejects linked destinations before state read or mutation' -Skip:$IsWindows {
+        $fixture = New-RemovalFixture
+        $outside = New-TestRoot
+        $outsideFile = Join-Path $outside 'first.txt'
+        Set-Content -LiteralPath $outsideFile -Value 'outside' -NoNewline -Encoding utf8
+        Remove-Item -LiteralPath (Split-Path -Parent $fixture.FirstPath) -Recurse -Force
+        [void](New-Item -ItemType SymbolicLink -Path (Split-Path -Parent $fixture.FirstPath) -Target $outside)
+
+        { Invoke-PluginRemovalPrimitive -RepoRoot $fixture.Root -PluginName 'removal-fixture' } |
+            Should -Throw '*link or reparse point*'
+        Get-Content -LiteralPath $outsideFile -Raw | Should -Be 'outside'
+        Test-Path -LiteralPath (Get-PluginRemovalJournalPath -RepoRoot $fixture.Root -PluginName 'removal-fixture') |
+            Should -BeFalse
+    }
+
+    It 'test:PluginRetirement.TransactionRecovery transitions failed state only after exact recovery verification' {
+        $fixture = New-RemovalFixture
+        $state = New-RetirementState -Name 'removal-fixture' -Status failed -FileCount 1
+        $state.prior.sourceIdentity = $fixture.SourceIdentity
+        $state.prior.ref = 'd' * 40
+        $state.prior.version = '1.2.3'
+        $state.affectedFiles[0].dest = 'skills/removal-fixture/first.txt'
+        $state.affectedFiles[0].expectedSha256 = $fixture.FirstSha
+        $state.affectedFiles[0].observedSha256 = $fixture.FirstSha
+        $state.affectedFiles[0].outcome = 'pending'
+        $state | Add-Member -NotePropertyName error -NotePropertyValue 'injected failure'
+        [void](Write-PluginRetirementState -RepoRoot $fixture.Root -State $state)
+
+        $preview = Reset-FailedPluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture'
+        $preview.status | Should -Be 'preview'
+        $preview.PSObject.Properties.Name | Should -Not -Contain 'error'
+
+        $state.status = 'failed'
+        $state.transactionId = 'f' * 32
+        $state | Add-Member -NotePropertyName error -NotePropertyValue 'second failure' -Force
+        [void](Write-PluginRetirementState -RepoRoot $fixture.Root -State $state)
+        Set-Content -LiteralPath $fixture.FirstPath -Value 'unexpected' -NoNewline -Encoding utf8
+        { Reset-FailedPluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture' } |
+            Should -Throw '*content does not match*'
+        (Read-PluginRetirementState -RepoRoot $fixture.Root -PluginName 'removal-fixture').status | Should -Be 'failed'
     }
 }

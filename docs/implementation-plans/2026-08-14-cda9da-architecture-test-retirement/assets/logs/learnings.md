@@ -7,4 +7,4 @@ Phase: 1
 ## Learnings Capture
 Phase: 2
 
-No entries for this phase.
+- [2.2] [trigger:rework>1] Crash recovery authority must bind every journal destination to the exact receipt pre-state and retain evidence through all fallible cleanup.
