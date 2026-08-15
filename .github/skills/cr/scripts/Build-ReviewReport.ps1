@@ -29,29 +29,109 @@
       * entries sort severity-descending, then by breadth of agreement, then by title.
 .EXAMPLE
     $text = & Build-ReviewReport.ps1 -Finding $findings -Model $roster -Scope '7 changed files'
+.EXAMPLE
+    & Build-ReviewReport.ps1 -Mode Freeze -RunId $uuid -PlanDir docs/implementation-plans/<plan>
+.EXAMPLE
+    & Build-ReviewReport.ps1 -Mode Publish -RunId $uuid
+.NOTES
+    Plan c21cdc step 1.2 adds the `Freeze`/`Publish` persistence modes beside the legacy object
+    formatter. Those modes derive every root from this script's installed location and delegate all
+    file I/O, validation, canonicalization, rendering and publication to `ReviewRun.psm1`, so this
+    script itself performs no file I/O and stays the pure formatter the b0c0d3 contract pins. The
+    legacy `-Finding`/`-Model` invocation is unchanged and is retired only in the phase 2 caller
+    migration (REQ-13).
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Legacy')]
 param(
-    [Parameter(Mandatory)]
+    [Parameter(Mandatory, ParameterSetName = 'Legacy')]
     [AllowEmptyCollection()]
     [object[]]$Finding,
 
-    [Parameter(Mandatory)]
+    [Parameter(Mandatory, ParameterSetName = 'Legacy')]
     [AllowEmptyCollection()]
     [string[]]$Model,
 
+    [Parameter(ParameterSetName = 'Legacy')]
     [string]$Scope,
 
+    [Parameter(ParameterSetName = 'Legacy')]
     [ValidateSet('Code Review', 'Design Review')]
     [string]$ReportTitle = 'Code Review',
 
+    [Parameter(ParameterSetName = 'Legacy')]
     [int]$InvocationCount = 0,
 
-    [int]$InvocationBudget = 28
+    [Parameter(ParameterSetName = 'Legacy')]
+    [int]$InvocationBudget = 28,
+
+    # Persistence modes: the only inputs a caller may choose are a run id and, for a plan run, a
+    # confined plan directory. Repo, schema and output roots are computed by the module.
+    [Parameter(Mandatory, ParameterSetName = 'Persist')]
+    [ValidateSet('Freeze', 'Publish')]
+    [string]$Mode,
+
+    [Parameter(Mandatory, ParameterSetName = 'Persist')]
+    [string]$RunId,
+
+    [Parameter(ParameterSetName = 'Persist')]
+    [string]$PlanDir
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($PSCmdlet.ParameterSetName -eq 'Persist') {
+    # Everything the persistence modes touch — the filesystem, the schemas, the lock — lives in the
+    # module, so this script's own text carries no file I/O and stdout is exactly one bounded
+    # terminal-status object followed by the mode's exit code.
+    #
+    # The module path is built with named Join-Path parameters on purpose: phase 1 ships the engine
+    # in scripts/skalary/ only, and the phase-1 bundle closure scanner keys off the bare
+    # `$PSScriptRoot '<name>.psm1'` form. Step 2.1 (REQ-8) is what distributes ReviewRun.psm1, the
+    # reader, the cleanup helper and the schemas into the installed plugins, mapping them explicitly.
+    $moduleName = 'ReviewRun.psm1'
+    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath $moduleName
+
+    # Last resort, not a fallback: the module bounds every expected failure itself, so anything that
+    # reaches here (a broken install, an unreadable schema directory, an unexpected host error) is
+    # reported as an explicit exit 4 with one terminal-status object. Nothing is retried, nothing is
+    # swallowed, and no other exit can escape this script.
+    try {
+        Import-Module $modulePath -Force -DisableNameChecking
+        $result = if ($Mode -eq 'Freeze') {
+            Invoke-ReviewFreeze -RunId $RunId -PlanDir $PlanDir
+        }
+        else {
+            Invoke-ReviewPublish -RunId $RunId -PlanDir $PlanDir
+        }
+        $exit = Write-ReviewTerminalStatus -Mode ($Mode.ToLowerInvariant()) -ExitCode $result.ExitCode `
+            -State $result.State -Message $result.Message -RunId $result.RunId -Diagnostic $result.Diagnostics
+        exit $exit
+    }
+    catch {
+        $failure = ([string]$_.Exception.Message) -replace '\s+', ' '
+        if ($failure.Length -gt 512) { $failure = $failure.Substring(0, 512) }
+        $status = [ordered]@{
+            diagnostics = @($failure)
+            exitCode    = 4
+            message     = "$Mode failed unexpectedly before it could report a bounded status."
+            mode        = $Mode.ToLowerInvariant()
+        }
+        # A run id that is not a UUID is never echoed: it is caller-controlled, unbounded text and the
+        # status schema admits only a UUID here.
+        if ($RunId -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { $status['runId'] = $RunId }
+        else { $status['runIdRejected'] = $true; $status['exitCode'] = 2; $status['message'] = 'Run id must be a lowercase UUID.' }
+        $status['schema'] = 'skalary/review-terminal-status@1'
+        $status['state'] = $(if ($status['exitCode'] -eq 4) { 'failed' } else { 'invalid' })
+
+        $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Json -InputObject $status -Depth 4 -Compress) + "`n")
+        $stdout = [Console]::OpenStandardOutput()
+        $stdout.Write($bytes, 0, $bytes.Length)
+        $stdout.Flush()
+        exit $status['exitCode']
+    }
+}
+
 
 $severityRank = [ordered]@{
     'Critical' = 4

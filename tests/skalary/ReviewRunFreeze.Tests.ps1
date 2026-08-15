@@ -112,6 +112,25 @@ Describe 'review report frozen plan and attendance' {
             $changed.ExitCode | Should -Be 2
             $changed.State | Should -Be 'invalid'
             (Get-ReviewFrozenDigest -RunDir $runDir) | Should -Be $firstDigest
+
+            # Removing the content-addressed generation does not reopen the UUID: the independent
+            # frozen-state marker keeps the run frozen and a replacement plan is refused.
+            Remove-Item -LiteralPath (Get-ReviewRunArtifact -RunDir $runDir -Role plan) -Force
+            Get-ReviewRunState -RunDir $runDir | Should -Be 'frozen'
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object $mutated
+            $missing = Invoke-ReviewFreeze -RunId $script:runId -RepoRoot $scratch
+            $missing.ExitCode | Should -Be 2
+            $missing.State | Should -Be 'invalid'
+            $missing.Message | Should -Match 'not trustworthy'
+            @(Get-ReviewFrozenPlanFile -RunDir $runDir).Count | Should -Be 0
+
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object (New-ReviewTestRun -RunId $script:runId `
+                    -PlanDigest $firstDigest -Roster @('model-a') `
+                    -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }))
+            $publishMissing = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch
+            $publishMissing.ExitCode | Should -Be 2
+            $publishMissing.Message | Should -Match 'committed frozen state'
+            $publishMissing.Message | Should -Not -Match 'before Freeze'
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
@@ -192,6 +211,27 @@ Describe 'review report frozen plan and attendance' {
             $r2 = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $case.Scratch
             $r2.ExitCode | Should -Be 2
             ($r2.Diagnostics -join ' ') | Should -Match 'frozen plan|absent'
+
+            # Frozen free-text and roster/task model values bind ordinally, not through PowerShell's
+            # default case-insensitive comparison.
+            $scopeCase = Copy-ReviewMap -Map $case.Run
+            $scopeCase['scope'] = '1 Changed File'
+            Set-ReviewHandshake -RunDir $case.RunDir -Kind result -Object $scopeCase
+            $r3 = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $case.Scratch
+            $r3.ExitCode | Should -Be 2
+            ($r3.Diagnostics -join ' ') | Should -Match 'scope differs'
+
+            $modelCase = Copy-ReviewMap -Map $case.Run
+            $modelCase['roster'] = @('Model-A')
+            $modelCase['tasks'] = @($modelCase.tasks | ForEach-Object {
+                    $copy = Copy-ReviewMap -Map $_
+                    $copy['model'] = 'Model-A'
+                    $copy
+                })
+            Set-ReviewHandshake -RunDir $case.RunDir -Kind result -Object $modelCase
+            $r4 = Invoke-ReviewPublish -RunId $script:runId -RepoRoot $case.Scratch
+            $r4.ExitCode | Should -Be 2
+            ($r4.Diagnostics -join ' ') | Should -Match 'roster differs|mutated its concern or model'
         }
         finally { Remove-ReviewScratchRoot -Path $case.Scratch }
     }

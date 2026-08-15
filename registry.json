@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-14T19:35:19.4890688Z",
+  "generatedAt": "2026-08-15T05:03:38.7111595Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "52248347a191888abc5b7086a46fd23bc7acea9ba0a9854aaa128d1c53492edd",
+          "sha256": "6257711e250414ae5673f0537361dbcce85c9f99da941e7b0566f98a317d7475",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -459,7 +459,7 @@
         },
         {
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
-          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "sha256": "c043515755d90d43d93fc48c753c3cbbdcb0a83213ac53515198c0f07e55d7b1",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
         }
       ],
@@ -471,7 +471,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",
@@ -491,12 +491,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
+          "sha256": "629e7faf92e677cfb915dc1bd5b56c8f5610ea0e24adcc5a5a9cbca1069bd3f2",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "89965ccfee8f02d4c9cdbdf166b0c646d5629f12796ef73d89121fc60afbf3c7",
+          "sha256": "22d15f09c3c66942602e0ffd1d58cb2931ade64f2927309e736c6f842c582a37",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -531,7 +531,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "8fdc3ee78fa7ec119e4099cc836ac30aeb0235a5d7401e72efddf4f7102eb407",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -603,7 +603,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.29"
     },
     {
       "author": "jIRI-san",
@@ -657,7 +657,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "8fdc3ee78fa7ec119e4099cc836ac30aeb0235a5d7401e72efddf4f7102eb407",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
@@ -682,7 +682,7 @@
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "84a93b249e38f20720042737371dff56353bee84f063c9f3ddc8520831353019",
+          "sha256": "676499d3abdaf81b09b72fce1419ff606037618ae5ddb42fa5fac239a5e03ad3",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -727,7 +727,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "8fdc3ee78fa7ec119e4099cc836ac30aeb0235a5d7401e72efddf4f7102eb407",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -769,7 +769,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.29"
     },
     {
       "author": "jIRI-san",
@@ -921,7 +921,7 @@
         },
         {
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
-          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "sha256": "c043515755d90d43d93fc48c753c3cbbdcb0a83213ac53515198c0f07e55d7b1",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
         }
       ],
@@ -933,7 +933,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",
@@ -1096,7 +1096,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "8fdc3ee78fa7ec119e4099cc836ac30aeb0235a5d7401e72efddf4f7102eb407",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1121,7 +1121,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "24ee2500279d5c8f85fe289412b9d30146b4f79ae8ebead589293930ee47edac",
+          "sha256": "8fdc3ee78fa7ec119e4099cc836ac30aeb0235a5d7401e72efddf4f7102eb407",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
@@ -1147,7 +1147,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     }
   ]
 }

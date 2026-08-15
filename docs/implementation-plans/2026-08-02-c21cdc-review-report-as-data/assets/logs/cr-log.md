@@ -29,3 +29,6 @@ Phase: 1
 - [1.2] [src:note] [sev:High] Rubber Duck: control characters in schema-valid model names corrupt delimiter-packed attribution and unanimity.
 - [1.2] [src:note] [sev:Med] Rubber Duck: reader does not independently enforce per-role summary/full byte bounds and canonical text encoding.
 - [1.2] [src:note] [sev:Med] Rubber Duck: Freeze can write a plan generation into corrupted published state when the manifest remains but the prior plan file is missing.
+- [1.2] [src:code-review] [sev:High] Deleting the content-addressed frozen plan resets state to new and permits a different plan under the same UUID; persist independent frozen-state evidence and fail closed.
+- [1.2] [src:code-review] [sev:Med] Publish compares frozen scope and task fields case-insensitively; bind canonical frozen fields with ordinal equality.
+- [1.2] [src:code-review] [sev:Low] Rubber-duck triage: Publish described a missing generation under committed frozen state as Publish-before-Freeze; distinguish corrupted frozen state in the bounded diagnostic.

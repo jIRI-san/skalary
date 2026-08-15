@@ -226,23 +226,29 @@ unaffected, which is exactly why the corpus cannot be the only proof and each ca
 ### Lifecycle, state and idempotency
 
 The state machine is `new -> frozen -> published`, with `admission` as a terminal side state, decided
-by which files are on disk: a `review-run.manifest.json` means published, a `.review-run.admission.json`
-means the run reached a terminal byte-budget decision, and a `review-plan.<sha256>.json` without either
-means frozen.
+by engine-owned commit markers: a `review-run.manifest.json` means published,
+`.review-run.admission.json` means the run reached a terminal byte-budget decision, and
+`.review-run.frozen` binds the accepted plan digest. The frozen marker is replaced last under the run
+lock, after `review-plan.<sha256>.json`; a generation without its marker is an interrupted Freeze that
+only an identical replay may complete. A marker whose generation was removed stays frozen but invalid,
+so deleting the content-addressed plan cannot reopen the UUID for a replacement plan.
 
-Only three names are fixed: the two `.input.json` files the caller renames into place and
-`review-run.manifest.json`, the sole commit point. **Every generation file — the frozen plan
-included — is content-addressed** as `<role>.<sha256-hex>.<ext>` (`review-plan.<hex>.json`,
-`review-run.<hex>.json`, `review-summary.<hex>.md`, `review-full.<hex>.md`). A name is therefore a
-claim about bytes that both `Publish` and the reader verify. A mutable fixed-name frozen plan could be
-edited in place and still look like a plan; a content-addressed one cannot be edited without either
-breaking its own name or creating a second candidate, and both are detected.
+The caller controls only the two fixed `.input.json` names. Engine-owned fixed files are state
+markers: `.review-run.frozen`, `.review-run.admission.json`, the stable lock, and
+`review-run.manifest.json` as the final publication commit point. **Every generation file — the
+frozen plan included — is content-addressed** as `<role>.<sha256-hex>.<ext>`
+(`review-plan.<hex>.json`, `review-run.<hex>.json`, `review-summary.<hex>.md`,
+`review-full.<hex>.md`). A name is therefore a claim about bytes that both `Publish` and the reader
+verify. A mutable fixed-name frozen plan could be edited in place and still look like a plan; a
+content-addressed one cannot be edited without either breaking its own name or creating a second
+candidate, and both are detected.
 
 - **Freeze** reads `review-plan.input.json` (the caller renamed it; see the handshake below), enforces
   the input byte budget on the bytes on disk, validates structurally (`Test-Json`) then semantically
   (1–128 unique ids, unique concern/model slots, **and every task model inside the frozen roster**),
   scans the untrusted plan strings it is about to persist for credential shapes, canonicalizes, and
-  writes `review-plan.<digest>.json` **under the run lock**. An identical replay is idempotent; a
+  writes `review-plan.<digest>.json` and then its independent frozen-state marker **under the run
+  lock**. An identical replay is idempotent; a
   *different* plan under a frozen run id is exit `2` — freeze is immutable. Under that same lock it
   decides `published` state **explicitly** rather than inferring "no plan file, therefore new": a
   published run whose plan generation was removed or renamed presents exactly that way, and writing a
@@ -295,9 +301,11 @@ and the switch can only remove a capability, so no invocation can talk a real ho
   it accepts `1`, and `ConvertFrom-Json` returns a double, so `"invocationBudget": 1.0` used to
   serialize back as `1.0` and hash differently from the identical document spelled `1`. A genuinely
   fractional value, and anything outside the exact `2^53` round trip, is left untouched.
-- **Object keys are ordered ordinally** — never `Sort-Object`, whose culture sensitivity is the whole
-  reason — and so are the set-valued arrays (`roster`, `tasks` by id, `findings` by an ordinal field
-  tuple, each finding's `references`). Ordinal is also why the key map is an `OrderedDictionary` with
+- **Object keys and frozen-field comparisons are ordinal** — never `Sort-Object` or PowerShell's
+  case-insensitive equality. Scope, roster and task model case are part of the frozen contract. Object
+  keys and set-valued arrays (`roster`, `tasks` by id, `findings` by an ordinal field tuple, each
+  finding's `references`) use ordinal ordering so culture cannot change canonical bytes. Ordinal is
+  also why the key map is an `OrderedDictionary` with
   `StringComparer.Ordinal` rather than `[ordered]@{}`: PowerShell's ordered dictionary compares keys
   case-insensitively, which would silently merge two case-distinct members of a "lossless" document.
   The same rule holds inside the projection (task map, merge map, sort map): a case-insensitive

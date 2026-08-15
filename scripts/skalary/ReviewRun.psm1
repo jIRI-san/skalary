@@ -52,12 +52,9 @@ $script:SeverityByRank = @{ 4 = 'Critical'; 3 = 'High'; 2 = 'Medium'; 1 = 'Low' 
 $script:Outcomes = @('completed', 'failed', 'timed-out', 'omitted', 'cancelled', 'pending')
 $script:Unit = [string][char]1
 
-# Run-directory names. Only three are fixed: the two `.input.json` files the caller renames into
-# place (D16) and `review-run.manifest.json`, the sole commit point. Every generation file — the
-# frozen plan included — is content-addressed as `<role>.<sha256-hex>.<ext>`, so a name is a claim
-# about bytes that a reader (and Publish, before it trusts the frozen plan) verifies. Nothing
-# overwrites a generation in place, which is what makes the frozen plan tamper-evident rather than a
-# mutable unsigned file.
+# Run-directory names. The caller controls only the two fixed `.input.json` handshakes (D16).
+# Generations are content-addressed; fixed engine-owned markers commit frozen, admitted and published
+# state so removing one generation cannot reopen an accepted UUID.
 $script:PlanInputName = 'review-plan.input.json'
 $script:ResultInputName = 'review-result.input.json'
 $script:PlanPrefix = 'review-plan'
@@ -65,6 +62,7 @@ $script:CanonicalPrefix = 'review-run'
 $script:SummaryPrefix = 'review-summary'
 $script:FullPrefix = 'review-full'
 $script:ManifestName = 'review-run.manifest.json'
+$script:FrozenName = '.review-run.frozen'
 $script:LockName = '.review-run.lock'
 # Admission (exit 3) is terminal for a UUID (D21), so it has to survive the process that decided it.
 $script:AdmissionName = '.review-run.admission.json'
@@ -1003,22 +1001,34 @@ function Test-ReviewRunSemantic {
     $limits = Get-ReviewLimits
     $failures = [System.Collections.Generic.List[string]]::new()
 
-    if ([string](Get-ReviewValue -Node $Run -Name 'planDigest') -ne $FrozenPlanDigest) {
+    if (-not [string]::Equals(
+            [string](Get-ReviewValue -Node $Run -Name 'planDigest'),
+            $FrozenPlanDigest,
+            [System.StringComparison]::Ordinal)) {
         $failures.Add('planDigest does not match the frozen plan bytes')
     }
 
-    foreach ($field in @('reviewType', 'scope', 'invocationBudget')) {
-        if ("$(Get-ReviewValue -Node $Run -Name $field)" -ne "$(Get-ReviewValue -Node $FrozenPlan -Name $field)") {
+    foreach ($field in @('reviewType', 'scope')) {
+        if (-not [string]::Equals(
+                [string](Get-ReviewValue -Node $Run -Name $field),
+                [string](Get-ReviewValue -Node $FrozenPlan -Name $field),
+                [System.StringComparison]::Ordinal)) {
             $failures.Add("$field differs from the frozen plan")
         }
+    }
+    if ([int](Get-ReviewValue -Node $Run -Name 'invocationBudget') -ne
+        [int](Get-ReviewValue -Node $FrozenPlan -Name 'invocationBudget')) {
+        $failures.Add('invocationBudget differs from the frozen plan')
     }
     $runRoster = @(Get-ReviewValue -Node $Run -Name 'roster' | ForEach-Object { [string]$_ })
     $planRoster = @(Get-ReviewValue -Node $FrozenPlan -Name 'roster' | ForEach-Object { [string]$_ })
     # Length-prefixed tuples, never a `U+0001` join: a model name is unconstrained text, so a roster of
     # one model containing the delimiter would compare equal to a two-model roster and let a result
     # claim an attendance set the frozen plan never declared.
-    if ((Get-ReviewOrdinalTupleKey -Value @(Sort-ReviewOrdinal -Value $runRoster)) -ne
-        (Get-ReviewOrdinalTupleKey -Value @(Sort-ReviewOrdinal -Value $planRoster))) {
+    if (-not [string]::Equals(
+            (Get-ReviewOrdinalTupleKey -Value @(Sort-ReviewOrdinal -Value $runRoster)),
+            (Get-ReviewOrdinalTupleKey -Value @(Sort-ReviewOrdinal -Value $planRoster)),
+            [System.StringComparison]::Ordinal)) {
         $failures.Add('roster differs from the frozen plan')
     }
 
@@ -1049,8 +1059,14 @@ function Test-ReviewRunSemantic {
         }
         else {
             $planTask = $planTaskById[$id]
-            if ($concern -ne [string](Get-ReviewValue -Node $planTask -Name 'concern') -or
-                $model -ne [string](Get-ReviewValue -Node $planTask -Name 'model')) {
+            if (-not [string]::Equals(
+                    $concern,
+                    [string](Get-ReviewValue -Node $planTask -Name 'concern'),
+                    [System.StringComparison]::Ordinal) -or
+                -not [string]::Equals(
+                    $model,
+                    [string](Get-ReviewValue -Node $planTask -Name 'model'),
+                    [System.StringComparison]::Ordinal)) {
                 $failures.Add("task '$id' mutated its concern or model after freeze")
             }
         }
@@ -1732,8 +1748,9 @@ function Exit-ReviewLock {
 }
 
 # --------------------------------------------------------------------------------------------------
-# State inspection: new -> frozen -> published, with admission as a terminal side state, decided by
-# which files are on disk.
+# State inspection: new -> frozen -> published, with admission as a terminal side state. Engine-owned
+# markers decide accepted state; a content-addressed plan generation without its marker is only an
+# interrupted Freeze candidate.
 # --------------------------------------------------------------------------------------------------
 function Get-ReviewFrozenPlanFile {
     <#
@@ -1748,6 +1765,45 @@ function Get-ReviewFrozenPlanFile {
             Sort-Object -Property Name)
 }
 
+function Get-ReviewFrozenMarkerDigest {
+    <#
+    .SYNOPSIS
+        Reads the independent marker that commits a frozen plan digest.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [switch]$AllowMissing
+    )
+
+    $path = Join-Path $RunDir $script:FrozenName
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    if (-not $item) {
+        if ($AllowMissing) { return $null }
+        throw 'the frozen-state marker is missing'
+    }
+    if ($item -isnot [System.IO.FileInfo] -or
+        (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq [System.IO.FileAttributes]::ReparsePoint)) {
+        throw 'the frozen-state marker is not a regular file'
+    }
+
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $text = $script:Utf8NoBom.GetString($bytes)
+    if ($text -cnotmatch '^sha256:[0-9a-f]{64}\n$') {
+        throw 'the frozen-state marker is malformed'
+    }
+    return $text.TrimEnd("`n")
+}
+
+function Write-ReviewFrozenMarker {
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [Parameter(Mandatory)][string]$PlanDigest
+    )
+
+    $bytes = $script:Utf8NoBom.GetBytes($PlanDigest + "`n")
+    Write-ReviewBytesAtomic -Path (Join-Path $RunDir $script:FrozenName) -Bytes $bytes
+}
+
 function Read-ReviewFrozenPlan {
     <#
     .SYNOPSIS
@@ -1760,7 +1816,10 @@ function Read-ReviewFrozenPlan {
         look like a plan; a content-addressed one cannot be edited without either breaking its name or
         creating a second file, and both are detected here.
     #>
-    param([Parameter(Mandatory)][string]$RunDir)
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [switch]$AllowMissingMarker
+    )
 
     $files = @(Get-ReviewFrozenPlanFile -RunDir $RunDir)
     if ($files.Count -eq 0) { throw 'no frozen plan exists for this run id' }
@@ -1770,6 +1829,10 @@ function Read-ReviewFrozenPlan {
     $digest = Get-ReviewDigest -Bytes $bytes
     if ($digest -ne (Get-ReviewContentNameDigest -Role 'plan' -Name $files[0].Name)) {
         throw 'the frozen plan bytes do not match the digest in its own file name'
+    }
+    $markerDigest = Get-ReviewFrozenMarkerDigest -RunDir $RunDir -AllowMissing:$AllowMissingMarker
+    if ($markerDigest -and -not [string]::Equals($markerDigest, $digest, [System.StringComparison]::Ordinal)) {
+        throw 'the frozen plan digest does not match the frozen-state marker'
     }
     try { $plan = [System.Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -AsHashtable -Depth 40 }
     catch { throw 'the frozen plan is not parsable JSON' }
@@ -1792,7 +1855,7 @@ function Get-ReviewRunState {
     if (-not (Test-Path -LiteralPath $RunDir -PathType Container)) { return 'new' }
     if (Test-Path -LiteralPath (Join-Path $RunDir $script:ManifestName) -PathType Leaf) { return 'published' }
     if (Test-Path -LiteralPath (Join-Path $RunDir $script:AdmissionName) -PathType Leaf) { return 'admission' }
-    if (@(Get-ReviewFrozenPlanFile -RunDir $RunDir).Count -gt 0) { return 'frozen' }
+    if (Test-Path -LiteralPath (Join-Path $RunDir $script:FrozenName) -PathType Leaf) { return 'frozen' }
     return 'new'
 }
 
@@ -2168,7 +2231,7 @@ function Invoke-ReviewFreezeCore {
                 -Message 'Plan already frozen under a published run (idempotent).' -RunId $RunId
         }
 
-        if (@(Get-ReviewFrozenPlanFile -RunDir $runDir).Count -gt 0) {
+        if ($state -eq 'frozen') {
             try { $existing = Read-ReviewFrozenPlan -RunDir $runDir }
             catch {
                 Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
@@ -2185,7 +2248,27 @@ function Invoke-ReviewFreezeCore {
             return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan already frozen (idempotent).' -RunId $RunId
         }
 
+        # A generation without its marker is an interrupted Freeze. It can be completed only by an
+        # identical replay; a different plan cannot adopt the UUID.
+        if (@(Get-ReviewFrozenPlanFile -RunDir $runDir).Count -gt 0) {
+            try { $existing = Read-ReviewFrozenPlan -RunDir $runDir -AllowMissingMarker }
+            catch {
+                Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+                return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
+                    -Message "The uncommitted plan generation under this run id is not trustworthy: $($_.Exception.Message)" -RunId $RunId
+            }
+            if (-not [string]::Equals($existing.Digest, $canonicalDigest, [System.StringComparison]::Ordinal)) {
+                Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+                return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
+                    -Message 'A different plan generation already exists under this run id; freeze is immutable.' -RunId $RunId
+            }
+            Write-ReviewFrozenMarker -RunDir $runDir -PlanDigest $canonicalDigest
+            Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+            return New-ReviewResult -Mode freeze -ExitCode 0 -State clean -Message 'Plan freeze completed (idempotent).' -RunId $RunId
+        }
+
         Write-ReviewBytesAtomic -Path (Join-Path $runDir (Get-ReviewContentName -Role 'plan' -Bytes $canonicalBytes)) -Bytes $canonicalBytes
+        Write-ReviewFrozenMarker -RunDir $runDir -PlanDigest $canonicalDigest
     }
     finally { Exit-ReviewLock -Lock $lock }
 
@@ -2249,7 +2332,8 @@ function Invoke-ReviewPublishCore {
     # An admission decision is terminal for the UUID (D21): a later Publish on it can only repeat the
     # same answer, never publish a quietly reduced set. It is terminal, so the untrusted result input
     # the caller staged is destroyed here rather than left on disk unscanned.
-    if ((Get-ReviewRunState -RunDir $runDir) -eq 'admission') {
+    $initialState = Get-ReviewRunState -RunDir $runDir
+    if ($initialState -eq 'admission') {
         Remove-ReviewPendingInput -RunDir $runDir -InputName $script:ResultInputName -Boundary $repoFull
         return New-ReviewResult -Mode publish -ExitCode 3 -State admission `
             -Message 'This run id already reached a terminal admission decision; start a new run id.' -RunId $RunId
@@ -2257,7 +2341,13 @@ function Invoke-ReviewPublishCore {
 
     if (@(Get-ReviewFrozenPlanFile -RunDir $runDir).Count -eq 0) {
         Remove-ReviewPendingInput -RunDir $runDir -InputName $script:ResultInputName -Boundary $repoFull
-        return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message 'Publish before Freeze: no frozen plan exists for this run id.' -RunId $RunId
+        $message = if ($initialState -in @('frozen', 'published')) {
+            'The committed frozen state has no plan generation; refusing to publish against untrustworthy state.'
+        }
+        else {
+            'Publish before Freeze: no frozen plan exists for this run id.'
+        }
+        return New-ReviewResult -Mode publish -ExitCode 2 -State invalid -Message $message -RunId $RunId
     }
     try { $frozen = Read-ReviewFrozenPlan -RunDir $runDir }
     catch {
