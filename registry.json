@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-14T19:35:19.4890688Z",
+  "generatedAt": "2026-08-15T13:36:46.5016307Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "f58297c04a191263752829c59f2f09d2592763153f88f0392ca6c09591ffc1e1",
+          "sha256": "2a9bcee0b93c5ad19ca5809954336fe44a95ea375425342e016e6cd0e0c29ab3",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -41,7 +41,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-          "sha256": "2ee7b24548076cdcb077ef4ef29cd218c4641a91cbe6e41bd587a2ed3ad9067d",
+          "sha256": "cb0463e1c0b2050b338458d6d17c73eaf5fe3af43c8b9d0ff88415f104f474e6",
           "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
         },
         {
@@ -56,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "8a468358a32261e46c120220aaaa1ea22d674e47b80feea1b2d3ea9687fc5254",
+          "sha256": "049a2a85adab9f09458368fbbe3000d4cf3ef53e6c20affcd9e1a1ba6ff42ce0",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
@@ -70,6 +70,11 @@
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
+          "dest": "skills/architecture-notes/scripts/Get-ArchContractContentHash.ps1",
+          "sha256": "ef239280ad0d23684995a35861adb61d3c983176945211ba200b65630c7a13e1",
+          "src": "scripts/Get-ArchContractContentHash.ps1"
+        },
+        {
           "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
           "sha256": "bcf90454ef982d409c864690adf1510530c84dc721582868b94ca8117109a2e5",
           "src": "scripts/Get-ArchContractsHash.ps1"
@@ -81,7 +86,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
-          "sha256": "c0ecc7af5580cc993582d3a203826e4ef8614079b67ddf0be78268299205a454",
+          "sha256": "81d2b5a51d6bdb5f974784272b0fd331df134649e20a99a8f5d27c11a7484f36",
           "src": "scripts/Import-ArchHarvest.ps1"
         },
         {
@@ -96,7 +101,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "12422975f6020935f774f9564aa8ef5c4e7b2961bb16c22d39ef2303d5872dbe",
+          "sha256": "c06c7027cdee983d26f2775afb97f26c2b61c29d611ddb01336854b216be143a",
           "src": "scripts/Test-ArchContract.ps1"
         }
       ],
@@ -141,7 +146,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "author": "jIRI-san",
@@ -264,7 +269,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "52248347a191888abc5b7086a46fd23bc7acea9ba0a9854aaa128d1c53492edd",
+          "sha256": "6257711e250414ae5673f0537361dbcce85c9f99da941e7b0566f98a317d7475",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -491,12 +496,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "11f1116363e759284e2737e5f0c35ad233660c6ac88efceef634611000815283",
+          "sha256": "629e7faf92e677cfb915dc1bd5b56c8f5610ea0e24adcc5a5a9cbca1069bd3f2",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "89965ccfee8f02d4c9cdbdf166b0c646d5629f12796ef73d89121fc60afbf3c7",
+          "sha256": "22d15f09c3c66942602e0ffd1d58cb2931ade64f2927309e736c6f842c582a37",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -682,7 +687,7 @@
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "84a93b249e38f20720042737371dff56353bee84f063c9f3ddc8520831353019",
+          "sha256": "676499d3abdaf81b09b72fce1419ff606037618ae5ddb42fa5fac239a5e03ad3",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {

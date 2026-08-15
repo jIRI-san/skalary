@@ -251,9 +251,8 @@ foreach ($c in $selected) {
     $prose = "Harvested candidate boundary for '$safeName' ($($c.Kind), detected at $safeSource). " +
     'Draft only: review, refine the interface contract, then promote. Content derived from repo scan; verify before locking.'
 
-    # Draft contract (never locked). maturity is hard-coded to guarantee the draft-only invariant.
-    # `frameworks` (the deterministic adapter) is a human review decision, so harvest leaves it
-    # unset; the detected stack is captured in prose and the manifest instead.
+    # Draft contract (never locked). Maturity is hard-coded to guarantee the draft-only invariant;
+    # the detected stack is captured in prose and the manifest.
     $contract = [ordered]@{
         id       = $c.Id
         title    = $safeName

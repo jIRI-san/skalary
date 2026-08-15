@@ -35,7 +35,9 @@ context: fork
   resolves, HALT** — never hand-roll validation or write a contract past a missing gate.
   - `Copy-ArchScaffold.ps1` — scaffolds schema + tier index into the repo, never overwriting.
   - `Test-ArchContract.ps1` — validates a contract file against the schema (the write gate). It
-    checks *shape* only; it does **not** authorize a lock (see Step 4).
+    checks shape and locked-content integrity; it does **not** authorize a lock (see Step 4).
+  - `Get-ArchContractContentHash.ps1` — sole canonical JSON projection and UTF-8 digest owner for
+    `lockedContentSha256`. Call it when proposing a lock.
   - `New-ArchHumanDoc.ps1` — regenerates the human-readable doc from the contracts and embeds the
     canonical freshness digest (the human-doc generator; see Step 8).
   - `Get-ArchContractsHash.ps1` — computes the canonical contract-sources digest (shared by the
@@ -69,7 +71,7 @@ context: fork
    - `rules` — declarative, machine-derivable rules (forbidden-dependency, layer-boundary, ...).
    - `prose` — a terse component/boundary description.
    - `interfaces` — real C#/TS interface stubs the human owns.
-   Fill `targets`/`frameworks` when the deterministic runner will realize the contract.
+   Fill `targets` when the boundary is path-scoped.
 4. **Validate the write (mandatory gate):**
    - `pwsh -NoProfile -File <scripts>/Test-ArchContract.ps1 -ContractPath <file>`
    - Proceed only when `Valid` is true; otherwise fix the reported `Errors` and re-run.
@@ -82,10 +84,9 @@ context: fork
 ## Step 3: Update a contract
 
 1. Load the target contract and its note.
-2. Apply the change. If the contract is `locked`, treat its reviewed body as fixed:
-   - You may propose edits, but changing a locked contract's executable body invalidates its
-     `lockedBodySha256` and **requires a fresh human review + re-lock**. Do not silently rewrite
-     a locked body.
+2. Apply the change. If the contract is `locked`, treat all canonical contract content as fixed:
+   - You may propose edits, but changing any field except `lockedContentSha256` invalidates the
+     digest and **requires fresh human review + re-lock**. Do not silently rewrite locked content.
 3. Re-validate with `Test-ArchContract.ps1` (Step 2.4). Keep `maturity` unchanged unless a human
    is promoting/demoting.
 4. Update the note and index rows; regenerate the human doc via the generator (Step 8):
@@ -95,11 +96,11 @@ context: fork
 
 1. **Refuse in an autonomous/non-interactive context.** If this is an autopilot/`/ci` run, stop
    with: `lock promotion requires a human-authored commit`. Record a *proposal* instead.
-2. For an interactive human: set `maturity: locked` and compute/record `lockedBodySha256` (the
-   SHA-256 of the reviewed executable test body). Validate with `Test-ArchContract.ps1` (locked
-   contracts require the hash).
-3. The promotion must land in a human-reviewed commit; the runner honors `locked` only when the
-   promotion is human-committed and the body hash matches.
+2. For an interactive human: set `maturity: locked`, compute `lockedContentSha256` with
+   `Get-ArchContractContentHash.ps1`, and record its `Digest`. Validate with
+   `Test-ArchContract.ps1`.
+3. Promotion is reviewer-enforced policy, not machine-authenticated identity. Git author metadata
+   is forgeable and must never be treated as proof that a human approved the promotion.
 
 ## Step 5: Review the tier
 
@@ -117,10 +118,9 @@ context: fork
 5. **Reconcile locked contracts against fitness coverage.** Cross-check every `locked` contract against the
    arch-test config's `checks[].contractId`; a locked contract with **no** check has no fitness function and
    must be flagged as a **blocking coverage gap** (an unchecked locked contract would otherwise green by omission).
-6. **Audit locked promotions by authorship, not the on-disk field.** For each `locked` contract, verify the
-   commit that promoted it (`draft -> locked`) was **human-authored/reviewed** — do not trust `maturity: locked`
-   alone (an autonomous run may only *propose* a lock). Flag any locked contract whose promoting commit cannot
-   be confirmed human as pending re-review.
+6. **Audit locked promotions through review policy.** Confirm reviewer approval outside this
+   machine gate. Never infer trustworthy identity from local Git author metadata; flag a promotion
+   whose review record cannot be established as pending re-review.
 7. Report only; do not mutate. Recommend the next incremental lock.
 
 ## Steps 6-9: Seed, harvest, human-doc regen, ADR harvest
@@ -147,7 +147,8 @@ them from memory.
 - **Draft by default.** New and harvested contracts are `draft`. Never self-promote to `locked`.
 - **Maturity levels.** `draft` = new/unreviewed, warn-only. `provisional` = human-reviewed and
   intended but not yet enforced (warn-only; a staging step toward `locked`). `locked` = blocking,
-  human-committed, body-hash pinned. Only a human moves a contract up or down these levels.
+  reviewer-approved and content-hash pinned. Only a human moves a contract up or down these levels,
+  enforced by review policy rather than machine-authenticated identity.
 - **Terse AI tier.** Keep notes and contracts context-cheap; push prose/diagrams to the
   human-readable doc, which stays excluded from AI auto-load.
 - **No-overwrite.** Scaffolding never overwrites existing files; respect the human's edits.

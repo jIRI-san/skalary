@@ -14,8 +14,8 @@ tier is the **AI-optimized source of truth**: terse, contract-focused, and auto-
 - Load this index first. Then read only the arch note(s) and contract(s) relevant to the task.
 - Contracts are machine-checkable (`architecture-contract.schema.json`) and referenced from
   plans via `arch:<ContractId>` evidence markers.
-- `locked` contracts are blocking; `draft`/`provisional` are warn-only. Only a human-authored
-  commit may promote a contract to `locked`.
+- `locked` contracts are reviewer-approved and content-pinned; `draft`/`provisional` are advisory.
+  Human promotion is reviewer-enforced policy, not machine-authenticated identity.
 
 ## Maintenance Protocol (Required)
 

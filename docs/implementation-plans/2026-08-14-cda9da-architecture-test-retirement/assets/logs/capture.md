@@ -13,3 +13,8 @@ Phase: 0
 - [0.10] [src:note] dr: pin automatic deletion authority in immutable tombstone payload sets and report root, CLI, and approval-key residue manually
 - [0.11] [src:note] dr: define exhaustive retirement outcomes, direct target and failure exits, globally bounded fair residue replay, and state-path reconfinement
 - [0.12] [src:note] dr: bind 34088e to exact immutable fixture and keep human promotion reviewer-enforced rather than claiming Git identity proof
+
+## Capture
+Phase: 1
+
+No entries for this phase.

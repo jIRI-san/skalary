@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/arch-test-config.schema.json",
+  "title": "Architecture Tests Runner Config",
+  "description": "Binds architecture contracts to the adapter that enforces them and the target sources they govern. Scaffolded to schemas/ on init (no-overwrite); the runner (Invoke-ArchTests.ps1) reads a config validated against this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "checks"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Config format version."
+    },
+    "checks": {
+      "type": "array",
+      "description": "One entry per contract to enforce.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contractId", "adapter"],
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Stable id of the architecture contract this check enforces. Also derives the receipt filename, so it must be path-safe."
+          },
+          "adapter": {
+            "type": "string",
+            "enum": ["netarchtest", "ts-arch", "dependency-cruiser", "semantic-eval"],
+            "description": "Enforcement backend. Deterministic adapters hard-gate; semantic-eval is advisory."
+          },
+          "maturity": {
+            "type": "string",
+            "enum": ["locked", "draft", "provisional"],
+            "description": "Contract maturity. 'locked' hard-gates (only a real pass greens); 'draft'/'provisional' warn on non-pass. Defaults to 'draft' when omitted."
+          },
+          "contractPath": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the human-owned contract definition. Folded into the freshness hash so editing the contract invalidates prior receipts."
+          },
+          "testProject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the human-owned, reviewed test project/spec the adapter executes (deterministic adapters)."
+          },
+          "spec": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the adapter spec file (e.g. ts-arch/dependency-cruiser spec)."
+          },
+          "targets": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Target source paths/globs whose tree/content hash freshness binds to."
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "enum": ["custom", "mock", "null", "waza"],
+            "description": "Semantic-eval provider name (required when adapter=semantic-eval). One of: custom, mock, null, waza."
+          },
+          "credentialTarget": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional dedicated Windows Credential Manager target the semantic-eval provider reads its LLM token from. Isolated from the plugin eval harness credential; skip-not-error when unset or missing."
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "adapter": { "const": "semantic-eval" } } },
+            "then": { "required": ["provider"] }
+          },
+          {
+            "if": { "properties": { "adapter": { "enum": ["netarchtest", "ts-arch", "dependency-cruiser"] } } },
+            "then": { "anyOf": [{ "required": ["testProject"] }, { "required": ["spec"] }] }
+          }
+        ]
+      }
+    }
+  }
+}
