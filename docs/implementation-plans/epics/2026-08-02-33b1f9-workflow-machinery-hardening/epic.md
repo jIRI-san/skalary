@@ -35,7 +35,7 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `2366ad` | cross-repo-si-and-standards | `1936cb`, `34088e` |
 | `34088e` | consumer-install-correctness | `cda9da` |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
-| `863d97` | evidence-receipt-truth | — |
+| `863d97` | evidence-receipt-truth | `cda9da` |
 | `c21cdc` | review-report-as-data | — |
 | `79cfe1` | concern-registry-and-generated-agents | — |
 | `ca8ba8` | review-corroboration-truth | `c21cdc` |
