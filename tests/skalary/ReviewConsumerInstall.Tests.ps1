@@ -471,7 +471,9 @@ Describe 'isolated review-run consumer installs' {
             ConvertFrom-Json
             Get-Content -LiteralPath (Join-Path $orphan.RunDir $orphanManifest.files.canonical.name) -Raw |
             Should -Match 'orchestrator-interrupted'
-            Remove-ReviewRunDirectory -RunId $orphanId -RepoRoot $fixture.Root | Should -Be $orphanId
+            $orphanVerified = Read-ReviewManifest -RunDir $orphan.RunDir -Boundary $fixture.Root
+            Remove-ReviewRunDirectory -RunId $orphanId -RepoRoot $fixture.Root -VerifiedManifest $orphanVerified |
+            Should -Be $orphanId
 
             # Frozen-plan mutation remains invalid through the installed CLI.
             $mutationId = [guid]::NewGuid().ToString()
@@ -544,7 +546,9 @@ Describe 'isolated review-run consumer installs' {
 
                 $retried = Invoke-ConsumerWriter -Fixture $fixture -Mode Publish -RunId $retryId
                 Assert-ConsumerExit -Result $retried -Expected 0 -Context "$Id $retryCase retry"
-                Remove-ReviewRunDirectory -RunId $retryId -RepoRoot $fixture.Root | Should -Be $retryId
+                $retryVerified = Read-ReviewManifest -RunDir $retry.RunDir -Boundary $fixture.Root
+                Remove-ReviewRunDirectory -RunId $retryId -RepoRoot $fixture.Root -VerifiedManifest $retryVerified |
+                Should -Be $retryId
             }
 
             # Poisoned repository fallbacks remain untouched; the installed closure supplied everything.

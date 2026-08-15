@@ -9,17 +9,22 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Write-GateError {
+    param([Parameter(Mandatory)][string]$Message)
+    [Console]::Error.WriteLine($Message)
+}
+
 $testPath = if ($TestPath) { @($TestPath | ForEach-Object { [System.IO.Path]::GetFullPath($_) }) } else { @((Join-Path $RepoRoot 'tests/skalary/ReviewConsumerInstall.Tests.ps1')) }
 $missingTestPath = @($testPath | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
 if ($missingTestPath.Count -gt 0) {
-    Write-Error "Review consumer install test not found: $($missingTestPath -join ', ')"
+    Write-GateError "Review consumer install test not found: $($missingTestPath -join ', ')"
     exit 3
 }
 
 $pester = @(Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version.Major -ge 5 } |
         Sort-Object Version -Descending | Select-Object -First 1)
 if ($pester.Count -ne 1) {
-    Write-Error 'Pester 5 or newer is required for the review consumer install gate.'
+    Write-GateError 'Pester 5 or newer is required for the review consumer install gate.'
     exit 2
 }
 

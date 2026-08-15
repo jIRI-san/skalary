@@ -153,7 +153,7 @@ The runner (`Invoke-WazaEvals.ps1` → `Get-WazaEvalSpec`) discovers exactly **o
 
 | Plugin | Skill target | Case style | Adversarial pack |
 |---|---|---|---|
-| `code-review` (`cr`) | agent | functional review-quality + injection resistance | `prompt-injection` |
+| `code-review` (`cr`) | agent | functional review-quality + injection resistance, including a malicious-directive/legitimate-policy contrast pair | `prompt-injection` |
 | `design-review` (`dr`) | agent | describe-only feasibility/security reasoning | — |
 | `autopilot` | agent | describe-only behavioral (execution forbidden — an un-constrained agent tries to really execute and times out) | — |
 | `continue-implementation` (`ci`) | skill | one describe-only + one real `tool_calls`/`behavior` grader (build/test ran before commit) | — |

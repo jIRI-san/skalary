@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T16:52:58.4002861Z",
+  "generatedAt": "2026-08-15T20:04:55.8705431Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -474,12 +474,12 @@
         },
         {
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "65db611d12cebfe874461dae7bc35d3d847ac958311b973a402032473891df06",
+          "sha256": "8dc2ad2bc68790bb275f3e20591b031ae0a843e48ad9b6b32efd9473ad38a28e",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "9dc514bf1c324c0c5782e063a205982c37f80613fbf9c06dbf895f55e7eef82e",
+          "sha256": "f213fe592b91d345118d8e92c4cee43b3e5fd6f2a100cb5b30a28c72da2c5f31",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.16"
+      "version": "1.0.18"
     },
     {
       "author": "jIRI-san",
@@ -986,12 +986,12 @@
         },
         {
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "65db611d12cebfe874461dae7bc35d3d847ac958311b973a402032473891df06",
+          "sha256": "8dc2ad2bc68790bb275f3e20591b031ae0a843e48ad9b6b32efd9473ad38a28e",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "9dc514bf1c324c0c5782e063a205982c37f80613fbf9c06dbf895f55e7eef82e",
+          "sha256": "f213fe592b91d345118d8e92c4cee43b3e5fd6f2a100cb5b30a28c72da2c5f31",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1033,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.15"
+      "version": "1.0.17"
     },
     {
       "author": "jIRI-san",

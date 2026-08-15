@@ -62,11 +62,27 @@ catch {
 try {
     $message = if ($PSCmdlet.ParameterSetName -eq 'Plan') {
         $finalized = Finalize-ReviewPlanRun -RunId $RunId -PlanDir $PlanDir -Verdict $Verdict -WhatIf:$WhatIfPreference
-        "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
+        if ($finalized.Preview) {
+            "would finalize plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
+        }
+        elseif ($finalized.CleanupPending) {
+            "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); durable report=$($finalized.Report); receipt=$($finalized.Receipt); live cleanup pending"
+        }
+        else {
+            "finalized plan review run $($finalized.RunId) as $($finalized.Verdict); report=$($finalized.Report); receipt=$($finalized.Receipt)"
+        }
     }
     else {
-        $removed = Remove-ReviewRunDirectory -RunId $RunId -RequirePublished:(-not $Force) -WhatIf:$WhatIfPreference
-        "removed generic review run $removed"
+        if ($Force) {
+            $removed = Remove-ReviewRunDirectory -RunId $RunId -RequirePublished:$false -WhatIf:$WhatIfPreference
+            $(if ($WhatIfPreference) { "would remove abandoned generic review run $removed" } else { "removed abandoned generic review run $removed" })
+        }
+        else {
+            $runDir = Resolve-ReviewRunRoot -RunId $RunId
+            $verified = Read-ReviewManifest -RunDir $runDir -Boundary (Get-ReviewRepoRoot)
+            $removed = Remove-ReviewRunDirectory -RunId $RunId -VerifiedManifest $verified -WhatIf:$WhatIfPreference
+            $(if ($WhatIfPreference) { "would remove generic review run $removed after verified full delivery" } else { "removed generic review run $removed after verified full delivery" })
+        }
     }
     $bytes = $utf8.GetBytes($message + "`n")
     $stdout = [Console]::OpenStandardOutput()

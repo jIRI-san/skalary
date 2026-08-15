@@ -504,10 +504,15 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             [void](Invoke-ReviewPublish -RunId $script:runId -RepoRoot $scratch)
 
             Test-Path -LiteralPath $runDir | Should -BeTrue
-            $preview = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch -WhatIf
+            { Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*requires authority returned by Read-ReviewManifest*'
+            $verified = Read-ReviewManifest -RunDir $runDir -Boundary $scratch
+            $preview = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch `
+                -VerifiedManifest $verified -WhatIf
             $preview | Should -Be $script:runId
             Test-Path -LiteralPath $runDir | Should -BeTrue
-            $removed = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch
+            $removed = Remove-ReviewRunDirectory -RunId $script:runId -RepoRoot $scratch `
+                -VerifiedManifest $verified
             $removed | Should -Be $script:runId
             Test-Path -LiteralPath $runDir | Should -BeFalse
 
@@ -556,8 +561,19 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
                 Exit-ReviewLock -Lock $held
             }
 
+            $verified = Read-ReviewManifest -RunDir $runDir -Boundary $scratch
+            $verified.Bytes.Keys | Should -Be @('plan', 'canonical', 'summary', 'full')
+            $verified.Documents.Keys | Should -Be @('plan', 'canonical')
+            $canonicalPath = $verified.Files['canonical']
+            [System.IO.File]::WriteAllText($canonicalPath, "{}`n", [System.Text.UTF8Encoding]::new($false))
+            $verified.Documents['canonical']['runId'] | Should -Be $script:runId -Because 'verified parsed authority is not reopened after verification'
+            [System.IO.File]::WriteAllBytes($canonicalPath, $verified.Bytes['canonical'])
+
+            Set-ReviewRunFaultSeam -Edge 'during-finalize-cleanup'
             $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
-            Test-Path -LiteralPath $runDir | Should -BeFalse
+            Clear-ReviewRunFaultSeam
+            $final.CleanupPending | Should -BeTrue
+            Test-Path -LiteralPath $runDir | Should -BeTrue
             Test-Path -LiteralPath $final.Report | Should -BeTrue
             Test-Path -LiteralPath $final.Receipt | Should -BeTrue
             $reportBytes = [System.IO.File]::ReadAllBytes($final.Report)
@@ -574,10 +590,12 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
 
             $replay = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             $replay.Replayed | Should -BeTrue
+            $replay.CleanupPending | Should -BeFalse
+            Test-Path -LiteralPath $runDir | Should -BeFalse
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
             Should -Throw -ExpectedMessage '*different verdict*'
         }
-        finally { Remove-ReviewScratchRoot -Path $scratch }
+        finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
     }
 
     It 'test:ReviewReport.FinalizedResultCompaction never falls back to legacy verification for a malformed current manifest' {
@@ -606,7 +624,7 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
-    It 'test:ReviewReport.LegacyFinalizedResultCompaction verifies the exact pre-remediation shape before compaction' {
+    It 'test:ReviewReport.LegacyFinalizedResultCompaction refuses retired live authority after historical migration' {
         $scratch = New-ReviewScratchRoot
         try {
             $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
@@ -653,13 +671,9 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
                 ((ConvertTo-Json -InputObject $legacyManifest -Depth 10 -Compress) + "`n"),
                 [System.Text.UTF8Encoding]::new($false))
 
-            $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
-            Test-Path -LiteralPath $runDir | Should -BeFalse
-            $receipt = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -Depth 20
-            $receipt.legacySource | Should -BeTrue
-            $receipt.source.mode | Should -Be 'legacy'
-            $receipt.findings.severity.high | Should -Be 1
-            (Get-Content -LiteralPath $final.Report -Raw) | Should -Match 'legacy prose only'
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*manifest fails the review-manifest schema*'
+            Test-Path -LiteralPath $runDir | Should -BeTrue
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }

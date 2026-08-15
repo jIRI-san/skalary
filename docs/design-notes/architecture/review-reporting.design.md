@@ -496,19 +496,23 @@ authority decision is made from a second read.
 `-ListIncomplete` reports frozen-but-unpublished runs through the *same* store resolver Freeze/Publish
 use, so a listing is not a second, weaker way to point the engine at a directory, and it validates the
 store root and each candidate run directory before enumerating or deciding state.
-`Remove-ReviewRun.ps1` removes a generic run, confined to `.github/.skalary/review-runs/`, after
-verifying its manifest through that same reader. For a plan run, `-PlanDir` plus explicit
+`Remove-ReviewRun.ps1` removes a generic run, confined to `.github/.skalary/review-runs/`, only from
+authority returned by that reader. The cleanup operation itself emits and flushes the verified full
+bytes before deletion, so a caller cannot claim delivery with an unchecked digest; direct published
+cleanup without verified authority is refused. For a plan run, `-PlanDir` plus explicit
 `-Verdict approved|blocked` verifies the bundle, emits compact sibling files, then removes the live
 directory. `<uuid>.review.md` is human evidence bounded by `maxRetainedReportBytes` (8 KiB): identity,
 source scope, gate verdict, attendance, severity totals, and bounded blocking titles only. The closed
 `<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance, and
 severity digests/counts. Approval is impossible when the run is degraded or has Critical/High findings.
 Live `<uuid>/` directories are gitignored; only those compact siblings are committed. Finalization is
-serialized by a stable ignored store-level lock and supports PowerShell `ShouldProcess`/`-WhatIf`; the
-live directory is removed only after both compact files are durable. Retrying the same verdict verifies
-and returns the existing pair. Current manifests always use the current reader and preserve its exact
-diagnosis; the legacy reader is selected only when both known pre-remediation fields are absent, never
-as a catch-all fallback. Reader and cleanup exits remain `0`, `2`, or `4`.
+serialized by a stable ignored store-level lock and the run publication lock, and supports PowerShell
+`ShouldProcess`/`-WhatIf`; dry runs report `would finalize` and write nothing. The live directory is
+removed only after both compact files are durable. A cleanup failure returns durable evidence with
+`CleanupPending = true`; retrying the same verdict verifies the pair and converges cleanup. Historical
+live bundles were compacted during migration, so production finalization now accepts only the current
+manifest shape and refuses old live authority. Existing compact legacy receipts remain historical
+evidence and require no production legacy verifier. Reader and cleanup exits remain `0`, `2`, or `4`.
 
 ### Locations and the handshake (D14/D16)
 
