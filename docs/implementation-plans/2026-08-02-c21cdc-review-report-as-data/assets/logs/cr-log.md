@@ -86,3 +86,8 @@ Phase: 3
 - [3.2] [src:code-review] [sev:Low] The refreshed Linux receipt is a transparent 16-core container measurement rather than the earlier 4-core CI reference; source and environment remain explicit and the result stays below the platform target.
 - [3.2] [src:code-review] [sev:Med] Accepted Publish recomputed the merged projection after both views had already consumed it; run state now reuses the shared projection.
 - [3.2] [src:code-review] [sev:Med] Runtime measurement executed the working tree but recorded the index without cleanliness or stability checks; it now requires a clean tree and verifies pre/post index identity.
+
+## CR Capture
+Phase: 4
+
+- [4.1] [src:code-review] [sev:Critical] Final branch review run ca47ce29-3004-46e8-9687-e946ad052656 completed 14/14 tasks but blocked approval with 1 Critical and 17 High findings; artifact preserved for remediation and re-review.
