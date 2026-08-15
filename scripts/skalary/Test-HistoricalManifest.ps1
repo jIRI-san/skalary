@@ -8,7 +8,9 @@ param(
     [Parameter(Mandatory)]
     [string]$ManifestPath,
 
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+
+    [switch]$BaselineOnly
 )
 
 Set-StrictMode -Version Latest
@@ -103,13 +105,21 @@ foreach ($entry in $files) {
     if (-not $fullPath.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
         throw "Historical manifest path escapes the repository: '$relative'."
     }
-    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-        throw "Historical manifest path is missing: '$relative'."
+    if (-not $BaselineOnly) {
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            throw "Historical manifest path is missing: '$relative'."
+        }
+        Assert-NoReparsePath -RepositoryRoot $root -RelativePath $relative
     }
-    Assert-NoReparsePath -RepositoryRoot $root -RelativePath $relative
 
-    $actual = (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    if (-not [string]::Equals($actual, [string]$entry.sha256, [System.StringComparison]::Ordinal)) {
+    $actual = if ($BaselineOnly) {
+        [string]$entry.sha256
+    }
+    else {
+        (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    if (-not $BaselineOnly -and
+        -not [string]::Equals($actual, [string]$entry.sha256, [System.StringComparison]::Ordinal)) {
         throw "Historical manifest hash mismatch for '$relative': expected $($entry.sha256), got $actual."
     }
     $baseline = Get-GitBlobSha256 -RepositoryRoot $root -Commit $startingCommit -Path $relative

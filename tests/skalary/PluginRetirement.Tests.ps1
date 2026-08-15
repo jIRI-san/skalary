@@ -181,4 +181,22 @@ Describe 'plugin retirement catalog' {
         $workflow | Should -Match 'github\.sha'
         $workflow | Should -Match 'Invoke-PluginRetirementHistoryGate\.ps1'
     }
+
+    It 'test:PluginRetirement.InstallConfinement preserves the existing .github write boundary while retirement is catalog-only' {
+        . (Join-Path $script:repoRoot 'scripts/skalary/_Common.ps1')
+        $root = New-TestRoot
+        git -C $root init --quiet
+        $valid = Resolve-GithubConstrainedPath -RepoRoot $root -RelativePath 'skills/example/SKILL.md'
+        $valid | Should -Be (Join-Path $root '.github/skills/example/SKILL.md')
+
+        foreach ($invalid in @('../escape', '/absolute', 'C:\rooted', '\\server\share')) {
+            { Resolve-GithubConstrainedPath -RepoRoot $root -RelativePath $invalid } | Should -Throw
+        }
+
+        $contract = Get-Content -LiteralPath (Join-Path $script:repoRoot 'schemas/architecture/ARCH-Install-Confinement.json') -Raw |
+            ConvertFrom-Json
+        [string]$contract.prose | Should -Match 'only inside.*\.github'
+        @((Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry-retirements.json') -Raw |
+                ConvertFrom-Json).retiredPlugins).Count | Should -Be 0
+    }
 }

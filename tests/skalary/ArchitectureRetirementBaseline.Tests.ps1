@@ -78,7 +78,7 @@ Describe 'architecture-test retirement baseline' {
                 startingCommit = [string]$fixtureManifest.startingCommit
                 files          = @($sourceFiles)
             } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $tempManifest
-            (& $script:manifestGate -ManifestPath $tempManifest -RepoRoot $script:repoRoot).Count |
+            (& $script:manifestGate -ManifestPath $tempManifest -RepoRoot $script:repoRoot -BaselineOnly).Count |
                 Should -Be $sourceFiles.Count
         }
         finally {
