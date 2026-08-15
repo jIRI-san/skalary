@@ -60,7 +60,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.12"
+      "version": "1.0.15"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -85,7 +85,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.30"
+      "version": "1.0.31"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -112,7 +112,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.11"
+      "version": "1.0.14"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

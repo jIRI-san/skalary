@@ -463,4 +463,115 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
+
+    It 'test:ReviewReport.FinalizedResultCompaction retains a bounded verified result and removes the live plan run' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $runDir = Resolve-ReviewRunPreparation -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch | Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $task = @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @($task))
+            (Invoke-ReviewFreeze -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $run = New-ReviewTestRun -RunId $script:runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }) `
+                -Findings @(@{ taskId = 'security-m1'; severity = 'High'; title = 'Unsafe writer boundary'; body = 'full detail stays transient'; rootCause = 'writer'; component = 'runtime' })
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            (Invoke-ReviewPublish -RunId $script:runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*requires a clean run with no Critical or High*'
+            Test-Path -LiteralPath $runDir | Should -BeTrue
+
+            $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
+            Test-Path -LiteralPath $runDir | Should -BeFalse
+            Test-Path -LiteralPath $final.Report | Should -BeTrue
+            Test-Path -LiteralPath $final.Receipt | Should -BeTrue
+            $reportBytes = [System.IO.File]::ReadAllBytes($final.Report)
+            $reportBytes.Length | Should -BeLessOrEqual ([int](Get-ReviewLimits)['maxRetainedReportBytes'])
+            $report = [System.Text.Encoding]::UTF8.GetString($reportBytes)
+            $report | Should -Match '\*\*Gate verdict\*\* \| \*\*blocked\*\*'
+            $report | Should -Match 'Unsafe writer boundary'
+            $report | Should -Not -Match 'full detail stays transient'
+            $receipt = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -Depth 20
+            $receipt.schema | Should -Be 'skalary/review-result-receipt@1'
+            $receipt.report.bytes | Should -Be $reportBytes.Length
+            $receipt.report.digest | Should -Be (Get-ReviewDigest -Bytes $reportBytes)
+            $receipt.findings.severity.high | Should -Be 1
+
+            $replay = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
+            $replay.Replayed | Should -BeTrue
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
+            Should -Throw -ExpectedMessage '*different verdict*'
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.LegacyFinalizedResultCompaction verifies the exact pre-remediation shape before compaction' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $runDir = Join-Path $planDir "assets/reviews/$script:runId"
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $task = [ordered]@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+            $legacyPlan = New-ReviewTestPlan -RunId $script:runId -Roster @('model-a') -Tasks @($task)
+            foreach ($field in @('contentTrust', 'scopeAuthority', 'modelSelection')) { [void]$legacyPlan.Remove($field) }
+            $planBytes = [System.Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-ReviewCanonicalJson -Node $legacyPlan))
+            $planDigest = Get-ReviewDigest -Bytes $planBytes
+
+            $legacyRun = New-ReviewTestRun -RunId $script:runId -PlanDigest $planDigest -Roster @('model-a') `
+                -Tasks @([ordered]@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' }) `
+                -Findings @([ordered]@{ taskId = 'security-m1'; severity = 'High'; title = 'Legacy blocker'; body = 'transient detail'; rootCause = 'legacy'; component = 'runtime' })
+            foreach ($field in @('contentTrust', 'scopeAuthority', 'modelSelection')) { [void]$legacyRun.Remove($field) }
+            $runBytes = [System.Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-ReviewCanonicalJson -Node $legacyRun))
+            $projection = ConvertTo-ReviewProjection -Run $legacyRun
+            $summaryBytes = [System.Text.UTF8Encoding]::new($false).GetBytes((Get-ReviewRunSummaryView -Projection $projection))
+            $fullBytes = [System.Text.UTF8Encoding]::new($false).GetBytes((Get-ReviewRunFullView -Projection $projection))
+
+            $artifacts = [ordered]@{
+                plan = $planBytes
+                canonical = $runBytes
+                summary = $summaryBytes
+                full = $fullBytes
+            }
+            $files = [ordered]@{}
+            foreach ($role in $artifacts.Keys) {
+                $bytes = $artifacts[$role]
+                $name = Get-ReviewContentName -Role $role -Bytes $bytes
+                [System.IO.File]::WriteAllBytes((Join-Path $runDir $name), $bytes)
+                $files[$role] = [ordered]@{ name = $name; digest = (Get-ReviewDigest -Bytes $bytes); bytes = $bytes.Length }
+            }
+            $legacyManifest = [ordered]@{
+                schema = 'skalary/review-manifest@1'
+                runId = $script:runId
+                state = 'published'
+                planDigest = $planDigest
+                runDigest = Get-ReviewDigest -Bytes $runBytes
+                files = $files
+            }
+            [System.IO.File]::WriteAllText(
+                (Join-Path $runDir 'review-run.manifest.json'),
+                ((ConvertTo-Json -InputObject $legacyManifest -Depth 10 -Compress) + "`n"),
+                [System.Text.UTF8Encoding]::new($false))
+
+            $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
+            Test-Path -LiteralPath $runDir | Should -BeFalse
+            $receipt = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -Depth 20
+            $receipt.legacySource | Should -BeTrue
+            $receipt.source.mode | Should -Be 'legacy'
+            $receipt.findings.severity.high | Should -Be 1
+            (Get-Content -LiteralPath $final.Report -Raw) | Should -Match 'legacy prose only'
+        }
+        finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.FinalizedResultCompaction ignores live plan state but keeps compact siblings trackable' {
+        $planRoot = 'docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data/assets/reviews'
+        git -C $script:repoRoot check-ignore -q -- "$planRoot/$script:runId/review-run.manifest.json"
+        $LASTEXITCODE | Should -Be 0
+        git -C $script:repoRoot check-ignore -q -- "$planRoot/$script:runId.review.md"
+        $LASTEXITCODE | Should -Be 1
+        git -C $script:repoRoot check-ignore -q -- "$planRoot/$script:runId.receipt.json"
+        $LASTEXITCODE | Should -Be 1
+    }
 }

@@ -491,10 +491,15 @@ inside the remaining window stays a documented residual risk.
 `-ListIncomplete` reports frozen-but-unpublished runs through the *same* store resolver Freeze/Publish
 use, so a listing is not a second, weaker way to point the engine at a directory, and it validates the
 store root and each candidate run directory before enumerating or deciding state.
-`Remove-ReviewRun.ps1` removes a **generic** run only, confined to `.github/.skalary/review-runs/`,
-after verifying its manifest through that same reader; plan-associated runs are committed and removed
-through version control. Reader and cleanup exits are bounded the same way: `0`, `2` for unresolvable or
-unreadable, `4` for an unexpected failure such as a broken install.
+`Remove-ReviewRun.ps1` removes a generic run, confined to `.github/.skalary/review-runs/`, after
+verifying its manifest through that same reader. For a plan run, `-PlanDir` plus explicit
+`-Verdict approved|blocked` verifies the bundle, emits compact sibling files, then removes the live
+directory. `<uuid>.review.md` is human evidence bounded by `maxRetainedReportBytes` (8 KiB): identity,
+source scope, gate verdict, attendance, severity totals, and bounded blocking titles only. The closed
+`<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance, and
+severity digests/counts. Approval is impossible when the run is degraded or has Critical/High findings.
+Live `<uuid>/` directories are gitignored; only those compact siblings are committed. Retrying the same
+verdict verifies and returns the existing pair. Reader and cleanup exits remain `0`, `2`, or `4`.
 
 ### Locations and the handshake (D14/D16)
 

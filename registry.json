@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T12:52:00.8623139Z",
+  "generatedAt": "2026-08-15T15:55:12.3037200Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -439,7 +439,7 @@
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "8be8176e059abbeb86ae3903dc7d5ae9377de41e803b9c3b25a9b0db3467c71a",
+          "sha256": "2b753e6d84786df227ca2a186449c3130b2e8c0e3c471166f32ac2ff0712ce47",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -474,12 +474,12 @@
         },
         {
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "4a5b4ed48c1f15137d4b50440dd1669dde9b89c0def30cab7e9d4a8166995b08",
+          "sha256": "058faa60b2a206c28e2dd2b1b7d0158cffdb467faad2c529161020ba762351ea",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "452a76d8bd841d69b063e04be2772f7ce80b2797a7150561bea79a5a8d1fb214",
+          "sha256": "68f6d566582e4c7f9f7888f745f2ed5fbdee9105f1997223d912fc90ecaacf0d",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -489,7 +489,7 @@
         },
         {
           "dest": "skills/cr/scripts/schemas/review/review-limits.schema.json",
-          "sha256": "5feed5f98937efe2dfcff1fd42cdb23ed38e2beb1b77dcf915a4e8c71c610f65",
+          "sha256": "22db5ad2147bb226313b19542701c2ce7d55f88800ab86f300d411face4236c2",
           "src": "skills/cr/scripts/schemas/review/review-limits.schema.json"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.12"
+      "version": "1.0.15"
     },
     {
       "author": "jIRI-san",
@@ -677,7 +677,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "bb84bc10386226bea5ba91fffbe07b8f1a1b68872bc07fcd871ff02608cc67b4",
+          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -747,7 +747,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "bb84bc10386226bea5ba91fffbe07b8f1a1b68872bc07fcd871ff02608cc67b4",
+          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -819,7 +819,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.30"
+      "version": "1.0.31"
     },
     {
       "author": "jIRI-san",
@@ -951,7 +951,7 @@
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "8be8176e059abbeb86ae3903dc7d5ae9377de41e803b9c3b25a9b0db3467c71a",
+          "sha256": "2b753e6d84786df227ca2a186449c3130b2e8c0e3c471166f32ac2ff0712ce47",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -986,12 +986,12 @@
         },
         {
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
-          "sha256": "4a5b4ed48c1f15137d4b50440dd1669dde9b89c0def30cab7e9d4a8166995b08",
+          "sha256": "058faa60b2a206c28e2dd2b1b7d0158cffdb467faad2c529161020ba762351ea",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "452a76d8bd841d69b063e04be2772f7ce80b2797a7150561bea79a5a8d1fb214",
+          "sha256": "68f6d566582e4c7f9f7888f745f2ed5fbdee9105f1997223d912fc90ecaacf0d",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1001,7 +1001,7 @@
         },
         {
           "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json",
-          "sha256": "5feed5f98937efe2dfcff1fd42cdb23ed38e2beb1b77dcf915a4e8c71c610f65",
+          "sha256": "22db5ad2147bb226313b19542701c2ce7d55f88800ab86f300d411face4236c2",
           "src": "skills/dr/scripts/schemas/review/review-limits.schema.json"
         },
         {
@@ -1033,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.11"
+      "version": "1.0.14"
     },
     {
       "author": "jIRI-san",

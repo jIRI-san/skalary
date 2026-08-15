@@ -161,10 +161,12 @@ once in the same exact argument order as Freeze. Handle the terminal status:
 | `4` | Surface the lock/publication failure; retry the same UUID and unchanged input only after the fault is corrected. |
 
 Use `Get-ReviewRun.ps1 -View Summary|Full` as the only reader. Both modes verify the complete
-manifest, every digest, encoding, and the selected role's byte bound. A reader failure is a failed
+live `review-run.manifest.json`, every digest, encoding, and the selected role's byte bound. A reader failure is a failed
 review and must not trigger cleanup. After verified summary and full-detail delivery, use
-`Remove-ReviewRun.ps1` for generic runs only. Plan runs
-retain `review-run.manifest.json` and every digest-bound artifact for commit/evidence.
+`Remove-ReviewRun.ps1` directly for generic runs. For a plan run, the human gate invokes it with the
+same `-PlanDir` and an explicit `-Verdict approved|blocked`: it verifies the live bundle, writes the
+bounded `<uuid>.review.md` and digest-bound `<uuid>.receipt.json` siblings, then removes the gitignored
+live directory. `approved` is refused unless the run is clean with no Critical or High findings.
 
 Read admission metadata with `Get-ReviewRun.ps1 -ReadAdmission -RunId <parent>`. Each child plan/result
 carries `restart` with that parent id/digest, `restartOrdinal: 1`, and its ordered partition index/count.

@@ -250,6 +250,7 @@
     "maxReferenceLength": 256,
     "maxTaskDiagnosticBytes": 2048,
     "maxSummaryBytes": 32768,
+    "maxRetainedReportBytes": 8192,
     "maxFullBytes": 1048576,
     "maxTerminalStatusBytes": 8192,
     "maxStderrBytes": 16384,

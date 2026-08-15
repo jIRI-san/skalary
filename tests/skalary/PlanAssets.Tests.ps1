@@ -140,7 +140,8 @@ Describe 'Plan assets layout' {
             foreach ($asset in @('assets/intent.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
                 $template | Should -Match ([regex]::Escape($asset))
             }
-            $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>/'))
+            $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>.review.md'))
+            $template | Should -Match ([regex]::Escape('<uuid>.receipt.json'))
 
             $template | Should -Match '<!-- plan-id:'
             $template | Should -Match '(?m)^## Phase 1:'

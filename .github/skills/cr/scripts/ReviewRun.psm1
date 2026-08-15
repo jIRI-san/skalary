@@ -3169,6 +3169,302 @@ function Get-ReviewRunSummaryText {
     return Get-ReviewRunViewText -RunDir $RunDir -View Summary -Boundary $Boundary
 }
 
+function Limit-ReviewRetainedInlineText {
+    param(
+        [AllowEmptyString()][string]$Value,
+        [int]$MaxBytes = 192
+    )
+
+    $text = ConvertTo-ReviewInlineText -Value $Value
+    if ($script:Utf8NoBom.GetByteCount($text) -le $MaxBytes) { return $text }
+
+    $builder = [System.Text.StringBuilder]::new()
+    $enumerator = [System.Globalization.StringInfo]::GetTextElementEnumerator($text)
+    while ($enumerator.MoveNext()) {
+        $candidate = $builder.ToString() + [string]$enumerator.Current + '...'
+        if ($script:Utf8NoBom.GetByteCount($candidate) -gt $MaxBytes) { break }
+        [void]$builder.Append([string]$enumerator.Current)
+    }
+    return $builder.ToString() + '...'
+}
+
+function Get-ReviewRetainedReportText {
+    param(
+        [Parameter(Mandatory)][object]$Projection,
+        [ValidateSet('approved', 'blocked')][string]$Verdict
+    )
+
+    $severity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
+    foreach ($finding in @($Projection.Findings)) { $severity[[string]$finding.Severity]++ }
+    $blocking = @($Projection.Findings | Where-Object { $_.Severity -in @('Critical', 'High') })
+    if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0)) {
+        throw 'An approved review result requires a clean run with no Critical or High findings.'
+    }
+
+    $authority = $Projection.ScopeAuthority
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("# $(Get-ReviewReportTitle -ReviewType $Projection.ReviewType) result")
+    $lines.Add('')
+    $lines.Add('<!-- skalary/review-result@1 -->')
+    $lines.Add('')
+    $lines.Add('| | |')
+    $lines.Add('|---|---|')
+    $lines.Add("| **Run** | $(ConvertTo-ReviewCodeSpan -Value $Projection.RunId) |")
+    $lines.Add("| **Review type** | $(ConvertTo-ReviewCodeSpan -Value $Projection.ReviewType) |")
+    $lines.Add("| **Gate verdict** | **$Verdict** |")
+    $lines.Add("| **Run state** | $(ConvertTo-ReviewCodeSpan -Value $Projection.State) |")
+    if ($null -eq $authority) {
+        $lines.Add('| **Scope authority** | legacy prose only |')
+        $lines.Add("| **Scope** | $(Limit-ReviewRetainedInlineText -Value $Projection.Scope -MaxBytes 512) |")
+    }
+    else {
+        $lines.Add("| **Scope mode** | $(ConvertTo-ReviewCodeSpan -Value ([string](Get-ReviewValue -Node $authority -Name 'mode'))) |")
+        foreach ($name in @('base', 'head')) {
+            $value = [string](Get-ReviewValue -Node $authority -Name $name)
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+                $lines.Add("| **$($name.Substring(0, 1).ToUpperInvariant() + $name.Substring(1))** | $(Limit-ReviewRetainedInlineText -Value $value -MaxBytes 256) |")
+            }
+        }
+        $lines.Add("| **Scope paths** | $(Format-ReviewInvariant -Value @((Get-ReviewValue -Node $authority -Name 'paths')).Count) |")
+        $lines.Add("| **Scope digest** | $(ConvertTo-ReviewCodeSpan -Value ([string](Get-ReviewValue -Node $authority -Name 'digest'))) |")
+    }
+    $lines.Add("| **Plan digest** | $(ConvertTo-ReviewCodeSpan -Value $Projection.PlanDigest) |")
+    $lines.Add('')
+    $lines.Add('## Attendance')
+    $lines.Add('')
+    $attendance = @($script:Outcomes | ForEach-Object { "$_=$([int]$Projection.Attendance[$_])" }) -join '; '
+    $lines.Add("$attendance; planned=$($Projection.Tasks.Count).")
+    $lines.Add('')
+    $lines.Add('## Findings')
+    $lines.Add('')
+    $lines.Add('| Critical | High | Medium | Low | Merged | Raw |')
+    $lines.Add('|---:|---:|---:|---:|---:|---:|')
+    $lines.Add("| $($severity.Critical) | $($severity.High) | $($severity.Medium) | $($severity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add('')
+    $lines.Add('## Blocking findings')
+    $lines.Add('')
+    if ($blocking.Count -eq 0) {
+        $lines.Add('None.')
+    }
+    else {
+        $shown = [Math]::Min($blocking.Count, 20)
+        for ($index = 0; $index -lt $shown; $index++) {
+            $finding = $blocking[$index]
+            $lines.Add("$($index + 1). **$($finding.Severity)** — $(Limit-ReviewRetainedInlineText -Value $finding.Title)")
+        }
+        if ($shown -lt $blocking.Count) { $lines.Add("- $($blocking.Count - $shown) additional blocking finding(s) omitted from this compact result.") }
+    }
+    $text = ($lines -join "`n") + "`n"
+    $maximum = [int](Get-ReviewLimits)['maxRetainedReportBytes']
+    if ($script:Utf8NoBom.GetByteCount($text) -gt $maximum) { throw "The compact review result exceeds its $maximum-byte bound." }
+    return $text
+}
+
+function Read-LegacyReviewManifestForFinalization {
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [Parameter(Mandatory)][string]$Boundary
+    )
+
+    $runDirFull = [System.IO.Path]::GetFullPath($RunDir).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    Assert-ReviewPathSafe -Path $runDirFull -Boundary $Boundary
+    $manifestPath = Join-Path $runDirFull $script:ManifestName
+    Assert-ReviewPathSafe -Path $manifestPath -Boundary $Boundary
+    $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $manifest = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json -AsHashtable -Depth 20
+
+    if ($manifest.Contains('contentTrust') -or $manifest.Contains('scopeDigest')) {
+        throw 'the manifest is not the supported pre-remediation legacy shape'
+    }
+    $schemaProbe = [ordered]@{}
+    foreach ($entry in $manifest.GetEnumerator()) { $schemaProbe[$entry.Key] = $entry.Value }
+    $schemaProbe['contentTrust'] = 'reviewer-authored-data'
+    $schemaProbe['scopeDigest'] = 'sha256:' + ('0' * 64)
+    if (-not (Test-ReviewSchema -Json (ConvertTo-ReviewCanonicalJson -Node $schemaProbe) -SchemaName 'review-manifest.schema.json')) {
+        throw 'the legacy manifest has differences beyond the two known pre-remediation fields'
+    }
+    if (-not [string]::Equals([string]$manifest['runId'], (Split-Path -Leaf $runDirFull), [System.StringComparison]::Ordinal)) {
+        throw 'the legacy manifest runId is not this run directory'
+    }
+
+    $verified = [ordered]@{}
+    foreach ($role in @('plan', 'canonical', 'summary', 'full')) {
+        $artifact = $manifest['files'][$role]
+        $name = [string]$artifact['name']
+        if ($name -ne [System.IO.Path]::GetFileName($name) -or $name -match '[\\/]' -or $name.Contains('..')) {
+            throw "legacy manifest names a non-confined file for role '$role'"
+        }
+        $claimed = Get-ReviewContentNameDigest -Role $role -Name $name
+        if (-not $claimed -or $claimed -ne [string]$artifact['digest']) {
+            throw "legacy manifest content address disagrees for role '$role'"
+        }
+        $filePath = Join-Path $runDirFull $name
+        Assert-ReviewPathSafe -Path $filePath -Boundary $Boundary
+        $bytes = [System.IO.File]::ReadAllBytes($filePath)
+        if ($bytes.Length -ne [int]$artifact['bytes'] -or (Get-ReviewDigest -Bytes $bytes) -ne [string]$artifact['digest']) {
+            throw "legacy manifest bytes disagree for role '$role'"
+        }
+        Assert-ReviewArtifactContent -Role $role -Bytes $bytes
+        $verified[$role] = $filePath
+    }
+
+    $planBytes = [System.IO.File]::ReadAllBytes($verified['plan'])
+    $runBytes = [System.IO.File]::ReadAllBytes($verified['canonical'])
+    if ((Get-ReviewDigest -Bytes $planBytes) -ne [string]$manifest['planDigest'] -or
+        (Get-ReviewDigest -Bytes $runBytes) -ne [string]$manifest['runDigest']) {
+        throw 'legacy manifest top-level digests disagree with its artifacts'
+    }
+    $plan = [System.Text.Encoding]::UTF8.GetString($planBytes) | ConvertFrom-Json -AsHashtable -Depth 40
+    $run = [System.Text.Encoding]::UTF8.GetString($runBytes) | ConvertFrom-Json -AsHashtable -Depth 40
+    if ($plan['schema'] -ne 'skalary/review-plan@1' -or $run['schema'] -ne 'skalary/review-run@1') {
+        throw 'legacy plan or run has an unsupported discriminator'
+    }
+    foreach ($document in @($plan, $run)) {
+        if ($document.Contains('contentTrust') -or $document.Contains('scopeAuthority') -or $document.Contains('modelSelection')) {
+            throw 'legacy plan or run partially mixes current authority fields'
+        }
+        if (-not [string]::Equals([string]$document['runId'], [string]$manifest['runId'], [System.StringComparison]::Ordinal)) {
+            throw 'legacy plan or run names a different run id'
+        }
+    }
+    if (-not [string]::Equals([string]$run['planDigest'], [string]$manifest['planDigest'], [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$plan['reviewType'], [string]$run['reviewType'], [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$plan['scope'], [string]$run['scope'], [System.StringComparison]::Ordinal) -or
+        [int]$plan['invocationBudget'] -ne [int]$run['invocationBudget'] -or
+        ((Sort-ReviewOrdinal -Value @($plan['roster'])) -join "`n") -cne ((Sort-ReviewOrdinal -Value @($run['roster'])) -join "`n")) {
+        throw 'legacy run does not preserve frozen plan authority'
+    }
+    $planSlots = @($plan['tasks'] | ForEach-Object { Get-ReviewOrdinalTupleKey -Value @($_['taskId'], $_['concern'], $_['model']) })
+    $runSlots = @($run['tasks'] | ForEach-Object { Get-ReviewOrdinalTupleKey -Value @($_['taskId'], $_['concern'], $_['model']) })
+    if (((Sort-ReviewOrdinal -Value $planSlots) -join "`n") -cne ((Sort-ReviewOrdinal -Value $runSlots) -join "`n")) {
+        throw 'legacy run task slots do not equal the frozen plan'
+    }
+
+    return [pscustomobject]@{
+        RunId = [string]$manifest['runId']
+        PlanDigest = [string]$manifest['planDigest']
+        RunDigest = [string]$manifest['runDigest']
+        Files = $verified
+        Boundary = $Boundary
+        Manifest = $manifest
+        ManifestDigest = Get-ReviewDigest -Bytes $manifestBytes
+        Legacy = $true
+        Run = $run
+    }
+}
+
+function Read-ReviewManifestForFinalization {
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [Parameter(Mandatory)][string]$Boundary
+    )
+
+    try {
+        $verified = Read-ReviewManifest -RunDir $RunDir -Boundary $Boundary
+        $manifestBytes = [System.IO.File]::ReadAllBytes((Join-Path $RunDir $script:ManifestName))
+        $runBytes = [System.IO.File]::ReadAllBytes($verified.Files['canonical'])
+        return [pscustomobject]@{
+            RunId = $verified.RunId
+            PlanDigest = $verified.PlanDigest
+            RunDigest = $verified.RunDigest
+            Files = $verified.Files
+            Boundary = $verified.Boundary
+            Manifest = $verified.Manifest
+            ManifestDigest = Get-ReviewDigest -Bytes $manifestBytes
+            Legacy = $false
+            Run = [System.Text.Encoding]::UTF8.GetString($runBytes) | ConvertFrom-Json -AsHashtable -Depth 40
+        }
+    }
+    catch {
+        return Read-LegacyReviewManifestForFinalization -RunDir $RunDir -Boundary $Boundary
+    }
+}
+
+function Finalize-ReviewPlanRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$PlanDir,
+        [ValidateSet('approved', 'blocked')][string]$Verdict,
+        [string]$RepoRoot = (Get-ReviewRepoRoot)
+    )
+
+    if (-not (Test-ReviewRunId -RunId $RunId)) { throw "Run id '$RunId' is not a lowercase UUID." }
+    $repoFull = [System.IO.Path]::GetFullPath((Get-ReviewRepoRoot -StartPath $RepoRoot))
+    $store = Resolve-ReviewStoreRoot -PlanDir $PlanDir -RepoRoot $repoFull
+    $runDir = Join-Path $store $RunId
+    $reportPath = Join-Path $store "$RunId.review.md"
+    $receiptPath = Join-Path $store "$RunId.receipt.json"
+
+    if (-not (Test-Path -LiteralPath $runDir -PathType Container)) {
+        if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf) -or -not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+            throw "No live or finalized plan review run for '$RunId'."
+        }
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+        $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
+        if ($receipt['schema'] -ne 'skalary/review-result-receipt@1' -or $receipt['runId'] -ne $RunId -or $receipt['verdict'] -ne $Verdict -or
+            $receipt['report']['bytes'] -ne $reportBytes.Length -or $receipt['report']['digest'] -ne (Get-ReviewDigest -Bytes $reportBytes)) {
+            throw "Finalized review result '$RunId' does not verify or has a different verdict."
+        }
+        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true }
+    }
+
+    $verified = Read-ReviewManifestForFinalization -RunDir $runDir -Boundary $repoFull
+    $projection = ConvertTo-ReviewProjection -Run $verified.Run
+    $reportText = Get-ReviewRetainedReportText -Projection $projection -Verdict $Verdict
+    $reportBytes = $script:Utf8NoBom.GetBytes($reportText)
+    $authority = $projection.ScopeAuthority
+    $severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    foreach ($finding in @($projection.Findings)) { $severity[[string]$finding.Severity.ToLowerInvariant()]++ }
+    $source = if ($null -eq $authority) {
+        [ordered]@{ mode = 'legacy'; scope = $projection.Scope }
+    }
+    else {
+        $value = [ordered]@{
+            mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
+            pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
+            digest = [string](Get-ReviewValue -Node $authority -Name 'digest')
+        }
+        foreach ($name in @('base', 'head')) {
+            $identity = [string](Get-ReviewValue -Node $authority -Name $name)
+            if (-not [string]::IsNullOrWhiteSpace($identity)) { $value[$name] = $identity }
+        }
+        $value
+    }
+    $receipt = [ordered]@{
+        schema = 'skalary/review-result-receipt@1'
+        runId = $RunId
+        reviewType = $projection.ReviewType
+        verdict = $Verdict
+        state = $projection.State
+        source = $source
+        planDigest = $verified.PlanDigest
+        runDigest = $verified.RunDigest
+        manifestDigest = $verified.ManifestDigest
+        legacySource = [bool]$verified.Legacy
+        attendance = $projection.Attendance
+        findings = [ordered]@{
+            merged = $projection.Findings.Count
+            raw = $projection.RawFindingCount
+            severity = $severity
+        }
+        report = [ordered]@{
+            name = [System.IO.Path]::GetFileName($reportPath)
+            bytes = $reportBytes.Length
+            digest = Get-ReviewDigest -Bytes $reportBytes
+        }
+    }
+    $receiptBytes = $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
+
+    foreach ($path in @($reportPath, $receiptPath)) {
+        if (Test-Path -LiteralPath $path) { Assert-ReviewPathSafe -Path $path -Boundary $repoFull }
+    }
+    Write-ReviewBytesAtomic -Path $reportPath -Bytes $reportBytes
+    Write-ReviewBytesAtomic -Path $receiptPath -Bytes $receiptBytes
+    Remove-Item -LiteralPath $runDir -Recurse -Force
+    return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false }
+}
+
 function Get-ReviewAdmissionRollup {
     [CmdletBinding()]
     param(
@@ -3313,7 +3609,7 @@ function Remove-ReviewRunDirectory {
 
 Export-ModuleMember -Function @(
     'Invoke-ReviewFreeze', 'Invoke-ReviewPublish',
-    'Get-ReviewRunViewText', 'Get-ReviewRunSummaryText', 'Read-ReviewManifest', 'Get-ReviewAdmissionRollup', 'Find-IncompleteReviewRun', 'Remove-ReviewRunDirectory',
+    'Get-ReviewRunViewText', 'Get-ReviewRunSummaryText', 'Read-ReviewManifest', 'Get-ReviewAdmissionRollup', 'Find-IncompleteReviewRun', 'Finalize-ReviewPlanRun', 'Remove-ReviewRunDirectory',
     'Get-ReviewRunSummaryView', 'Get-ReviewRunFullView', 'ConvertTo-ReviewProjection', 'ConvertTo-ReviewCanonicalJson',
     'Get-ReviewDigest', 'Get-ReviewSha256Hex', 'Get-ReviewScopeDigest', 'Test-ReviewSchema', 'Test-ReviewPlanSemantic', 'Test-ReviewRunSemantic',
     'Get-ReviewMergeKey', 'ConvertTo-ReviewCanonicalText',
