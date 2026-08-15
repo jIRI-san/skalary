@@ -11,3 +11,4 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] Unknown-prefix detection omitted unquoted retired arch markers after prose.
 - [1.2] [src:code-review] [sev:Med] Architecture-tests review report still called the removed plan evidence evaluator.
 - [1.2] [src:code-review] [sev:High] Rubber-duck found the architecture-tests-local review helper nested inside config resolution and unavailable on real report calls.
+- [1.3] [src:code-review] [sev:Low] Code-review and rubber-duck found no actionable defect in the retirement catalog or history gate.

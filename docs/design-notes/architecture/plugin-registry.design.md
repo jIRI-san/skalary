@@ -31,8 +31,16 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 | `schemas/plugin/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, optional `scaffolds[]` (first-use runtime paths outside `.github/`), reserved `evals` block. |
 | `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256`, the plugin's `scaffolds[]`, and bootstrap metadata (`ref`, script URL, one-liner). |
 | `schemas/receipt/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
+| `schemas/registry/plugin-retirement.schema.json` | Closed permanent tombstone catalog: immutable source/ref/version payload sets plus manual residue remedies. |
 
 Design choice: per-plugin receipts replace a shared lock file to avoid cross-branch merge conflicts.
+
+`registry-retirements.json` is the canonical permanent retirement catalog. `Build-Registry.ps1`
+copies it into skalary `registry.json.retiredPlugins`; the Copilot marketplace remains active-only.
+Active and retired names are disjoint. `Test-PluginRetirementHistory.ps1` compares explicit files
+without reading Git; CI alone materializes the pull-request base or previous-push commit, treating a
+resolvable commit with no catalog as the empty set and failing when a required commit is unavailable.
+`Test-Registry.ps1` remains Git-free.
 
 ## Copilot Skill Metadata Boundary
 

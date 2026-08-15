@@ -35,7 +35,9 @@ $script:FixturePayload = @(
     '.github'
     'README.md'
     'registry.json'
+    'registry-retirements.json'
     'plugins'
+    'schemas/registry'
     'scripts/skalary'
 )
 

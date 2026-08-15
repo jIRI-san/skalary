@@ -24,6 +24,25 @@ if ([string]::IsNullOrWhiteSpace($needle)) {
 $needle = $needle.ToLowerInvariant()
 
 $registry = Read-JsonFile -Path $registryPath
+$retiredMatch = @(
+    @(if ($registry.PSObject.Properties.Name -contains 'retiredPlugins') { $registry.retiredPlugins }) |
+        Where-Object { [string]$_.name -eq $needle }
+)
+if ($retiredMatch.Count -gt 0) {
+    $record = $retiredMatch[0]
+    [pscustomobject]@{
+        name = [string]$record.name
+        version = $null
+        status = 'retired'
+        description = [string]$record.reason
+        tags = @('retired')
+        dependencies = @()
+        retired = $true
+        retiredAt = $record.retiredAt
+    }
+    return
+}
+
 $searchResults = @()
 foreach ($plugin in @($registry.plugins)) {
     $name = [string]$plugin.name

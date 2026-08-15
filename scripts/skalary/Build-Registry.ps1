@@ -238,6 +238,8 @@ function Update-ReadmeCatalog {
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 $registryPath = Join-Path $repoRootPath 'registry.json'
+$retirementsPath = Join-Path $repoRootPath 'registry-retirements.json'
+$retirementsSchemaPath = Join-Path $repoRootPath 'schemas/registry/plugin-retirement.schema.json'
 $readmePath = Join-Path $repoRootPath 'README.md'
 
 if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
@@ -262,6 +264,31 @@ foreach ($manifestPath in $manifestPaths) {
 }
 $pluginEntries = @(Sort-Ordinal -InputObject $pluginEntries -Property 'name' -Comparer $script:CatalogComparer)
 
+if (-not (Test-Path -LiteralPath $retirementsPath -PathType Leaf)) {
+    throw "Plugin-retirement catalog not found: $retirementsPath"
+}
+if (-not (Test-Path -LiteralPath $retirementsSchemaPath -PathType Leaf)) {
+    throw "Plugin-retirement schema not found: $retirementsSchemaPath"
+}
+$retirementsRaw = Get-Content -LiteralPath $retirementsPath -Raw
+if (-not ($retirementsRaw | Test-Json -SchemaFile $retirementsSchemaPath -ErrorAction SilentlyContinue)) {
+    throw "Plugin-retirement catalog is invalid: $retirementsPath"
+}
+$retirements = $retirementsRaw | ConvertFrom-Json -Depth 100
+$retiredPlugins = @(Sort-Ordinal -InputObject @($retirements.retiredPlugins) -Property 'name' -Comparer $script:CatalogComparer)
+$retiredNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($retiredPlugin in $retiredPlugins) {
+    $retiredName = [string]$retiredPlugin.name
+    if (-not $retiredNames.Add($retiredName)) {
+        throw "Duplicate plugin-retirement record '$retiredName'."
+    }
+}
+foreach ($activePlugin in $pluginEntries) {
+    if ($retiredNames.Contains([string]$activePlugin.name)) {
+        throw "Plugin '$($activePlugin.name)' cannot be both active and retired."
+    }
+}
+
 $existingRegistry = $null
 if (Test-Path -LiteralPath $registryPath -PathType Leaf) {
     $existingRegistry = Read-JsonFile -Path $registryPath
@@ -283,6 +310,7 @@ $bootstrap = New-BootstrapMetadata -Ref $bootstrapRef
 $registryBody = [pscustomobject]@{
     bootstrap = $bootstrap
     plugins = $pluginEntries
+    retiredPlugins = $retiredPlugins
 }
 
 $generatedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -290,6 +318,12 @@ if ($null -ne $existingRegistry -and $existingRegistry.PSObject.Properties.Name 
     $existingBody = [pscustomobject]@{
         bootstrap = $existingRegistry.bootstrap
         plugins = $existingRegistry.plugins
+        retiredPlugins = if ($existingRegistry.PSObject.Properties.Name -contains 'retiredPlugins') {
+            @($existingRegistry.retiredPlugins)
+        }
+        else {
+            @()
+        }
     }
     if ([string]::Equals(
             (Get-ComparableJson -InputObject $existingBody),
@@ -321,10 +355,10 @@ $registry = [pscustomobject]@{
     bootstrap = $bootstrap
     generatedAt = $generatedAt
     plugins = $pluginEntries
+    retiredPlugins = $retiredPlugins
 }
 
 Write-JsonFileStable -Path $registryPath -InputObject $registry
 Update-ReadmeCatalog -ReadmePath $readmePath -Registry (Read-JsonFile -Path $registryPath)
 Write-Host "Generated registry at '$registryPath' with $($pluginEntries.Count) plugin(s)."
 Write-Host "Bootstrap ref: $bootstrapRef"
-

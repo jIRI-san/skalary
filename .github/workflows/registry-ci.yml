@@ -44,6 +44,7 @@ jobs:
           # RISK-8: without this the token stays in .git/config for every later step, so any
           # gate that runs repository code runs it next to a usable credential.
           persist-credentials: false
+          fetch-depth: 0
 
       # RISK-8/D10: a version pin over a channel that skips signature checks is not a control,
       # so `-SkipPublisherCheck` and the globally trusted PSGallery are removed rather than
@@ -113,6 +114,13 @@ jobs:
       - name: Repository validation
         shell: pwsh
         run: pwsh -NoProfile -File scripts/validate.ps1
+
+      - name: Plugin retirement history
+        shell: pwsh
+        env:
+          BASELINE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: pwsh -NoProfile -File scripts/skalary/Invoke-PluginRetirementHistoryGate.ps1 -BaselineSha $env:BASELINE_SHA -CandidateSha $env:CANDIDATE_SHA
 
       # REQ-9/D2: the runner is invoked rather than Invoke-Pester, because the runtime budget
       # and the cannot-test failures live in this script and nowhere else. Calling Pester
