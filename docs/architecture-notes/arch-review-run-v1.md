@@ -27,7 +27,8 @@ report and receipt verify as an exact pair.
 - Publish commits content-addressed plan, run, summary, and full artifacts through one manifest.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an
-  interrupted pair before cleanup; receipt replay cannot authorize deletion from self-asserted data.
+  interrupted pair before cleanup; cleanup atomically renames authority under `.cleanup/<uuid>` so a
+  partial delete remains verifiable and cannot be republished as an interrupted run.
 - Generic published cleanup emits verified full bytes; force cleanup applies only to unpublished
   abandoned runs.
 

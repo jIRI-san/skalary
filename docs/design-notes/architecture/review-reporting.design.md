@@ -279,7 +279,7 @@ candidate, and both are detected.
   after canonicalization (so NFC/LF cannot collapse uniqueness after validation). For branch mode it
   resolves base/head through Git to full commit SHAs and replaces caller path/status claims with
   `git diff --name-status --no-renames`; other modes retain their canonical records. It scans every
-  untrusted plan string for credential shapes before any value-bearing semantic diagnostic, then
+  untrusted plan string for credential shapes before Git or any value-bearing semantic diagnostic, then
   verifies scope, exact model-selection coverage, and every task model inside the frozen roster, and
   writes `review-plan.<digest>.json` and then its independent frozen-state marker **under the run
   lock**. An identical replay is idempotent; a
@@ -515,7 +515,10 @@ removed only after both compact files are durable. A cleanup failure returns dur
 `CleanupPending = true`, and the CLI exits `4` rather than reporting complete success. Every retry with
 live authority reconstructs the complete expected report and receipt and compares exact bytes; a
 partial or tampered pair is repaired before cleanup, including interruption between retained writes.
-Retrying the same verdict verifies the pair and converges cleanup. Historical
+Cleanup first atomically renames live authority to `.cleanup/<uuid>` (the UUID leaf keeps normal
+manifest identity verification valid), then recursively removes that tombstone with terminating
+errors. A partial recursive failure therefore cannot be rediscovered as an incomplete review and can
+converge from the verified tombstone on retry. Retrying the same verdict verifies the pair and converges cleanup. Historical
 live bundles were compacted during migration, so production finalization now accepts only the current
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical
 evidence and require no production legacy verifier. Reader and cleanup exits remain `0`, `2`, or `4`.

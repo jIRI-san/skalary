@@ -581,7 +581,8 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $final = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             Clear-ReviewRunFaultSeam
             $final.CleanupPending | Should -BeTrue
-            Test-Path -LiteralPath $runDir | Should -BeTrue
+            Test-Path -LiteralPath $runDir | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $store ".cleanup/$script:runId") | Should -BeTrue
             Test-Path -LiteralPath $final.Report | Should -BeTrue
             Test-Path -LiteralPath $final.Receipt | Should -BeTrue
             $reportBytes = [System.IO.File]::ReadAllBytes($final.Report)
@@ -603,6 +604,7 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $replay.Replayed | Should -BeFalse -Because 'tampered retained evidence is reconstructed from verified live authority'
             $replay.CleanupPending | Should -BeFalse
             Test-Path -LiteralPath $runDir | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $store ".cleanup/$script:runId") | Should -BeFalse
             (Get-Content -LiteralPath $replay.Receipt -Raw | ConvertFrom-Json).state | Should -Be 'clean'
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
             Should -Throw -ExpectedMessage '*different verdict*'

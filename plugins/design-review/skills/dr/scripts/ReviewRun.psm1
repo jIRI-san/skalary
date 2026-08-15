@@ -2590,6 +2590,15 @@ function Invoke-ReviewFreezeCore {
         return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Plan input is not valid JSON.' -RunId $RunId
     }
 
+    # Scan caller text before any value can reach Git or another diagnostic-producing subsystem.
+    $secrets = @(Find-ReviewSecret -Run $plan)
+    if ($secrets.Count -gt 0) {
+        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
+        return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
+            -Message 'Plan input carries a high-confidence credential shape; rejected and destroyed before acceptance.' `
+            -RunId $RunId -Diagnostic @($secrets | ForEach-Object { "$($_.Type) at $($_.Location)" })
+    }
+
     # The digest is engine-owned: callers author the source descriptor and ordered path records, then
     # Freeze computes the canonical digest that the frozen schema and every result must carry.
     $scopeAuthority = Get-ReviewValue -Node $plan -Name 'scopeAuthority'
@@ -2620,16 +2629,6 @@ function Invoke-ReviewFreezeCore {
     if ([string](Get-ReviewValue -Node $plan -Name 'runId') -ne $RunId) {
         Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
         return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid -Message 'Plan runId does not match the requested run id.' -RunId $RunId
-    }
-
-    # The frozen plan is a committed artifact, so its untrusted strings (scope, roster, task models)
-    # are scanned before they are persisted — not one mode later, when the plan is already immutable.
-    $secrets = @(Find-ReviewSecret -Run $plan)
-    if ($secrets.Count -gt 0) {
-        Remove-ReviewInputSecurely -Path $inputPath -Boundary $repoFull
-        return New-ReviewResult -Mode freeze -ExitCode 2 -State invalid `
-            -Message 'Plan input carries a high-confidence credential shape; rejected and destroyed before acceptance.' `
-            -RunId $RunId -Diagnostic @($secrets | ForEach-Object { "$($_.Type) at $($_.Location)" })
     }
 
     $failures = @(
@@ -3450,18 +3449,47 @@ function Finalize-ReviewPlanRun {
     $repoFull = [System.IO.Path]::GetFullPath((Get-ReviewRepoRoot -StartPath $RepoRoot))
     $store = Resolve-ReviewStoreRoot -PlanDir $PlanDir -RepoRoot $repoFull
     $runDir = Join-Path $store $RunId
+    $cleanupRoot = Join-Path $store '.cleanup'
+    $cleanupDir = Join-Path $cleanupRoot $RunId
     $reportPath = Join-Path $store "$RunId.review.md"
     $receiptPath = Join-Path $store "$RunId.receipt.json"
     $lock = Enter-ReviewLock -RunDir $store -LockName ".$RunId.finalize.lock"
     try {
         $liveExists = Test-Path -LiteralPath $runDir -PathType Container
         if (-not $liveExists) {
+            if (Test-Path -LiteralPath $cleanupDir -PathType Container) {
+                $verified = Read-ReviewManifestForFinalization -RunDir $cleanupDir -Boundary $repoFull
+                $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
+                $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
+                    -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
+                if (-not $pairExists -and $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
+                    Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
+                    Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
+                }
+                $cleanupPending = $true
+                if ($PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
+                    try {
+                        Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+                        $cleanupPending = $false
+                    }
+                    catch { $cleanupPending = $true }
+                }
+                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $WhatIfPreference; CleanupPending = $cleanupPending }
+            }
             if (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath) {
                 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
                 if ($receipt['runId'] -ne $RunId -or $receipt['verdict'] -ne $Verdict) {
                     throw "Finalized review result '$RunId' has a different verdict or identity."
                 }
-                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $WhatIfPreference; CleanupPending = $false }
+                $cleanupPending = Test-Path -LiteralPath $cleanupDir -PathType Container
+                if ($cleanupPending -and $PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
+                    try {
+                        Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+                        $cleanupPending = $false
+                    }
+                    catch { $cleanupPending = $true }
+                }
+                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $WhatIfPreference; CleanupPending = $cleanupPending }
             }
             throw "No live or finalized plan review run for '$RunId'."
         }
@@ -3494,13 +3522,62 @@ function Finalize-ReviewPlanRun {
 
         $cleanupPending = $false
         try {
+            if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
+            if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
+                [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
+            }
+            Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
+            Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
             Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
-            Remove-Item -LiteralPath $runDir -Recurse -Force
+            Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
         }
         catch { $cleanupPending = $true }
         return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $false; CleanupPending = $cleanupPending }
     }
     finally { Exit-ReviewLock -Lock $lock }
+}
+
+function Assert-ReviewAdmissionRollupContent {
+    param(
+        [Parameter(Mandatory)][object[]]$Children,
+        [Parameter(Mandatory)][object]$ParentPlan,
+        [Parameter(Mandatory)][object]$ParentRun,
+        [Parameter(Mandatory)][int]$MaxPartitions
+    )
+
+    if ($Children.Count -eq 0) { throw 'no published admission partitions were found' }
+    $partitionCounts = @($Children | ForEach-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionCount') } | Sort-Object -Unique)
+    if ($partitionCounts.Count -ne 1 -or $partitionCounts[0] -gt $MaxPartitions) { throw 'partitionCount is inconsistent or over the hard maximum' }
+    $partitionCount = $partitionCounts[0]
+    if ($Children.Count -ne $partitionCount) { throw "expected $partitionCount published partitions but found $($Children.Count)" }
+    $orderedChildren = @($Children | Sort-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex') })
+    $indexes = @($orderedChildren | ForEach-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex') })
+    if (($indexes -join ',') -ne ((1..$partitionCount) -join ',')) { throw 'partition indexes are not exactly the ordered closed range' }
+
+    $expectedPaths = @((Get-ReviewValue -Node (Get-ReviewValue -Node $ParentPlan -Name 'scopeAuthority') -Name 'paths') | ForEach-Object {
+            Get-ReviewOrdinalTupleKey -Value @([string](Get-ReviewValue -Node $_ -Name 'path'), [string](Get-ReviewValue -Node $_ -Name 'status'))
+        })
+    $actualPaths = @($orderedChildren | ForEach-Object {
+            @(Get-ReviewValue -Node (Get-ReviewValue -Node $_.Plan -Name 'scopeAuthority') -Name 'paths') | ForEach-Object {
+                Get-ReviewOrdinalTupleKey -Value @([string](Get-ReviewValue -Node $_ -Name 'path'), [string](Get-ReviewValue -Node $_ -Name 'status'))
+            }
+        })
+    if (($actualPaths -join "`n") -cne ($expectedPaths -join "`n")) { throw 'partition path records do not exactly cover the parent scope in canonical order' }
+
+    $expectedFindings = @(Get-ReviewValue -Node $ParentRun -Name 'findings' | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+    $actualFindings = @($orderedChildren | ForEach-Object { @(Get-ReviewValue -Node $_.Run -Name 'findings') } | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+    if (((Sort-ReviewOrdinal -Value $actualFindings) -join "`n") -cne ((Sort-ReviewOrdinal -Value $expectedFindings) -join "`n")) {
+        throw 'partition findings do not exactly preserve the parent admission source'
+    }
+
+    $expectedTasks = @((Get-ReviewValue -Node $ParentRun -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+    foreach ($child in $orderedChildren) {
+        $actualTasks = @((Get-ReviewValue -Node $child.Run -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
+        if (($actualTasks -join "`n") -cne ($expectedTasks -join "`n")) {
+            throw "partition '$($child.RunId)' task outcomes do not exactly preserve the parent admission source"
+        }
+    }
+    return $orderedChildren
 }
 
 function Get-ReviewAdmissionRollup {
@@ -3533,38 +3610,9 @@ function Get-ReviewAdmissionRollup {
         $childRun = $verified.Documents['canonical']
         $children.Add([pscustomobject]@{ RunId = $dir.Name; Restart = $restart; Plan = $frozen.Plan; Run = $childRun; RunDigest = $verified.RunDigest })
     }
-    if ($children.Count -eq 0) { throw 'no published admission partitions were found' }
-
-    $partitionCounts = @($children | ForEach-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionCount') } | Sort-Object -Unique)
-    if ($partitionCounts.Count -ne 1 -or $partitionCounts[0] -gt [int]$admission.Marker['maxPartitions']) { throw 'partitionCount is inconsistent or over the hard maximum' }
-    $partitionCount = $partitionCounts[0]
-    if ($children.Count -ne $partitionCount) { throw "expected $partitionCount published partitions but found $($children.Count)" }
-    $orderedChildren = @($children | Sort-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex') })
-    $indexes = @($orderedChildren | ForEach-Object { [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex') })
-    if (($indexes -join ',') -ne ((1..$partitionCount) -join ',')) { throw 'partition indexes are not exactly the ordered closed range' }
-
-    $expectedPaths = @((Get-ReviewValue -Node (Get-ReviewValue -Node $parentPlan -Name 'scopeAuthority') -Name 'paths') | ForEach-Object {
-            Get-ReviewOrdinalTupleKey -Value @([string](Get-ReviewValue -Node $_ -Name 'path'), [string](Get-ReviewValue -Node $_ -Name 'status'))
-        })
-    $actualPaths = @($orderedChildren | ForEach-Object {
-            @(Get-ReviewValue -Node (Get-ReviewValue -Node $_.Plan -Name 'scopeAuthority') -Name 'paths') | ForEach-Object {
-                Get-ReviewOrdinalTupleKey -Value @([string](Get-ReviewValue -Node $_ -Name 'path'), [string](Get-ReviewValue -Node $_ -Name 'status'))
-            }
-        })
-    if (($actualPaths -join "`n") -cne ($expectedPaths -join "`n")) { throw 'partition path records do not exactly cover the parent scope in canonical order' }
-
-    $expectedFindings = @(Get-ReviewValue -Node $parentRun -Name 'findings' | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
-    $actualFindings = @($orderedChildren | ForEach-Object { @(Get-ReviewValue -Node $_.Run -Name 'findings') } | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
-    if (((Sort-ReviewOrdinal -Value $actualFindings) -join "`n") -cne ((Sort-ReviewOrdinal -Value $expectedFindings) -join "`n")) {
-        throw 'partition findings do not exactly preserve the parent admission source'
-    }
-    $expectedTasks = @((Get-ReviewValue -Node $parentRun -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
-    foreach ($child in $orderedChildren) {
-        $actualTasks = @((Get-ReviewValue -Node $child.Run -Name 'tasks') | ForEach-Object { ConvertTo-ReviewCanonicalJson -Node $_ })
-        if (($actualTasks -join "`n") -cne ($expectedTasks -join "`n")) {
-            throw "partition '$($child.RunId)' task outcomes do not exactly preserve the parent admission source"
-        }
-    }
+    $orderedChildren = @(Assert-ReviewAdmissionRollupContent -Children @($children) -ParentPlan $parentPlan -ParentRun $parentRun `
+            -MaxPartitions ([int]$admission.Marker['maxPartitions']))
+    $expectedFindings = @(Get-ReviewValue -Node $parentRun -Name 'findings')
 
     return [pscustomobject]@{
         schema          = 'skalary/review-admission-rollup@1'
@@ -3667,7 +3715,7 @@ function Remove-ReviewRunDirectory {
 
 Export-ModuleMember -Function @(
     'Invoke-ReviewFreeze', 'Invoke-ReviewPublish',
-    'Get-ReviewRunViewText', 'Get-ReviewRunSummaryText', 'Read-ReviewManifest', 'Get-ReviewAdmissionRollup', 'Find-IncompleteReviewRun', 'Finalize-ReviewPlanRun', 'Remove-ReviewRunDirectory',
+    'Get-ReviewRunViewText', 'Get-ReviewRunSummaryText', 'Read-ReviewManifest', 'Get-ReviewAdmissionRollup', 'Assert-ReviewAdmissionRollupContent', 'Find-IncompleteReviewRun', 'Finalize-ReviewPlanRun', 'Remove-ReviewRunDirectory',
     'Get-ReviewRunSummaryView', 'Get-ReviewRunFullView', 'ConvertTo-ReviewProjection', 'ConvertTo-ReviewCanonicalJson',
     'Get-ReviewDigest', 'Get-ReviewSha256Hex', 'Get-ReviewScopeDigest', 'Test-ReviewSchema', 'Test-ReviewPlanSemantic', 'Test-ReviewRunSemantic',
     'Get-ReviewMergeKey', 'ConvertTo-ReviewCanonicalText',

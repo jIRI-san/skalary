@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T21:03:59.7716743Z",
+  "generatedAt": "2026-08-15T22:00:31.4484156Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -479,7 +479,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "352cad1b1bb89637daa6cce1abce19107073dad527b51490facdec5090d98304",
+          "sha256": "23f551028c7b1f944131f537d49415968380bfba9963c429cba7c416777cb171",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.20"
+      "version": "1.0.21"
     },
     {
       "author": "jIRI-san",
@@ -991,7 +991,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "352cad1b1bb89637daa6cce1abce19107073dad527b51490facdec5090d98304",
+          "sha256": "23f551028c7b1f944131f537d49415968380bfba9963c429cba7c416777cb171",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1033,7 +1033,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.19"
+      "version": "1.0.20"
     },
     {
       "author": "jIRI-san",

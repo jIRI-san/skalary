@@ -379,6 +379,64 @@ Describe 'review report manifest, reader and exit matrix' {
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
 
+    It 'test:ReviewReport.ManifestReaderPublicationAndExitMatrix rejects missing or duplicate partitions, scope gaps, finding drift, and changed task outcomes' {
+        $paths = @(
+            [ordered]@{ path = 'src/a.ps1'; status = 'modified' }
+            [ordered]@{ path = 'src/b.ps1'; status = 'added' }
+        )
+        $tasks = @(
+            [ordered]@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'failed'; diagnostic = 'failed' }
+            [ordered]@{ taskId = 'performance-m1'; concern = 'performance'; model = 'model-a'; outcome = 'timed-out'; diagnostic = 'timed out' }
+        )
+        $findings = @(
+            [ordered]@{ taskId = 'security-m1'; severity = 'High'; title = 'one'; body = 'one' }
+            [ordered]@{ taskId = 'security-m1'; severity = 'High'; title = 'two'; body = 'two' }
+        )
+        $parentPlan = [ordered]@{ scopeAuthority = [ordered]@{ paths = $paths } }
+        $parentRun = [ordered]@{ tasks = $tasks; findings = $findings }
+        $children = @(
+            [pscustomobject]@{
+                RunId = '11111111-1111-4111-8111-111111111111'
+                Restart = [ordered]@{ partitionIndex = 1; partitionCount = 2 }
+                Plan = [ordered]@{ scopeAuthority = [ordered]@{ paths = @($paths[0]) } }
+                Run = [ordered]@{ tasks = $tasks; findings = @($findings[0]) }
+            }
+            [pscustomobject]@{
+                RunId = '22222222-2222-4222-8222-222222222222'
+                Restart = [ordered]@{ partitionIndex = 2; partitionCount = 2 }
+                Plan = [ordered]@{ scopeAuthority = [ordered]@{ paths = @($paths[1]) } }
+                Run = [ordered]@{ tasks = $tasks; findings = @($findings[1]) }
+            }
+        )
+        { Assert-ReviewAdmissionRollupContent -Children $children -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Not -Throw
+        { Assert-ReviewAdmissionRollupContent -Children @($children[0]) -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Throw -ExpectedMessage '*expected 2 published partitions but found 1*'
+
+        $duplicate = $children | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $duplicate[1].Restart.partitionIndex = 1
+        { Assert-ReviewAdmissionRollupContent -Children $duplicate -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Throw -ExpectedMessage '*partition indexes*'
+
+        $gap = $children | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $gap[1].Plan.scopeAuthority.paths[0] = $paths[0]
+        { Assert-ReviewAdmissionRollupContent -Children $gap -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Throw -ExpectedMessage '*path records*'
+
+        $findingDrift = $children | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $findingDrift[1].Run.findings[0].title = 'changed'
+        { Assert-ReviewAdmissionRollupContent -Children $findingDrift -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Throw -ExpectedMessage '*findings*'
+
+        $taskDrift = $children | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $taskDrift[0].Run.findings = @($findings[0])
+        $taskDrift[1].Run.findings = @($findings[1])
+        $taskDrift[1].Run.tasks[0].outcome = 'completed'
+        [void]$taskDrift[1].Run.tasks[0].PSObject.Properties.Remove('diagnostic')
+        { Assert-ReviewAdmissionRollupContent -Children $taskDrift -ParentPlan $parentPlan -ParentRun $parentRun -MaxPartitions 16 } |
+        Should -Throw -ExpectedMessage '*task outcomes*'
+    }
+
     It 'test:ReviewReport.ManifestReaderPublicationAndExitMatrix admits only from the mode''s legal prior state, never stamping admission onto published authority and never claiming a decision it could not persist' {
         # The marker is a state transition, so it is decided under the same lock every other
         # transition is: `Publish` may admit only a `frozen` run. Writing it unconditionally — the
