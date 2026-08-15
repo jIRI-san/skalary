@@ -43,3 +43,39 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Med] Set-ScriptApproval recognized object-valued rules only on one line, so formatted JSONC rules could duplicate on add and survive remove.
 - [2.2] [src:code-review] [sev:Med] The corpus regenerator still called the retired -Finding API after writing partial fixtures; move historical bytes to the archived authority and keep v1 rendering in the golden generator.
 - [2.2] [src:code-review] [sev:Med] Appending approvals after a final multiline object without a comma could produce invalid JSONC; normalize the separator from parsed entry spans.
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Med] Installed-consumer child processes inherited /work, so a current-directory fallback could bypass poisoned fixture roots.
+- [3.1] [src:code-review] [sev:Med] Terminal-status uniqueness selected the final JSON line before counting, allowing duplicate stdout objects to false-green.
+- [3.1] [src:code-review] [sev:Med] Ordinary evidence discovery scanned raw text, allowing comments or skipped cases to satisfy required test markers.
+- [3.1] [src:code-review] [sev:Med] Ordering evals compared IndexOf results without proving headings existed, so a missing freeze heading could pass as position -1.
+- [3.1] [src:code-review] [sev:Med] Structural eval discovery counted skipped It cases, so a stable ID could remain present while its invariant asserted nothing.
+- [3.1] [src:code-review] [sev:Low] ConsumerInstallInvocation had two ordinary test owners after adding the full matrix, weakening one-to-one evidence traceability.
+- [3.1] [src:code-review] [sev:Low] The repository schema poison was only a regression tripwire; installed-closure success is the actual no-fallback proof.
+- [3.1] [src:code-review] [sev:Low] No-new-dependency evidence checked source manifests but not the copied isolated consumer closure.
+- [3.1] [src:code-review] [sev:High] Installed-consumer fixtures copied a scripts wildcard instead of executing plugin.json source-to-destination mappings.
+- [3.1] [src:code-review] [sev:High] The consumer matrix spawned excessive PowerShell children in the budgeted ordinary suite; module-backed cases now keep only CLI-boundary subprocesses.
+- [3.1] [src:code-review] [sev:Med] CR and DR structural assertion bodies were duplicated; stable plugin-local IDs now call one EvalCommon invariant implementation.
+- [3.1] [src:code-review] [sev:Med] Evidence discovery hard-coded the plan asset path and hand-parsed test names; it now resolves c21cdc through PlanState and consumes the canonical Pester inventory.
+- [3.1] [src:code-review] [sev:Med] Review-reporting design-note globs omitted the CR/DR eval and consumer-test surfaces the note now governs.
+- [3.1] [src:code-review] [sev:Med] The installed secret-rejection case discarded output and did not prove credential bytes were absent from terminal streams and residual artifacts.
+- [3.1] [src:code-review] [sev:Med] The design note contradicted current state by describing the retired object API as active.
+- [3.1] [src:code-review] [sev:Med] Tier-1 eval execution is intentionally separate from npm test under the eval-gate contract; docs now distinguish discovery, eval execution, and live review evidence.
+- [3.1] [src:code-review] [sev:Med] The secret residual scan omitted hidden engine files because Get-ChildItem lacked -Force.
+- [3.1] [src:code-review] [sev:Med] Evidence ownership used substring matching, so a longer test ID could satisfy a missing required marker.
+- [3.1] [src:code-review] [sev:Med] Renderer-owned Markdown checks omitted the collation guide, allowing hand-built layout in the primary lifecycle document.
+- [3.1] [src:code-review] [sev:High] The installed lifecycle still launched about thirty PowerShell children; repeated exits now run through the already imported installed module with a minimal CLI boundary set.
+- [3.1] [src:code-review] [sev:Med] Retry cases restaged result input after exit 4, masking incorrect input deletion; retry now uses byte-identical preserved input without restaging.
+- [3.1] [src:code-review] [sev:Med] Writer-scope evals positively matched the absolute rule but did not reject an appended broader write permission.
+- [3.1] [src:code-review] [sev:Med] Review-reporting scope omitted the shared EvalCommon implementation and orchestrator agent write boundary.
+- [3.1] [src:code-review] [sev:Med] Ordinary evidence ownership could accept a skipped owner; the gate now requires an active literal It case in a discovered owner file.
+- [3.1] [src:code-review] [sev:Med] Stable eval IDs could be attached to empty parameterized cases; structural IDs now forbid ForEach and TestCases.
+- [3.1] [src:code-review] [sev:Med] Consumer CLI assertions captured diagnostics but did not include them in failures; a shared exit assertion now reports bounded status and stderr.
+- [3.1] [src:code-review] [sev:Med] The installed matrix duplicated a caller marker across a separate layout case; renderer ownership was consolidated under the caller lifecycle case.
+- [3.1] [src:code-review] [sev:Med] Strict-mode execution exposed optional message and diagnostics fields accessed unconditionally in shared consumer assertions.
+- [3.1] [src:code-review] [sev:Med] A single caller surface unwrapped to FileInfo under strict mode, so Count access failed; surface cardinality now wraps explicitly.
+- [3.1] [src:code-review] [sev:Med] Evidence token extraction lacked an end boundary and could accept a longer suffixed test ID.
+- [3.1] [src:code-review] [sev:Med] Writer-scope rejection recognized too few permission phrasings; any non-prohibitive write clause targeting forbidden surfaces now fails.
+- [3.1] [src:code-review] [sev:High] Manifest-driven fixture installation joined source and destination strings without canonical confinement, so a traversal mapping could escape the plugin or fixture root.

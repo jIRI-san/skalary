@@ -1,5 +1,5 @@
 ---
-description: The review-run data contract and its v1 engine — canonical schemas under schemas/review/, the schema-owned limit vocabulary, the structural/semantic layer split, the PowerShell 7.6 capability preflight, the committed corpus/edge fixtures, and the step-1.2 module that freezes, canonicalizes, renders, publishes and reads a run. Load before touching schemas/review/**, scripts/skalary/{Test-ReviewSchemaCapability,Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun}.ps1, scripts/skalary/ReviewRun.psm1 or tests/skalary/fixtures/review-run/**.
+description: The review-run v1 data contract, engine, CR/DR caller lifecycle, distribution, consumer fixtures, and structural evidence. Load before changing review schemas/runtime, CR/DR collation or evals, or ReviewReport/ReviewConsumer tests.
 globs:
   - schemas/review/**
   - scripts/skalary/Test-ReviewSchemaCapability.ps1
@@ -8,14 +8,23 @@ globs:
   - scripts/skalary/Get-ReviewRun.ps1
   - scripts/skalary/Remove-ReviewRun.ps1
   - tests/skalary/fixtures/review-run/**
+  - tests/skalary/ReviewReport*.Tests.ps1
+  - tests/skalary/ReviewRun*.Tests.ps1
+  - tests/skalary/ReviewConsumerInstall.Tests.ps1
+  - tests/evals/EvalCommon.psm1
+  - plugins/code-review/agents/**
+  - plugins/code-review/skills/cr/**
+  - plugins/code-review/evals/**
+  - plugins/design-review/agents/**
+  - plugins/design-review/skills/dr/**
+  - plugins/design-review/evals/**
 ---
 
 # Review reporting
 
-Plan `c21cdc` turns a review run into one versioned data artifact. Step 1.1 committed the schemas, the
-capability gate and the fixtures; step 1.2 added the engine that freezes a plan, canonicalizes and
-renders a result, publishes it under a manifest and reads it back. This note covers both, with the
-data contract framing the engine.
+Plan `c21cdc` turns a review run into one versioned data artifact. It owns the schemas and capability
+gate, the engine that freezes/publishes/reads a run, the shared CR/DR caller lifecycle, distributed
+consumer closure, and the structural/runtime evidence that keeps those installed copies truthful.
 
 ## Artifacts and their schemas
 
@@ -107,8 +116,8 @@ is a **test-only** deterministic reference renderer: it derives both views from 
 `skalary/review-run@1` envelope using the contract alone — the merge, elevation and ordering rules
 `Build-ReviewReport.ps1` already implements, plus D4 attendance and D5/D15 encoding — and performs
 no file I/O, no publication and no schema loading. Step 1.2 owns the production renderer,
-`Freeze`/`Publish` and the module; it must reproduce these exact bytes, and
-`ReviewReportCorpus.Tests.ps1` asserts that nothing in `scripts/skalary/` claims to yet.
+`Freeze`/`Publish` and the module; it reproduces these exact bytes, and
+`ReviewReportCorpus.Tests.ps1` holds the production and reference renderers equal.
 
 Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`;
 the generator refuses to write a golden that is not stable across `tr-TR`, `cs-CZ`, `de-DE` and the
@@ -195,14 +204,14 @@ terminating floor, so it can no longer spin on a size it cannot reach.
 
 | Script | Modes | Owns |
 |---|---|---|
-| `Build-ReviewReport.ps1` | `-Mode Freeze\|Publish -RunId <uuid> [-PlanDir]` | freeze and publish; still the legacy `-Finding`/`-Model` formatter in its default parameter set |
+| `Build-ReviewReport.ps1` | `-Mode Freeze\|Publish -RunId <uuid> [-PlanDir]` | freeze and publish through the fixed installed boundary |
 | `Get-ReviewRun.ps1` | `-RunId [-PlanDir]`, `-ListIncomplete` | the only verifying reader |
 | `Remove-ReviewRun.ps1` | `-RunId [-Force]` | generic-run cleanup |
 
-Keeping the logic in the module is deliberate: the failure matrix and the fault seams run in-process
-against the module (RISK-14/RISK-5) instead of spawning a child per case, and it keeps
-`Build-ReviewReport.ps1` a pure formatter whose own text carries no file I/O — the `b0c0d3` contract
-its legacy tests still pin. `Build-ReviewReport.ps1` now carries literal `$PSScriptRoot` references
+Keeping the logic in the module is deliberate: the broad failure matrix and the fault seams run
+in-process against the module (RISK-14/RISK-5), while a bounded installed-consumer matrix proves the
+CLI wiring and exact exits. The retired `b0c0d3` object API is not present.
+`Build-ReviewReport.ps1` carries literal `$PSScriptRoot` references
 for the engine, reader, and cleanup helper; the engine carries the closed five-file schema reference
 set. `Sync-PluginScripts.ps1` follows that closure into both `cr` and `dr`, copies schema sidecars only
 from canonical `schemas/review/`, preserves `schemas/review/` below each bundle, recursively prunes
@@ -531,8 +540,9 @@ Focused suites, one evidence id each, all in-process except the budget child:
 `test:ReviewReport.ManifestReaderPublicationAndExitMatrix`,
 `test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection`,
 `test:ReviewReport.EncodingExitDiagnosticAndLockContract`,
-`test:ReviewReport.MaximumEnvelopeBudget`. The legacy `Build-ReviewReport.ps1` object formatter and its
-`b0c0d3` tests stay green; the object API is retired only in the phase 2 caller migration (REQ-13).
+`test:ReviewReport.MaximumEnvelopeBudget`. The historical `b0c0d3` semantic expectations remain in
+the corpus projection, while the object API and its direct tests were retired in the atomic phase 2
+caller migration (REQ-13).
 
 ## CR/DR caller adoption (step 2.2)
 
@@ -554,3 +564,32 @@ mutation; `4` retryable only with identical input after the publication fault is
 writer approvals are anchored full-command regex keys with object values
 `{"approve":true,"matchCommandLine":true}`; no prefix approval can authorize extra writer flags or a
 chained command.
+
+## Consumer truth gates (step 3.1)
+
+CR and DR each own nine stable Tier-1 IDs under `eval:ReviewReport.<CR|DR>.*`. Each concern is a
+separate Pester case so writer-scope, ordering, independence, complete/nonzero dispatch, renderer
+ownership, fixed roots/policy, degraded-artifact delivery, and bounded-retry regressions identify the
+broken contract directly instead of disappearing inside one aggregate eval. Their assertion bodies
+are shared through `tests/evals/EvalCommon.psm1`; the thin plugin-local `It` shells preserve separate
+CR/DR IDs and plugin attribution without allowing the two contracts to drift. The ordinary
+`test:ReviewReport.StructuralEvalDiscovery` gate AST-discovers the exact two ID sets; zero or renamed
+cases fail.
+
+`ReviewConsumerInstall.Tests.ps1` copies each plugin's shipped script/schema closure into an isolated
+repository and poisons the canonical repository fallback paths. One fixture per plugin executes clean
+with findings, completed-with-zero-findings, zero-task rejection, mixed degraded and all-failure plan
+runs, orphan cancellation, frozen-plan mutation, secret rejection, reader tamper, fault retry, lock
+retry, and generic/plan cleanup behavior. This makes installed CR and DR copies prove the same exits
+and persistence contract without silently loading root scripts or schemas.
+
+`test:ReviewReport.TestAndEvalDiscovery` maps every ordinary `test:` marker in this plan to a
+discoverable test source and also pins the exact structural eval sets.
+`test:ReviewReport.NoNewRuntimeDependency` keeps the engine native: both plugin dependency arrays stay
+empty, no root package lock is introduced, and neither plugin gains a vendored validator.
+
+These evidence layers are distinct. Ordinary `test:ReviewReport.*` cases run in `npm test`; the
+`eval:ReviewReport.*` cases run in the repository's deliberately separate Tier-1 `npm run eval` gate
+and are rerun at the phase crosscheck. Exact-ID discovery proves presence, not execution. A preserved
+plan-associated `review:cr` artifact proves the observed frozen roster and outcomes of a live run; it
+does not prove served-model identity or replace either deterministic layer.
