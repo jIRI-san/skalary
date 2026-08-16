@@ -4072,6 +4072,81 @@
       "test": "design-notes index integrity.DesignNotes-IndexRowsPresent: the two architecture-guardrails design notes exist and are indexed, and both indexes auto-load",
       "reason": "Retired with the architecture-test design note; the remaining index test still covers the preserved architecture-notes tier.",
       "step": "cda9da:3.1"
+    },
+    {
+      "test": "reviewer dispatch guide.test:dispatch-budget-reported states the 28-invocation budget as reported, not enforced",
+      "reason": "Plan c21cdc makes the persisted invocation budget enforceable at Freeze while retaining derived attendance reporting; test:dispatch-budget-enforced now pins both behaviors.",
+      "step": "4.1-remediation"
+    },
+    {
+      "test": "Build-ReviewReport.fails loud on a malformed finding instead of dropping it",
+      "reason": "Step 2.2 removes the object-valued formatter API. Closed JSON schema and semantic rejection are now owned by test:ReviewReport.SchemaCapabilityAndSemantics and test:ReviewReport.FrozenPlanAndAttendanceMatrix.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.sorts severity-descending",
+      "reason": "Step 2.2 removes the legacy renderer. Production ordering remains pinned by test:ReviewReport.GoldenSemanticParityAndCanonicalization.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.stays a pure formatter with no file I/O",
+      "reason": "Step 2.2 intentionally supersedes the pure object formatter with the fixed Freeze/Publish persistence CLI; test:ReviewReport.AtomicLegacyRetirement pins that boundary.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-deterministic orders entries that tie on severity, agreement, and title",
+      "reason": "Step 2.2 removes the legacy renderer. Total ordering is covered by the production canonicalization and corpus tests.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-deterministic reports the dispatch budget and handles an empty finding set",
+      "reason": "Step 2.2 derives attendance from frozen tasks; clean zero-finding publication is covered through each isolated installed consumer.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-deterministic returns identical text regardless of reviewer return order",
+      "reason": "Step 2.2 removes the legacy renderer. Canonical input ordering and byte-identical views remain pinned by test:ReviewReport.GoldenSemanticParityAndCanonicalization.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-merge-dedup collapses one root cause in one component into a single entry",
+      "reason": "Step 2.2 removes the legacy renderer. Exact-key merge parity is covered by the committed 44-finding corpus and production renderer tests.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-merge-dedup keeps distinct root causes in the same file apart",
+      "reason": "Step 2.2 removes the legacy renderer. Lossless collision and exact-key grouping cases live in the production review-run suites.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-severity-elevation never elevates past Critical",
+      "reason": "Step 2.2 removes the legacy renderer. Schema-owned severities and production projection cap elevation at Critical under corpus parity.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport.test:build-reviewreport-severity-elevation raises severity only on full model agreement",
+      "reason": "Step 2.2 removes the legacy renderer. Frozen-roster elevation parity is asserted by test:ReviewReport.GoldenSemanticParityAndCanonicalization.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled ships the formatter with both review skills, declared and registered",
+      "reason": "Step 2.2 replaces the one-file formatter assertion with test:ReviewReport.PayloadOwnershipAndDrift over the complete writer/reader/module/schema closure.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled makes both orchestrators call the formatter and write what it returns",
+      "reason": "Step 2.2 replaces generated object calls with test:ReviewReport.SharedCallerExitIndependenceAndAbandonment over Freeze, dispatch, Publish, reader, exits, and orphan handling.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled round-trips typed findings through each bundled copy",
+      "reason": "Step 2.2 replaces in-process object round-tripping with test:ReviewReport.ConsumerInstallInvocation through each isolated installed Freeze/Publish/read/cleanup CLI.",
+      "step": "2.2"
+    },
+    {
+      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled leaves the report layout to the script, never to prose",
+      "reason": "Step 2.2 retains this invariant under the production renderer in review-run consumer distribution and callers.keeps report layout in the renderer, never in caller prose.",
+      "step": "2.2"
     }
   ]
 }
