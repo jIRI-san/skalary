@@ -171,6 +171,21 @@ Describe 'Autopilot container toolchain' {
                 # where the source list *resolves* — the one reading neither evasion survives.
                 "apt-config shell apt_source_list_path Dir::Etc::sourcelist/f",
                 "apt-config shell apt_source_parts_path Dir::Etc::sourceparts/d",
+                # A tree the gate reads is worth nothing while `APT_CONFIG` names another one, a
+                # proxy answers for an allowlisted host, or a trust setting accepts what it
+                # returns unsigned. The build refuses all three at the layer that installs, and
+                # again at the layer that records what was installed, so the host-side gate is
+                # confirming a policy the image already enforced rather than being its only
+                # holder.
+                'echo "APT_CONFIG must not be set" >&2; exit 1;',
+                'for proxy_var in http_proxy https_proxy ftp_proxy all_proxy HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY; do',
+                "if apt-config dump | grep -Eiq '^[[:space:]]*[^[:space:]]*proxy'; then",
+                'echo "APT proxy configuration is not allowed" >&2; exit 1;',
+                'trust_value="$(apt-config shell apt_trust "$trust_key/b")";',
+                'echo "APT trust-weakening setting is not allowed: $trust_key" >&2; exit 1;',
+                'verify_value="$(apt-config shell apt_verify "$verify_key/b")";',
+                'echo "APT verification must not be disabled: $verify_key" >&2; exit 1;',
+                'print "Trust-bypassing apt source option in " FILENAME ": " $0 > "/dev/stderr"; exit 1',
                 'APT sourceparts must not contain symlinked source files',
                 'deb.debian.org|security.debian.org',
                 '*) echo "Disallowed active apt source host: $host" >&2;',
@@ -192,6 +207,25 @@ Describe 'Autopilot container toolchain' {
             foreach ($token in $requiredDockerTokens) {
                 if (-not $Dockerfile.Contains($token)) {
                     $errors.Add("Dockerfile is missing contract token '$token'.")
+                }
+            }
+
+            # The install layer and the final root layer are separate claims: the first refuses a
+            # configuration that would fetch the manifest's packages from somewhere else, and the
+            # last refuses one introduced by any layer after it — including whatever a maintainer
+            # adds at the documented extension anchor. A policy present once is a policy one of
+            # those two layers is running without, so each token is required in both.
+            foreach ($token in @(
+                    'echo "APT_CONFIG must not be set" >&2; exit 1;',
+                    'for proxy_var in http_proxy https_proxy ftp_proxy all_proxy HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY; do',
+                    'echo "APT proxy configuration is not allowed" >&2; exit 1;',
+                    'echo "APT trust-weakening setting is not allowed: $trust_key" >&2; exit 1;',
+                    'echo "APT verification must not be disabled: $verify_key" >&2; exit 1;',
+                    'print "Trust-bypassing apt source option in " FILENAME ": " $0 > "/dev/stderr"; exit 1'
+                )) {
+                $occurrences = @([regex]::Matches($Dockerfile, [regex]::Escape($token))).Count
+                if ($occurrences -ne 2) {
+                    $errors.Add("Dockerfile must enforce '$token' in both the install layer and the final root layer (found $occurrences).")
                 }
             }
 
@@ -265,6 +299,16 @@ Describe 'Autopilot container toolchain' {
             $sourceDiscoveryIndex = $Dockerfile.IndexOf('apt_source_files=();', [System.StringComparison]::Ordinal)
             $validationIndex = $Dockerfile.IndexOf('if apt-config dump', [System.StringComparison]::Ordinal)
             $hostValidationIndex = $Dockerfile.IndexOf('while IFS= read -r uri;', [System.StringComparison]::Ordinal)
+            # A source that waives its own signature check must be refused before the host
+            # allowlist reads it, not after: the waiver names no new host, so every later check
+            # passes on it, and an install between the two would already have happened unsigned.
+            $sourceTrustIndex = $Dockerfile.IndexOf('print "Trust-bypassing apt source option in "', [System.StringComparison]::Ordinal)
+            if ($sourceTrustIndex -lt 0 -or $sourceDiscoveryIndex -lt 0 -or $hostValidationIndex -lt 0) {
+                $errors.Add('Dockerfile is missing the source discovery, trust-option, or host validation anchor.')
+            }
+            elseif ($sourceTrustIndex -lt $sourceDiscoveryIndex -or $sourceTrustIndex -gt $hostValidationIndex) {
+                $errors.Add('Dockerfile must reject trust-bypassing source options after discovering the source files and before validating their hosts.')
+            }
             $firstAptUpdate = $Dockerfile.IndexOf('apt-get update;', [System.StringComparison]::Ordinal)
             $installIndex = $Dockerfile.IndexOf('apt-get install -y --no-install-recommends', [System.StringComparison]::Ordinal)
             $provenanceIndex = $Dockerfile.IndexOf('install -d -m 0755 /usr/local/share/autopilot/provenance;', [System.StringComparison]::Ordinal)
@@ -553,10 +597,12 @@ Describe 'Autopilot container toolchain' {
         # The baseline capture is the narrower claim — "what the Debian layer actually resolves from",
         # held to Debian hosts only — so it honours `Enabled:` deliberately. A disabled non-Debian
         # source omitted here is still caught by the final capture above, which is why the asymmetry
-        # is safe in this direction and only in this direction.
+        # is safe in this direction and only in this direction. The block is anchored on the write
+        # that produces the file rather than on the first loop over the source files, so a check
+        # added ahead of the recorder cannot be mistaken for the recorder itself.
         $baselineRecorder = [regex]::Match(
             $dockerfileContent,
-            '(?s)(?<block>: > /tmp/autopilot-apt-source-uris;.*?apt_source_files\[@\]\}"; do.*?done;)')
+            '(?s)(?<block>: > /tmp/autopilot-apt-source-uris;.*?done \| LC_ALL=C sort -u > /tmp/autopilot-apt-source-uris;)')
         $baselineRecorder.Success | Should -BeTrue
         $baselineRecorder.Groups['block'].Value |
             Should -Match '\[Ee\]\[Nn\]\[Aa\]\[Bb\]\[Ll\]\[Ee\]\[Dd\]' -Because 'the baseline capture states the effective Debian source set'

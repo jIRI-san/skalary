@@ -613,6 +613,8 @@ Describe 'Autopilot container gate runner' {
         $script:attestCreateExit = 0
         $script:attestCpFailures = @{}
         $script:attestCreateDelayMs = 0
+        $script:attestEnvJson = '["PATH=/usr/local/bin:/usr/bin"]'
+        $script:attestEnvExit = 0
 
         Mock Invoke-GateProcess {
             $script:attestCalls.Add([pscustomobject]@{
@@ -643,6 +645,10 @@ Describe 'Autopilot container gate runner' {
                     }
                     if ($script:attestCreateExit -ne 0) { return (& $failed 'no such image') }
                     return (& $ok ('a' * 64))
+                }
+                'inspect' {
+                    if ($script:attestEnvExit -ne 0) { return (& $failed 'no such object') }
+                    return (& $ok $script:attestEnvJson)
                 }
                 'cp' {
                     # ArgumentList = @('cp', "<id>:<source>", "<destination>")
@@ -697,6 +703,8 @@ Describe 'Autopilot container gate runner' {
             $script:attestCreateDelayMs = 0
             $script:attestCpFailures = @{}
             $script:attestFiles = @{}
+            $script:attestEnvJson = '["PATH=/usr/local/bin:/usr/bin"]'
+            $script:attestEnvExit = 0
             foreach ($key in $baseline.Keys) { $script:attestFiles[$key] = $baseline[$key] }
         }
 
@@ -808,6 +816,46 @@ Describe 'Autopilot container gate runner' {
             -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
         $missingFile.Valid | Should -BeFalse
         $missingFile.Reason | Should -Be "attestation-file-unreadable:$finalSource"
+
+        # The tree above is only the tree apt reads while nothing points it elsewhere. `APT_CONFIG`
+        # in the image's own environment is read before `/etc/apt/apt.conf` and can relocate,
+        # unauthenticate or proxy the lot from a path no copy here enumerates — so the environment
+        # is read from the host first, and a rejection stops the attestation before the copies
+        # rather than reporting on a tree that was never the effective one.
+        foreach ($case in @(
+                @{ Json = '["PATH=/usr/bin","APT_CONFIG=/opt/hidden/apt.conf"]'; Reason = 'attestation-image-env:apt-config' },
+                @{ Json = '["PATH=/usr/bin","http_proxy=http://proxy.invalid:3128"]'; Reason = 'attestation-image-env:proxy:http_proxy' },
+                @{ Json = ''; Reason = 'attestation-image-env:unreadable' }
+            )) {
+            Reset-AttestFixture
+            $script:attestEnvJson = $case.Json
+            $envVerdict = Test-GateImageAttestation -ImageTag 'candidate:test' `
+                -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+            $envVerdict.Valid | Should -BeFalse
+            $envVerdict.Reason | Should -Be $case.Reason
+            @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'cp' }).Count |
+                Should -Be 0 -Because 'a tree apt may never read is not worth copying out'
+            @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'rm' }).Count |
+                Should -Be 1 -Because 'the container is still removed on the way out'
+        }
+
+        # An environment the host could not read is not an environment known to be empty.
+        Reset-AttestFixture
+        $script:attestEnvExit = 1
+        $envFailed = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $envFailed.Valid | Should -BeFalse
+        $envFailed.Reason | Should -Be 'attestation-image-env:inspect-failed'
+
+        # The read is of the container the gate just created, not of the tag it was asked about: a
+        # `docker create` that ever gains an `--env` would otherwise be invisible to it.
+        Reset-AttestFixture
+        [void](Test-GateImageAttestation -ImageTag 'candidate:test' `
+                -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60)
+        $inspectCalls = @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'inspect' })
+        $inspectCalls.Count | Should -Be 1
+        @($inspectCalls[0].ArgumentList) | Should -Contain ('a' * 64)
+        @($inspectCalls[0].ArgumentList) | Should -Not -Contain 'candidate:test'
 
         # No container, no attestation — and nothing to remove.
         Reset-AttestFixture
@@ -1851,6 +1899,10 @@ Describe 'Autopilot container gate runner' {
                 @{ Directive = 'APT::Get::Show-Versions "0"; #include "/opt/hidden/apt.conf";'; Reason = 'config-include' },
                 @{ Directive = 'D/*x*/ir::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
                 @{ Directive = "Dir::Etc::sourcelist /*`n*/ `"/opt/hidden/sources.list`";"; Reason = 'config-dir-override' },
+                # A `//` inside the quoted proxy URL must not swallow the directive after it. The
+                # verdict distinguishes the two readings on its own: swallowed, the only token left
+                # is the proxy and the reason is `config-proxy`; read as apt reads it, the
+                # relocation is found first and names itself.
                 @{ Directive = 'Acquire::http::Proxy "http://proxy.invalid:3128"; Dir::Etc::sourcelist "/opt/hidden/x";'; Reason = 'config-dir-override' },
                 # apt parses a *word*, not a span of characters: `ParseQuoteWord` strips embedded
                 # quotes and decodes `%XX` escapes in the tag as well as the value. Every line below
@@ -1864,7 +1916,40 @@ Describe 'Autopilot container gate runner' {
                 @{ Directive = '%52ootDir "/opt/hidden";'; Reason = 'config-dir-override' },
                 @{ Directive = 'Binary::apt-get::%44ir::Etc::sourceparts "/opt/hidden/parts";'; Reason = 'config-dir-override' },
                 @{ Directive = '"#include" "/opt/hidden/apt.conf";'; Reason = 'config-include' },
-                @{ Directive = '%23include "/opt/hidden/apt.conf";'; Reason = 'config-include' }
+                @{ Directive = '%23include "/opt/hidden/apt.conf";'; Reason = 'config-include' },
+                # A proxy changes no hostname: apt still asks for `deb.debian.org`, the proxy
+                # answers, and every origin comparison in this gate passes on a tree that is
+                # fetched from somewhere else entirely. Each line below was accepted before this
+                # test existed. The forms are not a closed set — per-transport, per-host, and two
+                # spellings of auto-detection — so the test is on the segment, not on a list.
+                @{ Directive = 'Acquire::http::Proxy "http://proxy.invalid:3128";'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire::https::Proxy "socks5h://127.0.0.1:9050";'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire::http::Proxy::deb.debian.org "http://proxy.invalid:3128";'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire::http::Proxy-Auto-Detect "/opt/hidden/detect.sh";'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire::http::ProxyAutoDetect "/opt/hidden/detect.sh";'; Reason = 'config-proxy' },
+                @{ Directive = 'Binary::apt-get::Acquire::http::Proxy "http://proxy.invalid:3128";'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire { http { Proxy "http://proxy.invalid:3128"; }; };'; Reason = 'config-proxy' },
+                @{ Directive = 'Acquire::http::P%72oxy "http://proxy.invalid:3128";'; Reason = 'config-proxy' },
+                # The proxy substitutes the bytes; these accept them unsigned, and either half is
+                # enough on its own. They are refused by segment in any scope and at any value,
+                # because agreeing with apt's `StringToBool` on every spelling of true is a
+                # comparison that fails silently when it is wrong.
+                @{ Directive = 'APT::Get::AllowUnauthenticated "true";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::AllowInsecureRepositories "1";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::AllowDowngradeToInsecureRepositories "yes";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::AllowWeakRepositories "true";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::AllowReleaseInfoChange::Origin "true";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::Check-Valid-Until "false";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::Check-Date "false";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::https::Verify-Peer "false";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::https::Verify-Host "false";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::https::CaInfo "/opt/hidden/ca.pem";'; Reason = 'config-trust' },
+                @{ Directive = 'APT::Authentication::TrustCDROM "true";'; Reason = 'config-trust' },
+                @{ Directive = 'APT::Hashes::SHA1::Untrusted "false";'; Reason = 'config-trust' },
+                @{ Directive = 'Acquire::gpgv::Options { "--ignore-time-conflict"; };'; Reason = 'config-trust' },
+                @{ Directive = 'Binary::apt-get::APT::Get::AllowUnauthenticated "true";'; Reason = 'config-trust' },
+                @{ Directive = "APT::Get`n{`n  AllowUnauthenticated `"true`";`n};"; Reason = 'config-trust' },
+                @{ Directive = 'APT::Get::Allow%55nauthenticated "true";'; Reason = 'config-trust' }
             )) {
             $reason = ''
             $root = New-ConfigRoot -Directive $case.Directive
@@ -1881,17 +1966,17 @@ Describe 'Autopilot container gate runner' {
         $reason | Should -Be 'config-dir-override:apt.conf'
 
         # Failing closed must not mean failing on everything. Every block below is shipped verbatim
-        # by `debian:trixie-slim`, and the gate that rejects one of them blocks `main` over an
-        # honest image. `# include …` with a space is prose apt ignores too, a `//` inside a quoted
-        # proxy URL is a value rather than a comment, and a `Dir::Etc` named inside a real block
-        # comment is not a directive at all.
+        # by `debian:trixie-slim` or by the image's own Microsoft and Docker layers, and the gate
+        # that rejects one of them blocks `main` over an honest image. `# include …` with a space is
+        # prose apt ignores too, and a `Dir::Etc` named inside a real block comment is not a
+        # directive at all.
         foreach ($directive in @(
                 "# Ideally, these would just be invoking `"apt-get clean`" …`nDPkg::Post-Invoke { `"rm -f /var/cache/apt/archives/*.deb /var/cache/apt/*.bin || true`"; };`nAPT::Update::Post-Invoke { `"rm -f /var/cache/apt/archives/*.deb || true`"; };`n`nDir::Cache::pkgcache `"`";`nDir::Cache::srcpkgcache `"`";",
                 "// Pre-configure all packages with debconf before they are installed.`n// If you don't like it, comment it out.`nDPkg::Pre-Install-Pkgs {`"/usr/sbin/dpkg-preconfigure --apt || true`";};",
                 "APT`n{`n  NeverAutoRemove`n  {`n`t`"^firmware-linux.*`";`n  };`n  VersionedKernelPackages`n  {`n`t# kernels`n`t`"linux-.*`";`n  };`n};",
                 "#   RUN apt-get update \`n#       && apt-get install -y <packages>`nApt::AutoRemove::SuggestsImportant `"false`";",
                 'Acquire::Languages "none";',
-                'Acquire::http::Proxy "http://proxy.invalid:3128";',
+                'Acquire::GzipIndexes "true";',
                 'Dir::State::status "/var/lib/dpkg/status";',
                 'Dir::Log::Terminal "/var/log/apt/term.log";',
                 'DPkg::Chrootdir "/";',
@@ -1955,6 +2040,111 @@ Describe 'Autopilot container gate runner' {
             Get-GateAptConfigHost -Root $linkedRoot -Reason ([ref]$reason) | Should -BeNullOrEmpty
             $reason | Should -Be 'tree-link:sources.list.d'
         }
+    }
+
+    It 'fails closed on a source that waives its own authentication' {
+        # A source may waive the signature check in its own syntax, and the waiver names no new
+        # host: every origin comparison in this gate — the recorded file, the live tree, the smoke
+        # claim — still sees `deb.debian.org` and passes, while apt installs whatever answers for
+        # it unsigned. Paired with a proxy or a resolver, that is package substitution with a
+        # green gate, so the waiver fails the read where it is written.
+        function New-SourceRoot {
+            param([Parameter(Mandatory)][string]$Content, [string]$File = 'sources.list.d/vendor.list')
+            $root = Join-Path $TestDrive ('etc-apt-src-' + [guid]::NewGuid().ToString('N'))
+            $target = Join-Path $root $File
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force)
+            Set-Content -LiteralPath $target -Encoding utf8NoBOM -Value $Content
+            return $root
+        }
+
+        foreach ($case in @(
+                @{ Content = 'deb [trusted=yes] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [arch=amd64 trusted=yes] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [ trusted = yes ] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [trusted=true] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [allow-insecure=yes] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [allow-weak=yes] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [allow-downgrade-to-insecure=yes] http://deb.debian.org/debian trixie main' },
+                @{ Content = 'deb [TRUSTED=YES] http://deb.debian.org/debian trixie main' },
+                @{ Content = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie`nTrusted: yes"; File = 'sources.list.d/vendor.sources' },
+                @{ Content = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie`ntrusted:  TRUE"; File = 'sources.list.d/vendor.sources' },
+                @{ Content = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie`nAllow-Weak: yes"; File = 'sources.list.d/vendor.sources' },
+                # An empty field is not proof of a safe value: apt reads the waiver's value from
+                # the continuation line this reader never joins, so the shape it cannot evaluate
+                # fails rather than passing on the half of it that is visible.
+                @{ Content = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie`nTrusted:"; File = 'sources.list.d/vendor.sources' }
+            )) {
+            $file = if ($case.ContainsKey('File')) { $case.File } else { 'sources.list.d/vendor.list' }
+            $reason = ''
+            $root = New-SourceRoot -Content $case.Content -File $file
+            Get-GateAptConfigHost -Root $root -Reason ([ref]$reason) |
+                Should -BeNullOrEmpty -Because "'$($case.Content)' installs from that origin unsigned"
+            $reason | Should -Be "source-trusted:$file"
+        }
+
+        # The sources this image legitimately carries are the ones the gate exists to let through,
+        # and two of them name a keyring under `trusted.gpg.d`. A reader that matched the word
+        # rather than the option would fail `main` on Debian's own file. These are the Docker,
+        # Microsoft and Debian entries from the built image, verbatim.
+        foreach ($case in @(
+                @{ File = 'sources.list.d/docker.list'; Content = 'deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable'; Hosts = @('download.docker.com') },
+                @{ File = 'sources.list.d/microsoft-prod.list'; Content = 'deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/13/prod trixie main'; Hosts = @('packages.microsoft.com') },
+                @{ File = 'sources.list.d/debian.sources'; Content = "Types: deb`n# http://snapshot.debian.org/archive/debian/20260803T000000Z`nURIs: http://deb.debian.org/debian`nSuites: trixie trixie-updates`nComponents: main`nSigned-By: /usr/share/keyrings/debian-archive-keyring.pgp"; Hosts = @('deb.debian.org') },
+                @{ File = 'sources.list.d/legacy.sources'; Content = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie`nSigned-By: /etc/apt/trusted.gpg.d/debian-archive-trixie-stable.asc"; Hosts = @('deb.debian.org') },
+                @{ File = 'sources.list.d/explicit.list'; Content = 'deb [trusted=no] http://deb.debian.org/debian trixie main'; Hosts = @('deb.debian.org') },
+                @{ File = 'sources.list'; Content = "# trusted=yes was removed from this file`ndeb http://deb.debian.org/debian trixie main"; Hosts = @('deb.debian.org') }
+            )) {
+            $reason = ''
+            $root = New-SourceRoot -Content $case.Content -File $case.File
+            @(Get-GateAptConfigHost -Root $root -Reason ([ref]$reason)) |
+                Should -Be $case.Hosts -Because "'$($case.File)' waives nothing"
+            $reason | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'refuses an image environment that points apt at a configuration this gate never reads' {
+        # `APT_CONFIG` is read before `/etc/apt/apt.conf` and may relocate, unauthenticate or proxy
+        # every path the tree scan enumerates — from a file outside the tree. The whole
+        # configuration read is worth nothing while it is set, so it is refused on apt's own
+        # condition: non-empty. Proxy variables are refused for the reason the directives are.
+        foreach ($case in @(
+                @{ Json = '["PATH=/usr/local/bin:/usr/bin"]'; Reason = '' },
+                @{ Json = '[]'; Reason = '' },
+                @{ Json = 'null'; Reason = '' },
+                @{ Json = '["PATH=/usr/bin","APT_CONFIG="]'; Reason = '' },
+                @{ Json = '["PATH=/usr/bin","LANG=C.UTF-8","NO_COLOR="]'; Reason = '' },
+                @{ Json = '["APT_CONFIG=/opt/hidden/apt.conf"]'; Reason = 'apt-config' },
+                @{ Json = '["PATH=/usr/bin","APT_CONFIG=/opt/hidden/apt.conf"]'; Reason = 'apt-config' },
+                @{ Json = '["apt_config=/opt/hidden/apt.conf"]'; Reason = 'apt-config' },
+                @{ Json = '["http_proxy=http://proxy.invalid:3128"]'; Reason = 'proxy:http_proxy' },
+                @{ Json = '["HTTPS_PROXY=http://proxy.invalid:3128"]'; Reason = 'proxy:HTTPS_PROXY' },
+                @{ Json = '["all_proxy=socks5h://127.0.0.1:9050"]'; Reason = 'proxy:all_proxy' },
+                # A read this function did not understand is not evidence of a clean image.
+                @{ Json = ''; Reason = 'unreadable' },
+                @{ Json = 'not json at all'; Reason = 'unreadable' },
+                @{ Json = '{"APT_CONFIG":"/opt/hidden/apt.conf"}'; Reason = 'unreadable' },
+                @{ Json = '[{"name":"APT_CONFIG"}]'; Reason = 'unreadable' },
+                # A single-element array comes back from `ConvertFrom-Json` as its element, so a
+                # bare JSON string would be indistinguishable from `["APT_CONFIG=…"]` if the shape
+                # were decided on the parse rather than on the text.
+                @{ Json = '"APT_CONFIG=/opt/hidden/apt.conf"'; Reason = 'unreadable' }
+            )) {
+            Get-GateImageEnvRejection -Json $case.Json |
+                Should -Be $case.Reason -Because "'$($case.Json)' must read as '$($case.Reason)'"
+        }
+
+        # The name travels into a diagnostics log, a receipt and a job summary, so it is bounded on
+        # a fixed alphabet rather than carried as whatever the image called the variable.
+        $hostileName = ('X' * 90) + '_proxy# $(evil)'
+        $hostile = Get-GateImageEnvRejection -Json ('["' + $hostileName + '=http://proxy.invalid:3128"]')
+        $hostile | Should -Match '^proxy:[A-Za-z0-9_]{1,32}$'
+
+        # Bounded twice — total bytes and entry count — because the input describes a candidate
+        # image and a host-side scan an image can make arbitrarily expensive is a denial of the
+        # gate rather than a check on it.
+        $manyEntries = '[' + (((1..300) | ForEach-Object { "`"VAR$_=x`"" }) -join ',') + ']'
+        Get-GateImageEnvRejection -Json $manyEntries | Should -Be 'oversize'
+        Get-GateImageEnvRejection -Json ('["PATH=' + ('x' * 70000) + '"]') | Should -Be 'oversize'
     }
 
     It 'writes a blocking placeholder when a relevant commit job never started' {

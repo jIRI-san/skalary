@@ -28,6 +28,32 @@ RUN set -eux; \
     if apt-config dump | grep -Eiq '^[[:space:]]*(Binary::[^[:space:]]+::(Root)?Dir|RootDir)([[:space:]]|::)'; then \
         echo "APT binary-scoped Dir or RootDir overrides are not allowed" >&2; exit 1; \
     fi; \
+    if [[ -n "${APT_CONFIG:-}" ]]; then \
+        echo "APT_CONFIG must not be set" >&2; exit 1; \
+    fi; \
+    for proxy_var in http_proxy https_proxy ftp_proxy all_proxy HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY; do \
+        [[ -z "${!proxy_var:-}" ]] \
+            || { echo "APT proxy environment variable is not allowed: $proxy_var" >&2; exit 1; }; \
+    done; \
+    if apt-config dump | grep -Eiq '^[[:space:]]*[^[:space:]]*proxy'; then \
+        echo "APT proxy configuration is not allowed" >&2; exit 1; \
+    fi; \
+    for trust_key in Acquire::AllowInsecureRepositories Acquire::AllowWeakRepositories \
+        Acquire::AllowDowngradeToInsecureRepositories Acquire::AllowReleaseInfoChange::Origin \
+        Acquire::AllowReleaseInfoChange::Label Acquire::AllowReleaseInfoChange::Suite \
+        Acquire::AllowReleaseInfoChange::Codename APT::Get::AllowUnauthenticated \
+        APT::Get::AllowInsecureRepositories APT::Get::AllowDowngradeToInsecureRepositories \
+        APT::Authentication::TrustCDROM; do \
+        trust_value="$(apt-config shell apt_trust "$trust_key/b")"; \
+        [[ -z "$trust_value" || "$trust_value" == "apt_trust='false'" ]] \
+            || { echo "APT trust-weakening setting is not allowed: $trust_key" >&2; exit 1; }; \
+    done; \
+    for verify_key in Acquire::Check-Valid-Until Acquire::Check-Date \
+        Acquire::https::Verify-Peer Acquire::https::Verify-Host; do \
+        verify_value="$(apt-config shell apt_verify "$verify_key/b")"; \
+        [[ -z "$verify_value" || "$verify_value" == "apt_verify='true'" ]] \
+            || { echo "APT verification must not be disabled: $verify_key" >&2; exit 1; }; \
+    done; \
     [[ "$(apt-config shell apt_root Dir)" == "apt_root='/'" ]] \
         || { echo "APT Dir must remain '/'" >&2; exit 1; }; \
     [[ "$(apt-config shell apt_etc Dir::Etc)" == "apt_etc='etc/apt'" ]] \
@@ -56,6 +82,20 @@ RUN set -eux; \
         apt_source_files+=("${source_part_files[@]}"); \
     fi; \
     : > /tmp/autopilot-apt-source-uris; \
+    for source_file in "${apt_source_files[@]}"; do \
+        awk ' \
+            { lower = tolower($0) } \
+            lower ~ /^[[:space:]]*#/ { next } \
+            match(lower, /(^|[^a-z0-9._+-])(trusted|allow-insecure|allow-weak|allow-downgrade-to-insecure)[[:space:]]*[:=][[:space:]]*[a-z0-9]*/) { \
+                option = substr(lower, RSTART, RLENGTH); \
+                sub(/^[^a-z]*/, "", option); \
+                sub(/^[a-z-]+[[:space:]]*[:=][[:space:]]*/, "", option); \
+                if (option != "no" && option != "false" && option != "0") { \
+                    print "Trust-bypassing apt source option in " FILENAME ": " $0 > "/dev/stderr"; exit 1 \
+                } \
+            } \
+        ' "$source_file"; \
+    done; \
     for source_file in "${apt_source_files[@]}"; do \
         case "$source_file" in \
             *.list) \
@@ -221,11 +261,50 @@ RUN groupadd -g 998 docker || true \
 # capture placed before it would silently omit anything a later maintainer adds there — which is the
 # exact failure the baseline capture already demonstrated.
 RUN set -eux; \
+    if [[ -n "${APT_CONFIG:-}" ]]; then \
+        echo "APT_CONFIG must not be set" >&2; exit 1; \
+    fi; \
+    for proxy_var in http_proxy https_proxy ftp_proxy all_proxy HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY; do \
+        [[ -z "${!proxy_var:-}" ]] \
+            || { echo "APT proxy environment variable is not allowed: $proxy_var" >&2; exit 1; }; \
+    done; \
+    if apt-config dump | grep -Eiq '^[[:space:]]*[^[:space:]]*proxy'; then \
+        echo "APT proxy configuration is not allowed" >&2; exit 1; \
+    fi; \
+    for trust_key in Acquire::AllowInsecureRepositories Acquire::AllowWeakRepositories \
+        Acquire::AllowDowngradeToInsecureRepositories Acquire::AllowReleaseInfoChange::Origin \
+        Acquire::AllowReleaseInfoChange::Label Acquire::AllowReleaseInfoChange::Suite \
+        Acquire::AllowReleaseInfoChange::Codename APT::Get::AllowUnauthenticated \
+        APT::Get::AllowInsecureRepositories APT::Get::AllowDowngradeToInsecureRepositories \
+        APT::Authentication::TrustCDROM; do \
+        trust_value="$(apt-config shell apt_trust "$trust_key/b")"; \
+        [[ -z "$trust_value" || "$trust_value" == "apt_trust='false'" ]] \
+            || { echo "APT trust-weakening setting is not allowed: $trust_key" >&2; exit 1; }; \
+    done; \
+    for verify_key in Acquire::Check-Valid-Until Acquire::Check-Date \
+        Acquire::https::Verify-Peer Acquire::https::Verify-Host; do \
+        verify_value="$(apt-config shell apt_verify "$verify_key/b")"; \
+        [[ -z "$verify_value" || "$verify_value" == "apt_verify='true'" ]] \
+            || { echo "APT verification must not be disabled: $verify_key" >&2; exit 1; }; \
+    done; \
+    [[ "$(apt-config shell apt_source_list_path Dir::Etc::sourcelist/f)" == "apt_source_list_path='/etc/apt/sources.list'" ]] \
+        || { echo "APT sourcelist must resolve to /etc/apt/sources.list" >&2; exit 1; }; \
+    [[ "$(apt-config shell apt_source_parts_path Dir::Etc::sourceparts/d)" == "apt_source_parts_path='/etc/apt/sources.list.d/'" ]] \
+        || { echo "APT sourceparts must resolve to /etc/apt/sources.list.d/" >&2; exit 1; }; \
     : > /tmp/autopilot-final-apt-uris; \
     for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do \
         [[ -f "$source_file" && ! -L "$source_file" ]] || continue; \
         awk ' \
+            { lower = tolower($0) } \
             /^[[:space:]]*#/ { collecting = 0; next } \
+            match(lower, /(^|[^a-z0-9._+-])(trusted|allow-insecure|allow-weak|allow-downgrade-to-insecure)[[:space:]]*[:=][[:space:]]*[a-z0-9]*/) { \
+                option = substr(lower, RSTART, RLENGTH); \
+                sub(/^[^a-z]*/, "", option); \
+                sub(/^[a-z-]+[[:space:]]*[:=][[:space:]]*/, "", option); \
+                if (option != "no" && option != "false" && option != "0") { \
+                    print "Trust-bypassing apt source option in " FILENAME ": " $0 > "/dev/stderr"; exit 1 \
+                } \
+            } \
             /^[[:space:]]*deb(-src)?[[:space:]]/ { \
                 line = $0; \
                 sub(/^[[:space:]]*deb(-src)?[[:space:]]+/, "", line); \

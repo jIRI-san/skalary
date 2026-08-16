@@ -99,6 +99,37 @@ $script:AllowedSmokeReasons = @(
 $script:AptTransportScheme = @(
     'cdrom', 'copy', 'file', 'ftp', 'http', 'https', 'mirror', 'rsh', 's3', 'ssh', 'store', 'tor'
 )
+# Everything above holds the image to a set of *hostnames*. A proxy defeats that check without
+# touching a single one of them: apt still asks for `deb.debian.org`, and whatever the proxy points
+# at answers. So a proxy directive is refused outright rather than reconciled with the allowlist,
+# and the test is deny-by-default on the segment — any tag segment containing `proxy` — because the
+# forms are not a closed set (`Acquire::http::Proxy`, `::Proxy::deb.debian.org`, `Proxy-Auto-Detect`,
+# `ProxyAutoDetect`, and the same under every transport). The cost is an unquoted value containing
+# the word failing the read; the values Debian's own files carry are quoted, and this reader empties
+# a quoted value before the test runs.
+$script:AptProxyTagPattern = '(?i)(?<=^|[\s{};]|::)[A-Za-z0-9._+-]*proxy[A-Za-z0-9._+-]*(?![A-Za-z0-9._+-])'
+# A proxy substitutes the bytes; these accept them unsigned. Either half alone is enough — an
+# unauthenticated fetch from a proxied `deb.debian.org` installs whatever answered — so the
+# authentication settings are refused on the same terms as the proxy ones: by segment, in any
+# scope, whatever value is assigned. Asserting "not true" would need this reader to agree with
+# apt's `StringToBool` on every spelling of true, and a disagreement there is silent. Debian's own
+# `apt.conf.d` files assign none of these, so refusing the segment blocks no honest image.
+$script:AptTrustTagPattern = '(?i)(?<=^|[\s{};]|::)(?:Allow[A-Za-z0-9-]*|Trust[A-Za-z0-9-]*|Untrusted|Unauthenticated|Insecure[A-Za-z0-9-]*|Weak[A-Za-z0-9-]*|Check-Valid-Until|Check-Date|Verify-Peer|Verify-Host|CaInfo|CaPath|gpgv)(?![A-Za-z0-9._+-])'
+# The same bypass written in the source list rather than the configuration: `deb [trusted=yes] …`
+# and deb822's `Trusted: yes` tell apt to install from that origin without a valid signature, and
+# `allow-insecure` / `allow-weak` / `allow-downgrade-to-insecure` are the per-source spellings of
+# the configuration keys above. Only an explicitly false value passes, so a form this reader cannot
+# evaluate — an empty field, a continuation line, an unfamiliar word — fails closed.
+$script:AptSourceTrustPattern = '(?i)(?<![A-Za-z0-9._+-])(?:trusted|allow-insecure|allow-weak|allow-downgrade-to-insecure)[ \t]*[:=][ \t]*(?<value>[A-Za-z0-9]*)'
+$script:AptSourceTrustFalse = @('no', 'false', '0')
+# apt reads `APT_CONFIG` before it reads anything under `/etc/apt`, and the file it names may
+# relocate every path this gate enumerates. An image needs no such variable — a setting it wants
+# can live in `apt.conf.d`, where this gate can read it — so any non-empty value is refused, which
+# is apt's own condition for honouring it. Proxy variables are refused for the reason above: they
+# redirect the fetch while every hostname in the tree stays allowlisted.
+$script:ImageEnvProxyPattern = '(?i)proxy'
+$script:MaxImageEnvEntries = 256
+$script:MaxImageEnvBytes = 65536
 
 function Limit-GateText {
     param(
@@ -1104,8 +1135,9 @@ function Get-GateAptConfigRejection {
     .SYNOPSIS
         Names why an apt configuration file disqualifies the copied tree, or '' when it does not.
     .NOTES
-        Two directive classes fail the read, and both for one reason: they stop the tree this scan
-        enumerates from being the tree apt reads.
+        Four directive classes fail the read. The first two stop the tree this scan enumerates from
+        being the tree apt reads; the last two leave that tree in place and change what arrives
+        through it.
 
         The first is a path directive. Every `Dir` and `RootDir` tag is refused unless it names one
         of the subtrees that provably relocate no source list — `Dir::Cache`, `Dir::State`,
@@ -1124,6 +1156,13 @@ function Get-GateAptConfigRejection {
         relocate the source lists, so it fails closed regardless of what it names. `#clear` is the
         same argument in reverse — it discards assignments the checks above depend on — so a
         `#clear` naming a path tag fails too.
+
+        The third and fourth classes do not move the tree at all, and that is what makes them worth
+        refusing here: they substitute the *packages* while every hostname this gate compares stays
+        exactly as an honest image would write it. A proxy answers for `deb.debian.org`, and an
+        unauthenticated or trust-bypassing setting accepts what it answers with. The allowlist
+        cannot see either, because neither changes a name — so the configuration read, which is the
+        only place they appear, refuses both.
 
         Both tests run over `ConvertTo-GateAptConfigStatement` output rather than raw lines, so a
         statement split across lines, or a token spliced apart by a `/* */` comment, is read as apt
@@ -1149,6 +1188,10 @@ function Get-GateAptConfigRejection {
             return 'config-dir-override'
         }
     }
+    # Ordered after the relocation tests on purpose: a file carrying both is a relocation first,
+    # and that is the finding whose repair is the larger one.
+    if ([regex]::IsMatch($statements, $script:AptProxyTagPattern)) { return 'config-proxy' }
+    if ([regex]::IsMatch($statements, $script:AptTrustTagPattern)) { return 'config-trust' }
     return ''
 }
 
@@ -1167,12 +1210,20 @@ function Get-GateAptConfigHost {
         `apt.conf` and `apt.conf.d/*` are read for one thing only: a directive that moves the
         source-list directory this function and the Dockerfile's own recorder both enumerate out of
         view. `Get-GateAptConfigRejection` decides which lines those are — a source-relocating `Dir`
-        assignment in any scope, including a binary-scoped one, and an active `#include` or
-        `#clear`. Any of them fails the read outright, because an image that points
-        `Dir::Etc::sourcelist` at a file outside `/etc/apt`, or includes a configuration file this
-        scan never sees, presents an allowlisted tree that apt never consults. Fail closed rather
-        than report the hosts of a configuration that is not in effect. Config files are never
-        scanned for hosts — a URL in a note there is not a source.
+        assignment in any scope, including a binary-scoped one, an active `#include` or `#clear`,
+        and the two directive classes that leave the tree alone and change what arrives through it:
+        a proxy, and an unauthenticated or trust-bypassing acquisition setting. Any of them fails
+        the read outright, because an image that points `Dir::Etc::sourcelist` at a file outside
+        `/etc/apt`, includes a configuration file this scan never sees, or accepts unsigned packages
+        from whatever answers for `deb.debian.org`, presents an allowlisted tree that says nothing
+        about what it installs. Fail closed rather than report the hosts of a configuration that is
+        not in effect. Config files are never scanned for hosts — a URL in a note there is not a
+        source.
+
+        Source files carry the same waiver in their own syntax — `deb [trusted=yes] …` and deb822's
+        `Trusted: yes` — and it fails the read for the same reason: it changes no hostname, so every
+        allowlist comparison downstream would pass on a source apt installs from unsigned.
+
 
         The tree is required to be a plain tree of plain files. A symlinked `sources.list.d`, or a
         single symlinked `.sources` inside it, is not recursed into by `Get-ChildItem` and is not
@@ -1274,6 +1325,17 @@ function Get-GateAptConfigHost {
             $value = $line.Trim()
             if (-not $value) { continue }
             if ($value.StartsWith('#') -or $value.StartsWith('//')) { continue }
+            # A source may waive its own authentication: `deb [trusted=yes] …` and deb822's
+            # `Trusted: yes` tell apt to install from that origin with no valid signature, and the
+            # `allow-*` options are the per-source spelling of the same waiver. None of them names
+            # a different host, so every host check in this file passes while the packages that
+            # arrive are whatever answered. Only an explicitly false value survives.
+            $trust = [regex]::Match($value, $script:AptSourceTrustPattern)
+            if ($trust.Success -and
+                $trust.Groups['value'].Value.ToLowerInvariant() -notin $script:AptSourceTrustFalse) {
+                if ($null -ne $Reason) { $Reason.Value = "source-trusted:$token" }
+                return $null
+            }
             # Two scans, because one cannot see both URI forms apt accepts without letting the
             # weaker form hide the stronger one. Matching only `scheme://authority` saw
             # `https://deb.debian.org/...` and missed every source with no authority at all —
@@ -1324,6 +1386,68 @@ function Get-GateAptConfigHost {
     return @($hosts)
 }
 
+function Get-GateImageEnvRejection {
+    <#
+    .SYNOPSIS
+        Names the environment entry that would let apt read a configuration this gate never sees,
+        or '' when none does.
+    .NOTES
+        Every check in this file reads `/etc/apt`. `APT_CONFIG` makes that the wrong tree without
+        touching a byte of it: apt reads the file the variable names *before* `/etc/apt/apt.conf`,
+        and that file may relocate `Dir::Etc::sourcelist`, disable authentication, or set a proxy —
+        the three findings the configuration scan exists to refuse — from a path the scan does not
+        enumerate. An image needs no such variable: a setting it wants can live in `apt.conf.d`,
+        where this gate can read it. So any non-empty value is refused, which is also apt's own
+        condition for honouring it (`getenv` non-null *and* non-empty), and an empty one is left to
+        pass because it is what apt itself treats as unset.
+
+        Proxy variables are refused on the same grounds as the proxy directives: `http_proxy` and
+        its siblings redirect the fetch while every hostname in the tree stays allowlisted, and apt
+        honours them through libcurl and its own methods. The name test is deny-by-default on the
+        substring rather than a list of the eight spellings, because the list is the side that
+        grows.
+
+        The input is `docker inspect` output describing a candidate image, so it is untrusted and
+        bounded twice — total bytes and entry count — before it is parsed, and the offending name
+        travels onward as a token on a fixed alphabet rather than as whatever the image called it.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Json)
+
+    $text = $Json.Trim()
+    if (-not $text) { return 'unreadable' }
+    if ($text.Length -gt $script:MaxImageEnvBytes) { return 'oversize' }
+    # `null` is what Docker reports for an image that sets no environment at all. That is the one
+    # shape with nothing to reject; anything that is not an array of strings is a read this
+    # function did not understand, and an ununderstood read is not evidence of a clean image. The
+    # array shape is decided on the text rather than on the parse, because a one-element array
+    # comes back from `ConvertFrom-Json` as its element and would otherwise be indistinguishable
+    # from a bare JSON string — which is exactly the shape a single `APT_CONFIG=` entry has.
+    if ([string]::Equals($text, 'null', [System.StringComparison]::Ordinal)) { return '' }
+    if (-not ($text.StartsWith('[') -and $text.EndsWith(']'))) { return 'unreadable' }
+    $parsed = $null
+    try { $parsed = @(ConvertFrom-Json -InputObject $text) }
+    catch { return 'unreadable' }
+    if ($parsed.Count -gt $script:MaxImageEnvEntries) { return 'oversize' }
+    foreach ($entry in $parsed) {
+        if ($entry -isnot [string]) { return 'unreadable' }
+        $separator = $entry.IndexOf('=')
+        # Docker writes `NAME=VALUE`; an entry with no `=` names a variable with no value, which
+        # neither apt nor this test has anything to act on.
+        if ($separator -lt 0) { continue }
+        $name = $entry.Substring(0, $separator)
+        if (-not $entry.Substring($separator + 1)) { continue }
+        if ([string]::Equals($name, 'APT_CONFIG', [System.StringComparison]::OrdinalIgnoreCase)) {
+            return 'apt-config'
+        }
+        if ([regex]::IsMatch($name, $script:ImageEnvProxyPattern)) {
+            $token = [regex]::Replace($name, '[^A-Za-z0-9_]', '_')
+            if ($token.Length -gt 32) { $token = $token.Substring(0, 32) }
+            return "proxy:$token"
+        }
+    }
+    return ''
+}
+
 function Test-GateImageAttestation {
     <#
     .SYNOPSIS
@@ -1334,7 +1458,9 @@ function Test-GateImageAttestation {
         from anywhere. This copies the manifest, the recorded apt sources, and the image's live
         `/etc/apt` tree out with `docker cp` — a trusted-host read of the image filesystem —
         hashes and parses them here, and compares them against the trusted checkout and the
-        origin allowlist. Smoke output is only believed where it agrees with this.
+        origin allowlist. It also reads the environment the image hands every container it starts,
+        because `APT_CONFIG` and the proxy variables decide what the copied tree is worth. Smoke
+        output is only believed where it agrees with this.
 
         What this does *not* establish: the recorded provenance files are written by the
         candidate's own Dockerfile, so a Dockerfile that installs from elsewhere and then
@@ -1367,6 +1493,25 @@ function Test-GateImageAttestation {
             return [pscustomobject]@{ Valid = $false; Reason = 'attestation-container-unavailable'; ManifestSha256 = ''; AptHosts = @(); DebianAptHosts = @() }
         }
         $containerId = $create.Stdout.Trim()
+
+        # The environment is read before anything is copied, because it decides whether the files
+        # that would be copied are the ones apt reads at all. The container is created from the
+        # image with no environment of this gate's own, so its `Config.Env` is the image's
+        # environment as every run of it inherits — and reading it from the container rather than
+        # the image config keeps the answer true of the runtime even if this call ever gains an
+        # `--env` of its own.
+        $envBudget = & $remaining
+        if ($envBudget -lt 1) {
+            return [pscustomobject]@{ Valid = $false; Reason = 'attestation-timeout'; ManifestSha256 = ''; AptHosts = @(); DebianAptHosts = @() }
+        }
+        $inspect = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
+            'inspect', '--format', '{{json .Config.Env}}', $containerId
+        ) -TimeoutSeconds ([math]::Min(60, $envBudget))
+        $envReason = if ($inspect.ExitCode -ne 0) { 'inspect-failed' }
+        else { Get-GateImageEnvRejection -Json $inspect.Stdout }
+        if ($envReason) {
+            return [pscustomobject]@{ Valid = $false; Reason = "attestation-image-env:$envReason"; ManifestSha256 = ''; AptHosts = @(); DebianAptHosts = @() }
+        }
 
         $copied = @{}
         foreach ($entry in @(

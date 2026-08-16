@@ -186,6 +186,49 @@ the image from the trusted host — `docker create --network none` plus `docker 
   `Dir::Etc::sourceparts/d` pin where those paths *resolve*, which is the only check a `RootDir`
   cannot leave looking default.
 
+  Relocation is only one way to make an allowlisted tree meaningless, and the other two change no
+  path at all. A **proxy** leaves every hostname exactly as written: apt still asks for
+  `deb.debian.org`, the proxy answers, and the recorded file, the live tree and the smoke claim all
+  compare equal while the packages come from somewhere else. **Trust weakening** is what makes that
+  substitution stick, since a signature check is the one thing a proxy cannot forge — and it has two
+  spellings, one in `apt.conf` (`APT::Get::AllowUnauthenticated`, `Acquire::AllowInsecureRepositories`,
+  `Acquire::Check-Valid-Until "false"`, `Acquire::https::Verify-Peer "false"`, a redirected `CaInfo`
+  or `gpgv::Options`) and one in the source entry itself (`deb [trusted=yes] …`, deb822
+  `Trusted: yes`). Both classes are refused on the same normalized statement text as `Dir`, and by
+  segment rather than by list: any tag segment containing `proxy` fails, as does any segment naming
+  `Allow*`, `Trust*`, `Untrusted`, `Unauthenticated`, `Insecure*`, `Weak*`, `Check-Valid-Until`,
+  `Check-Date`, `Verify-Peer`, `Verify-Host`, `CaInfo`, `CaPath` or `gpgv`. The value is not read.
+  Agreeing with apt's `StringToBool` on every spelling of true is a comparison that fails silently
+  when it is wrong, and an honest image has no reason to name any of these at all — verified against
+  the six `apt.conf.d` files `debian:trixie-slim` and Docker's own layers ship, none of which does.
+  The source-entry form is checked per file as an option rather than as a word, so `Signed-By:
+  /etc/apt/trusted.gpg.d/debian-archive-trixie-stable.asc` — a keyring path Debian itself writes —
+  is not mistaken for a waiver; an option present with an empty value fails, because apt reads that
+  value from a continuation line this reader does not join.
+
+  `APT_CONFIG` is the same attack from outside the tree. apt reads the file it names *before*
+  `/etc/apt/apt.conf`, and that file can relocate, unauthenticate or proxy everything the scan
+  enumerates from a path the scan never sees — so the whole configuration read is worth nothing while
+  it is set. The gate therefore reads the environment the image hands every container it starts,
+  with `docker inspect` against the container it just created rather than against the tag, so a
+  `docker create` that ever gains an `--env` cannot become invisible to it. Any non-empty value is
+  refused, which is also apt's own condition for honouring the variable, and the proxy environment
+  variables (`http_proxy` and its seven siblings) are refused on the same grounds as the directives.
+  The read is bounded twice — total bytes and entry count — and anything that is not a JSON array of
+  strings is `unreadable` rather than clean, because an ununderstood read is not evidence of an empty
+  environment. `null`, which is what Docker reports for an image that sets nothing, is the one shape
+  with nothing to reject. Failures reach the receipt as `attestation-image-env:<reason>` and stop the
+  attestation before any `docker cp`: a tree apt may never read is not worth copying out.
+
+  The Dockerfile mirrors all three refusals, at the layer that installs and again at the last root
+  layer — a policy present once is a policy the other layer is running without, and the final layer
+  is what covers whatever a maintainer adds at the documented extension anchor. The build cannot
+  reuse the host reader, so it asks apt: `apt-config shell` on eleven trust keys that must not be
+  true and four verification keys that must not be false, since `apt-config dump` prints built-in
+  defaults and a presence grep would fire on an untouched image. The source-option check runs after
+  the source files are discovered and before their hosts are validated, because the waiver names no
+  new host and every later check passes on it.
+
   Any enumeration or read error fails the read closed rather than reporting the hosts it managed to
   read, and so does a configuration file over 256 KB — that scan is character work on the *host*, so
   an image can spend the gate's time by shipping a file large enough to be worth minutes to read,

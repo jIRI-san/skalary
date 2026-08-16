@@ -55,7 +55,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 4.1 Review the package baseline, acquisition trust, advisory image-size measurement, non-root smoke evidence, receipt/provenance artifact, and payload synchronization before approving the plan (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-4, RISK-5, RISK-6, RISK-7) @human [after: 3.1] `S`
+- [x] 4.1 Review the package baseline, acquisition trust, advisory image-size measurement, non-root smoke evidence, receipt/provenance artifact, and payload synchronization before approving the plan (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-4, RISK-5, RISK-6, RISK-7) @human [after: 3.1] `S`
   <details><summary>Details</summary>
 
   **Steps:**
