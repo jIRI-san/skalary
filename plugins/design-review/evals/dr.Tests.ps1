@@ -12,6 +12,7 @@ Describe 'dr structural evals' {
         $manifestPath = Join-Path $script:pluginRoot 'plugin.json'
         $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 50
         $script:entries = @($manifest.files)
+        $script:reviewRun = Get-ReviewRunEvalContext -PluginRoot $script:pluginRoot -ReviewId dr
     }
 
     It 'covers orchestrator, subagents, and prompt artifacts with expected types' {
@@ -83,5 +84,41 @@ Describe 'dr structural evals' {
         }
 
         @($resolvedDesignNotePaths | Sort-Object -Unique).Count | Should -BeGreaterThan 0
+    }
+
+    It 'eval:ReviewReport.DR.WriterScope confines edits to the two computed temporary inputs' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant WriterScope | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.FreezeBeforeDispatch requires freeze before independent dispatch and publish after it' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant FreezeBeforeDispatch | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.IndependentDispatch forbids prior-result priming and suppression' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant IndependentDispatch | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.CompleteDispatch requires every frozen task exactly once' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant CompleteDispatch | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.NonzeroTaskPlan rejects zero-discovery runs' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant NonzeroTaskPlan | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.RendererOwnedMarkdown forbids hand-built report layout' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant RendererOwnedMarkdown | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.FixedPolicyAndRoot exposes no alternate schema policy or output root' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant FixedPolicyAndRoot | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.DegradedArtifactPreservation surfaces exit 5 artifacts before failure propagation' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant DegradedArtifactPreservation | Should -BeTrue
+    }
+
+    It 'eval:ReviewReport.DR.BoundedRetry permits only corrected exit-4 retry and terminal exit-3 restart' {
+        Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant BoundedRetry | Should -BeTrue
     }
 }

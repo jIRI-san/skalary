@@ -1,16 +1,17 @@
 # 863d97: Evidence and receipt truth
 <!-- plan-id: 863d97 -->
-<!-- cip-stage: scaffolded -->
+<!-- depends-on: cda9da -->
+<!-- cip-stage: dr-round-3 -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
-<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->
-<!-- scope: step | phase | plan -->
+<!-- execution-mode: container-autopilot -->
+<!-- scope: plan -->
 <!-- evidence: required -->
-<!-- phase-budget-points: 6 -->
+<!-- phase-budget-points: 9 -->
 <!-- Offline package bundling (autonomous container/sandbox plans): list expected new third-party packages so they can be batched and the offline rebundle round-trip fires at most once. Use `none` when the plan adds no packages. -->
-<!-- expected-packages: dotnet:<list>; npm:<list> -->
+<!-- expected-packages: none -->
 
 ## Assets
 
@@ -21,50 +22,60 @@
 - Risks — [assets/risks.md](assets/risks.md)
 - Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)
 - References — [assets/references.md](assets/references.md)
+- Design-review evolution — [assets/evolution-log.md](assets/evolution-log.md)
 - Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
 - Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
-## Phase 1: Name
+## Phase 1: Closed evidence and waiver contract
 <!-- worktree: (recorded by /ci when worktree is created) -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Step title (REQ-1) `S`
-- [ ] 1.2 Step title (REQ-1, RISK-1) @human `M`
-  <details><summary>Details</summary>
+- [ ] 1.1 Add canonical schemas under `schemas/evidence/`, `EvidenceResult.psm1`, and one limits descriptor for statuses, findings, dispositions, aggregates, and closed exits. The post-`cda9da` marker vocabulary is authoritative; this plan neither bundles architecture-tests nor recreates `arch:`/`Get-ArchGateOutcome`. Enforce maxima of 128 markers, 32 waivers, 256 cases per marker, 1024 total cases, 64 diagnostics, 256 KiB receipt, 20,000 tracked files, 8 MiB/file, 64 MiB total, and 30 seconds hashing; reserve existing suite exits `0-8` and autopilot `42-43`, assign focused `9=timeout`, `10=malformed/count`, `11=budget-exhausted`, and parser `20=blocked`, `21=invalid/stale`, `22=lock/publication`. Reuse the secret guard; reject caller status context/disposition, extra fields, contradictory legacy input, and credential-shaped text. Synchronize root and surviving CI/CIP/CEP/autopilot consumers plus dogfood/catalogs in this step; add `test:EvidenceResult.StatusFindingDispositionLimitsExitAndPostRetirementMatrix` (REQ-1, REQ-6, REQ-7, RISK-3, RISK-4, RISK-6, RISK-12, RISK-13) `L`
+- [ ] 1.2 Add `EvidencePolicy.psm1`, canonical `schemas/evidence/evidence-policy.schema.json`, and optional layout-resolved policy instances at `assets/evidence-policy.json` (legacy fallback). Bind waiver ID, plan, REQ, marker, canonical host-derived OS (`windows`, `linux`, `macos`), status, and bounded reason; reject caller OS overrides. Absent policy is canonical empty/no-approval. Add root-only never-bundled `Approve-EvidencePolicy.ps1 -Action Approve|Revoke` requiring an attached nonredirected console, no force/env bypass, and an `@human` next-step/finalization predicate; it uses the same inventory/digest functions as the parser and writes a matching load-bearing capture audit. Derive waived only for skipped or count-proven mixed evidence, synchronize read-only consumers, and add `test:EvidencePolicy.HumanConsoleApprovalAuditOsEmptyAndConfinement` (REQ-2, REQ-6, RISK-1, RISK-6, RISK-9) [after: 1.1] `L`
+- [ ] 1.3 Add tracked continue-implementation payload `.github/evidence-test-scope.json` as the sole schema-validated owner of fixed repo-confined roots/patterns, with separate host exclusions and evidence discoverability; install/update it as a managed plugin file, never first-use scaffold. Declare autopilot's manifest dependency on continue-implementation and an allowlisted bare reference to `.github/skills/ci/scripts/Run-UnitTests.ps1`; assert no autopilot executor copy/root fallback. Make suite/profile/coverage generators consume the scope; preserve the independently maintained pre-change coverage/removal inventory and compare it to the suite run's own structured discovery output without another pass. Reject reparses, broad/non-test patterns, hidden active strict-plan IDs, missing/duplicate/escaping declarations, and stale managed payload with `test:EvidenceTestScope.ManagedAuthorityDependencyConfinementBaselineAndInstall` (REQ-3, REQ-5, REQ-6, REQ-8, RISK-2, RISK-7, RISK-8) [after: 1.1] `L`
 
-  **Steps:**
-  1. Navigate to **Azure Portal > Resource Group > ...**
-  2. Run: `az resource ...`
-
-  **Verify:** the concrete, observable condition that proves the step worked.
-
-  **Rollback:** Delete the resource / revert the setting to X.
-
-  </details>
-
-## Phase 2: Name
+## Phase 2: Focused Pester execution truth
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Step title (REQ-1, RISK-1) [after: 1.1] `S`
+- [ ] 2.1 Extend root-canonical `Run-UnitTests.ps1` with mutually exclusive bound `-EvidenceTestId <string[]>` and structured-output mode while preserving current discovery/environment/framework/budget exits `0-8`. In one killable child invocation discover once, bind each no-space ID to every exact leading token, and emit one bounded terminal set with selected/completed/in-flight attribution. Default 5 minutes, configured max 10, effective timeout is the lesser of requested and remaining platform budget; require at least 5 seconds remaining or return `11=budget-exhausted`, use `9=timeout`, `10=malformed/count`, kill the process tree, and discard partial case results. Map every Pester result/fault and test exact boundary translations with `test:RunUnitTests.FocusedBatchLeadingTokenBudgetExitAndAttributionMatrix` (REQ-3, REQ-5, REQ-6, RISK-2, RISK-3, RISK-6, RISK-8, RISK-11) [after: 1.3] `L`
+- [ ] 2.2 Exercise exact-token corpus resolution, duplicates, parameterized/reversed/all-match cases, every aggregate/fault/limit, host-derived OS, separately hosted evidence IDs, and injected sub-second timeout/process kill. On an ordinary run, load active non-archived `evidence: required` plan inventories/policies once into a bounded in-memory marker map; exact owned waivers may authorize skips, while unowned or archived IDs fail closed. Cross-check seeded skip/degraded goldens against current scope-matched ordinary structured output and fail on absent/stale output; retain real regressions non-vacuously and measure immediately with `test:RunUnitTests.FocusedTruthActivePolicySkipAndIndependentCrosscheck` (REQ-2, REQ-3, REQ-6, REQ-7, REQ-8, RISK-2, RISK-3, RISK-8, RISK-9, RISK-10) [after: 2.1] `L`
+- [ ] 2.3 Bundle focused `Run-UnitTests`, result/policy/secret/schema/scope closure into continue-implementation; autopilot invokes the explicit installed CI path under its declared dependency and closed allowlist. Patch-bump/synchronize in this step, keep installed matrices in the ordinary suite with fast seams, then rerun the existing budget clock after these matrices land. Prove direct CI and autopilot dependency installs, absence of an autopilot executor copy/root fallback, and both measurements with `test:RunUnitTests.FocusedInstalledDependencyAndBudget` (REQ-5, REQ-8, RISK-7, RISK-8) [after: 2.2] `L`
+
+## Phase 3: Truthful receipt and deterministic gate
+<!-- worktree: (recorded by /ci when worktree is created) -->
+
+- [ ] 3.1 Add dormant `EvidenceDigest.psm1` and `Publish-EvidenceReceipt.ps1`. The digest module owns inventory/policy approval functions, ordinal framing, limits, and class subdigests: inspect Git index modes, reject gitlinks/non-blobs/symlinks, hash every tracked file through a canonical projection that normalizes only plan stage/check-state/archive-path lifecycle fields, exclude only receipt/generated CI-row bytes, and separately bind verified review-manifest, approval-audit, and CI-proof digests. Publication serializes transitions with a stable per-plan exclusive lock (5-second timeout), rereads expected UUID/state under lock, and owns run `scope=phase|final`, phase number/inventory, UUID, optional predecessor/reason, immutable running digest tuple, blocked start, terminal CAS, counts, and safe rendering. Only complete scope inventory is terminal; phase receipts never authorize finalization. Add concurrent/stale-writer, mixed-content, mode-160000, limit, interruption/restart, snapshot-mutation, and hand-authored membership/golden tests in `test:EvidenceReceipt.V2ProjectionLockedPublicationLifecycleAndLimits`; synchronize dormant copies without activation (REQ-1, REQ-2, REQ-4, REQ-6, REQ-7, RISK-1, RISK-4, RISK-5, RISK-6, RISK-10, RISK-12) [after: 1.2, 2.3] `L`
+- [ ] 3.2 Add dormant pure-parse `Test-EvidenceReceipt.ps1` using the same digest/inventory functions and post-retirement marker vocabulary. Re-derive exact policy plus matching approval audit, aggregates, scope completeness, projections, bound proof digests, and changed classes; map pass/waived to `0`, blocked to `20`, invalid/stale to `21`, lock/publication to `22`. Cover absent policy, approval convergence/audit mutation, v1/running/abandoned/phase/final/partial/missing/extra/duplicate/stale/malformed/blocked, lifecycle projection, review/CI proof mutation, static test closure, and non-opted warn-only behavior with `test:EvidenceReceipt.DormantParserProjectionPolicyProofAndMigrationMatrix`; synchronize surviving CI/CIP/CEP/autopilot copies while v1 remains authoritative (REQ-1, REQ-2, REQ-4, REQ-6, REQ-7, RISK-1, RISK-5, RISK-6, RISK-9, RISK-10, RISK-12) [after: 3.1] `L`
+- [ ] 3.3 Migrate CI/autopilot from prose/glyph handling to phase-subset focused suite execution, file/review producers, and v2 phase publication; final PlanCrosscheck alone executes/publishes the complete final inventory. Then atomically switch `Test-Plan -Stage PlanCrosscheck` to v2 and remove v1 authority/hand-writing. Agent decisions consume only the closed parser verdict. Preserve exact focused/parser exits through container entrypoint and host/sandbox launchers without colliding with `42/43`; synchronize bundles/catalogs and add plan-wide inventory-to-step marker closure plus `test:EvidenceWorkflow.AtomicV2CutoverScopedPublicationExitAndInstalledParity` (REQ-1, REQ-4, REQ-5, REQ-6, REQ-7, RISK-3, RISK-4, RISK-5, RISK-7, RISK-11) [after: 3.2] `L`
+
+## Phase 4: Documentation, distribution, and proof
+<!-- worktree: (recorded by /ci when worktree is created) -->
+
+- [ ] 4.1 Update plan-workflow, CI-gates, autopilot execution/skill, plugin-registry, plugin-evals, review-reporting, and copilot-customizations notes plus enforcement-gap exploration; remove architecture-tests ownership after `cda9da`. Extend design-note frontmatter/index scopes for every new evidence module/schema/publisher/parser/approval/scope path. Document managed scope versus generated snapshots, active-policy suite lookup, status/finding/disposition, projections/bound proofs, locked publication, human approval residual trust, scoped runs, legacy opt-in, closed exits, and untrusted receipt text. Update CIP guidance to declarations only; prove exact indexed scopes with `test:EvidenceTruth.DocumentedPostRetirementOwnershipPathsAndBoundaries` (REQ-5, REQ-6, REQ-7, REQ-8, RISK-5, RISK-7, RISK-13) [after: 3.3] `L`
+- [ ] 4.2 Add root-only `Confirm-SuiteCiProof.ps1` using authenticated `gh api` to wait for the named trusted workflow at an exact source commit and independently verify run IDs, workflow identity, head SHA, conclusions, job/platform mapping, and artifact rows before updating generated `tools/suite-runtime.json`; add `test:EvidenceTruth.CiApiProofSameTreeAdmission`. Verify all earlier sync, generated README/marketplace/registry, independent baseline, snapshots, evals, marker ownership, hand-authored goldens, ordinary/focused equivalence, and enforcement mutations; measure after installed matrices and fail on absent/stale ordinary output. Run ordinary suite plus structural evals, but defer final API proof until after CR/waiver approval: `test:EvidenceTruth.DistributionApiProofDiscoveryAndBudget` (REQ-5, REQ-8, RISK-7, RISK-8, RISK-10, RISK-11, RISK-12, RISK-14) [after: 4.1] `L`
 
 ## Finalization (conditional)
 
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] X.Y Finalization gate (REQ-1) @human `S`
+- [ ] 5.1 Review evidence aggregation, active waiver-set digest, v2 receipt lifecycle/freshness, gate/cutover, legacy behavior, outer exits, consumer installs, and current two-platform proof before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7, RISK-8, RISK-9, RISK-10, RISK-11, RISK-12, RISK-14) @human [after: 4.2] `L`
   <details><summary>Details</summary>
 
   **Steps:**
-  1. What the operator has to do, in order.
+     1. Run `@cr` over schemas, result/policy/digest modules, managed scope, focused suite mode, publisher/parser, approval/audit, v2 cutover, launchers/callers, consumer bundles, API proof, independent goldens, and docs. Resolve every blocking finding, commit, and repeat CR until the final source tree has a published clean `review:cr` manifest; any later non-lifecycle tracked change restarts at this step.
+     2. If `assets/evidence-policy.json` exists with entries, run `scripts/skalary/Approve-EvidencePolicy.ps1 -Action Revoke -PlanDir docs/implementation-plans/2026-08-02-863d97-evidence-receipt-truth`, inspect the table/digest, then run it with `-Action Approve`; commit the policy and capture audit explicitly. If absent or empty, run the script's read-only inspection mode, verify canonical empty state, and create/commit nothing.
+     3. Push the exact source commit to the plan branch so the trusted workflow runs. Set `$commit = (git rev-parse HEAD).Trim()`, then run `scripts/skalary/Confirm-SuiteCiProof.ps1 -Commit $commit -Workflow registry-ci.yml -Wait -UpdateRuntime`; it must authenticate through `gh api`, admit one successful in-budget Linux and Windows job from the same workflow/head SHA, verify artifacts, and update only generated runtime proof. Commit that generated proof explicitly. Any source change restarts at step 1; a proof-only commit does not.
+     4. Rebuild the final-scope terminal v2 receipt including compact verified digests for the final review manifest, matching approval audit (when nonempty policy), and API-verified CI proof. Run `.github/skills/ci/scripts/Test-Plan.ps1 -PlanPath docs/implementation-plans/2026-08-02-863d97-evidence-receipt-truth/plan.md -RepoRoot . -Stage PlanCrosscheck`; require closed parser exit `0` and inspect changed-class diagnostics.
+     5. Approve archival only when exact markers, proof digests, ordinary suite, evals, installed consumers, generated outputs, and worktree are clean. Marking this step, stage transitions, receipt publication, proof-only output, and archive movement are canonical lifecycle projections; any other tracked mutation restarts the loop.
 
-  **Verify:** what proves it worked.
+     **Verify:** final `review:cr`, approval audit when required, and API-verified Linux/Windows proof digests are bound into the terminal receipt; every exact marker passes; policy is matching-approved or canonical empty; unwaived skip blocks while exact waiver stays visibly skipped/degraded; interrupted/v1/phase/stale receipts and outer launchers fail with their reserved codes; `Confirm-SuiteCiProof` verifies trusted workflow/run/job provenance for one source commit.
 
-  **Rollback:** how to undo it.
+     **Rollback:** when a nonempty policy was approved, run `scripts/skalary/Approve-EvidencePolicy.ps1 -Action Revoke -PlanDir docs/implementation-plans/2026-08-02-863d97-evidence-receipt-truth`; for absent/empty policy, skip revocation. Return the affected step to `[~]`, commit any revoke audit, and restart CR, approval, API proof, and final receipt in order. After release, repair forward with synchronized patch versions; never restore v1 authority.
 
   </details>

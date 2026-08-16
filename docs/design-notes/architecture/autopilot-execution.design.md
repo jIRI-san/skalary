@@ -240,7 +240,7 @@ Key fields:
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
 - `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
-- `maxIterationsPerStep`: Fix-retry cap
+- `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle per-stage gate.
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
 
 **No plan path in config.** `launch.ps1` takes `-PlanSlug` and derives `docs/implementation-plans/<PlanSlug>/plan.md`; the config never carries a plan path.
@@ -282,6 +282,13 @@ Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 4. Loop until phase complete → push
 
 The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step and phase loops run named evidence and focused targets; the complete configured build/test pair runs once at plan completion as the integration gate.
+
+CR dispatch is capped independently for each `step-*`, `phase-*`, and `plan-finalization` stage by
+`scripts/skalary/ReviewCycleGate.ps1`. The CR log is the durable counter. Three cycles run
+automatically; a persisted operator Continue decision grants one additional cycle, then the gate asks
+again if findings remain. In a headless run autopilot logs all remaining findings, commits the
+in-progress state, reports Continue/Wrap as the required operator choice, and exits `42`. It never
+uses `maxIterationsPerStep` or a fresh context to bypass the review cap.
 
 Absolute rules enforced:
 - Never force-push, never push to main

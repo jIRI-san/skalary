@@ -52,6 +52,10 @@
       "dest": "skills/ci/scripts/PlanState.psm1"
     },
     {
+      "src": "skills/ci/scripts/ReviewCycleGate.ps1",
+      "dest": "skills/ci/scripts/ReviewCycleGate.ps1"
+    },
+    {
       "src": "skills/ci/scripts/Remove-LedgerEntry.ps1",
       "dest": "skills/ci/scripts/Remove-LedgerEntry.ps1"
     },

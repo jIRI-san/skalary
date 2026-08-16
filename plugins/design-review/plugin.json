@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.3",
+  "version": "1.0.24",
   "description": "Design review orchestrator with specialist model agents.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -35,6 +35,46 @@
     {
       "src": "skills/dr/scripts/Build-ReviewReport.ps1",
       "dest": "skills/dr/scripts/Build-ReviewReport.ps1"
+    },
+    {
+      "src": "skills/dr/scripts/Get-ReviewRun.ps1",
+      "dest": "skills/dr/scripts/Get-ReviewRun.ps1"
+    },
+    {
+      "src": "skills/dr/scripts/Remove-ReviewRun.ps1",
+      "dest": "skills/dr/scripts/Remove-ReviewRun.ps1"
+    },
+    {
+      "src": "skills/dr/scripts/PlanState.psm1",
+      "dest": "skills/dr/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/dr/scripts/ReviewRun.psm1",
+      "dest": "skills/dr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-admission.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-admission.schema.json"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-limits.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-manifest.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-manifest.schema.json"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-plan.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-plan.schema.json"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/review-run.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/review-run.schema.json"
+    },
+    {
+      "src": "skills/dr/scripts/schemas/review/terminal-status.schema.json",
+      "dest": "skills/dr/scripts/schemas/review/terminal-status.schema.json"
     },
     {
       "src": "skills/dr/assets/concern-ledger-map.md",

@@ -95,6 +95,21 @@ jobs:
             throw "PSScriptAnalyzer found $($analyzerErrors.Count) error-severity finding(s)."
           }
 
+      # REQ-1/D12, RISK-12: structural validation of a review run is delegated to the host's
+      # native `Test-Json`, so the features that validation depends on are proven on this runner
+      # before any gate that would consume them. It runs ahead of the budget clock because it
+      # gates the review contract rather than the suite, and a host that fails it must fail with a
+      # bounded status object rather than half a review run.
+      - name: Review schema capability preflight
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Test-ReviewSchemaCapability.ps1
+
+      # Tier-1 only: deterministic Pester structural evals. Test-Evals verifies the exact required
+      # CR/DR case ids executed once and passed; the auth-dependent waza tier remains opt-in.
+      - name: Structural evals
+        shell: pwsh
+        run: npm run eval
+
       # RISK-10: every gate below is its own named step. Chained into one script, the first
       # failure masks every gate behind it, and a gate that never ran is indistinguishable
       # from one that ran and passed.
@@ -132,6 +147,10 @@ jobs:
       - name: Unit tests and runtime budget
         shell: pwsh
         run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestResultPath artifacts/test-results/nunit-${{ matrix.os }}.xml
+
+      - name: Review consumer install matrix
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/skalary/Test-ReviewConsumerInstall.ps1 -TestResultPath artifacts/test-results/review-consumer-${{ matrix.os }}.xml
 
       # `if: always()` because the run worth reading is the failed one. Without it the report is
       # uploaded exactly when nobody needs it.

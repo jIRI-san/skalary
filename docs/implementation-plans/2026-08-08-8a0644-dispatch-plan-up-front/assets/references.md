@@ -43,3 +43,10 @@ validation, persistence, derived attendance, and report rendering. This child ow
 and therefore later **produces** the frozen task-plan records before admission/dispatch; it does not define a
 second attendance or artifact format. `ca8ba8` remains the later consumer that evaluates similarity and
 corroboration truth. The three ownership seams are plan, record/render, and corroborate.
+
+## Workflow-limit contract boundary
+
+This child depends on `34088e consumer-install-correctness`. `34088e` owns discoverable owner-local limit
+descriptors, parity validation, installed-consumer proof, and resolver-backed dependency evidence. This child
+owns the scheduler's four-in-flight value and admission behavior, registers that owner, and does not copy the
+cap into active consumers without parity coverage.

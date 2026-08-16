@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-16T03:57:24.1362338Z",
+  "generatedAt": "2026-08-16T04:46:33.8412338Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -158,7 +158,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "6257711e250414ae5673f0537361dbcce85c9f99da941e7b0566f98a317d7475",
+          "sha256": "34aecd64e09288192acb3ee21af2db0e8049707d1ee837167805fc8dbb91288c",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -288,42 +288,42 @@
       "files": [
         {
           "dest": "agents/cr-architecture-patterns.agent.md",
-          "sha256": "8a44c7717cf424d73357c802504ee65feb93566bf7b4be7c323aad8c908bcc27",
+          "sha256": "0ffd319431ce36ee16db6626c4a201be612e12ab099161514d2e52fb56596f43",
           "src": "agents/cr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/cr-correctness-reliability.agent.md",
-          "sha256": "72594f6231246e178fd9ab96d27854a438e679f5e22152cfa21ee7898619d447",
+          "sha256": "d97726d8ffe3b671c73e3aa0660189d6a22451730497c805d6c4530ecd8caacc",
           "src": "agents/cr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/cr-maintainability-consistency.agent.md",
-          "sha256": "9b15a4ad8da0bf7e06a8afa1ac93f6fd15667f57b30751414b4ade3a4063f687",
+          "sha256": "565165120825209e7497b0ff827fe8be48fdee6f0e126a27d07859d7e873f934",
           "src": "agents/cr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/cr-operability-observability.agent.md",
-          "sha256": "4a2a3deec69eae3864b371b0defec927af147e1b974cd2602eca7e55454bd5a2",
+          "sha256": "2cd39682ce0d7a8bab016dcb203bc16a540b91f37f274bfe461c83529de3ca59",
           "src": "agents/cr-operability-observability.agent.md"
         },
         {
           "dest": "agents/cr-performance.agent.md",
-          "sha256": "caac386f9c937a0ec0353fb79488299cf5a7b89ef984df4c73767c4fecd51c37",
+          "sha256": "6f4e0d823cf6a3f03eecc71c4e299178466104f5297013305552b02e7a4d25c6",
           "src": "agents/cr-performance.agent.md"
         },
         {
           "dest": "agents/cr-security.agent.md",
-          "sha256": "721c7914e4c457d21f406ff8cc734e51c4b050c790b48689e5b76262e323cc83",
+          "sha256": "37f10370daf92d1977c8659fddf7853d9b96dbf2e4b8471cf8c4c510275ab11f",
           "src": "agents/cr-security.agent.md"
         },
         {
           "dest": "agents/cr-testing-evidence.agent.md",
-          "sha256": "f6324771d18c3817a6330d4ce589cb8a8f9e7721ccc0ea100be08c7350b3fd3c",
+          "sha256": "4c3abd98a58e5d9301430a0da182cd13be29d951bb18355c02cfb5f34f096ab4",
           "src": "agents/cr-testing-evidence.agent.md"
         },
         {
           "dest": "agents/cr.agent.md",
-          "sha256": "8a4c229afc77c3be689f456dacb340e4134f0838dff43682eaeac22e79de8321",
+          "sha256": "a3d118fb96abbfe067a1b61298fe47a2f5fc5a2e41b15f1de6d1295ddd4f5691",
           "src": "agents/cr.agent.md"
         },
         {
@@ -338,12 +338,12 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "dedc919ea0feb52c289b72a0b1dcf4ca74687efc61b45fede5df40076062de00",
+          "sha256": "ad5fc65c7a769527c966b40559eb4d1ff29922afee8d2fb22dcfee2afb6f6249",
           "src": "skills/cr/SKILL.md"
         },
         {
           "dest": "skills/cr/assets/collation-guide.md",
-          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
+          "sha256": "2a25e9df7898e0ad84592698f9e2f66db161a7ccd35757eeba8788859bba84a8",
           "src": "skills/cr/assets/collation-guide.md"
         },
         {
@@ -353,7 +353,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -363,8 +363,58 @@
         },
         {
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
-          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Get-ReviewRun.ps1",
+          "sha256": "f131a5ad81a20d13e3193577b8112b9895f6b18aaf73a42545b36f750472f8e6",
+          "src": "skills/cr/scripts/Get-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/PlanState.psm1",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "src": "skills/cr/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
+          "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
+          "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/ReviewRun.psm1",
+          "sha256": "bb2e88fa6a86c136fd18229e6f3417779ffc2964e43aaf02892e54865a72aa30",
+          "src": "skills/cr/scripts/ReviewRun.psm1"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-admission.schema.json",
+          "sha256": "f6a6558e1c0c0d1151b0959f2d1e4b003ce75ef9baa9938616a4f9759bd01312",
+          "src": "skills/cr/scripts/schemas/review/review-admission.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-limits.schema.json",
+          "sha256": "22db5ad2147bb226313b19542701c2ce7d55f88800ab86f300d411face4236c2",
+          "src": "skills/cr/scripts/schemas/review/review-limits.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-manifest.schema.json",
+          "sha256": "d466c7739f57bb51978dedc0d060caa033d8d3f4b50f0f73df33a5de83f5cbb7",
+          "src": "skills/cr/scripts/schemas/review/review-manifest.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-plan.schema.json",
+          "sha256": "3fd9780e35fcaa45803b169d30bce9717e6965a400c309608689c36c6e467393",
+          "src": "skills/cr/scripts/schemas/review/review-plan.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/review-run.schema.json",
+          "sha256": "538359585a09be63fecdb7d85825add1e67c2a0cffa0a092e22984a91008cc0e",
+          "src": "skills/cr/scripts/schemas/review/review-run.schema.json"
+        },
+        {
+          "dest": "skills/cr/scripts/schemas/review/terminal-status.schema.json",
+          "sha256": "6f992d6cf9bae553806a8e5d73df3c702e4dc2b8f953ac08c020a525363fc143",
+          "src": "skills/cr/scripts/schemas/review/terminal-status.schema.json"
         }
       ],
       "license": "MIT",
@@ -375,7 +425,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.4"
+      "version": "1.0.25"
     },
     {
       "author": "jIRI-san",
@@ -395,12 +445,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "32c9a5cf2f808f35afacafd526acedd65ce25b9742e5b8bb0749b0f4e5686f03",
+          "sha256": "74d232cfa052b2279d4167038a1e4ab8ac6d4b93e9ae710d135deb1411ae19d7",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "4ad51e5b23c4c38a5de2eb2d9ba2d6d6a73d770c5066d19f16a7f39c6601e49e",
+          "sha256": "953195a90f7116ac5c48831c90faaad79ce3bf24adc61a6848bfb5b5f12bf9ce",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -430,7 +480,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "41726c7be10bb95eadc072eb5493bf0b5504b0847eefa70aa8fa6dd530d1b4ad",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -442,6 +492,11 @@
           "dest": "skills/ci/scripts/Repair-Plans.ps1",
           "sha256": "18454a1051df0329ce76488fa866d46e9aacdc585fafdb23ccdc01c007ebc398",
           "src": "skills/ci/scripts/Repair-Plans.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
+          "sha256": "96b96f9e43c74eef69cdf7625e68d8b11d3f8439a305beeb3af0a24c4c186ee9",
+          "src": "skills/ci/scripts/ReviewCycleGate.ps1"
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
@@ -526,7 +581,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -551,7 +606,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "41726c7be10bb95eadc072eb5493bf0b5504b0847eefa70aa8fa6dd530d1b4ad",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
@@ -591,7 +646,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "69cea152db635eab65da2797936377015e83d9a5c9f0d71d111779f360f8acd1",
+          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -616,7 +671,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "41726c7be10bb95eadc072eb5493bf0b5504b0847eefa70aa8fa6dd530d1b4ad",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -740,42 +795,42 @@
       "files": [
         {
           "dest": "agents/dr-architecture-patterns.agent.md",
-          "sha256": "15f0cbb99920dbd86a9a54ebc8001d324a588fffb398927146dffd371701b266",
+          "sha256": "9d99b72f9cd0ed211073a353b67f407e913357f792d3c4e34941392d50b6f43c",
           "src": "agents/dr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/dr-correctness-reliability.agent.md",
-          "sha256": "d4fc9ce23e6690a25c43bff15a177b3382f2207454061f0d71bb225d6cc26d01",
+          "sha256": "95d381eda89877e81b231345cb5c7ff579439c438aacd28489b38888ed59b3c4",
           "src": "agents/dr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/dr-maintainability-consistency.agent.md",
-          "sha256": "a3c15a6106c6aa7bf3ebf758d19e9f082cc9a67f7289929397b1bb468d7fe6a4",
+          "sha256": "e96bdce755d0af36e6ad70e6a2c9ddcea600d7839357c6444d543afbbd5200c1",
           "src": "agents/dr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/dr-operability-observability.agent.md",
-          "sha256": "c0df01311bba294c5d3a2f400fa9f424a44a3f4252e9f868d63d00c061623004",
+          "sha256": "6c81ac38b339673a142fcffe1ef127bcd35e98ee6da91d3fb05dbb97bda05b11",
           "src": "agents/dr-operability-observability.agent.md"
         },
         {
           "dest": "agents/dr-performance.agent.md",
-          "sha256": "344b3e743bff6c6fff4142faf11637f336570cdbf678dc902678e9e5f95664ff",
+          "sha256": "4d4aad68d8766cc0279e0021f185631b7acab537fe3044b9bdc9b024d57e6c63",
           "src": "agents/dr-performance.agent.md"
         },
         {
           "dest": "agents/dr-security.agent.md",
-          "sha256": "e83101efa1f82fd8faf367c8be4266928a52e9db9ca7ec722168ddda2dbff2aa",
+          "sha256": "758aa585ad155e1874fcda9d572aa1b93b278a3ad79aba456706db9a7b0b836b",
           "src": "agents/dr-security.agent.md"
         },
         {
           "dest": "agents/dr-testing-evidence.agent.md",
-          "sha256": "9c9d138421559aa62e2028a60ed74dc0f4b596302e6fe269bb856602990a9865",
+          "sha256": "edf215bbeffb58d5abe22ab74dc46850ea1879c7c3bb7a388956987cff0fdd38",
           "src": "agents/dr-testing-evidence.agent.md"
         },
         {
           "dest": "agents/dr.agent.md",
-          "sha256": "bdff2d07024c69306225c928ad623fcdff80724f62989258f3ad89dc2411e555",
+          "sha256": "b973e9df6cea6f4301054eb6c05f213ba7f638800ad8f9730f1f80db85566ca7",
           "src": "agents/dr.agent.md"
         },
         {
@@ -785,12 +840,12 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "bf4af88126bed2156a45db07b0296c5b46cd9cc2ef1618a3dcdcff82b9d9e362",
+          "sha256": "3a27597e06d844078f94452b3ca2fa6eaf9e61182ac49367ab092eca4f57fff9",
           "src": "skills/dr/SKILL.md"
         },
         {
           "dest": "skills/dr/assets/collation-guide.md",
-          "sha256": "ee38efdd0f0e05b127c0b7fde179e030062eef38540ee85c4cc50846d1d88383",
+          "sha256": "2a25e9df7898e0ad84592698f9e2f66db161a7ccd35757eeba8788859bba84a8",
           "src": "skills/dr/assets/collation-guide.md"
         },
         {
@@ -800,7 +855,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "d202c97840dc656d24ada7e3d322eaf6d63714c57764a229c4e20f501df18c34",
+          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -810,8 +865,58 @@
         },
         {
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
-          "sha256": "72834942a825e940d2360a1d551094409c810dbd5c5bd10ff9b114d7b78522d5",
+          "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Get-ReviewRun.ps1",
+          "sha256": "f131a5ad81a20d13e3193577b8112b9895f6b18aaf73a42545b36f750472f8e6",
+          "src": "skills/dr/scripts/Get-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/PlanState.psm1",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "src": "skills/dr/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
+          "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
+          "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/ReviewRun.psm1",
+          "sha256": "bb2e88fa6a86c136fd18229e6f3417779ffc2964e43aaf02892e54865a72aa30",
+          "src": "skills/dr/scripts/ReviewRun.psm1"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-admission.schema.json",
+          "sha256": "f6a6558e1c0c0d1151b0959f2d1e4b003ce75ef9baa9938616a4f9759bd01312",
+          "src": "skills/dr/scripts/schemas/review/review-admission.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json",
+          "sha256": "22db5ad2147bb226313b19542701c2ce7d55f88800ab86f300d411face4236c2",
+          "src": "skills/dr/scripts/schemas/review/review-limits.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-manifest.schema.json",
+          "sha256": "d466c7739f57bb51978dedc0d060caa033d8d3f4b50f0f73df33a5de83f5cbb7",
+          "src": "skills/dr/scripts/schemas/review/review-manifest.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-plan.schema.json",
+          "sha256": "3fd9780e35fcaa45803b169d30bce9717e6965a400c309608689c36c6e467393",
+          "src": "skills/dr/scripts/schemas/review/review-plan.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/review-run.schema.json",
+          "sha256": "538359585a09be63fecdb7d85825add1e67c2a0cffa0a092e22984a91008cc0e",
+          "src": "skills/dr/scripts/schemas/review/review-run.schema.json"
+        },
+        {
+          "dest": "skills/dr/scripts/schemas/review/terminal-status.schema.json",
+          "sha256": "6f992d6cf9bae553806a8e5d73df3c702e4dc2b8f953ac08c020a525363fc143",
+          "src": "skills/dr/scripts/schemas/review/terminal-status.schema.json"
         }
       ],
       "license": "MIT",
@@ -822,7 +927,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.3"
+      "version": "1.0.24"
     },
     {
       "author": "jIRI-san",
@@ -844,7 +949,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "cb15b8d830181baf98118772c2e285b0804d04916ec6334b22ceb0f3547b3919",
+          "sha256": "b3b9fa9bfaacab4a024125d68de6fdf99d19f320340fb2af45881c3469a1d9f2",
           "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -884,7 +989,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
-          "sha256": "cb15b8d830181baf98118772c2e285b0804d04916ec6334b22ceb0f3547b3919",
+          "sha256": "b3b9fa9bfaacab4a024125d68de6fdf99d19f320340fb2af45881c3469a1d9f2",
           "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
         },
         {
@@ -985,7 +1090,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "41726c7be10bb95eadc072eb5493bf0b5504b0847eefa70aa8fa6dd530d1b4ad",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1010,7 +1115,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "41726c7be10bb95eadc072eb5493bf0b5504b0847eefa70aa8fa6dd530d1b4ad",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {

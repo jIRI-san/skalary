@@ -1,5 +1,5 @@
 ---
-description: Deferred exploration — the review and plan machinery reports its own controls rather than enforcing them, and its evidence cannot distinguish a degraded run from a clean one. Sourced from the 44-finding step 10.7 gate review. Clusters B (except the evidence skipped state), E and H were resolved by plan 768d7b and are retained as retired records; C is deferred to 34088e. Load before changing Build-ReviewReport, Build-EvidenceReceipt, the dispatch guides, or CI wiring — for the CI gates themselves, load docs/design-notes/project/ci-gates.design.md instead.
+description: Partly retired exploration sourced from the 44-finding step 10.7 gate review. Clusters A and D are resolved by c21cdc; B (except evidence skipped), E and H by 768d7b; C is deferred to 34088e; F/G remain open. Load before changing review reporting, evidence, dispatch, or CI wiring.
 globs:
   - scripts/skalary/Build-ReviewReport.ps1
   - scripts/skalary/Build-EvidenceReceipt.ps1
@@ -16,14 +16,16 @@ Recorded because the findings are systemic rather than incidental: they describe
 
 ## Status after plan `768d7b`
 
-Clusters E and H are **resolved** and Cluster B is resolved except for one row; the rest are open. Retired material is not deleted — a cluster whose fix is described only by its own absence cannot be checked against what actually shipped.
+Clusters A and D are **resolved by `c21cdc`**, E and H are resolved, and Cluster B is resolved except
+for one row. C is deferred; F/G remain open. Retired material is not deleted—a cluster whose fix is
+described only by its own absence cannot be checked against what actually shipped.
 
 | Cluster | Status | Where it now lives |
 |---|---|---|
-| A — the report cannot describe its own run | open | `c21cdc` (attendance and report size) |
+| A — the report cannot describe its own run | **resolved** | `c21cdc`: frozen task truth, derived attendance, explicit clean/degraded state, bounded terminal status and verifying reader |
 | B — gates that pass without running | resolved except the evidence `skipped` state | `docs/design-notes/project/ci-gates.design.md`; the remaining row is `863d97`'s contract |
 | C — constants copied into prose | **deferred to `34088e`** | not resolved here and asserted by nothing; see below |
-| D — collation passes data as code | open | `c21cdc` |
+| D — collation passes data as code | **resolved** | `c21cdc`: two fixed JSON handshakes, closed schemas, fixed installed CLI, canonical JSON authority and bounded dual views |
 | E — generated output is locale-dependent | resolved | ordinal comparers in `Build-Registry.ps1`/`Build-Marketplace.ps1`, `test:BuildRegistry.CzechCollationFixtureIsStable` |
 | F, G — the `/si` loop has no durable state | open | — |
 | H — the gate costs 29 minutes | resolved | `tools/suite-budget.psd1`, `tools/suite-profile.json`, `tools/suite-runtime.json` |
@@ -33,7 +35,12 @@ Clusters E and H are **resolved** and Cluster B is resolved except for one row; 
 
 **A control is described in prose, reported in output, and enforced nowhere.** The plan that built this machinery hit the same shape three times during its own design review (`phase-budget-points` inert, the "hard cap" of 28 unenforced, the `timeout` doc/impl split). The gate then found it had been reproduced in the machinery itself.
 
-## Cluster A — the report cannot describe its own run
+## Cluster A — the report cannot describe its own run (resolved by `c21cdc`)
+
+`c21cdc` freezes the complete task set before dispatch, binds publication to that immutable digest,
+derives attendance/state from exact task outcomes, distinguishes completed-zero-findings from
+missing/failed work, and commits a manifest-verified artifact before returning degraded exit `5`.
+The table below is retained as the pre-fix failure inventory.
 
 | Gap | Consequence |
 |---|---|
@@ -73,7 +80,12 @@ Common fix direction: give the formatter the *dispatched task set*, not just fin
 
 The 28-invocation budget exists in six ungated places, inside a design note that says *"do not restate those numbers here — a second copy is a second thing to drift."* Plan-size thresholds and the phase-budget default have the same shape. The branch establishes the correct pattern twice (`DesignNotes.Tests.ps1` pins the size cap to the script default by regex; `Test-ModelAllowlist.ps1` validates guide rows against `tools/model-allowlist.psd1`) and then does not apply it here.
 
-## Cluster D — collation passes data as code, and the report has no size budget
+## Cluster D — collation passes data as code, and the report has no size budget (resolved by `c21cdc`)
+
+The generated `[pscustomobject]` invocation and legacy object API are retired. CR/DR now write only
+the two computed JSON temporary inputs, invoke a fixed installed `Freeze|Publish` CLI, and preserve
+canonical JSON plus complete bounded summary/full views. Independent discovery remains unchanged;
+deduplication still occurs only during rendering. The analysis below is retained as pre-fix evidence.
 
 Operator-raised 2026-08-01 after watching the gate run.
 
@@ -217,5 +229,4 @@ An earlier reading of this data claimed the registry was rebuilt *per test case*
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
 
 G1–G3 have a sequencing claim of their own: they degrade the evidence every *later* `/si` run reasons from. G1 biases the recurrence axis, G2 destroys the records outright, G3 means the next operator to invoke the skill hits the same three failures. Fixing them is cheap and is a precondition for trusting any subsequent harvest — including the one that would judge whether the rest of this note's clusters were worth fixing.
-
 

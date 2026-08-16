@@ -201,7 +201,7 @@ Describe 'ci gate inventory' {
                 $body = ($statements -join "`n")
                 $throwsOnFinding = $body -match '(?m)(?:^|[\s{;])throw\b' -and $body -notmatch '(?m)(?:^|[\s}])catch\b'
                 $enforces = (-not $swallowsVerdict) -and
-                    ($lastStatement -match '^(pwsh|git)\b|-EnableExit\b' -or $throwsOnFinding)
+                    ($lastStatement -match '^(pwsh|git|npm)\b|-EnableExit\b' -or $throwsOnFinding)
 
                 if ($row.Enforcement -eq 'blocking') {
                     $enforces |

@@ -21,7 +21,8 @@ zero-cost; the premium, auth-dependent LLM tier is strictly opt-in.
 ## Invariants
 
 - `npm test`, `scripts/validate.ps1`, and `npm run eval` never invoke a waza/LLM run.
-- Tier-1 runs via `Test-Evals.ps1` (structural Pester only); Tier-2 runs via `Invoke-WazaEvals.ps1`
+- Tier-1 runs as a blocking per-platform CI step via `Test-Evals.ps1` (structural Pester only), with
+  exact required-case execution checked from `tools/structural-eval-required.json`; Tier-2 runs via `Invoke-WazaEvals.ps1`
   (`npm run eval:llm`), which requires auth and incurs premium cost.
 - A Tier-2 run that executed zero evals is a distinct non-green outcome, not a silent pass.
 

@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.4"
+      "version": "1.0.25"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.3"
+      "version": "1.0.24"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

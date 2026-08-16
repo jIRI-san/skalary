@@ -61,6 +61,7 @@ $script:PlanAssetMap = [ordered]@{
     CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
     Learnings       = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
     Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
+    ReviewRuns      = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
 }
 
 function Get-PlanLayout {
@@ -106,7 +107,7 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture')]
+        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'ReviewRuns')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]

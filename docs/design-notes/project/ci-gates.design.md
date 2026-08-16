@@ -4,6 +4,7 @@ globs:
   - .github/workflows/**
   - scripts/validate.ps1
   - scripts/skalary/Run-UnitTests.ps1
+  - scripts/skalary/Test-ReviewConsumerInstall.ps1
   - tools/suite-budget.psd1
 ---
 
@@ -18,11 +19,14 @@ globs:
 | Gate | Proves | Runs in | Invocation | Enforcement |
 |---|---|---|---|---|
 | `gate:script-analyzer` | `scripts/skalary` carries no `Error`-severity analyzer finding; `Warning` findings are counted and printed, not enforced (`exclusion:analyzer-warnings-not-blocking`) | `.github/workflows/registry-ci.yml` | `Invoke-ScriptAnalyzer` | blocking |
+| `gate:review-schema-capability` | this runner implements every JSON Schema keyword the review-run contract validates with, and says so in one bounded status object | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-ReviewSchemaCapability\.ps1` | blocking |
+| `gate:structural-evals` | deterministic Tier-1 plugin evals pass, including exact once-only execution of every id in `tools/structural-eval-required.json` | `.github/workflows/registry-ci.yml` | `npm run eval` | blocking |
 | `support:suite-budget-clock` | the budget spans the whole `npm test` command rather than the Pester leg | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-StartBudgetClock` | support |
 | `gate:plan-validation` | every plan at or above `drafted` satisfies its own contract | `.github/workflows/registry-ci.yml` | `scripts/skalary/Validate-Plan\.ps1` | blocking |
 | `gate:repository-validation` | every payload file parses, and the gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1` | blocking |
 | `gate:plugin-retirement-history` | published plugin retirement records are never changed or removed; the event supplies one explicit Git baseline | `.github/workflows/registry-ci.yml` | `scripts/skalary/Invoke-PluginRetirementHistoryGate\.ps1` | blocking |
 | `gate:unit-suite` | the Pester suite passes and the run is inside its platform's ceiling | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)` | blocking |
+| `gate:review-consumer-install` | isolated CR and DR installs execute the complete review-run CLI exit and artifact matrix without repository fallbacks | `.github/workflows/registry-ci.yml` | `Test-ReviewConsumerInstall\.ps1` | blocking |
 | `gate:registry-validation` | `registry.json` matches the plugin sources it claims to describe | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-Registry\.ps1` | blocking |
 | `gate:dogfood-drift` | the repo's own installed copies match `plugins/` | `.github/workflows/registry-ci.yml` | `scripts/skalary/Sync-Dogfood\.ps1` | blocking |
 | `gate:generated-output-drift` | `registry.json` and `README.md` are what the generator produces now | `.github/workflows/registry-ci.yml` | `scripts/skalary/Build-Registry\.ps1` | blocking |
@@ -76,6 +80,21 @@ Two consequences are recorded rather than hidden. Merged code is measured after 
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
 | Job timeout | per matrix leg, above that platform's ceiling — a job killed before the gate speaks reports a cancelled run, not an over-budget one |
+| Measurement receipt | `Measure-SuiteRuntime.ps1` records non-empty OS/PowerShell/Pester/processor identity plus both HEAD commit and the pre-measurement staged git tree hash. The tree binds a measurement taken before the step commit to the exact staged inputs the suite read; the receipt rewrite itself necessarily lands afterward. Callers stage every tracked implementation/input change before measuring and leave only the output receipt unstaged. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. Failed runs are emitted but never recorded. |
+
+`platforms.Linux` and `platforms.Windows` are authoritative only when their source is the matching
+`ci:ubuntu-latest` / `ci:windows-latest` leg and `environment.ci` is true. A local container run may
+be retained under `supplementalMeasurements`, but it is never compared with the CI ceiling and never
+replaces a platform row. The historical Linux row predates tree attribution; its measured commit's
+tree was added during migration without changing its timing or claiming a new CI run.
+
+The isolated review-consumer matrix is a separate blocking gate rather than part of the ordinary
+suite: it starts many child PowerShell processes to prove installed CLI exits and would consume about
+half of the Windows unit-suite ceiling by itself. Splitting the host keeps that evidence mandatory on
+both legs without making every local `npm test` pay the integration cost.
+The gate host's `-TestPath` parameter is fixture-only executable evidence for its pass/fail exit
+contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
+`ReviewConsumerInstall.Tests.ps1` matrix.
 
 Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
 

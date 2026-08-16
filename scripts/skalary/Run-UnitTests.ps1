@@ -144,6 +144,7 @@ Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 # NUnit output is kept and the exit is taken back.
 $configuration = New-PesterConfiguration
 $configuration.Run.Path = $testPath
+$configuration.Run.ExcludePath = @(Join-Path $testPath 'skalary/ReviewConsumerInstall.Tests.ps1')
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
@@ -186,6 +187,17 @@ if ([int]$result.FailedContainersCount -gt 0) {
 
 if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
     exit 1
+}
+
+# Stable review-report evidence ids are mandatory on every supported leg. Deterministic seams keep
+# these cases executable; a skip is an unexecuted evidence marker, not a pass.
+$skippedReviewEvidence = @($result.Tests | Where-Object {
+        [string]$_.Result -eq 'Skipped' -and [string]$_.Name -match '^test:ReviewReport\.'
+    })
+if ($skippedReviewEvidence.Count -gt 0) {
+    $names = @($skippedReviewEvidence | ForEach-Object { [string]$_.Name })
+    Write-Host "RequiredEvidenceSkipped: $($skippedReviewEvidence.Count) review-report evidence test(s) did not execute: $($names -join ', ')" -ForegroundColor Red
+    exit 8
 }
 
 # A green suite that leaves HOME pointing at TestDrive is still a defect: it sends git looking for

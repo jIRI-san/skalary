@@ -35,7 +35,7 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `2366ad` | cross-repo-si-and-standards | `1936cb`, `34088e` |
 | `34088e` | consumer-install-correctness | `cda9da` |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
-| `863d97` | evidence-receipt-truth | — |
+| `863d97` | evidence-receipt-truth | `cda9da` |
 | `c21cdc` | review-report-as-data | — |
 | `79cfe1` | concern-registry-and-generated-agents | — |
 | `ca8ba8` | review-corroboration-truth | `c21cdc` |
@@ -54,8 +54,8 @@ child plan.
 
 **Why not one plan.** The queue spans ~8 Critical review findings, eight enforcement-gap clusters, three accepted `/si` candidates, six parked explorations and two `/dr` headline findings, across the review, receipt, ledger, install and CI surfaces. `b0c0d3` was smaller and still overran its advisory phase budget on 5 of 10 phases.
 
-**Edges.** Only `cross-repo-si-and-standards` is blocked: it needs the durable proposal record from `learning-loop-durability` and correct consumer installs from `consumer-install-correctness` before a cross-repo protocol can rest on either. The remaining children are parallel.
+**Edges.** `consumer-install-correctness` depends on `cda9da` in epic `bcece1` because it consumes the delivered source-bound retirement protocol rather than duplicating it. `cross-repo-si-and-standards` then needs both durable proposal state from `learning-loop-durability` and correct consumer installs. Other children remain independently schedulable according to the generated graph.
 
 **Prior art reconciled.** *Reuses* plan `001`'s agent-safety rules and exit-code contract, and plan `002`'s receipt model, install confinement and hash verification. *Extends* `002`'s receipt concept to the evidence receipt — a different artifact sharing the same inability to describe a degraded run. No prior decision is superseded and none conflicts.
 
-**Execution order.** Operator selected `gates-real-and-affordable` first: it shortens the feedback loop every later child is verified against.
+**Execution order.** The operator selected `gates-real-and-affordable` first; it is now archived and supplies the feedback-loop baseline used by later children. Current execution follows the live cross-epic dependency graph.

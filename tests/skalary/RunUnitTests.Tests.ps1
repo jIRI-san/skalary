@@ -122,6 +122,14 @@ Describe 'sandbox' {
 }
 '@
 
+        $script:skippedReviewEvidenceFile = @'
+Describe 'skipped evidence' {
+    It 'test:ReviewReport.MandatorySeam executes' {
+        Set-ItResult -Skipped -Because 'seeded missing mandatory seam'
+    }
+}
+'@
+
         # Unbalanced brace: the file fails to parse during discovery, so Pester counts it as a
         # failed container and none of its tests exist to be counted anywhere else.
         $script:undiscoverableTestFile = @'
@@ -215,6 +223,60 @@ Describe 'sandbox' {
         $ran.ExitCode | Should -Be 1 -Because "a run that discovered and failed tests reports a failed run: $($ran.Output)"
         $discoveredNothing.ExitCode | Should -Not -Be $ran.ExitCode
         $nothingToDiscover.ExitCode | Should -Not -Be $ran.ExitCode
+    }
+
+    It 'test:RunUnitTests.RequiredReviewEvidenceSkippedFails exits 8 when a review-report evidence marker is skipped' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:skippedReviewEvidenceFile
+        $result = Invoke-Runner -SandboxRoot $sandbox
+
+        $result.ExitCode | Should -Be 8
+        $result.Output | Should -Match 'RequiredEvidenceSkipped'
+        $result.Output | Should -Match 'test:ReviewReport\.MandatorySeam'
+    }
+
+    It 'test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI' {
+        $runnerText = Get-Content -LiteralPath $script:runner -Raw
+        $dedicated = Join-Path $script:repoRoot 'scripts/skalary/Test-ReviewConsumerInstall.ps1'
+        $workflow = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/workflows/registry-ci.yml') -Raw
+
+        $runnerText | Should -Match "ExcludePath\s*=.*ReviewConsumerInstall\.Tests\.ps1"
+        Test-Path -LiteralPath $dedicated -PathType Leaf | Should -BeTrue
+        (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
+        $workflow | Should -Match 'name:\s*Review consumer install matrix'
+        $workflow | Should -Match 'scripts/skalary/Test-ReviewConsumerInstall\.ps1'
+        $workflow | Should -Not -Match 'Test-ReviewConsumerInstall\.ps1[^\r\n]*-TestPath'
+
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $fixture = Join-Path $sandbox 'tests/Sandbox.Tests.ps1'
+        $passOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($passOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:failingTestFile -Encoding utf8NoBOM
+        $failOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 1 -Because ($failOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:skippedReviewEvidenceFile -Encoding utf8NoBOM
+        $skipOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 3 -Because "skipped runtime evidence is cannot-test, never green: $($skipOutput | Out-String)"
+
+        $cleanupFixture = Join-Path $TestDrive 'cleanup-cli'
+        [void](New-Item -ItemType Directory -Path $cleanupFixture -Force)
+        Copy-Item -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Remove-ReviewRun.ps1') -Destination $cleanupFixture
+        @'
+function Finalize-ReviewPlanRun {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$RunId, [string]$PlanDir, [string]$Verdict)
+    return [pscustomobject]@{
+        RunId = $RunId; Verdict = $Verdict; Report = 'report'; Receipt = 'receipt'
+        Preview = $false; CleanupPending = $true; CleanupDiagnostic = 'access denied while deleting tombstone'
+    }
+}
+Export-ModuleMember -Function Finalize-ReviewPlanRun
+'@ | Set-Content -LiteralPath (Join-Path $cleanupFixture 'ReviewRun.psm1') -Encoding utf8NoBOM
+        $cleanupOutput = & pwsh -NoProfile -File (Join-Path $cleanupFixture 'Remove-ReviewRun.ps1') `
+            -RunId '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35' -PlanDir 'docs/implementation-plans/example' -Verdict blocked 2>&1
+        $LASTEXITCODE | Should -Be 4 -Because 'durable evidence with pending cleanup is retryable failure, not success'
+        ($cleanupOutput | Out-String) | Should -Match 'access denied while deleting tombstone'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

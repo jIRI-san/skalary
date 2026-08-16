@@ -10,6 +10,13 @@ session-transcript-*.md
 # Plugin install runtime state (receipts, tmp staging) — never committed
 .github/.skalary/
 
+# Live plan review state is transient. Finalized `<uuid>.review.md` and
+# `<uuid>.receipt.json` siblings remain trackable under the same reviews directory.
+docs/implementation-plans/**/assets/reviews/*/
+docs/implementation-plans/**/reviews/*/
+docs/implementation-plans/**/assets/reviews/.*.finalize.lock
+docs/implementation-plans/**/reviews/.*.finalize.lock
+
 # Autopilot host-command configuration — machine-specific, never committed.
 # `.autopilot.json` is deliberately tracked: it is the run contract (model, timeouts,
 # build/test commands) and the container infers those commands when it is absent.

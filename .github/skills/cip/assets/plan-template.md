@@ -21,6 +21,7 @@
 - References — [assets/references.md](assets/references.md)
 - Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
 - Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
+- Review results — compact `assets/reviews/<uuid>.review.md` + `<uuid>.receipt.json`; live `<uuid>/` state is gitignored
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 

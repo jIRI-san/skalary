@@ -8,13 +8,13 @@ Make evidence receipts state what actually ran and distinguish clean proof from 
 
 ## Desired outcome
 
-The evidence pipeline carries explicit execution outcomes into one deterministic receipt grammar. A requirement can pass only when all required markers genuinely ran and passed; platform skips and interrupted or partial runs remain visible instead of being counted as success.
+The evidence pipeline carries explicit execution outcomes into one deterministic receipt grammar. A requirement can pass only when every required marker either genuinely passed or carries a visible, exact policy waiver for skipped or mixed pass/skip execution; platform skips and interrupted or partial runs are never counted as passed.
 
 ## Success signals
 
 - A skipped test is never rendered as a passed test.
 - Missing, stale, malformed, failed, and unrun evidence remain distinguishable in the receipt.
-- Partial execution and degraded verification cannot satisfy the archival gate silently.
+- Partial execution and degraded verification cannot satisfy the archival gate silently; an allowed waiver remains visibly waived.
 - The shared formatter remains format-only and does not rerun evidence.
 
 ## Non-goals
@@ -25,4 +25,4 @@ The evidence pipeline carries explicit execution outcomes into one deterministic
 
 ## Definition of done
 
-- Receipts produced by `/cip`, `/ci`, and autopilot tell the same truthful story about every required marker and block completion whenever required proof is absent.
+- Receipts produced by `/ci` and autopilot tell the same truthful story about every required marker, while `/cip` drafts and validates that same evidence contract. Completion blocks whenever required proof is absent and no exact plan-local waiver applies.

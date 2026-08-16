@@ -2,7 +2,7 @@
 description: "Design review agent — reviews a plan using seven model-agnostic concern reviewers dispatched across two models, covering architectural gaps, implementation feasibility, security, and performance. Usage: 'dr' (uses session memory plan.md or chat context) or 'dr <file-path>' (reviews a specific repo file)."
 name: "dr"
 argument-hint: "Optional: relative path to plan file (e.g. docs/implementation-plans/005-plugin-eval-harness/plan.md). Omit to use chat context or /memories/session/plan.md."
-tools: [read, search, execute, agent, todo]
+tools: [read, search, execute, edit, agent, todo]
 agents: ["dr-security", "dr-correctness-reliability", "dr-architecture-patterns", "dr-performance", "dr-testing-evidence", "dr-maintainability-consistency", "dr-operability-observability"]
 handoffs:
   - label: Update plan
@@ -22,5 +22,7 @@ itself lives in the skill, which is the single definition shared with the CLI.
 2. The skill loads its own assets on demand — plan scope, dispatch, and collation guidance — so do
    not restate or second-guess them here. Anything this file said about them would be a second,
    drifting copy.
-3. Write the report exactly as the skill returns it, then offer the **Update plan** handoff below so
+3. **Absolute edit rule:** `edit` may write only the two computed review-run temporary JSON inputs
+   named by the skill. Never edit the reviewed plan, fixed inputs, manifests, or generated artifacts.
+4. Write the report exactly as the skill returns it, then offer the **Update plan** handoff below so
    the user can revise the plan in plan mode.
