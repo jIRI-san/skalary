@@ -21,13 +21,11 @@ Describe 'review-run consumer edges' {
 
         $script:consumers = @(
             [pscustomobject]@{
-                Id = 'ca8ba8'
-                Path = 'docs/implementation-plans/2026-08-08-ca8ba8-review-corroboration-truth/plan.md'
+                Id   = 'ca8ba8'
                 Owns = 'later similarity and corroboration policy'
             }
             [pscustomobject]@{
-                Id = '8a0644'
-                Path = 'docs/implementation-plans/2026-08-08-8a0644-dispatch-plan-up-front/plan.md'
+                Id   = '8a0644'
                 Owns = 'future fleet task planning'
             }
         )
@@ -72,9 +70,10 @@ Describe 'review-run consumer edges' {
         $self.Id | Should -Be 'c21cdc' -Because 'the dependency has to resolve to exactly one plan or every edge below is ambiguous'
 
         foreach ($consumer in $script:consumers) {
-            $planFile = Join-Path $script:repoRoot $consumer.Path
+            $consumerPlan = Resolve-Plan -Reference $consumer.Id -RepoRoot $script:repoRoot -Inventory $inventory
+            $planFile = Join-Path $consumerPlan.Path 'plan.md'
             Test-Path -LiteralPath $planFile -PathType Leaf |
-                Should -BeTrue -Because "REQ-9 names $($consumer.Id) as the owner of $($consumer.Owns)"
+                Should -BeTrue -Because "REQ-9 names $($consumer.Id) as the owner of $($consumer.Owns), whether active or archived"
 
             $markers = Get-PlanHeaderMarkers -Path $planFile
             @($markers.DependsOn) |

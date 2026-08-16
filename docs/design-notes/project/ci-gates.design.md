@@ -6,6 +6,7 @@ globs:
   - scripts/skalary/Run-UnitTests.ps1
   - scripts/skalary/Test-ReviewConsumerInstall.ps1
   - tools/suite-budget.psd1
+  - tools/suite-tier.psd1
 ---
 
 # CI Gates
@@ -79,17 +80,17 @@ ceiling. `tools/suite-tier.psd1` is the sole Slow membership owner; Fast is its 
 so new test files cannot disappear and start in Fast by default. The dedicated review-consumer matrix
 remains outside both tiers because it already has its own blocking runner. Both tiers use
 `Run-UnitTests.ps1`; only Fast consumes the `npm test` budget clock, while Slow is a separate blocking
-step in both matrix legs with its own NUnit report. `All` is diagnostic and unbudgeted.
+step in both matrix legs with its own NUnit report and manifest-owned runtime ceiling. `All` is diagnostic and unbudgeted.
 
 | Property | Contract |
 |---|---|
 | Measured quantity | the whole `npm test` command, not the `test:unit` leg — the `pretest` hook starts a clock file, and this script is last in the chain and reads it |
 | Tier ownership | `tools/suite-tier.psd1` owns Slow and dedicated files; Fast is every other discovered `*.Tests.ps1` file |
-| Slow enforcement | a separate blocking step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error` and separate NUnit evidence |
+| Slow enforcement | a separate blocking step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error`, separate NUnit evidence, `SlowHardCeilingSeconds` enforced by the runner, and typed figures in `SlowMeasurementRecord` |
 | Unclocked run | reports a *lower bound* and says so; over budget on a subset is still over budget, under budget is not a verdict |
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
-| Job timeout | per matrix leg, above that platform's ceiling — a job killed before the gate speaks reports a cancelled run, not an over-budget one |
+| Job timeout | per matrix leg, above the Fast ceiling plus the manifest-declared Slow/setup scheduling allowances — a job killed before every gate speaks reports cancellation instead of verdicts |
 | Measurement receipt | `Measure-SuiteRuntime.ps1` records non-empty OS/PowerShell/Pester/processor identity plus both HEAD commit and the pre-measurement staged git tree hash. The tree binds a measurement taken before the step commit to the exact staged inputs the suite read; the receipt rewrite itself necessarily lands afterward. Callers stage every tracked implementation/input change before measuring and leave only the output receipt unstaged. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. Failed runs are emitted but never recorded. |
 
 `platforms.Linux` and `platforms.Windows` are authoritative only when their source is the matching
@@ -106,7 +107,7 @@ The gate host's `-TestPath` parameter is fixture-only executable evidence for it
 contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
 `ReviewConsumerInstall.Tests.ps1` matrix.
 
-Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform. `2`–`4` are the REQ-5 contract — a gate that reports success having asserted nothing forges evidence, since this script is also the `test:` evidence executor.
+Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform, `7` leaked environment, `8` skipped required evidence, and `9` invalid tier manifest. `2`–`4`, `7`, and `8` are the fail-closed evidence contract; `9` keeps an unreadable partition from becoming an empty pass.
 
 ## Constraints
 

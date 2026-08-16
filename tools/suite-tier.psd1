@@ -1,6 +1,15 @@
 @{
     Schema = 'skalary/suite-tier@1'
 
+    # Slow has its own wall-clock ceiling. It is separate from the Fast/npm-test budget,
+    # but still bounded so moving work out of Fast cannot create an unlimited gate.
+    SlowHardCeilingSeconds = 1800
+    SlowMeasurementRecord = 'tools/suite-slow-runtime.json'
+
+    # Scheduling reservation for module setup, evals, review-consumer execution, and
+    # diagnostics around the two bounded tiers.
+    CiSetupAllowanceSeconds = 900
+
     # This matrix already has its own blocking runner and NUnit artifact.
     DedicatedFiles = @(
         'tests/skalary/ReviewConsumerInstall.Tests.ps1'

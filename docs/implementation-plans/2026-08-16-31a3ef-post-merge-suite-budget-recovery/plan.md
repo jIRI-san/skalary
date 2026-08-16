@@ -1,6 +1,6 @@
-# 31a3ef: Post-merge suite budget recovery [DONE]
+# 31a3ef: Post-merge suite budget recovery
 <!-- plan-id: 31a3ef -->
-<!-- cip-stage: done -->
+<!-- cip-stage: drafted -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
@@ -47,7 +47,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [x] 3.1 Review the partition, mandatory CI execution, NUnit attribution, and preserved coverage before finalizing the recovery (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) @human [after: 2.2] `S`
+- [ ] 3.1 Review the partition, mandatory CI execution, NUnit attribution, and preserved coverage before finalizing the recovery (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) @human [after: 2.2] `S`
   <details><summary>Details</summary>
 
   **Steps:**
