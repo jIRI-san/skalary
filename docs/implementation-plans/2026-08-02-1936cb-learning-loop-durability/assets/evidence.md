@@ -55,19 +55,19 @@ Phase 5 Crosscheck:
 ✓ REQ-8 — test:SiDue.InteractiveInstalledSurfaceTransitionMatrix — passed — adbd4906f84f07988cb9faf3bc3c64b6417c73dd
 
 Phase 6 Crosscheck:
-✓ REQ-1 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-2 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-2 — test:SiScope.TrustedBasePassesAllowedProposal — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-2 — test:SiScope.StaleRemoteHeadRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-3 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-6 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-7 — test:SiScope.TrustedBasePassesAllowedProposal — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-7 — test:SiScope.ProtectedTrustAnchorsAllRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-7 — test:SiScope.StaleRemoteHeadRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-8 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-8 — test:SiScope.TrustedBasePassesAllowedProposal — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-8 — test:SiScope.ProtectedTrustAnchorsAllRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
-✓ REQ-8 — test:SiScope.StaleRemoteHeadRefused — passed — e21952341166dd6317fe83fe020034d8865aefe3
+✓ REQ-1 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-2 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-2 — test:SiScope.TrustedBasePassesAllowedProposal — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-2 — test:SiScope.StaleRemoteHeadRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-3 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-6 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-7 — test:SiScope.TrustedBasePassesAllowedProposal — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-7 — test:SiScope.ProtectedTrustAnchorsAllRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-7 — test:SiScope.StaleRemoteHeadRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-8 — test:SiState.ResolverReceiptCandidateRefusalMatrix — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-8 — test:SiScope.TrustedBasePassesAllowedProposal — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-8 — test:SiScope.ProtectedTrustAnchorsAllRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
+✓ REQ-8 — test:SiScope.StaleRemoteHeadRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
 
 Phase 7 Crosscheck:
 ✓ REQ-1 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
