@@ -744,7 +744,7 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
     }
 
     It 'test:ReviewReport.FinalizedResultCompaction ignores live plan state but keeps compact siblings trackable' {
-        $planRoot = 'docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data/assets/reviews'
+        $planRoot = 'docs/implementation-plans/archived/2026-08-02-c21cdc-review-report-as-data/assets/reviews'
         git -C $script:repoRoot check-ignore -q -- "$planRoot/$script:runId/review-run.manifest.json"
         $LASTEXITCODE | Should -Be 0
         git -C $script:repoRoot check-ignore -q -- "$planRoot/$script:runId.review.md"

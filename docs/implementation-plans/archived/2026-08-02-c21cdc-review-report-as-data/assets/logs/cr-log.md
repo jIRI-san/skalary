@@ -91,3 +91,15 @@ Phase: 3
 Phase: 4
 
 - [4.1] [src:code-review] [sev:Critical] Final branch review run ca47ce29-3004-46e8-9687-e946ad052656 completed 14/14 tasks but blocked approval with 1 Critical and 17 High findings; artifact preserved for remediation and re-review.
+- [4.1] [src:code-review] [sev:High] Admission rollup parses unverified source bytes
+- [4.1] [src:code-review] [sev:High] Cleanup marker digest mismatch has no negative test
+- [4.1] [src:code-review] [sev:High] Cleanup propagation tests fire before deletion
+- [4.1] [src:code-review] [sev:High] Cleanup-pending replay loses diagnostic and exit classification
+- [4.1] [src:code-review] [sev:High] Finalization lock contention reports exit 2
+- [4.1] [src:code-review] [sev:High] Finalization returns four different record shapes
+- [4.1] [src:code-review] [sev:High] Finalize-ReviewPlanRun returns a non-uniform result contract
+- [4.1] [src:code-review] [sev:High] Live retry can overwrite evidence bound to a different cleanup marker
+- [4.1] [src:code-review] [sev:High] Stable cleanup verdict can be overwritten on live-directory retry
+- [4.1] [src:code-review] [sev:High] Tombstone is never proven absent from incomplete-run discovery
+- [4.1] [src:code-review] [sev:High] Verdict no-overwrite is not tested during retained-pair repair
+- [4.1] [src:note] [sev:Low] operator-wrap: after eight CR runs, operator directed no further review cycles; residual findings retained and plan finalization accepted

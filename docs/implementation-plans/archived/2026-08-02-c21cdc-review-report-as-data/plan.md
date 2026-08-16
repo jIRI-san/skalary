@@ -1,6 +1,6 @@
-# c21cdc: Review report as data
+# c21cdc: Review report as data [DONE]
 <!-- plan-id: c21cdc -->
-<!-- cip-stage: dr-round-3 -->
+<!-- cip-stage: done -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -54,7 +54,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 4.1 Review frozen-plan truth, canonical JSON, safe writer/secret boundary, verifying manifest reader, bounded views, exact exits, and CR/DR parity before approval (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-12, REQ-13, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7, RISK-8, RISK-9, RISK-10, RISK-11, RISK-12, RISK-13, RISK-14, RISK-15, RISK-16, RISK-17) @human [after: 3.2] `S`
+- [x] 4.1 Review frozen-plan truth, canonical JSON, safe writer/secret boundary, verifying manifest reader, bounded views, exact exits, and CR/DR parity before approval (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-12, REQ-13, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7, RISK-8, RISK-9, RISK-10, RISK-11, RISK-12, RISK-13, RISK-14, RISK-15, RISK-16, RISK-17) @human [after: 3.2] `S`
   <details><summary>Details</summary>
 
   **Steps:**
