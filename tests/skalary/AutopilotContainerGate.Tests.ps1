@@ -80,6 +80,9 @@ Describe 'Autopilot container gate runner' {
         $parity = Test-ContainerPayloadParity -CheckoutRoot $repoRoot
         $parity.Valid | Should -BeTrue
         (Test-GateDockerfileBase -Path $context.InstalledDockerfilePath) | Should -BeTrue
+        $runnerSource = Get-Content -LiteralPath $script:runnerPath -Raw
+        $runnerSource | Should -Match ([regex]::Escape('{{json .RepoDigests}}'))
+        $runnerSource | Should -Not -Match ([regex]::Escape('{{join .RepoDigests'))
         (Test-GateConcreteVersion '1.2.3') | Should -BeTrue
         (Test-GateConcreteVersion '1.2.3-beta.1+build.7') | Should -BeTrue
         foreach ($floatingVersion in @('latest', 'beta', '1', '1.2', '*')) {

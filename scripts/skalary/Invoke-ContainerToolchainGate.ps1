@@ -2096,7 +2096,7 @@ function Invoke-ContainerToolchainGate {
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         $imageInspect = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
-            'image', 'inspect', '--format', '{{.Os}}/{{.Architecture}} {{.Id}} {{join .RepoDigests ","}}', $script:BaseImage
+            'image', 'inspect', '--format', '{{.Os}}/{{.Architecture}} {{.Id}} {{json .RepoDigests}}', $script:BaseImage
         ) -TimeoutSeconds ([math]::Min(30, $candidateRemaining))
         if ($imageInspect.ExitCode -ne 0 -or $imageInspect.StdoutOverflow -or [string]::IsNullOrWhiteSpace($imageInspect.Stdout)) {
             # The throw lands in the catch below, which knows only the message. Without this the
