@@ -31,6 +31,8 @@ param(
     [string]$DetectionCandidateOnlyReason,
     [ValidateSet('', 'true', 'false')]
     [string]$DetectionRelevance,
+    [ValidatePattern('^\d{0,6}$')]
+    [string]$RelevantPathCount,
     [string]$CopilotVersion,
     [string]$RunnerArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant(),
     [ValidateRange(1, 2100)]
@@ -85,6 +87,12 @@ $script:AllowedSmokeReasons = @(
     'provenance-digest-unavailable',
     'provenance-incomplete',
     'usr-local-bin-writable'
+)
+# Every transport apt ships a `/usr/lib/apt/methods/` binary for. A source naming one of these
+# with no authority — `file:/srv/repo`, `cdrom:[...]/` — is still an origin, and the allowlist
+# holds only hostnames, so naming the scheme is what makes such a source fail rather than vanish.
+$script:AptTransportScheme = @(
+    'cdrom', 'copy', 'file', 'ftp', 'http', 'https', 'mirror', 'rsh', 's3', 'ssh', 'store', 'tor'
 )
 
 function Limit-GateText {
@@ -833,7 +841,7 @@ function Test-GateSmokeOutput {
         return [pscustomobject]@{ Valid = $false; Summary = 'Smoke schema or state is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     # `reasons` names the whole-run failures that no case can carry — an unreadable manifest, a
-    # writable `/usr/local/bin`, a run that is not `autopilot`. Without it those nine conditions
+    # writable `/usr/local/bin`, a run that is not `autopilot`. Without it those ten conditions
     # all reported a bare `state=fail` with an empty failed-case list, and the receipt could say
     # only that the smoke program had failed without saying what it found. The vocabulary is
     # closed so a hostile or broken image cannot use it as a free-text channel into the summary.
@@ -850,21 +858,32 @@ function Test-GateSmokeOutput {
         return [pscustomobject]@{ Valid = $false; Summary = 'Passing smoke output reports a failure reason.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     $reasons = @(Sort-GateOrdinal @($reasons | ForEach-Object { [string]$_ }))
+    # A failing run reports what it can. The whole-run fallbacks — an encoder that died, an
+    # oversize payload — emit empty digests and no cases *because* the run failed, and rejecting
+    # them for that turned a named diagnosis (`encoder-failed`, `output-oversize`) into the
+    # generic `candidate-output-invalid`, discarding the one thing the smoke program managed to
+    # say. A failing run that named a closed reason therefore keeps its reasons even when the
+    # evidence they would have accompanied is absent. Nothing here relaxes for `state=pass`:
+    # a passing claim still has to produce well-formed digests, origins, and the full case set,
+    # because attestation agreement is checked against exactly those fields.
+    $degraded = ($value.state -eq 'fail' -and $reasons.Count -gt 0)
     if ((@($value.origin.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'aptHosts,os' -or
         (@($value.digests.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'manifestSha256,provenanceSha256') {
         return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin or digest fields are not closed.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
-    foreach ($digest in @($value.digests.manifestSha256, $value.digests.provenanceSha256)) {
-        if ($digest -isnot [string] -or $digest -notmatch '^[a-f0-9]{64}$') {
-            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke digest is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
+    if (-not $degraded) {
+        foreach ($digest in @($value.digests.manifestSha256, $value.digests.provenanceSha256)) {
+            if ($digest -isnot [string] -or $digest -notmatch '^[a-f0-9]{64}$') {
+                return [pscustomobject]@{ Valid = $false; Summary = 'Smoke digest is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
+            }
         }
-    }
-    if ($value.origin.os -isnot [string] -or [string]::IsNullOrWhiteSpace($value.origin.os) -or
-        $value.origin.aptHosts -isnot [System.Array] -or
-        @($value.origin.aptHosts | Where-Object {
-                $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) -or ([string]$_).Length -gt 253
-            }).Count -gt 0) {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields are invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
+        if ($value.origin.os -isnot [string] -or [string]::IsNullOrWhiteSpace($value.origin.os) -or
+            $value.origin.aptHosts -isnot [System.Array] -or
+            @($value.origin.aptHosts | Where-Object {
+                    $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) -or ([string]$_).Length -gt 253
+                }).Count -gt 0) {
+            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields are invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
+        }
     }
     $expectedIds = @(Sort-GateOrdinal @(Get-Content -LiteralPath $ManifestPath | Where-Object {
             $_ -and -not $_.TrimStart().StartsWith('#')
@@ -892,15 +911,18 @@ function Test-GateSmokeOutput {
         if ($case.state -ne 'pass') { $failedIds.Add([string]$case.id) }
     }
     if (((Sort-GateOrdinal @($actualIds)) -join "`n") -cne ($expectedIds -join "`n")) {
-        # A case-count or identity mismatch is the one failure the smoke program is allowed to
-        # report about itself rather than being called invalid: it says so, and this agrees.
-        if ($value.state -eq 'fail' -and $reasons -contains 'case-count-mismatch') {
+        # A case set that does not match the manifest is the one failure the smoke program is
+        # allowed to report about itself rather than being called invalid: it says so, and this
+        # agrees. Every degraded failure lands here — the fallbacks emit no cases at all — so the
+        # reason set, not `case-count-mismatch` alone, is what earns the diagnosis a receipt.
+        if ($degraded) {
             $summary = "case ids do not match the manifest; state=fail; reasons=" + ($reasons -join ',')
+            if ($reasons -notcontains 'case-count-mismatch') { $summary += '; digests unavailable' }
             return [pscustomobject]@{ Valid = $true; Summary = $summary; FailedCases = @(); Reasons = $reasons; Value = $value }
         }
         return [pscustomobject]@{ Valid = $false; Summary = 'Smoke case IDs do not match the manifest.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
-    if ($value.origin.os.Length -gt 64) {
+    if (-not $degraded -and $value.origin.os.Length -gt 64) {
         return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields exceed their bounds.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     # A failure count is not actionable; the failing case IDs are what a reader needs, so they
@@ -924,6 +946,17 @@ function Test-GateSmokeOutput {
     }
 }
 
+function Test-GateReparseItem {
+    <#
+    .SYNOPSIS
+        True when a filesystem item is a link or reparse point rather than the thing it names.
+    #>
+    param([Parameter(Mandatory)][System.IO.FileSystemInfo]$Item)
+
+    if (-not [string]::IsNullOrEmpty($Item.LinkType)) { return $true }
+    return [bool]($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+}
+
 function Get-GateAptConfigHost {
     <#
     .SYNOPSIS
@@ -944,6 +977,12 @@ function Get-GateAptConfigHost {
         is not in effect. `Dir::Cache*` is deliberately not included: Debian's own base images
         ship `apt.conf.d/docker-clean`, which sets it, and it relocates no source list. Config
         files are never scanned for hosts — a URL in a note there is not a source.
+
+        The tree is required to be a plain tree of plain files. A symlinked `sources.list.d`, or a
+        single symlinked `.sources` inside it, is not recursed into by `Get-ChildItem` and is not
+        returned by a `-File` enumeration either, so the scan used to report the hosts of the part
+        it could see and say nothing about the part apt actually reads. Any link or reparse point
+        anywhere under the root now fails the read outright.
     #>
     param([Parameter(Mandatory)][string]$Root)
 
@@ -953,8 +992,18 @@ function Get-GateAptConfigHost {
     # back the files it *could* read, so a tree whose disallowed half is unreadable would pass on
     # the allowed half. Errors are collected and any of them fails the read.
     $enumerationErrors = @()
-    $allFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable +enumerationErrors)
+    try {
+        $rootItem = Get-Item -LiteralPath $Root -Force -ErrorAction Stop
+        if (Test-GateReparseItem -Item $rootItem) { return $null }
+    }
+    catch { return $null }
+    # Directories are enumerated alongside files precisely so a redirected one can be seen: a
+    # `-File` enumeration returns nothing for a symlinked directory and reports no error either.
+    $allItems = @(Get-ChildItem -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue -ErrorVariable +enumerationErrors)
     if ($enumerationErrors.Count -gt 0) { return $null }
+    if ($allItems.Count -gt 4096) { return $null }
+    if (@($allItems | Where-Object { Test-GateReparseItem -Item $_ }).Count -gt 0) { return $null }
+    $allFiles = @($allItems | Where-Object { -not $_.PSIsContainer })
     $files = @($allFiles | Where-Object {
             $_.Name -eq 'sources.list' -or $_.Name -eq 'apt.conf' -or
             $_.Extension -in @('.list', '.sources') -or
@@ -962,7 +1011,7 @@ function Get-GateAptConfigHost {
         })
     if ($files.Count -gt 256) { return $null }
     foreach ($file in $files) {
-        if ($file.LinkType -or $file.Length -gt $script:MaxPayloadFileBytes) { return $null }
+        if ($file.Length -gt $script:MaxPayloadFileBytes) { return $null }
         $lines = $null
         try { $lines = [System.IO.File]::ReadAllLines($file.FullName) }
         catch { return $null }
@@ -980,21 +1029,50 @@ function Get-GateAptConfigHost {
                 }
                 continue
             }
-            foreach ($match in [regex]::Matches($value, '(?i)\b(?<scheme>[a-z][a-z0-9+.-]*)://(?<authority>[^/\s]+)')) {
-                # A non-http(s) scheme is not "no host": `ftp://`, `mirror+file:///` and `cdrom:`
-                # are origins apt will fetch from that this allowlist was never written against.
-                # Report the scheme as a pseudo-host so it fails the allowlist rather than being
-                # skipped by a pattern that only knows how to see http.
+            # Two scans, because one cannot see both URI forms apt accepts without letting the
+            # weaker form hide the stronger one. Matching only `scheme://authority` saw
+            # `https://deb.debian.org/...` and missed every source with no authority at all —
+            # `file:/srv/repo`, `cdrom:[...]/`, `mirror+file:///etc/apt/mirrors/debian.list` —
+            # because the authority group cannot match an empty string. Those are origins apt
+            # fetches from, so they are reported as a pseudo-host that fails the allowlist rather
+            # than passing as "no host found".
+            #
+            # A single combined pattern is wrong, and wrong in the dangerous direction. deb822
+            # permits `URIs:https://evil.example/repo` with no space, and apt honours it; a pattern
+            # that matched `<scheme>:<rest>` would bind `scheme=URIs`, swallow the real URL into
+            # `rest`, discard it as a non-transport scheme, and — because matching resumes past the
+            # end of the match — never look at the embedded `https://` again. The origin would
+            # simply not be reported, and the subset check would pass on whatever else the tree
+            # contained. So authorities are scanned for first, over the whole line.
+            foreach ($match in [regex]::Matches($value, '(?i)(?<![A-Za-z0-9+.-])(?<scheme>[a-z][a-z0-9+.-]*)://(?<rest>\S*)')) {
                 $scheme = $match.Groups['scheme'].Value.ToLowerInvariant()
                 # The whole authority is kept, port aside, exactly as `Get-GateAptHost` keeps it.
                 # Narrowing to a host character class would stop at the userinfo delimiter, so
                 # `https://download.docker.com@evil.example.com/...` — which apt resolves against
                 # `evil.example.com` — would be reported as the allowed host, and the two parsers
                 # holding the image to one allowlist would disagree about what a host is.
-                $authority = $match.Groups['authority'].Value.ToLowerInvariant() -replace ':[0-9]+$', ''
-                if (-not $authority) { continue }
-                if ($scheme -in @('http', 'https')) { [void]$hosts.Add($authority) }
-                else { [void]$hosts.Add("${scheme}://$authority") }
+                $authority = ((($match.Groups['rest'].Value) -split '/', 2)[0]).ToLowerInvariant() -replace ':[0-9]+$', ''
+                if ($authority) {
+                    # A non-http(s) scheme is not "no host": `ftp://` and `tor+https://` are
+                    # origins apt will fetch from that this allowlist was never written against.
+                    if ($scheme -in @('http', 'https')) { [void]$hosts.Add($authority) }
+                    else { [void]$hosts.Add("${scheme}://$authority") }
+                }
+                elseif (($scheme -split '\+', 2)[0] -in $script:AptTransportScheme) {
+                    # `scheme:///path` — a triple slash leaves the authority genuinely empty. It is
+                    # still an origin, so it is reported opaquely rather than dropped.
+                    [void]$hosts.Add("${scheme}:opaque")
+                }
+            }
+            # Then the authority-less forms. Only a scheme apt has a transport method for is
+            # reported, so a bare `Field:value` in a deb822 stanza is not mistaken for a source;
+            # every transport Debian ships is listed, and a composite (`mirror+file`, `tor+http`)
+            # is recognised by its leading segment.
+            foreach ($match in [regex]::Matches($value, '(?i)(?<![A-Za-z0-9+.-])(?<scheme>[a-z][a-z0-9+.-]*):(?!//)(?<rest>\S+)')) {
+                $scheme = $match.Groups['scheme'].Value.ToLowerInvariant()
+                if (($scheme -split '\+', 2)[0] -in $script:AptTransportScheme) {
+                    [void]$hosts.Add("${scheme}:opaque")
+                }
             }
         }
     }
@@ -1115,6 +1193,18 @@ function Test-GateImageAttestation {
         $configCopy = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
             'cp', "${containerId}:/etc/apt", $configRoot
         ) -TimeoutSeconds ([math]::Min(60, $configBudget))
+        # Parsing the copied tree is host-side work with its own bound (4096 items, 4 MiB each),
+        # so it is the one step left that could run past the deadline after every docker call has
+        # respected it. The budget is checked once more before it starts.
+        if ((& $remaining) -lt 1) {
+            return [pscustomobject]@{
+                Valid = $false
+                Reason = 'attestation-timeout'
+                ManifestSha256 = $manifestSha
+                AptHosts = @($finalHosts)
+                DebianAptHosts = @($debianHosts)
+            }
+        }
         $liveHosts = if ($configCopy.ExitCode -eq 0) { Get-GateAptConfigHost -Root $configRoot } else { $null }
         if ($null -eq $liveHosts -or @($liveHosts).Count -eq 0) {
             return [pscustomobject]@{
@@ -1144,7 +1234,12 @@ function Test-GateImageAttestation {
     }
     finally {
         if ($containerId) {
-            [void](Invoke-GateProcess -FilePath 'docker' -ArgumentList @('rm', '-f', $containerId) -TimeoutSeconds 30)
+            # Cleanup is the one call allowed to overrun the deadline, and only down to a five
+            # second floor: a container left running with no cidfile is a leak nothing later in
+            # the run can find, which is worse than a few seconds past the budget. It is still
+            # bounded, so a wedged daemon cannot hold the job open.
+            $cleanupBudget = [math]::Max(5, [math]::Min(30, (& $remaining)))
+            [void](Invoke-GateProcess -FilePath 'docker' -ArgumentList @('rm', '-f', $containerId) -TimeoutSeconds $cleanupBudget)
         }
         Remove-Item -LiteralPath $workRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -1393,6 +1488,8 @@ function Invoke-ContainerToolchainGate {
         [string]$DetectionCandidateOnlyReason,
         [ValidateSet('', 'true', 'false')]
         [string]$DetectionRelevance,
+        [ValidatePattern('^\d{0,6}$')]
+        [string]$RelevantPathCount,
         [string]$CopilotVersion,
         [string]$RunnerArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant(),
         [ValidateRange(1, 2100)]
@@ -1435,7 +1532,15 @@ function Invoke-ContainerToolchainGate {
             # skipped. Building it here keeps one owner of the schema and lets the placeholder
             # carry the identities and the reason it was written.
             $reason = if ($DetectionCandidateOnlyReason) { $DetectionCandidateOnlyReason } else { '' }
-            $receipt = New-ContainerGateReceipt -Outcome 'irrelevant' -Relevant $false `
+            # A placeholder is written when a job died before its own receipt existed. For an
+            # irrelevant commit that is the truth. For a *relevant* one it is not: hardcoding
+            # `irrelevant` turned a lost measurement job into a non-blocking receipt claiming the
+            # commit did not touch the toolchain, which is the one reading that lets a red run
+            # disappear. Relevance is therefore carried in, and a relevant placeholder is the
+            # blocking `unexpected-error` a lost runner actually is.
+            $initializeRelevant = $DetectionRelevance -eq 'true'
+            $initializeOutcome = if ($initializeRelevant) { 'unexpected-error' } else { 'irrelevant' }
+            $receipt = New-ContainerGateReceipt -Outcome $initializeOutcome -Relevant $initializeRelevant `
                 -Comparison 'not-run' -CandidateOnlyReason $reason -BaseSha $BaseSha -CandidateSha $CandidateSha `
                 -Architecture $RunnerArchitecture `
                 -Diagnostic (Limit-GateText -Value $Diagnostic -Maximum 1024) -AdvisoryGrowthMiB $AdvisoryGrowthMiB
@@ -1447,7 +1552,30 @@ function Invoke-ContainerToolchainGate {
             $passed = Test-ContainerGateResult -DetectorConclusion $DetectorConclusion -Relevance $Relevance -ImageConclusion $ImageConclusion
             $relevant = $Relevance -eq 'true'
             $outcome = if ($passed -and -not $relevant) { 'irrelevant' } elseif ($passed) { 'success' } else { 'unexpected-error' }
-            $receipt = New-ContainerGateReceipt -Outcome $outcome -Relevant $relevant -Diagnostic "detector=$DetectorConclusion; relevance=$Relevance; image=$ImageConclusion" -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            # The final receipt is the artifact a reader opens first and, when the measurement job
+            # was skipped, the only one there is. It used to name no commit at all, so the verdict
+            # that decides whether main is green could not be attributed to the change it judged.
+            # The identities and the detector's evidence — why the base was unusable, how many
+            # relevant paths it found — are carried through so the terminal receipt stands alone.
+            # `comparison` is a fact about a measurement, and this job has none: it reads two job
+            # conclusions and never builds anything. It may therefore only claim `comparable` when
+            # a measurement that could have produced a comparison actually succeeded — the image
+            # job reporting `success` with no detector-time candidate-only reason. Deriving it from
+            # relevance alone made a skipped or failed image job produce a receipt claiming a
+            # comparison next to a null `deltaBytes`, and the base-side failures that convert to
+            # candidate-only *during* measurement are exactly the case that would contradict the
+            # measurement receipt for the same run. Anything else is `not-run`, which is what the
+            # gate job actually knows.
+            $comparison = if ($DetectionCandidateOnlyReason) { 'candidate-only' }
+            elseif ($relevant -and $ImageConclusion -eq 'success') { 'comparable' }
+            else { 'not-run' }
+            $pathEvidence = if ($RelevantPathCount) { "relevantPaths=$RelevantPathCount" } else { 'relevantPaths=unreported' }
+            $reasonEvidence = if ($DetectionCandidateOnlyReason) { $DetectionCandidateOnlyReason } else { 'none' }
+            $receipt = New-ContainerGateReceipt -Outcome $outcome -Relevant $relevant -Comparison $comparison `
+                -CandidateOnlyReason $DetectionCandidateOnlyReason -BaseSha $BaseSha -CandidateSha $CandidateSha `
+                -Architecture $RunnerArchitecture `
+                -Diagnostic "detector=$DetectorConclusion; relevance=$Relevance; image=$ImageConclusion; $pathEvidence; candidateOnlyReason=$reasonEvidence" `
+                -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             $exitCode = if ($passed) { 0 } else { 1 }
             return [pscustomobject]@{ ExitCode = $exitCode; Receipt = $receipt }
         }
@@ -1478,9 +1606,14 @@ function Invoke-ContainerToolchainGate {
             # `New-ContainerGateReceipt` validates. The runner owns both values; the workflow only
             # names the file to write them to.
             if ($Mode -eq 'Detect' -and $StepOutputPath) {
+                # The path list itself cannot be a step output: `$GITHUB_OUTPUT` is line-oriented
+                # and the safe alphabet excludes `/`, so the count travels and the detector receipt
+                # artifact keeps the names. Without it the final receipt could say "relevant" while
+                # no reader could tell whether that rested on one path or twenty.
                 Write-GateStepOutput -Path $StepOutputPath -Value ([ordered]@{
                         relevance = if ($relevant) { 'true' } else { 'false' }
                         candidate_only_reason = $candidateOnlyReason
+                        relevant_path_count = [string]@($detection.RelevantPaths).Count
                     })
             }
             $exitCode = 0
@@ -1565,10 +1698,16 @@ function Invoke-ContainerToolchainGate {
             'image', 'inspect', '--format', '{{.Os}}/{{.Architecture}} {{.Id}} {{join .RepoDigests ","}}', $script:BaseImage
         ) -TimeoutSeconds ([math]::Min(30, $candidateRemaining))
         if ($imageInspect.ExitCode -ne 0 -or $imageInspect.StdoutOverflow -or [string]::IsNullOrWhiteSpace($imageInspect.Stdout)) {
-            throw 'Could not resolve the pulled base-image identity.'
+            # The throw lands in the catch below, which knows only the message. Without this the
+            # uploaded diagnostics log held nothing but its seeded header, and the one artifact a
+            # reader opens after the runner is gone explained a blocking verdict with a sentence.
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'base-image-inspect' -Result $imageInspect
+            throw ('Could not resolve the pulled base-image identity. ' +
+                (Get-GateProcessDiagnostic -Result $imageInspect -Maximum 512))
         }
         $baseImageIdentity = $imageInspect.Stdout.Trim()
         if (-not $baseImageIdentity.StartsWith('linux/amd64 ', [System.StringComparison]::Ordinal)) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'base-image-inspect' -Result $imageInspect
             throw "Pulled base image does not resolve to linux/amd64: '$baseImageIdentity'."
         }
         $candidateRemaining = [math]::Min(
@@ -1583,7 +1722,9 @@ function Invoke-ContainerToolchainGate {
             'version', '--format', '{{.Server.Version}}'
         ) -TimeoutSeconds ([math]::Min(30, $candidateRemaining))
         if ($dockerInfo.ExitCode -ne 0 -or $dockerInfo.StdoutOverflow -or [string]::IsNullOrWhiteSpace($dockerInfo.Stdout)) {
-            throw 'Could not resolve the Docker daemon identity.'
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'docker-daemon-identity' -Result $dockerInfo
+            throw ('Could not resolve the Docker daemon identity. ' +
+                (Get-GateProcessDiagnostic -Result $dockerInfo -Maximum 512))
         }
         $dockerIdentity = $dockerInfo.Stdout.Trim()
 
@@ -1711,10 +1852,19 @@ function Invoke-ContainerToolchainGate {
         # the manifest says or resolved packages from an allowed origin, because every value in
         # that claim came from the candidate. Read the image from the trusted host and require
         # the claim to agree with it.
-        $attestationBudget = [math]::Max(1, [math]::Min(
-                $CandidateBudgetSeconds - [int][math]::Ceiling($clock.Elapsed.TotalSeconds - $candidatePhaseStartSeconds),
-                $RunnerBudgetSeconds - [int][math]::Ceiling($clock.Elapsed.TotalSeconds)
-            ))
+        # `max(1, ...)` used to be here, which handed a one-second budget to a step that cannot
+        # finish in one second whenever the budget was already gone — a guaranteed
+        # `attestation-timeout` dressed up as work attempted. An exhausted budget is a timeout,
+        # and it is reported as one without spending a container create on it.
+        $attestationBudget = [math]::Min(
+            $CandidateBudgetSeconds - [int][math]::Ceiling($clock.Elapsed.TotalSeconds - $candidatePhaseStartSeconds),
+            $RunnerBudgetSeconds - [int][math]::Ceiling($clock.Elapsed.TotalSeconds)
+        )
+        if ($attestationBudget -lt 1) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-attestation' -Note 'Budget elapsed before image attestation.'
+            $receipt = New-ContainerGateReceipt -Outcome 'candidate-timeout' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateMs $candidateMs -SmokeSummary $smokeSummary -Diagnostic 'Candidate budget elapsed before image attestation.' -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
+        }
         $attestation = Test-GateImageAttestation -ImageTag $candidateTag `
             -ExpectedManifestSha256 (Get-GateSha256 $installedManifestPath) `
             -TimeoutSeconds ([math]::Min(180, $attestationBudget))
@@ -1814,7 +1964,17 @@ function Invoke-ContainerToolchainGate {
             $receipt = New-ContainerGateReceipt -Outcome 'base-timeout' -Relevant $true -Comparison 'candidate-only' -CandidateOnlyReason 'base-timeout' -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateBytes $candidateBytes -CandidateMs $candidateMs -BaseMs ($baseMs + $baseSize.ElapsedMs) -SmokeSummary $smokeSummary -Diagnostic 'Base size inspection timed out.' -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 0; Receipt = $receipt }
         }
-        if ($baseSize.ExitCode -ne 0 -or $baseSize.Stdout.Trim() -notmatch '^\d+$') { throw 'Base image size is invalid.' }
+        if ($baseSize.ExitCode -ne 0 -or $baseSize.Stdout.Trim() -notmatch '^\d+$') {
+            # Comparable-base work is advisory by contract: it can only ever remove a delta from
+            # the receipt, never fail a candidate. A non-zero exit or a malformed size used to
+            # throw into the global catch and reappear as a blocking `unexpected-error`, so a
+            # daemon hiccup while measuring the *base* failed a candidate that had already passed
+            # every blocking check. It closes to the same candidate-only evidence a base build
+            # failure does.
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'base-size-inspect' -Result $baseSize
+            $receipt = New-ContainerGateReceipt -Outcome 'base-build-failed' -Relevant $true -Comparison 'candidate-only' -CandidateOnlyReason 'base-build-failed' -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateBytes $candidateBytes -CandidateMs $candidateMs -BaseMs ($baseMs + $baseSize.ElapsedMs) -SmokeSummary $smokeSummary -Diagnostic ('Base image size is invalid. ' + (Get-GateProcessDiagnostic -Result $baseSize -Maximum 512)) -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            return [pscustomobject]@{ ExitCode = 0; Receipt = $receipt }
+        }
         $baseBytes = [int64]$baseSize.Stdout.Trim()
         $deltaBytes = $candidateBytes - $baseBytes
         $comparison = 'comparable'
@@ -1823,6 +1983,12 @@ function Invoke-ContainerToolchainGate {
         return [pscustomobject]@{ ExitCode = 0; Receipt = $receipt }
     }
     catch {
+        # An unexpected error is the one outcome whose cause is not already a closed reason, so it
+        # is the outcome that most needs the log. Writing it here — rather than only at the throw
+        # sites — means no `unexpected-error` receipt can be uploaded beside an empty diagnostics
+        # log, including for a failure raised somewhere nobody anticipated.
+        Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'unexpected-error' -Note (
+            $_.Exception.Message + "`n--- script stack ---`n" + [string]$_.ScriptStackTrace)
         $receipt = New-ContainerGateReceipt -Outcome 'unexpected-error' -Relevant $relevant -Comparison $comparison `
             -CandidateOnlyReason $candidateOnlyReason -BaseSha $BaseSha -CandidateSha $CandidateSha `
             -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity `

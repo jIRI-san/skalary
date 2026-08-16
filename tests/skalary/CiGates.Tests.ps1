@@ -252,7 +252,9 @@ Describe 'ci gate inventory' {
             image    = 'Measure'
             gate     = 'VerifyResult'
         }
-        @($containerJobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image')
+        # `notify` runs no gate mode at all — it reports one. It is listed so that a job appearing
+        # or disappearing is red, and it is held to zero mode steps by the loop below.
+        @($containerJobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image', 'notify')
         foreach ($entry in $expectedModeByJob.GetEnumerator()) {
             # `Initialize` is setup, not a gate: it writes a placeholder receipt and asserts
             # nothing, so it is excluded from the ownership rule and appears in two jobs. Every

@@ -13,7 +13,7 @@ globs:
 
 ## Gate inventory
 
-`Invocation` is a regex matched against the host named in `Runs in`. `Enforcement` is `blocking` when the gate's exit code is the job's verdict, `support` for a step that is not a gate, and `advisory`/`excluded` only with a typed `exclusion:` id from the table below it.
+`Invocation` is a regex matched against the host named in `Runs in`. `Enforcement` is `blocking` when the gate's exit code is the job's verdict, `support` for a step that is not a gate, and `advisory`/`excluded` only with a typed `exclusion:` id from the table below it. `Enforcement` says how the verdict is reported, not *when* it can stop a change: it is a per-step property, so a post-merge gate is `blocking` in exactly the same sense as a pre-merge one. The vocabulary has no column for the triggering event, so the three container rows state their event scope in `Proves` — they run on `push` to `main` and can never gate a pull request, and a reader who took `blocking` to mean merge-blocking would have that backwards.
 
 | Gate | Proves | Runs in | Invocation | Enforcement |
 |---|---|---|---|---|
@@ -26,9 +26,9 @@ globs:
 | `gate:registry-validation` | `registry.json` matches the plugin sources it claims to describe | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-Registry\.ps1` | blocking |
 | `gate:dogfood-drift` | the repo's own installed copies match `plugins/` | `.github/workflows/registry-ci.yml` | `scripts/skalary/Sync-Dogfood\.ps1` | blocking |
 | `gate:generated-output-drift` | `registry.json` and `README.md` are what the generator produces now | `.github/workflows/registry-ci.yml` | `scripts/skalary/Build-Registry\.ps1` | blocking |
-| `gate:container-relevance` | every unusable comparison base forces image relevance and every relevant image input reaches the image job | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode Detect` | blocking |
-| `gate:container-image` | the candidate payload builds and its bounded smoke contract passes; comparable base work remains advisory | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode Measure` | blocking |
-| `gate:container-result` | detector/image conclusions satisfy only the closed irrelevant/skipped or relevant/success truth table | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode VerifyResult` | blocking |
+| `gate:container-relevance` | on `push` to `main` only, after merge: every unusable comparison base forces image relevance and every relevant image input reaches the image job | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode Detect` | blocking |
+| `gate:container-image` | on `push` to `main` only, after merge: the candidate payload builds and its bounded smoke contract passes; comparable base work remains advisory | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode Measure` | blocking |
+| `gate:container-result` | on `push` to `main` only, after merge: detector/image conclusions satisfy only the closed irrelevant/skipped or relevant/success truth table | `.github/workflows/autopilot-container-ci.yml` | `Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode VerifyResult` | blocking |
 | `gate:plugin-script-bundles` | bundled plugin scripts match `scripts/skalary` | `scripts/validate.ps1` | `scripts/skalary/Sync-PluginScripts\.ps1` | blocking |
 | `gate:marketplace-drift` | `.github/plugin/marketplace.json` matches `plugins/` | `scripts/validate.ps1` | `scripts/skalary/Build-Marketplace\.ps1` | blocking |
 | `gate:model-allowlist` | every agent declares a model from `tools/model-allowlist.psd1` | `scripts/validate.ps1` | `scripts/skalary/Test-ModelAllowlist\.ps1` | blocking |
@@ -59,7 +59,7 @@ On `pull_request`, GitHub reads the workflow definition from the pull request's 
 
 GitHub does have a mechanism where the definition is not candidate-controlled — organization-level required workflows, whose definition lives outside the repository. This repository has none configured, so it is not available to rely on. What remains true is that a `push` to `main` runs the definition at the merged commit, which a human has already reviewed and accepted. So this gate triggers on `push` to `main` only. Its verdict is about merged `main`, and the design does not claim it blocks a pull request; the claim it *can* support is that a regression in the image is visible on `main`, attributably, within one run.
 
-Two consequences are recorded rather than hidden. Merged code is measured after it is merged, so a bad merge is caught rather than prevented — human review of the Dockerfile diff is the only pre-merge control. And `concurrency` does not cancel in progress: every merged commit gets its own verdict, because cancelling commit A's run when commit B lands leaves A merged and unmeasured.
+Two consequences are recorded rather than hidden. Merged code is measured after it is merged, so a bad merge is caught rather than prevented — human review of the Dockerfile diff is the only pre-merge control. And `concurrency` does not cancel in progress, with a group keyed on `github.sha` rather than the ref: every merged commit gets its own verdict, because cancelling commit A's run when commit B lands leaves A merged and unmeasured — and a ref-keyed group would do the same thing more quietly, since GitHub keeps only one *pending* run per group and would drop the middle of three commits that land during one image job. A red run is announced by a `notify` job that opens one repository issue per failing commit; that job carries `issues: write` and is the sole exception to every other job holding `contents: read`, which it earns by holding no checkout and running no gate code. The response procedure lives in the architecture note's "The gate is red on `main`" section.
 
 ### Workflow assertions read a parse, not a split
 

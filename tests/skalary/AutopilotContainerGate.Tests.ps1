@@ -110,11 +110,13 @@ Describe 'Autopilot container gate runner' {
             $pathSet | Should -Contain $path
         }
 
-        foreach ($identityCase in @('pull-request-merge', 'main-push')) {
-            $identity = Get-ContainerGateDetection -BaseSha $headSha -CandidateSha $headSha `
-                -BaseRoot $repoRoot -CandidateRoot $repoRoot
-            $identity.Relevant | Should -BeFalse -Because $identityCase
-        }
+        # There is one event that reaches this gate: a push to `main`. An earlier loop iterated
+        # `pull-request-merge` and `main-push` over the *same* call with the same arguments, so
+        # the second iteration asserted nothing and the name claimed a code path that does not
+        # exist — the workflow has no `pull_request` trigger and cannot have one.
+        $identity = Get-ContainerGateDetection -BaseSha $headSha -CandidateSha $headSha `
+            -BaseRoot $repoRoot -CandidateRoot $repoRoot
+        $identity.Relevant | Should -BeFalse -Because 'a push whose base and candidate are one commit changes nothing'
         {
             Get-ContainerGateDetection -BaseSha $headSha -CandidateSha ('e' * 40) `
                 -BaseRoot $repoRoot -CandidateRoot $repoRoot
@@ -972,7 +974,9 @@ Describe 'Autopilot container gate runner' {
             switch -Regex ($joined) {
                 '^pull ' { return (New-ProcessResult) }
                 '^image inspect --format \{\{\.Os\}\}' {
-                    return (New-ProcessResult -Stdout "linux/amd64 sha256:$('c' * 64) debian@sha256:$('d' * 64)")
+                    return (New-ProcessResult -ExitCode ([int]$script:gateScenario.BaseIdentityExit) `
+                            -Stdout ([string]$script:gateScenario.BaseIdentityStdout) `
+                            -Stderr 'Error response from daemon: manifest unknown')
                 }
                 '^version --format' { return (New-ProcessResult -Stdout '27.0.0') }
                 '^build .*candidate' {
@@ -999,7 +1003,9 @@ Describe 'Autopilot container gate runner' {
                     return (New-ProcessResult -Stdout '450000000')
                 }
                 '^image inspect --format \{\{\.Size\}\}.*base' {
-                    return (New-ProcessResult -Stdout '400000000' `
+                    return (New-ProcessResult -ExitCode ([int]$script:gateScenario.BaseSizeExit) `
+                            -Stdout ([string]$script:gateScenario.BaseSizeStdout) `
+                            -Stderr 'Error response from daemon: no such image' `
                             -TimedOut ([bool]$script:gateScenario.BaseSizeTimedOut))
                 }
                 default { return (New-ProcessResult) }
@@ -1200,22 +1206,75 @@ Describe 'Autopilot container gate runner' {
                 Diagnostic = 'Base size inspection timed out'
             },
             @{
-                # Real elapsed time, not a mocked clock: the runner budget is measured against a
-                # Stopwatch it owns, so the only honest way to exhaust it is to spend it.
-                Name = 'runner budget exhausted before the base build'
+                # An advisory step must not be able to fail a candidate. A base size inspection
+                # that exits non-zero — a daemon that dropped the image between build and inspect —
+                # used to throw into the global catch and reappear as a blocking `unexpected-error`
+                # on a candidate that had already passed every blocking check.
+                Name = 'base size inspection failure degrades to candidate-only'
                 State = @{
                     SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
                     AttestationValid = $true
                     AttestedManifestSha = $manifestSha
                     AttestedHosts = @('deb.debian.org')
-                    CandidateSizeDelayMs = 2300
+                    BaseSizeExit = 1
+                    BaseSizeStdout = ''
                 }
-                Parameters = @{ RunnerBudgetSeconds = 3 }
-                Outcome = 'base-timeout'
+                Outcome = 'base-build-failed'
                 ExitCode = 0
                 Comparison = 'candidate-only'
-                CandidateOnlyReason = 'base-timeout'
-                Diagnostic = 'Runner budget elapsed before base build'
+                CandidateOnlyReason = 'base-build-failed'
+                Diagnostic = 'Base image size is invalid'
+                DiagnosticLogContains = 'stage: base-size-inspect'
+            },
+            @{
+                # Same failure class, different malformation: a daemon that answers but not with a
+                # number. Both close to the advisory path rather than to a blocking outcome.
+                Name = 'base size garbage degrades to candidate-only'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    AttestationValid = $true
+                    AttestedManifestSha = $manifestSha
+                    AttestedHosts = @('deb.debian.org')
+                    BaseSizeStdout = '<html>gateway timeout</html>'
+                }
+                Outcome = 'base-build-failed'
+                ExitCode = 0
+                Comparison = 'candidate-only'
+                CandidateOnlyReason = 'base-build-failed'
+                Diagnostic = 'Base image size is invalid'
+            },
+            @{
+                # A blocking throw used to reach the artifact as a one-sentence receipt diagnostic
+                # and an empty diagnostics log, so the reader of a red gate had the verdict and
+                # none of the evidence. Both the failing stage and the unexpected-error path must
+                # leave the process output behind.
+                Name = 'an unresolvable base image identity is diagnosable'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    BaseIdentityExit = 1
+                    BaseIdentityStdout = ''
+                }
+                Outcome = 'unexpected-error'
+                ExitCode = 1
+                Diagnostic = 'Could not resolve the pulled base-image identity'
+                DiagnosticLogContains = 'stage: base-image-inspect'
+                DiagnosticLogAlsoContains = @(
+                    'Error response from daemon: manifest unknown',
+                    'stage: unexpected-error'
+                )
+            },
+            @{
+                # A base image that resolves to the wrong platform is the same class of failure and
+                # was equally silent in the artifact.
+                Name = 'a platform mismatch is diagnosable'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    BaseIdentityStdout = "linux/arm64 sha256:$('c' * 64) debian@sha256:$('d' * 64)"
+                }
+                Outcome = 'unexpected-error'
+                ExitCode = 1
+                Diagnostic = 'does not resolve to linux/amd64'
+                DiagnosticLogContains = 'stage: base-image-inspect'
             }
         )
 
@@ -1227,6 +1286,10 @@ Describe 'Autopilot container gate runner' {
                 BaseBuildExit = 0
                 BaseBuildTimedOut = $false
                 BaseSizeTimedOut = $false
+                BaseSizeExit = 0
+                BaseSizeStdout = '400000000'
+                BaseIdentityExit = 0
+                BaseIdentityStdout = "linux/amd64 sha256:$('c' * 64) debian@sha256:$('d' * 64)"
                 SmokeExit = 0
                 SmokeStdout = ''
                 SmokeDelayMs = 0
@@ -1281,6 +1344,18 @@ Describe 'Autopilot container gate runner' {
             if ($scenario.ContainsKey('Diagnostic')) {
                 $receipt.diagnostic | Should -Match ([regex]::Escape($scenario.Diagnostic)) -Because $scenario.Name
             }
+            if ($scenario.ContainsKey('DiagnosticLogContains')) {
+                # The receipt's diagnostic is bounded to 1024 characters; the log is where the
+                # process output that named the failure survives. An empty log beside a blocking
+                # receipt is a verdict a reader cannot act on.
+                $log = Get-Content -LiteralPath $diagnosticPath -Raw
+                $log | Should -Match ([regex]::Escape($scenario.DiagnosticLogContains)) -Because $why
+                if ($scenario.ContainsKey('DiagnosticLogAlsoContains')) {
+                    foreach ($fragment in @($scenario.DiagnosticLogAlsoContains)) {
+                        $log | Should -Match ([regex]::Escape($fragment)) -Because $why
+                    }
+                }
+            }
             if ($scenario.ContainsKey('ParityDetailContains')) {
                 # The receipt a reviewer opens must name the path, not just the failure class.
                 $receipt.diagnostic |
@@ -1324,6 +1399,66 @@ Describe 'Autopilot container gate runner' {
         # A build or smoke failure writes its bounded capture where a reader can retrieve it.
         Test-Path -LiteralPath (Join-Path $TestDrive 'measure-candidate-build-failure.log') |
             Should -BeTrue
+
+        # The runner budget is measured against a Stopwatch the runner owns, so the only honest way
+        # to exhaust it is to spend real time. The previous form guessed: a 2.3 s mocked delay
+        # against a 3 s budget, whose two guards need `elapsed <= budget - 1` before the delay and
+        # `elapsed > budget - 1` after it — leaving under a second for everything the runner does
+        # before the delay, on a shared CI runner. It could fail either way for reasons having
+        # nothing to do with the behaviour under test. The cost of reaching the guard is measured
+        # first and the budget is derived from that measurement, so both directions keep seconds of
+        # margin however slow the host is.
+        $script:gateScenario = @{
+            CandidateBuildExit = 0
+            CandidateBuildStderr = ''
+            CandidateBuildTimedOut = $false
+            BaseBuildExit = 0
+            BaseBuildTimedOut = $false
+            BaseSizeTimedOut = $false
+            BaseSizeExit = 0
+            BaseSizeStdout = '400000000'
+            BaseIdentityExit = 0
+            BaseIdentityStdout = "linux/amd64 sha256:$('c' * 64) debian@sha256:$('d' * 64)"
+            SmokeExit = 0
+            SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+            SmokeDelayMs = 0
+            AttestationDelayMs = 0
+            CandidateSizeDelayMs = 0
+            AttestationValid = $true
+            AttestationReason = ''
+            AttestedManifestSha = $manifestSha
+            AttestedHosts = @('deb.debian.org')
+            CandidateOnlyReason = 'zero-base'
+        }
+        $warmupPath = Join-Path $TestDrive 'measure-budget-warmup.json'
+        [void](Invoke-ContainerToolchainGate -Mode Measure -BaseSha ('a' * 40) -CandidateSha ('b' * 40) `
+                -BaseRoot $repoRoot -CandidateRoot $repoRoot -ReceiptPath $warmupPath `
+                -SummaryPath (Join-Path $TestDrive 'measure-budget-warmup.md') `
+                -ProvenancePath (Join-Path $TestDrive 'measure-budget-warmup-provenance.json') 6>$null)
+        # `zero-base` returns immediately after the candidate size inspection, which is exactly the
+        # guard the delay has to sit behind, so this is the cost of reaching it.
+        $reachGuardMs = [int64](Get-Content -LiteralPath $warmupPath -Raw | ConvertFrom-Json).timing.totalMs
+        $budgetSeconds = [int][math]::Ceiling($reachGuardMs / 1000.0) + 4
+        $delayMs = 5000
+        $script:gateScenario.CandidateOnlyReason = ''
+        $script:gateScenario.CandidateSizeDelayMs = $delayMs
+        $budgetPath = Join-Path $TestDrive 'measure-budget-exhausted.json'
+        $budgetResult = Invoke-ContainerToolchainGate -Mode Measure -BaseSha ('a' * 40) -CandidateSha ('b' * 40) `
+            -BaseRoot $repoRoot -CandidateRoot $repoRoot -ReceiptPath $budgetPath `
+            -SummaryPath (Join-Path $TestDrive 'measure-budget-exhausted.md') `
+            -ProvenancePath (Join-Path $TestDrive 'measure-budget-exhausted-provenance.json') `
+            -RunnerBudgetSeconds $budgetSeconds 6>$null
+        $budgetReceipt = Get-Content -LiteralPath $budgetPath -Raw | ConvertFrom-Json
+        $budgetWhy = "budget=$budgetSeconds s, reach=$reachGuardMs ms: $($budgetReceipt.outcome): $($budgetReceipt.diagnostic)"
+        $budgetResult.ExitCode | Should -Be 0 -Because $budgetWhy
+        $budgetReceipt.outcome | Should -Be 'base-timeout' -Because $budgetWhy
+        $budgetReceipt.blocking | Should -BeFalse -Because $budgetWhy
+        $budgetReceipt.comparison | Should -Be 'candidate-only' -Because $budgetWhy
+        $budgetReceipt.candidateOnlyReason | Should -Be 'base-timeout' -Because $budgetWhy
+        $budgetReceipt.diagnostic | Should -Match 'Runner budget elapsed before base build' -Because $budgetWhy
+        # The candidate it did measure still has to be reported, or a degraded comparison is
+        # indistinguishable from having measured nothing.
+        $budgetReceipt.measurement.candidateBytes | Should -Be 450000000 -Because $budgetWhy
     }
 
     It 'reports sizes, delta, and advisory status in the job summary' {
@@ -1424,5 +1559,311 @@ Describe 'Autopilot container gate runner' {
             -BaseRoot $repoRoot -CandidateRoot $repoRoot -ReceiptPath $agreeingPath 6>$null
         $agreeing.ExitCode | Should -Be 0
         (Get-Content -LiteralPath $agreeingPath -Raw | ConvertFrom-Json).outcome | Should -Be 'irrelevant'
+    }
+
+    It 'writes the detector verdict to the step-output file the workflow named' {
+        # The detector's whole contract with the workflow is three lines in a file. Nothing drove
+        # `-StepOutputPath` at all: the runner's own tests called Detect without it, so the format
+        # of what CI reads — the exact names, the closed values, the append semantics — was pinned
+        # only by a YAML assertion that the flag is passed.
+        $outputPath = Join-Path $TestDrive 'detect-step-output.txt'
+        $zero = Invoke-ContainerToolchainGate -Mode Detect -BaseSha ('0' * 40) -CandidateSha $headSha `
+            -BaseRoot $repoRoot -CandidateRoot $repoRoot -StepOutputPath $outputPath `
+            -ReceiptPath (Join-Path $TestDrive 'detect-step-output-zero.json') 6>$null
+        $zero.ExitCode | Should -Be 0
+        $zeroLines = @(Get-Content -LiteralPath $outputPath)
+        $zeroLines[0] | Should -BeExactly 'relevance=true'
+        $zeroLines[1] | Should -BeExactly 'candidate_only_reason=zero-base'
+        $zeroLines[2] | Should -Match '^relevant_path_count=\d+$'
+
+        # `$GITHUB_OUTPUT` is one file shared by every step in a job, so the runner must append.
+        # Truncating it would delete outputs steps before it had already published.
+        $irrelevant = Invoke-ContainerToolchainGate -Mode Detect -BaseSha $headSha -CandidateSha $headSha `
+            -BaseRoot $repoRoot -CandidateRoot $repoRoot -StepOutputPath $outputPath `
+            -ReceiptPath (Join-Path $TestDrive 'detect-step-output-same.json') 6>$null
+        $irrelevant.ExitCode | Should -Be 0
+        $lines = @(Get-Content -LiteralPath $outputPath)
+        $lines.Count | Should -Be 6 -Because 'the step-output file is appended to, never rewritten'
+        $lines[0] | Should -BeExactly 'relevance=true'
+        $lines[3] | Should -BeExactly 'relevance=false'
+        $lines[4] | Should -BeExactly 'candidate_only_reason='
+        $lines[5] | Should -BeExactly 'relevant_path_count=0'
+
+        # A commit that really does touch the toolchain reports how many paths made it relevant.
+        # The names cannot travel here — the alphabet below has no `/` — so the count is what the
+        # final receipt can carry, and the detector receipt artifact keeps the names.
+        $countPath = Join-Path $TestDrive 'detect-step-output-count.txt'
+        Mock Get-ContainerGateDetection {
+            [pscustomobject]@{
+                Relevant = $true
+                CandidateOnlyReason = ''
+                RelevantPaths = @(
+                    'plugins/autopilot/devcontainer/Dockerfile',
+                    'plugins/autopilot/devcontainer/toolchain.tsv'
+                )
+            }
+        }
+        [void](Invoke-ContainerToolchainGate -Mode Detect -BaseSha ('a' * 40) -CandidateSha ('b' * 40) `
+                -BaseRoot $repoRoot -CandidateRoot $repoRoot -StepOutputPath $countPath `
+                -ReceiptPath (Join-Path $TestDrive 'detect-step-output-count.json') 6>$null)
+        @(Get-Content -LiteralPath $countPath) | Should -Contain 'relevant_path_count=2'
+
+        # The alphabet is a security control, not formatting: `$GITHUB_OUTPUT` is line-oriented, so
+        # a value carrying a newline publishes an output the runner never set.
+        $refusalPath = Join-Path $TestDrive 'detect-step-output-refusal.txt'
+        {
+            Write-GateStepOutput -Path $refusalPath -Value ([ordered]@{ relevance = "true`nrelevance=false" })
+        } | Should -Throw '*unsafe value*'
+        {
+            Write-GateStepOutput -Path $refusalPath -Value ([ordered]@{ relevance = ('x' * 129) })
+        } | Should -Throw '*unsafe value*'
+        {
+            Write-GateStepOutput -Path $refusalPath -Value ([ordered]@{ 'Relevance Flag' = 'true' })
+        } | Should -Throw "*Refusing to write step output*"
+    }
+
+    It 'keeps a failing smoke run reasons when its digests and cases are unavailable' {
+        # The smoke program's whole-run fallbacks report `state=fail` with a named reason and
+        # nothing else — no digests, no cases — because whatever produced them is the reason the
+        # run failed. Rejecting the object for that turned `encoder-failed` and `output-oversize`
+        # into the generic `candidate-output-invalid`, discarding the one thing the failing run
+        # managed to say. These are the literal fallbacks the shipped script emits.
+        $manifestPath = Join-Path $repoRoot '.github/skills/autopilot/devcontainer/toolchain.tsv'
+        foreach ($case in @(
+                @{ Reason = 'encoder-failed' },
+                @{ Reason = 'output-oversize' }
+            )) {
+            $degraded = [ordered]@{
+                schema = 'skalary/container-toolchain-smoke@1'
+                state = 'fail'
+                reasons = @($case.Reason)
+                origin = [ordered]@{ os = ''; aptHosts = @() }
+                digests = [ordered]@{ manifestSha256 = ''; provenanceSha256 = '' }
+                cases = @()
+            }
+            $result = Test-GateSmokeOutput -ManifestPath $manifestPath `
+                -Output ($degraded | ConvertTo-Json -Depth 8 -Compress)
+            $result.Valid | Should -BeTrue -Because "'$($case.Reason)' is a diagnosis, not a malformed object"
+            @($result.Reasons) | Should -Be @($case.Reason)
+            $result.Summary | Should -Match ([regex]::Escape($case.Reason))
+            $result.Value.state | Should -Be 'fail'
+        }
+
+        # The relaxation is bounded by the reason set staying closed: an unrecognised reason is
+        # still a free-text channel into the summary and is still refused.
+        $invented = [ordered]@{
+            schema = 'skalary/container-toolchain-smoke@1'
+            state = 'fail'
+            reasons = @('whatever-i-want')
+            origin = [ordered]@{ os = ''; aptHosts = @() }
+            digests = [ordered]@{ manifestSha256 = ''; provenanceSha256 = '' }
+            cases = @()
+        }
+        $inventedResult = Test-GateSmokeOutput -ManifestPath $manifestPath `
+            -Output ($invented | ConvertTo-Json -Depth 8 -Compress)
+        $inventedResult.Valid | Should -BeFalse
+        $inventedResult.Summary | Should -Match 'closed set'
+
+        # And a `state=fail` with no reason at all still names nothing, so it stays invalid.
+        $silent = [ordered]@{
+            schema = 'skalary/container-toolchain-smoke@1'
+            state = 'fail'
+            reasons = @()
+            origin = [ordered]@{ os = ''; aptHosts = @() }
+            digests = [ordered]@{ manifestSha256 = ''; provenanceSha256 = '' }
+            cases = @()
+        }
+        $silentResult = Test-GateSmokeOutput -ManifestPath $manifestPath `
+            -Output ($silent | ConvertTo-Json -Depth 8 -Compress)
+        $silentResult.Valid | Should -BeFalse
+
+        # Nothing is relaxed for a passing claim: attestation agreement is checked against exactly
+        # these fields, so a `state=pass` with an empty digest must still be rejected.
+        $caseIds = @(Get-TestManifestCaseId -Path $manifestPath)
+        $passing = [ordered]@{
+            schema = 'skalary/container-toolchain-smoke@1'
+            state = 'pass'
+            reasons = @()
+            origin = [ordered]@{ os = 'debian:13'; aptHosts = @('deb.debian.org') }
+            digests = [ordered]@{ manifestSha256 = ''; provenanceSha256 = ('b' * 64) }
+            cases = @($caseIds | ForEach-Object { [ordered]@{ id = $_; state = 'pass'; version = '1.0' } })
+        }
+        $passingResult = Test-GateSmokeOutput -ManifestPath $manifestPath `
+            -Output ($passing | ConvertTo-Json -Depth 8 -Compress)
+        $passingResult.Valid | Should -BeFalse
+        $passingResult.Summary | Should -Match 'digest is invalid'
+    }
+
+    It 'fails closed on a redirected or unsupported apt source tree' {
+        # A `-File` enumeration returns nothing for a symlinked directory and reports no error, so
+        # a tree whose `sources.list.d` points elsewhere used to be read as the empty set and the
+        # scan reported only the part it could see. Any link under the root now fails the read.
+        if (-not $IsWindows) {
+            $linkRoot = Join-Path $TestDrive 'etc-apt-linked'
+            $hidden = Join-Path $TestDrive 'hidden-sources'
+            [void](New-Item -ItemType Directory -Path $linkRoot -Force)
+            [void](New-Item -ItemType Directory -Path $hidden -Force)
+            Set-Content -LiteralPath (Join-Path $linkRoot 'sources.list') -Encoding utf8NoBOM `
+                -Value 'deb http://deb.debian.org/debian trixie main'
+            Set-Content -LiteralPath (Join-Path $hidden 'evil.list') -Encoding utf8NoBOM `
+                -Value 'deb https://evil.invalid/debian trixie main'
+            [void](New-Item -ItemType SymbolicLink -Path (Join-Path $linkRoot 'sources.list.d') -Target $hidden)
+            Get-GateAptConfigHost -Root $linkRoot |
+                Should -BeNullOrEmpty -Because 'a redirected source directory is not a tree this scan can vouch for'
+
+            $fileLinkRoot = Join-Path $TestDrive 'etc-apt-file-linked'
+            [void](New-Item -ItemType Directory -Path (Join-Path $fileLinkRoot 'sources.list.d') -Force)
+            [void](New-Item -ItemType SymbolicLink `
+                    -Path (Join-Path $fileLinkRoot 'sources.list.d/evil.list') `
+                    -Target (Join-Path $hidden 'evil.list'))
+            Get-GateAptConfigHost -Root $fileLinkRoot |
+                Should -BeNullOrEmpty -Because 'a linked source file is not read in place'
+        }
+
+        # A source with no authority is still an origin. `scheme://authority` cannot match any of
+        # these, so they were invisible to a scan that only knew how to see a host, and an image
+        # sourcing packages from a local tree passed the allowlist by naming nothing.
+        foreach ($case in @(
+                @{ Line = 'deb file:/srv/local-repo trixie main'; Host = 'file:opaque' },
+                @{ Line = 'deb cdrom:[Debian trixie]/ trixie main'; Host = 'cdrom:opaque' },
+                @{ Line = 'deb mirror+file:///etc/apt/mirrors/debian.list trixie main'; Host = 'mirror+file:opaque' },
+                @{ Line = 'deb copy:/var/cache/local trixie main'; Host = 'copy:opaque' },
+                @{ Line = 'deb tor+http://example.onion/debian trixie main'; Host = 'tor+http://example.onion' }
+            )) {
+            $root = Join-Path $TestDrive ('etc-apt-uri-' + [guid]::NewGuid().ToString('N'))
+            [void](New-Item -ItemType Directory -Path $root -Force)
+            Set-Content -LiteralPath (Join-Path $root 'sources.list') -Encoding utf8NoBOM -Value $case.Line
+            $found = @(Get-GateAptConfigHost -Root $root)
+            $found | Should -Contain $case.Host -Because "'$($case.Line)' names an origin"
+            (Test-GateAllowedAptHost -Value $found -Allowed $script:AllowedAptHosts) |
+                Should -BeFalse -Because "'$($case.Host)' is not on the allowlist and must not pass as no host at all"
+        }
+
+        # deb822 permits `URIs:https://...` with no space after the colon, and apt honours it. A
+        # single `<scheme>:<rest>` pattern binds `scheme=URIs`, swallows the real URL into `rest`,
+        # discards it as a non-transport scheme, and never looks at the embedded `https://` again,
+        # because matching resumes past the end of the match. The origin is then simply absent from
+        # the scan, and the subset check passes on whatever else the tree contained.
+        $glued = Join-Path $TestDrive 'etc-apt-glued'
+        [void](New-Item -ItemType Directory -Path (Join-Path $glued 'sources.list.d') -Force)
+        Set-Content -LiteralPath (Join-Path $glued 'sources.list.d/debian.sources') -Encoding utf8NoBOM -Value @(
+            'Types: deb'
+            'URIs: http://deb.debian.org/debian'
+            'Suites: trixie'
+            'Components: main'
+        )
+        Set-Content -LiteralPath (Join-Path $glued 'sources.list.d/evil.sources') -Encoding utf8NoBOM -Value @(
+            'Types: deb'
+            'URIs:https://evil.invalid/repo'
+            'Suites: trixie'
+            'Components: main'
+        )
+        $gluedHosts = @(Get-GateAptConfigHost -Root $glued)
+        $gluedHosts | Should -Contain 'evil.invalid' -Because 'apt fetches from it, so the scan must see it'
+        (Test-GateAllowedAptHost -Value $gluedHosts -Allowed $script:AllowedAptHosts) | Should -BeFalse
+        # The allowed source in the same tree must not be what rescues the check: an unreported
+        # origin plus one legitimate one is exactly how a subset test passes while lying.
+        $gluedHosts | Should -Contain 'deb.debian.org'
+
+        # Failing closed must not mean failing on everything: a real deb822 stanza has fields whose
+        # values follow a colon, and none of them is a source. Reporting them would block the image
+        # the gate is supposed to pass.
+        $deb822Root = Join-Path $TestDrive 'etc-apt-deb822'
+        [void](New-Item -ItemType Directory -Path (Join-Path $deb822Root 'sources.list.d') -Force)
+        Set-Content -LiteralPath (Join-Path $deb822Root 'sources.list.d/debian.sources') -Encoding utf8NoBOM -Value @(
+            'Types: deb'
+            'URIs: http://deb.debian.org/debian'
+            'Suites: trixie trixie-updates'
+            'Components: main'
+            'Enabled: yes'
+            'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg'
+        )
+        @(Get-GateAptConfigHost -Root $deb822Root) | Should -Be @('deb.debian.org')
+    }
+
+    It 'writes a blocking placeholder when a relevant commit job never started' {
+        # A placeholder receipt exists because a job can die before writing its own. Hardcoding
+        # `irrelevant` made that placeholder claim the commit did not touch the toolchain, which
+        # is the one reading under which a lost measurement job disappears instead of being seen.
+        $relevantPath = Join-Path $TestDrive 'placeholder-relevant.json'
+        $relevant = Invoke-ContainerToolchainGate -Mode Initialize -DetectionRelevance 'true' `
+            -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -ReceiptPath $relevantPath `
+            -Diagnostic 'measurement did not start' 6>$null
+        $relevant.ExitCode | Should -Be 0 -Because 'the placeholder is written, not enforced; the gate job reads it'
+        $relevantReceipt = Get-Content -LiteralPath $relevantPath -Raw | ConvertFrom-Json
+        $relevantReceipt.outcome | Should -Be 'unexpected-error'
+        $relevantReceipt.relevant | Should -BeTrue
+        $relevantReceipt.blocking | Should -BeTrue
+        $relevantReceipt.identities.candidateSha | Should -Be ('b' * 40)
+        $relevantReceipt.diagnostic | Should -Match 'measurement did not start'
+
+        # For a commit that genuinely changed nothing, `irrelevant` is the truth and stays.
+        $irrelevantPath = Join-Path $TestDrive 'placeholder-irrelevant.json'
+        [void](Invoke-ContainerToolchainGate -Mode Initialize -DetectionRelevance 'false' `
+                -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -ReceiptPath $irrelevantPath `
+                -Diagnostic 'final verification did not start' 6>$null)
+        $irrelevantReceipt = Get-Content -LiteralPath $irrelevantPath -Raw | ConvertFrom-Json
+        $irrelevantReceipt.outcome | Should -Be 'irrelevant'
+        $irrelevantReceipt.relevant | Should -BeFalse
+        $irrelevantReceipt.blocking | Should -BeFalse
+    }
+
+    It 'names the commit and the detector evidence in the final receipt' {
+        # The final receipt is the only artifact that always exists, and when the measurement job
+        # is skipped it is the only one there is. It used to name no commit at all, so the verdict
+        # that decides whether main is green could not be attributed to the change it judged.
+        $receiptPath = Join-Path $TestDrive 'final-identities.json'
+        $result = Invoke-ContainerToolchainGate -Mode VerifyResult `
+            -DetectorConclusion success -Relevance true -ImageConclusion success `
+            -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -RelevantPathCount '3' `
+            -ReceiptPath $receiptPath 6>$null
+        $result.ExitCode | Should -Be 0
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+        $receipt.identities.baseSha | Should -Be ('a' * 40)
+        $receipt.identities.candidateSha | Should -Be ('b' * 40)
+        $receipt.identities.architecture | Should -Not -BeNullOrEmpty
+        $receipt.comparison | Should -Be 'comparable'
+        $receipt.diagnostic | Should -Match 'relevantPaths=3'
+        $receipt.diagnostic | Should -Match 'candidateOnlyReason=none'
+
+        # A degraded run must carry *why* the base was unusable, not just that the gate passed.
+        $degradedPath = Join-Path $TestDrive 'final-identities-degraded.json'
+        [void](Invoke-ContainerToolchainGate -Mode VerifyResult `
+                -DetectorConclusion success -Relevance true -ImageConclusion success `
+                -BaseSha ('0' * 40) -CandidateSha ('b' * 40) -RelevantPathCount '2' `
+                -DetectionCandidateOnlyReason 'zero-base' -ReceiptPath $degradedPath 6>$null)
+        $degraded = Get-Content -LiteralPath $degradedPath -Raw | ConvertFrom-Json
+        $degraded.candidateOnlyReason | Should -Be 'zero-base'
+        $degraded.comparison | Should -Be 'candidate-only'
+        $degraded.diagnostic | Should -Match 'candidateOnlyReason=zero-base'
+
+        # An absent count is reported as absent rather than as zero relevant paths, which would be
+        # a different claim entirely.
+        $unreportedPath = Join-Path $TestDrive 'final-identities-unreported.json'
+        [void](Invoke-ContainerToolchainGate -Mode VerifyResult `
+                -DetectorConclusion success -Relevance false -ImageConclusion skipped `
+                -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -ReceiptPath $unreportedPath 6>$null)
+        (Get-Content -LiteralPath $unreportedPath -Raw | ConvertFrom-Json).diagnostic |
+            Should -Match 'relevantPaths=unreported'
+
+        # `comparison` is a fact about a measurement, and this job performs none. Claiming
+        # `comparable` because the commit was *relevant* puts a comparison next to a null delta in
+        # the same receipt, for runs where nothing was ever built.
+        foreach ($case in @(
+                @{ Image = 'failure'; Expected = 'not-run' },
+                @{ Image = 'skipped'; Expected = 'not-run' },
+                @{ Image = 'cancelled'; Expected = 'not-run' },
+                @{ Image = 'success'; Expected = 'comparable' }
+            )) {
+            $path = Join-Path $TestDrive "final-comparison-$($case.Image).json"
+            [void](Invoke-ContainerToolchainGate -Mode VerifyResult `
+                    -DetectorConclusion success -Relevance true -ImageConclusion $case.Image `
+                    -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -ReceiptPath $path 6>$null)
+            $written = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            $written.comparison | Should -Be $case.Expected -Because "image=$($case.Image) measured $(if ($case.Image -eq 'success') { 'something' } else { 'nothing' })"
+            if ($case.Expected -eq 'not-run') {
+                $written.measurement.deltaBytes | Should -BeNullOrEmpty -Because 'the receipt must not contradict itself'
+            }
+        }
     }
 }

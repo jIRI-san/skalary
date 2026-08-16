@@ -41,11 +41,12 @@ Describe 'ci workflow' {
 
         # What makes each gate *fail*, which is not always what names it. The drift gate is
         # `git diff --exit-code`, not the rebuild that precedes it, and a dogfood sync only
-        # detects drift with `-WhatIf`. PSScriptAnalyzer is deliberately absent: it writes
-        # findings to the output stream and sets no exit code, so its step cannot go red on a
-        # finding. That is a real property of the gate rather than an oversight here, and it
-        # belongs in the gate inventory as an advisory row rather than in an assertion that
-        # would claim an enforcement the step does not have.
+        # detects drift with `-WhatIf`. PSScriptAnalyzer is absent from this table for a narrower
+        # reason than it used to state: its step *can* go red — `test:Ci.LintStepCanFail` pins the
+        # `throw` on an error-severity finding — but it goes red on the throw rather than on the
+        # analyzer's own exit code, so there is no invocation pattern here that identifies it.
+        # The gate inventory carries it as a blocking row with a typed exclusion for the warning
+        # tier, which is the part that really is unenforced.
         $script:gateEnforcingPatterns = [ordered]@{
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
             'repository validation'  = 'scripts/validate\.ps1'
@@ -175,7 +176,7 @@ Describe 'ci workflow' {
             Get-Content -LiteralPath $script:containerRunnerPath -Raw)
 
         $jobsNode = $root['jobs'].Value
-        @($jobsNode.Keys) | Should -Be @('detector', 'image', 'gate')
+        @($jobsNode.Keys) | Should -Be @('detector', 'image', 'gate', 'notify')
         $jobs = @{}
         foreach ($job in @(Get-CiWorkflowJob -Text $script:containerWorkflowText)) {
             $jobs[$job.Name] = $job
@@ -193,12 +194,33 @@ Describe 'ci workflow' {
         $root['on'].Value['push'].Value.Contains('paths-ignore') | Should -BeFalse
         @($root['permissions'].Value.Keys) | Should -Be @('contents')
         $root['permissions'].Value['contents'].Value | Should -Be 'read'
+        # Exactly one job may widen the read-only workflow token, and only to what it takes to make
+        # a red post-merge gate visible in the repository. Naming the job and its scopes here means
+        # a second widening — or a broader one on this job — is red rather than a diff nobody reads.
         foreach ($jobName in @($jobsNode.Keys)) {
+            if ($jobName -eq 'notify') { continue }
             $jobsNode[$jobName].Value.Contains('permissions') |
                 Should -BeFalse -Because "job '$jobName' must not widen the workflow token"
         }
+        @($jobsNode['notify'].Value['permissions'].Value.Keys | Sort-Object) |
+            Should -Be @('contents', 'issues') -Because 'the notification job gets one extra scope, not a blank cheque'
+        $jobsNode['notify'].Value['permissions'].Value['contents'].Value | Should -Be 'read'
+        $jobsNode['notify'].Value['permissions'].Value['issues'].Value | Should -Be 'write'
+        # The widened token must never be handed to a job that runs candidate-authored code, and
+        # the reported text must be fixed strings plus identities the platform supplies.
+        $notifyBody = $jobs.notify.Body
+        $notifyBody | Should -Not -Match 'actions/checkout' -Because 'the notifying job checks out nothing'
+        $notifyBody | Should -Not -Match 'Invoke-ContainerToolchainGate' -Because 'the notifying job runs no candidate-reachable script'
+        $jobsNode['notify'].Value['if'].Value |
+            Should -Be "always() && needs.gate.result != 'success'" -Because 'a green gate must not open an issue'
+        @($jobsNode['notify'].Value['needs'].Value | ForEach-Object { $_.Value }) |
+            Should -Be @('detector', 'image', 'gate')
         $root['concurrency'].Value['cancel-in-progress'].Value |
             Should -Be 'false' -Because 'every merged commit gets its own verdict'
+        # …and a group keyed only by workflow and ref does not deliver that: two merges seconds
+        # apart queue behind one group, so a commit can be superseded without ever being measured.
+        $root['concurrency'].Value['group'].Value |
+            Should -Match '\$\{\{\s*github\.sha\s*\}\}' -Because 'the concurrency group must be unique per merged commit'
         $root['env'].Value['CANDIDATE_SHA'].Value | Should -Be '${{ github.sha }}'
         $root['env'].Value['BASE_SHA'].Value | Should -Be '${{ github.event.before }}'
 
@@ -303,6 +325,21 @@ Describe 'ci workflow' {
         $verifyEnv['DETECTOR_CONCLUSION'].Value | Should -Be '${{ needs.detector.result }}'
         $verifyEnv['RELEVANCE'].Value | Should -Be '${{ needs.detector.outputs.relevance }}'
         $verifyEnv['IMAGE_CONCLUSION'].Value | Should -Be '${{ needs.image.result }}'
+        # The terminal receipt is the only one that always exists. It must be able to name the
+        # commit it judged and the detector evidence behind that judgement, or a reader of a red
+        # main has a verdict attached to nothing.
+        $gateEnv = $jobsNode['gate'].Value['env'].Value
+        $gateEnv['RELEVANT_PATH_COUNT'].Value | Should -Be '${{ needs.detector.outputs.relevant_path_count }}'
+        $gateEnv['CANDIDATE_ONLY_REASON'].Value | Should -Be '${{ needs.detector.outputs.candidate_only_reason }}'
+        foreach ($argument in @(
+                '-BaseSha \$env:BASE_SHA',
+                '-CandidateSha \$env:CANDIDATE_SHA',
+                '-DetectionCandidateOnlyReason \$env:CANDIDATE_ONLY_REASON',
+                '-RelevantPathCount \$env:RELEVANT_PATH_COUNT'
+            )) {
+            $verify[0].Node['run'].Value |
+                Should -Match $argument -Because 'the final receipt names the commit and the evidence it rests on'
+        }
 
         # --- Isolation ---
         $code | Should -Not -Match '\$\{\{\s*secrets\.'
@@ -363,6 +400,15 @@ Describe 'ci workflow' {
         $imageUpload.Count | Should -Be 1
         $imageUpload[0].Node['with'].Value['path'].Value | Should -Match 'receipt\.json'
         $imageUpload[0].Node['with'].Value['path'].Value | Should -Match 'provenance\.json'
+        # The relevant paths cannot travel as a step output — `$GITHUB_OUTPUT` is line-oriented and
+        # the runner's safe alphabet has no `/` — so the detector receipt is the only place their
+        # names survive. It used to be written to `runner.temp` and thrown away with the runner.
+        $detectUpload = @($uploads | Where-Object { $_.Job -eq 'detector' })
+        $detectUpload.Count | Should -Be 1
+        $detectUpload[0].Node['with'].Value['path'].Value | Should -Match 'receipt\.json'
+        $jobs.detector.Body | Should -Not -Match 'runner\.temp'
+        $detectorOutputs['relevant_path_count'].Value |
+            Should -Be '${{ steps.detect.outputs.relevant_path_count }}'
 
         # Candidate-derived text reaches the step summary only through the runner's own escaped
         # rendering. Echoing a raw receipt would let a crafted diagnostic emit workflow commands.

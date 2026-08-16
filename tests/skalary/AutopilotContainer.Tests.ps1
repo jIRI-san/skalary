@@ -526,6 +526,35 @@ Describe 'Autopilot container toolchain' {
         (@($oversize.PSObject.Properties.Name) -join ',') | Should -Be 'schema,state,reasons,origin,digests,cases'
         (@($oversize.reasons) -join ',') | Should -Be 'output-oversize'
 
+        # The image records apt origins twice — a Debian-baseline capture and a final capture — and
+        # the gate holds each to a different allowlist. The two recorders read `Enabled:` differently,
+        # and the direction of that difference is the whole safety argument, so it is pinned here
+        # rather than left to whoever edits the awk next.
+        #
+        # The final capture is the enforcement set: it must stay over-inclusive, recording the URIs
+        # of a disabled stanza too. If it learned to honour `Enabled: no`, a hostile source could be
+        # parked in the image disabled — invisible to the gate, one `sed` away from being live.
+        $finalRecorder = [regex]::Match(
+            $dockerfileContent,
+            '(?s)(?<block>: > /tmp/autopilot-final-apt-uris;.*?>> /tmp/autopilot-final-apt-uris;)')
+        $finalRecorder.Success | Should -BeTrue
+        $finalRecorder.Groups['block'].Value |
+            Should -Not -Match '(?i)\[Ee\]\[Nn\]\[Aa\]\[Bb\]\[Ll\]\[Ee\]\[Dd\]' -Because 'the enforced capture must record disabled sources too'
+        # And it must reject anything that is not a plain http(s) URI, so an origin form the host-side
+        # scan reports as a pseudo-host cannot reach the enforced file unnoticed.
+        $dockerfileContent | Should -Match '(?s)Unsupported final apt source URI.*?final-apt-sources\.txt'
+
+        # The baseline capture is the narrower claim — "what the Debian layer actually resolves from",
+        # held to Debian hosts only — so it honours `Enabled:` deliberately. A disabled non-Debian
+        # source omitted here is still caught by the final capture above, which is why the asymmetry
+        # is safe in this direction and only in this direction.
+        $baselineRecorder = [regex]::Match(
+            $dockerfileContent,
+            '(?s)(?<block>: > /tmp/autopilot-apt-source-uris;.*?apt_source_files\[@\]\}"; do.*?done;)')
+        $baselineRecorder.Success | Should -BeTrue
+        $baselineRecorder.Groups['block'].Value |
+            Should -Match '\[Ee\]\[Nn\]\[Aa\]\[Bb\]\[Ll\]\[Ee\]\[Dd\]' -Because 'the baseline capture states the effective Debian source set'
+
         foreach ($relativePath in @(
                 'devcontainer/Dockerfile',
                 'devcontainer/toolchain.tsv',

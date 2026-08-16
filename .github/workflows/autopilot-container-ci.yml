@@ -26,8 +26,12 @@ permissions:
 concurrency:
   # Not `cancel-in-progress`: every merged commit gets its own verdict. Cancelling the run for
   # commit A because commit B landed would leave A merged and unmeasured, which is exactly the
-  # state this gate exists to make visible.
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # state this gate exists to make visible. `github.sha` is in the group for the same reason:
+  # with only the workflow and the ref, two commits landing minutes apart share one group, and
+  # GitHub queues the second behind the first rather than running both — so a burst of merges
+  # could still leave commits with no verdict of their own. One group per commit means no merged
+  # commit is ever superseded by a later one.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -42,6 +46,9 @@ jobs:
     outputs:
       relevance: ${{ steps.detect.outputs.relevance }}
       candidate_only_reason: ${{ steps.detect.outputs.candidate_only_reason }}
+      relevant_path_count: ${{ steps.detect.outputs.relevant_path_count }}
+    env:
+      DETECT_ROOT: ${{ github.workspace }}/artifacts/container-toolchain-detect
     steps:
       # `github.sha` on a push to `main` is merged, reviewed code, so the candidate checkout is
       # also the trusted source of the runner. There is no separate control-plane checkout,
@@ -94,6 +101,19 @@ jobs:
             Remove-Item -LiteralPath $env:BASE_ROOT -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Initialize detection evidence
+        shell: pwsh
+        env:
+          RUNNER_ROOT: ${{ github.workspace }}/candidate
+        run: |
+          # A placeholder so the detection artifact exists even when detection itself dies. It is
+          # written with relevance `true` on purpose: at this point relevance is unknown, and the
+          # one reading that must never be produced by a job that failed is "this commit did not
+          # touch the toolchain". An unknown detection is the blocking outcome it actually is.
+          New-Item -ItemType Directory -Path $env:DETECT_ROOT -Force | Out-Null
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Initialize -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionRelevance true -ReceiptPath "$env:DETECT_ROOT/receipt.json" -Diagnostic 'detection did not start' | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not initialize detection evidence.' }
+
       - name: Import base commit into candidate clone
         if: steps.base-checkout.outcome == 'success'
         continue-on-error: true
@@ -123,14 +143,26 @@ jobs:
           RUNNER_ROOT: ${{ github.workspace }}/candidate
           CANDIDATE_ROOT: ${{ github.workspace }}/candidate
           BASE_ROOT: ${{ github.workspace }}/base
-          DETECTOR_RECEIPT: ${{ runner.temp }}/container-toolchain-detect.json
         run: |
           # The runner writes `relevance` and `candidate_only_reason` to $GITHUB_OUTPUT itself.
           # Re-deriving them here meant the closed candidate-only reason set was stated twice —
           # once in `New-ContainerGateReceipt`'s ValidateSet and once in a YAML `-notin` list that
           # nothing kept in step with it.
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Detect -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -ReceiptPath $env:DETECTOR_RECEIPT -StepOutputPath $env:GITHUB_OUTPUT
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Detect -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -ReceiptPath "$env:DETECT_ROOT/receipt.json" -StepOutputPath $env:GITHUB_OUTPUT
           if ($LASTEXITCODE -ne 0) { throw 'Container input detection failed.' }
+
+      - name: Upload detection evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # The paths that made the commit relevant travel only in this receipt: `$GITHUB_OUTPUT`
+          # is line-oriented and the runner's safe alphabet excludes `/`, so the step output can
+          # carry their count and not their names. Without the artifact a reader of a red final
+          # receipt could see that the gate ran and never learn what it was reacting to.
+          name: autopilot-container-detect-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/container-toolchain-detect/receipt.json
+          if-no-files-found: error
+          retention-days: 14
 
   image:
     name: build and smoke container
@@ -203,7 +235,7 @@ jobs:
           # to. A placeholder that named no commit and no reason told a reader who downloaded the
           # artifact nothing at all.
           New-Item -ItemType Directory -Path $env:EVIDENCE_ROOT -Force | Out-Null
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Initialize -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -Diagnostic 'measurement did not start' | Out-Null
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Initialize -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionRelevance $env:DETECTION_RELEVANCE -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -Diagnostic 'measurement did not start' | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Could not initialize terminal evidence.' }
           '{"schema":"skalary/container-toolchain-provenance@1","state":"not-produced"}' |
             Set-Content -LiteralPath "$env:EVIDENCE_ROOT/provenance.json" -Encoding utf8NoBOM
@@ -255,6 +287,9 @@ jobs:
     env:
       RUNNER_ROOT: ${{ github.workspace }}/candidate
       FINAL_ROOT: ${{ github.workspace }}/artifacts/container-toolchain-final
+      RELEVANCE: ${{ needs.detector.outputs.relevance }}
+      CANDIDATE_ONLY_REASON: ${{ needs.detector.outputs.candidate_only_reason }}
+      RELEVANT_PATH_COUNT: ${{ needs.detector.outputs.relevant_path_count }}
     steps:
       - name: Checkout candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -271,7 +306,7 @@ jobs:
           if (-not (Test-Path -LiteralPath "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -PathType Leaf)) {
             throw 'The merged commit does not contain the container toolchain runner.'
           }
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Initialize -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md" -Diagnostic 'final verification did not start' | Out-Null
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Initialize -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionRelevance $env:RELEVANCE -DetectionCandidateOnlyReason $env:CANDIDATE_ONLY_REASON -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md" -Diagnostic 'final verification did not start' | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Could not initialize the final receipt.' }
 
       - name: Verify final result
@@ -281,7 +316,12 @@ jobs:
           RELEVANCE: ${{ needs.detector.outputs.relevance }}
           IMAGE_CONCLUSION: ${{ needs.image.result }}
         run: |
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode VerifyResult -DetectorConclusion $env:DETECTOR_CONCLUSION -Relevance $env:RELEVANCE -ImageConclusion $env:IMAGE_CONCLUSION -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md"
+          # The final receipt is the one artifact that always exists, and when the measurement job
+          # was skipped it is the only one. It used to name no commit, so the verdict that decides
+          # whether main is green could not be attributed to the commit it judged. The identities
+          # and the detector's own evidence — the candidate-only reason, the number of relevant
+          # paths — are passed in so this receipt stands on its own.
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode VerifyResult -DetectorConclusion $env:DETECTOR_CONCLUSION -Relevance $env:RELEVANCE -ImageConclusion $env:IMAGE_CONCLUSION -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionCandidateOnlyReason $env:CANDIDATE_ONLY_REASON -RelevantPathCount $env:RELEVANT_PATH_COUNT -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md"
           if ($LASTEXITCODE -ne 0) {
             throw 'Autopilot container result combination failed closed.'
           }
@@ -303,3 +343,59 @@ jobs:
           path: artifacts/container-toolchain-final/receipt.json
           if-no-files-found: error
           retention-days: 14
+
+  notify:
+    name: report gate failure
+    needs:
+      - detector
+      - image
+      - gate
+    # A post-merge gate blocks nothing by construction, so a red run is only as useful as the
+    # chance somebody sees it. Actions' own failure mail goes to the commit author's notification
+    # settings — invisible to everyone else and silently disabled for many. An issue is the one
+    # channel that is visible in the repository itself and outlives the 14-day artifact retention.
+    if: always() && needs.gate.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The only job that widens the workflow's read-only token, to the single scope that opens an
+    # issue and nothing else. It checks out no code, runs no candidate script, and writes a body
+    # built from fixed text plus `github.sha` and the run URL — nothing the measured commit
+    # authored reaches this token.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the gate failure issue
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DETECTOR_CONCLUSION: ${{ needs.detector.result }}
+          IMAGE_CONCLUSION: ${{ needs.image.result }}
+          GATE_CONCLUSION: ${{ needs.gate.result }}
+        run: |
+          # One issue per commit, reopened as a comment on re-run rather than a second issue, so a
+          # retried run does not bury the first report. The title carries the SHA because that is
+          # the key a responder searches by and the only thing that ties the report to a revert.
+          $title = "autopilot container gate red on main at $env:CANDIDATE_SHA"
+          $body = @(
+            "The post-merge autopilot container gate did not pass for commit ``$env:CANDIDATE_SHA``.",
+            '',
+            "- detector: ``$env:DETECTOR_CONCLUSION``",
+            "- image: ``$env:IMAGE_CONCLUSION``",
+            "- gate: ``$env:GATE_CONCLUSION``",
+            "- run: $env:RUN_URL",
+            '',
+            'Runbook: `docs/design-notes/architecture/autopilot-container-toolchain.design.md`,',
+            'section "The gate is red on main". Artifacts expire 14 days after the run.'
+          ) -join "`n"
+          $existing = (& gh issue list --state open --search "$title in:title" --limit 1 --json number --jq '.[0].number')
+          if ($LASTEXITCODE -ne 0) { throw 'Could not query existing gate failure issues.' }
+          if ([string]::IsNullOrWhiteSpace($existing)) {
+            & gh issue create --title $title --body $body
+          }
+          else {
+            & gh issue comment $existing.Trim() --body $body
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Could not report the red container gate.' }

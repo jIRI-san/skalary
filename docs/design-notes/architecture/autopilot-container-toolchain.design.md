@@ -15,7 +15,7 @@ comparison gate that measures it. This note is the source of truth the structura
 It lives here rather than in a plan folder because plan folders are archived on completion, and a
 contract that disappears from its enforcing test's path is a contract that stops being enforced.
 
-**Applies to:** `plugins/autopilot/devcontainer/**`,
+**Applies to:** `plugins/autopilot/devcontainer/**`, `.github/skills/autopilot/devcontainer/**`,
 `scripts/skalary/Invoke-ContainerToolchainGate.ps1`,
 `.github/workflows/autopilot-container-ci.yml`, `tests/skalary/AutopilotContainer*.Tests.ps1`
 
@@ -59,6 +59,17 @@ the baseline capture already demonstrated. The smoke program reports `origin.apt
 gate's attestation reads the same file from the image. The allowed origin set at final state is
 `deb.debian.org`, `security.debian.org`, `download.docker.com`, and `packages.microsoft.com`; the
 Debian baseline file may still only contain the first two.
+
+The two recorders read deb822 `Enabled:` differently, and the direction of that difference is
+deliberate. The **final** capture is the enforced one, so it is over-inclusive: it records the URIs of
+a disabled stanza too. Teaching it to honour `Enabled: no` would let a hostile origin be parked in the
+image disabled — invisible to every allowlist check, one `sed` away from being live. The **baseline**
+capture is the narrower claim, "what the Debian layer actually resolves from", and is held to the
+two-host Debian allowlist, so it honours `Enabled:`. A disabled non-Debian source omitted there is
+still caught by the final capture against the wider allowlist, which is why the asymmetry is safe in
+this direction and only in this direction. The host-side live scan sides with the final recorder and
+ignores `Enabled:` entirely. Ordinary Pester pins each recorder's `Enabled:` handling so a later edit
+cannot quietly reverse it.
 
 ## Closed baseline
 
@@ -112,12 +123,28 @@ the image from the trusted host — `docker create --network none` plus `docker 
   produces it, so `https://download.docker.com@evil.example.com/…` — which apt resolves against
   `evil.example.com` — cannot read as an allowed host in one reader and a rejected one in the other.
   A non-`http(s)` scheme is reported as `<scheme>://<authority>` rather than skipped, so an `ftp:` or
-  `mirror+file:` origin fails the allowlist instead of being invisible to a pattern that only knows
-  how to see http. `apt.conf` and `apt.conf.d/*` are scanned too, and a `Dir` root reassignment or any
-  `Dir::Etc*` directive fails the read closed: those relocate the source-list directory both readers
-  enumerate, so an allowlisted `/etc/apt` that apt never consults would otherwise pass. `Dir::Cache*`
-  is not included, because Debian's own base images ship it and it relocates no source list. Any
-  enumeration or read error fails the read closed rather than reporting the hosts it managed to read;
+  `tor+http:` origin fails the allowlist instead of being invisible to a pattern that only knows how
+  to see http. A source with **no** authority is an origin too — `file:/srv/repo`, `cdrom:[…]/`,
+  `mirror+file:///etc/apt/mirrors/debian.list` — and an authority-shaped pattern cannot match any of
+  them, so an image sourcing packages from a local tree would pass by naming nothing. Those are
+  reported as the pseudo-host `<scheme>:opaque`, which fails the allowlist. Only schemes apt has a
+  transport method for are treated this way (`cdrom copy file ftp http https mirror rsh s3 ssh store
+  tor`, and `+`-composites keyed on the leading segment), because deb822 permits `Field:value` and a
+  scan that read every colon as a source would fail images over `Signed-By:` paths. Authorities and
+  authority-less forms are scanned in two separate passes rather than one combined pattern, and that
+  is not tidiness: deb822 also permits `URIs:https://evil.example/repo` with no space, and apt
+  honours it. A combined `<scheme>:<rest>` pattern binds `scheme=URIs`, swallows the real URL into
+  `rest`, discards it as a non-transport scheme, and never re-examines the embedded `https://`,
+  because matching resumes past the end of the match — so the origin is absent from the scan and the
+  subset check passes on whatever else the tree contained. `apt.conf` and
+  `apt.conf.d/*` are scanned too, and a `Dir` root reassignment or any `Dir::Etc*` directive fails the
+  read closed: those relocate the source-list directory both readers enumerate, so an allowlisted
+  `/etc/apt` that apt never consults would otherwise pass. `Dir::Cache*` is not included, because
+  Debian's own base images ship it and it relocates no source list. Any enumeration or read error
+  fails the read closed rather than reporting the hosts it managed to read, and so does **any**
+  symlink, junction or other reparse point at or under the tree root: a `-File` enumeration returns
+  nothing for a redirected directory and reports no error either, so a tree whose `sources.list.d`
+  points elsewhere would otherwise be read as the empty set and pass on the half it could see;
 - the smoke object's `digests.manifestSha256` and `origin.aptHosts` against those attested values.
 
 Disagreement is `candidate-output-invalid`. No candidate code runs on the host in this path: `docker cp`
@@ -142,10 +169,11 @@ never report.
 When smoke reports failures, the receipt and job summary name the failing case IDs (bounded to 32),
 because a bare count tells a reader nothing they can act on.
 
-Not every smoke failure belongs to a case. Nine whole-run conditions — running as the wrong user, a
+Not every smoke failure belongs to a case. Ten whole-run conditions — running as the wrong user, a
 writable `/usr/local/bin`, an unreadable or duplicate-keyed manifest, a case-count mismatch, missing
-provenance files, a digest that could not be computed, an encoder failure — used to collapse into a
-bare `state=fail`, and the receipt could then say only "reported failure without naming a case".
+provenance files, a manifest or provenance digest that could not be computed, an encoder failure, and
+output over the size bound — used to collapse into a bare `state=fail`, and the receipt could then say
+only "reported failure without naming a case".
 `skalary/container-toolchain-smoke@1` therefore carries a required `reasons` array drawn from a closed
 vocabulary: `case-count-mismatch`, `encoder-failed`, `manifest-digest-unavailable`,
 `manifest-duplicate-case`, `manifest-unreadable`, `not-autopilot-user`, `output-oversize`,
@@ -154,6 +182,18 @@ closed so a broken or hostile image cannot use the field as a free-text channel 
 with neither a failing case nor a reason is rejected as invalid output — a verdict with no diagnosis is
 not a verdict. The schema version is not bumped because the schema has never shipped outside this
 branch; the field is required from its first release.
+
+Two of those reasons describe the encoder itself failing, so the object carrying them is the one the
+script emits when it could not build a real one: `state=fail`, a named reason, and nothing else — no
+digests, no cases. Validation therefore treats a **degraded** payload (`state=fail` with at least one
+reason) as structurally acceptable when its digests are empty and its case list does not match the
+manifest, rather than rejecting it as malformed. Rejecting it replaced the one thing the failing run
+managed to say with the generic `candidate-output-invalid`, which is how `encoder-failed` and
+`output-oversize` could never reach a receipt. The relaxation is bounded on both sides: the reason set
+stays closed, a `fail` with no reason at all is still invalid, and nothing is relaxed for `state=pass`
+— attestation agreement is checked against exactly those digest and origin fields, so a passing claim
+with an empty digest is still rejected. It is safe because the orchestrator returns
+`candidate-smoke-failed` before attestation ever consumes them.
 
 ## Comparable size run
 
@@ -203,7 +243,11 @@ For each run:
 6. Build and smoke candidate first under a 25-minute process-tree-killing budget. Only after candidate
    success, build comparable base under at most 10 residual minutes. Base failure or timeout converts
    to candidate-only evidence; it cannot consume candidate budget. Use local BuildKit cache only;
-   publish no cache or image.
+   publish no cache or image. **Every** base-side failure is candidate-only evidence, including one
+   that happens while *inspecting* the base image rather than building it: a base whose size cannot be
+   read is a base that cannot be compared, which is the same fact as a base that would not build. It
+   is recorded as `base-build-failed` with a candidate-only reason and a diagnostics-log entry naming
+   the stage, never as a blocking error against a candidate that already built and smoked clean.
 7. Enforce a 35-minute runner budget inside a 45-minute image job, and record stage elapsed times.
 8. From a `finally` path, write `skalary/container-toolchain-receipt@1` for every closed outcome:
    `success`, `irrelevant`, `candidate-build-failed`, `candidate-smoke-failed`,
@@ -217,6 +261,16 @@ failure is announced in its last lines and a head-only capture reliably discards
 diagnostics carry a bounded tail; the full bounded capture for a failing stage is written to the
 diagnostics log and uploaded with the other evidence.
 
+That applies to the *unexpected* failures too, and this is where it is easiest to lose. A blocking
+`unexpected-error` — a base image whose identity will not resolve, a platform that does not match the
+one requested, a daemon that reports a different architecture — is raised by throwing, and a throw
+that carries only a sentence leaves the receipt saying an environment check failed without the
+`docker` output that says why. Each of those paths therefore writes the failing stage and its bounded
+process tail to the diagnostics log *before* throwing, and appends the tail to the message; the
+top-level handler records the terminating message and its script stack trace the same way. The
+diagnostics log is the artifact these runs leave behind, so a condition that reaches it is
+diagnosable from the upload alone and does not require reproducing a hosted-runner environment.
+
 The receipt, provenance file, summary, and diagnostics log are uploaded under `if: always()` for 14
 days. The internal 35-minute limit reserves ten minutes before the 45-minute job timeout for
 finalization/upload. If the hosted runner itself is killed before upload, the final gate records the
@@ -224,8 +278,19 @@ image job's `timed_out`/non-success conclusion and missing artifact as the durab
 The job summary states outcome, blocking state, comparison, both image sizes, the delta against the
 advisory threshold, stage timings, smoke result with any failed cases, and the diagnostic — a summary
 that omits the numbers forces a reader into the artifact for the one fact the summary exists to give.
-If a comparable receipt exceeds 250 MiB, finalization requires `assets/decisions/image-size-exception.md`;
-otherwise that file is absent.
+If a comparable receipt exceeds 250 MiB, finalization requires `assets/decisions/image-size-exception.md`.
+The rule is stated in terms of "a growth measurement", not "the gate receipt", because the gate is not
+the only channel that can produce one and pretending otherwise made the shipped tree read as a
+violation of its own note. A receipt closes to candidate-only whenever no comparable base exists —
+including the case where the base commit predates the build context the payload mapping needs — and a
+candidate-only receipt carries `deltaBytes: null`. The size question still has an answer in that case,
+so it is measured directly by two builds on one host and recorded as
+`skalary/container-toolchain-image-growth@1` under the plan's `assets/measurements/`. That artifact is
+hand-run and hand-recorded: it names its method, both commit SHAs, both resolved image IDs, the
+platform, the daemon and CLI versions, and the build arguments, precisely because nothing validates it
+and its credibility rests on being reproducible from what it states. It is permitted **only** when the
+receipt for the same commit is not comparable, and it never substitutes for a comparable receipt that
+exists. When both exist, the receipt is the one that counts.
 
 ## Post-merge gate
 
@@ -266,8 +331,15 @@ gate uses. The consequences are stated rather than hidden:
   required check would block every pull request forever. If branch protection is wanted for the
   image, the honest options are an organization required workflow or a merge queue — both outside
   this repository's control and both their own decision.
-- **`concurrency` does not cancel in progress.** Every merged commit gets its own verdict; cancelling
-  commit A's run because commit B landed would leave A merged and unmeasured.
+- **`concurrency` does not cancel in progress, and its group is unique per commit.** Every merged
+  commit gets its own verdict; cancelling commit A's run because commit B landed would leave A merged
+  and unmeasured. `cancel-in-progress: false` alone does not give that guarantee — a group keyed on
+  the ref alone still *queues* runs, and GitHub keeps at most one pending run per group, so three
+  commits landing during one 45-minute image job leave the middle one silently superseded and never
+  measured. The group therefore includes `github.sha`, which makes each commit its own group: nothing
+  queues behind anything, and no merged commit can be displaced by a later one. The per-commit key
+  costs concurrent runners rather than correctness, which is the right side to spend on for a gate
+  whose entire claim is "every merged commit receives a verdict".
 
 Dropping the `pull_request` trigger also removes the bootstrap hole an earlier revision needed: there
 is no "base without a runner" case, because the runner and the workflow arrive at the merged commit
@@ -292,6 +364,25 @@ the receipt schema and the closed candidate-only reason set in two places; the p
 there named no commit, no path, and no reason, so a reader who downloaded it learned only that
 something had not happened.
 
+The placeholder must also state relevance rather than assume it. A placeholder that always says
+`irrelevant` is the one reading under which a lost measurement job disappears: the job that writes it
+only runs when relevance is `true`, so the claim is false exactly when it matters, and a reader
+downloading the surviving artifact would be told the commit did not touch the image. `Initialize`
+therefore takes the detector's verdict and closes to `unexpected-error`, `relevant: true`,
+`blocking: true` for a relevant commit, keeping `irrelevant` for the commit that genuinely changed
+nothing.
+
+The final receipt carries the identities too. It is the only artifact that always exists, and when the
+image job is skipped it is the only one there is — so a verdict that named no commit could not be
+attributed to the change it judged. `VerifyResult` therefore receives the base and candidate SHAs, the
+detector's candidate-only reason, and the count of relevant paths, and writes them into the same
+`identities`, `comparison`, `candidateOnlyReason` and `diagnostic` fields a measured receipt uses. The
+path *names* cannot travel that wire: step outputs are restricted to a bounded `[A-Za-z0-9._-]`
+alphabet precisely so nothing candidate-shaped reaches `$GITHUB_OUTPUT`, and a repository path
+contains `/`. The count travels, and the detector uploads its own receipt as an artifact so the names
+remain recoverable from the run. An absent count is reported as `unreported`, never as zero, because
+those are different claims.
+
 ## Accepted capability
 
 `pip`, SSH, netcat, and DNS clients improve code retrieval and diagnostics. Their presence is accepted
@@ -309,6 +400,55 @@ detector defect or upstream outage blocks its own repair, a repository administr
 suspend that policy, record the incident, merge a separately reviewed repair, restore the policy, and
 verify one irrelevant no-op run plus one relevant image run. The disabled interval and restoration
 evidence remain visible in the incident/PR record.
+
+### The gate is red on `main`
+
+A detective gate is only detective if someone finds out. Post-merge failure has no pull request to
+turn red and no author waiting on a check, so a red run's entire audience is whoever happens to open
+the Actions tab — which is how a regression sits on `main` for a week. Two things close that: the run
+announces itself, and the response is written down before it is needed rather than improvised by
+whoever is on call.
+
+**Notification.** A `notify` job runs `if: always() && needs.gate.result != 'success'` and opens — or
+comments on — a repository issue titled `autopilot container gate red on main at <sha>`, carrying each
+job's conclusion, the run URL, and a pointer to this section. One issue per commit, so a repeatedly
+failing commit does not manufacture a queue. It is the only job in the workflow granted more than
+`contents: read`: it takes `issues: write` and nothing else, holds no checkout, and runs no gate code,
+so the widened token never sits in a job that touches candidate-controlled input. The choice is
+deliberate over the alternatives — email needs a secret this workflow refuses to hold, and a
+notification that lives in one person's inbox is not repository-visible evidence. If Issues are
+disabled for the repository, this job fails, which is itself visible on the same run rather than
+silent.
+
+**Response.** The gate reports one commit's verdict, and that commit is named in the receipt, so the
+first question is always which failure it is:
+
+1. **Read the verdict, not the red X.** Download the run's `container-toolchain-*` artifacts. The
+   receipt's `outcome` is the diagnosis: `candidate-build-failed`, `candidate-smoke-failed` and
+   `candidate-output-invalid` are the image; `base-build-failed`, `base-timeout` and
+   `candidate-timeout` are the comparison or the runner, and are advisory or environmental rather
+   than statements that the image is broken. `unexpected-error` means the gate itself hit a condition
+   it does not model — the diagnostics log carries the failing stage and the process tail.
+2. **Decide whether `main` is currently shipping a broken image.** Only the three candidate outcomes
+   above mean it is. The image is consumed by autopilot container runs, not by the repository's own
+   CI, so the blast radius is agent execution rather than the merge pipeline.
+3. **Revert first if it is.** The offending commit is named in the receipt's `identities.candidateSha`.
+   `git revert <sha>` on a branch, open it as an ordinary pull request, and merge it — the revert
+   itself is a `main` push, so the gate re-runs and the green run on the reverted state *is* the
+   verification. Reverting is preferred over fixing forward because the gate cannot tell you whether
+   a fix works until after it has merged; a revert restores a state that already had a green verdict.
+   Fix forward only when the failure is a base-side or timeout outcome, where nothing is broken to
+   restore.
+4. **Re-run before believing an infrastructure story.** `base-build-failed` and the timeout outcomes
+   are the ones a registry or daemon outage produces. Re-running the workflow on the same commit
+   distinguishes a transient outage from a real regression, and costs one run.
+5. **Close the loop in the issue.** The `notify` issue is the incident record: the cause, the revert
+   or fix commit, and the green run URL go there, and it is closed only after a green run exists for
+   a commit on `main`. An issue closed without one is a gate whose failure was noted and dropped.
+
+If a red gate persists across a revert and a re-run, the failure is in the gate rather than the image;
+suspend any branch policy that depends on it using the procedure above rather than merging past it
+untested.
 
 ## Residual risks
 
