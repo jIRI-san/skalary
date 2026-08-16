@@ -332,7 +332,8 @@ Describe 'Authoritative SI proposal completion' {
             param(
                 [Parameter(Mandatory)]$Fixture,
                 [switch]$FailMerge,
-                [switch]$AmbiguousMerge
+                [switch]$AmbiguousMerge,
+                [switch]$HeadRace
             )
             $global:SiCompletionRemote = [string]$Fixture.Remote
             $global:SiCompletionBranch = [string]$Fixture.Branch
@@ -340,6 +341,7 @@ Describe 'Authoritative SI proposal completion' {
             $global:SiCompletionIsDraft = $true
             $global:SiCompletionFailMerge = [bool]$FailMerge
             $global:SiCompletionAmbiguousMerge = [bool]$AmbiguousMerge
+            $global:SiCompletionHeadRace = [bool]$HeadRace
             $global:SiCompletionMerged = $false
             $global:SiCompletionCalls = [System.Collections.Generic.List[object]]::new()
             function global:gh {
@@ -359,7 +361,7 @@ Describe 'Authoritative SI proposal completion' {
                     if ($global:SiCompletionFailMerge) {
                         $global:SiCompletionFailMerge = $false
                         $global:LASTEXITCODE = 1
-                        return '{"errors":[{"message":"seeded failure"}]}'
+                        return '{"errors":[{"message":"seeded failure ' + ('x' * 5000) + '"}]}'
                     }
                     if ($global:SiCompletionAmbiguousMerge) {
                         $global:SiCompletionAmbiguousMerge = $false
@@ -376,6 +378,17 @@ Describe 'Authoritative SI proposal completion' {
                         $global:SiCompletionIsDraft = $false
                         $global:LASTEXITCODE = 1
                         return '{"errors":[{"message":"response lost"}]}'
+                    }
+                    if ($global:SiCompletionHeadRace) {
+                        $global:SiCompletionHeadRace = $false
+                        $main = ([string](
+                                & git --git-dir=$global:SiCompletionRemote rev-parse (
+                                    'refs/heads/main'
+                                )
+                            )).Trim()
+                        & git --git-dir=$global:SiCompletionRemote update-ref `
+                            "refs/heads/$global:SiCompletionBranch" $main
+                        return '{"errors":[{"message":"Head sha does not match expectedHeadOid"}]}'
                     }
                     $global:SiCompletionIsDraft = $false
                     return '{"data":{"merge":{"pullRequest":{"merged":true,"mergedAt":"2026-08-10T00:00:00Z"}}}}'
@@ -429,7 +442,8 @@ Describe 'Authoritative SI proposal completion' {
         foreach ($name in @(
                 'SiCompletionRemote', 'SiCompletionBranch', 'SiCompletionIsDraft',
                 'SiCompletionFailMerge', 'SiCompletionAmbiguousMerge',
-                'SiCompletionMerged', 'SiCompletionCalls', 'SiCompletionBaseOid'
+                'SiCompletionHeadRace', 'SiCompletionMerged', 'SiCompletionCalls',
+                'SiCompletionBaseOid'
             )) {
             Remove-Variable $name -Scope Global -ErrorAction SilentlyContinue
         }
@@ -510,12 +524,19 @@ Describe 'Authoritative SI proposal completion' {
         $fixture = New-CompletionFixture
         try {
             Set-ProviderFixture -Fixture $fixture -FailMerge
-            {
+            $providerFailure = try {
                 & $fixture.Complete -RepoRoot $fixture.Trusted `
                     -PullRequestNumber 17 -DueId $fixture.DueId `
                     -RunId $fixture.RunId -Receipt $fixture.Receipt `
                     -LifecycleHeadOid $fixture.LifecycleHead
-            } | Should -Throw '*provider request failed*'
+                $null
+            }
+            catch {
+                $_.Exception.Message
+            }
+            $providerFailure | Should -Match 'provider request failed.*seeded failure'
+            [System.Text.Encoding]::UTF8.GetByteCount($providerFailure) |
+                Should -BeLessOrEqual 4200
             $completedHead = ([string](
                     & git --git-dir=$($fixture.Remote) rev-parse "refs/heads/$($fixture.Branch)"
                 )).Trim()
@@ -856,6 +877,176 @@ Describe 'Authoritative SI proposal completion' {
         }
         finally {
             Remove-CompletionFixture -Fixture $tampered
+        }
+
+        $outOfScope = New-CompletionFixture
+        try {
+            $beforeMain = ([string](
+                    & git --git-dir=$($outOfScope.Remote) rev-parse refs/heads/main
+                )).Trim()
+            [System.IO.File]::WriteAllText(
+                (Join-Path $outOfScope.Root 'outside.txt'),
+                "not an allowed SI proposal path`n"
+            )
+            [void](Invoke-CompletionGit -Root $outOfScope.Root -Argument @(
+                    'add', 'outside.txt'
+                ))
+            [void](Invoke-CompletionGit -Root $outOfScope.Root -Argument @(
+                    'commit', '--quiet', '-m', 'inject ordinary out-of-scope file'
+                ))
+            [void](Invoke-CompletionGit -Root $outOfScope.Root -Argument @(
+                    'push', '--quiet', 'origin', $outOfScope.Branch
+                ))
+            $beforeHead = ([string](
+                    & git --git-dir=$($outOfScope.Remote) rev-parse (
+                        "refs/heads/$($outOfScope.Branch)"
+                    )
+                )).Trim()
+            Set-ProviderFixture -Fixture $outOfScope
+            {
+                & $outOfScope.Complete -RepoRoot $outOfScope.Trusted `
+                    -PullRequestNumber 17 -DueId $outOfScope.DueId `
+                    -RunId $outOfScope.RunId -Receipt $outOfScope.Receipt `
+                    -LifecycleHeadOid $outOfScope.LifecycleHead
+            } | Should -Throw '*write-scope guard refused*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+            ([string](
+                    & git --git-dir=$($outOfScope.Remote) rev-parse refs/heads/main
+                )).Trim() | Should -Be $beforeMain
+            ([string](
+                    & git --git-dir=$($outOfScope.Remote) rev-parse (
+                        "refs/heads/$($outOfScope.Branch)"
+                    )
+                )).Trim() | Should -Be $beforeHead
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $outOfScope
+        }
+
+        $headRace = New-CompletionFixture
+        try {
+            Set-ProviderFixture -Fixture $headRace -HeadRace
+            {
+                & $headRace.Complete -RepoRoot $headRace.Trusted `
+                    -PullRequestNumber 17 -DueId $headRace.DueId `
+                    -RunId $headRace.RunId -Receipt $headRace.Receipt `
+                    -LifecycleHeadOid $headRace.LifecycleHead
+            } | Should -Throw '*Head sha does not match expectedHeadOid*'
+            $mergeArguments = @($global:SiCompletionCalls[0])
+            $expectedHeadArgument = [string](
+                $mergeArguments | Where-Object {
+                    [string]$_ -like 'expectedHeadOid=*'
+                } | Select-Object -First 1
+            )
+            $expectedHeadArgument | Should -Match '^expectedHeadOid=[0-9a-f]{40}$'
+            $expectedHeadArgument | Should -Not -Be "expectedHeadOid=$($headRace.MainOid)"
+            $global:SiCompletionMerged | Should -BeFalse
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $headRace
+        }
+
+        $oversized = New-CompletionFixture
+        try {
+            [System.IO.File]::AppendAllText(
+                (Join-Path $oversized.Root 'docs/self-improvement/state.json'),
+                ' ' * 256KB
+            )
+            [void](Invoke-CompletionGit -Root $oversized.Root -Argument @(
+                    'add', 'docs/self-improvement/state.json'
+                ))
+            [void](Invoke-CompletionGit -Root $oversized.Root -Argument @(
+                    'commit', '--quiet', '-m', 'oversize untrusted manifest'
+                ))
+            [void](Invoke-CompletionGit -Root $oversized.Root -Argument @(
+                    'push', '--quiet', 'origin', $oversized.Branch
+                ))
+            Set-ProviderFixture -Fixture $oversized
+            {
+                & $oversized.Complete -RepoRoot $oversized.Trusted `
+                    -PullRequestNumber 17 -DueId $oversized.DueId `
+                    -RunId $oversized.RunId -Receipt $oversized.Receipt `
+                    -LifecycleHeadOid $oversized.LifecycleHead
+            } | Should -Throw '*state.json*exceeds its 262144-byte limit*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $oversized
+        }
+
+        $invalidUtf8 = New-CompletionFixture
+        try {
+            $runPath = @(
+                Get-ChildItem -LiteralPath (
+                    Join-Path $invalidUtf8.Root 'docs/self-improvement/runs'
+                ) -Filter "$($invalidUtf8.RunId).json" -Recurse -File
+            )[0].FullName
+            $bytes = [System.IO.File]::ReadAllBytes($runPath)
+            [System.IO.File]::WriteAllBytes(
+                $runPath,
+                [byte[]](@($bytes) + @(0xC3, 0x28))
+            )
+            [void](Invoke-CompletionGit -Root $invalidUtf8.Root -Argument @(
+                    'add', 'docs/self-improvement'
+                ))
+            [void](Invoke-CompletionGit -Root $invalidUtf8.Root -Argument @(
+                    'commit', '--quiet', '-m', 'inject invalid UTF-8 run'
+                ))
+            [void](Invoke-CompletionGit -Root $invalidUtf8.Root -Argument @(
+                    'push', '--quiet', 'origin', $invalidUtf8.Branch
+                ))
+            Set-ProviderFixture -Fixture $invalidUtf8
+            {
+                & $invalidUtf8.Complete -RepoRoot $invalidUtf8.Trusted `
+                    -PullRequestNumber 17 -DueId $invalidUtf8.DueId `
+                    -RunId $invalidUtf8.RunId -Receipt $invalidUtf8.Receipt `
+                    -LifecycleHeadOid $invalidUtf8.LifecycleHead
+            } | Should -Throw '*is not strict UTF-8*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $invalidUtf8
+        }
+
+        $linked = New-CompletionFixture
+        try {
+            $runPath = @(
+                Get-ChildItem -LiteralPath (
+                    Join-Path $linked.Root 'docs/self-improvement/runs'
+                ) -Filter "$($linked.RunId).json" -Recurse -File
+            )[0].FullName
+            $runRelative = [System.IO.Path]::GetRelativePath(
+                $linked.Root,
+                $runPath
+            ).Replace('\', '/')
+            $linkSource = Join-Path $linked.Root 'link-target.txt'
+            [System.IO.File]::WriteAllText($linkSource, 'state.json')
+            $linkBlob = ([string](
+                    Invoke-CompletionGit -Root $linked.Root -Argument @(
+                        'hash-object', '-w', $linkSource
+                    ) | Select-Object -First 1
+                )).Trim()
+            [void](Invoke-CompletionGit -Root $linked.Root -Argument @(
+                    'update-index', '--add', '--cacheinfo',
+                    "120000,$linkBlob,$runRelative"
+                ))
+            [void](Invoke-CompletionGit -Root $linked.Root -Argument @(
+                    'commit', '--quiet', '-m', 'replace run with symlink blob'
+                ))
+            [void](Invoke-CompletionGit -Root $linked.Root -Argument @(
+                    'push', '--quiet', 'origin', $linked.Branch
+                ))
+            Set-ProviderFixture -Fixture $linked
+            {
+                & $linked.Complete -RepoRoot $linked.Trusted `
+                    -PullRequestNumber 17 -DueId $linked.DueId `
+                    -RunId $linked.RunId -Receipt $linked.Receipt `
+                    -LifecycleHeadOid $linked.LifecycleHead
+            } | Should -Throw '*must be a regular file*'
+            $global:SiCompletionCalls.Count | Should -Be 0
+        }
+        finally {
+            Remove-CompletionFixture -Fixture $linked
         }
     }
 }

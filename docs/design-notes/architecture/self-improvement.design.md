@@ -269,8 +269,11 @@ and remote staging-ref cleanup are checked, and either cleanup failure blocks su
 
 `Complete-SiProposal.ps1` is the separate operator-only merge authority; `/si` never invokes it.
 It runs only from a clean detached installed checkout pinned to freshly fetched `origin/main`,
-queries the live fixed-branch PR, fetches and cross-checks that head, and replays the trusted scope,
-trust-anchor, receipt, run, and manifest checks in a disposable worktree. For run PRs it writes the
+queries the live fixed-branch PR, fetches and cross-checks that head, and requires regular-file,
+bounded, strict-UTF-8 manifest/run/resolver-receipt/repair artifacts before materializing the
+untrusted tree. It then replays the trusted scope, trust-anchor, receipt, run, and manifest checks in
+a disposable worktree.
+For run PRs it writes the
 recoverable run-first/manifest-second completed transition to the fixed branch before merging.
 Provider failure therefore leaves a resumable completed branch, while authoritative main remains
 pending. The operator passes the retained `lifecycleHeadOid`; completion verifies it is an ancestor
@@ -278,7 +281,9 @@ and that its exact candidate dispositions still match the live run, so a later b
 rewrite the operator's choices. Immediately before merge it refreshes the PR and requires the same
 repository, `main` base name/OID, fixed branch, and head OID, then marks a draft ready and calls
 GitHub's merge mutation with `expectedHeadOid` in the same process. An ambiguous provider response
-is reconciled against the merged PR. A later retry fetches the provider's immutable pull-request head
+is reconciled against the merged PR. Provider failures retain sanitized diagnostics capped at 4 KiB
+so stale-head, checks, protection, authentication, and rate-limit failures remain distinguishable.
+A later retry fetches the provider's immutable pull-request head
 and binds the provider's historical base and merge commit as ancestors of freshly fetched
 `origin/main` before rerunning the same lifecycle binding, scope, exact-state, or trusted repair
 replay checks. The proposal-stored pinned base must equal that provider base; it never substitutes

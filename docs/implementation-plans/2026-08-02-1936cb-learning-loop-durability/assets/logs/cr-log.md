@@ -220,6 +220,7 @@ Phase: 7
 - [7.1] [src:code-review] [sev:High] [concern:security] [req:REQ-2,REQ-7] [review:cr] [source-record:1e697c089152dff942e06688a988fff4f51b3b0c0b1a24041a1c47a84ed44689] Closure CR: trusted completion materializes proposal-controlled manifest, run, and repair files before object-size and strict UTF-8 checks.
 - [7.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-2,REQ-7] [review:cr] [source-record:b29076b0f163ad346f3a5030804c7040b7d91ee94677efef0e5d73ee89cc0313] Closure CR: expected-head tests do not prove the GraphQL mutation consumes expectedHeadOid or reject a provider-visible head race.
 - [7.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-7] [review:cr] [source-record:6319eadeeb83042bb2ea0d4ec2b1a31bb69e513457b9f3d9999c575ec0d947de] Closure CR: completion scope guard lacks a negative execution test proving an ordinary out-of-scope proposal blocks provider invocation and leaves heads unchanged.
+- [7.1] [src:code-review] [sev:Med] [concern:security] [req:REQ-7] [review:cr] [source-record:548c6221a10ab1bafb3f2a170597d5c22ef9b7e4cf65aca844c06e84e323b2de] Review found Git symlink blobs could bypass size and strict UTF-8 preflight before checkout; completion now requires regular-file tree modes and tests the refusal.
 
 ## CR Capture
 Phase: 8

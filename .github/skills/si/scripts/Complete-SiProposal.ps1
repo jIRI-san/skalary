@@ -22,6 +22,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:SiCompletionParameterSet = $PSCmdlet.ParameterSetName
+$script:SiProviderDiagnosticBytes = 4KB
 
 function Invoke-SiCompletionGit {
     param(
@@ -88,16 +89,45 @@ function Invoke-SiProvider {
     param([Parameter(Mandatory)][string[]]$Argument)
 
     $output = @(& gh @Argument 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw "GitHub provider request failed with exit code $LASTEXITCODE."
+    $providerExitCode = $LASTEXITCODE
+    $diagnostic = ConvertTo-SiProviderDiagnostic -Value ($output -join "`n")
+    if ($providerExitCode -ne 0) {
+        throw "GitHub provider request failed with exit code $providerExitCode`: $diagnostic"
     }
     $json = $output -join "`n"
     try {
         return $json | ConvertFrom-Json -Depth 100 -DateKind String
     }
     catch {
-        throw 'GitHub provider returned malformed JSON.'
+        throw "GitHub provider returned malformed JSON: $diagnostic"
     }
+}
+
+function ConvertTo-SiProviderDiagnostic {
+    param([AllowEmptyString()][string]$Value)
+
+    $normalized = (($Value -replace "`r`n?", "`n") -replace '[\p{Cc}\p{Cf}]', ' ').Trim()
+    if ([string]::IsNullOrWhiteSpace($normalized)) { return '<no provider diagnostics>' }
+
+    $encoding = [System.Text.UTF8Encoding]::new($false)
+    if ($encoding.GetByteCount($normalized) -le $script:SiProviderDiagnosticBytes) {
+        return $normalized
+    }
+    $suffix = ' [truncated]'
+    $targetBytes = $script:SiProviderDiagnosticBytes - $encoding.GetByteCount($suffix)
+    $length = [Math]::Min(
+        $normalized.Length,
+        [Math]::Floor(
+            $normalized.Length * $targetBytes /
+            $encoding.GetByteCount($normalized)
+        )
+    )
+    while ($length -gt 0 -and
+        $encoding.GetByteCount($normalized.Substring(0, $length)) -gt
+        $targetBytes) {
+        $length--
+    }
+    return $normalized.Substring(0, $length) + $suffix
 }
 
 function Get-SiProviderRepository {
@@ -235,9 +265,149 @@ mutation($id:ID!,$expectedHeadOid:GitObjectID!,$mergeMethod:PullRequestMergeMeth
     )
     if ($response.PSObject.Properties.Name -contains 'errors' -or
         -not [bool]$response.data.merge.pullRequest.merged) {
-        throw 'GitHub refused the expected-head SI proposal merge.'
+        $diagnostic = if ($response.PSObject.Properties.Name -contains 'errors') {
+            ConvertTo-SiProviderDiagnostic -Value (
+                @($response.errors | ForEach-Object { [string]$_.message }) -join '; '
+            )
+        }
+        else {
+            '<merge response did not report success>'
+        }
+        throw "GitHub refused the expected-head SI proposal merge: $diagnostic"
     }
     return $response.data.merge.pullRequest
+}
+
+function Read-SiCompletionBlobText {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$CommitOid,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][long]$MaxBytes
+    )
+
+    $object = "$CommitOid`:$Path"
+    $treeResult = Invoke-SiCompletionGit -Root $Root -Argument @(
+        'ls-tree', $CommitOid, '--', $Path
+    )
+    $treeLines = @($treeResult.Output | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        })
+    if ($treeLines.Count -ne 1 -or [string]$treeLines[0] -notmatch
+        '^100(?:644|755) blob (?:[0-9a-f]{40}|[0-9a-f]{64})\t') {
+        throw "SI proposal object '$Path' must be a regular file."
+    }
+    $sizeResult = Invoke-SiCompletionGit -Root $Root -Argument @(
+        'cat-file', '-s', $object
+    )
+    $size = 0L
+    if (-not [long]::TryParse(
+            ([string]($sizeResult.Output | Select-Object -First 1)).Trim(),
+            [ref]$size
+        )) {
+        throw "SI proposal object '$Path' has an invalid size."
+    }
+    if ($size -gt $MaxBytes) {
+        throw "SI proposal object '$Path' exceeds its $MaxBytes-byte limit."
+    }
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'git'
+    $startInfo.WorkingDirectory = $Root
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in @('cat-file', 'blob', $object)) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $memory = [System.IO.MemoryStream]::new()
+    try {
+        if (-not $process.Start()) {
+            throw "Unable to read SI proposal object '$Path'."
+        }
+        $copyTask = $process.StandardOutput.BaseStream.CopyToAsync($memory)
+        $errorTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $copyTask.GetAwaiter().GetResult()
+        $errorText = $errorTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to read SI proposal object '$Path': $(
+                ConvertTo-SiProviderDiagnostic -Value $errorText
+            )"
+        }
+        $bytes = $memory.ToArray()
+        if ($bytes.Length -ne $size) {
+            throw "SI proposal object '$Path' changed while being read."
+        }
+        try {
+            return [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+        }
+        catch [System.Text.DecoderFallbackException] {
+            throw "SI proposal object '$Path' is not strict UTF-8."
+        }
+    }
+    finally {
+        $memory.Dispose()
+        $process.Dispose()
+    }
+}
+
+function Find-SiCompletionRunPath {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$CommitOid,
+        [Parameter(Mandatory)][string]$ExpectedRunId
+    )
+
+    $runsRoot = Get-SiStateRelativePath -Kind ActiveRuns
+    $result = Invoke-SiCompletionGit -Root $Root -Argument @(
+        'ls-tree', '-r', '--name-only', $CommitOid, '--', $runsRoot
+    )
+    $suffix = "/$ExpectedRunId.json"
+    $matches = @($result.Output | ForEach-Object { [string]$_ } | Where-Object {
+            $_ -eq "$runsRoot/$ExpectedRunId.json" -or
+            $_.EndsWith($suffix, [System.StringComparison]::Ordinal)
+        })
+    if ($matches.Count -ne 1) {
+        throw "Proposal requires exactly one active run '$ExpectedRunId'."
+    }
+    return $matches[0]
+}
+
+function Assert-SiCompletionBlobInputs {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$HeadOid
+    )
+
+    [void](Read-SiCompletionBlobText -Root $Root -CommitOid $HeadOid `
+            -Path (Get-SiStateRelativePath -Kind Manifest) -MaxBytes 256KB)
+    if ($script:SiCompletionParameterSet -eq 'Run') {
+        $runPath = Find-SiCompletionRunPath -Root $Root -CommitOid $HeadOid `
+            -ExpectedRunId $RunId
+        [void](Read-SiCompletionBlobText -Root $Root -CommitOid $HeadOid `
+                -Path $runPath -MaxBytes 1MB)
+        $lifecycleRunPath = Find-SiCompletionRunPath -Root $Root `
+            -CommitOid $LifecycleHeadOid -ExpectedRunId $RunId
+        [void](Read-SiCompletionBlobText -Root $Root -CommitOid $LifecycleHeadOid `
+                -Path $lifecycleRunPath -MaxBytes 1MB)
+        [void](Read-SiCompletionBlobText -Root $Root -CommitOid $HeadOid `
+                -Path (Get-SiStateRelativePath -Kind ResolverReceipts `
+                    -Child "$Receipt.json") -MaxBytes 1MB)
+    }
+    else {
+        foreach ($path in @(
+                (Get-SiStateRelativePath -Kind RepairObservations `
+                    -Child "$Observation.json"),
+                (Get-SiStateRelativePath -Kind RepairReceipts `
+                    -Child "$RepairReceipt.json")
+            )) {
+            [void](Read-SiCompletionBlobText -Root $Root -CommitOid $HeadOid `
+                    -Path $path -MaxBytes 1MB)
+        }
+    }
 }
 
 function Invoke-SiTrustedScopeGuard {
@@ -874,6 +1044,7 @@ function Assert-SiMergedPullRequestHead {
     $validationError = $null
     $cleanupError = $null
     try {
+        Assert-SiCompletionBlobInputs -Root $TrustedRoot -HeadOid $headOid
         [void](Invoke-SiCompletionGit -Root $TrustedRoot -Argument @(
                 'worktree', 'add', '--quiet', '--detach', $mergedRoot, $headOid
             ))
@@ -1020,6 +1191,7 @@ Assert-SiPullRequestIdentity -PullRequest $pullRequest `
 if ((Get-SiCompletionOid -Root $root -Ref "refs/remotes/origin/$branch") -ne $liveHead) {
     throw 'GitHub pull request head disagrees with the fetched fixed branch.'
 }
+Assert-SiCompletionBlobInputs -Root $root -HeadOid $liveHead
 
 $worktree = Join-Path ([System.IO.Path]::GetTempPath()) (
     'si-completion-' + [Guid]::NewGuid().ToString('N')
