@@ -238,8 +238,10 @@ Describe 'sandbox' {
         $runnerText = Get-Content -LiteralPath $script:runner -Raw
         $dedicated = Join-Path $script:repoRoot 'scripts/skalary/Test-ReviewConsumerInstall.ps1'
         $workflow = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/workflows/registry-ci.yml') -Raw
+        $tiers = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/suite-tier.psd1')
 
-        $runnerText | Should -Match "ExcludePath\s*=.*ReviewConsumerInstall\.Tests\.ps1"
+        @($tiers.DedicatedFiles) | Should -Contain 'tests/skalary/ReviewConsumerInstall.Tests.ps1'
+        $runnerText | Should -Match 'DedicatedFiles'
         Test-Path -LiteralPath $dedicated -PathType Leaf | Should -BeTrue
         (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
         $workflow | Should -Match 'name:\s*Review consumer install matrix'
@@ -277,6 +279,35 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
             -RunId '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35' -PlanDir 'docs/implementation-plans/example' -Verdict blocked 2>&1
         $LASTEXITCODE | Should -Be 4 -Because 'durable evidence with pending cleanup is retryable failure, not success'
         ($cleanupOutput | Out-String) | Should -Match 'access denied while deleting tombstone'
+    }
+
+    It 'test:RunUnitTests.TierExecution isolates Fast and Slow while preserving the runner verdicts' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    DedicatedFiles = @()
+    SlowFiles = @('tests/Slow.Tests.ps1')
+}
+'@
+
+        $fastFails = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Fast')
+        $slowPasses = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Slow')
+        $fastFails.ExitCode | Should -Be 1 -Because $fastFails.Output
+        $slowPasses.ExitCode | Should -Be 0 -Because $slowPasses.Output
+        $slowPasses.Output | Should -Match 'Suite tier: Slow'
+        $slowPasses.Output | Should -Match 'Suite budget: not applied'
+
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Sandbox.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Value $script:failingTestFile -Encoding utf8NoBOM
+
+        $fastPasses = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Fast')
+        $slowFails = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Slow')
+        $fastPasses.ExitCode | Should -Be 0 -Because $fastPasses.Output
+        $slowFails.ExitCode | Should -Be 1 -Because $slowFails.Output
+        $fastPasses.Output | Should -Match 'Suite tier: Fast'
+        $fastPasses.Output | Should -Match 'Suite budget:'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {

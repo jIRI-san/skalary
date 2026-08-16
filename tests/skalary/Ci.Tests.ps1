@@ -33,7 +33,8 @@ Describe 'ci workflow' {
             'PSScriptAnalyzer'       = 'Invoke-ScriptAnalyzer'
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
             'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1'
             'generated output drift' = 'Build-Registry\.ps1'
@@ -50,7 +51,8 @@ Describe 'ci workflow' {
         $script:gateEnforcingPatterns = [ordered]@{
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
             'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf'
             'generated output drift' = 'git diff --exit-code'
@@ -525,6 +527,9 @@ Describe 'ci workflow' {
         $unitSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })
         $unitSteps.Count |
             Should -Be 1 -Because 'exactly one step runs the unit suite, through scripts/skalary/Run-UnitTests.ps1'
+        $slowSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['slow integration tests'] })
+        $slowSteps.Count |
+            Should -Be 1 -Because 'exactly one separate step runs the required Slow tier through the same runner'
 
         $validateSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['repository validation'] })
         $validateSteps.Count |
@@ -532,6 +537,7 @@ Describe 'ci workflow' {
 
         $unitSteps[0].Name |
             Should -Not -Be $validateSteps[0].Name -Because 'REQ-9 requires the two gates in separate named steps'
+        $slowSteps[0].Name | Should -Not -Be $unitSteps[0].Name
 
         # D2: the budget and the cannot-test exit codes live in Run-UnitTests.ps1 and nowhere
         # else, so a direct Invoke-Pester here would be a second, unbudgeted way to run the suite
@@ -722,6 +728,7 @@ Describe 'ci workflow' {
 
         $steps = @(Get-CiWorkflowStep -Text $script:workflowText)
         $unitStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })[0]
+        $slowStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['slow integration tests'] })[0]
 
         # A default NUnit path is a fixed name in the working directory, so both legs write the
         # same file and the artifact upload of the second collides with the first. The platform
@@ -735,6 +742,8 @@ Describe 'ci workflow' {
         $resultPath = $Matches['path'].Trim()
         $resultPath |
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'a report that cannot be attributed to a platform is not a diagnosis on a suite that runs ~2x apart across them'
+        $resultPath | Should -Match 'nunit-fast-'
+        $slowStep.Body | Should -Match '-TestResultPath\s+[^\n]*nunit-slow-\$\{\{ matrix\.os \}\}\.xml'
 
         $uploadSteps = @($steps | Where-Object { $_.Body -match 'uses:\s*actions/upload-artifact@' })
         $uploadSteps.Count | Should -Be 1 -Because 'one upload, so one artifact name to keep unique'
@@ -746,7 +755,7 @@ Describe 'ci workflow' {
 
         $upload.Body -match '(?m)^\s*path:\s*(?<path>[^\n]+)$' | Out-Null
         $Matches['path'].Trim() |
-            Should -Be $resultPath -Because 'the uploaded path must be the path the runner was told to write, or the artifact is empty for a reason nothing reports'
+            Should -Be 'artifacts/test-results/nunit-*-${{ matrix.os }}.xml' -Because 'one platform artifact carries both attributed tier reports'
 
         # The run worth reading is the failed one. Without always() the report is uploaded
         # exactly when nobody needs it.

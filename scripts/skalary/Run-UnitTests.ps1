@@ -33,6 +33,9 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
 
+    [ValidateSet('Fast', 'Slow', 'All')]
+    [string]$Tier = 'Fast',
+
     # Writes the budget clock and returns. The `pretest` hook calls this before the first leg
     # of `npm test`, which is the only way a leg can measure a command that spans three of them.
     [switch]$StartBudgetClock,
@@ -127,14 +130,79 @@ if (-not (Test-Path -LiteralPath $testPath -PathType Container)) {
     throw "Unit test path not found: $testPath"
 }
 
-# Pester throws rather than returning a result when the path holds no test file at all.
-# Checking first keeps that case as this script's own diagnosis and leaves every other
-# Invoke-Pester failure loud instead of swallowed by a catch.
-$testFiles = @(Get-ChildItem -LiteralPath $testPath -Recurse -File -Filter '*.Tests.ps1')
+$allTestFiles = @(Get-ChildItem -LiteralPath $testPath -Recurse -File -Filter '*.Tests.ps1')
+$tierManifestPath = Join-Path $RepoRoot 'tools/suite-tier.psd1'
+$slowPaths = @()
+$dedicatedPaths = @()
+
+if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
+    $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
+    if ([string]$tierManifest.Schema -ne 'skalary/suite-tier@1') {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest.Schema)'." -ForegroundColor Red
+        exit 9
+    }
+
+    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+    $rootPrefix = $repoRootFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $resolveTierPath = {
+        param([string]$RelativePath)
+
+        if ([string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) {
+            throw "Suite tier path must be a non-empty repository-relative path: '$RelativePath'."
+        }
+        $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $RelativePath))
+        if (-not $fullPath.StartsWith($rootPrefix, $pathComparison)) {
+            throw "Suite tier path escapes the repository: '$RelativePath'."
+        }
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            throw "Suite tier path does not exist: '$RelativePath'."
+        }
+        return $fullPath
+    }
+
+    try {
+        $slowPaths = @($tierManifest.SlowFiles | ForEach-Object { & $resolveTierPath ([string]$_) })
+        $dedicatedPaths = @($tierManifest.DedicatedFiles | ForEach-Object { & $resolveTierPath ([string]$_) })
+    }
+    catch {
+        Write-Host "SuiteTierInvalid: $($_.Exception.Message)" -ForegroundColor Red
+        exit 9
+    }
+
+    $allDeclared = @($slowPaths) + @($dedicatedPaths)
+    $distinctDeclared = @($allDeclared | Sort-Object -Unique)
+    if ($distinctDeclared.Count -ne $allDeclared.Count) {
+        Write-Host "SuiteTierInvalid: slow and dedicated paths must be unique and disjoint." -ForegroundColor Red
+        exit 9
+    }
+}
+elseif ($Tier -eq 'Slow') {
+    Write-Host "SuiteTierInvalid: Slow requires '$tierManifestPath'." -ForegroundColor Red
+    exit 9
+}
+else {
+    # Consumer fixtures without the repository manifest preserve the historical default.
+    $legacyDedicated = Join-Path $testPath 'skalary/ReviewConsumerInstall.Tests.ps1'
+    if (Test-Path -LiteralPath $legacyDedicated -PathType Leaf) { $dedicatedPaths = @($legacyDedicated) }
+}
+
+$pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
+$slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
+$dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
+$testFiles = @(switch ($Tier) {
+    'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
+    'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
+    default { @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) }) }
+})
+
+# Pester throws rather than returning a result when the selected tier holds no test file.
 if ($testFiles.Count -eq 0) {
-    Write-Host "NoTestsDiscovered: no *.Tests.ps1 file exists under '$testPath', so there was nothing to discover." -ForegroundColor Red
+    Write-Host "NoTestsDiscovered: tier '$Tier' selected no *.Tests.ps1 file under '$testPath'." -ForegroundColor Red
     exit 3
 }
+
+Write-Host "Suite tier: $Tier ($($testFiles.Count) file(s))."
 
 Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 
@@ -143,8 +211,7 @@ Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 # code with "that many tests failed" — the one distinction this script exists to make — so the
 # NUnit output is kept and the exit is taken back.
 $configuration = New-PesterConfiguration
-$configuration.Run.Path = $testPath
-$configuration.Run.ExcludePath = @(Join-Path $testPath 'skalary/ReviewConsumerInstall.Tests.ps1')
+$configuration.Run.Path = @($testFiles.FullName)
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
@@ -225,6 +292,11 @@ foreach ($name in ($candidateNames | Sort-Object)) {
 if ($leakedNames.Count -gt 0) {
     Write-Host "EnvironmentLeaked: the suite changed $($leakedNames.Count) environment variable(s) and did not restore them: $($leakedNames -join '; '). Snapshot and restore them in the owning test." -ForegroundColor Red
     exit 7
+}
+
+if ($Tier -ne 'Fast') {
+    Write-Host "Suite budget: not applied to the '$Tier' tier; only Fast is the budgeted '$([string](Import-PowerShellDataFile -LiteralPath (Join-Path $RepoRoot 'tools/suite-budget.psd1')).MeasuredCommand)' gate."
+    exit 0
 }
 
 # REQ-2: the gate the ceiling exists for. A suite nobody runs because it is slow is a gate

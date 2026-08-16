@@ -89,7 +89,7 @@ Describe 'retired arch evidence marker' {
     }
 
     It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch synchronizes the manifest-derived parser closure' {
-        @($script:stateBundles.Skill) | Should -Be @('cep', 'ci', 'cip', 'pfb', 'si')
+        @($script:stateBundles.Skill) | Should -Be @('cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si')
         @($script:validatorBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
         @($script:evidenceBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
 

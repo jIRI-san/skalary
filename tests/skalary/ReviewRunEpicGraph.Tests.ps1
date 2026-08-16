@@ -116,10 +116,8 @@ Describe 'review-run consumer edges' {
             $child[0].IsBlocked |
                 Should -Be $expectedBlocked -Because "$($consumer.Id) must be blocked exactly while a dependency is incomplete"
 
-            if ($child[0].IsBlocked) {
-                @($child[0].UnmetDependsOn) |
-                    Should -Contain 'c21cdc' -Because 'this plan is the dependency that is still open'
-            }
+            @($child[0].UnmetDependsOn | Sort-Object) |
+                Should -Be @($incomplete | Sort-Object) -Because 'the rollup must report exactly the dependencies that are still incomplete'
         }
     }
 
