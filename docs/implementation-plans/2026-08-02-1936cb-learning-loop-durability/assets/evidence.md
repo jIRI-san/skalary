@@ -70,20 +70,20 @@ Phase 6 Crosscheck:
 ✓ REQ-8 — test:SiScope.StaleRemoteHeadRefused — passed — 534dd4bb665750d97479aa8c851aa32ff5471a69
 
 Phase 7 Crosscheck:
-✓ REQ-1 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-1 — test:SiState.RepairCrashJournalRollback — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-1 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-2 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-2 — test:SiState.PrFailureReconciliation — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-2 — test:SiState.AllDeclinedRecordPr — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-2 — test:SiScope.ExpectedHeadMergeEnforced — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-3 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-3 — test:SiState.AllDeclinedRecordPr — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-7 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-7 — test:SiState.RepairCrashJournalRollback — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-7 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-7 — test:SiScope.ExpectedHeadMergeEnforced — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
-✓ REQ-8 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 832ab8b440ca771b1ef36e881ac2ce95c3f118ac
+✓ REQ-1 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-1 — test:SiState.RepairCrashJournalRollback — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-1 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-2 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-2 — test:SiState.PrFailureReconciliation — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-2 — test:SiState.AllDeclinedRecordPr — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-2 — test:SiScope.ExpectedHeadMergeEnforced — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-3 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-3 — test:SiState.AllDeclinedRecordPr — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-7 — test:SiState.CorruptionIndependentRepairLifecycle — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-7 — test:SiState.RepairCrashJournalRollback — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-7 — test:SiState.RepairReceiptGatesAuthoritativeMerge — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-7 — test:SiScope.ExpectedHeadMergeEnforced — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
+✓ REQ-8 — test:SiState.AuthoritativeFixedBranchLifecycleMatrix — passed — 2424abdce75cca471f320e6c6d6a7ae9806fb7b1
 
 Phase 8 Crosscheck:
 ✓ REQ-8 — test:LearningLoop.PayloadOwnershipAndDrift — passed — e16134152277cca9d46bc61b4c0422bee708fe4e
