@@ -57,13 +57,18 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
-17. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
+17. **Code review, capped per stage** — before dispatch, run `scripts/skalary/ReviewCycleGate.ps1 -Action Check -PlanDir <plan-folder> -Phase <N> -Stage step-<source-step> -Json`. The same helper gates phase reviews as `phase-<N>` and final reviews as `plan-finalization`.
+   - `allow`: invoke the built-in `code-review` subagent.
+   - `operator-decision`: do not dispatch a fourth review. Ensure every remaining finding from the third round is in `cr-log.md`, commit the in-progress step and logs by explicit path, report the findings plus the operator choices **Continue looping** / **Wrap up**, and exit `42`. Autopilot cannot grant itself continuation. Interactive `/ci` records `-Action Continue` (one extra cycle only) or `-Action Wrap`; a resumed autopilot run obeys that durable decision.
+   - `wrap`: stop reviewing and continue with the operator-accepted residual findings logged; never claim clean review evidence.
+
+   Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
 
    ```powershell
    pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
    ```
 
-   It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. For any findings it reports, fix them and re-run the same focused build/test checks.
+   It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. After every round, once findings are logged, call `ReviewCycleGate.ps1 -Action Record -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. Never put finding text in `-Summary`. For any findings it reports, fix them and re-run the same focused build/test checks, subject to the gate above.
 18. **Emit review hints for Rubber Duck** — output the following block verbatim so the `rubber-duck` subagent has project-specific context for its second opinion:
 
     ```
@@ -76,7 +81,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
     - Style: naming/file-organization inconsistencies vs surrounding code, dead code, commented-out code, duplication (>3 occurrences → extract)
     ```
 
-19. **Fix loop** — if focused build/test, acceptance, or code-review fails, fix and retry the same affected surface. Maximum iterations from config.
+19. **Fix loop** — if focused build/test or acceptance fails, fix and retry the same affected surface up to the configured maximum. Code-review retries are governed separately by the durable three-cycle per-stage cap; `maxIterationsPerStep` never overrides it.
 20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
 21. **Push** — `git push origin <current-branch>` immediately after the step commit (regular push, never force-push). A run killed by a timeout or crash keeps everything already pushed, so pushing per step bounds the loss to the step in flight rather than the whole phase. A rejected or failed push is not fatal to the step: report it and continue — the phase-end push and the entrypoint's termination handler retry.
 22. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
@@ -214,6 +219,7 @@ These rules are non-negotiable. Violating any of them is a critical failure.
 8. **Respect the `AUTOPILOT_CONTAINER` guard.** If `AUTOPILOT_CONTAINER=true` is set, never invoke container orchestration scripts.
 9. **Atomic plan updates.** When marking a step `[x]`, include the plan file change in the same commit as the code changes.
 10. **Host-command config isolation.** Never read, create, or modify `.autopilot.host.json` or `.autopilot.host.json.example` — the host launcher is the sole reader of host-command config.
+11. **Never exceed the CR cycle gate.** Three review cycles per stage are automatic. Only a persisted operator Continue decision authorizes one more; otherwise log findings and exit `42`.
 
 ## Context
 

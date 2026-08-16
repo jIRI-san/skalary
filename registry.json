@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-15T22:42:53.5846611Z",
+  "generatedAt": "2026-08-16T04:09:46.9699549Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -264,7 +264,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "6257711e250414ae5673f0537361dbcce85c9f99da941e7b0566f98a317d7475",
+          "sha256": "34aecd64e09288192acb3ee21af2db0e8049707d1ee837167805fc8dbb91288c",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -372,7 +372,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     {
       "author": "jIRI-san",
@@ -479,7 +479,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "a9ec288eff62effa4bc1d18aed6055b79b85eb9239144d1b4c99e76e27d5c224",
+          "sha256": "10cb56c2c6c399d0bc2a8e35e7bd80974877b8a8c4c0fd405a3270e716024342",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -521,7 +521,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.22"
+      "version": "1.0.23"
     },
     {
       "author": "jIRI-san",
@@ -541,12 +541,12 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "629e7faf92e677cfb915dc1bd5b56c8f5610ea0e24adcc5a5a9cbca1069bd3f2",
+          "sha256": "9e07b3bddc1a9bafb6e21ed004935b88c17ed116e4a3018f312e53366b83e3fa",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "22d15f09c3c66942602e0ffd1d58cb2931ade64f2927309e736c6f842c582a37",
+          "sha256": "1a22f375df8661fd1981e2a458cd38eae634edd75682d338be24f6bf0bd05b93",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -593,6 +593,11 @@
           "dest": "skills/ci/scripts/Repair-Plans.ps1",
           "sha256": "18454a1051df0329ce76488fa866d46e9aacdc585fafdb23ccdc01c007ebc398",
           "src": "skills/ci/scripts/Repair-Plans.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
+          "sha256": "02a0b040b90ff4e808d19223daf1c80b863f5f4b74d83233650b0312574a4e19",
+          "src": "skills/ci/scripts/ReviewCycleGate.ps1"
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
@@ -653,7 +658,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.29"
+      "version": "1.0.30"
     },
     {
       "author": "jIRI-san",
@@ -991,7 +996,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "a9ec288eff62effa4bc1d18aed6055b79b85eb9239144d1b4c99e76e27d5c224",
+          "sha256": "10cb56c2c6c399d0bc2a8e35e7bd80974877b8a8c4c0fd405a3270e716024342",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1033,7 +1038,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     },
     {
       "author": "jIRI-san",

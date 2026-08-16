@@ -166,6 +166,11 @@ Fail-loud behavior: error only when expected log sections/placeholders are missi
 
 Before launching a CR round (`@cr`, `code-review`, or `rubber-duck`), consult only the relevant category files from `docs/review-ledger/`:
 
+Every `/ci`-launched CR round at crosscheck is also gated by
+`.github/skills/ci/scripts/ReviewCycleGate.ps1`: use stage `phase-<N>` for phase crosscheck and
+`plan-finalization` for plan crosscheck. The same three-cycle cap and operator Continue/Wrap decision
+from `execution-guide.md` applies; crosscheck is not a fresh counter.
+
 - `security.md` — auth/trust-boundary/injection/secret/ACL
 - `performance.md` — latency/throughput/allocation/N+1
 - `error-handling.md` — retry/timeout/fail-loud/exception-flow

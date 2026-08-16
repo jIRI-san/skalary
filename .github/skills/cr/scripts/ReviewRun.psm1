@@ -80,6 +80,7 @@ $script:ArtifactRole = [ordered]@{
 $script:Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $script:Limits = $null
 $script:VerifiedAuthorityToken = [object]::new()
+$script:RemoveTreeProvider = $null
 
 # These literal paths are the closed schema sidecar closure copied by Sync-PluginScripts. Root
 # execution still uses the canonical schemas/review directory; installed execution uses these copies.
@@ -2317,7 +2318,16 @@ function Read-ReviewAdmissionMarker {
         Assert-ReviewArtifactContent -Role admissionSource -Bytes $sourceBytes
     }
 
-    return [pscustomobject]@{ Marker = $marker; Path = $path; SourcePath = $sourcePath; Boundary = $boundaryFull }
+    $sourceDocument = if ($null -ne $sourceBytes) { $script:Utf8NoBom.GetString($sourceBytes) | ConvertFrom-Json -AsHashtable -Depth 40 } else { $null }
+    return [pscustomobject]@{ Marker = $marker; Path = $path; SourcePath = $sourcePath; SourceBytes = $sourceBytes; SourceDocument = $sourceDocument; Boundary = $boundaryFull }
+}
+
+function Set-ReviewRemoveTreeProvider { param([scriptblock]$Provider) $script:RemoveTreeProvider = $Provider }
+function Clear-ReviewRemoveTreeProvider { $script:RemoveTreeProvider = $null }
+function Remove-ReviewTree {
+    param([Parameter(Mandatory)][string]$Path)
+    if ($null -ne $script:RemoveTreeProvider) { & $script:RemoveTreeProvider $Path; return }
+    Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
 }
 
 function Remove-ReviewOwnStaging {
@@ -3484,6 +3494,22 @@ function Read-ReviewCleanupMarker {
     return $marker
 }
 
+function Assert-ReviewCleanupMarkerMaterial {
+    param([Parameter(Mandatory)][object]$Marker, [Parameter(Mandatory)][object]$Material)
+    foreach ($entry in @(@('report', $Material.ReportBytes), @('receipt', $Material.ReceiptBytes))) {
+        $role = [string]$entry[0]
+        $bytes = [byte[]]$entry[1]
+        if ($Marker[$role]['bytes'] -ne $bytes.Length -or $Marker[$role]['digest'] -ne (Get-ReviewDigest -Bytes $bytes)) {
+            throw "Cleanup marker '$role' is bound to different finalization material."
+        }
+    }
+}
+
+function New-ReviewFinalizationResult {
+    param([string]$RunId, [string]$Verdict, [string]$Report, [string]$Receipt, [bool]$Replayed = $false, [bool]$Preview = $false, [bool]$CleanupPending = $false, [AllowNull()][string]$CleanupDiagnostic)
+    return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $Report; Receipt = $Receipt; Replayed = $Replayed; Preview = $Preview; CleanupPending = $CleanupPending; CleanupDiagnostic = $CleanupDiagnostic }
+}
+
 function Finalize-ReviewPlanRun {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
@@ -3528,13 +3554,13 @@ function Finalize-ReviewPlanRun {
                 $cleanupDiagnostic = $null
                 if ($PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
                     try {
-                        Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+                        Remove-ReviewTree -Path $cleanupDir
                         Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
                         $cleanupPending = $false
                     }
                     catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
                 }
-                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $WhatIfPreference; CleanupPending = $cleanupPending; CleanupDiagnostic = $cleanupDiagnostic }
+                return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -Preview $WhatIfPreference -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
             }
             if (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath) {
                 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
@@ -3553,7 +3579,7 @@ function Finalize-ReviewPlanRun {
                     }
                     catch { $cleanupPending = $true }
                 }
-                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $true; Preview = $WhatIfPreference; CleanupPending = $cleanupPending }
+                return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $true -Preview $WhatIfPreference -CleanupPending $cleanupPending
             }
             throw "No live or finalized plan review run for '$RunId'."
         }
@@ -3562,11 +3588,17 @@ function Finalize-ReviewPlanRun {
         try {
             $verified = Read-ReviewManifestForFinalization -RunDir $runDir -Boundary $repoFull
             $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
+            $existingMarker = $null
+            if (Test-Path -LiteralPath $cleanupMarkerPath -PathType Leaf) {
+                $existingMarker = Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict `
+                    -ReportPath $reportPath -ReceiptPath $receiptPath -SkipPairValidation
+                Assert-ReviewCleanupMarkerMaterial -Marker $existingMarker -Material $material
+            }
             $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
                 -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
 
             if (-not $PSCmdlet.ShouldProcess($runDir, "Finalize plan review as '$Verdict', write compact evidence, and remove the live run")) {
-                return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $false; Preview = $true; CleanupPending = $true }
+                return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Preview $true -CleanupPending $true
             }
 
             if (-not $pairExists) {
@@ -3599,15 +3631,17 @@ function Finalize-ReviewPlanRun {
                 [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
             }
             Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
-            $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
-            Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
+            if ($null -eq $existingMarker) {
+                $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
+                Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
+            }
             Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
             Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
-            Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
+            Remove-ReviewTree -Path $cleanupDir
             Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
         }
         catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
-        return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $reportPath; Receipt = $receiptPath; Replayed = $pairExists; Preview = $false; CleanupPending = $cleanupPending; CleanupDiagnostic = $cleanupDiagnostic }
+        return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
     }
     finally { Exit-ReviewLock -Lock $lock }
 }
@@ -3668,7 +3702,7 @@ function Get-ReviewAdmissionRollup {
     $admission = Read-ReviewAdmissionMarker -RunDir $parentDir -Boundary $boundary
     if (-not [bool]$admission.Marker['restartable']) { throw 'the parent admission has no verifiable restart source' }
     $parentPlan = (Read-ReviewFrozenPlan -RunDir $parentDir).Plan
-    $parentRun = [System.IO.File]::ReadAllText($admission.SourcePath) | ConvertFrom-Json -AsHashtable -Depth 40
+    $parentRun = $admission.SourceDocument
     $store = Split-Path -Parent $parentDir
 
     $children = [System.Collections.Generic.List[object]]::new()
@@ -3785,7 +3819,7 @@ function Remove-ReviewRunDirectory {
         return $RunId
     }
     Invoke-ReviewFaultSeam -Edge 'during-generic-cleanup'
-    Remove-Item -LiteralPath $runDir -Recurse -Force -ErrorAction Stop
+    Remove-ReviewTree -Path $runDir
     return $RunId
 }
 
@@ -3801,5 +3835,6 @@ Export-ModuleMember -Function @(
     'Get-ReviewFrozenPlanFile', 'Read-ReviewFrozenPlan', 'Read-ReviewAdmissionMarker', 'Test-ReviewHostSchemaCapability', 'Assert-ReviewPathSafe',
     'Set-ReviewSchemaCapabilitySimulation', 'Set-ReviewRunFaultSeam', 'Clear-ReviewRunFaultSeam',
     'Set-ReviewPathItemProvider', 'Clear-ReviewPathItemProvider',
+    'Set-ReviewRemoveTreeProvider', 'Clear-ReviewRemoveTreeProvider',
     'Set-ReviewRunLockTimeoutOverride', 'Enter-ReviewLock', 'Exit-ReviewLock'
 )

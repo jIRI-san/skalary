@@ -47,7 +47,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -60,7 +60,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.22"
+      "version": "1.0.23"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -73,7 +73,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.29"
+      "version": "1.0.30"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -112,7 +112,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
