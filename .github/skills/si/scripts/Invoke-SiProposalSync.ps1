@@ -126,6 +126,156 @@ function Get-SiRemoteHead {
     return $Matches.oid
 }
 
+function Invoke-SiProposalProvider {
+    param([Parameter(Mandatory)][string[]]$Argument)
+
+    $output = @(& gh @Argument 2>&1)
+    $code = $LASTEXITCODE
+    $text = ($output -join "`n").Trim()
+    $response = $null
+    if (-not [string]::IsNullOrWhiteSpace($text)) {
+        try {
+            $response = $text | ConvertFrom-Json -Depth 100
+        }
+        catch {
+            if ($code -eq 0) {
+                throw 'GitHub ref transaction returned malformed JSON.'
+            }
+        }
+    }
+    $errors = @()
+    if ($null -ne $response -and
+        $response.PSObject.Properties.Name -contains 'errors') {
+        $errors = @($response.errors | ForEach-Object { [string]$_.message })
+    }
+    if ($code -ne 0 -or $errors.Count -gt 0) {
+        $detail = if ($errors.Count -gt 0) { $errors -join '; ' } else { $text }
+        if ($detail.Length -gt 1024) { $detail = $detail.Substring(0, 1024) }
+        throw "GitHub ref transaction failed: $detail"
+    }
+    if ($null -eq $response) {
+        throw 'GitHub ref transaction returned no response.'
+    }
+    return $response
+}
+
+function Get-SiProposalRepositoryId {
+    param([Parameter(Mandatory)][string]$Root)
+
+    $remoteResult = Invoke-SiProposalGit -Root $Root -Argument @(
+        'remote', 'get-url', 'origin'
+    )
+    $remote = ([string]($remoteResult.Output | Select-Object -First 1)).Trim()
+    if ([string]::IsNullOrWhiteSpace($remote)) {
+        throw 'Git origin URL is absent.'
+    }
+    $result = @(& gh repo view $remote --json id --jq .id 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to resolve the GitHub repository identity.'
+    }
+    $repositoryId = ([string]($result | Select-Object -First 1)).Trim()
+    if ([string]::IsNullOrWhiteSpace($repositoryId) -or $repositoryId.Length -gt 256) {
+        throw 'GitHub repository identity is invalid.'
+    }
+    return $repositoryId
+}
+
+function Set-SiRemoteHeadCas {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Branch,
+        [Parameter(Mandatory)][string]$ExpectedOid,
+        [Parameter(Mandatory)][string]$NewOid,
+        [Parameter(Mandatory)][string]$CorrelationId
+    )
+
+    $repositoryId = Get-SiProposalRepositoryId -Root $Root
+    $refName = "refs/heads/$Branch"
+    $stagingBranch = "si-staging/$CorrelationId/$([Guid]::NewGuid().ToString('N'))"
+    $stagingAttempted = $false
+    $operationError = $null
+    $cleanupError = $null
+    try {
+        $stagingAttempted = $true
+        [void](Invoke-SiProposalGit -Root $Root -Argument @(
+                'push', '--quiet', 'origin',
+                "$NewOid`:refs/heads/$stagingBranch"
+            ))
+
+        if ($ExpectedOid -eq 'absent') {
+            $mutation = @'
+mutation($repositoryId:ID!,$name:String!,$afterOid:GitObjectID!){
+  createRef(input:{repositoryId:$repositoryId,name:$name,oid:$afterOid}){
+    ref{name target{... on Commit{oid}}}
+  }
+}
+'@
+            $response = Invoke-SiProposalProvider -Argument @(
+                'api', 'graphql', '-f', "query=$mutation",
+                '-f', "repositoryId=$repositoryId", '-f', "name=$refName",
+                '-f', "afterOid=$NewOid"
+            )
+            if ([string]$response.data.createRef.ref.name -ne $refName -or
+                [string]$response.data.createRef.ref.target.oid -ne $NewOid) {
+                throw 'GitHub createRef did not return the validated proposal ref.'
+            }
+        }
+        else {
+            $mutation = @'
+mutation($repositoryId:ID!,$name:GitRefname!,$beforeOid:GitObjectID!,$afterOid:GitObjectID!){
+  updateRefs(input:{repositoryId:$repositoryId,refUpdates:[{
+    name:$name,beforeOid:$beforeOid,afterOid:$afterOid,force:false
+  }]}){
+    clientMutationId
+  }
+}
+'@
+            [void](Invoke-SiProposalProvider -Argument @(
+                    'api', 'graphql', '-f', "query=$mutation",
+                    '-f', "repositoryId=$repositoryId", '-f', "name=$refName",
+                    '-f', "beforeOid=$ExpectedOid", '-f', "afterOid=$NewOid"
+                ))
+        }
+        $confirmed = Get-SiRemoteHead -Root $Root -Branch $Branch
+        if ($confirmed -ne $NewOid) {
+            throw "Remote proposal head '$confirmed' does not equal validated OID '$NewOid'."
+        }
+    }
+    catch {
+        $operationError = $_
+    }
+    finally {
+        if ($stagingAttempted) {
+            try {
+                $stagingHead = Get-SiRemoteHead -Root $Root -Branch $stagingBranch
+                if ($stagingHead -ne 'absent') {
+                    $cleanup = Invoke-SiProposalGit -Root $Root -Argument @(
+                        'push', '--quiet', 'origin', '--delete', $stagingBranch
+                    ) -AllowFailure
+                    $remaining = Get-SiRemoteHead -Root $Root -Branch $stagingBranch
+                    if ($cleanup.ExitCode -ne 0 -or $remaining -ne 'absent') {
+                        $cleanupError =
+                            "Remote SI staging ref '$stagingBranch' cleanup failed."
+                    }
+                }
+            }
+            catch {
+                $cleanupError =
+                    "Remote SI staging ref '$stagingBranch' cleanup failed: " +
+                    $_.Exception.Message
+            }
+        }
+    }
+    if ($cleanupError) {
+        if ($operationError) {
+            throw "$($operationError.Exception.Message) $cleanupError"
+        }
+        throw $cleanupError
+    }
+    if ($operationError) { throw $operationError }
+    return $NewOid
+}
+
 function Get-SiDiffPath {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -496,16 +646,9 @@ try {
     if (@($syncStatus).Count -gt 0) {
         throw 'Proposal worktree changed during trusted validation.'
     }
-    if ((Get-SiRemoteHead -Root $syncRoot -Branch $branch) -ne $ExpectedRemoteHead) {
-        throw 'Remote proposal head changed during trusted validation.'
-    }
-    [void](Invoke-SiProposalGit -Root $syncRoot -Argument @(
-            'push', 'origin', "$validatedOid`:refs/heads/$branch"
-        ))
-    $confirmed = Get-SiRemoteHead -Root $syncRoot -Branch $branch
-    if ($confirmed -ne $validatedOid) {
-        throw "Remote proposal head '$confirmed' does not equal validated OID '$validatedOid'."
-    }
+    $confirmed = Set-SiRemoteHeadCas -Root $syncRoot -Branch $branch `
+        -ExpectedOid $ExpectedRemoteHead -NewOid $validatedOid `
+        -CorrelationId $DueId
 }
 catch {
     $operationError = $_

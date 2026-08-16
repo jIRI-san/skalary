@@ -181,7 +181,7 @@ Describe 'Trusted SI proposal synchronization' {
             [void](Invoke-ProposalGit -Root $root -Argument @(
                     'commit', '--quiet', '-m', 'allowed proposal'
                 ))
-            return [pscustomobject]@{
+            $fixture = [pscustomobject]@{
                 Root = $root
                 Remote = $remote
                 TrustedRoot = $trustedRoot
@@ -193,6 +193,83 @@ Describe 'Trusted SI proposal synchronization' {
                 RunId = $runId
                 Receipt = $receipt
                 LifecycleHead = $lifecycleHead
+            }
+            Set-ProposalProviderFixture -Fixture $fixture
+            return $fixture
+        }
+
+        function Script:Set-ProposalProviderFixture {
+            param([Parameter(Mandatory)]$Fixture)
+
+            $global:SiProposalRemote = [string]$Fixture.Remote
+            $global:SiProposalRaceToAfter = $false
+            $global:SiProposalAfterOid = $null
+            $global:SiProposalCalls = [System.Collections.Generic.List[object]]::new()
+            function global:gh {
+                $arguments = @($args)
+                $global:LASTEXITCODE = 0
+                if ($arguments.Count -gt 1 -and
+                    [string]$arguments[0] -eq 'repo' -and
+                    [string]$arguments[1] -eq 'view') {
+                    return 'R_test'
+                }
+                $global:SiProposalCalls.Add(@($arguments))
+                $query = [string](
+                    $arguments | Where-Object { [string]$_ -like 'query=*' } |
+                        Select-Object -First 1
+                )
+                $variables = @{}
+                foreach ($argument in $arguments) {
+                    if ([string]$argument -match '^(?<name>[^=]+)=(?<value>.*)$') {
+                        $variables[$Matches.name] = $Matches.value
+                    }
+                }
+                $ref = [string]$variables.name
+                $after = [string]$variables.afterOid
+                $global:SiProposalAfterOid = $after
+                if ($global:SiProposalRaceToAfter) {
+                    & git --git-dir=$global:SiProposalRemote update-ref $ref $after
+                    $global:SiProposalRaceToAfter = $false
+                }
+                $current = [string](
+                    & git --git-dir=$global:SiProposalRemote rev-parse `
+                        --verify "$ref^{commit}" 2>$null
+                )
+                if ($LASTEXITCODE -ne 0) { $current = '' } else { $current = $current.Trim() }
+                if ($query -like '*createRef*') {
+                    if (-not [string]::IsNullOrWhiteSpace($current)) {
+                        $global:LASTEXITCODE = 1
+                        return '{"errors":[{"message":"ref already exists"}]}'
+                    }
+                    & git --git-dir=$global:SiProposalRemote update-ref $ref $after
+                    $global:LASTEXITCODE = 0
+                    return ([ordered]@{
+                            data = [ordered]@{
+                                createRef = [ordered]@{
+                                    ref = [ordered]@{
+                                        name = $ref
+                                        target = [ordered]@{ oid = $after }
+                                    }
+                                }
+                            }
+                        } | ConvertTo-Json -Depth 10 -Compress)
+                }
+                if ($query -like '*updateRefs*') {
+                    $before = [string]$variables.beforeOid
+                    if ($current -ne $before) {
+                        $global:LASTEXITCODE = 1
+                        return '{"errors":[{"message":"beforeOid mismatch"}]}'
+                    }
+                    & git --git-dir=$global:SiProposalRemote update-ref $ref $after $before
+                    if ($LASTEXITCODE -ne 0) {
+                        $global:LASTEXITCODE = 1
+                        return '{"errors":[{"message":"atomic update failed"}]}'
+                    }
+                    $global:LASTEXITCODE = 0
+                    return '{"data":{"updateRefs":{"clientMutationId":null}}}'
+                }
+                $global:LASTEXITCODE = 1
+                return '{"errors":[{"message":"unexpected provider operation"}]}'
             }
         }
 
@@ -208,6 +285,16 @@ Describe 'Trusted SI proposal synchronization' {
                     Remove-Item -LiteralPath $path -Recurse -Force
                 }
             }
+        }
+    }
+
+    AfterEach {
+        Remove-Item Function:\global:gh -ErrorAction SilentlyContinue
+        foreach ($name in @(
+                'SiProposalRemote', 'SiProposalRaceToAfter',
+                'SiProposalAfterOid', 'SiProposalCalls'
+            )) {
+            Remove-Variable $name -Scope Global -ErrorAction SilentlyContinue
         }
     }
 
@@ -434,6 +521,45 @@ Describe 'Trusted SI proposal synchronization' {
             if (Test-Path -LiteralPath $competitor) {
                 Remove-Item -LiteralPath $competitor -Recurse -Force
             }
+        }
+
+        $raceFixture = New-ProposalFixture
+        try {
+            $expected = [string](
+                Invoke-ProposalGit -Root $raceFixture.Root -Argument @('rev-parse', 'HEAD') |
+                    Select-Object -First 1
+            )
+            $expected = $expected.Trim()
+            [void](Invoke-ProposalGit -Root $raceFixture.Root -Argument @(
+                    'push', '--quiet', 'origin',
+                    "HEAD:refs/heads/si/$($raceFixture.DueId)"
+                ))
+            $global:SiProposalRaceToAfter = $true
+
+            {
+                & $raceFixture.Sync -RepoRoot $raceFixture.Root -Operation Sync `
+                    -DueId $raceFixture.DueId -RunId $raceFixture.RunId `
+                    -Receipt $raceFixture.Receipt `
+                    -LifecycleHeadOid $raceFixture.LifecycleHead `
+                    -ExpectedRemoteHead $expected
+            } | Should -Throw '*beforeOid mismatch*'
+            $global:SiProposalAfterOid | Should -Match '^[0-9a-f]{40}$'
+            [string](
+                Invoke-ProposalGit -Root $raceFixture.Root -Argument @(
+                    'ls-remote', '--heads', 'origin',
+                    "refs/heads/si/$($raceFixture.DueId)"
+                ) | Select-Object -First 1
+            ) | Should -Match "^$($global:SiProposalAfterOid)\s"
+            $providerCall = [string]($global:SiProposalCalls |
+                    ForEach-Object { @($_) -join ' ' } |
+                    Where-Object { $_ -like '*updateRefs*' } |
+                    Select-Object -Last 1)
+            $providerCall | Should -Match ([regex]::Escape(
+                    "beforeOid=$expected"
+                ))
+        }
+        finally {
+            Remove-ProposalFixture -Fixture $raceFixture
         }
     }
 }

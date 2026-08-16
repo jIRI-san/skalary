@@ -191,6 +191,9 @@ Phase: 6
 - [6.2] [src:code-review] [sev:High] [concern:security] [req:REQ-8] [review:cr] [source-record:c5c32b4a1a5674548637b1d1c94108772239fc8b69be066c07ac7c7dc3dfb4ed] Installed Invoke-SiProposalSync lacks the latest trusted-checkout, immutable-main, and cleanup fixes.
 - [6.2] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:41b899b5fbd488cf913282f3f54a70bf5c32f91b09bb9a19e41d2a13a00aa347] Registry payload hashes are stale after final SI script and guide changes.
 - [6.2] [src:code-review] [sev:High] [concern:architecture-patterns] [req:REQ-2,REQ-7] [review:cr] [source-record:b7248066c7cf414b61446ddcb4525a20b8b3bddf62fa1e1a9532e94d67eac6d8] Closure CR: proposal synchronization prechecks and postchecks remote heads around a regular push instead of binding the write server-side to the expected old OID.
+- [6.2] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-7] [review:cr] [source-record:ac2f7dc8a57c19a5c5e7674fffd958de781126eb90c88d1e4f962ad781396cdb] Second-opinion review found typed gh fields could misencode an all-decimal OID; proposal CAS now sends GraphQL identifiers as raw strings.
+- [6.2] [src:code-review] [sev:Low] [concern:operability-observability] [req:REQ-7] [review:cr] [source-record:46d6bb9c85e574fedc23f0e69207997c5afb1596cd9f08dcdb65c3ef47ff34ac] Second-opinion review found staging-ref inspection could mask the primary CAS failure; cleanup probes now preserve both operation and cleanup diagnostics.
+- [6.2] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:293c4add022ab2b45c0a644ae2f14dcebad057f6a583d291e3bfdd9ff5b543dc] Final review found ConvertFrom-Json -DateKind exceeded the declared PowerShell 7.0 floor; the provider parser now uses the compatible parameter set.
 
 ## CR Capture
 Phase: 7

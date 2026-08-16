@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-16T07:10:07.6273982Z",
+  "generatedAt": "2026-08-16T07:53:57.4939458Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1202,7 +1202,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "e651e7c055d3e34fb4c02650a663dcd80d1a46016474efce63a4ddc6ad9d5396",
+          "sha256": "6c90f94a3c17503dedc1bb021d747a611208dc539b34f826ab3bcd828f32b4b7",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -1212,7 +1212,7 @@
         },
         {
           "dest": "skills/si/assets/propose-guide.md",
-          "sha256": "1aafd15f5912981ee6323a44684dc744d533509544f9214d3472219ac895ef4e",
+          "sha256": "0a8d8fe0cef8430db2457278c37a4a5701c659da0abfc8f49bd3f2ce3937844c",
           "src": "skills/si/assets/propose-guide.md"
         },
         {
@@ -1277,7 +1277,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1",
-          "sha256": "51a44facd75aaa60f77c6c66ace9c4e9c72cf5d07ccb92eb144298e39fc480cc",
+          "sha256": "c9fa848f3a46837a64e4054bc400e8e07f83c5761d9d9e2b6853c4f000cb2135",
           "src": "scripts/Invoke-SiProposalSync.ps1"
         },
         {
@@ -1412,7 +1412,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.46"
+      "version": "1.0.48"
     }
   ]
 }

@@ -77,9 +77,11 @@ receipt/run/manifest. It rejects every path in the closed SI trust-anchor set be
 trusted `Test-SiWriteScope.ps1`. That guard enumerates committed, staged, unstaged, and untracked
 paths, canonicalizes each one, follows symlinks component by component, and refuses anything
 escaping the repository, outside the allowlist, or under a denied execution-carrying path. Sync
-pins HEAD before those final checks, pushes one exact OID with a regular push, confirms the remote
-head equals it, and removes the disposable worktree on both success and failure. A cleanup failure
-is itself blocking and is reported rather than returning a successful synchronization.
+pins HEAD before those final checks, uploads that exact object through a unique staging ref, and
+uses GitHub's non-force ref transaction to compare `ExpectedRemoteHead` while installing the
+validated OID. It confirms remote-head equality and removes both the staging ref and disposable
+worktree on success or failure. A cleanup failure is itself blocking and is reported rather than
+returning a successful synchronization.
 
 - Exit **0**: continue to Step 7.
 - Exit **1**: stop. Remove the offending paths from the proposal and re-run.

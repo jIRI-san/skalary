@@ -103,8 +103,8 @@ isolation, the blocking pre-PR guard, and the draft PR. In short:
    Pass the proposal worktree as `-RepoRoot` plus the bound due/run/receipt, `lifecycleHeadOid`, and
    the surfaced expected remote head (`absent` for a new branch). It uses a disposable detached
    worktree to merge current main, rebuilds the complete SI state subtree from main plus only the
-   admitted receipt/run/manifest, runs the blocking scope/trust-anchor guards, pushes only the
-   validated OID, and confirms remote-head equality. Stop on any refusal.
+   admitted receipt/run/manifest, runs the blocking scope/trust-anchor guards, and installs only
+   the validated OID through a provider-side expected-head transaction. Stop on any refusal.
 4. The trusted sync runs the existing scope guard:
 
    ```powershell
