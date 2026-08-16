@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-10T17:41:44.1098115Z",
+  "generatedAt": "2026-08-16T07:10:07.6273982Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -266,7 +266,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "6bd2a3ad525ab6f8fbca669ef8a98deef089c673308b6c734da3848f6bad6d34",
+          "sha256": "ec7add9868d687b06445a4587aa656efc7c3f7a0d686ed8b70b4b40e245195c8",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -313,6 +313,11 @@
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
           "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
           "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1",
+          "sha256": "4b76e200a8f428fe22f021db045c3b5c5f6ea5202fd835149396ed9a2539008d",
+          "src": "scripts/Invoke-SiDueEnqueue.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/LedgerStore.psm1",
@@ -410,7 +415,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.18"
+      "version": "1.2.19"
     },
     {
       "author": "jIRI-san",

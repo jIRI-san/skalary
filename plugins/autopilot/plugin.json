@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.18",
+  "version": "1.2.19",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -54,6 +54,10 @@
     {
       "src": "scripts/host-command.ps1",
       "dest": "skills/autopilot/scripts/host-command.ps1"
+    },
+    {
+      "src": "scripts/Invoke-SiDueEnqueue.ps1",
+      "dest": "skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1"
     },
     {
       "src": "scripts/launch-container.ps1",

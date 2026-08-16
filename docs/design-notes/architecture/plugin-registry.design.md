@@ -134,6 +134,10 @@ installs to use the same due writer. Interactive CI receives the same dependency
 through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor CI bundles a
 foreign lifecycle copy.
 
+Autopilot's installed `Invoke-SiDueEnqueue.ps1` remains an orchestration boundary rather than an SI
+lifecycle owner: it invokes the dependency writer and converts exceptions or non-complete statuses
+into an explicit non-blocking `degraded` result without reading or mutating SI state itself.
+
 `test:LearningLoop.PayloadOwnershipAndDrift` is the cross-surface proof for this split. It enumerates
 the closed SI-owned sets, shared harvest consumers, dependency edges, installed calls, scaffolds,
 dogfood bytes, catalog hashes, and manifest/catalog versions. The existing generator and drift

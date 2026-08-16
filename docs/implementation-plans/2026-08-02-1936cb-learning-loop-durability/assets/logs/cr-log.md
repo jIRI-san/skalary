@@ -172,6 +172,8 @@ Phase: 5
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3,REQ-7] [review:cr] [source-record:02e220d4e0c6426dc66cb60d8c81a0f2517efdd73b833e29ed94185e46ef2537] Rubber Duck: blocking the parent directory made the no-mutation assertion structurally vacuous.
 - [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:f3012ceabc1b7b7564835ec1f4a258a128cefe8eaf14e9efc50efb2ccbfe0e8a] Rubber Duck: the continuation flag was unconditional and did not prove a post-failure handoff operation completed.
 - [5.1] [src:code-review] [sev:Critical] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:d6daa513504ba1eb260dcf1e89984e9142bad74775735a5bf5db8e7729aea147] Closure CR: headless continuation evidence uses an unrelated successful fixture and does not execute a failed enqueue followed by a completed handoff.
+- [5.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:a126937f22ae88e4301414293d99cafb0feeb47e349ae4a398e110c553557942] Rubber Duck: the fixture authored the degradation prefix and Git continuation instead of exercising a production failure classifier, so it could pass without the workflow reporting degradation.
+- [5.1] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:893aa9e75d79e709a424eea02b5171ce2fe191b270d56116e38cfe69cc3bd11e] Expanded the autopilot allowlist paths after brace shorthand broke the literal distribution-contract assertion for Invoke-PhaseHarvest.ps1.
 
 ## CR Capture
 Phase: 6

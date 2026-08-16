@@ -6,10 +6,12 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
 Phase: 2
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
@@ -27,6 +29,7 @@ No entries for this phase.
 Phase: 3
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
 
 ## Learnings Capture
@@ -35,8 +38,8 @@ No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.
+No entries for this phase.
 
-- [4.1] [trigger:rework>1] [concern:performance] [req:REQ-6] [review:cr] [source-record:22b6d59cfa3ab3cb7c20186510b6eea50b6698df9214931655d2ecf938eb7f1a] Bounded pagers must persist and fully validate the selected window; continuation cannot rescan maximum-size sources, and object sizes must be preflighted from tree metadata before blob allocation.
 
 ## Learnings Capture
 Phase: 5
@@ -45,9 +48,11 @@ Phase: 5
 - [5.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-2,REQ-3,REQ-8] [review:none] [source-record:2a69326264281c5fbb4c2f8634e7c439bbb0a0607a8bbcac2ec676bfc7fec78e] Installed lifecycle tests must build the full CI dependency closure and encode omitted nullable JSON fields explicitly; direct SI fixtures can miss both integration and schema-coercion defects.
 - [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-3,REQ-8] [review:none] [source-record:c8bd18cdce9c8271bc209b7bf358116985e54af5885f97297bdaeb5fa7e1a22e] Failure-path integration tests need a deterministic storage fault because SI repo identity intentionally falls back when origin is absent.
 - [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-8] [review:none] [source-record:1f01744ed0c7ce6ca108c9a3a1546fd7ba7407a99d5c3bb5308c7d2dfeb731e6] Suite measurement must run after every new file is tracked because the fingerprint intentionally ignores untracked paths outside git ls-files.
+- [5.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:e0554a17da63627724fad7d4ba7c7acf3ef942fd196318b0476af5f4d467daec] Non-blocking workflow evidence must execute the failing installed dependency and a durable continuation operation on the same path; separate failure and success fixtures do not prove continuation.
 
 ## Learnings Capture
 Phase: 6
+No entries for this phase.
 No entries for this phase.
 No entries for this phase.
 No entries for this phase.

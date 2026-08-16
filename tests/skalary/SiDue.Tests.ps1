@@ -154,13 +154,15 @@ Describe 'Headless SI due handoff' {
         $agent = [System.IO.File]::ReadAllText(
             (Join-Path $script:repoRoot 'plugins/autopilot/agents/autopilot.agent.md')
         )
-        $installedPath = '.github/skills/si/scripts/Enqueue-SiDue.ps1'
-        $agent | Should -Match ([regex]::Escape($installedPath))
+        $writerPath = '.github/skills/si/scripts/Enqueue-SiDue.ps1'
+        $headlessPath = '.github/skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1'
+        $agent | Should -Match ([regex]::Escape($writerPath))
+        $agent | Should -Match ([regex]::Escape($headlessPath))
         $agent | Should -Match 'bound argument array'
         $agent | Should -Match 'sha256\(repo-id\|plan-id\|source-commit\|si-due-v1\)'
         $agent | Should -Match 'degraded: SI due enqueue failed'
         $agent | Should -Match 'Headless completion does not run `/si`'
-        $agent | Should -Match 'Workflow carve-out:.+Enqueue-SiDue\.ps1'
+        $agent | Should -Match 'Workflow carve-out:.+Invoke-SiDueEnqueue.+Enqueue-SiDue\.ps1'
         $sourcePush = $agent.IndexOf('required post-archive `git push origin <current-branch>`')
         $enqueue = $agent.IndexOf('capture complete-source OID -> enqueue')
         $sourcePush | Should -BeGreaterThan -1
@@ -170,11 +172,14 @@ Describe 'Headless SI due handoff' {
         $standaloneRoot = New-InstallRoot
         $outside = $null
         $caseVariantOutside = $null
+        $handoffRemote = $null
         try {
             $versions = Install-PluginClosure -RootPlugin autopilot -TargetRoot $autopilotRoot
             $versions.Keys | Should -Contain 'self-improvement'
             $versions['autopilot'] | Should -Not -Be $versions['self-improvement']
-            Test-Path -LiteralPath (Join-Path $autopilotRoot $installedPath) -PathType Leaf |
+            Test-Path -LiteralPath (Join-Path $autopilotRoot $writerPath) -PathType Leaf |
+                Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $autopilotRoot $headlessPath) -PathType Leaf |
                 Should -BeTrue
 
             Import-Module (
@@ -200,23 +205,86 @@ Describe 'Headless SI due handoff' {
             $manifestPath = Join-Path $autopilotRoot 'docs/self-improvement/state.json'
             Write-SiJson -Path $manifestPath -Value $manifest
             $beforeFailure = [System.IO.File]::ReadAllBytes($manifestPath)
-            $writerError = $null
-            try {
-                & (Join-Path $autopilotRoot $installedPath) `
-                    -RepoRoot $autopilotRoot -PlanId 1936cb -SourceCommit ('f' * 40)
-            }
-            catch {
-                $writerError = $_
-            }
-            $writerError | Should -Not -BeNullOrEmpty
-            $writerError.Exception.Message | Should -Match 'capacity-blocked'
+            $degraded = & (Join-Path $autopilotRoot $headlessPath) `
+                -RepoRoot $autopilotRoot -PlanId 1936cb -SourceCommit ('f' * 40)
+            $degraded.Status | Should -Be 'degraded'
+            $degraded.Written | Should -BeFalse
+            $degraded.Note | Should -Match (
+                '^degraded: SI due enqueue failed: capacity-blocked:'
+            )
             [Convert]::ToHexString([System.IO.File]::ReadAllBytes($manifestPath)) |
                 Should -Be ([Convert]::ToHexString($beforeFailure))
+
+            $handoffRemote = New-InstallRoot
+            [void](Invoke-FixtureGit -Root $handoffRemote -Argument @('init', '--bare', '--quiet'))
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'init', '--initial-branch=feature/headless-handoff', '--quiet'
+                ))
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'config', 'user.name', 'Headless Handoff Fixture'
+                ))
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'config', 'user.email', 'headless@example.test'
+                ))
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'remote', 'add', 'origin', $handoffRemote
+                ))
+            $handoffPath = Join-Path $autopilotRoot 'plan-pr-handoff.txt'
+            [System.IO.File]::WriteAllText(
+                $handoffPath,
+                "$($degraded.Note)`n",
+                [System.Text.UTF8Encoding]::new($false)
+            )
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'add', 'plan-pr-handoff.txt'
+                ))
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'commit', '--quiet', '-m', 'record completed plan PR handoff'
+                ))
+            $handoffHead = @(
+                Invoke-FixtureGit -Root $autopilotRoot -Argument @('rev-parse', 'HEAD')
+            )[0]
+            [void](Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'push', '--quiet', 'origin', 'HEAD:refs/heads/feature/headless-handoff'
+                ))
+            $remoteLine = @(
+                Invoke-FixtureGit -Root $autopilotRoot -Argument @(
+                    'ls-remote', 'origin', 'refs/heads/feature/headless-handoff'
+                )
+            )[0]
+            $remoteHead = ($remoteLine -split '\s+')[0]
+            $remoteHead | Should -Be $handoffHead `
+                -Because 'the plan PR handoff must complete after the installed enqueue writer fails'
+
+            $installedWriter = Join-Path $autopilotRoot $writerPath
+            [System.IO.File]::WriteAllText(
+                $installedWriter,
+                @'
+param([string]$RepoRoot, [string]$PlanId, [string]$SourceCommit)
+[pscustomobject]@{
+    Status = 'cas-exhausted'
+    DueId = 'mixed-version-due'
+    Written = $false
+    Note = 'cas-exhausted'
+    Attempts = 3
+}
+'@,
+                [System.Text.UTF8Encoding]::new($false)
+            )
+            $returnedFailure = & (Join-Path $autopilotRoot $headlessPath) `
+                -RepoRoot $autopilotRoot -PlanId 1936cb -SourceCommit ('e' * 40)
+            $returnedFailure.Status | Should -Be 'degraded'
+            $returnedFailure.DueId | Should -Be 'mixed-version-due'
+            $returnedFailure.Written | Should -BeFalse
+            $returnedFailure.Note | Should -Be (
+                "degraded: SI due enqueue failed: writer status 'cas-exhausted'"
+            )
+            $returnedFailure.Attempts | Should -Be 3
 
             $standaloneVersions = Install-PluginClosure -RootPlugin self-improvement `
                 -TargetRoot $standaloneRoot
             $standaloneVersions.Keys | Should -Contain 'self-improvement'
-            $writer = Join-Path $standaloneRoot $installedPath
+            $writer = Join-Path $standaloneRoot $writerPath
             Test-Path -LiteralPath $writer -PathType Leaf | Should -BeTrue
 
             & git -C $standaloneRoot init --quiet
@@ -295,6 +363,9 @@ Describe 'Headless SI due handoff' {
             if ($null -ne $caseVariantOutside -and
                 (Test-Path -LiteralPath $caseVariantOutside)) {
                 Remove-Item -LiteralPath $caseVariantOutside -Recurse -Force
+            }
+            if ($null -ne $handoffRemote -and (Test-Path -LiteralPath $handoffRemote)) {
+                Remove-Item -LiteralPath $handoffRemote -Recurse -Force
             }
         }
     }
