@@ -59,6 +59,11 @@ $script:ProcessHeadChars = 16384
 $script:MaxDiagnosticChars = 1024
 $script:MaxReceiptFailedCases = 32
 $script:MaxPayloadFileBytes = 4MB
+# An apt configuration file is parsed character by character on the host, so its size is the
+# host's cost, not the image's. Debian's own files are single-digit kilobytes; the cap is three
+# orders of magnitude above that and still bounds the scan, and a file over it fails the read
+# closed rather than being skipped — a scan that cannot afford to read a file has not read it.
+$script:MaxAptConfigFileBytes = 256KB
 $script:ShaPattern = '^[0-9A-Fa-f]{40}$'
 $script:ZeroSha = '0000000000000000000000000000000000000000'
 # The Debian baseline layer may only resolve from Debian hosts; the later maintained-toolchain
@@ -957,6 +962,196 @@ function Test-GateReparseItem {
     return [bool]($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
 }
 
+function Get-GateAptConfigToken {
+    <#
+    .SYNOPSIS
+        A bounded, candidate-safe name for a file under the copied /etc/apt tree.
+    .NOTES
+        The path is read out of the candidate image, so it is untrusted text that travels into a
+        diagnostics log, a receipt, and a job summary. It is reduced to a fixed alphabet and 64
+        characters here: enough to say which file failed the read, too little to carry control
+        characters, markup, or a payload into the artifacts a reviewer opens.
+    #>
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Path)
+
+    $relative = $Path
+    if ($Path.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $relative = $Path.Substring($Root.Length)
+    }
+    $relative = ($relative -replace '\\', '/').Trim('/')
+    $relative = [regex]::Replace($relative, '[^A-Za-z0-9._/-]', '_')
+    if ($relative.Length -gt 64) { $relative = $relative.Substring(0, 64) }
+    if (-not $relative) { return 'unnamed' }
+    return $relative
+}
+
+function ConvertTo-GateAptConfigStatement {
+    <#
+    .SYNOPSIS
+        Reduces an apt configuration file to the directive text apt itself would act on.
+    .NOTES
+        A line-at-a-time scan cannot decide this file, and the gap is not academic: apt's parser
+        accumulates text across lines until an unquoted `{`, `;` or `}`, and strips comments before
+        that accumulation. `Dir` on one line and `{ Etc { sourcelist "/opt/hidden"; };` on the next
+        is one statement to apt and two harmless-looking lines to a line scanner, and `D/*x*/ir`
+        is the token `Dir` to apt and no token at all on disk. So the file is normalized once,
+        the way apt normalizes it, and the directive test runs on the result:
+
+        - `/* … */` is removed with nothing in its place, because apt splices the surrounding
+          fragments together — inserting a space here would let comment-splicing hide a token.
+          An unterminated one runs to end of file, as it does for apt.
+        - `//` and non-magic `#` comments run to end of line, and both are recognized only outside
+          quotes: `Acquire::http::Proxy "http://p:3128"; Dir::Etc::sourcelist "/x";` contains a
+          `//` inside a string, and a quote-blind strip would delete the real directive after it.
+        - `#include`, `#clear` and `#x-apt-configure-index` are apt's magic comments and are *not*
+          comments; the first two are kept for the directive test to find. apt honours them at any
+          offset a statement can begin, not only at column zero, so neither is anchored here.
+        - Quotes are handled by position, because apt strips them from the *word* it parses. In a
+          value they are emptied, which stops a path or URL that merely contains `Dir` from failing
+          an honest image. In the tag they are spliced out and the contents kept, because apt reads
+          `D"i"r::Etc::sourcelist` and `"#include"` as the tag `Dir::Etc::sourcelist` and the
+          directive `#include`, and a reader that emptied them would be shown nothing at all.
+        - `%XX` escapes are decoded, because apt decodes them while parsing a word: `%44ir` is the
+          tag `Dir` and `%23include` is an active include. Decoding happens after comments are
+          stripped, exactly as it does for apt, so a decoded `#` or `/` cannot forge a comment.
+        - Newlines and runs of whitespace collapse to one space, which is how apt joins the lines
+          of a statement.
+
+        The cost of that fidelity is a quoted list element — `APT::NeverAutoRemove { "^linux-.*"; }`
+        — being read in tag position, so a list of paths naming `Dir` fails the read. That is the
+        deliberate direction to be wrong in: the alternative is a tag the candidate can spell in a
+        way this reader cannot see.
+    #>
+    param([Parameter(Mandatory)][string]$Text)
+
+    $builder = [System.Text.StringBuilder]::new()
+    $index = 0
+    $length = $Text.Length
+    # A statement's first word is its tag; everything after it is a value. Quotes mean different
+    # things in the two positions, so the scan tracks which one it is in.
+    $inTag = $true
+    $tagStarted = $false
+    while ($index -lt $length) {
+        $character = $Text[$index]
+        if ($character -eq '"') {
+            $close = $Text.IndexOf('"', $index + 1)
+            $content = if ($close -lt 0) {
+                $Text.Substring($index + 1)
+            }
+            else {
+                $Text.Substring($index + 1, $close - $index - 1)
+            }
+            if ($inTag) {
+                # apt strips the quotes and keeps the contents, joined to whatever surrounds them.
+                [void]$builder.Append($content)
+            }
+            else {
+                [void]$builder.Append('""')
+            }
+            $tagStarted = $true
+            if ($close -lt 0) { break }
+            $index = $close + 1
+            continue
+        }
+        if ($character -eq '/' -and $index + 1 -lt $length -and $Text[$index + 1] -eq '*') {
+            $close = $Text.IndexOf('*/', $index + 2, [System.StringComparison]::Ordinal)
+            if ($close -lt 0) { break }
+            $index = $close + 2
+            continue
+        }
+        $isLineComment = $character -eq '/' -and $index + 1 -lt $length -and $Text[$index + 1] -eq '/'
+        if (-not $isLineComment -and $character -eq '#') {
+            # Bounded look-ahead: `$Text.Substring($index)` would copy the rest of the file at every
+            # `#`, which is quadratic in a file this gate permits to be megabytes long.
+            $window = $Text.Substring($index, [System.Math]::Min(32, $length - $index))
+            $isLineComment = -not [regex]::IsMatch(
+                $window, '(?i)^#(?:include|clear|x-apt-configure-index)\b')
+        }
+        if ($isLineComment) {
+            $newline = $Text.IndexOf("`n", $index)
+            [void]$builder.Append(' ')
+            if ($tagStarted) { $inTag = $false }
+            if ($newline -lt 0) { break }
+            $index = $newline + 1
+            continue
+        }
+        if ($character -eq ';' -or $character -eq '{' -or $character -eq '}') {
+            $inTag = $true
+            $tagStarted = $false
+        }
+        elseif ([char]::IsWhiteSpace($character)) {
+            if ($tagStarted) { $inTag = $false }
+        }
+        else {
+            $tagStarted = $true
+        }
+        [void]$builder.Append($character)
+        $index++
+    }
+
+    $collapsed = [regex]::Replace($builder.ToString(), '\s+', ' ').Trim()
+    return [regex]::Replace(
+        $collapsed,
+        '%([0-9A-Fa-f]{2})',
+        [System.Text.RegularExpressions.MatchEvaluator] {
+            param($match)
+            [string][char][System.Convert]::ToInt32($match.Groups[1].Value, 16)
+        })
+}
+
+function Get-GateAptConfigRejection {
+    <#
+    .SYNOPSIS
+        Names why an apt configuration file disqualifies the copied tree, or '' when it does not.
+    .NOTES
+        Two directive classes fail the read, and both for one reason: they stop the tree this scan
+        enumerates from being the tree apt reads.
+
+        The first is a path directive. Every `Dir` and `RootDir` tag is refused unless it names one
+        of the subtrees that provably relocate no source list — `Dir::Cache`, `Dir::State`,
+        `Dir::Log`, `Dir::Media` — and refusing by default rather than listing the dangerous forms
+        is the point. Enumerating dangerous forms is what let `Binary::apt-get::Dir::Etc::sourcelist
+        "/opt/hidden"` through: apt scopes configuration per binary, so it relocates the source list
+        for apt-get alone while `apt-config dump`'s unscoped value stays innocent. `RootDir` went
+        through for a different reason and is worse — apt prefixes it onto *every* resolved path,
+        so it moves `/etc/apt` itself while leaving the copied tree allowlisted and clean. Both
+        read as an allowlisted `/etc/apt` that apt never consults. The named-safe set is what
+        Debian's own base images ship (`apt.conf.d/docker-clean` sets `Dir::Cache::*`); anything
+        else is a decision a human should make with the diff in front of them.
+
+        The second is an active `#` directive. A leading `#` is not proof of a comment in an apt
+        configuration file: `#include` pulls in a file this scan never sees and which is free to
+        relocate the source lists, so it fails closed regardless of what it names. `#clear` is the
+        same argument in reverse — it discards assignments the checks above depend on — so a
+        `#clear` naming a path tag fails too.
+
+        Both tests run over `ConvertTo-GateAptConfigStatement` output rather than raw lines, so a
+        statement split across lines, or a token spliced apart by a `/* */` comment, is read as apt
+        reads it rather than as it appears on disk.
+    #>
+    param([Parameter(Mandatory)][string]$Text)
+
+    $statements = ConvertTo-GateAptConfigStatement -Text $Text
+    if ([regex]::IsMatch($statements, '(?i)#include\b')) { return 'config-include' }
+    if ([regex]::IsMatch($statements, '(?i)#clear[^;]*(?<=^|[\s{};]|::)(?:Root)?Dir(?![A-Za-z])')) {
+        return 'config-dir-clear'
+    }
+    # A tag is a `::`-joined chain of segments, so the token is only a `Dir` tag where a segment can
+    # begin: at the start of a word or straight after a `::`. That keeps `DPkg::Chrootdir` and a
+    # `/srv/dir/x` left over from an unquoted value out, while a binary-scoped
+    # `Binary::apt-get::Dir::…` — which is exactly why a preceding colon must be allowed — is in.
+    foreach ($match in [regex]::Matches(
+            $statements, '(?i)(?<=^|[\s{};]|::)(?<root>Root)?Dir(?![A-Za-z])')) {
+        if ($match.Groups['root'].Success) { return 'config-dir-override' }
+        $start = $match.Index + $match.Length
+        $window = $statements.Substring($start, [System.Math]::Min(16, $statements.Length - $start))
+        if (-not [regex]::IsMatch($window, '(?i)^::(?:Cache|State|Log|Media)(?![A-Za-z0-9-])')) {
+            return 'config-dir-override'
+        }
+    }
+    return ''
+}
+
 function Get-GateAptConfigHost {
     <#
     .SYNOPSIS
@@ -969,24 +1164,37 @@ function Get-GateAptConfigHost {
         `sources.list`, `*.list` and `*.sources` are read so that binary keyrings cannot make
         the scan report a host. Returns $null when the tree cannot be read within its bounds.
 
-        `apt.conf` and `apt.conf.d/*` are read for one thing only: a `Dir` root reassignment or any
-        `Dir::Etc*` assignment fails the read outright. Those directives relocate the source-list
-        directory this function and the Dockerfile's own recorder both enumerate, so an image that
-        points `Dir::Etc::sourcelist` at a file outside `/etc/apt` presents an allowlisted tree
-        that apt never consults. Fail closed rather than report the hosts of a configuration that
-        is not in effect. `Dir::Cache*` is deliberately not included: Debian's own base images
-        ship `apt.conf.d/docker-clean`, which sets it, and it relocates no source list. Config
-        files are never scanned for hosts — a URL in a note there is not a source.
+        `apt.conf` and `apt.conf.d/*` are read for one thing only: a directive that moves the
+        source-list directory this function and the Dockerfile's own recorder both enumerate out of
+        view. `Get-GateAptConfigRejection` decides which lines those are — a source-relocating `Dir`
+        assignment in any scope, including a binary-scoped one, and an active `#include` or
+        `#clear`. Any of them fails the read outright, because an image that points
+        `Dir::Etc::sourcelist` at a file outside `/etc/apt`, or includes a configuration file this
+        scan never sees, presents an allowlisted tree that apt never consults. Fail closed rather
+        than report the hosts of a configuration that is not in effect. Config files are never
+        scanned for hosts — a URL in a note there is not a source.
 
         The tree is required to be a plain tree of plain files. A symlinked `sources.list.d`, or a
         single symlinked `.sources` inside it, is not recursed into by `Get-ChildItem` and is not
         returned by a `-File` enumeration either, so the scan used to report the hosts of the part
         it could see and say nothing about the part apt actually reads. Any link or reparse point
         anywhere under the root now fails the read outright.
-    #>
-    param([Parameter(Mandatory)][string]$Root)
 
-    if (-not (Test-Path -LiteralPath $Root)) { return $null }
+        Every failure sets `Reason` to a bounded code — and, where a file is at fault, the
+        sanitized name of that file. A read that fails closed without saying which of a dozen
+        conditions fired is a verdict the reader cannot act on, and this one is reached only from
+        a post-merge job whose entire audience is whoever opens the receipt.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [AllowNull()][ref]$Reason
+    )
+
+    if ($null -ne $Reason) { $Reason.Value = '' }
+    if (-not (Test-Path -LiteralPath $Root)) {
+        if ($null -ne $Reason) { $Reason.Value = 'root-absent' }
+        return $null
+    }
     $hosts = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
     # `-ErrorAction SilentlyContinue` would swallow a permission or reparse-point error and hand
     # back the files it *could* read, so a tree whose disallowed half is unreadable would pass on
@@ -994,41 +1202,78 @@ function Get-GateAptConfigHost {
     $enumerationErrors = @()
     try {
         $rootItem = Get-Item -LiteralPath $Root -Force -ErrorAction Stop
-        if (Test-GateReparseItem -Item $rootItem) { return $null }
+        if (Test-GateReparseItem -Item $rootItem) {
+            if ($null -ne $Reason) { $Reason.Value = 'root-link' }
+            return $null
+        }
     }
-    catch { return $null }
+    catch {
+        if ($null -ne $Reason) { $Reason.Value = 'root-unreadable' }
+        return $null
+    }
+    $rootFull = $rootItem.FullName
     # Directories are enumerated alongside files precisely so a redirected one can be seen: a
     # `-File` enumeration returns nothing for a symlinked directory and reports no error either.
     $allItems = @(Get-ChildItem -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue -ErrorVariable +enumerationErrors)
-    if ($enumerationErrors.Count -gt 0) { return $null }
-    if ($allItems.Count -gt 4096) { return $null }
-    if (@($allItems | Where-Object { Test-GateReparseItem -Item $_ }).Count -gt 0) { return $null }
+    if ($enumerationErrors.Count -gt 0) {
+        if ($null -ne $Reason) { $Reason.Value = 'enumeration-failed' }
+        return $null
+    }
+    if ($allItems.Count -gt 4096) {
+        if ($null -ne $Reason) { $Reason.Value = 'tree-oversize' }
+        return $null
+    }
+    $linked = @($allItems | Where-Object { Test-GateReparseItem -Item $_ })
+    if ($linked.Count -gt 0) {
+        if ($null -ne $Reason) {
+            $Reason.Value = 'tree-link:' + (Get-GateAptConfigToken -Root $rootFull -Path $linked[0].FullName)
+        }
+        return $null
+    }
     $allFiles = @($allItems | Where-Object { -not $_.PSIsContainer })
     $files = @($allFiles | Where-Object {
             $_.Name -eq 'sources.list' -or $_.Name -eq 'apt.conf' -or
             $_.Extension -in @('.list', '.sources') -or
             $_.Directory.Name -eq 'apt.conf.d'
         })
-    if ($files.Count -gt 256) { return $null }
+    if ($files.Count -gt 256) {
+        if ($null -ne $Reason) { $Reason.Value = 'file-count-oversize' }
+        return $null
+    }
     foreach ($file in $files) {
-        if ($file.Length -gt $script:MaxPayloadFileBytes) { return $null }
+        $token = Get-GateAptConfigToken -Root $rootFull -Path $file.FullName
+        if ($file.Length -gt $script:MaxPayloadFileBytes) {
+            if ($null -ne $Reason) { $Reason.Value = "file-oversize:$token" }
+            return $null
+        }
         $lines = $null
         try { $lines = [System.IO.File]::ReadAllLines($file.FullName) }
-        catch { return $null }
+        catch {
+            if ($null -ne $Reason) { $Reason.Value = "file-unreadable:$token" }
+            return $null
+        }
         $isConfig = ($file.Name -eq 'apt.conf' -or $file.Directory.Name -eq 'apt.conf.d')
+        if ($isConfig) {
+            if ($file.Length -gt $script:MaxAptConfigFileBytes) {
+                if ($null -ne $Reason) { $Reason.Value = "config-oversize:$token" }
+                return $null
+            }
+            # Configuration files are read for one thing only: a relocation of the tree this
+            # function enumerates. They are not scanned for hosts, because a URL in an
+            # `apt.conf.d` note is a comment about a source, not a source — treating it as one
+            # would fail images over text apt never fetches from. The whole file goes to the
+            # directive test at once, because apt's own statements are not bounded by lines.
+            $rejection = Get-GateAptConfigRejection -Text ($lines -join "`n")
+            if ($rejection) {
+                if ($null -ne $Reason) { $Reason.Value = "${rejection}:$token" }
+                return $null
+            }
+            continue
+        }
         foreach ($line in $lines) {
             $value = $line.Trim()
-            if (-not $value -or $value.StartsWith('#') -or $value.StartsWith('//')) { continue }
-            if ($isConfig) {
-                # Configuration files are read for one thing only: a relocation of the tree this
-                # function enumerates. They are not scanned for hosts, because a URL in an
-                # `apt.conf.d` note is a comment about a source, not a source — treating it as one
-                # would fail images over text apt never fetches from.
-                if ([regex]::IsMatch($value, '(?i)(^|[^A-Za-z:])Dir(::Etc\b|\s*"|\s*\{)')) {
-                    return $null
-                }
-                continue
-            }
+            if (-not $value) { continue }
+            if ($value.StartsWith('#') -or $value.StartsWith('//')) { continue }
             # Two scans, because one cannot see both URI forms apt accepts without letting the
             # weaker form hide the stronger one. Matching only `scheme://authority` saw
             # `https://deb.debian.org/...` and missed every source with no authority at all —
@@ -1205,11 +1450,22 @@ function Test-GateImageAttestation {
                 DebianAptHosts = @($debianHosts)
             }
         }
-        $liveHosts = if ($configCopy.ExitCode -eq 0) { Get-GateAptConfigHost -Root $configRoot } else { $null }
+        $configReason = ''
+        $liveHosts = if ($configCopy.ExitCode -eq 0) {
+            Get-GateAptConfigHost -Root $configRoot -Reason ([ref]$configReason)
+        }
+        else {
+            $configReason = 'copy-failed'
+            $null
+        }
         if ($null -eq $liveHosts -or @($liveHosts).Count -eq 0) {
+            # A read that fails closed and says only "unreadable" cannot be acted on: a copy that
+            # never ran, a symlinked `sources.list.d`, and a binary-scoped `Dir::Etc::sourcelist`
+            # are three different repairs. The bounded reason from the reader names which one.
+            if (-not $configReason) { $configReason = 'no-origin' }
             return [pscustomobject]@{
                 Valid = $false
-                Reason = 'attestation-apt-config-unreadable'
+                Reason = "attestation-apt-config-unreadable:$configReason"
                 ManifestSha256 = $manifestSha
                 AptHosts = @($finalHosts)
                 DebianAptHosts = @($debianHosts)

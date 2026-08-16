@@ -137,14 +137,68 @@ the image from the trusted host — `docker create --network none` plus `docker 
   `rest`, discards it as a non-transport scheme, and never re-examines the embedded `https://`,
   because matching resumes past the end of the match — so the origin is absent from the scan and the
   subset check passes on whatever else the tree contained. `apt.conf` and
-  `apt.conf.d/*` are scanned too, and a `Dir` root reassignment or any `Dir::Etc*` directive fails the
-  read closed: those relocate the source-list directory both readers enumerate, so an allowlisted
-  `/etc/apt` that apt never consults would otherwise pass. `Dir::Cache*` is not included, because
-  Debian's own base images ship it and it relocates no source list. Any enumeration or read error
-  fails the read closed rather than reporting the hosts it managed to read, and so does **any**
+  `apt.conf.d/*` are scanned too, and a directive that moves the source-list directory both readers
+  enumerate out of view fails the read closed — an allowlisted `/etc/apt` that apt never consults
+  would otherwise pass. That scan reads a configuration file the way apt does, as a stream of
+  statements rather than a list of lines, because every line-shaped assumption is an evasion: apt
+  accumulates a statement across newlines until an unquoted `{`, `;` or `}`, so a `Dir::Etc` opened
+  as a brace block puts the payload on a line that never names `Dir`; `/* */` is removed with no
+  separator in its place, so `D/*x*/ir::Etc::sourcelist` is one token to apt and two fragments to a
+  reader that keeps the comment as whitespace; and a statement can begin mid-line after a `;`, so
+  `#include` need not start one. Comment stripping is quote-aware for the same reason in reverse —
+  `Acquire::http::Proxy "http://p:3128"; Dir::Etc "…";` contains a `//` inside a string, and a
+  reader that treated it as a comment would drop the real directive that follows it. The normalizer
+  empties quoted *values*, splices out block comments, strips `//` and non-magic `#` comments, and
+  keeps apt's magic comments (`#include`, `#clear`, `#x-apt-configure-index`), which apt honours
+  wherever a statement may begin and not merely in column 0.
+
+  Statements are not the last layer, though, and stopping there left the classifier blind in a way
+  worth naming: apt parses a *word*, stripping embedded quotes and decoding `%XX` escapes as it
+  goes, in the tag as much as in the value. Verified against `debian:trixie-slim`, `D"i"r::Etc`,
+  `"Dir"::Etc`, `%44ir::Etc`, `"#include"` and `%23include` all relocate the source list or pull in
+  a hidden file, while a reader that models only comments and statements is shown `D""r::Etc`,
+  `""::Etc` or an undecoded `%44ir` and finds no token at all. So quotes are resolved by position —
+  spliced out of a tag, emptied in a value — and `%XX` is decoded after comments are stripped,
+  which is the order apt uses and which is why a decoded `#` or `/` cannot forge a comment. The
+  price is that a quoted list element (`APT::NeverAutoRemove { "^linux-.*"; };`) is read in tag
+  position, so a list of paths that names `Dir` fails the read; that is the direction to be wrong
+  in, since the alternative is a tag the candidate can spell in a way this reader cannot see.
+
+  On that normalized text the `Dir` match is deny-by-default: every `Dir` and `RootDir` token is
+  rejected unless it is `Dir::Cache`, `Dir::State`, `Dir::Log` or `Dir::Media`, the four subtrees
+  Debian's own base images ship (`docker-clean` sets `Dir::Cache::pkgcache ""`) and none of which
+  relocates a source list. An allowlist of known-bad prefixes would have to enumerate `Dir::Etc`,
+  `Dir::Bin`, a bare `Dir`, and each binary scoping of them; the safe set is four names and is the
+  side that does not grow. The token counts only where a tag segment can begin — at a word start or
+  straight after a `::` — which is what keeps `DPkg::Chrootdir` and a `/srv/dir/x` left in an
+  unquoted value from failing an honest image. `RootDir` is refused unconditionally, including
+  `Dir::Cache` under it, because apt prefixes it onto every resolved path — the relative values stay
+  reassuringly default while `/etc/apt` resolves somewhere else entirely. Scoping is handled by the
+  same token match rather than a separate rule: `Binary::apt-get::Dir::Etc::sourcelist "/opt/hidden"`
+  relocates the source list for apt-get alone and leaves the unscoped value untouched, and the `Dir`
+  in it is the same token whether or not a scope precedes it. `#include` fails whatever it names,
+  because the file it pulls in is not in the tree this scan can vouch for, and `#clear` fails when it
+  names `Dir` or `RootDir`, because clearing a value restores a default the scan did not verify.
+
+  The Dockerfile's initial policy refuses the same shapes at the first layer, and it needs both
+  halves for the same reason: its `apt-config dump` grep covers `Binary::…::Dir`, `Binary::…::RootDir`
+  and bare `RootDir`, while `apt-config shell` assertions on `Dir::Etc::sourcelist/f` and
+  `Dir::Etc::sourceparts/d` pin where those paths *resolve*, which is the only check a `RootDir`
+  cannot leave looking default.
+
+  Any enumeration or read error fails the read closed rather than reporting the hosts it managed to
+  read, and so does a configuration file over 256 KB — that scan is character work on the *host*, so
+  an image can spend the gate's time by shipping a file large enough to be worth minutes to read,
+  and a file this scan did not read is a file it cannot vouch for. So does **any**
   symlink, junction or other reparse point at or under the tree root: a `-File` enumeration returns
   nothing for a redirected directory and reports no error either, so a tree whose `sources.list.d`
-  points elsewhere would otherwise be read as the empty set and pass on the half it could see;
+  points elsewhere would otherwise be read as the empty set and pass on the half it could see. Every
+  one of these failures carries a bounded reason — the condition that fired and, where a file is at
+  fault, its name reduced to a fixed alphabet and 64 characters, since that name is
+  candidate-authored text bound for the receipt — and it reaches the receipt as
+  `attestation-apt-config-unreadable:<reason>`. A post-merge job's only audience is whoever opens
+  that receipt, and "unreadable" alone does not distinguish a copy that never ran from a
+  configuration that relocated itself;
 - the smoke object's `digests.manifestSha256` and `origin.aptHosts` against those attested values.
 
 Disagreement is `candidate-output-invalid`. No candidate code runs on the host in this path: `docker cp`

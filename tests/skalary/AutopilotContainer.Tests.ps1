@@ -160,11 +160,17 @@ Describe 'Autopilot container toolchain' {
                 '{ count++; print $2 }',
                 'mapfile -t toolchain_packages < /tmp/autopilot-toolchain-packages;',
                 'apt-get install -y --no-install-recommends "${bootstrap_packages[@]}" "${toolchain_packages[@]}";',
-                "apt-config dump | grep -Eiq '^[[:space:]]*Binary::apt-get::Dir([[:space:]]|::)'",
+                "apt-config dump | grep -Eiq '^[[:space:]]*(Binary::[^[:space:]]+::(Root)?Dir|RootDir)([[:space:]]|::)'",
                 'apt-config shell apt_root Dir',
                 'apt-config shell apt_etc Dir::Etc',
                 'apt-config shell apt_source_list Dir::Etc::sourcelist',
                 'apt-config shell apt_source_parts Dir::Etc::sourceparts',
+                # The unscoped values above are what `apt-config` reports for itself. A
+                # `Binary::apt-get::`-scoped override leaves them untouched, and `RootDir` moves
+                # the resolved path without changing the relative one, so the policy also asserts
+                # where the source list *resolves* — the one reading neither evasion survives.
+                "apt-config shell apt_source_list_path Dir::Etc::sourcelist/f",
+                "apt-config shell apt_source_parts_path Dir::Etc::sourceparts/d",
                 'APT sourceparts must not contain symlinked source files',
                 'deb.debian.org|security.debian.org',
                 '*) echo "Disallowed active apt source host: $host" >&2;',

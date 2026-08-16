@@ -766,13 +766,40 @@ Describe 'Autopilot container gate runner' {
         $liveEvil.Valid | Should -BeFalse
         $liveEvil.Reason | Should -Match '^attestation-live-origin-disallowed:.*mirror\.evil\.invalid'
 
-        # An /etc/apt that cannot be read is not evidence of a clean image.
+        # An /etc/apt that cannot be read is not evidence of a clean image, and the reason says
+        # which read failed: a copy that never ran and a configuration that relocates itself out
+        # of view are different repairs, and a post-merge job has only the receipt to say so.
         Reset-AttestFixture
         $script:attestCpFailures['/etc/apt'] = $true
         $configUnreadable = Test-GateImageAttestation -ImageTag 'candidate:test' `
             -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
         $configUnreadable.Valid | Should -BeFalse
-        $configUnreadable.Reason | Should -Be 'attestation-apt-config-unreadable'
+        $configUnreadable.Reason | Should -Be 'attestation-apt-config-unreadable:copy-failed'
+
+        # A binary-scoped relocation is the shape the Dockerfile's initial policy already refuses
+        # and the live read used to miss, and it is the live read that runs after every later
+        # layer. The failure must name the directive class and the file carrying it.
+        Reset-AttestFixture
+        $relocatedFiles = @{}
+        foreach ($key in $goodLive.Keys) { $relocatedFiles[$key] = $goodLive[$key] }
+        $relocatedFiles['apt.conf.d/99relocate'] = 'Binary::apt-get::Dir::Etc::sourcelist "/opt/hidden/sources.list";'
+        $script:attestFiles['/etc/apt'] = $relocatedFiles
+        $relocated = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $relocated.Valid | Should -BeFalse
+        $relocated.Reason | Should -Be 'attestation-apt-config-unreadable:config-dir-override:apt.conf.d/99relocate'
+
+        # An include pulls in a file this scan never sees, which is free to relocate the source
+        # lists after every check above has passed.
+        Reset-AttestFixture
+        $includeFiles = @{}
+        foreach ($key in $goodLive.Keys) { $includeFiles[$key] = $goodLive[$key] }
+        $includeFiles['apt.conf.d/99include'] = '#include "/opt/hidden/apt.conf";'
+        $script:attestFiles['/etc/apt'] = $includeFiles
+        $included = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $included.Valid | Should -BeFalse
+        $included.Reason | Should -Be 'attestation-apt-config-unreadable:config-include:apt.conf.d/99include'
 
         # A file the copy never produced fails closed and names which one.
         Reset-AttestFixture
@@ -1779,6 +1806,155 @@ Describe 'Autopilot container gate runner' {
             'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg'
         )
         @(Get-GateAptConfigHost -Root $deb822Root) | Should -Be @('deb.debian.org')
+    }
+
+    It 'fails closed on an apt configuration that relocates or extends itself out of view' {
+        # The live read exists because every check before it runs on a file the candidate's own
+        # Dockerfile wrote. It is worth nothing if the configuration can point apt at a tree the
+        # scan never enumerates, so each directive that does so must fail the read and say so.
+        function New-ConfigRoot {
+            param([string]$Directive, [string]$File = 'apt.conf.d/99local')
+            $root = Join-Path $TestDrive ('etc-apt-cfg-' + [guid]::NewGuid().ToString('N'))
+            $target = Join-Path $root $File
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force)
+            Set-Content -LiteralPath (Join-Path $root 'sources.list') -Encoding utf8NoBOM `
+                -Value 'deb http://deb.debian.org/debian trixie main'
+            Set-Content -LiteralPath $target -Encoding utf8NoBOM -Value $Directive
+            return $root
+        }
+
+        # apt scopes configuration per binary. `Binary::apt-get::Dir::Etc::sourcelist` relocates the
+        # source list for apt-get alone and leaves the unscoped value untouched, so a scan that
+        # required a non-colon before `Dir` read an allowlisted `/etc/apt` that apt-get never
+        # consults and reported its hosts as the image's origins. `RootDir` is worse: apt prefixes
+        # it onto every resolved path, moving `/etc/apt` itself out of view. `#include` is the same
+        # hole by a third route — apt treats it as a directive rather than a comment, and the file
+        # it pulls in is not in the tree this scan can vouch for. And none of these is bounded by a
+        # line: apt accumulates statements across lines and splices `/* */` out of a token, so the
+        # last four cases are the same relocations written so that no single line carries them.
+        foreach ($case in @(
+                @{ Directive = 'Binary::apt-get::Dir::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt::Dir::Etc::sourceparts "/opt/hidden/sources.list.d";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt::Dir::Etc "/opt/hidden";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt-cache::Dir "/opt/hidden/";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt { Dir::Etc::sourcelist "/opt/hidden/sources.list"; };'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary { apt-get { Dir { Etc { sourcelist "/opt/hidden/x"; }; }; }; };'; Reason = 'config-dir-override' },
+                @{ Directive = 'Dir::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = 'RootDir "/opt/hidden";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt-get::RootDir "/opt/hidden";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Dir::Bin::methods "/opt/hidden/methods";'; Reason = 'config-dir-override' },
+                @{ Directive = '#include "/opt/hidden/apt.conf";'; Reason = 'config-include' },
+                @{ Directive = '#include /opt/hidden/apt.conf;'; Reason = 'config-include' },
+                @{ Directive = '#INCLUDE "/opt/hidden/apt.conf";'; Reason = 'config-include' },
+                @{ Directive = '#clear Binary::apt-get::Dir::Etc;'; Reason = 'config-dir-clear' },
+                @{ Directive = "Dir`n{`n  Etc { sourcelist `"/opt/hidden/sources.list`"; };`n};"; Reason = 'config-dir-override' },
+                @{ Directive = 'APT::Get::Show-Versions "0"; #include "/opt/hidden/apt.conf";'; Reason = 'config-include' },
+                @{ Directive = 'D/*x*/ir::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = "Dir::Etc::sourcelist /*`n*/ `"/opt/hidden/sources.list`";"; Reason = 'config-dir-override' },
+                @{ Directive = 'Acquire::http::Proxy "http://proxy.invalid:3128"; Dir::Etc::sourcelist "/opt/hidden/x";'; Reason = 'config-dir-override' },
+                # apt parses a *word*, not a span of characters: `ParseQuoteWord` strips embedded
+                # quotes and decodes `%XX` escapes in the tag as well as the value. Every line below
+                # was run against apt in `debian:trixie-slim` and moves `Dir::Etc::sourcelist` to
+                # `/opt/hidden` or honours the include, while a reader that only modelled comments
+                # and statements saw `D""r::…`, `""::…` or `%44ir::…` and found no token at all.
+                @{ Directive = 'D"i"r::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = '"Dir"::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = '"Dir::Etc::sourcelist" "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = '%44ir::Etc::sourcelist "/opt/hidden/sources.list";'; Reason = 'config-dir-override' },
+                @{ Directive = '%52ootDir "/opt/hidden";'; Reason = 'config-dir-override' },
+                @{ Directive = 'Binary::apt-get::%44ir::Etc::sourceparts "/opt/hidden/parts";'; Reason = 'config-dir-override' },
+                @{ Directive = '"#include" "/opt/hidden/apt.conf";'; Reason = 'config-include' },
+                @{ Directive = '%23include "/opt/hidden/apt.conf";'; Reason = 'config-include' }
+            )) {
+            $reason = ''
+            $root = New-ConfigRoot -Directive $case.Directive
+            Get-GateAptConfigHost -Root $root -Reason ([ref]$reason) |
+                Should -BeNullOrEmpty -Because "'$($case.Directive)' moves the tree this scan enumerates out of view"
+            $reason | Should -Be "$($case.Reason):apt.conf.d/99local"
+        }
+
+        # The same directive in `apt.conf` itself is the same relocation, and the file that carried
+        # it is named because "unreadable" alone is not a repair instruction.
+        $reason = ''
+        $rootConf = New-ConfigRoot -Directive 'Binary::apt::Dir "/opt/hidden/";' -File 'apt.conf'
+        Get-GateAptConfigHost -Root $rootConf -Reason ([ref]$reason) | Should -BeNullOrEmpty
+        $reason | Should -Be 'config-dir-override:apt.conf'
+
+        # Failing closed must not mean failing on everything. Every block below is shipped verbatim
+        # by `debian:trixie-slim`, and the gate that rejects one of them blocks `main` over an
+        # honest image. `# include …` with a space is prose apt ignores too, a `//` inside a quoted
+        # proxy URL is a value rather than a comment, and a `Dir::Etc` named inside a real block
+        # comment is not a directive at all.
+        foreach ($directive in @(
+                "# Ideally, these would just be invoking `"apt-get clean`" …`nDPkg::Post-Invoke { `"rm -f /var/cache/apt/archives/*.deb /var/cache/apt/*.bin || true`"; };`nAPT::Update::Post-Invoke { `"rm -f /var/cache/apt/archives/*.deb || true`"; };`n`nDir::Cache::pkgcache `"`";`nDir::Cache::srcpkgcache `"`";",
+                "// Pre-configure all packages with debconf before they are installed.`n// If you don't like it, comment it out.`nDPkg::Pre-Install-Pkgs {`"/usr/sbin/dpkg-preconfigure --apt || true`";};",
+                "APT`n{`n  NeverAutoRemove`n  {`n`t`"^firmware-linux.*`";`n  };`n  VersionedKernelPackages`n  {`n`t# kernels`n`t`"linux-.*`";`n  };`n};",
+                "#   RUN apt-get update \`n#       && apt-get install -y <packages>`nApt::AutoRemove::SuggestsImportant `"false`";",
+                'Acquire::Languages "none";',
+                'Acquire::http::Proxy "http://proxy.invalid:3128";',
+                'Dir::State::status "/var/lib/dpkg/status";',
+                'Dir::Log::Terminal "/var/log/apt/term.log";',
+                'DPkg::Chrootdir "/";',
+                '#clear APT::NeverAutoRemove;',
+                '# include the docker source in this note',
+                '// Dir::Etc::sourcelist is only described here',
+                "/* Dir::Etc::sourcelist `"/opt/hidden/x`"; */`nAPT::Install-Suggests `"0`";"
+            )) {
+            $reason = ''
+            $root = New-ConfigRoot -Directive $directive
+            @(Get-GateAptConfigHost -Root $root -Reason ([ref]$reason)) |
+                Should -Be @('deb.debian.org') -Because "'$directive' relocates no source list"
+            $reason | Should -BeNullOrEmpty
+        }
+
+        # The failing file's name comes out of the candidate image, so it is untrusted text headed
+        # for a diagnostics log, a receipt, and a job summary. It travels as a bounded token on a
+        # fixed alphabet rather than as whatever the image chose to call the file.
+        $reason = ''
+        $hostileName = 'apt.conf.d/99' + ('z' * 90) + '#$ evil'
+        $hostileRoot = New-ConfigRoot -Directive 'Dir::Etc "/opt/hidden";' -File $hostileName
+        Get-GateAptConfigHost -Root $hostileRoot -Reason ([ref]$reason) | Should -BeNullOrEmpty
+        $reason | Should -Match '^config-dir-override:[A-Za-z0-9._/-]+$'
+        $reason.Length | Should -BeLessOrEqual 84
+
+        # Every other fail-closed path names itself too, so a red gate is diagnosable without
+        # re-running it against the image by hand.
+        $reason = ''
+        Get-GateAptConfigHost -Root (Join-Path $TestDrive 'absent-config-root') -Reason ([ref]$reason) |
+            Should -BeNullOrEmpty
+        $reason | Should -Be 'root-absent'
+
+        # The configuration scan is character work on the host, so an image can spend the gate's
+        # time by shipping a configuration file large enough to be worth minutes to read. Over the
+        # cap the read fails closed and names the file, rather than being skipped — a file this
+        # scan did not read is a file it cannot vouch for.
+        $reason = ''
+        $hugeRoot = New-ConfigRoot -Directive (('# padding for a configuration nobody writes' * 8) + "`n") `
+            -File 'apt.conf.d/99huge'
+        $hugePath = Join-Path $hugeRoot 'apt.conf.d/99huge'
+        [System.IO.File]::WriteAllText($hugePath, ('# padding for a configuration nobody writes' + "`n") * 8192)
+        (Get-Item -LiteralPath $hugePath).Length | Should -BeGreaterThan 256KB
+        Get-GateAptConfigHost -Root $hugeRoot -Reason ([ref]$reason) | Should -BeNullOrEmpty
+        $reason | Should -Be 'config-oversize:apt.conf.d/99huge'
+
+        $reason = ''
+        $emptyRoot = Join-Path $TestDrive 'etc-apt-empty'
+        [void](New-Item -ItemType Directory -Path $emptyRoot -Force)
+        @(Get-GateAptConfigHost -Root $emptyRoot -Reason ([ref]$reason)).Count | Should -Be 0
+        $reason | Should -BeNullOrEmpty -Because 'an empty tree is a caller-side verdict, not a read failure'
+
+        if (-not $IsWindows) {
+            $reason = ''
+            $linkedRoot = Join-Path $TestDrive 'etc-apt-cfg-linked'
+            $hiddenDir = Join-Path $TestDrive 'hidden-cfg-sources'
+            [void](New-Item -ItemType Directory -Path $linkedRoot -Force)
+            [void](New-Item -ItemType Directory -Path $hiddenDir -Force)
+            Set-Content -LiteralPath (Join-Path $linkedRoot 'sources.list') -Encoding utf8NoBOM `
+                -Value 'deb http://deb.debian.org/debian trixie main'
+            [void](New-Item -ItemType SymbolicLink -Path (Join-Path $linkedRoot 'sources.list.d') -Target $hiddenDir)
+            Get-GateAptConfigHost -Root $linkedRoot -Reason ([ref]$reason) | Should -BeNullOrEmpty
+            $reason | Should -Be 'tree-link:sources.list.d'
+        }
     }
 
     It 'writes a blocking placeholder when a relevant commit job never started' {

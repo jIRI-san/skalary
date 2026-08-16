@@ -25,8 +25,8 @@ RUN set -eux; \
         END { if (count == 0) { print "toolchain.tsv has no package rows" > "/dev/stderr"; exit 1 } } \
     ' /usr/local/share/autopilot/toolchain.tsv > /tmp/autopilot-toolchain-packages; \
     mapfile -t toolchain_packages < /tmp/autopilot-toolchain-packages; \
-    if apt-config dump | grep -Eiq '^[[:space:]]*Binary::apt-get::Dir([[:space:]]|::)'; then \
-        echo "APT apt-get-specific Dir overrides are not allowed" >&2; exit 1; \
+    if apt-config dump | grep -Eiq '^[[:space:]]*(Binary::[^[:space:]]+::(Root)?Dir|RootDir)([[:space:]]|::)'; then \
+        echo "APT binary-scoped Dir or RootDir overrides are not allowed" >&2; exit 1; \
     fi; \
     [[ "$(apt-config shell apt_root Dir)" == "apt_root='/'" ]] \
         || { echo "APT Dir must remain '/'" >&2; exit 1; }; \
@@ -36,6 +36,10 @@ RUN set -eux; \
         || { echo "APT sourcelist must remain 'sources.list'" >&2; exit 1; }; \
     [[ "$(apt-config shell apt_source_parts Dir::Etc::sourceparts)" == "apt_source_parts='sources.list.d'" ]] \
         || { echo "APT sourceparts must remain 'sources.list.d'" >&2; exit 1; }; \
+    [[ "$(apt-config shell apt_source_list_path Dir::Etc::sourcelist/f)" == "apt_source_list_path='/etc/apt/sources.list'" ]] \
+        || { echo "APT sourcelist must resolve to /etc/apt/sources.list" >&2; exit 1; }; \
+    [[ "$(apt-config shell apt_source_parts_path Dir::Etc::sourceparts/d)" == "apt_source_parts_path='/etc/apt/sources.list.d/'" ]] \
+        || { echo "APT sourceparts must resolve to /etc/apt/sources.list.d/" >&2; exit 1; }; \
     apt_source_files=(); \
     if [[ -e /etc/apt/sources.list || -L /etc/apt/sources.list ]]; then \
         [[ -f /etc/apt/sources.list && ! -L /etc/apt/sources.list ]] \
