@@ -179,10 +179,19 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # GitHub Copilot CLI
-RUN npm install -g @github/copilot@${COPILOT_CLI_VERSION}
+# `--ignore-scripts` is the enforceable half of this install: npm cannot pin the tarball's contents
+# to a digest here (a version tag can be republished), but it can be stopped from executing
+# arbitrary install-time scripts as root. The unpinned-content residue is recorded in the design
+# note's residual risks rather than papered over.
+RUN npm install -g --ignore-scripts --no-fund --no-audit @github/copilot@${COPILOT_CLI_VERSION}
 
 # Pester (pinned) for PowerShell unit gates in autopilot container mode
-RUN pwsh -NoProfile -Command "Install-Module Pester -RequiredVersion 5.6.1 -Force -Scope AllUsers"
+# `[5.6.1]` is an exact-version range, not a minimum, so a newer publish cannot satisfy it. No
+# signature check is claimed: PSResourceGet's `-AuthenticodeCheck` validates only on Windows, so
+# passing it on Debian would name a control that does not run. The pin is on the version, and the
+# residual — that a version can be unpublished and republished with different bytes — is the same
+# one the Copilot CLI install carries, and is recorded with it.
+RUN pwsh -NoProfile -Command 'Install-PSResource -Name Pester -Version "[5.6.1]" -Repository PSGallery -Scope AllUsers -TrustRepository -ErrorAction Stop'
 
 # Container entry-point script
 COPY scripts/container-entrypoint.sh /usr/local/bin/container-entrypoint.sh
@@ -196,10 +205,17 @@ RUN chmod 0755 /usr/local/bin/container-entrypoint.sh /usr/local/bin/container-t
     && test "$(stat -c '%u:%g' /usr/local/bin/fd)" = 0:0 \
     && test "$(stat -c '%u:%g' /usr/local/bin/bat)" = 0:0
 
+# Non-root user for security — add to docker group for socket access
+RUN groupadd -g 998 docker || true \
+    && useradd -m -s /bin/bash -G docker autopilot
+
 # Final root-layer provenance — the baseline capture above predates the PowerShell, GitHub CLI,
 # Docker CLI and npm layers, so on its own it cannot describe the image that is actually shipped.
 # This records the apt origins and package set as they stand after the last root install, which is
-# what the gate attests against.
+# what the gate attests against. It is deliberately the *last* root layer, after the non-root user
+# is created: the non-root-user comment above is the documented anchor for extending the image, so a
+# capture placed before it would silently omit anything a later maintainer adds there — which is the
+# exact failure the baseline capture already demonstrated.
 RUN set -eux; \
     : > /tmp/autopilot-final-apt-uris; \
     for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do \
@@ -250,9 +266,6 @@ RUN set -eux; \
         /usr/local/share/autopilot/provenance/final-packages.tsv \
         /usr/local/share/autopilot/provenance/final-npm-globals.json
 
-# Non-root user for security — add to docker group for socket access
-RUN groupadd -g 998 docker || true \
-    && useradd -m -s /bin/bash -G docker autopilot
 USER autopilot
 WORKDIR /work
 

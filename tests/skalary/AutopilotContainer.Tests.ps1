@@ -12,6 +12,7 @@ Describe 'Autopilot container toolchain' {
         $script:dockerfilePath = Join-Path $script:pluginRoot 'devcontainer/Dockerfile'
         $script:smokePath = Join-Path $script:pluginRoot 'devcontainer/container-toolchain-smoke.sh'
         $script:contractPath = Join-Path $script:repoRoot 'docs/design-notes/architecture/autopilot-container-toolchain.design.md'
+        $script:runnerPath = Join-Path $script:repoRoot 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
 
         function Read-ToolchainRows {
             param([Parameter(Mandatory)][string]$Content)
@@ -190,7 +191,11 @@ Describe 'Autopilot container toolchain' {
 
             # Every network fetch that is later installed with root trust must be bound to a digest
             # or key fingerprint in this file; an unverified root install is the hole these tokens
-            # exist to close, and counting them keeps a new fetch from slipping in unpinned.
+            # exist to close. Counting fetches against verifications repo-wide cannot tell which
+            # verification belongs to which fetch — three fetches and three unrelated `sha256sum -c -`
+            # calls satisfy a count while leaving each fetch unverified — so the check is per `RUN`
+            # block, and a floor keeps it from passing vacuously if the blocks are ever restructured
+            # away.
             $curlFetches = @([regex]::Matches($Dockerfile, '(?m)curl\s+(?<flags>-[A-Za-z]+)\s'))
             foreach ($fetch in $curlFetches) {
                 if ($fetch.Groups['flags'].Value -notmatch 'f') {
@@ -198,11 +203,26 @@ Describe 'Autopilot container toolchain' {
                     break
                 }
             }
-            $rootInstallFetches = @([regex]::Matches($Dockerfile, '-o\s+/tmp/[^\s]+\.(?:deb|asc)'))
-            $verifications = @([regex]::Matches($Dockerfile, 'sha256sum -c -')).Count +
-                @([regex]::Matches($Dockerfile, '(?m)grep -qx [0-9A-F]{40}')).Count
-            if ($rootInstallFetches.Count -ne $verifications) {
-                $errors.Add("Dockerfile has $($rootInstallFetches.Count) root-trusted network fetches but $verifications digest or fingerprint verifications.")
+            $runBlocks = @([regex]::Matches(
+                    $Dockerfile,
+                    '(?ms)^RUN\s.*?(?=^(?:RUN|COPY|ADD|USER|WORKDIR|ENV|ARG|FROM|SHELL|ENTRYPOINT|CMD|#)\s|\z)'))
+            # An *invocation*, not the word: `bootstrap_packages=(git curl jq ...)` names curl as a
+            # package to install, and treating that as a fetch would demand a digest check in a
+            # layer that fetches nothing.
+            $fetchPattern = '(?:^|[\s;&|(])(?:curl|wget)\s+(?:-|["'']?https?://)'
+            $fetchingBlocks = @($runBlocks | Where-Object { $_.Value -match $fetchPattern })
+            if ($fetchingBlocks.Count -lt 3) {
+                $errors.Add("Dockerfile has $($fetchingBlocks.Count) root-trusted fetch blocks; the pinning check needs at least 3 to be meaningful.")
+            }
+            foreach ($block in $fetchingBlocks) {
+                $blockText = $block.Value
+                $hasDigestCheck = $blockText -match 'sha256sum -c -'
+                $hasPinnedKeyExport = $blockText -match 'gpg --batch --export [0-9A-F]{40}' -and
+                    $blockText -match '(?m)grep -qx [0-9A-F]{40}'
+                if (-not ($hasDigestCheck -or $hasPinnedKeyExport)) {
+                    $firstLine = @($blockText -split "`n")[0].Trim()
+                    $errors.Add("Dockerfile fetch block '$firstLine' installs with root trust but verifies no digest or pinned key fingerprint.")
+                }
             }
 
             # A fetched key file may carry more than one key. Dearmoring the whole file into the
@@ -283,13 +303,28 @@ Describe 'Autopilot container toolchain' {
             $finalProvenanceIndex = $Dockerfile.IndexOf('> /usr/local/share/autopilot/provenance/final-apt-sources.txt;', [System.StringComparison]::Ordinal)
             $dockerCliIndex = $Dockerfile.IndexOf('docker-ce-cli;', [System.StringComparison]::Ordinal)
             $nonRootIndex = $Dockerfile.IndexOf('USER autopilot', [System.StringComparison]::Ordinal)
-            if ($finalProvenanceIndex -lt 0 -or $dockerCliIndex -lt 0 -or $nonRootIndex -lt 0) {
-                $errors.Add('Dockerfile is missing the final root-layer provenance, Docker CLI, or non-root anchor.')
+            $extensionAnchor = $Dockerfile.IndexOf('# Non-root user', [System.StringComparison]::Ordinal)
+            if ($finalProvenanceIndex -lt 0 -or $dockerCliIndex -lt 0 -or $nonRootIndex -lt 0 -or $extensionAnchor -lt 0) {
+                $errors.Add('Dockerfile is missing the final root-layer provenance, Docker CLI, extension, or non-root anchor.')
             }
             elseif ($finalProvenanceIndex -lt $dockerCliIndex -or $finalProvenanceIndex -gt $nonRootIndex) {
                 # Provenance captured before the last root install describes an image that is never
                 # shipped, which is exactly the gap the final capture exists to close.
                 $errors.Add('Final provenance capture must run after the last root install and before the non-root user.')
+            }
+            elseif ($finalProvenanceIndex -lt $extensionAnchor) {
+                # `# Non-root user` is the documented extension anchor. A capture above it omits
+                # whatever is added there, which reproduces the gap at the one place maintainers are
+                # told to edit.
+                $errors.Add('Final provenance capture must run after the documented extension anchor, not before it.')
+            }
+            else {
+                # "Last root layer" is the claim; a RUN between the capture and USER would falsify it
+                # while every index above still ordered correctly.
+                $tail = $Dockerfile.Substring($finalProvenanceIndex, $nonRootIndex - $finalProvenanceIndex)
+                if ($tail -match '(?m)^RUN\s') {
+                    $errors.Add('Final provenance capture must be the last root layer; a RUN follows it before USER autopilot.')
+                }
             }
 
             if (-not $Smoke.Contains('"$provenance_dir/final-apt-sources.txt"')) {
@@ -308,6 +343,7 @@ Describe 'Autopilot container toolchain' {
         $script:dockerfileContent = Get-Content -LiteralPath $script:dockerfilePath -Raw
         $script:smokeContent = Get-Content -LiteralPath $script:smokePath -Raw
         $script:contractContent = Get-Content -LiteralPath $script:contractPath -Raw
+        $script:runnerContent = Get-Content -LiteralPath $script:runnerPath -Raw
     }
 
     It 'test:AutopilotContainer.ToolchainContract enforces the manifest, image, smoke, and distribution contract' {
@@ -395,7 +431,8 @@ Describe 'Autopilot container toolchain' {
         $dockerfileContent | Should -Match 'ln -s /usr/bin/batcat /usr/local/bin/bat'
         $dockerfileContent | Should -Match "stat -c '%u:%g' /usr/local/bin/fd"
         $dockerfileContent | Should -Match "stat -c '%u:%g' /usr/local/bin/bat"
-        $smokeContent | Should -Match '\[\[ "\$\(id -un\)" != autopilot \|\| -w /usr/local/bin \]\]'
+        $smokeContent | Should -Match '\[\[ "\$\(id -un\)" != autopilot \]\]'
+        $smokeContent | Should -Match '\[\[ -w /usr/local/bin \]\]'
         $smokeContent | Should -Match 'readlink /usr/local/bin/fd\)" == /usr/bin/fdfind'
         $smokeContent | Should -Match 'readlink /usr/local/bin/bat\)" == /usr/bin/batcat'
 
@@ -414,7 +451,8 @@ Describe 'Autopilot container toolchain' {
         $smokeContent | Should -Match '(?s)if next_cases_json="\$\(.*?jq -cn.*?\)"; then\s+cases_json="\$next_cases_json"\s+else\s+cases_json=''\[\]''\s+encoder_failed=true\s+overall_state=fail'
         $smokeContent | Should -Match '(?s)if ! apt_hosts_json="\$\(.*?jq -Rsc.*?\)"; then\s+apt_hosts_json=''\[\]''\s+encoder_failed=true\s+overall_state=fail'
         $smokeContent | Should -Match '(?s)if ! json="\$\(.*?jq -cn.*?\)"; then\s+encoder_failed=true\s+overall_state=fail\s+json="\$fallback_json"'
-        $smokeContent | Should -Match '\[\[ "\$encoder_failed" == true \]\] \|\| \(\( \$\{#json\} > 65535 \)\)'
+        $smokeContent | Should -Match '\[\[ "\$encoder_failed" == true \]\]'
+        $smokeContent | Should -Match 'elif \(\( \$\{#json\} > 65535 \)\); then'
         $smokeContent | Should -Match '(?s)if ! printf ''%s\\n'' "\$json"; then\s+exit 1\s+fi\s+\[\[ "\$overall_state" == pass \]\]'
 
         $primarySchemaMatch = [regex]::Match(
@@ -422,16 +460,71 @@ Describe 'Autopilot container toolchain' {
             '(?s)--argjson cases "\$cases_json"\s*\\\s*''(?<filter>\{.*?\})''\s*\)"')
         $primarySchemaMatch.Success | Should -BeTrue
         ($primarySchemaMatch.Groups['filter'].Value -replace '\s+', '') |
-            Should -Be '{schema:$schema,state:$state,origin:{os:$os,aptHosts:$aptHosts},digests:{manifestSha256:$manifestSha256,provenanceSha256:$provenanceSha256},cases:$cases}'
+            Should -Be '{schema:$schema,state:$state,reasons:$reasons,origin:{os:$os,aptHosts:$aptHosts},digests:{manifestSha256:$manifestSha256,provenanceSha256:$provenanceSha256},cases:$cases}'
+
+        # A whole-run failure with no case to blame used to emit a bare `state=fail`. The reasons
+        # vocabulary must stay closed and must match the host's allow-list exactly, because the host
+        # rejects any value outside it — a drift here turns every affected failure into
+        # `candidate-output-invalid` instead of the diagnosis it was meant to carry.
+        $expectedReasons = @(
+            'case-count-mismatch',
+            'encoder-failed',
+            'manifest-digest-unavailable',
+            'manifest-duplicate-case',
+            'manifest-unreadable',
+            'not-autopilot-user',
+            'output-oversize',
+            'provenance-digest-unavailable',
+            'provenance-incomplete',
+            'usr-local-bin-writable')
+        $emittedReasons = @([regex]::Matches($smokeContent, '(?m)^\s*add_reason\s+(?<reason>[a-z][a-z0-9-]*)\s*$') |
+                ForEach-Object { $_.Groups['reason'].Value } |
+                Sort-Object -Unique)
+        $literalReasons = @([regex]::Matches($smokeContent, '(?m)^\s*(?:reasons_json|fallback_json|oversize_json)=.*?"reasons":\[(?<body>[^\]]*)\]') |
+                ForEach-Object { [regex]::Matches($_.Groups['body'].Value, '"(?<reason>[^"]+)"') } |
+                ForEach-Object { $_.Groups['reason'].Value })
+        $literalReasons += @([regex]::Matches($smokeContent, "(?m)^\s*reasons_json='\[(?<body>[^\]]*)\]'") |
+                ForEach-Object { [regex]::Matches($_.Groups['body'].Value, '"(?<reason>[^"]+)"') } |
+                ForEach-Object { $_.Groups['reason'].Value })
+        $allReasons = @(@($emittedReasons) + @($literalReasons) | Sort-Object -Unique)
+        foreach ($errorText in @(Compare-OrdinalSet `
+                    -Label 'Smoke failure reason vocabulary' `
+                    -Actual $allReasons `
+                    -Expected $expectedReasons)) {
+            throw $errorText
+        }
+        $runnerReasons = @([regex]::Match(
+                $runnerContent,
+                '(?s)\$script:AllowedSmokeReasons = @\((?<body>.*?)\)').Groups['body'].Value |
+                ForEach-Object { [regex]::Matches($_, "'(?<reason>[^']+)'") } |
+                ForEach-Object { $_.Groups['reason'].Value } |
+                Sort-Object -Unique)
+        foreach ($errorText in @(Compare-OrdinalSet `
+                    -Label 'Gate runner smoke reason allow-list' `
+                    -Actual $runnerReasons `
+                    -Expected $expectedReasons)) {
+            throw $errorText
+        }
 
         $fallbackMatch = [regex]::Match(
             $smokeContent,
             "(?m)^\s*fallback_json='(?<json>\{`"schema`":`"skalary/container-toolchain-smoke@1`".+\})'\s*$")
         $fallbackMatch.Success | Should -BeTrue
         $fallback = $fallbackMatch.Groups['json'].Value | ConvertFrom-Json
-        (@($fallback.PSObject.Properties.Name) -join ',') | Should -Be 'schema,state,origin,digests,cases'
+        (@($fallback.PSObject.Properties.Name) -join ',') | Should -Be 'schema,state,reasons,origin,digests,cases'
         (@($fallback.origin.PSObject.Properties.Name) -join ',') | Should -Be 'os,aptHosts'
         (@($fallback.digests.PSObject.Properties.Name) -join ',') | Should -Be 'manifestSha256,provenanceSha256'
+        # The fallback is emitted precisely when the encoder failed, so it must say so rather than
+        # falling back to a shape that reports failure without a reason.
+        (@($fallback.reasons) -join ',') | Should -Be 'encoder-failed'
+
+        $oversizeMatch = [regex]::Match(
+            $smokeContent,
+            "(?m)^\s*oversize_json='(?<json>\{`"schema`":`"skalary/container-toolchain-smoke@1`".+\})'\s*$")
+        $oversizeMatch.Success | Should -BeTrue
+        $oversize = $oversizeMatch.Groups['json'].Value | ConvertFrom-Json
+        (@($oversize.PSObject.Properties.Name) -join ',') | Should -Be 'schema,state,reasons,origin,digests,cases'
+        (@($oversize.reasons) -join ',') | Should -Be 'output-oversize'
 
         foreach ($relativePath in @(
                 'devcontainer/Dockerfile',

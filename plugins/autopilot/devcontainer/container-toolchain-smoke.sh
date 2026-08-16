@@ -5,7 +5,8 @@ export LC_ALL=C
 
 manifest_path=/usr/local/share/autopilot/toolchain.tsv
 provenance_dir=/usr/local/share/autopilot/provenance
-fallback_json='{"schema":"skalary/container-toolchain-smoke@1","state":"fail","origin":{"os":"","aptHosts":[]},"digests":{"manifestSha256":"","provenanceSha256":""},"cases":[]}'
+fallback_json='{"schema":"skalary/container-toolchain-smoke@1","state":"fail","reasons":["encoder-failed"],"origin":{"os":"","aptHosts":[]},"digests":{"manifestSha256":"","provenanceSha256":""},"cases":[]}'
+oversize_json='{"schema":"skalary/container-toolchain-smoke@1","state":"fail","reasons":["output-oversize"],"origin":{"os":"","aptHosts":[]},"digests":{"manifestSha256":"","provenanceSha256":""},"cases":[]}'
 fixture_root="$(mktemp -d)"
 trap 'rm -rf "$fixture_root"' EXIT
 
@@ -15,7 +16,17 @@ mkdir -p "$fixture_dir"
 printf 'known-token\n' > "$fixture_file"
 
 declare -A case_states
+declare -A reason_set
 encoder_failed=false
+
+# A whole-run failure has no case to hang from. Without a named reason, an unreadable manifest, a
+# writable /usr/local/bin, and a run as the wrong user all reported an identical bare `state=fail`,
+# and the gate receipt could say only that smoke had failed. The vocabulary is closed and mirrored
+# by `$script:AllowedSmokeReasons` in Invoke-ContainerToolchainGate.ps1, which rejects anything
+# outside it — so this field cannot become a free-text channel into the job summary.
+add_reason() {
+    reason_set["$1"]=present
+}
 
 run_case() {
     local case_id="$1"
@@ -174,8 +185,13 @@ run_case ssh-version check_ssh
 run_case sqlite-query check_sqlite
 
 overall_state=pass
-if [[ "$(id -un)" != autopilot || -w /usr/local/bin ]]; then
+if [[ "$(id -un)" != autopilot ]]; then
     overall_state=fail
+    add_reason not-autopilot-user
+fi
+if [[ -w /usr/local/bin ]]; then
+    overall_state=fail
+    add_reason usr-local-bin-writable
 fi
 
 cases_json='[]'
@@ -185,6 +201,7 @@ if [[ -f "$manifest_path" && -r "$manifest_path" && -s "$manifest_path" ]]; then
         [[ -z "$case_id" || "$case_id" == \#* ]] && continue
         if [[ -n "${manifest_cases[$case_id]+present}" ]]; then
             overall_state=fail
+            add_reason manifest-duplicate-case
         fi
         manifest_cases["$case_id"]=present
         case_state="${case_states[$case_id]:-fail}"
@@ -208,15 +225,18 @@ if [[ -f "$manifest_path" && -r "$manifest_path" && -s "$manifest_path" ]]; then
             cases_json='[]'
             encoder_failed=true
             overall_state=fail
+            add_reason encoder-failed
             break
         fi
     done < "$manifest_path"
 else
     overall_state=fail
+    add_reason manifest-unreadable
 fi
 
 if (( ${#manifest_cases[@]} != ${#case_states[@]} )); then
     overall_state=fail
+    add_reason case-count-mismatch
 fi
 
 provenance_files=(
@@ -234,6 +254,7 @@ for provenance_file in "${provenance_files[@]}"; do
     if [[ ! -f "$provenance_dir/$provenance_file" || ! -r "$provenance_dir/$provenance_file" || ! -s "$provenance_dir/$provenance_file" ]]; then
         provenance_ready=false
         overall_state=fail
+        add_reason provenance-incomplete
     fi
 done
 
@@ -257,6 +278,7 @@ if [[ -f "$provenance_dir/final-apt-sources.txt" && -r "$provenance_dir/final-ap
         apt_hosts_json='[]'
         encoder_failed=true
         overall_state=fail
+        add_reason encoder-failed
     fi
 fi
 
@@ -265,9 +287,11 @@ if [[ -f "$manifest_path" && -r "$manifest_path" && -s "$manifest_path" ]]; then
     if ! manifest_digest="$(sha256sum "$manifest_path" 2>/dev/null | cut -d ' ' -f1)"; then
         manifest_digest=
         overall_state=fail
+        add_reason manifest-digest-unavailable
     fi
 else
     overall_state=fail
+    add_reason manifest-unreadable
 fi
 
 provenance_digest=
@@ -282,6 +306,7 @@ if [[ "$provenance_ready" == true ]]; then
         else
             provenance_ready=false
             overall_state=fail
+            add_reason provenance-digest-unavailable
             break
         fi
     done
@@ -289,11 +314,28 @@ if [[ "$provenance_ready" == true ]]; then
         if ! provenance_digest="$(sha256sum "$provenance_hashes" 2>/dev/null | cut -d ' ' -f1)"; then
             provenance_digest=
             overall_state=fail
+            add_reason provenance-digest-unavailable
         fi
     fi
 fi
-if [[ ! "$manifest_digest" =~ ^[a-f0-9]{64}$ || ! "$provenance_digest" =~ ^[a-f0-9]{64}$ ]]; then
+if [[ ! "$manifest_digest" =~ ^[a-f0-9]{64}$ ]]; then
     overall_state=fail
+    add_reason manifest-digest-unavailable
+fi
+if [[ ! "$provenance_digest" =~ ^[a-f0-9]{64}$ ]]; then
+    overall_state=fail
+    add_reason provenance-digest-unavailable
+fi
+
+# Sorted so two runs that fail the same way produce byte-identical output, and unique because the
+# host rejects a duplicated reason as malformed rather than merging it silently.
+reasons_json='[]'
+if (( ${#reason_set[@]} > 0 )); then
+    if ! reasons_json="$(printf '%s\n' "${!reason_set[@]}" | LC_ALL=C sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"; then
+        reasons_json='["encoder-failed"]'
+        encoder_failed=true
+        overall_state=fail
+    fi
 fi
 
 json=
@@ -301,6 +343,7 @@ if ! json="$(
     jq -cn \
         --arg schema 'skalary/container-toolchain-smoke@1' \
         --arg state "$overall_state" \
+        --argjson reasons "$reasons_json" \
         --arg os "$os_origin" \
         --argjson aptHosts "$apt_hosts_json" \
         --arg manifestSha256 "$manifest_digest" \
@@ -309,6 +352,7 @@ if ! json="$(
         '{
             schema:$schema,
             state:$state,
+            reasons:$reasons,
             origin:{os:$os,aptHosts:$aptHosts},
             digests:{manifestSha256:$manifestSha256,provenanceSha256:$provenanceSha256},
             cases:$cases
@@ -319,9 +363,12 @@ if ! json="$(
     json="$fallback_json"
 fi
 
-if [[ "$encoder_failed" == true ]] || (( ${#json} > 65535 )); then
+if [[ "$encoder_failed" == true ]]; then
     overall_state=fail
     json="$fallback_json"
+elif (( ${#json} > 65535 )); then
+    overall_state=fail
+    json="$oversize_json"
 fi
 
 if ! printf '%s\n' "$json"; then
