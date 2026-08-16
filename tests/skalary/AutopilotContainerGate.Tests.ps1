@@ -9,12 +9,71 @@ Describe 'Autopilot container gate runner' {
         $script:runnerPath = Join-Path $script:repoRoot 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
         . $script:runnerPath
         $script:headSha = (& git -C $script:repoRoot rev-parse HEAD).Trim()
+
+        # Three tests each re-derived the manifest's case IDs with their own copy of the TSV
+        # parsing rules. A manifest format change had to be found in three places, and a copy that
+        # drifted would silently test a different case set than the gate reads.
+        function script:Get-TestManifestCaseId {
+            [CmdletBinding()]
+            param([Parameter(Mandatory)][string]$Path)
+            return @(Get-Content -LiteralPath $Path | Where-Object {
+                    $_ -and -not $_.TrimStart().StartsWith('#')
+                } | ForEach-Object { ($_ -split "`t", 3)[0] })
+        }
     }
 
     It 'test:AutopilotContainer.GateRunnerContract enforces gate runner invariants' {
         $modeAttribute = (Get-Command Invoke-ContainerToolchainGate).Parameters.Mode.Attributes |
             Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
-        @($modeAttribute.ValidValues) | Should -Be @('Detect', 'Measure', 'VerifyResult')
+        # `Initialize` writes a starting receipt; it is setup, not a verdict mode, and the truth
+        # table in `Test-ContainerGateResult` never sees it.
+        @($modeAttribute.ValidValues) | Should -Be @('Detect', 'Measure', 'VerifyResult', 'Initialize')
+
+        # The script has two param blocks: the file's own, used when the script is invoked, and the
+        # function's, used when a caller dot-sources it. They drifted before — a parameter added to
+        # one and not the other is silently ignored on the other path. Compare them by reflection
+        # rather than by reading both and hoping.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $script:runnerPath, [ref]$null, [ref]$null)
+        $scriptParams = $ast.ParamBlock.Parameters
+        $functionAst = $ast.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Invoke-ContainerToolchainGate'
+            }, $true)[0]
+        $functionParams = $functionAst.Body.ParamBlock.Parameters
+        $describe = {
+            param($parameter, $ignoredAttributes)
+            $attributes = @($parameter.Attributes |
+                    ForEach-Object { $_.Extent.Text.Trim() } |
+                    Where-Object { $_ -notin $ignoredAttributes } |
+                    Sort-Object)
+            '{0}|{1}' -f $parameter.Name.VariablePath.UserPath, ($attributes -join ';')
+        }
+        # One difference is deliberate: the script block cannot mark `ReceiptPath` Mandatory,
+        # because dot-sourcing this file for tests would then prompt. It is named here rather than
+        # allowed by a loose comparison, and the compensating explicit check is asserted below.
+        $mandatoryExemptions = @{ ReceiptPath = @('[Parameter(Mandatory)]') }
+        $shapeOf = {
+            param($parameters)
+            @($parameters | ForEach-Object {
+                    & $describe $_ ($mandatoryExemptions[$_.Name.VariablePath.UserPath])
+                })
+        }
+        (& $shapeOf $functionParams) | Should -Be (& $shapeOf $scriptParams) -Because (
+            'the script and function parameter blocks must stay identical, or a caller gets ' +
+            'different validation depending on how it reached the runner')
+        # The exemption is only safe because the file-invocation path refuses a missing receipt
+        # itself. Assert that by running the file, not by matching its source: a comment or a
+        # renamed variable would satisfy a text match while the guard was gone.
+        $scriptReceipt = @($scriptParams | Where-Object { $_.Name.VariablePath.UserPath -eq 'ReceiptPath' })[0]
+        @($scriptReceipt.Attributes.Extent.Text) | Should -Not -Contain '[Parameter(Mandatory)]'
+        $functionReceipt = @($functionParams | Where-Object { $_.Name.VariablePath.UserPath -eq 'ReceiptPath' })[0]
+        @($functionReceipt.Attributes.Extent.Text) | Should -Contain '[Parameter(Mandatory)]'
+        $guard = & pwsh -NoProfile -NonInteractive -File $script:runnerPath `
+            -Mode VerifyResult -DetectorConclusion success -Relevance false -ImageConclusion skipped 2>&1
+        $LASTEXITCODE | Should -Not -Be 0 -Because 'invoking the file without a receipt path must fail'
+        ($guard | Out-String) | Should -Match 'ReceiptPath' -Because 'the failure must name what is missing'
 
         $context = Get-ContainerGateContext -CheckoutRoot $repoRoot
         $context.Payload.Count | Should -BeGreaterOrEqual 5
@@ -164,12 +223,11 @@ Describe 'Autopilot container gate runner' {
             Get-FileHash -LiteralPath $provenancePath -Algorithm SHA256).Hash.ToLowerInvariant()
 
         $manifestPath = Join-Path $repoRoot 'plugins/autopilot/devcontainer/toolchain.tsv'
-        $caseIds = @(Get-Content -LiteralPath $manifestPath | Where-Object {
-                $_ -and -not $_.TrimStart().StartsWith('#')
-            } | ForEach-Object { ($_ -split "`t", 3)[0] })
+        $caseIds = @(Get-TestManifestCaseId -Path $manifestPath)
         $smokeValue = [ordered]@{
             schema = 'skalary/container-toolchain-smoke@1'
             state = 'pass'
+            reasons = @()
             origin = [ordered]@{ os = 'debian:13'; aptHosts = @('deb.debian.org') }
             digests = [ordered]@{ manifestSha256 = ('a' * 64); provenanceSha256 = ('b' * 64) }
             cases = @($caseIds | ForEach-Object {
@@ -199,6 +257,34 @@ Describe 'Autopilot container gate runner' {
             $smokeValue | ConvertTo-Json -Depth 8 -Compress) -ManifestPath $manifestPath
         $validFailureSmoke.Valid | Should -BeTrue
         $validFailureSmoke.Summary | Should -Match 'state=fail'
+
+        # A whole-run failure has no case to blame. Before `reasons`, the runner could only report
+        # "reported failure without naming a case", so these cases pin the closed vocabulary the
+        # host will accept and the rejections that keep it closed.
+        $smokeValue.cases[0].state = 'pass'
+        $smokeValue.reasons = @('not-autopilot-user', 'usr-local-bin-writable')
+        $wholeRun = Test-GateSmokeOutput -Output ($smokeValue | ConvertTo-Json -Depth 8 -Compress) `
+            -ManifestPath $manifestPath
+        $wholeRun.Valid | Should -BeTrue
+        @($wholeRun.Reasons) | Should -Be @('not-autopilot-user', 'usr-local-bin-writable')
+        $smokeValue.reasons = @('not-a-real-reason')
+        (Test-GateSmokeOutput -Output ($smokeValue | ConvertTo-Json -Depth 8 -Compress) `
+                -ManifestPath $manifestPath).Valid |
+            Should -BeFalse -Because 'an open reason field would be a free-text channel into the job summary'
+        $smokeValue.reasons = @('not-autopilot-user', 'not-autopilot-user')
+        (Test-GateSmokeOutput -Output ($smokeValue | ConvertTo-Json -Depth 8 -Compress) `
+                -ManifestPath $manifestPath).Valid | Should -BeFalse
+        $smokeValue.reasons = @()
+        $noVerdict = Test-GateSmokeOutput -Output ($smokeValue | ConvertTo-Json -Depth 8 -Compress) `
+            -ManifestPath $manifestPath
+        $noVerdict.Valid |
+            Should -BeFalse -Because 'a failure with neither a failed case nor a reason diagnoses nothing'
+        $smokeValue.state = 'pass'
+        $smokeValue.reasons = @('not-autopilot-user')
+        (Test-GateSmokeOutput -Output ($smokeValue | ConvertTo-Json -Depth 8 -Compress) `
+                -ManifestPath $manifestPath).Valid |
+            Should -BeFalse -Because 'a passing run that also reports why it failed is self-contradictory'
+        $smokeValue.reasons = @()
 
         $savedCulture = [System.Globalization.CultureInfo]::CurrentCulture
         try {
@@ -244,7 +330,14 @@ Describe 'Autopilot container gate runner' {
         }
         Add-Content -LiteralPath (
             Join-Path $payloadFixture '.github/skills/autopilot/devcontainer/toolchain.tsv') -Value '# drift'
-        (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Reason | Should -Be 'payload-drift'
+        $drift = Test-ContainerPayloadParity -CheckoutRoot $payloadFixture
+        $drift.Reason | Should -Be 'payload-drift'
+        # A reason without a name is a red gate nobody can act on: the detail must identify the
+        # mapped source and show the two hashes that disagree.
+        $drift.Detail | Should -Match ([regex]::Escape('devcontainer/toolchain.tsv'))
+        $drift.Detail | Should -Match 'canonical=[0-9a-f]{16} installed=[0-9a-f]{16}'
+        @($drift.Entries).Count | Should -BeGreaterThan 0 -Because 'hashes taken before the drift are the evidence'
+        @($drift.Entries | Where-Object { $_.canonicalSha256 -ne $_.installedSha256 }).Count | Should -Be 1
         $installedDockerfile = Join-Path $payloadFixture '.github/skills/autopilot/devcontainer/Dockerfile'
         (Get-Content -LiteralPath $installedDockerfile -Raw).Replace(
             'FROM debian:trixie-slim',
@@ -270,9 +363,12 @@ Describe 'Autopilot container gate runner' {
         Add-Content -LiteralPath $canonicalDockerfile -Value "COPY \"
         { Get-ContainerGateContext -CheckoutRoot $payloadFixture } |
             Should -Throw '*Continued Dockerfile COPY instructions are unsupported*'
+        Set-Content -LiteralPath $canonicalDockerfile -Value $canonicalDockerfileText -Encoding utf8NoBOM -NoNewline
         Remove-Item -LiteralPath (
             Join-Path $payloadFixture '.github/skills/autopilot/devcontainer/Dockerfile') -Force
-        (Test-ContainerPayloadParity -CheckoutRoot $payloadFixture).Reason | Should -Be 'context-absent'
+        $absent = Test-ContainerPayloadParity -CheckoutRoot $payloadFixture
+        $absent.Reason | Should -Be 'context-absent'
+        $absent.Detail | Should -Match ([regex]::Escape('devcontainer/Dockerfile'))
     }
 
     It 'fails closed when bounded process capture overflows or contains controls' {
@@ -378,9 +474,15 @@ Describe 'Autopilot container gate runner' {
     }
 
     It 'kills a timed-out process tree and returns bounded diagnostics' {
-        # Fixed sleeps make this test a race. The child announces itself, then heartbeats, so the
-        # assertion is the invariant that matters: the child really started, and it stopped
-        # producing work once the tree was killed.
+        # The timeout must outlast two cold pwsh starts (parent, then grandchild) or the tree is
+        # killed before the child announces itself and the test asserts nothing about tree kill.
+        # A hardcoded number buys that margin by making every run pay the slowest machine's price,
+        # so measure this machine instead: start a pwsh that does nothing and scale from it.
+        $coldStart = @(1, 2 | ForEach-Object {
+                (Measure-Command { & pwsh -NoProfile -NonInteractive -Command 'exit 0' }).TotalSeconds
+            } | Sort-Object -Descending)[0]
+        $timeoutSeconds = [math]::Max(4, [int][math]::Ceiling(3 * $coldStart))
+
         $startedMarker = Join-Path $TestDrive 'child-started'
         $heartbeatMarker = Join-Path $TestDrive 'child-heartbeat'
         $childScript = Join-Path $TestDrive 'child.ps1'
@@ -396,31 +498,36 @@ Describe 'Autopilot container gate runner' {
             "Start-Process -FilePath pwsh -ArgumentList @('-NoProfile','-File','$($childScript.Replace("'", "''"))')",
             'Start-Sleep -Seconds 60'
         )
-        # The timeout must outlast two cold pwsh starts, or the tree is killed before the grandchild
-        # can announce itself and the test asserts nothing about tree kill.
         $process = Invoke-GateProcess -FilePath 'pwsh' `
-            -ArgumentList @('-NoProfile', '-File', $parentScript) -TimeoutSeconds 12
+            -ArgumentList @('-NoProfile', '-File', $parentScript) -TimeoutSeconds $timeoutSeconds
         $process.TimedOut | Should -BeTrue
         $process.ExitCode | Should -Be -1
 
-        $deadline = [datetime]::UtcNow.AddSeconds(10)
+        $deadline = [datetime]::UtcNow.AddSeconds([math]::Max(3, 4 * $coldStart))
         while ([datetime]::UtcNow -lt $deadline -and -not (Test-Path -LiteralPath $startedMarker)) {
             Start-Sleep -Milliseconds 100
         }
-        Test-Path -LiteralPath $startedMarker | Should -BeTrue -Because 'the child must really have run'
+        Test-Path -LiteralPath $startedMarker | Should -BeTrue `
+            -Because "the child must really have run (timeout ${timeoutSeconds}s, cold start ${coldStart}s)"
 
-        $beatsAfterKill = @()
-        $stableReadings = 0
-        $settleDeadline = [datetime]::UtcNow.AddSeconds(15)
-        while ([datetime]::UtcNow -lt $settleDeadline -and $stableReadings -lt 4) {
-            Start-Sleep -Milliseconds 250
+        # The child heartbeats every 100ms, so a reading taken 200ms after the previous one would
+        # have caught a survivor. Three of those after a grace period is the invariant: output
+        # stopped and stayed stopped. Waiting longer only re-observes the same dead process.
+        Start-Sleep -Milliseconds 400
+        $beatsAfterKill = @(if (Test-Path -LiteralPath $heartbeatMarker) {
+                Get-Content -LiteralPath $heartbeatMarker
+            })
+        for ($reading = 0; $reading -lt 3; $reading++) {
+            Start-Sleep -Milliseconds 200
             $current = @(if (Test-Path -LiteralPath $heartbeatMarker) {
                     Get-Content -LiteralPath $heartbeatMarker
                 })
-            if ($current.Count -eq $beatsAfterKill.Count) { $stableReadings++ } else { $stableReadings = 0 }
+            $current.Count | Should -Be $beatsAfterKill.Count `
+                -Because 'the killed child must stop heartbeating, not merely slow down'
             $beatsAfterKill = $current
         }
-        $stableReadings | Should -BeGreaterOrEqual 4 -Because 'the killed child must stop heartbeating'
+        # The child wrote something before it died, or the kill proved nothing about a live tree.
+        $beatsAfterKill.Count | Should -BeGreaterThan 0
 
         $process.Stdout.Length | Should -BeLessOrEqual 65535
         $process.Stderr.Length | Should -BeLessOrEqual 65535
@@ -428,12 +535,11 @@ Describe 'Autopilot container gate runner' {
 
     It 'names failing smoke cases and attests image claims against the trusted host' {
         $manifestPath = Join-Path $repoRoot 'plugins/autopilot/devcontainer/toolchain.tsv'
-        $caseIds = @(Get-Content -LiteralPath $manifestPath | Where-Object {
-                $_ -and -not $_.TrimStart().StartsWith('#')
-            } | ForEach-Object { ($_ -split "`t", 3)[0] })
+        $caseIds = @(Get-TestManifestCaseId -Path $manifestPath)
         $failing = [ordered]@{
             schema = 'skalary/container-toolchain-smoke@1'
             state = 'fail'
+            reasons = @()
             origin = [ordered]@{ os = 'debian:13'; aptHosts = @('deb.debian.org') }
             digests = [ordered]@{ manifestSha256 = ('a' * 64); provenanceSha256 = ('b' * 64) }
             cases = @($caseIds | ForEach-Object {
@@ -496,28 +602,203 @@ Describe 'Autopilot container gate runner' {
     }
 
     It 'reads image attestation from the host without granting the candidate trust' {
-        $runnerText = Get-Content -LiteralPath $runnerPath -Raw
-        $attestationBody = [regex]::Match(
-            $runnerText,
-            '(?s)function Test-GateImageAttestation \{.*?\n\}\n').Value
-        $attestationBody | Should -Not -BeNullOrEmpty
-        # The whole point of reading the image from the host is that no candidate code runs and no
-        # host resource is handed to it.
-        $attestationBody | Should -Match "'create', '--network', 'none'"
-        $attestationBody | Should -Match "'cp',"
-        $attestationBody | Should -Not -Match '--volume|--mount|(?<!\w)-v(?!\w)|--privileged'
-        $attestationBody | Should -Match "'rm', '-f'"
+        # Asserting the *text* of Test-GateImageAttestation proves only that the function is spelled
+        # a certain way. This drives it: `docker cp` is mocked to materialise real files, every
+        # docker invocation is recorded, and the assertions are on the verdicts it returns and the
+        # arguments it actually passed.
+        $script:attestCalls = [System.Collections.Generic.List[object]]::new()
+        $script:attestFiles = @{}
+        $script:attestCreateExit = 0
+        $script:attestCpFailures = @{}
+        $script:attestCreateDelayMs = 0
 
         Mock Invoke-GateProcess {
+            $script:attestCalls.Add([pscustomobject]@{
+                    FilePath = $FilePath
+                    ArgumentList = @($ArgumentList)
+                    TimeoutSeconds = $TimeoutSeconds
+                })
+            $ok = {
+                param([string]$Out = '')
+                [pscustomobject]@{
+                    ExitCode = 0; Stdout = $Out; Stderr = ''; TimedOut = $false; ElapsedMs = [int64]1
+                    StdoutOverflow = $false; StderrOverflow = $false
+                    StdoutInvalidControl = $false; StderrInvalidControl = $false
+                }
+            }
+            $failed = {
+                param([string]$Err = 'boom')
+                [pscustomobject]@{
+                    ExitCode = 1; Stdout = ''; Stderr = $Err; TimedOut = $false; ElapsedMs = [int64]1
+                    StdoutOverflow = $false; StderrOverflow = $false
+                    StdoutInvalidControl = $false; StderrInvalidControl = $false
+                }
+            }
             switch ($ArgumentList[0]) {
-                'create' { [pscustomobject]@{ ExitCode = 1; Stdout = ''; Stderr = 'no such image'; TimedOut = $false; ElapsedMs = 1; StdoutOverflow = $false; StderrOverflow = $false; StdoutInvalidControl = $false } }
-                default { [pscustomobject]@{ ExitCode = 0; Stdout = ''; Stderr = ''; TimedOut = $false; ElapsedMs = 1; StdoutOverflow = $false; StderrOverflow = $false; StdoutInvalidControl = $false } }
+                'create' {
+                    if ($script:attestCreateDelayMs -gt 0) {
+                        Start-Sleep -Milliseconds $script:attestCreateDelayMs
+                    }
+                    if ($script:attestCreateExit -ne 0) { return (& $failed 'no such image') }
+                    return (& $ok ('a' * 64))
+                }
+                'cp' {
+                    # ArgumentList = @('cp', "<id>:<source>", "<destination>")
+                    $spec = [string]$ArgumentList[1]
+                    $source = $spec.Substring($spec.IndexOf(':') + 1)
+                    $destination = [string]$ArgumentList[2]
+                    if ($script:attestCpFailures.ContainsKey($source)) {
+                        return (& $failed 'cp refused')
+                    }
+                    if (-not $script:attestFiles.ContainsKey($source)) { return (& $ok) }
+                    $payload = $script:attestFiles[$source]
+                    if ($payload -is [hashtable]) {
+                        # A directory copy, e.g. /etc/apt: keys are relative paths under it.
+                        foreach ($relative in $payload.Keys) {
+                            $target = Join-Path $destination $relative
+                            [void](New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force)
+                            Set-Content -LiteralPath $target -Value $payload[$relative] -Encoding utf8NoBOM
+                        }
+                    }
+                    else {
+                        [void](New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force)
+                        Set-Content -LiteralPath $destination -Value $payload -Encoding utf8NoBOM -NoNewline
+                    }
+                    return (& $ok)
+                }
+                default { return (& $ok) }
             }
         }
+
+        $manifestPath = Join-Path $repoRoot 'plugins/autopilot/devcontainer/toolchain.tsv'
+        $manifestText = [System.IO.File]::ReadAllText($manifestPath)
+        $manifestSha = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $manifestSource = '/usr/local/share/autopilot/toolchain.tsv'
+        $debianSource = '/usr/local/share/autopilot/provenance/apt-sources.txt'
+        $finalSource = '/usr/local/share/autopilot/provenance/final-apt-sources.txt'
+        $goodDebian = "http://deb.debian.org/debian`nhttp://security.debian.org/debian-security"
+        $goodFinal = "$goodDebian`nhttps://download.docker.com/linux/debian`nhttps://packages.microsoft.com/debian/13/prod"
+        $goodLive = @{
+            'sources.list.d/debian.sources' = "Types: deb`nURIs: http://deb.debian.org/debian`nSuites: trixie"
+            'sources.list.d/docker.list' = 'deb [arch=amd64] https://download.docker.com/linux/debian trixie stable'
+            'sources.list.d/microsoft.list' = 'deb [arch=amd64] https://packages.microsoft.com/debian/13/prod trixie main'
+        }
+        $baseline = @{
+            $manifestSource = $manifestText
+            $debianSource = $goodDebian
+            $finalSource = $goodFinal
+            '/etc/apt' = $goodLive
+        }
+        function Reset-AttestFixture {
+            $script:attestCalls.Clear()
+            $script:attestCreateExit = 0
+            $script:attestCreateDelayMs = 0
+            $script:attestCpFailures = @{}
+            $script:attestFiles = @{}
+            foreach ($key in $baseline.Keys) { $script:attestFiles[$key] = $baseline[$key] }
+        }
+
+        # Happy path: the image agrees with the trusted checkout and every origin is allowlisted.
+        Reset-AttestFixture
+        $good = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $good.Valid | Should -BeTrue -Because ($good.Reason)
+        $good.ManifestSha256 | Should -BeExactly $manifestSha
+        @($good.AptHosts) | Should -Contain 'download.docker.com'
+        @($good.DebianAptHosts) | Should -Be @('deb.debian.org', 'security.debian.org')
+
+        # No mount, socket, device, privilege, or host network is ever handed to the candidate
+        # image. This reads the recorded arguments, so a future edit that adds one fails here even
+        # if the function's source is reworded.
+        $createCalls = @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'create' })
+        $createCalls.Count | Should -Be 1
+        @($createCalls[0].ArgumentList) | Should -Contain '--network'
+        @($createCalls[0].ArgumentList) | Should -Contain 'none'
+        foreach ($call in $attestCalls) {
+            $call.FilePath | Should -Be 'docker'
+            foreach ($argument in @($call.ArgumentList)) {
+                $argument | Should -Not -Match '^(?:-v|--volume|--mount|--privileged|--device|--cap-add|--network=host|--pid|--userns|--security-opt)$'
+            }
+            ($call.ArgumentList -join ' ') | Should -Not -Match '(?:^|\s)--network\s+host(?:\s|$)'
+        }
+        # The container is removed on every path, including the successful one.
+        @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'rm' -and $_.ArgumentList[1] -eq '-f' }).Count |
+            Should -Be 1
+
+        # A manifest that differs from the trusted checkout is the case smoke output cannot be
+        # trusted to report, because smoke runs inside the image being questioned.
+        Reset-AttestFixture
+        $script:attestFiles[$manifestSource] = $manifestText + "`n# tampered"
+        $mismatch = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $mismatch.Valid | Should -BeFalse
+        $mismatch.Reason | Should -Match '^attestation-manifest-mismatch:'
+        $mismatch.ManifestSha256 | Should -Not -Be $manifestSha
+        @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'rm' }).Count | Should -Be 1
+
+        # A recorded origin outside the final allowlist.
+        Reset-AttestFixture
+        $script:attestFiles[$finalSource] = "$goodFinal`nhttps://packages.evil.invalid/debian"
+        $recordedEvil = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $recordedEvil.Valid | Should -BeFalse
+        $recordedEvil.Reason | Should -Match '^attestation-origin-disallowed:.*packages\.evil\.invalid'
+
+        # The Debian baseline record is held to the tighter two-host allowlist.
+        Reset-AttestFixture
+        $script:attestFiles[$debianSource] = "$goodDebian`nhttps://download.docker.com/linux/debian"
+        $baselineEvil = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $baselineEvil.Valid | Should -BeFalse
+        $baselineEvil.Reason | Should -Match '^attestation-debian-origin-disallowed:'
+
+        # The image's live /etc/apt disagreeing with its own record is the case the second read
+        # exists to catch: the record says Debian and Docker, apt is actually pointed elsewhere.
+        Reset-AttestFixture
+        $liveEvilFiles = @{}
+        foreach ($key in $goodLive.Keys) { $liveEvilFiles[$key] = $goodLive[$key] }
+        $liveEvilFiles['sources.list.d/extra.list'] = 'deb https://mirror.evil.invalid/debian trixie main'
+        $script:attestFiles['/etc/apt'] = $liveEvilFiles
+        $liveEvil = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $liveEvil.Valid | Should -BeFalse
+        $liveEvil.Reason | Should -Match '^attestation-live-origin-disallowed:.*mirror\.evil\.invalid'
+
+        # An /etc/apt that cannot be read is not evidence of a clean image.
+        Reset-AttestFixture
+        $script:attestCpFailures['/etc/apt'] = $true
+        $configUnreadable = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $configUnreadable.Valid | Should -BeFalse
+        $configUnreadable.Reason | Should -Be 'attestation-apt-config-unreadable'
+
+        # A file the copy never produced fails closed and names which one.
+        Reset-AttestFixture
+        $script:attestFiles.Remove($finalSource)
+        $missingFile = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
+        $missingFile.Valid | Should -BeFalse
+        $missingFile.Reason | Should -Be "attestation-file-unreadable:$finalSource"
+
+        # No container, no attestation — and nothing to remove.
+        Reset-AttestFixture
+        $script:attestCreateExit = 1
         $unavailable = Test-GateImageAttestation -ImageTag 'missing:tag' `
-            -ExpectedManifestSha256 ('a' * 64) -TimeoutSeconds 5
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 60
         $unavailable.Valid | Should -BeFalse
         $unavailable.Reason | Should -Be 'attestation-container-unavailable'
+        @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'rm' }).Count | Should -Be 0
+
+        # TimeoutSeconds is the budget for the whole attestation. Burning it inside the first call
+        # must stop the remaining copies rather than funding each of them separately.
+        Reset-AttestFixture
+        $script:attestCreateDelayMs = 1400
+        $timedOut = Test-GateImageAttestation -ImageTag 'candidate:test' `
+            -ExpectedManifestSha256 $manifestSha -TimeoutSeconds 1
+        $timedOut.Valid | Should -BeFalse
+        $timedOut.Reason | Should -Be 'attestation-timeout'
+        @($attestCalls | Where-Object { $_.ArgumentList[0] -eq 'cp' }).Count |
+            Should -Be 0 -Because 'an exhausted budget must stop before the first copy, not after each one'
     }
 
     It 'refuses an empty manifest and reads the live apt configuration from the image' {
@@ -528,6 +809,7 @@ Describe 'Autopilot container gate runner' {
         $emptySmoke = [ordered]@{
             schema = 'skalary/container-toolchain-smoke@1'
             state = 'pass'
+            reasons = @()
             origin = [ordered]@{ os = 'debian:13'; aptHosts = @('deb.debian.org') }
             digests = [ordered]@{ manifestSha256 = ('a' * 64); provenanceSha256 = ('b' * 64) }
             cases = @()
@@ -585,6 +867,42 @@ Describe 'Autopilot container gate runner' {
         Set-Content -LiteralPath (Join-Path $portRoot 'sources.list') -Encoding utf8NoBOM `
             -Value 'deb http://deb.debian.org:8080/debian trixie main'
         @(Get-GateAptConfigHost -Root $portRoot) | Should -Be @('deb.debian.org')
+
+        # An `apt.conf` that relocates the source-list tree makes the allowlisted files this
+        # function reads irrelevant to what apt fetches, so the read fails closed rather than
+        # reporting the hosts of a configuration that is not in effect.
+        foreach ($directive in @(
+                'Dir::Etc::sourcelist "/opt/hidden/sources.list";',
+                'Dir::Etc "/opt/hidden";',
+                'Dir "/opt/hidden/";'
+            )) {
+            $relocatedRoot = Join-Path $TestDrive ("etc-apt-reloc-" + [guid]::NewGuid().ToString('N'))
+            [void](New-Item -ItemType Directory -Path (Join-Path $relocatedRoot 'apt.conf.d') -Force)
+            Set-Content -LiteralPath (Join-Path $relocatedRoot 'sources.list') -Encoding utf8NoBOM `
+                -Value 'deb http://deb.debian.org/debian trixie main'
+            Set-Content -LiteralPath (Join-Path $relocatedRoot 'apt.conf.d/99relocate') -Encoding utf8NoBOM `
+                -Value $directive
+            Get-GateAptConfigHost -Root $relocatedRoot |
+                Should -BeNullOrEmpty -Because "'$directive' relocates the tree this scan enumerates"
+        }
+        # Debian's own base images ship this, and it relocates no source list, so it must not fail.
+        $cacheRoot = Join-Path $TestDrive 'etc-apt-cache'
+        [void](New-Item -ItemType Directory -Path (Join-Path $cacheRoot 'apt.conf.d') -Force)
+        Set-Content -LiteralPath (Join-Path $cacheRoot 'sources.list') -Encoding utf8NoBOM `
+            -Value 'deb http://deb.debian.org/debian trixie main'
+        Set-Content -LiteralPath (Join-Path $cacheRoot 'apt.conf.d/docker-clean') -Encoding utf8NoBOM `
+            -Value 'Dir::Cache::pkgcache ""; Dir::Cache::srcpkgcache "";'
+        @(Get-GateAptConfigHost -Root $cacheRoot) | Should -Be @('deb.debian.org')
+
+        # A scheme outside http(s) is an origin the allowlist was never written against, so it is
+        # reported rather than skipped by a pattern that only knows how to see http.
+        $schemeRoot = Join-Path $TestDrive 'etc-apt-scheme'
+        [void](New-Item -ItemType Directory -Path $schemeRoot -Force)
+        Set-Content -LiteralPath (Join-Path $schemeRoot 'sources.list') -Encoding utf8NoBOM `
+            -Value 'deb ftp://mirror.evil.invalid/debian trixie main'
+        $schemeHosts = @(Get-GateAptConfigHost -Root $schemeRoot)
+        $schemeHosts | Should -Be @('ftp://mirror.evil.invalid')
+        (Test-GateAllowedAptHost -Value $schemeHosts -Allowed $script:AllowedAptHosts) | Should -BeFalse
     }
 
     It 'reaches every terminal Measure outcome without a Docker daemon' {
@@ -592,17 +910,16 @@ Describe 'Autopilot container gate runner' {
         # covered only by its helpers. These cases pin the outcome, blocking flag, and diagnostic
         # of each terminal path.
         $manifestPath = Join-Path $repoRoot '.github/skills/autopilot/devcontainer/toolchain.tsv'
-        $caseIds = @(Get-Content -LiteralPath $manifestPath | Where-Object {
-                $_ -and -not $_.TrimStart().StartsWith('#')
-            } | ForEach-Object { ($_ -split "`t", 3)[0] })
+        $caseIds = @(Get-TestManifestCaseId -Path $manifestPath)
         $manifestSha = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
         function New-SmokeJson {
-            param([string]$State = 'pass', [string[]]$FailedIds = @(), [string]$ManifestDigest, [string[]]$AptHosts = @('deb.debian.org'))
+            param([string]$State = 'pass', [string[]]$FailedIds = @(), [string]$ManifestDigest, [string[]]$AptHosts = @('deb.debian.org'), [string[]]$Reasons = @())
 
             return ([ordered]@{
                     schema = 'skalary/container-toolchain-smoke@1'
                     state = $State
+                    reasons = @($Reasons)
                     origin = [ordered]@{ os = 'debian:13'; aptHosts = @($AptHosts) }
                     digests = [ordered]@{ manifestSha256 = $ManifestDigest; provenanceSha256 = ('b' * 64) }
                     cases = @($caseIds | ForEach-Object {
@@ -639,6 +956,9 @@ Describe 'Autopilot container gate runner' {
             }
         }
         Mock Test-GateImageAttestation {
+            if ([int]$script:gateScenario.AttestationDelayMs -gt 0) {
+                Start-Sleep -Milliseconds ([int]$script:gateScenario.AttestationDelayMs)
+            }
             [pscustomobject]@{
                 Valid = [bool]$script:gateScenario.AttestationValid
                 Reason = [string]$script:gateScenario.AttestationReason
@@ -662,17 +982,49 @@ Describe 'Autopilot container gate runner' {
                 }
                 '^build .*base' {
                     return (New-ProcessResult -ExitCode ([int]$script:gateScenario.BaseBuildExit) `
-                            -Stderr 'base build failed at layer 3')
+                            -Stderr 'base build failed at layer 3' `
+                            -TimedOut ([bool]$script:gateScenario.BaseBuildTimedOut))
                 }
                 '^run --rm --network none' {
+                    if ([int]$script:gateScenario.SmokeDelayMs -gt 0) {
+                        Start-Sleep -Milliseconds ([int]$script:gateScenario.SmokeDelayMs)
+                    }
                     return (New-ProcessResult -ExitCode ([int]$script:gateScenario.SmokeExit) `
                             -Stdout ([string]$script:gateScenario.SmokeStdout))
                 }
-                '^image inspect --format \{\{\.Size\}\}.*candidate' { return (New-ProcessResult -Stdout '450000000') }
-                '^image inspect --format \{\{\.Size\}\}.*base' { return (New-ProcessResult -Stdout '400000000') }
+                '^image inspect --format \{\{\.Size\}\}.*candidate' {
+                    if ([int]$script:gateScenario.CandidateSizeDelayMs -gt 0) {
+                        Start-Sleep -Milliseconds ([int]$script:gateScenario.CandidateSizeDelayMs)
+                    }
+                    return (New-ProcessResult -Stdout '450000000')
+                }
+                '^image inspect --format \{\{\.Size\}\}.*base' {
+                    return (New-ProcessResult -Stdout '400000000' `
+                            -TimedOut ([bool]$script:gateScenario.BaseSizeTimedOut))
+                }
                 default { return (New-ProcessResult) }
             }
         }
+
+        # Finding: the parity failure path is what tells a reader *which* file drifted, and nothing
+        # exercised it end-to-end. These two roots are real drifted checkouts, not mocks, so the
+        # assertions below observe the diagnostic and provenance the gate actually writes.
+        $driftRoot = Join-Path $TestDrive 'measure-drifted-root'
+        $absentRoot = Join-Path $TestDrive 'measure-absent-root'
+        foreach ($fixtureRoot in @($driftRoot, $absentRoot)) {
+            foreach ($relativePath in @('plugins/autopilot/plugin.json') + @(
+                    (Get-ContainerGateContext -CheckoutRoot $repoRoot).Payload |
+                        ForEach-Object { $_.CanonicalRelative; $_.InstalledRelative }
+                ) | Sort-Object -Unique) {
+                $destination = Join-Path $fixtureRoot $relativePath
+                [void](New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force)
+                Copy-Item -LiteralPath (Join-Path $repoRoot $relativePath) -Destination $destination -Force
+            }
+        }
+        $driftedRelative = '.github/skills/autopilot/devcontainer/container-toolchain-smoke.sh'
+        Add-Content -LiteralPath (Join-Path $driftRoot $driftedRelative) -Value '# injected drift'
+        $absentRelative = '.github/skills/autopilot/devcontainer/toolchain.tsv'
+        Remove-Item -LiteralPath (Join-Path $absentRoot $absentRelative) -Force
 
         $scenarios = @(
             @{
@@ -681,6 +1033,31 @@ Describe 'Autopilot container gate runner' {
                 Outcome = 'success'
                 ExitCode = 0
                 Comparison = 'comparable'
+            },
+            @{
+                # A drifted mirror must be reported by name. "payload-drift" alone sends the reader
+                # back to the repository to diff every mapped file by hand.
+                Name = 'payload drift names the offending file'
+                State = @{}
+                Parameters = @{ CandidateRoot = $driftRoot }
+                Outcome = 'candidate-output-invalid'
+                ExitCode = 1
+                Diagnostic = 'payload-drift'
+                ParityDetailContains = 'devcontainer/container-toolchain-smoke.sh'
+                ParityProvenanceReason = 'payload-drift'
+                ParityPartialEntries = $true
+            },
+            @{
+                # An absent mapped file fails before any hash is taken for it, but the entries
+                # already hashed still narrow where the checkout stopped being usable.
+                Name = 'absent payload names the missing file'
+                State = @{}
+                Parameters = @{ CandidateRoot = $absentRoot }
+                Outcome = 'candidate-output-invalid'
+                ExitCode = 1
+                Diagnostic = 'context-absent'
+                ParityDetailContains = 'devcontainer/toolchain.tsv'
+                ParityProvenanceReason = 'context-absent'
             },
             @{
                 Name = 'candidate build failure'
@@ -712,6 +1089,20 @@ Describe 'Autopilot container gate runner' {
                 Outcome = 'candidate-output-invalid'
                 ExitCode = 1
                 Diagnostic = 'not valid JSON'
+            },
+            @{
+                # A whole-run smoke failure names no case. The receipt has to carry the reason, or
+                # the reader is told only that something failed.
+                Name = 'whole-run smoke failure names its reasons'
+                State = @{
+                    SmokeExit = 1
+                    SmokeStdout = (New-SmokeJson -State 'fail' -ManifestDigest $manifestSha `
+                            -Reasons @('not-autopilot-user', 'usr-local-bin-writable'))
+                }
+                Outcome = 'candidate-smoke-failed'
+                ExitCode = 1
+                Diagnostic = 'not-autopilot-user'
+                SmokeReasons = @('not-autopilot-user', 'usr-local-bin-writable')
             },
             @{
                 Name = 'attestation rejects the image'
@@ -773,6 +1164,58 @@ Describe 'Autopilot container gate runner' {
                 Outcome = 'success'
                 ExitCode = 0
                 Comparison = 'candidate-only'
+            },
+            # `base-timeout` was in the receipt's outcome set and its candidate-only reason set, and
+            # nothing reached it. All three ways of reaching it are driven here, because the whole
+            # value of the outcome is that a slow base degrades to a reported candidate-only
+            # measurement instead of failing a change that is not at fault.
+            @{
+                Name = 'base build timeout degrades to candidate-only'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    AttestationValid = $true
+                    AttestedManifestSha = $manifestSha
+                    AttestedHosts = @('deb.debian.org')
+                    BaseBuildTimedOut = $true
+                }
+                Outcome = 'base-timeout'
+                ExitCode = 0
+                Comparison = 'candidate-only'
+                CandidateOnlyReason = 'base-timeout'
+                Diagnostic = 'Base build timed out'
+            },
+            @{
+                Name = 'base size inspection timeout degrades to candidate-only'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    AttestationValid = $true
+                    AttestedManifestSha = $manifestSha
+                    AttestedHosts = @('deb.debian.org')
+                    BaseSizeTimedOut = $true
+                }
+                Outcome = 'base-timeout'
+                ExitCode = 0
+                Comparison = 'candidate-only'
+                CandidateOnlyReason = 'base-timeout'
+                Diagnostic = 'Base size inspection timed out'
+            },
+            @{
+                # Real elapsed time, not a mocked clock: the runner budget is measured against a
+                # Stopwatch it owns, so the only honest way to exhaust it is to spend it.
+                Name = 'runner budget exhausted before the base build'
+                State = @{
+                    SmokeStdout = (New-SmokeJson -ManifestDigest $manifestSha)
+                    AttestationValid = $true
+                    AttestedManifestSha = $manifestSha
+                    AttestedHosts = @('deb.debian.org')
+                    CandidateSizeDelayMs = 2300
+                }
+                Parameters = @{ RunnerBudgetSeconds = 3 }
+                Outcome = 'base-timeout'
+                ExitCode = 0
+                Comparison = 'candidate-only'
+                CandidateOnlyReason = 'base-timeout'
+                Diagnostic = 'Runner budget elapsed before base build'
             }
         )
 
@@ -782,8 +1225,13 @@ Describe 'Autopilot container gate runner' {
                 CandidateBuildStderr = ''
                 CandidateBuildTimedOut = $false
                 BaseBuildExit = 0
+                BaseBuildTimedOut = $false
+                BaseSizeTimedOut = $false
                 SmokeExit = 0
                 SmokeStdout = ''
+                SmokeDelayMs = 0
+                AttestationDelayMs = 0
+                CandidateSizeDelayMs = 0
                 AttestationValid = $true
                 AttestationReason = ''
                 AttestedManifestSha = $manifestSha
@@ -796,24 +1244,79 @@ Describe 'Autopilot container gate runner' {
             $receiptPath = Join-Path $TestDrive "measure-$safeName.json"
             $summaryPath = Join-Path $TestDrive "measure-$safeName.md"
             $diagnosticPath = Join-Path $TestDrive "measure-$safeName.log"
-            $result = Invoke-ContainerToolchainGate -Mode Measure `
-                -BaseSha ('a' * 40) -CandidateSha ('b' * 40) `
-                -BaseRoot $repoRoot -CandidateRoot $repoRoot `
-                -ReceiptPath $receiptPath -SummaryPath $summaryPath -DiagnosticLogPath $diagnosticPath `
-                -ProvenancePath (Join-Path $TestDrive "measure-$safeName-provenance.json") `
-                -CopilotVersion '1.2.3' 6>$null
+            $invocation = @{
+                Mode = 'Measure'
+                BaseSha = ('a' * 40)
+                CandidateSha = ('b' * 40)
+                BaseRoot = $repoRoot
+                CandidateRoot = $repoRoot
+                ReceiptPath = $receiptPath
+                SummaryPath = $summaryPath
+                DiagnosticLogPath = $diagnosticPath
+                ProvenancePath = (Join-Path $TestDrive "measure-$safeName-provenance.json")
+                CopilotVersion = '1.2.3'
+            }
+            if ($scenario.ContainsKey('Parameters')) {
+                foreach ($key in $scenario.Parameters.Keys) { $invocation[$key] = $scenario.Parameters[$key] }
+            }
+            $result = Invoke-ContainerToolchainGate @invocation 6>$null
 
-            $result.ExitCode | Should -Be $scenario.ExitCode -Because $scenario.Name
             $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-            $receipt.outcome | Should -Be $scenario.Outcome -Because $scenario.Name
-            $receipt.blocking | Should -Be ($scenario.ExitCode -ne 0) -Because $scenario.Name
+            # The diagnostic is the one thing that explains an unexpected outcome, so a failing
+            # assertion here reports it instead of a bare exit code.
+            $why = "$($scenario.Name): $($receipt.outcome): $($receipt.diagnostic)"
+            $result.ExitCode | Should -Be $scenario.ExitCode -Because $why
+            $receipt.outcome | Should -Be $scenario.Outcome -Because $why
+            $receipt.blocking | Should -Be ($scenario.ExitCode -ne 0) -Because $why
             if ($scenario.ContainsKey('Comparison')) {
                 $receipt.comparison | Should -Be $scenario.Comparison -Because $scenario.Name
+            }
+            if ($scenario.ContainsKey('CandidateOnlyReason')) {
+                $receipt.candidateOnlyReason | Should -Be $scenario.CandidateOnlyReason -Because $scenario.Name
+                # A degraded comparison must still report the candidate it did measure, or the
+                # outcome is indistinguishable from having measured nothing.
+                $receipt.measurement.candidateBytes | Should -Be 450000000 -Because $scenario.Name
+                $receipt.measurement.deltaBytes | Should -BeNullOrEmpty -Because $scenario.Name
             }
             if ($scenario.ContainsKey('Diagnostic')) {
                 $receipt.diagnostic | Should -Match ([regex]::Escape($scenario.Diagnostic)) -Because $scenario.Name
             }
+            if ($scenario.ContainsKey('ParityDetailContains')) {
+                # The receipt a reviewer opens must name the path, not just the failure class.
+                $receipt.diagnostic |
+                    Should -Match ([regex]::Escape($scenario.ParityDetailContains)) `
+                        -Because "$why (the parity diagnostic must name the offending file)"
+                $provenance = Get-Content -LiteralPath $invocation.ProvenancePath -Raw | ConvertFrom-Json
+                $provenance.parity.valid | Should -BeFalse -Because $why
+                $provenance.parity.reason | Should -Be $scenario.ParityProvenanceReason -Because $why
+                $provenance.parity.detail |
+                    Should -Match ([regex]::Escape($scenario.ParityDetailContains)) -Because $why
+                $receipt.provenance.sha256 | Should -Match '^[0-9a-f]{64}$' -Because $why
+                if ($scenario.ContainsKey('ParityPartialEntries')) {
+                    # Provenance is written *before* the failure return precisely so the hashes
+                    # taken up to the drift survive; an empty payload would prove nothing.
+                    @($provenance.payload).Count |
+                        Should -BeGreaterThan 0 -Because "$why (partial hash entries are the evidence)"
+                    foreach ($entry in $provenance.payload) {
+                        $entry.canonicalSha256 | Should -Match '^[0-9a-f]{64}$' -Because $why
+                        $entry.installedSha256 | Should -Match '^[0-9a-f]{64}$' -Because $why
+                    }
+                    # The drifted file is the one whose two sides disagree.
+                    $drifted = @($provenance.payload | Where-Object {
+                            $_.canonicalSha256 -ne $_.installedSha256
+                        })
+                    $drifted.Count | Should -Be 1 -Because $why
+                    $drifted[0].source | Should -Match ([regex]::Escape($scenario.ParityDetailContains)) -Because $why
+                }
+            }
             $summary = Get-Content -LiteralPath $summaryPath -Raw
+            if ($scenario.ContainsKey('SmokeReasons')) {
+                @($receipt.smoke.reasons) | Should -Be $scenario.SmokeReasons -Because $why
+                foreach ($reason in $scenario.SmokeReasons) {
+                    $summary.Replace('\', '') |
+                        Should -Match ([regex]::Escape($reason)) -Because "$why (the summary must name the reason too)"
+                }
+            }
             $summary | Should -Match 'Outcome' -Because $scenario.Name
             $summary | Should -Not -Match '[\r\n]\s*<script' -Because $scenario.Name
         }

@@ -1,7 +1,18 @@
 #requires -Version 7.0
+<#
+.SYNOPSIS
+    Detects, measures, and reports the autopilot container toolchain gate.
+.NOTES
+    The parameter block below and `Invoke-ContainerToolchainGate`'s parameter block are one
+    contract stated twice: PowerShell needs a script-level block to be callable as a file and a
+    function-level block to be callable after dot-sourcing. They are kept attribute-identical, and
+    `test:AutopilotContainer.GateRunnerContract` compares the two reflectively so a validation
+    attribute added to one and not the other is red rather than a silent difference between how CI
+    invokes the runner and how the tests do.
+#>
 [CmdletBinding()]
 param(
-    [ValidateSet('Detect', 'Measure', 'VerifyResult')]
+    [ValidateSet('Detect', 'Measure', 'VerifyResult', 'Initialize')]
     [string]$Mode = 'Detect',
     [string]$BaseSha,
     [string]$CandidateSha,
@@ -11,6 +22,8 @@ param(
     [string]$ProvenancePath,
     [string]$SummaryPath,
     [string]$DiagnosticLogPath,
+    [string]$StepOutputPath,
+    [string]$Diagnostic,
     [string]$DetectorConclusion,
     [string]$Relevance,
     [string]$ImageConclusion,
@@ -58,24 +71,20 @@ $script:AllowedAptHosts = @(
 $script:AttestedManifestPath = '/usr/local/share/autopilot/toolchain.tsv'
 $script:AttestedDebianSourcesPath = '/usr/local/share/autopilot/provenance/apt-sources.txt'
 $script:AttestedFinalSourcesPath = '/usr/local/share/autopilot/provenance/final-apt-sources.txt'
-$script:AllowedOutcomes = @(
-    'success',
-    'irrelevant',
-    'candidate-build-failed',
-    'candidate-smoke-failed',
-    'candidate-output-invalid',
-    'candidate-timeout',
-    'base-build-failed',
-    'base-timeout',
-    'unexpected-error'
-)
-$script:AllowedCandidateOnlyReasons = @(
-    'zero-base',
-    'base-unreachable',
-    'base-context-absent',
-    'base-payload-drift',
-    'base-build-failed',
-    'base-timeout'
+# Every whole-run failure the smoke program can hit outside an individual case. Without these a
+# gate failure caused by, say, an unreadable manifest reports `state=fail` and nothing else, and
+# the receipt has to say "reported failure without naming a case" — a red gate with no diagnosis.
+$script:AllowedSmokeReasons = @(
+    'case-count-mismatch',
+    'encoder-failed',
+    'manifest-digest-unavailable',
+    'manifest-duplicate-case',
+    'manifest-unreadable',
+    'not-autopilot-user',
+    'output-oversize',
+    'provenance-digest-unavailable',
+    'provenance-incomplete',
+    'usr-local-bin-writable'
 )
 
 function Limit-GateText {
@@ -125,9 +134,16 @@ function Sort-GateOrdinal {
 }
 
 function New-GateCaptureState {
+    param([ValidateRange(1024, 67108864)][int]$Maximum = $script:MaxProcessOutput)
+
+    # The head bound scales with the total bound so a larger capture keeps a proportionally larger
+    # invocation context instead of a fixed 16 KiB head followed by megabytes of tail.
+    $head = [math]::Max(1024, [math]::Min($script:ProcessHeadChars, [int]($Maximum / 4)))
     return @{
         Head = [System.Text.StringBuilder]::new()
         Tail = [System.Text.StringBuilder]::new()
+        Maximum = $Maximum
+        HeadMaximum = $head
         Dropped = [int64]0
         Overflow = $false
         InvalidControl = $false
@@ -149,7 +165,7 @@ function Add-GateCaptureChunk {
     if ($Chunk.Length -eq 0) { return }
 
     $offset = 0
-    $headRoom = $script:ProcessHeadChars - $State.Head.Length
+    $headRoom = $State.HeadMaximum - $State.Head.Length
     if ($headRoom -gt 0) {
         $take = [math]::Min($headRoom, $Chunk.Length)
         [void]$State.Head.Append($Chunk, 0, $take)
@@ -158,7 +174,7 @@ function Add-GateCaptureChunk {
     if ($offset -ge $Chunk.Length) { return }
 
     [void]$State.Tail.Append($Chunk, $offset, $Chunk.Length - $offset)
-    $tailMaximum = $script:MaxProcessOutput - $script:ProcessHeadChars - 128
+    $tailMaximum = $State.Maximum - $State.HeadMaximum - 128
     if ($State.Tail.Length -gt $tailMaximum) {
         $excess = $State.Tail.Length - $tailMaximum
         [void]$State.Tail.Remove(0, $excess)
@@ -204,26 +220,38 @@ function Write-GateDiagnosticLog {
     <#
     .SYNOPSIS
         Persists the bounded capture of a failing stage so the receipt tail is not the only copy.
+    .NOTES
+        Stages that fail without a child process — a payload-parity mismatch, a rejected image
+        attestation — pass `-Note` instead of `-Result`. Before that, every blocking outcome
+        outside build and smoke reached the artifact with nothing but the receipt's 1024-character
+        diagnostic, which is the one place a reader looks after the runner is gone.
     #>
+    [CmdletBinding(DefaultParameterSetName = 'Result')]
     param(
         [AllowEmptyString()][string]$Path,
         [Parameter(Mandatory)][string]$Stage,
-        [Parameter(Mandatory)][object]$Result
+        [Parameter(Mandatory, ParameterSetName = 'Result')][object]$Result,
+        [Parameter(Mandatory, ParameterSetName = 'Note')][AllowEmptyString()][string]$Note
     )
 
     if ([string]::IsNullOrWhiteSpace($Path)) { return }
-    $lines = @(
-        "stage: $Stage",
-        "exitCode: $($Result.ExitCode)",
-        "timedOut: $($Result.TimedOut)",
-        "elapsedMs: $($Result.ElapsedMs)",
-        "stdoutTruncated: $($Result.StdoutOverflow)",
-        "stderrTruncated: $($Result.StderrOverflow)",
-        '--- stdout ---',
-        (Limit-GateText -Value $Result.Stdout -Maximum $script:MaxProcessOutput),
-        '--- stderr ---',
-        (Limit-GateText -Value $Result.Stderr -Maximum $script:MaxProcessOutput)
-    )
+    $lines = if ($PSCmdlet.ParameterSetName -eq 'Note') {
+        @("stage: $Stage", '--- note ---', (Limit-GateText -Value $Note -Maximum $script:MaxProcessOutput))
+    }
+    else {
+        @(
+            "stage: $Stage",
+            "exitCode: $($Result.ExitCode)",
+            "timedOut: $($Result.TimedOut)",
+            "elapsedMs: $($Result.ElapsedMs)",
+            "stdoutTruncated: $($Result.StdoutOverflow)",
+            "stderrTruncated: $($Result.StderrOverflow)",
+            '--- stdout ---',
+            (Limit-GateText -Value $Result.Stdout -Maximum $script:MaxProcessOutput),
+            '--- stderr ---',
+            (Limit-GateText -Value $Result.Stderr -Maximum $script:MaxProcessOutput)
+        )
+    }
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $directory = Split-Path -Parent $fullPath
     if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
@@ -234,6 +262,38 @@ function Write-GateDiagnosticLog {
     [System.IO.File]::AppendAllText($fullPath, (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
 }
 
+function Write-GateStepOutput {
+    <#
+    .SYNOPSIS
+        Appends `name=value` step outputs for the calling workflow.
+    .NOTES
+        Values are constrained to a short safe alphabet before they are written. `$GITHUB_OUTPUT`
+        is line-oriented, so a value containing a newline injects an output the runner never
+        intended to set; refusing rather than escaping keeps the closed vocabularies this gate
+        emits (`true`/`false`, the candidate-only reason set) the only thing that can appear.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Value
+    )
+
+    $lines = foreach ($entry in $Value.GetEnumerator()) {
+        $name = [string]$entry.Key
+        $text = [string]$entry.Value
+        if ($name -notmatch '^[a-z][a-z0-9_]{0,63}$') { throw "Refusing to write step output '$name'." }
+        if ($text.Length -gt 128 -or $text -notmatch '^[A-Za-z0-9._-]*$') {
+            throw "Refusing to write step output '$name' with an unsafe value."
+        }
+        "$name=$text"
+    }
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $directory = Split-Path -Parent $fullPath
+    if ($directory -and -not (Test-Path -LiteralPath $directory -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $directory -Force)
+    }
+    [System.IO.File]::AppendAllText($fullPath, ((@($lines) -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-GateProcess {
     [CmdletBinding()]
     param(
@@ -241,6 +301,7 @@ function Invoke-GateProcess {
         [Parameter(Mandatory)][string[]]$ArgumentList,
         [Parameter(Mandatory)][ValidateRange(1, 3600)][int]$TimeoutSeconds,
         [string]$WorkingDirectory,
+        [ValidateRange(1024, 67108864)][int]$MaxOutputChars = $script:MaxProcessOutput,
         [switch]$PreserveControlCharacters
     )
 
@@ -258,16 +319,33 @@ function Invoke-GateProcess {
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         if (-not $process.Start()) { throw "Failed to start '$FilePath'." }
-        $stdoutBuffer = [char[]]::new(4096)
-        $stderrBuffer = [char[]]::new(4096)
-        $stdoutState = New-GateCaptureState
-        $stderrState = New-GateCaptureState
+        # A Docker build emits tens of megabytes of progress; a 4 KiB buffer turns that into
+        # thousands of round trips through the loop below. The buffer is sized to the pipe, not
+        # to the retained capture, because reading is what has to keep up with the child.
+        $stdoutBuffer = [char[]]::new(65536)
+        $stderrBuffer = [char[]]::new(65536)
+        $stdoutState = New-GateCaptureState -Maximum $MaxOutputChars
+        $stderrState = New-GateCaptureState -Maximum $MaxOutputChars
         $stdoutTask = $process.StandardOutput.ReadAsync($stdoutBuffer, 0, $stdoutBuffer.Length)
         $stderrTask = $process.StandardError.ReadAsync($stderrBuffer, 0, $stderrBuffer.Length)
         $timedOut = $false
         $drainDeadline = [TimeSpan]::MaxValue
 
         while (-not ($stdoutState.Done -and $stderrState.Done)) {
+            # Waiting on the pending reads costs nothing while the child is quiet and returns the
+            # instant either stream produces bytes. An unconditional sleep did both jobs badly: it
+            # burned wakeups on an idle child and added latency to a chatty one.
+            $pending = [System.Collections.Generic.List[System.Threading.Tasks.Task]]::new()
+            if (-not $stdoutState.Done) { $pending.Add($stdoutTask) }
+            if (-not $stderrState.Done) { $pending.Add($stderrTask) }
+            if ($pending.Count -gt 0) {
+                $waitMs = if ($timedOut) { 100 } else {
+                    $left = ($TimeoutSeconds * 1000) - $clock.ElapsedMilliseconds
+                    [int][math]::Max(1, [math]::Min(1000, $left))
+                }
+                [void][System.Threading.Tasks.Task]::WaitAny($pending.ToArray(), $waitMs)
+            }
+
             if (-not $stdoutState.Done -and $stdoutTask.IsCompleted) {
                 $count = $stdoutTask.GetAwaiter().GetResult()
                 if ($count -eq 0) {
@@ -296,9 +374,6 @@ function Invoke-GateProcess {
                 try { $process.Kill($true) } catch { }
             }
             if ($timedOut -and $clock.Elapsed -ge $drainDeadline) { break }
-            if (-not ($stdoutState.Done -and $stderrState.Done)) {
-                Start-Sleep -Milliseconds 5
-            }
         }
 
         # Both streams can close while the child is still alive, so the exit code is only
@@ -455,6 +530,15 @@ function Get-ContainerGateContext {
     if ([regex]::IsMatch($dockerfile, '(?im)^\s*COPY\b[^\r\n]*(?:\\|\x60)\s*$')) {
         throw 'Continued Dockerfile COPY instructions are unsupported because path closure must be unambiguous.'
     }
+    # `COPY --from=` names a stage or a registry image, not a path in the build context. The
+    # source is therefore not a local payload file, but the parser below strips flags and then
+    # treats every source as one — so `COPY --from=attacker/image devcontainer/toolchain.tsv /x`
+    # would enter the payload set as a hash-verified local file while the image actually copies
+    # bytes nobody in this repository controls. This Dockerfile has a single `FROM`, so there is
+    # no legitimate `--from` to preserve.
+    if ([regex]::IsMatch($dockerfile, '(?im)^\s*COPY\s+(?:--[^\s]+\s+)*--from=')) {
+        throw 'Dockerfile COPY --from is unsupported because its source is not a local build-context path.'
+    }
     $copySources = [System.Collections.Generic.List[string]]::new()
     foreach ($match in [regex]::Matches($dockerfile, '(?im)^\s*COPY\s+(?:--[^\s]+\s+)*(?<body>[^\r\n]+?)\s*$')) {
         $body = $match.Groups['body'].Value.Trim()
@@ -608,11 +692,20 @@ function Test-ContainerPayloadParity {
 }
 
 function Get-GateChangedPaths {
+    <#
+    .NOTES
+        The capture bound is raised for this call alone. `git diff --name-status -z` between two
+        distant commits can emit far more than the 1 MiB a build log is bounded to, and the bound
+        being hit throws — so a legitimately large diff reported "output exceeded the capture
+        bound" and the gate failed for a reason that had nothing to do with the change.
+        `StdoutOverflow` still throws, because a truncated path list would silently under-report
+        relevance, which is the one direction this detector must never fail in.
+    #>
     param([Parameter(Mandatory)][string]$CandidateRoot, [Parameter(Mandatory)][string]$BaseSha, [Parameter(Mandatory)][string]$CandidateSha)
 
     $result = Invoke-GateProcess -FilePath 'git' -ArgumentList @(
         '-C', $CandidateRoot, 'diff', '--name-status', '-z', '--find-renames', $BaseSha, $CandidateSha, '--'
-    ) -TimeoutSeconds 30 -PreserveControlCharacters
+    ) -TimeoutSeconds 30 -MaxOutputChars 4194304 -PreserveControlCharacters
     if ($result.ExitCode -ne 0) { throw "git diff failed: $($result.Stderr)" }
     if ($result.StdoutOverflow) { throw 'NUL-delimited git diff output exceeded the capture bound.' }
 
@@ -732,20 +825,38 @@ function Test-GateSmokeOutput {
     try { $value = $Output.TrimEnd("`n") | ConvertFrom-Json -Depth 20 }
     catch { return [pscustomobject]@{ Valid = $false; Summary = 'Smoke output is not valid JSON.'; FailedCases = @(); Value = $null } }
     try {
-    if ((@($value.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'cases,digests,origin,schema,state') {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke object fields are not closed.'; FailedCases = @(); Value = $null }
+    if ((@($value.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'cases,digests,origin,reasons,schema,state') {
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke object fields are not closed.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     if ($value.schema -isnot [string] -or $value.state -isnot [string] -or
         $value.schema -ne $script:SmokeSchema -or $value.state -notin @('pass', 'fail')) {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke schema or state is invalid.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke schema or state is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
+    # `reasons` names the whole-run failures that no case can carry — an unreadable manifest, a
+    # writable `/usr/local/bin`, a run that is not `autopilot`. Without it those nine conditions
+    # all reported a bare `state=fail` with an empty failed-case list, and the receipt could say
+    # only that the smoke program had failed without saying what it found. The vocabulary is
+    # closed so a hostile or broken image cannot use it as a free-text channel into the summary.
+    if ($value.reasons -isnot [System.Array]) {
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke reasons field is not an array.'; FailedCases = @(); Reasons = @(); Value = $null }
+    }
+    $reasons = @($value.reasons)
+    if ($reasons.Count -gt $script:AllowedSmokeReasons.Count -or
+        @($reasons | Where-Object { $_ -isnot [string] -or $_ -notin $script:AllowedSmokeReasons }).Count -gt 0 -or
+        @($reasons | Group-Object | Where-Object { $_.Count -gt 1 }).Count -gt 0) {
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke reasons are not a closed set.'; FailedCases = @(); Reasons = @(); Value = $null }
+    }
+    if ($value.state -eq 'pass' -and $reasons.Count -gt 0) {
+        return [pscustomobject]@{ Valid = $false; Summary = 'Passing smoke output reports a failure reason.'; FailedCases = @(); Reasons = @(); Value = $null }
+    }
+    $reasons = @(Sort-GateOrdinal @($reasons | ForEach-Object { [string]$_ }))
     if ((@($value.origin.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'aptHosts,os' -or
         (@($value.digests.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'manifestSha256,provenanceSha256') {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin or digest fields are not closed.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin or digest fields are not closed.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     foreach ($digest in @($value.digests.manifestSha256, $value.digests.provenanceSha256)) {
         if ($digest -isnot [string] -or $digest -notmatch '^[a-f0-9]{64}$') {
-            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke digest is invalid.'; FailedCases = @(); Value = $null }
+            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke digest is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
         }
     }
     if ($value.origin.os -isnot [string] -or [string]::IsNullOrWhiteSpace($value.origin.os) -or
@@ -753,7 +864,7 @@ function Test-GateSmokeOutput {
         @($value.origin.aptHosts | Where-Object {
                 $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) -or ([string]$_).Length -gt 253
             }).Count -gt 0) {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields are invalid.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields are invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     $expectedIds = @(Sort-GateOrdinal @(Get-Content -LiteralPath $ManifestPath | Where-Object {
             $_ -and -not $_.TrimStart().StartsWith('#')
@@ -761,7 +872,7 @@ function Test-GateSmokeOutput {
     if ($expectedIds.Count -eq 0) {
         # An empty manifest would otherwise produce `0 cases; state=pass`: a green run that
         # exercised nothing, which is the one verdict this gate must never report.
-        return [pscustomobject]@{ Valid = $false; Summary = 'Toolchain manifest declares no cases.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Toolchain manifest declares no cases.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     $actualIds = [System.Collections.Generic.List[string]]::new()
     $failedIds = [System.Collections.Generic.List[string]]::new()
@@ -772,19 +883,25 @@ function Test-GateSmokeOutput {
             $case.state -notin @('pass', 'fail') -or
             ([string]$case.id).Length -gt 64 -or
             ([string]$case.version).Length -gt 128) {
-            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke case is invalid.'; FailedCases = @(); Value = $null }
+            return [pscustomobject]@{ Valid = $false; Summary = 'Smoke case is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
         }
         if ($value.state -eq 'pass' -and $case.state -ne 'pass') {
-            return [pscustomobject]@{ Valid = $false; Summary = 'Passing smoke output contains a failed case.'; FailedCases = @(); Value = $null }
+            return [pscustomobject]@{ Valid = $false; Summary = 'Passing smoke output contains a failed case.'; FailedCases = @(); Reasons = @(); Value = $null }
         }
         $actualIds.Add([string]$case.id)
         if ($case.state -ne 'pass') { $failedIds.Add([string]$case.id) }
     }
     if (((Sort-GateOrdinal @($actualIds)) -join "`n") -cne ($expectedIds -join "`n")) {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke case IDs do not match the manifest.'; FailedCases = @(); Value = $null }
+        # A case-count or identity mismatch is the one failure the smoke program is allowed to
+        # report about itself rather than being called invalid: it says so, and this agrees.
+        if ($value.state -eq 'fail' -and $reasons -contains 'case-count-mismatch') {
+            $summary = "case ids do not match the manifest; state=fail; reasons=" + ($reasons -join ',')
+            return [pscustomobject]@{ Valid = $true; Summary = $summary; FailedCases = @(); Reasons = $reasons; Value = $value }
+        }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke case IDs do not match the manifest.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     if ($value.origin.os.Length -gt 64) {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields exceed their bounds.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke origin fields exceed their bounds.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
     # A failure count is not actionable; the failing case IDs are what a reader needs, so they
     # travel with the summary into the receipt and the job summary.
@@ -795,10 +912,15 @@ function Test-GateSmokeOutput {
         $summary += "; failed=$($failed.Count): " + ($named -join ',')
         if ($failed.Count -gt $named.Count) { $summary += ',...' }
     }
-    return [pscustomobject]@{ Valid = $true; Summary = $summary; FailedCases = $failed; Value = $value }
+    if ($reasons.Count -gt 0) { $summary += '; reasons=' + ($reasons -join ',') }
+    if ($value.state -eq 'fail' -and $failed.Count -eq 0 -and $reasons.Count -eq 0) {
+        # `state=fail` with neither a failing case nor a reason is a verdict with no diagnosis.
+        return [pscustomobject]@{ Valid = $false; Summary = 'Failing smoke output names neither a case nor a reason.'; FailedCases = @(); Reasons = @(); Value = $null }
+    }
+    return [pscustomobject]@{ Valid = $true; Summary = $summary; FailedCases = $failed; Reasons = $reasons; Value = $value }
     }
     catch {
-        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke object shape is invalid.'; FailedCases = @(); Value = $null }
+        return [pscustomobject]@{ Valid = $false; Summary = 'Smoke object shape is invalid.'; FailedCases = @(); Reasons = @(); Value = $null }
     }
 }
 
@@ -813,27 +935,66 @@ function Get-GateAptConfigHost {
         because Debian's own `.sources` file names `snapshot.debian.org` in one, and only
         `sources.list`, `*.list` and `*.sources` are read so that binary keyrings cannot make
         the scan report a host. Returns $null when the tree cannot be read within its bounds.
+
+        `apt.conf` and `apt.conf.d/*` are read for one thing only: a `Dir` root reassignment or any
+        `Dir::Etc*` assignment fails the read outright. Those directives relocate the source-list
+        directory this function and the Dockerfile's own recorder both enumerate, so an image that
+        points `Dir::Etc::sourcelist` at a file outside `/etc/apt` presents an allowlisted tree
+        that apt never consults. Fail closed rather than report the hosts of a configuration that
+        is not in effect. `Dir::Cache*` is deliberately not included: Debian's own base images
+        ship `apt.conf.d/docker-clean`, which sets it, and it relocates no source list. Config
+        files are never scanned for hosts — a URL in a note there is not a source.
     #>
     param([Parameter(Mandatory)][string]$Root)
 
     if (-not (Test-Path -LiteralPath $Root)) { return $null }
     $hosts = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
-    $files = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -eq 'sources.list' -or $_.Extension -in @('.list', '.sources') })
+    # `-ErrorAction SilentlyContinue` would swallow a permission or reparse-point error and hand
+    # back the files it *could* read, so a tree whose disallowed half is unreadable would pass on
+    # the allowed half. Errors are collected and any of them fails the read.
+    $enumerationErrors = @()
+    $allFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable +enumerationErrors)
+    if ($enumerationErrors.Count -gt 0) { return $null }
+    $files = @($allFiles | Where-Object {
+            $_.Name -eq 'sources.list' -or $_.Name -eq 'apt.conf' -or
+            $_.Extension -in @('.list', '.sources') -or
+            $_.Directory.Name -eq 'apt.conf.d'
+        })
     if ($files.Count -gt 256) { return $null }
     foreach ($file in $files) {
         if ($file.LinkType -or $file.Length -gt $script:MaxPayloadFileBytes) { return $null }
-        foreach ($line in ([System.IO.File]::ReadAllLines($file.FullName))) {
+        $lines = $null
+        try { $lines = [System.IO.File]::ReadAllLines($file.FullName) }
+        catch { return $null }
+        $isConfig = ($file.Name -eq 'apt.conf' -or $file.Directory.Name -eq 'apt.conf.d')
+        foreach ($line in $lines) {
             $value = $line.Trim()
-            if (-not $value -or $value.StartsWith('#')) { continue }
-            foreach ($match in [regex]::Matches($value, '(?i)\bhttps?://(?<authority>[^/\s]+)')) {
+            if (-not $value -or $value.StartsWith('#') -or $value.StartsWith('//')) { continue }
+            if ($isConfig) {
+                # Configuration files are read for one thing only: a relocation of the tree this
+                # function enumerates. They are not scanned for hosts, because a URL in an
+                # `apt.conf.d` note is a comment about a source, not a source — treating it as one
+                # would fail images over text apt never fetches from.
+                if ([regex]::IsMatch($value, '(?i)(^|[^A-Za-z:])Dir(::Etc\b|\s*"|\s*\{)')) {
+                    return $null
+                }
+                continue
+            }
+            foreach ($match in [regex]::Matches($value, '(?i)\b(?<scheme>[a-z][a-z0-9+.-]*)://(?<authority>[^/\s]+)')) {
+                # A non-http(s) scheme is not "no host": `ftp://`, `mirror+file:///` and `cdrom:`
+                # are origins apt will fetch from that this allowlist was never written against.
+                # Report the scheme as a pseudo-host so it fails the allowlist rather than being
+                # skipped by a pattern that only knows how to see http.
+                $scheme = $match.Groups['scheme'].Value.ToLowerInvariant()
                 # The whole authority is kept, port aside, exactly as `Get-GateAptHost` keeps it.
                 # Narrowing to a host character class would stop at the userinfo delimiter, so
                 # `https://download.docker.com@evil.example.com/...` — which apt resolves against
                 # `evil.example.com` — would be reported as the allowed host, and the two parsers
                 # holding the image to one allowlist would disagree about what a host is.
                 $authority = $match.Groups['authority'].Value.ToLowerInvariant() -replace ':[0-9]+$', ''
-                if ($authority) { [void]$hosts.Add($authority) }
+                if (-not $authority) { continue }
+                if ($scheme -in @('http', 'https')) { [void]$hosts.Add($authority) }
+                else { [void]$hosts.Add("${scheme}://$authority") }
             }
         }
     }
@@ -868,6 +1029,13 @@ function Test-GateImageAttestation {
     $workRoot = Join-Path ([System.IO.Path]::GetTempPath()) "skalary-attest-$([guid]::NewGuid().ToString('N'))"
     [void](New-Item -ItemType Directory -Path $workRoot -Force)
     $containerId = ''
+    # `TimeoutSeconds` is the budget for the whole attestation, not for each of its five docker
+    # calls. Passing `min(60, TimeoutSeconds)` to every call let a five-second remainder fund five
+    # seconds of work five times over, so attestation could outlive the gate deadline it was given.
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    $remaining = {
+        [int][math]::Floor($TimeoutSeconds - $clock.Elapsed.TotalSeconds)
+    }
     try {
         $create = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
             'create', '--network', 'none', $ImageTag, 'true'
@@ -883,10 +1051,14 @@ function Test-GateImageAttestation {
                 @{ Name = 'debianSources'; Source = $script:AttestedDebianSourcesPath },
                 @{ Name = 'finalSources'; Source = $script:AttestedFinalSourcesPath }
             )) {
+            $budget = & $remaining
+            if ($budget -lt 1) {
+                return [pscustomobject]@{ Valid = $false; Reason = 'attestation-timeout'; ManifestSha256 = ''; AptHosts = @(); DebianAptHosts = @() }
+            }
             $destination = Join-Path $workRoot $entry.Name
             $copy = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
                 'cp', "${containerId}:$($entry.Source)", $destination
-            ) -TimeoutSeconds ([math]::Min(60, $TimeoutSeconds))
+            ) -TimeoutSeconds ([math]::Min(60, $budget))
             $item = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
             if ($copy.ExitCode -ne 0 -or $item -isnot [System.IO.FileInfo] -or $item.LinkType -or
                 $item.Length -le 0 -or $item.Length -gt $script:MaxPayloadFileBytes) {
@@ -930,9 +1102,19 @@ function Test-GateImageAttestation {
         # The record above is a file the image wrote about itself; this reads the configuration
         # apt actually carries, so a record that disagrees with the image it describes fails.
         $configRoot = Join-Path $workRoot 'etc-apt'
+        $configBudget = & $remaining
+        if ($configBudget -lt 1) {
+            return [pscustomobject]@{
+                Valid = $false
+                Reason = 'attestation-timeout'
+                ManifestSha256 = $manifestSha
+                AptHosts = @($finalHosts)
+                DebianAptHosts = @($debianHosts)
+            }
+        }
         $configCopy = Invoke-GateProcess -FilePath 'docker' -ArgumentList @(
             'cp', "${containerId}:/etc/apt", $configRoot
-        ) -TimeoutSeconds ([math]::Min(60, $TimeoutSeconds))
+        ) -TimeoutSeconds ([math]::Min(60, $configBudget))
         $liveHosts = if ($configCopy.ExitCode -eq 0) { Get-GateAptConfigHost -Root $configRoot } else { $null }
         if ($null -eq $liveHosts -or @($liveHosts).Count -eq 0) {
             return [pscustomobject]@{
@@ -1039,6 +1221,7 @@ function New-ContainerGateReceipt {
         [int64]$BaseMs = 0,
         [string]$SmokeSummary = '',
         [AllowEmptyCollection()][string[]]$SmokeFailedCases = @(),
+        [AllowEmptyCollection()][string[]]$SmokeReasons = @(),
         [string]$Diagnostic = '',
         [int]$AdvisoryGrowthMiB = 250
     )
@@ -1052,6 +1235,11 @@ function New-ContainerGateReceipt {
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
             Select-Object -First $script:MaxReceiptFailedCases |
             ForEach-Object { Limit-GateText -Value $_ -Maximum 64 })
+    # Whole-run smoke failures have no case to hang from; the closed reason set is what makes a
+    # `state=fail` receipt diagnosable without the reader fetching the smoke output itself.
+    $reasons = @(@($SmokeReasons) |
+            Where-Object { $_ -in $script:AllowedSmokeReasons } |
+            Sort-Object -Unique)
     return [ordered]@{
         schema = $script:GateSchema
         outcome = $Outcome
@@ -1079,6 +1267,7 @@ function New-ContainerGateReceipt {
         smoke = [ordered]@{
             summary = Limit-GateText $SmokeSummary 512
             failedCases = $failedCases
+            reasons = $reasons
         }
         diagnostic = Limit-GateText $Diagnostic 1024
     }
@@ -1088,7 +1277,7 @@ function Write-ContainerGateReceipt {
     [CmdletBinding()]
     param([Parameter(Mandatory)][System.Collections.IDictionary]$Receipt, [Parameter(Mandatory)][string]$Path)
 
-    $fallback = '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":"","failedCases":[]},"diagnostic":"fallback receipt"}'
+    $fallback = '{"schema":"skalary/container-toolchain-receipt@1","outcome":"unexpected-error","relevant":true,"comparison":"not-run","candidateOnlyReason":"","blocking":true,"advisory":false,"identities":{"baseSha":"","candidateSha":"","architecture":"","baseImage":"","docker":"","copilotVersion":""},"provenance":{"sha256":""},"timing":{"totalMs":0,"candidateMs":0,"baseMs":0},"measurement":{"candidateBytes":0,"baseBytes":0,"deltaBytes":null,"advisoryGrowthMiB":250},"smoke":{"summary":"","failedCases":[],"reasons":[]},"diagnostic":"fallback receipt"}'
     try {
         $json = $Receipt | ConvertTo-Json -Depth 12 -Compress
         if ([System.Text.Encoding]::UTF8.GetByteCount($json) -gt $script:MaxReceiptBytes) { $json = $fallback }
@@ -1114,6 +1303,14 @@ function Write-ContainerGateSummary {
     #>
     param([Parameter(Mandatory)][System.Collections.IDictionary]$Receipt, [Parameter(Mandatory)][string]$Path)
 
+    # An image that was never built has no size. Rendering its `0` through the MiB formatter
+    # produced `0.0 MiB`, which reads as a measured result — a base that failed to build and a
+    # base that is genuinely empty printed the same line.
+    $formatSize = {
+        param([AllowNull()][object]$Bytes)
+        if ($null -eq $Bytes -or [int64]$Bytes -le 0) { return 'not measured' }
+        return ('{0:N1} MiB' -f ([double]$Bytes / 1MB))
+    }
     $formatMiB = {
         param([AllowNull()][object]$Bytes)
         if ($null -eq $Bytes) { return 'n/a' }
@@ -1129,6 +1326,7 @@ function Write-ContainerGateSummary {
     elseif ($null -eq $deltaBytes) { 'not evaluated' }
     else { 'within threshold' }
     $failedCases = @($Receipt.smoke.failedCases)
+    $smokeReasons = @(if ($Receipt.smoke.Contains('reasons')) { $Receipt.smoke.reasons } else { @() })
     $lines = @(
         '## Autopilot container toolchain',
         '',
@@ -1137,12 +1335,13 @@ function Write-ContainerGateSummary {
         "- Relevant: $(ConvertTo-GateMarkdown ([string]$Receipt.relevant))",
         "- Comparison: $(ConvertTo-GateMarkdown $Receipt.comparison)",
         "- Candidate-only reason: $(ConvertTo-GateMarkdown $Receipt.candidateOnlyReason)",
-        "- Candidate image: $(ConvertTo-GateMarkdown (& $formatMiB $Receipt.measurement.candidateBytes))",
-        "- Base image: $(ConvertTo-GateMarkdown (& $formatMiB $Receipt.measurement.baseBytes))",
+        "- Candidate image: $(ConvertTo-GateMarkdown (& $formatSize $Receipt.measurement.candidateBytes))",
+        "- Base image: $(ConvertTo-GateMarkdown (& $formatSize $Receipt.measurement.baseBytes))",
         "- Delta: $(ConvertTo-GateMarkdown $deltaText) (threshold $(ConvertTo-GateMarkdown ([string]$Receipt.measurement.advisoryGrowthMiB)) MiB — $(ConvertTo-GateMarkdown $advisoryText))",
         "- Timing: total $(ConvertTo-GateMarkdown ([string]$Receipt.timing.totalMs)) ms; candidate $(ConvertTo-GateMarkdown ([string]$Receipt.timing.candidateMs)) ms; base $(ConvertTo-GateMarkdown ([string]$Receipt.timing.baseMs)) ms",
         "- Smoke: $(ConvertTo-GateMarkdown $Receipt.smoke.summary)",
         "- Failed smoke cases: $(if ($failedCases.Count -gt 0) { ConvertTo-GateMarkdown (@($failedCases) -join ', ') } else { 'none' })",
+        "- Smoke failure reasons: $(if ($smokeReasons.Count -gt 0) { ConvertTo-GateMarkdown (@($smokeReasons) -join ', ') } else { 'none' })",
         "- Diagnostic: $(ConvertTo-GateMarkdown $Receipt.diagnostic)",
         ('- Receipt provenance: `' + (ConvertTo-GateMarkdown $Receipt.provenance.sha256) + '`')
     )
@@ -1167,9 +1366,16 @@ function Test-ContainerGateResult {
 }
 
 function Invoke-ContainerToolchainGate {
+    <#
+    .NOTES
+        Attribute-identical to the script-level `param()` block at the top of this file, except
+        for `ReceiptPath`: the script block cannot mark it `Mandatory` because dot-sourcing the
+        file for testing would then prompt, so the file-invocation path checks it explicitly
+        instead. `test:AutopilotContainer.GateRunnerContract` compares the two blocks reflectively.
+    #>
     [CmdletBinding()]
     param(
-        [ValidateSet('Detect', 'Measure', 'VerifyResult')][string]$Mode = 'Detect',
+        [ValidateSet('Detect', 'Measure', 'VerifyResult', 'Initialize')][string]$Mode = 'Detect',
         [string]$BaseSha,
         [string]$CandidateSha,
         [string]$BaseRoot,
@@ -1178,6 +1384,8 @@ function Invoke-ContainerToolchainGate {
         [string]$ProvenancePath,
         [string]$SummaryPath,
         [string]$DiagnosticLogPath,
+        [string]$StepOutputPath,
+        [string]$Diagnostic,
         [string]$DetectorConclusion,
         [string]$Relevance,
         [string]$ImageConclusion,
@@ -1187,9 +1395,13 @@ function Invoke-ContainerToolchainGate {
         [string]$DetectionRelevance,
         [string]$CopilotVersion,
         [string]$RunnerArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant(),
+        [ValidateRange(1, 2100)]
         [int]$CandidateBudgetSeconds = 1500,
+        [ValidateRange(1, 600)]
         [int]$BaseBudgetSeconds = 600,
+        [ValidateRange(1, 2100)]
         [int]$RunnerBudgetSeconds = 2100,
+        [ValidateRange(1, 1048576)]
         [int]$AdvisoryGrowthMiB = 250
     )
 
@@ -1210,11 +1422,27 @@ function Invoke-ContainerToolchainGate {
     $relevant = $true
     $baseParity = $null
     $smokeFailedCases = @()
+    $smokeReasons = @()
     $contradictionDiagnostic = ''
     $candidatePhaseStartMs = $null
     $candidatePhaseEndMs = $null
     $basePhaseStartMs = $null
     try {
+        if ($Mode -eq 'Initialize') {
+            # A placeholder receipt used to be three JSON string literals inside the workflow, so
+            # the receipt shape existed in two places and the workflow's copy named no commit, no
+            # path, and no reason — a reader who fetched it learned only that something had been
+            # skipped. Building it here keeps one owner of the schema and lets the placeholder
+            # carry the identities and the reason it was written.
+            $reason = if ($DetectionCandidateOnlyReason) { $DetectionCandidateOnlyReason } else { '' }
+            $receipt = New-ContainerGateReceipt -Outcome 'irrelevant' -Relevant $false `
+                -Comparison 'not-run' -CandidateOnlyReason $reason -BaseSha $BaseSha -CandidateSha $CandidateSha `
+                -Architecture $RunnerArchitecture `
+                -Diagnostic (Limit-GateText -Value $Diagnostic -Maximum 1024) -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            $exitCode = 0
+            return [pscustomobject]@{ ExitCode = 0; Receipt = $receipt }
+        }
+
         if ($Mode -eq 'VerifyResult') {
             $passed = Test-ContainerGateResult -DetectorConclusion $DetectorConclusion -Relevance $Relevance -ImageConclusion $ImageConclusion
             $relevant = $Relevance -eq 'true'
@@ -1245,6 +1473,16 @@ function Invoke-ContainerToolchainGate {
                 -CandidateOnlyReason $candidateOnlyReason -BaseSha $BaseSha -CandidateSha $CandidateSha `
                 -Architecture $RunnerArchitecture -Diagnostic ("relevantPaths=" + (@($detection.RelevantPaths) -join ',')) `
                 -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            # The detector's two outputs used to be assembled by the workflow, which meant the
+            # closed candidate-only reason set was re-stated in YAML and could drift from the one
+            # `New-ContainerGateReceipt` validates. The runner owns both values; the workflow only
+            # names the file to write them to.
+            if ($Mode -eq 'Detect' -and $StepOutputPath) {
+                Write-GateStepOutput -Path $StepOutputPath -Value ([ordered]@{
+                        relevance = if ($relevant) { 'true' } else { 'false' }
+                        candidate_only_reason = $candidateOnlyReason
+                    })
+            }
             $exitCode = 0
             return [pscustomobject]@{ ExitCode = 0; Receipt = $receipt; Detection = $detection }
         }
@@ -1269,12 +1507,16 @@ function Invoke-ContainerToolchainGate {
                     }
                     payload = @($candidateParity.Entries)
                 }) -Path $ProvenancePath
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-payload-parity' `
+                -Note "$($candidateParity.Reason): $($candidateParity.Detail)"
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-output-invalid' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha `
                 -Architecture $RunnerArchitecture -ProvenanceSha256 $provenanceSha `
                 -Diagnostic "Candidate payload parity: $($candidateParity.Reason): $($candidateParity.Detail)" -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         if (-not (Test-GateDockerfileBase -Path $candidateParity.Context.InstalledDockerfilePath)) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-dockerfile-base' `
+                -Note "Candidate Dockerfile must use only '$script:BaseImage'."
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-output-invalid' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha `
                 -Architecture $RunnerArchitecture -Diagnostic "Candidate Dockerfile must use only '$script:BaseImage'." -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
@@ -1302,11 +1544,13 @@ function Invoke-ContainerToolchainGate {
             'pull', '--platform', 'linux/amd64', $script:BaseImage
         ) -TimeoutSeconds $remaining
         if ($pull.TimedOut) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'base-image-pull' -Result $pull
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-timeout' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -ProvenanceSha256 $provenanceSha -Diagnostic 'Base image pull timed out.' -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         if ($pull.ExitCode -ne 0) {
-            $receipt = New-ContainerGateReceipt -Outcome 'candidate-build-failed' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -ProvenanceSha256 $provenanceSha -Diagnostic $pull.Stderr -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'base-image-pull' -Result $pull
+            $receipt = New-ContainerGateReceipt -Outcome 'candidate-build-failed' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -ProvenanceSha256 $provenanceSha -Diagnostic (Get-GateProcessDiagnostic -Result $pull) -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         $candidateRemaining = [math]::Min(
@@ -1419,7 +1663,10 @@ function Invoke-ContainerToolchainGate {
             ) -TimeoutSeconds $smokeBudget
         }
         finally {
-            if ($null -ne $smoke -and $smoke.TimedOut) { Stop-GateContainer -CidFile $cidFile }
+            # `$smoke` is `$null` when `Invoke-GateProcess` threw before returning — a failed
+            # start, or a kill that raised. Keying cleanup on `TimedOut` alone left the container
+            # from that path running with the cidfile deleted, so nothing could stop it later.
+            if ($null -eq $smoke -or $smoke.TimedOut) { Stop-GateContainer -CidFile $cidFile }
             Remove-Item -LiteralPath $cidFile -Force -ErrorAction SilentlyContinue
         }
         $candidateMs += $smoke.ElapsedMs
@@ -1442,17 +1689,21 @@ function Invoke-ContainerToolchainGate {
         }
         $smokeSummary = $smokeValidation.Summary
         $smokeFailedCases = @($smokeValidation.FailedCases)
+        $smokeReasons = @($smokeValidation.Reasons)
         if ($smoke.ExitCode -ne 0 -or $smokeValidation.Value.state -ne 'pass') {
             Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-smoke' -Result $smoke
             $failedText = if ($smokeFailedCases.Count -gt 0) {
                 'Failed smoke cases: ' + (@($smokeFailedCases) -join ', ') + '.'
+            }
+            elseif ($smokeReasons.Count -gt 0) {
+                'Smoke failure reasons: ' + (@($smokeReasons) -join ', ') + '.'
             }
             else {
                 'Candidate smoke reported failure without naming a case.'
             }
             $stderrTail = Get-GateProcessDiagnostic -Result $smoke -Maximum 512
             $diagnostic = if ([string]::IsNullOrWhiteSpace($stderrTail)) { $failedText } else { "$failedText $stderrTail" }
-            $receipt = New-ContainerGateReceipt -Outcome 'candidate-smoke-failed' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateMs $candidateMs -SmokeSummary $smokeSummary -SmokeFailedCases $smokeFailedCases -Diagnostic $diagnostic -AdvisoryGrowthMiB $AdvisoryGrowthMiB
+            $receipt = New-ContainerGateReceipt -Outcome 'candidate-smoke-failed' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateMs $candidateMs -SmokeSummary $smokeSummary -SmokeFailedCases $smokeFailedCases -SmokeReasons $smokeReasons -Diagnostic $diagnostic -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
 
@@ -1468,11 +1719,13 @@ function Invoke-ContainerToolchainGate {
             -ExpectedManifestSha256 (Get-GateSha256 $installedManifestPath) `
             -TimeoutSeconds ([math]::Min(180, $attestationBudget))
         if (-not $attestation.Valid) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-attestation' -Note $attestation.Reason
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-output-invalid' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateMs $candidateMs -SmokeSummary $smokeSummary -Diagnostic "Image attestation failed: $($attestation.Reason)" -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         $agreement = Test-GateSmokeAttestationAgreement -Smoke $smokeValidation.Value -Attestation $attestation
         if ($agreement) {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-attestation-agreement' -Note $agreement
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-output-invalid' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -CandidateMs $candidateMs -SmokeSummary $smokeSummary -Diagnostic "Smoke output disagrees with image attestation: $agreement" -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
@@ -1493,6 +1746,7 @@ function Invoke-ContainerToolchainGate {
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }
         if ($candidateSize.ExitCode -ne 0 -or $candidateSize.Stdout.Trim() -notmatch '^\d+$') {
+            Write-GateDiagnosticLog -Path $DiagnosticLogPath -Stage 'candidate-size-inspect' -Result $candidateSize
             $receipt = New-ContainerGateReceipt -Outcome 'candidate-output-invalid' -Relevant $true -BaseSha $BaseSha -CandidateSha $CandidateSha -Architecture $RunnerArchitecture -BaseImageIdentity $baseImageIdentity -DockerIdentity $dockerIdentity -CopilotVersion $CopilotVersion -ProvenanceSha256 $provenanceSha -SmokeSummary $smokeSummary -Diagnostic 'Candidate image size is invalid.' -AdvisoryGrowthMiB $AdvisoryGrowthMiB
             return [pscustomobject]@{ ExitCode = 1; Receipt = $receipt }
         }

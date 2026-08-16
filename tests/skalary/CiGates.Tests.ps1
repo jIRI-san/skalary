@@ -193,7 +193,13 @@ Describe 'ci gate inventory' {
 
                 $lastStatement = $statements[-1]
                 $swallowsVerdict = $lastStatement -match '^(exit +0\b|\$(global:)?LASTEXITCODE *=)'
-                $throwsOnFinding = @($statements | Where-Object { $_ -match '^throw\b' }).Count -gt 0
+                # A `throw` sets the step's verdict wherever it sits, including inside the
+                # `if ($LASTEXITCODE -ne 0) { throw ... }` idiom these steps use. Requiring the
+                # statement to *begin* with `throw` failed a step that does go red, which is the
+                # worse error: it pushes authors to restructure working code to satisfy a matcher.
+                # A `catch` is the one construct that can absorb it, so its presence disqualifies.
+                $body = ($statements -join "`n")
+                $throwsOnFinding = $body -match '(?m)(?:^|[\s{;])throw\b' -and $body -notmatch '(?m)(?:^|[\s}])catch\b'
                 $enforces = (-not $swallowsVerdict) -and
                     ($lastStatement -match '^(pwsh|git)\b|-EnableExit\b' -or $throwsOnFinding)
 
@@ -236,7 +242,7 @@ Describe 'ci gate inventory' {
 
         # Container-specific placement is stricter than the universal invocation rule. Moving
         # Measure into the detector would preserve all three strings while moving candidate
-        # execution into the five-minute trusted-control job.
+        # execution into the five-minute detector job.
         $containerJobs = @{}
         foreach ($job in $workflowJobsByHost['.github/workflows/autopilot-container-ci.yml']) {
             $containerJobs[$job.Name] = $job
@@ -248,15 +254,19 @@ Describe 'ci gate inventory' {
         }
         @($containerJobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image')
         foreach ($entry in $expectedModeByJob.GetEnumerator()) {
-            # Steps that only probe for the runner's presence name it without invoking it; the
-            # placement rule is about which job actually executes a mode.
-            $runnerSteps = @($containerJobs[$entry.Key].Steps | Where-Object {
-                    $_.Body -match '& "\$env:CONTROL_ROOT/scripts/skalary/Invoke-ContainerToolchainGate\.ps1"'
-                })
-            $runnerSteps.Count |
-                Should -Be 1 -Because "container job '$($entry.Key)' owns exactly one runner mode"
-            $runnerSteps[0].Body |
-                Should -Match "-Mode $($entry.Value)\b" -Because "container job '$($entry.Key)' must own mode '$($entry.Value)'"
+            # `Initialize` is setup, not a gate: it writes a placeholder receipt and asserts
+            # nothing, so it is excluded from the ownership rule and appears in two jobs. Every
+            # gate mode is owned by exactly one step in exactly one job, and each job runs only
+            # its own — asserted in both directions so a mode moved between jobs is red either
+            # way rather than merely unclaimed in its new home.
+            foreach ($job in $containerJobs.GetEnumerator()) {
+                $modeSteps = @($job.Value.Steps | Where-Object {
+                        (Remove-CiComment -Text $_.Body) -match ('Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode ' + $entry.Value + '\b')
+                    })
+                $expected = if ($job.Key -eq $entry.Key) { 1 } else { 0 }
+                $modeSteps.Count |
+                    Should -Be $expected -Because "container mode '$($entry.Value)' belongs to job '$($entry.Key)' and to no other, and job '$($job.Key)' has $($modeSteps.Count) step(s) running it"
+            }
         }
     }
 

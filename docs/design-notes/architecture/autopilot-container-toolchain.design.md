@@ -1,3 +1,13 @@
+---
+description: Durable contract for the autopilot execution image's agent baseline, its smoke program, the trusted-host attestation of what the image actually contains, and the post-merge comparison gate that measures it. Load before editing plugins/autopilot/devcontainer/**, scripts/skalary/Invoke-ContainerToolchainGate.ps1, or .github/workflows/autopilot-container-ci.yml.
+globs:
+  - plugins/autopilot/devcontainer/**
+  - .github/skills/autopilot/devcontainer/**
+  - scripts/skalary/Invoke-ContainerToolchainGate.ps1
+  - .github/workflows/autopilot-container-ci.yml
+  - tests/skalary/AutopilotContainer*.Tests.ps1
+---
+
 # Autopilot container toolchain
 
 Durable contract for the autopilot execution image's agent baseline, its smoke program, and the
@@ -40,9 +50,12 @@ Docker key *and* an attacker's, and apt would trust both.
 
 The Debian baseline provenance capture runs inside the first apt layer, so on its own it describes
 an image that does not exist yet — PowerShell, .NET, GitHub CLI, Docker CLI and npm globals all land
-later. A final root-layer capture therefore runs after the last root install and before
-`USER autopilot`, recording `final-apt-sources.txt`, `final-packages.tsv`, and
-`final-npm-globals.json`. The smoke program reports `origin.aptHosts` from the final file, and the
+later. A final root-layer capture therefore runs as the last root layer — after the last root install *and*
+after the non-root user is created, immediately before `USER autopilot` — recording
+`final-apt-sources.txt`, `final-packages.tsv`, and `final-npm-globals.json`. The ordering is not
+cosmetic: `# Non-root user` is the documented anchor for extending the image, so a capture placed
+above it would omit whatever a later maintainer adds there, reproducing at the anchor exactly the gap
+the baseline capture already demonstrated. The smoke program reports `origin.aptHosts` from the final file, and the
 gate's attestation reads the same file from the image. The allowed origin set at final state is
 `deb.debian.org`, `security.debian.org`, `download.docker.com`, and `packages.microsoft.com`; the
 Debian baseline file may still only contain the first two.
@@ -97,11 +110,20 @@ the image from the trusted host — `docker create --network none` plus `docker 
   skipped and keyrings not read — against the same final allowlist, and it must name at least one host.
   The compared token is the whole URI authority minus any port, exactly as the recorded-file reader
   produces it, so `https://download.docker.com@evil.example.com/…` — which apt resolves against
-  `evil.example.com` — cannot read as an allowed host in one reader and a rejected one in the other;
+  `evil.example.com` — cannot read as an allowed host in one reader and a rejected one in the other.
+  A non-`http(s)` scheme is reported as `<scheme>://<authority>` rather than skipped, so an `ftp:` or
+  `mirror+file:` origin fails the allowlist instead of being invisible to a pattern that only knows
+  how to see http. `apt.conf` and `apt.conf.d/*` are scanned too, and a `Dir` root reassignment or any
+  `Dir::Etc*` directive fails the read closed: those relocate the source-list directory both readers
+  enumerate, so an allowlisted `/etc/apt` that apt never consults would otherwise pass. `Dir::Cache*`
+  is not included, because Debian's own base images ship it and it relocates no source list. Any
+  enumeration or read error fails the read closed rather than reporting the hosts it managed to read;
 - the smoke object's `digests.manifestSha256` and `origin.aptHosts` against those attested values.
 
 Disagreement is `candidate-output-invalid`. No candidate code runs on the host in this path: `docker cp`
-extracts files, and no mount, socket, or elevated flag is involved.
+extracts files, and no mount, socket, or elevated flag is involved. The whole attestation shares one
+deadline rather than giving each `docker cp` its own, so it cannot outlive the budget it was handed;
+exhausting it is the closed reason `attestation-timeout`.
 
 What this establishes is bounded, and the bound matters. The manifest digest is compared against the
 trusted checkout, so that comparison has a trusted side. The provenance files do not: they are written
@@ -120,14 +142,26 @@ never report.
 When smoke reports failures, the receipt and job summary name the failing case IDs (bounded to 32),
 because a bare count tells a reader nothing they can act on.
 
+Not every smoke failure belongs to a case. Nine whole-run conditions — running as the wrong user, a
+writable `/usr/local/bin`, an unreadable or duplicate-keyed manifest, a case-count mismatch, missing
+provenance files, a digest that could not be computed, an encoder failure — used to collapse into a
+bare `state=fail`, and the receipt could then say only "reported failure without naming a case".
+`skalary/container-toolchain-smoke@1` therefore carries a required `reasons` array drawn from a closed
+vocabulary: `case-count-mismatch`, `encoder-failed`, `manifest-digest-unavailable`,
+`manifest-duplicate-case`, `manifest-unreadable`, `not-autopilot-user`, `output-oversize`,
+`provenance-digest-unavailable`, `provenance-incomplete`, `usr-local-bin-writable`. The vocabulary is
+closed so a broken or hostile image cannot use the field as a free-text channel into the job summary. It is empty on `pass`, and a `fail`
+with neither a failing case nor a reason is rejected as invalid output — a verdict with no diagnosis is
+not a verdict. The schema version is not bumped because the schema has never shipped outside this
+branch; the field is required from its first release.
+
 ## Comparable size run
 
 `scripts/skalary/Invoke-ContainerToolchainGate.ps1` is the sole comparison implementation used locally
-and by Actions. Event identity is closed:
+and by Actions. The gate runs on one event, and event identity is closed:
 
 | Event | Candidate | Base |
 |---|---|---|
-| `pull_request` | `github.sha` synthetic merge commit | `github.event.pull_request.base.sha` |
 | push to `main` | `github.sha` | `github.event.before` |
 
 Both values enter scripts only through environment variables, must be lowercase or uppercase 40-hex,
@@ -135,11 +169,17 @@ and must equal checkout `HEAD`. Detection and builds use the same pair. Changed 
 NUL-delimited and compared as exact ordinal strings; tests cover whitespace, newlines, quotes,
 substitutions, leading dashes, renames, and deletions.
 
-Control-plane code is trusted independently from candidate content. On pull requests, the workflow
-checks out and executes the runner from the validated base SHA in a credential-free control directory.
-On pushes to `main`, the candidate SHA is already trusted merged `main` and owns the runner. Candidate
-checkout scripts are never invoked directly on the Actions host and candidate containers receive no
-GitHub command-file environment variables.
+Both checkouts are `fetch-depth: 1`. The runner needs the base *commit object* in the candidate
+clone to diff two trees, which a full-history clone used to supply at the cost of transferring the
+entire repository twice per push; instead the base commit is fetched from the base checkout already
+on disk (`git -C candidate fetch --no-tags --depth=1 <base-root> <base-sha>`), which needs neither
+network nor credentials and so keeps working for a private repository with `persist-credentials:
+false`. If that import fails, the runner cannot resolve the base and closes to `base-unreachable`,
+which forces relevance and a blocking candidate-only measurement.
+
+There is one checkout of trusted code, and it is the merged commit. Candidate checkout scripts are
+never invoked directly on the Actions host and candidate containers receive no GitHub command-file
+environment variables — only the runner from the merged commit executes on the host.
 
 For each run:
 
@@ -187,9 +227,9 @@ that omits the numbers forces a reader into the artifact for the one fact the su
 If a comparable receipt exceeds 250 MiB, finalization requires `assets/decisions/image-size-exception.md`;
 otherwise that file is absent.
 
-## Always-reported gate
+## Post-merge gate
 
-The workflow triggers on every pull request and `main` push. A detector computes whether the closed
+The workflow triggers on `push` to `main` and on nothing else. A detector computes whether the closed
 image-input set changed. The image job is conditional; the final `autopilot container / gate` job uses
 `if: always()` and this truth table:
 
@@ -198,24 +238,40 @@ image-input set changed. The image job is conditional; the final `autopilot cont
 - relevance `true` plus image `success`: pass;
 - every other pair: fail.
 
-### Control-plane bootstrap
+### Why not a pull-request gate
 
-The control plane is the *base* checkout, so a pull request whose base predates this workflow has no
-runner to execute. Each job resolves the runner's presence in the control checkout before using it. On
-`pull_request`, absence yields a recorded bootstrap outcome: relevance `false`, a closed receipt stating
-that the control plane was absent, a job summary saying nothing was verified, and a passing gate. On any
-other event, absence is a deletion of the control plane and fails.
+An earlier revision of this design ran on `pull_request` and called the base-SHA checkout in
+`control/` a trusted control plane. That claim was false, and the falseness is worth stating plainly
+because the shape is tempting: on `pull_request`, GitHub evaluates the workflow definition **from the
+pull request's own head**. The YAML that decides to check out `control/`, the `if:` guards, the job
+list, and the required-check name are all candidate-authored. A candidate can delete the control
+checkout, delete the runner invocation, or delete the image job entirely, and the check named
+`autopilot container / gate` still reports success — because a required check's identity is a name,
+not a behaviour. A control plane that the untrusted party can switch off is a convention, not a
+boundary.
 
-The candidate's own copy of the runner is never promoted to fill the gap. That fallback would let a pull
-request supply the code that judges it, which is the exact authority this design exists to deny; a gate
-that verifies nothing and says so is strictly safer than one that verifies with candidate-supplied logic.
+The mechanism that would make the definition non-candidate-controlled is an organization-level
+required workflow, whose definition lives outside this repository. None is configured here, so it is
+not available to rely on and this note does not pretend otherwise.
 
-Bootstrap covers exactly one condition: the base carries no runner. The gate's bootstrap step reads
-`needs.detector.result` and fails when it is anything other than `success`, so an infrastructure failure
-stays red instead of borrowing the bootstrap pass. The path closes for pull requests based on a commit
-that carries this workflow; it stays open indefinitely for pull requests based on older long-lived
-branches, and that is inherent — such a base genuinely has nothing to verify with. The receipt says so
-in words rather than implying a verification happened.
+What survives is the `push` event on `main`: its definition comes from the merged commit, which a
+human reviewed and accepted before it landed. That is a real trust boundary, and it is the one this
+gate uses. The consequences are stated rather than hidden:
+
+- **The gate is detective, not preventive.** A Dockerfile regression is caught on `main`, attributed
+  to one commit, within one run — after it merged. The only pre-merge control over the image recipe
+  is human review of the diff, which the "Smoke claims are attested" section already relies on for
+  the hostile-recipe case.
+- **The check cannot be required on pull requests**, because it never runs on them. Making it a
+  required check would block every pull request forever. If branch protection is wanted for the
+  image, the honest options are an organization required workflow or a merge queue — both outside
+  this repository's control and both their own decision.
+- **`concurrency` does not cancel in progress.** Every merged commit gets its own verdict; cancelling
+  commit A's run because commit B landed would leave A merged and unmeasured.
+
+Dropping the `pull_request` trigger also removes the bootstrap hole an earlier revision needed: there
+is no "base without a runner" case, because the runner and the workflow arrive at the merged commit
+together.
 
 The workflow is secretless for candidate execution: no repository/organization secret, token-bearing
 build argument, persisted checkout credential, host Docker-socket/workspace mount into candidate
@@ -224,7 +280,17 @@ daemon, but the built/running image cannot access its socket.
 
 The trusted runner is the sole path-set owner. It derives canonical/installed mappings from
 `plugin.json`, parses Dockerfile `COPY` sources, and adds itself, the workflow, launcher, manifest, and
-owning tests. Detector and Pester call the same function; documentation names categories only.
+owning tests. `COPY --from=` is rejected outright: its source is a stage or a registry image rather
+than a build-context path, so accepting it would let a `COPY --from=other/image devcontainer/toolchain.tsv`
+enter the payload set as a hash-verified local file while the image copied bytes from somewhere else.
+Detector and Pester call the same function; documentation names categories only.
+
+The runner also owns the receipt shape end to end. `-Mode Initialize` writes the placeholder receipt
+that the image and gate jobs upload if measurement never starts, and `-Mode Detect` writes its own
+`relevance` and `candidate_only_reason` step outputs. Both used to be hand-written in YAML, which put
+the receipt schema and the closed candidate-only reason set in two places; the placeholder written
+there named no commit, no path, and no reason, so a reader who downloaded it learned only that
+something had not happened.
 
 ## Accepted capability
 
@@ -236,12 +302,13 @@ operator-controlled endpoint.
 
 ## Gate recovery
 
-The stable check display name is `autopilot container / gate`. Creating the check does not mutate branch
-protection. If an operator later makes it required and a detector defect or upstream outage blocks its own
-repair, a repository administrator may temporarily remove only this check from required status, record the
-incident, merge a separately reviewed repair, restore the requirement, and verify one irrelevant no-op run
-plus one relevant image run. The disabled interval and restoration evidence remain visible in the
-incident/PR record.
+The stable check display name is `autopilot container / gate`, reported on `main` pushes only.
+Creating the check does not mutate branch protection, and it cannot be a pull-request required check
+because it never runs on that event. If an operator wires it into a `main`-branch policy and a
+detector defect or upstream outage blocks its own repair, a repository administrator may temporarily
+suspend that policy, record the incident, merge a separately reviewed repair, restore the policy, and
+verify one irrelevant no-op run plus one relevant image run. The disabled interval and restoration
+evidence remain visible in the incident/PR record.
 
 ## Residual risks
 
@@ -250,8 +317,23 @@ incident/PR record.
   it changes the maintenance model for the whole image.
 - Digest-pinned third-party `.deb` artifacts fail closed on upstream rotation and require a maintenance
   commit to refresh.
+- The Copilot CLI and Pester are installed by version, not by integrity digest:
+  `npm install -g --ignore-scripts @github/copilot@<version>` and
+  `Install-PSResource -Name Pester -Version "[5.6.1]"`. Both pin *which* version is requested — the
+  npm tag exactly, and `[5.6.1]` as an exact NuGet range rather than a minimum — but neither pins the
+  bytes: a registry can serve different content for an unpublished-and-republished version.
+  `--ignore-scripts` is the part that is actually enforced, and it is enforced because the install
+  runs as root. No signature check is claimed for Pester, because PSResourceGet's `-AuthenticodeCheck`
+  validates only on Windows and this image is Debian. Closing the residue properly means a
+  lockfile-per-image maintenance model, which is the same decision the floating base tag defers.
 - Provenance files are authored by the image's own build recipe. Host-side attestation proves the image
   agrees with its record and that smoke did not lie about either; it cannot prove a Dockerfile that
   forges both consistently. Human review of the Dockerfile diff is the control for that case.
-- A pull request based on a branch that predates this workflow records a bootstrap pass forever, because
-  such a base has no trusted runner to verify with. The receipt states that nothing was verified.
+- **The gate is post-merge.** A regression in the image reaches `main` before the gate reports it. This
+  is inherent to the trust model, not an oversight: see "Why not a pull-request gate". Pre-merge
+  protection would require an organization required workflow, which this repository does not have.
+- Registry and daemon outages during the base build are classified as `base-build-failed`, and during
+  the candidate build as `candidate-build-failed` — the second is blocking, so a transient upstream
+  failure reads as a candidate defect. Separating infrastructure failure from candidate failure needs a
+  new closed outcome that ripples through this note's truth table, the receipt schema, and the gate
+  tests; it is deferred rather than papered over.
