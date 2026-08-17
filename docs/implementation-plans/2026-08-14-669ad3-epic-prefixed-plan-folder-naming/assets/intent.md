@@ -2,6 +2,8 @@
 
 > Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
 
+> Confirmed by the operator without changes on 2026-08-16 during `/cip 669ad3`.
+
 ## Goal
 
 Group hash-schema plan folders by epic at the start of their names, using `standalone` for plans with no epic, while preserving canonical plan identity.
