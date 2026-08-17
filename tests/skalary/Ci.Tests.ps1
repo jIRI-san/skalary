@@ -126,6 +126,15 @@ Describe 'ci workflow' {
             # would let this case pass while the ceiling CI enforces says something else.
             Copy-Item -LiteralPath (Join-Path $script:repoRoot 'tools/suite-budget.psd1') `
                 -Destination (Join-Path $root 'tools/suite-budget.psd1')
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @()
+}
+'@
 
             Set-Content -LiteralPath (Join-Path $root 'tests/Seeded.Tests.ps1') -Value $TestFileContent -Encoding utf8
             return (Resolve-Path -LiteralPath $root).Path
@@ -570,6 +579,9 @@ Describe 'ci workflow' {
             [array]::IndexOf($names, $legStep.Name) |
                 Should -BeGreaterThan $clockIndex -Because "the '$leg' leg is inside the budgeted command, so the clock must start before it"
         }
+        $retirementStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['plugin retirement history'] })[0]
+        [array]::IndexOf($names, $retirementStep.Name) |
+            Should -BeLessThan $clockIndex -Because 'plugin retirement is an independent CI gate, not a leg of npm test'
     }
 
     It 'test:Ci.GatesRunAsSeparateSteps gives every gate its own step so one failure cannot mask another' {
@@ -699,6 +711,11 @@ Describe 'ci workflow' {
 
         $budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
         $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+        $tierManifest = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/suite-tier.psd1')
+        foreach ($member in @('SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+            $tierManifest.Contains($member) | Should -BeTrue -Because "timeout sizing requires '$member'"
+            [double]$tierManifest[$member] | Should -BeGreaterThan 0
+        }
 
         $legs = @(Get-CiMatrixLeg -Text $script:workflowText)
         $legs.Count | Should -BeGreaterThan 1 -Because 'REQ-9 requires both platforms; an unparsed matrix would make this vacuous'
@@ -716,9 +733,12 @@ Describe 'ci workflow' {
             $leg.Properties.ContainsKey('timeoutMinutes') |
                 Should -BeTrue -Because "leg '$($leg.Os)' must state its own timeout"
 
-            $ceilingMinutes = [double]$budget.Platforms[$platform].HardCeilingSeconds / 60.0
+            $requiredSeconds = [double]$budget.Platforms[$platform].HardCeilingSeconds +
+            [double]$tierManifest.SlowHardCeilingSeconds +
+            [double]$tierManifest.CiSetupAllowanceSeconds
+            $requiredMinutes = $requiredSeconds / 60.0
             [double]$leg.Properties['timeoutMinutes'] |
-                Should -BeGreaterThan $ceilingMinutes -Because "a $($leg.Os) leg cut off at $($leg.Properties['timeoutMinutes'])m before its $([math]::Round($ceilingMinutes, 1))m ceiling reports a cancelled run instead of an over-budget one"
+                Should -BeGreaterThan $requiredMinutes -Because "a $($leg.Os) leg must contain the Fast ceiling plus the declared Slow and setup allowances ($([math]::Round($requiredMinutes, 1))m total)"
         }
     }
 
@@ -744,6 +764,8 @@ Describe 'ci workflow' {
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'a report that cannot be attributed to a platform is not a diagnosis on a suite that runs ~2x apart across them'
         $resultPath | Should -Match 'nunit-fast-'
         $slowStep.Body | Should -Match '-TestResultPath\s+[^\n]*nunit-slow-\$\{\{ matrix\.os \}\}\.xml'
+        $unitStep.Body | Should -Match '(?m)^\s*id:\s*fast-tests\s*$'
+        $slowStep.Body | Should -Match '(?m)^\s*id:\s*slow-tests\s*$'
 
         $uploadSteps = @($steps | Where-Object { $_.Body -match 'uses:\s*actions/upload-artifact@' })
         $uploadSteps.Count | Should -Be 1 -Because 'one upload, so one artifact name to keep unique'
@@ -753,9 +775,14 @@ Describe 'ci workflow' {
         $Matches['name'].Trim() |
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'two matrix legs uploading one artifact name is a hard failure, not a merge'
 
-        $upload.Body -match '(?m)^\s*path:\s*(?<path>[^\n]+)$' | Out-Null
-        $Matches['path'].Trim() |
-            Should -Be 'artifacts/test-results/nunit-*-${{ matrix.os }}.xml' -Because 'one platform artifact carries both attributed tier reports'
+        $upload.Body | Should -Match 'artifacts/test-results/nunit-\*-\$\{\{ matrix\.os \}\}\.xml'
+        $upload.Body | Should -Match 'artifacts/test-results/review-consumer-\$\{\{ matrix\.os \}\}\.xml' -Because 'the dedicated blocking gate keeps its NUnit evidence too'
+
+        $summary = @($steps | Where-Object { $_.Name -eq 'Test result summary' })
+        $summary.Count | Should -Be 1
+        $summary[0].Body | Should -Match 'steps\.fast-tests\.outcome'
+        $summary[0].Body | Should -Match 'steps\.slow-tests\.outcome'
+        $summary[0].Body | Should -Match "Outcome -ne 'success'" -Because 'a post-Pester runner failure must not be summarized as passed from NUnit counts alone'
 
         # The run worth reading is the failed one. Without always() the report is uploaded
         # exactly when nobody needs it.

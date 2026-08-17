@@ -76,8 +76,9 @@
     #   Linux   ci:ubuntu-latest  108.998s -> 3x = 330s ceiling, 2x = 240s target
     #   Windows ci:windows-latest 223.142s -> 3x = 690s, above the 600s it would replace, so
     #           the ceiling stays 600s and only the target falls to 450s.
-    # Windows was 1157s when D13 was written; phases 2 and 3 brought it to 2.05x Linux rather
-    # than 10x, so the tier split D13 held in reserve is not needed and no raise was taken.
+    # Windows was 1157s when D13 was written; phases 2 and 3 initially brought it to 2.05x Linux.
+    # Later review-run coverage raised the complete suite above this Fast ceiling, so plan 31a3ef
+    # activated D13's tracked Fast/Slow split without taking a ceiling raise.
     Platforms = @{
         Linux = @{
             HardCeilingSeconds = 330

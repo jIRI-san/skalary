@@ -26,6 +26,8 @@
       5  OverBudget — the run is slower than this platform's hard ceiling
       6  BudgetNotDefined — no budget file, or no entry for this platform
       7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
+    8  RequiredEvidenceSkipped — mandatory review evidence did not execute
+    9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
 #>
@@ -74,9 +76,9 @@ if (-not $BudgetClockPath) {
 # variable set by the first one is gone by the time the last one reads it.
 if ($StartBudgetClock) {
     $clock = [ordered]@{
-        schema = $budgetClockSchema
+        schema    = $budgetClockSchema
         startedAt = $legStart.ToString('o')
-        command = 'npm test'
+        command   = 'npm test'
     }
     Set-Content -LiteralPath $BudgetClockPath -Value (($clock | ConvertTo-Json -Depth 4) + "`n") -Encoding utf8NoBOM
     exit 0
@@ -86,11 +88,10 @@ if ($StartBudgetClock) {
 # carry the way out of that state rather than only the diagnosis.
 $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
 
-# Read and clear the clock before anything that can exit. A clock left behind by a run that
-# ended on any other branch — a failing earlier leg, an absent Pester, a red suite — would be
-# charged to the next invocation, which is a failure invented rather than measured.
+# Read and clear the clock before anything that can exit from a Fast run. Slow is a separate,
+# unbudgeted gate and must not consume authorization that belongs to a concurrent or later Fast run.
 $clockStartedAt = $null
-if (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf) {
+if ($Tier -eq 'Fast' -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
     $clockText = Get-Content -LiteralPath $BudgetClockPath -Raw
     Remove-Item -LiteralPath $BudgetClockPath -Force -ErrorAction SilentlyContinue
 
@@ -136,10 +137,34 @@ $slowPaths = @()
 $dedicatedPaths = @()
 
 if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
-    $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
-    if ([string]$tierManifest.Schema -ne 'skalary/suite-tier@1') {
-        Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest.Schema)'." -ForegroundColor Red
+    try {
+        $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
+    }
+    catch {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' could not be imported: $($_.Exception.Message)" -ForegroundColor Red
         exit 9
+    }
+
+    $requiredTierMembers = @('Schema', 'SlowFiles', 'DedicatedFiles', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')
+    $missingMembers = @($requiredTierMembers | Where-Object { -not $tierManifest.Contains($_) })
+    if ($missingMembers.Count -gt 0) {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' is missing required member(s): $($missingMembers -join ', ')." -ForegroundColor Red
+        exit 9
+    }
+    if ([string]$tierManifest['Schema'] -ne 'skalary/suite-tier@1') {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest['Schema'])'." -ForegroundColor Red
+        exit 9
+    }
+    foreach ($numericMember in @('SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+        $numericValue = 0.0
+        if (-not [double]::TryParse(
+                [string]$tierManifest[$numericMember],
+                [System.Globalization.NumberStyles]::Float,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [ref]$numericValue) -or $numericValue -le 0) {
+            Write-Host "SuiteTierInvalid: '$tierManifestPath' member '$numericMember' must be a positive number." -ForegroundColor Red
+            exit 9
+        }
     }
 
     $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
@@ -162,8 +187,8 @@ if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
     }
 
     try {
-        $slowPaths = @($tierManifest.SlowFiles | ForEach-Object { & $resolveTierPath ([string]$_) })
-        $dedicatedPaths = @($tierManifest.DedicatedFiles | ForEach-Object { & $resolveTierPath ([string]$_) })
+        $slowPaths = @($tierManifest['SlowFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
+        $dedicatedPaths = @($tierManifest['DedicatedFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
     }
     catch {
         Write-Host "SuiteTierInvalid: $($_.Exception.Message)" -ForegroundColor Red
@@ -177,24 +202,19 @@ if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
         exit 9
     }
 }
-elseif ($Tier -eq 'Slow') {
-    Write-Host "SuiteTierInvalid: Slow requires '$tierManifestPath'." -ForegroundColor Red
-    exit 9
-}
 else {
-    # Consumer fixtures without the repository manifest preserve the historical default.
-    $legacyDedicated = Join-Path $testPath 'skalary/ReviewConsumerInstall.Tests.ps1'
-    if (Test-Path -LiteralPath $legacyDedicated -PathType Leaf) { $dedicatedPaths = @($legacyDedicated) }
+    Write-Host "SuiteTierInvalid: tier '$Tier' requires '$tierManifestPath'." -ForegroundColor Red
+    exit 9
 }
 
 $pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
 $slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
 $dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
 $testFiles = @(switch ($Tier) {
-    'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
-    'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
-    default { @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) }) }
-})
+        'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
+        'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
+        default { @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) }) }
+    })
 
 # Pester throws rather than returning a result when the selected tier holds no test file.
 if ($testFiles.Count -eq 0) {
@@ -294,8 +314,18 @@ if ($leakedNames.Count -gt 0) {
     exit 7
 }
 
-if ($Tier -ne 'Fast') {
-    Write-Host "Suite budget: not applied to the '$Tier' tier; only Fast is the budgeted '$([string](Import-PowerShellDataFile -LiteralPath (Join-Path $RepoRoot 'tools/suite-budget.psd1')).MeasuredCommand)' gate."
+if ($Tier -eq 'Slow') {
+    $slowSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
+    $slowCeiling = [double]$tierManifest['SlowHardCeilingSeconds']
+    Write-Host "Slow tier runtime: $([math]::Round($slowSeconds, 3))s against a ceiling of ${slowCeiling}s."
+    if ($slowSeconds -gt $slowCeiling) {
+        Write-Host "OverBudget: Slow tier runtime $([math]::Round($slowSeconds, 3))s exceeded its ${slowCeiling}s ceiling." -ForegroundColor Red
+        exit 5
+    }
+    exit 0
+}
+if ($Tier -eq 'All') {
+    Write-Host "Suite budget: not applied to diagnostic tier 'All'."
     exit 0
 }
 

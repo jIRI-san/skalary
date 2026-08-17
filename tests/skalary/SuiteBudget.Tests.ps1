@@ -116,6 +116,15 @@ Describe 'sandbox' {
 "@
             }
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') -Encoding utf8 -Value $BudgetText
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @()
+}
+'@
 
             return (Resolve-Path -LiteralPath $root).Path
         }
@@ -159,7 +168,7 @@ Describe 'sandbox' {
 
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Output = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
             }
         }
     }
@@ -431,9 +440,9 @@ Describe 'sandbox' {
         # ceiling would have discarded the clock and passed the run — the worse the overrun,
         # the more certainly it would have been excused.
         Set-Content -LiteralPath $clock -Encoding utf8 -Value (@{
-                schema = 'skalary/suite-budget-clock@1'
+                schema    = 'skalary/suite-budget-clock@1'
                 startedAt = [DateTimeOffset]::UtcNow.AddSeconds(-600).ToString('o')
-                command = 'npm test'
+                command   = 'npm test'
             } | ConvertTo-Json)
 
         $clocked = Invoke-Runner -SandboxRoot $sandbox -BudgetClockPath $clock
@@ -454,9 +463,9 @@ Describe 'sandbox' {
         $red = New-BudgetSandbox -HardCeilingSeconds 120 -TargetSeconds 60 -FailingTest
         $redClock = Join-Path $red 'budget-clock.json'
         Set-Content -LiteralPath $redClock -Encoding utf8 -Value (@{
-                schema = 'skalary/suite-budget-clock@1'
+                schema    = 'skalary/suite-budget-clock@1'
                 startedAt = [DateTimeOffset]::UtcNow.AddSeconds(-600).ToString('o')
-                command = 'npm test'
+                command   = 'npm test'
             } | ConvertTo-Json)
 
         $redRun = Invoke-Runner -SandboxRoot $red -BudgetClockPath $redClock

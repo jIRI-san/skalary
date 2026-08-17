@@ -33,9 +33,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            timeoutMinutes: 20
+            timeoutMinutes: 55
           - os: windows-latest
-            timeoutMinutes: 30
+            timeoutMinutes: 60
 
     steps:
       - name: Checkout
@@ -110,6 +110,13 @@ jobs:
         shell: pwsh
         run: npm run eval
 
+      - name: Plugin retirement history
+        shell: pwsh
+        env:
+          BASELINE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: pwsh -NoProfile -File scripts/skalary/Invoke-PluginRetirementHistoryGate.ps1 -BaselineSha $env:BASELINE_SHA -CandidateSha $env:CANDIDATE_SHA
+
       # RISK-10: every gate below is its own named step. Chained into one script, the first
       # failure masks every gate behind it, and a gate that never ran is indistinguishable
       # from one that ran and passed.
@@ -130,13 +137,6 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/validate.ps1
 
-      - name: Plugin retirement history
-        shell: pwsh
-        env:
-          BASELINE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          CANDIDATE_SHA: ${{ github.sha }}
-        run: pwsh -NoProfile -File scripts/skalary/Invoke-PluginRetirementHistoryGate.ps1 -BaselineSha $env:BASELINE_SHA -CandidateSha $env:CANDIDATE_SHA
-
       # REQ-9/D2: the runner is invoked rather than Invoke-Pester, because the runtime budget
       # and the cannot-test failures live in this script and nowhere else. Calling Pester
       # directly here would be a second, unbudgeted way to run the suite.
@@ -145,6 +145,7 @@ jobs:
       # namespace: two legs uploading one name is a hard failure, and a report that cannot be
       # attributed to a platform is not a diagnosis on a suite that measures ~2x apart.
       - name: Unit tests and runtime budget
+        id: fast-tests
         shell: pwsh
         run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -Tier Fast -TestResultPath artifacts/test-results/nunit-fast-${{ matrix.os }}.xml
 
@@ -152,6 +153,7 @@ jobs:
       # defines the local feedback/runtime-budget command. The same runner retains cannot-test,
       # required-evidence, and environment-leak failures for this tier.
       - name: Slow integration tests
+        id: slow-tests
         shell: pwsh
         run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -Tier Slow -TestResultPath artifacts/test-results/nunit-slow-${{ matrix.os }}.xml
 
@@ -166,15 +168,22 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nunit-${{ matrix.os }}
-          path: artifacts/test-results/nunit-*-${{ matrix.os }}.xml
+          path: |
+            artifacts/test-results/nunit-*-${{ matrix.os }}.xml
+            artifacts/test-results/review-consumer-${{ matrix.os }}.xml
           if-no-files-found: warn
 
       - name: Test result summary
         if: always()
         shell: pwsh
         run: |
-          foreach ($tier in @('fast', 'slow')) {
-            $resultPath = "artifacts/test-results/nunit-${tier}-${{ matrix.os }}.xml"
+          $tiers = @(
+            @{ Name = 'fast'; Outcome = '${{ steps.fast-tests.outcome }}' }
+            @{ Name = 'slow'; Outcome = '${{ steps.slow-tests.outcome }}' }
+          )
+          foreach ($tier in $tiers) {
+            $name = $tier.Name
+            $resultPath = "artifacts/test-results/nunit-${name}-${{ matrix.os }}.xml"
             # Every branch ends in a line. This step exists for the run that went wrong, and a
             # report truncated by a killed run is exactly that run — so a parse failure is
             # reported rather than thrown, or the diagnostic disappears when it is needed.
@@ -182,18 +191,18 @@ jobs:
               try {
                 $results = ([xml](Get-Content -LiteralPath $resultPath -Raw)).'test-results'
                 $failed = [int]$results.failures + [int]$results.errors
-                $verdict = if ($failed -gt 0) { 'FAILED' } else { 'passed' }
+                $verdict = if ($tier.Outcome -ne 'success' -or $failed -gt 0) { 'FAILED' } else { 'passed' }
                 # `time` on the root element is a wall-clock timestamp, not a duration; the duration
                 # lives on the top-level suite.
                 $seconds = @($results.'test-suite')[0].time
-                "**${{ matrix.os }} / ${tier}** — ${verdict}: $($results.total) test(s), $failed failed, $($results.'not-run') not run, ${seconds}s (artifact ``nunit-${{ matrix.os }}``)."
+                "**${{ matrix.os }} / ${name}** — ${verdict} (step $($tier.Outcome)): $($results.total) test(s), $failed failed, $($results.'not-run') not run, ${seconds}s (artifact ``nunit-${{ matrix.os }}``)."
               }
               catch {
-                "**${{ matrix.os }} / ${tier}** — the NUnit report at ``$resultPath`` could not be read: $($_.Exception.Message). The run ended before the report was complete."
+                "**${{ matrix.os }} / ${name}** — FAILED (step $($tier.Outcome)): the NUnit report at ``$resultPath`` could not be read: $($_.Exception.Message). The run ended before the report was complete."
               }
             }
             else {
-              "**${{ matrix.os }} / ${tier}** — no NUnit report at ``$resultPath``: the tier did not get far enough to write one."
+              "**${{ matrix.os }} / ${name}** — FAILED (step $($tier.Outcome)): no NUnit report at ``$resultPath``: the tier did not get far enough to write one."
             }
             Write-Host $line
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $line
