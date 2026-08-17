@@ -55,6 +55,54 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 
 This child depends on `c21cdc review-report-as-data`. `c21cdc` owns immutable v1 frozen-task/result
 schemas, validation, persistence, derived attendance, and deterministic rendering. This child consumes
-that published v1 artifact to detect near-identical output and decide corroboration/elevation policy. It
-does not rewrite v1 in place: any additional persisted evidence or semantic change introduces an explicit
-v2 plus migration. Served-model identity remains unobservable; similarity is evidence, not identity proof.
+that boundary without rewriting it: existing v1 authority remains readable and unchanged, while new CR/DR
+runs submit a raw result contract and publish an explicit engine-derived v2 authority. Served-model identity
+remains unobservable; similarity is evidence against independence, while its absence is not identity proof.
+
+## Cross-plan index consultation
+
+Consulted on 2026-08-16 with:
+
+`Get-PlanIndex.ps1 -Filter 'corroborat|review[- ]run|review evidence|model corroboration|finding corroboration' -Format Json`
+
+- `c21cdc` — reuse its v1 authority/lifecycle records; extend RISK-7; resolve RISK-10 through explicit v2 ownership.
+- `863d97` — reuse the decision that marker/receipt truth stays separate from review attendance.
+- `34088e` — reuse REQ-6's owner-local, versioned contract descriptor pattern.
+- `583308` — reuse the decision that ordinary Pester is the typed `test:` evidence host.
+- `ca8ba8` — current epic-seeded records were treated as interview input, not prior art.
+
+The index reported `docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement: no plan.md`.
+That error makes the generated index incomplete for the malformed entry; no corroboration overlap is known,
+and this plan does not infer or reconstruct records from it.
+
+## Design review round 1 decisions
+
+- Fail-closed suspicious evidence is accepted even when malicious echo suppresses elevation; findings remain visible and never gain confidence.
+- Suspicious-pair evidence is bounded by one deterministic witness per affected finding plus complete pair count/digest.
+- Frozen v1 runs receive a completion bridge; all new freezes bind v2 publication and the policy digest.
+- Admission partitioning is merge-group atomic, compact retained evidence carries v2 corroboration commitments, and rollout is reader-first.
+- The complete lexical policy is a shipped schema-validated descriptor. Canonical authority records pair counts, not runtime timing.
+
+## Design review round 2 decisions
+
+- A single unpartitionable group produces permanent terminal admission@2 for that run id; identical replay remains exit 3.
+- Reader-first deployment does not create v2 freezes. Activation changes new freeze and publish together; frozen runs always finish under their bound policy.
+- Finalization retains raw and effective severity, and any suspicion forces `needs-review` rather than approval.
+- Compact evidence uses aggregate commitments within the existing 8 KiB budget; raw input is retained as `review-result.<sha256>.json` and manifest role `rawResult`.
+- The reachable two-model candidate ceiling is 16,384, derived from shared roster/finding limits.
+
+## Design review round 3 decisions
+
+- Policy@1 is exactly two-model and ASCII-tokenized; direct pure-gate evidence covers synthetic count 16,385 while envelope evidence covers reachable 16,384.
+- Receipt@2 and terminal-status@2 expose engine-derived `needs-review`; caller approval is rejected and successful process exit remains 0.
+- The existing worker ceiling applies to the aggregate parent operation across all children and rollup; both CI platforms must report evidence before finalization.
+- Witnesses are derived identifiers/digests only, and retained evidence has a mandatory diagnosis floor within 8 KiB.
+- The engine version map pins policy descriptor digests; v2 has its own limits parity owner and explicit canonical schema paths.
+
+## Architecture and implementation context
+
+- `docs/architecture-notes/arch-review-run-v1.md` — immutable v1 execution authority and retained-evidence boundary.
+- `docs/design-notes/architecture/review-reporting.design.md` — review engine, schemas, rendering, lifecycle, distribution, and resource bounds.
+- `docs/design-notes/architecture/plan-workflow.design.md` — typed evidence, retained review pairs, and plan finalization.
+- `PSScriptAnalyzerSettings.psd1` — default PowerShell rules at Error/Warning severity with repository exclusions.
+- `tools/suite-budget.psd1` — complete-suite platform ceilings; corroboration must not loosen them.

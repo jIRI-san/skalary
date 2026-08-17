@@ -4,17 +4,17 @@
 
 ## Goal
 
-Make review reports state the real corroboration behind each finding instead of treating declared model diversity or near-identical output as independent agreement.
+Make review reports state the observable corroboration behind each finding instead of treating declared model diversity or near-identical output as independent agreement.
 
 ## Desired outcome
 
-The report derives an explicit corroboration regime from observable run data, flags suspiciously similar nominally independent findings, and prevents similarity or degraded model attendance from raising confidence. Declared and observed facts are kept distinct in both machine-readable and rendered output.
+The report derives an explicit corroboration regime from observable run data, flags suspiciously similar findings from distinct declared models, and prevents similarity or degraded model attendance from raising confidence. Declared and observed facts are kept distinct in both machine-readable and rendered output, without claiming that served-model independence was proved.
 
 ## Success signals
 
 - Near-identical outputs from nominally different reviewers are flagged and never counted as independent corroboration.
-- Severity elevation requires valid independent attendance and agreement, not only matching declared model labels.
-- The report header says whether findings are independently corroborated, single-source, suspicious, or degraded.
+- Severity elevation requires complete attendance and unsuspicious support from every declared model, not only matching declared labels.
+- The report states whether findings are corroborated with no suspicious similarity observed, single-source, suspicious, or degraded.
 - Corroboration state is preserved as data for later consumers and tests.
 
 ## Non-goals
@@ -25,4 +25,4 @@ The report derives an explicit corroboration regime from observable run data, fl
 
 ## Definition of done
 
-- A reader can tell exactly what independent support stands behind every finding, and degraded or suspicious runs can only lower confidence or block elevation.
+- A reader can tell exactly what observed support stands behind every finding, and degraded or suspicious runs can only lower confidence or block elevation.
