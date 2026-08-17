@@ -1,6 +1,7 @@
 # Intent
 
 > Preliminary context captured from the 2026-08-08 comparison discussion for epic `33b1f9`. `/cip` must confirm and refine it.
+> Confirmed without changes by the operator on 2026-08-16.
 
 ## Goal
 
@@ -12,7 +13,7 @@ One concern registry defines the settled seven concerns and drives generated `cr
 
 ## Success signals
 
-- Adding or renaming a concern requires one authoritative edit rather than synchronized hand edits.
+- Editing concern guidance or mappings requires one registry edit rather than synchronized hand edits; changing the fixed taxonomy remains an explicitly reviewed policy change outside this plan.
 - Shared concern guidance reaches both review surfaces while preserving explicit surface-specific variants.
 - Generated agents, manifests, dogfood copies, marketplace data, and registry hashes remain synchronized.
 - Existing injection guards, read-only stance, and concern completeness tests remain enforced.
