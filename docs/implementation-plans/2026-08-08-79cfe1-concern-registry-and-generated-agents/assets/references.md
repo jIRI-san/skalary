@@ -48,4 +48,33 @@ changes, that is out of scope and the epic's non-goal governs.
 - `scripts/skalary/Sync-PluginScripts.ps1` — the existing precedent for generate-and-verify: a
   single writer, byte-identical copies, `-WhatIf` drift gate wired into `validate.ps1`. The same
   shape probably applies to generated agent bodies.
-- `docs/design-notes/project/plugin-registry.design.md` — payload declaration and distribution.
+- `docs/design-notes/architecture/plugin-registry.design.md` — payload declaration and distribution.
+
+## Cross-plan index consultation
+
+Consulted on 2026-08-16 with `Get-PlanIndex.ps1` using the topic filter
+`concern agents|concern-agent|concern taxonomy|concern-ledger|seven concerns|7 review concerns|single-authored`.
+
+- **Extends `b0c0d3` REQ-8.** Keep seven model-agnostic agents per surface and every local data-only,
+  injection, secret-redaction, and read-only guard; generate the same contract from one source.
+- **Extends `b0c0d3` REQ-10.** Keep the total deterministic concern-to-ledger mapping; move its rows
+  into the registry and generate both installed map views.
+- **Reuses `b0c0d3` explicit-model dispatch decision.** Generated concern agents continue to declare
+  no model; the orchestrator remains the model-binding authority.
+- **Reuses `b0c0d3` seven-concern taxonomy decision.** The registry centralizes the settled ids and
+  meanings without adding, deleting, or redefining a concern.
+- **Index limitation.** The index reported `docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement: no plan.md`.
+  That unrelated record could not be indexed, so this reconciliation claims completeness only for
+  the records the topic query returned.
+
+## Governing context
+
+- `docs/architecture-notes/arch-review-run-v1.md` — review execution and evidence authority remains unchanged.
+- `docs/design-notes/project/copilot-customizations.design.md` — concern-agent and model-binding conventions.
+- `docs/design-notes/architecture/plugin-registry.design.md` — plugin source, dogfood, registry, marketplace, and version ownership.
+- `docs/design-notes/architecture/review-reporting.design.md` — CR/DR caller and review-run v1 boundaries.
+- `docs/design-notes/project/ci-gates.design.md` — gate inventory, host ownership, Fast/Slow tiers, and runtime budgets.
+- `docs/review-ledger/consistency.md` — generated payload changes must regenerate registry and marketplace data in the same commit.
+- `docs/review-ledger/testing.md` — determinism checks require clean rebuilds and non-blind mutation fixtures.
+- `docs/review-ledger/security.md` — machine declarations and write confinement must be enforced rather than asserted.
+- Archived plan `31a3ef` — subsequently activated the manifest-owned Slow tier, 1,800-second ceiling, separate CI gate, and over-budget exit-5 evidence reused by REQ-7.
