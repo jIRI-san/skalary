@@ -1,6 +1,6 @@
 # Intent
 
-> Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
+> Context captured from the `bcece1` epic discussion on 2026-08-14 and confirmed by the operator on 2026-08-21.
 
 ## Goal
 
