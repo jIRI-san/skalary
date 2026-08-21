@@ -2,6 +2,8 @@
 
 > Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
 
+Confirmed by the operator on 2026-08-21. This wording is the execution anchor for `/ci` and the outcome yardstick for `/pfb`.
+
 ## Goal
 
 Make `/cip` capture the operator's real desired outcome and end-user experience, then agree the high-level program shape before implementation work begins.
