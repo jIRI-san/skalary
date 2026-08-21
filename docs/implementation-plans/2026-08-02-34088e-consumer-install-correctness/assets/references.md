@@ -32,3 +32,9 @@
 - Final platform proof comes from fresh current-tree Linux and Windows CI receipts.
 - Filesystem mutation rejects reparse ancestors and rechecks canonical parent identity immediately before mutation; handle-relative no-follow operations remain a documented residual.
 - Runtime overrun falls back to a named blocking integration tier, never reduced coverage or a ceiling raise.
+
+## Design-review rounds 2-3 reconciliation
+
+- Round 2's retained scope states that CI receipt producers, absolute runtime/tier contracts, production source guards, bundle closure, typed scanner inventory, incumbent gate widening, recoverable attendance, retirement ownership, limit discovery, cross-plan evidence, and final budget rerun were resolved before round 3.
+- Round 3 bound the probe coordinator to machine-owned concurrency and platform-tier deadlines; required explicit credential/profile isolation and recoverable network state; moved persistent scanner data to scanner-owned policy; confined probe entrypoints and scaffold bindings; serialized shared generated surfaces; and bound final evidence to an attested parent candidate.
+- Round 3 also corrected the incumbent CI identifier to `gate:review-consumer-install`, kept `cda9da`'s retirement tests authoritative, required capability outcomes to block rather than skip, and placed the review invocation budget in non-validating `x-skalary-limits.reviewInvocationBudget`.
