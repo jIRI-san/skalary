@@ -1,6 +1,6 @@
 # Intent
 
-> Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
+> Confirmed by the operator on 2026-08-21 from preliminary context captured during the `bcece1` epic discussion on 2026-08-14.
 
 ## Goal
 
@@ -8,7 +8,7 @@ Let planning and review reuse relevant artifacts from related active, archived, 
 
 ## Desired outcome
 
-A bounded, typed artifact resolver builds on `Get-PlanIndex.ps1`, inventories a closed set of plan assets, selects only what each consumer and concern needs, confines and size-bounds every read, and records provenance plus reuse, extension, supersession, or conflict in the current work.
+A bounded, typed artifact resolver builds on `Get-PlanIndex.ps1`, inventories a closed core set of plan assets, selects only what each consumer and concern needs, confines and size-bounds every read, and records provenance plus reuse, extension, supersession, or conflict in the current work. A generalized extension API is deferred until `PlanState.psm1` can own it without splitting path authority.
 
 ## Success signals
 

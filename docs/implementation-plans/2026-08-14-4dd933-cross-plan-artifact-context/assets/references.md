@@ -20,6 +20,22 @@ and dependency plans, not only their indexed requirements, risks, and decisions.
 - `/dr` loads the current plan's assets but does not discover related plans.
 - `/cr` loads changed code plus architecture/design notes and has no plan-artifact context contract.
 
+## Prior-art index consultation (2026-08-21)
+
+- Query: `cross-plan|artifact context|related plan|plan index|prior-art|provenance` through `Get-PlanIndex.ps1 -Format Json`.
+- Returned records from `0f666f`, `1936cb`, `34088e`, `57cc2c`, `669ad3`, `79cfe1`, `863d97`, `c21cdc`, and `ca8ba8` are reconciled in `assets/decisions.md` as reuse or extension; the current `4dd933` scaffold records were excluded as self-context.
+- Index error: `docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement: no plan.md`. No requirements, risks, or decisions are inferred from it.
+- Relevant review-ledger entries require section-scoped documentation assertions, paired non-blind mutations, and acceptance claims bound to the unit that declares and uses them.
+
+## Design-review decisions (2026-08-21)
+
+- Round 1 selected review-run v2, a managed exact PSD1 sidecar, a 128 KiB per-file limit under the 256 KiB total, and one resolver invocation per workflow.
+- Round 2 selected base64 exact-byte binding, 64 KiB per reviewer task with 1 MiB aggregate dispatch, deferred extension support, and 4,096-plan/2-second/256-MiB corpus ceilings. Round 3 superseded the proposed version-neutral contract after indexed reconciliation found `ca8ba8` already owns separate v1/v2 contracts.
+- Distribution scope is five plugins and seven `PlanState.psm1` copies; the four consuming skills themselves live in three plugins.
+- Review v2 extends `Read-ReviewManifest`, `Find-IncompleteReviewRun`, `Finalize-ReviewPlanRun`, and `Remove-ReviewRunDirectory`; historical review context is admitted only from their verified compact report/receipt authority.
+- `ca8ba8` decisions are reused: keep v1 ownership with `c21cdc`, use explicit v2 authority for new publication, stage/retain dual readers, finish each frozen run under its bound version, and keep separate v1/v2 limits owners. This plan adds a context role after `ca8ba8` lands.
+- `9fda0b` REQ-7 is superseded only for the bundler mechanism: this plan lands the generic closed sidecar-root table first; the work-hierarchy plan reuses it for its schema/tool roots. Its product behavior and evidence remain unchanged.
+
 ## Intended capability
 
 1. Discover related plan IDs through indexed topic matches, epic membership and dependencies, plus explicit
@@ -46,6 +62,7 @@ and dependency plans, not only their indexed requirements, risks, and decisions.
 
 ## Consumers and ordering
 
-This foundation is dependency-free. `57cc2c` depends on it; the implementation loop, shared fleet, and epic
-coherency review inherit it through the existing dependency chain. The child must define one context contract
+This plan depends on `669ad3` because canonical folder/path authority must land before artifact paths become
+part of a shared contract. `57cc2c` depends on this plan; the implementation loop, shared fleet, and epic
+coherency review inherit it through the existing dependency chain. The child defines one context contract
 consumed by `/cip`, `/cep`, `/dr`, and plan-associated `/cr`, not four divergent discovery mechanisms.

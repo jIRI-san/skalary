@@ -58,13 +58,13 @@ feedback, and completing the final phase delivers the plan's full desired outcom
 |---|---|---|
 | `57cc2c` | intent-capture-and-rfc | `4dd933` |
 | `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b`, `c21cdc`, `34088e` |
-| `25aa23` | epic-coherency-review | `8a0644` |
-| `4dd933` | cross-plan-artifact-context | `669ad3` |
+| `25aa23` | epic-coherency-review | `8a0644`, `79cfe1` |
+| `4dd933` | cross-plan-artifact-context | `669ad3`, `ca8ba8` |
 | `669ad3` | epic-prefixed-plan-folder-naming | — |
-| `6a629b` | vertical-implementation-requirement-loop | `57cc2c` |
-| `9fda0b` | github-work-hierarchy-synchronization | `57cc2c` |
-| `a5ad22` | epic-autopilot-orchestration | `8a0644` |
-| `cda9da` | architecture-test-retirement | — |
+| `6a629b` | vertical-implementation-requirement-loop | `57cc2c`, `863d97` |
+| `9fda0b` | github-work-hierarchy-synchronization | `57cc2c`, `25aa23` |
+| `a5ad22` | epic-autopilot-orchestration | `8a0644`, `25aa23`, `669ad3`, `79cfe1` |
+| `cda9da` | architecture-test-retirement _(archived)_ | — |
 <!-- child-plans:end -->
 
 Membership is the `<!-- epic: bcece1 -->` marker in each child `plan.md`; the table above is a generated
