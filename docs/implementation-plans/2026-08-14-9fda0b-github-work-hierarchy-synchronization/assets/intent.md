@@ -1,6 +1,6 @@
 # Intent
 
-> Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
+> Context captured from the `bcece1` epic discussion on 2026-08-14 and confirmed by the operator on 2026-08-21.
 
 ## Goal
 
@@ -12,8 +12,8 @@ Existing or new local epics and plans can create or update a GitHub Projects v2 
 
 ## Success signals
 
-- A whole epic can populate a navigable GitHub hierarchy with meaningful descriptions and acceptance criteria.
-- Existing GitHub epics, features, or work items can be linked and extended idempotently.
+- A whole epic can populate a navigable parent-issue and child-plan sub-issue hierarchy with meaningful descriptions and acceptance criteria.
+- Existing GitHub parent or child-plan issues can be proposed for operator-confirmed linking and then extended idempotently.
 - Local plan and epic IDs retain stable remote mappings and synchronization reports conflicts instead of guessing.
 - Provider-neutral interfaces leave a clear Azure DevOps extension seam.
 
