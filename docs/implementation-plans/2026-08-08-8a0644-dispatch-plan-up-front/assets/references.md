@@ -36,6 +36,30 @@ from a silently truncated one.
 - `plugins/design-review/skills/dr/SKILL.md` — the same dispatch shape on the design-review surface;
   whatever lands here has to land there too.
 
+## Indexed reconciliation confirmed 2026-08-21
+
+- **Extend `34088e`.** Reuse its `skalary/workflow-limits@1` owner discovery, parity, installed-consumer,
+  and resolver-backed graph protocol; this plan owns the scheduler descriptor, cap, and admission semantics.
+- **Extend `b0c0d3`.** Preserve explicit concern/model fanout, size-scaled concern selection, one pass over
+  the union, the invocation budget, and model fallback precision; add a machine-derived pre-dispatch
+  declaration and real wave admission.
+- **Reuse `c21cdc`.** Preserve frozen task identity, task outcomes, attendance derivation, immutable
+  publication, and rendering; generic review scheduling never becomes a second authority.
+- **Reuse `79cfe1`.** Preserve the seven-concern taxonomy and generated concern-agent authorship.
+- **Extend `25aa23`.** Supply the shared scheduler and adapter it consumes; leave epic coherency behavior
+  and activation in that dependent plan.
+- **Reuse `57cc2c` and `6a629b`.** Preserve confirmed intent, complete vertical delivery, phase
+  crosschecks, retained decisions, high-impact escalation, and one writer per scope.
+- **Reuse `863d97`, `ca8ba8`, and `a5ad22` boundaries.** Evidence-marker truth remains separate;
+  corroboration remains downstream; parallel epic children stay deferred until shared admission and
+  non-overlapping scopes are proven.
+- **Retain tangential contracts from `001`, `005`, `006`, `768d7b`, and `aaf29b`.** This plan does not
+  supersede launcher dispatch, eval semantics, validation flow, suite-budget measurement, or offline
+  rebundle behavior.
+- **Index limitation.** `Get-PlanIndex.ps1` returned
+  `docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement: no plan.md`; no record is
+  inferred from that active folder.
+
 ## Review-run contract boundary
 
 This child depends on `c21cdc review-report-as-data`. `c21cdc` owns the versioned frozen-task/result schemas,
@@ -50,3 +74,37 @@ This child depends on `34088e consumer-install-correctness`. `34088e` owns disco
 descriptors, parity validation, installed-consumer proof, and resolver-backed dependency evidence. This child
 owns the scheduler's four-in-flight value and admission behavior, registers that owner, and does not copy the
 cap into active consumers without parity coverage.
+
+## Consulted current contracts and guidance
+
+- `docs/architecture-notes/arch-review-run-v1.md` and `ARCH-Review-Run-V1` — Freeze, publication, verified
+  delivery, and compact retained review evidence remain authoritative.
+- `docs/design-notes/architecture/review-reporting.design.md` — exact task, attendance, installed bundle,
+  and review lifecycle boundaries.
+- `docs/design-notes/architecture/plan-workflow.design.md` — plan assets, script-only capture, stage, evidence,
+  and bundle contracts.
+- `docs/design-notes/project/copilot-customizations.design.md` — agent/model ownership, skill size, explicit
+  model dispatch, and installed customization inventory.
+- `docs/design-notes/architecture/architecture-notes.design.md` — provisional contract and human-doc flow.
+- Review ledger: `plan-structure.md`, `testing.md`, `security.md`, `error-handling.md`, and `consistency.md`.
+  Applied lessons require mutation-backed workflow evidence, non-vacuous owner/consumer assertions,
+  executable declaration truth, fail-loud installed reads, and same-commit generated catalog updates.
+
+## DR round 1 operator resolutions
+
+- Provider-global concurrency is not claimed; the enforceable unit is a persisted admission lease, with
+  provider telemetry explicitly verified or unverified.
+- Stable work-conserving ready admission replaces strict wave barriers.
+- Retry-After is honored only from typed host throttling, capped at 60 seconds and 240 seconds per fleet.
+- Mandatory budgets hard-refuse projected overage: CIP 4/8 per draft; CI 4/8 per step and 64/128 per plan.
+- Review-run alone freezes review slots and owns post-run attendance; exhausted throttle maps to v1 `failed`.
+
+## DR round 2 operator resolutions
+
+- CI plan budget scales to 128 logical tasks / 256 attempts, supporting 32 mandatory four-role steps;
+  larger plans are refused and split before execution.
+- Implementor writes occur in disposable worktrees and only audited pinned-parent commits are promoted.
+- Real host calls remain orchestrator-mediated; the enforceable claim is persisted admission and attempt
+  conservation, with provider telemetry explicitly unavailable/unverified unless adapter-bound.
+- The complete executable contract, mutation ownership, suite classes, and documentation ownership live in
+  `assets/decisions/fleet-contract.md`.
