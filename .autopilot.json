@@ -5,7 +5,7 @@
   "gitProvider": "github",
   "gitAuth": "pat-shared",
   "model": "gpt-5.6-sol",
-  "context": "long_context",
+  "context": "default",
   "reasoningEffort": "high",
   "git": {
     "name": "jIRI",
