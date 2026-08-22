@@ -8,7 +8,7 @@ Make every orchestrated planning, implementation, and review fleet declare its i
 
 ## Desired outcome
 
-One shared fleet scheduler serves `/cip`, `/ci`, `/cr`, and `/dr`, and supplies the activation handoff consumed by the later `/cep` coherency-review plan. Before calls begin it reports selected roles or concern/model pairs, omissions, budgets, projected waves, ready-order and throttling policy; after execution it reports attendance against that declaration. Provider concurrency is verified only when typed host telemetry exists and otherwise stays explicitly unverified.
+One small run-scoped dispatch contract serves `/cip`, `/ci`, `/cr`, and `/dr`, and supplies the adapter shape consumed by the later `/cep` coherency-review plan. Before calls begin it reports selected roles or concern/model pairs, omissions, projected waves, ready order, and retry policy; after execution it reports attendance against that declaration. The four-call limit describes orchestrator admission for one workflow run, not provider-global concurrency.
 
 ## Success signals
 
@@ -22,7 +22,8 @@ One shared fleet scheduler serves `/cip`, `/ci`, `/cr`, and `/dr`, and supplies 
 - Reopening the seven-concern review taxonomy.
 - Treating reading batches as new concern passes.
 - Unlimited parallel fanout or silent replacement calls after throttling.
+- Building a durable distributed scheduler, cross-run budget ledger, credential broker, signing/authentication protocol, clone manager, quarantine store, or activation transaction.
 
 ## Definition of done
 
-- Planning, implementation, code review, and design review use one tested dispatch-plan, admission, attendance, and degradation contract; epic review has a tested conformance and activation handoff to `25aa23`.
+- Planning, implementation, code review, and design review use one tested run-scoped dispatch-plan, attendance, and degradation contract; epic review has a tested conformance handoff to `25aa23`.

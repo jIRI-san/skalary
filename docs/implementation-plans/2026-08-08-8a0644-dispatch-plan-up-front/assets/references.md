@@ -96,15 +96,42 @@ cap into active consumers without parity coverage.
   provider telemetry explicitly verified or unverified.
 - Stable work-conserving ready admission replaces strict wave barriers.
 - Retry-After is honored only from typed host throttling, capped at 60 seconds and 240 seconds per fleet.
-- Mandatory budgets hard-refuse projected overage: CIP 4/8 per draft; CI 4/8 per step and 64/128 per plan.
+- Superseded by round 2: the initial CI plan budget was 64/128; the accepted and current authority is 128/256.
 - Review-run alone freezes review slots and owns post-run attendance; exhausted throttle maps to v1 `failed`.
 
 ## DR round 2 operator resolutions
 
 - CI plan budget scales to 128 logical tasks / 256 attempts, supporting 32 mandatory four-role steps;
   larger plans are refused and split before execution.
-- Implementor writes occur in disposable worktrees and only audited pinned-parent commits are promoted.
+- Superseded by round 4: the initial disposable-worktree choice was replaced by fixed-root isolated local clones;
+  only audited pinned-parent commits are promoted.
 - Real host calls remain orchestrator-mediated; the enforceable claim is persisted admission and attempt
   conservation, with provider telemetry explicitly unavailable/unverified unless adapter-bound.
 - The complete executable contract, mutation ownership, suite classes, and documentation ownership live in
   `assets/decisions/fleet-contract.md`.
+
+## DR round 4 operator resolutions
+
+- Keep CI and frozen-review budgets separate beneath a durable plan-global 1,024 logical / 2,048 attempt cap.
+- Bound incomplete-run listing to 128 total and 32 per page; bound isolated-clone quarantine to eight entries,
+  1 GiB aggregate, and seven days, with typed admission backpressure.
+- Replace linked worktrees with fixed-root isolated local clones and retain pinned-parent commit audit.
+- Superseded by round 5: reserve every fleet-owned staging, failed, and committed write against one 67,108,864-
+  byte runtime counter; independently derive the closed maximum recipe below that oracle.
+- Use one shared host capability/signalling contract: allowlisted model mapping, sanitized environment, no
+  credentials in artifacts or role processes, declared non-network tools only, and correlation reconciliation.
+- Keep the large-tree performance contract and bind it to a 100,000-file/4,096-change Dedicated fixture at the
+  existing Linux/Windows 10/30-second and 256-MiB ceilings.
+
+## DR round 6 operator resolutions
+
+- Extract one transaction primitive core from review-run and migrate review unchanged; fleet reuses the core
+  rather than implementing a parallel persistence engine.
+- Derive clone escrow from four measured `--no-hardlinks` clones plus 25%, cap it at 8 GiB, and refuse before
+  dispatch when the cap or available-space check fails.
+- Keep `Add-WorkflowNote` semantics unchanged. CIP/CI capture appends only a compact summary pointing to
+  content-addressed fleet plan/result views.
+- Treat plan-global ledger exhaustion as terminal evidence and require a new sibling plan; no ledger extension
+  or reset path exists.
+- Require a human finalization step to verify the matching content-addressed Active transaction receipt before
+  lifecycle `done` and archival.
