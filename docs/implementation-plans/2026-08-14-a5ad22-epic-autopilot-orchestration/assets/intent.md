@@ -1,6 +1,6 @@
 # Intent
 
-> Preliminary context captured from the `bcece1` epic discussion on 2026-08-14. `/cip` must confirm and refine it.
+> Context captured from the `bcece1` epic discussion on 2026-08-14 and confirmed by the operator on 2026-08-21.
 
 ## Goal
 
@@ -8,7 +8,7 @@ Let one host-side `/ci` mode drive an eligible epic through isolated container-a
 
 ## Desired outcome
 
-The host owns epic selection, durable state, deterministic `NextChild`, child branch and runtime lifecycle, terminal verification, merge handoff, and graph refresh. Each fresh container owns exactly one drafted child plan and cannot select siblings, mutate host state, or satisfy dependencies before its branch is merged.
+The host owns epic selection, durable state, deterministic `NextChild`, child branch and runtime lifecycle, terminal verification, merge handoff, graph refresh, and final delivered-outcome coherency review. Each fresh container owns exactly one drafted child plan and cannot select siblings, mutate host state, or satisfy dependencies before its branch is merged.
 
 ## Success signals
 
@@ -22,7 +22,8 @@ The host owns epic selection, durable state, deterministic `NextChild`, child br
 - Parallel child containers in the MVP.
 - Automatic merge or bypass of branch protection and operator approval.
 - Replacing existing per-plan launchers, receipts, or package-rebundle behavior.
+- Live Azure DevOps epic orchestration in the first delivery; the provider-neutral seam remains.
 
 ## Definition of done
 
-- `/ci <epic-id>` can durably execute and hand off each eligible child in order, then finish only after merged-state rollup and epic-intent coherency pass.
+- `/ci <epic-id>` can durably execute and hand off each eligible child in order, then finish only after merged-state rollup and a verified epic-intent coherency review pass.
