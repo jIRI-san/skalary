@@ -573,6 +573,213 @@ function Test-ConsumerRuntimeReferenceClosure {
     }
 }
 
+function Invoke-ConsumerInstalledSmokeMatrix {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Fixture)
+
+    $smokeRoot = Join-Path $Fixture.Root '.github/.skalary/consumer-smoke'
+    [void](New-Item -ItemType Directory -Path $smokeRoot -Force)
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    function Get-InstalledPath {
+        param([Parameter(Mandatory)][string]$Destination)
+
+        return Join-Path (Join-Path $Fixture.Root '.github') (
+            $Destination -replace '/', [System.IO.Path]::DirectorySeparatorChar
+        )
+    }
+
+    function Invoke-InstalledProcess {
+        param([Parameter(Mandatory)][string[]]$ArgumentList)
+
+        return Invoke-SuiteFixtureProcess `
+            -WorkingDirectory $Fixture.Root `
+            -TimeoutSeconds 30 `
+            -ArgumentList $ArgumentList
+    }
+
+    try {
+        foreach ($plugin in @($Fixture.Catalog.Plugins | Sort-Object Name)) {
+            $name = [string]$plugin.Name
+            $payload = @(
+                $plugin.Files |
+                    Where-Object { [bool]$_.Install } |
+                    Sort-Object Dest |
+                    Select-Object -First 1
+            )
+            if ($payload.Count -ne 1) {
+                $results.Add([pscustomobject]@{
+                        Plugin   = $name
+                        Payload  = $null
+                        Probe    = 'payload-load'
+                        ExitCode = -1
+                        Output   = 'no installed runtime payload declared'
+                        IsClean  = $false
+                    })
+                continue
+            }
+
+            $payloadPath = Get-InstalledPath -Destination ([string]$payload[0].Dest)
+            $payloadLoaded = (Test-Path -LiteralPath $payloadPath -PathType Leaf) -and
+            (Get-ConsumerInstallSha256 -Path $payloadPath) -ceq [string]$payload[0].Sha256
+            $probe = ''
+            $process = $null
+            $expectedExitCode = 0
+            $expectedOutput = ''
+
+            switch ($name) {
+                'architecture-notes' {
+                    $probe = 'canonical-contract-hash'
+                    $contractPath = Join-Path $smokeRoot 'architecture-contract.json'
+                    Set-Content -LiteralPath $contractPath `
+                        -Value '{"z":1,"lockedContentSha256":"ignored","a":2}' `
+                        -NoNewline -Encoding utf8NoBOM
+                    $scriptPath = Get-InstalledPath -Destination (
+                        'skills/architecture-notes/scripts/Get-ArchContractContentHash.ps1'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        '(& $args[0] -ContractPath $args[1]).CanonicalJson',
+                        $scriptPath, $contractPath
+                    )
+                    $expectedOutput = '{"a":2,"z":1}'
+                }
+                'autopilot' {
+                    $probe = 'typed-file-evidence'
+                    $scriptPath = Get-InstalledPath -Destination 'skills/autopilot/scripts/Test-Plan.ps1'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-File', $scriptPath,
+                        '-RepoRoot', $Fixture.Root,
+                        '-EvidenceMarker', 'file:.github/skills/autopilot/SKILL.md#exists',
+                        '-EvidenceStage', 'PhaseCrosscheck'
+                    )
+                    $expectedOutput = 'Evidence passed: file:.github/skills/autopilot/SKILL.md#exists'
+                }
+                'code-review' {
+                    $probe = 'literal-review-scope'
+                    $scriptPath = Get-InstalledPath -Destination 'agents/scripts/Get-ReviewScope.ps1'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-File', $scriptPath,
+                        '-Mode', 'paths',
+                        '-Paths', '.github/skills/cr/SKILL.md',
+                        '-RepoRoot', $Fixture.Root
+                    )
+                    $expectedOutput = '.github/skills/cr/SKILL.md'
+                }
+                'continue-implementation' {
+                    $probe = 'plan-stage-resolution'
+                    $modulePath = Get-InstalledPath -Destination 'skills/ci/scripts/PlanState.psm1'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        'Import-Module $args[0] -Force; (Resolve-PlanStage -Stage $args[1]).Stage',
+                        $modulePath, 'drafted'
+                    )
+                    $expectedOutput = 'drafted'
+                }
+                'create-implementation-plan' {
+                    $probe = 'plan-stage-resolution'
+                    $modulePath = Get-InstalledPath -Destination 'skills/cip/scripts/PlanState.psm1'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        'Import-Module $args[0] -Force; (Resolve-PlanStage -Stage $args[1]).Stage',
+                        $modulePath, 'drafted'
+                    )
+                    $expectedOutput = 'drafted'
+                }
+                'design-notes' {
+                    $probe = 'skill-dispatch-contract'
+                    $skillPath = Get-InstalledPath -Destination 'skills/design-notes/SKILL.md'
+                    $templatePath = Get-InstalledPath -Destination (
+                        'skills/design-notes/assets/templates/design-notes-index.template.md'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        '$skill = [IO.File]::ReadAllText($args[0]); $template = [IO.File]::ReadAllText($args[1]); if ($skill -notmatch ''\| `update` \| \*\*Update\*\*'' -or $template -notmatch ''# Design Notes'') { throw ''installed design-notes dispatch contract is incomplete'' }; ''design-notes:update''',
+                        $skillPath, $templatePath
+                    )
+                    $expectedOutput = 'design-notes:update'
+                }
+                'design-review' {
+                    $probe = 'incomplete-run-preflight'
+                    $scriptPath = Get-InstalledPath -Destination 'skills/dr/scripts/Get-ReviewRun.ps1'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-File', $scriptPath, '-ListIncomplete'
+                    )
+                    $expectedOutput = '[]'
+                }
+                'plugin-manager' {
+                    $probe = 'installed-plugin-list'
+                    $registryPath = Join-Path $smokeRoot 'registry.json'
+                    Set-Content -LiteralPath $registryPath -Value (
+                        ($Fixture.Registry | ConvertTo-Json -Depth 100) + "`n"
+                    ) -Encoding utf8NoBOM
+                    $scriptPath = Get-InstalledPath -Destination (
+                        'skills/list-plugins/scripts/Get-Plugin.ps1'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        '$items = @(& $args[0] -RepoRoot $args[1] -RegistryPath $args[2] -Installed); @($items.name) -join '',''',
+                        $scriptPath, $Fixture.Root, $registryPath
+                    )
+                    $expectedOutput = @($Fixture.Catalog.PluginNames | Sort-Object) -join ','
+                }
+                'process-pr-comments' {
+                    $probe = 'remote-slug-normalization'
+                    $modulePath = Get-InstalledPath -Destination (
+                        'skills/process-pr-comments/scripts/GitHubPr.psm1'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        'Import-Module $args[0] -Force; (Get-RepoSlug -RemoteUrl $args[1]).FullName',
+                        $modulePath, 'https://github.com/skalary/consumer.git'
+                    )
+                    $expectedOutput = 'skalary/consumer'
+                }
+                'self-improvement' {
+                    $probe = 'missing-base-refusal'
+                    $scriptPath = Get-InstalledPath -Destination (
+                        'skills/si/scripts/Test-SiWriteScope.ps1'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-File', $scriptPath,
+                        '-RepoRoot', $Fixture.Root,
+                        '-BaseRef', '__consumer_smoke_missing_base__'
+                    )
+                    $expectedExitCode = 1
+                    $expectedOutput = (
+                        "Test-SiWriteScope failed: cannot resolve diff base " +
+                        "'__consumer_smoke_missing_base__' in '$($Fixture.Root)'."
+                    )
+                }
+                default {
+                    $process = [pscustomobject]@{
+                        ExitCode = -1
+                        Output   = "no installed smoke is defined for active plugin '$name'"
+                    }
+                }
+            }
+
+            $results.Add([pscustomobject]@{
+                    Plugin   = $name
+                    Payload  = [string]$payload[0].Dest
+                    Probe    = $probe
+                    ExitCode = [int]$process.ExitCode
+                    Output   = [string]$process.Output
+                    IsClean  = $payloadLoaded -and
+                    [int]$process.ExitCode -eq $expectedExitCode -and
+                    ([string]$process.Output).Trim() -ceq $expectedOutput
+                })
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $smokeRoot -PathType Container) {
+            Remove-Item -LiteralPath $smokeRoot -Recurse -Force
+        }
+    }
+
+    return @($results)
+}
+
 function Remove-ConsumerInstallFixture {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Fixture)
@@ -583,4 +790,5 @@ function Remove-ConsumerInstallFixture {
 }
 
 Export-ModuleMember -Function Get-ConsumerInstallManifestCatalog, New-ConsumerInstallFixture,
-    Test-ConsumerInstallInventory, Test-ConsumerRuntimeReferenceClosure, Remove-ConsumerInstallFixture
+Test-ConsumerInstallInventory, Test-ConsumerRuntimeReferenceClosure, Invoke-ConsumerInstalledSmokeMatrix,
+Remove-ConsumerInstallFixture

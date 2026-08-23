@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Installed behavior and scaffold lifecycle
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add one representative installed smoke per active plugin, deriving attendance from active manifests and using existing Pester/process helpers. Each smoke must load installed payloads and either exercise deterministic behavior or reach its expected offline preflight without source, network, or credential fallback; add `test:ConsumerInstall.ActivePluginSmokeMatrix` (REQ-3, REQ-5, RISK-1, RISK-3, RISK-5) [after: 1.2] `L`
+- [x] 2.1 Add one representative installed smoke per active plugin, deriving attendance from active manifests and using existing Pester/process helpers. Each smoke must load installed payloads and either exercise deterministic behavior or reach its expected offline preflight without source, network, or credential fallback; add `test:ConsumerInstall.ActivePluginSmokeMatrix` (REQ-3, REQ-5, RISK-1, RISK-3, RISK-5) [after: 1.2] `L`
 - [ ] 2.2 Execute every declared first-use scaffold owner in the foreign fixture and verify starter content, idempotence, modified-target preservation, confinement, hostile input refusal, and retry using `test:ConsumerInstall.FirstUseScaffoldLifecycle` (REQ-4, REQ-5, RISK-3, RISK-4, RISK-5) [after: 2.1] `L`
 
 ## Phase 3: Distribution proof

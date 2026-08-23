@@ -237,6 +237,11 @@ evidence lives in the existing Slow suite tier.
 canonical script bundles exist with manifest hashes, declared scaffolds remain first-use paths, and
 missing installed files, source-relative reads, or dynamic supported-root reads fail closed.
 
+`Invoke-ConsumerInstalledSmokeMatrix` derives attendance from the same active manifest catalog and
+loads one manifest-hashed installed payload per plugin. Each plugin then runs one bounded,
+deterministic behavior through the installed path (or an exact local refusal preflight); the matrix
+does not use source payloads, network access, provider credentials, or skipped-success results.
+
 ## Skill Size Cap
 
 A `SKILL.md` is loaded in full on every invocation of its skill, so its size is a recurring

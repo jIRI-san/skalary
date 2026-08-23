@@ -31,3 +31,10 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] PSScriptRoot and AssetRoot sidecar exemptions did not prove the referenced sidecar was manifest-declared or bundled.
 - [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=5 outcome=findings summary=med=2 low=0 run=step-1-2-final-authorized-review
 - [1.2] [src:note] [sev:Low] review-cycle-decision stage=step-1.2 after=5 action=wrap
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:Med] Smoke probes use unanchored case-insensitive output matching, allowing unexpected output or larger counts to pass.
+- [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=1 outcome=findings summary=1-Med run-step-2-1-review
+- [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=2 outcome=clean summary=0-findings run-step-2-1-rereview

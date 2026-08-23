@@ -296,4 +296,30 @@ Describe 'foreign consumer plugin installation' {
         (Test-ConsumerRuntimeReferenceClosure -Fixture $script:fixture).IsClean |
             Should -BeTrue -Because 'negative probes must restore the foreign fixture'
     }
+
+    It 'test:ConsumerInstall.ActivePluginSmokeMatrix exercises one installed-only behavior per active plugin' {
+        $expected = @($script:fixture.Catalog.PluginNames | Sort-Object)
+        $smokes = @(Invoke-ConsumerInstalledSmokeMatrix -Fixture $script:fixture)
+
+        @($smokes.Plugin | Sort-Object) | Should -Be $expected
+        $smokes.Count | Should -Be $expected.Count
+        @($smokes | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Probe) }) |
+            Should -BeNullOrEmpty -Because 'every active manifest must have an explicit behavior probe'
+        foreach ($smoke in $smokes) {
+            $smoke.IsClean | Should -BeTrue -Because (
+                "$($smoke.Plugin) must load a manifest-hashed installed payload and complete " +
+                "$($smoke.Probe) without source, network, or credentials: exit=$($smoke.ExitCode) " +
+                "output=$($smoke.Output)"
+            )
+        }
+
+        foreach ($poisonRelativePath in $script:fixture.PoisonRelativePaths) {
+            $poisonPath = Join-Path $script:fixture.Root (
+                $poisonRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            [System.IO.File]::ReadAllText($poisonPath) | Should -BeExactly 'SKALARY_SOURCE_PATH_POISON'
+        }
+        (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
+            Should -BeTrue -Because 'installed smokes must leave the shared foreign fixture unchanged'
+    }
 }
