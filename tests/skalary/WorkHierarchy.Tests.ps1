@@ -525,7 +525,7 @@ The second slice works.
             }
         }
 
-        It 'refuses remote managed edits and malformed markers' {
+        It 'test:WorkHierarchy.MappingAndMarkers refuses remote managed edits and malformed markers' {
             $fixture = & $newFixture
             try {
                 $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
