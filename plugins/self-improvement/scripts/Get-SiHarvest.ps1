@@ -13,6 +13,9 @@ param(
     [ValidateRange(1, 64)]
     [int]$PageSize = 64,
 
+    [ValidateRange(1, 60)]
+    [int]$ScanTimeoutSeconds = 60,
+
     [string]$Cursor,
 
     [string[]]$ArchiveReference = @(),
@@ -50,7 +53,7 @@ $ledgerNames = @(
 )
 $maxFiles = 256
 $maxScanBytes = 160MB
-$maxScanSeconds = 60
+$maxScanSeconds = $ScanTimeoutSeconds
 $maxSelectedRecords = 1024
 $maxSelectedBytes = 4MB
 $maxPageBytes = 256KB
@@ -77,10 +80,33 @@ function ConvertTo-StableJson {
     return $Value | ConvertTo-Json -Depth 100 -Compress
 }
 
+function Get-RemainingScanMilliseconds {
+    $remaining = $maxScanSeconds - $stopwatch.Elapsed.TotalSeconds
+    if ($remaining -le 0) {
+        throw "capacity-blocked: SI harvest exceeded its $maxScanSeconds-second scan deadline."
+    }
+    return [Math]::Max(1, [int][Math]::Ceiling($remaining * 1000))
+}
+
+function Stop-HarvestProcess {
+    param([Parameter(Mandatory)][System.Diagnostics.Process]$Process)
+
+    if (-not $Process.HasExited) {
+        try {
+            $Process.Kill($true)
+        }
+        catch [System.InvalidOperationException] {
+            if (-not $Process.HasExited) { throw }
+        }
+        [void]$Process.WaitForExit(1000)
+    }
+}
+
 function Invoke-GitText {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string[]]$Argument
+        [Parameter(Mandatory)][string[]]$Argument,
+        [int[]]$AllowedExitCode = @(0)
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -91,17 +117,77 @@ function Invoke-GitText {
     foreach ($item in @('-C', $Root) + $Argument) { $startInfo.ArgumentList.Add($item) }
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $started = $false
     try {
         if (-not $process.Start()) { throw 'Unable to start git.' }
-        $stdout = $process.StandardOutput.ReadToEnd()
-        $stderr = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
-        if ($process.ExitCode -ne 0) {
+        $started = $true
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit((Get-RemainingScanMilliseconds))) {
+            Stop-HarvestProcess -Process $process
+            throw "capacity-blocked: git '$($Argument[0])' exceeded the SI harvest scan deadline."
+        }
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -notin $AllowedExitCode) {
             throw "git $($Argument[0]) failed: $($stderr.Trim())"
         }
         return $stdout
     }
     finally {
+        if ($started) { Stop-HarvestProcess -Process $process }
+        $process.Dispose()
+    }
+}
+
+function Invoke-GitLines {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string[]]$Argument,
+        [Parameter(Mandatory)][int]$MaximumLines,
+        [int[]]$AllowedExitCode = @(0)
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'git'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($item in @('-C', $Root) + $Argument) { $startInfo.ArgumentList.Add($item) }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $started = $false
+    $lines = [System.Collections.Generic.List[string]]::new()
+    try {
+        if (-not $process.Start()) { throw 'Unable to start git.' }
+        $started = $true
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        while ($true) {
+            $lineTask = $process.StandardOutput.ReadLineAsync()
+            if (-not $lineTask.Wait((Get-RemainingScanMilliseconds))) {
+                Stop-HarvestProcess -Process $process
+                throw "capacity-blocked: git '$($Argument[0])' exceeded the SI harvest scan deadline."
+            }
+            $line = $lineTask.GetAwaiter().GetResult()
+            if ($null -eq $line) { break }
+            $lines.Add($line)
+            if ($lines.Count -gt $MaximumLines) {
+                Stop-HarvestProcess -Process $process
+                throw "capacity-blocked: git '$($Argument[0])' exceeds $MaximumLines output lines."
+            }
+        }
+        if (-not $process.WaitForExit((Get-RemainingScanMilliseconds))) {
+            Stop-HarvestProcess -Process $process
+            throw "capacity-blocked: git '$($Argument[0])' exceeded the SI harvest scan deadline."
+        }
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -notin $AllowedExitCode) {
+            throw "git $($Argument[0]) failed: $($stderr.Trim())"
+        }
+        return $lines.ToArray()
+    }
+    finally {
+        if ($started) { Stop-HarvestProcess -Process $process }
         $process.Dispose()
     }
 }
@@ -123,13 +209,20 @@ function Read-PinnedBlob {
     }
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $started = $false
     try {
         if (-not $process.Start()) { throw 'Unable to start git cat-file.' }
+        $started = $true
         $memory = [System.IO.MemoryStream]::new()
         try {
-            $process.StandardOutput.BaseStream.CopyTo($memory)
-            $stderr = $process.StandardError.ReadToEnd()
-            $process.WaitForExit()
+            $copyTask = $process.StandardOutput.BaseStream.CopyToAsync($memory)
+            $stderrTask = $process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit((Get-RemainingScanMilliseconds))) {
+                Stop-HarvestProcess -Process $process
+                throw 'capacity-blocked: git cat-file exceeded the SI harvest scan deadline.'
+            }
+            [void]$copyTask.GetAwaiter().GetResult()
+            $stderr = $stderrTask.GetAwaiter().GetResult()
             if ($process.ExitCode -ne 0) { throw "git cat-file failed: $($stderr.Trim())" }
             if ($memory.Length -ne $ExpectedSize) {
                 throw "Pinned blob '$BlobOid' changed size while being read."
@@ -141,6 +234,7 @@ function Read-PinnedBlob {
         }
     }
     finally {
+        if ($started) { Stop-HarvestProcess -Process $process }
         $process.Dispose()
     }
 }
@@ -209,23 +303,145 @@ function Get-PinnedTreeEntries {
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
     $entries = [System.Collections.Generic.List[object]]::new()
+    $started = $false
     try {
         if (-not $process.Start()) { throw 'Unable to start git ls-tree.' }
-        while (($line = $process.StandardOutput.ReadLine()) -ne $null) {
+        $started = $true
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        while ($true) {
+            $lineTask = $process.StandardOutput.ReadLineAsync()
+            if (-not $lineTask.Wait((Get-RemainingScanMilliseconds))) {
+                Stop-HarvestProcess -Process $process
+                throw 'capacity-blocked: git ls-tree exceeded the SI harvest scan deadline.'
+            }
+            $line = $lineTask.GetAwaiter().GetResult()
+            if ($null -eq $line) { break }
             $entries.Add((ConvertFrom-TreeLine -Line $line))
             if ($entries.Count -gt $MaxCount) {
-                $process.Kill($true)
+                Stop-HarvestProcess -Process $process
                 throw "capacity-blocked: pinned harvest root '$Prefix' exceeds $MaxCount files."
             }
         }
-        $stderr = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
+        if (-not $process.WaitForExit((Get-RemainingScanMilliseconds))) {
+            Stop-HarvestProcess -Process $process
+            throw 'capacity-blocked: git ls-tree exceeded the SI harvest scan deadline.'
+        }
+        $stderr = $stderrTask.GetAwaiter().GetResult()
         if ($process.ExitCode -ne 0) { throw "git ls-tree failed: $($stderr.Trim())" }
         return $entries.ToArray()
     }
     finally {
+        if ($started) { Stop-HarvestProcess -Process $process }
         $process.Dispose()
     }
+}
+
+function Get-PinnedPlanInventory {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$CommitOid
+    )
+
+    $anchors = [System.Collections.Generic.Dictionary[string, string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $anchorLines = @(Invoke-GitLines -Root $Root -Argument @(
+        'grep', '-n', '-E', '^<!--[[:space:]]*plan-id:[[:space:]]*[0-9a-fA-F]{3,}[[:space:]]*-->[[:space:]]*$',
+        $CommitOid, '--', 'docs/implementation-plans/*/plan.md',
+        'docs/implementation-plans/archived/*/plan.md'
+    ) -MaximumLines $maxFiles -AllowedExitCode @(0, 1))
+    foreach ($line in $anchorLines) {
+        if ($line -notmatch (
+                '^[0-9a-f]{40,64}:(?<path>docs/implementation-plans/(?:archived/)?[^:]+/plan\.md):' +
+                '\d+:<!--\s*plan-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->\s*$'
+            )) {
+            throw "Pinned plan inventory contains a malformed anchor result '$line'."
+        }
+        if ($anchors.ContainsKey($Matches.path)) {
+            throw "Pinned plan '$($Matches.path)' contains duplicate plan-id anchors."
+        }
+        $anchors.Add($Matches.path, $Matches.id.ToLowerInvariant())
+    }
+
+    $inventory = [System.Collections.Generic.List[object]]::new()
+    foreach ($rootPath in @('docs/implementation-plans/', 'docs/implementation-plans/archived/')) {
+        $treeLines = @(Invoke-GitLines -Root $Root -Argument @(
+            '-c', 'core.quotePath=false', 'ls-tree', '-d', '--full-tree', $CommitOid, '--', $rootPath
+        ) -MaximumLines $maxFiles)
+        foreach ($line in $treeLines) {
+            if ($line -notmatch '^040000 tree [0-9a-f]{40,64}\t(?<path>.+)$') {
+                throw "Pinned plan inventory contains a malformed tree result '$line'."
+            }
+            $relativePath = $Matches.path
+            $name = [System.IO.Path]::GetFileName($relativePath)
+            $scheme = $null
+            $folderId = $null
+            $slug = $null
+            $date = $null
+            if ($name -match '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
+                $scheme = 'new'
+                $folderId = $Matches.hash
+                $slug = $Matches.slug
+                $date = $Matches.date
+            }
+            elseif ($name -match '^(?<num>\d{3})-(?<slug>.+)$') {
+                $scheme = 'legacy'
+                $folderId = $Matches.num
+                $slug = $Matches.slug
+            }
+            else {
+                continue
+            }
+            $planPath = "$relativePath/plan.md"
+            $anchorId = if ($anchors.ContainsKey($planPath)) { $anchors[$planPath] } else { $null }
+            $inventory.Add([pscustomobject]@{
+                    Id           = if ($anchorId) { $anchorId } else { $folderId }
+                    FolderId     = $folderId
+                    AnchorId     = $anchorId
+                    Scheme       = $scheme
+                    Slug         = $slug
+                    Date         = $date
+                    FolderName   = $name
+                    Path         = [System.IO.Path]::GetFullPath((Join-Path $Root $relativePath))
+                    RelativePath = $relativePath
+                    IsArchived   = $relativePath.StartsWith(
+                        'docs/implementation-plans/archived/',
+                        [System.StringComparison]::Ordinal
+                    )
+                })
+            if ($inventory.Count -gt $maxFiles) {
+                throw "capacity-blocked: pinned plan inventory exceeds $maxFiles plans."
+            }
+        }
+    }
+    return $inventory.ToArray()
+}
+
+function Get-PinnedPlanAssetRelativePath {
+    param(
+        [Parameter(Mandatory)][string]$PlanRelativePath,
+        [Parameter(Mandatory)][ValidateSet('assets', 'legacy')][string]$Layout,
+        [Parameter(Mandatory)][ValidateSet(
+            'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot'
+        )][string]$Kind
+    )
+
+    $assetPath = switch ($Kind) {
+        'CrLog' { 'logs/cr-log.md' }
+        'Learnings' { 'logs/learnings.md' }
+        'Capture' { 'logs/capture.md' }
+        'LearningOverflowRoot' { 'logs/learning-overflow' }
+        'HarvestReceiptRoot' { 'harvest-receipts' }
+    }
+    $legacyPath = switch ($Kind) {
+        'CrLog' { 'cr-log.md' }
+        'Learnings' { 'learnings.md' }
+        'Capture' { 'capture.md' }
+        'LearningOverflowRoot' { 'learning-overflow' }
+        'HarvestReceiptRoot' { 'harvest-receipts' }
+    }
+    $suffix = if ($Layout -eq 'assets') { "assets/$assetPath" } else { $legacyPath }
+    return "$($PlanRelativePath.TrimEnd('/'))/$suffix"
 }
 
 function Resolve-PhysicalPath {
@@ -754,17 +970,15 @@ if (-not (Test-Path -LiteralPath $repoRootFull -PathType Container)) {
     throw "Repository root not found: $repoRootFull"
 }
 
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $PinnedBaseOid = $PinnedBaseOid.ToLowerInvariant()
 $null = Invoke-GitText -Root $repoRootFull -Argument @('cat-file', '-e', "$PinnedBaseOid`^{commit}")
-$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-$inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
-if ($stopwatch.Elapsed.TotalSeconds -gt $maxScanSeconds) {
-    throw 'capacity-blocked: SI plan discovery exceeded 60 seconds.'
-}
+$inventory = @(Get-PinnedPlanInventory -Root $repoRootFull -CommitOid $PinnedBaseOid)
 $plan = Resolve-Plan -Reference $PlanReference -RepoRoot $repoRootFull -Inventory $inventory
 $planId = [string]$plan.Id
 $planDir = [System.IO.Path]::GetFullPath([string]$plan.Path)
+$planRelativeDir = [string]$plan.RelativePath
 $cursorDocument = if ($Cursor) { Read-HarvestCursor -Value $Cursor } else { $null }
 $indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull `
     -Segments @([string]$stateContract.Topology.HarvestIndexName)
@@ -787,7 +1001,7 @@ if ($null -ne $cursorDocument) {
     $selectedBytes = [long]$persistedIndex.selectedByteCount
 }
 else {
-    $planRelative = Get-RelativeHarvestPath -Root $repoRootFull -Path (Join-Path $planDir 'plan.md')
+    $planRelative = "$planRelativeDir/plan.md"
     $pinnedPlan = Get-PinnedTreeEntry -Root $repoRootFull -CommitOid $PinnedBaseOid -Path $planRelative
     if ($null -eq $pinnedPlan) { throw "Resolved plan '$planId' is absent from pinned commit '$PinnedBaseOid'." }
     $pinnedPlanSize = [long]$pinnedPlan.Size
@@ -797,6 +1011,30 @@ else {
     $pinnedPlanText = $utf8.GetString($pinnedPlanBytes)
     if ($pinnedPlanText -notmatch "(?m)^<!-- plan-id: $([regex]::Escape($planId)) -->\s*$") {
         throw "Resolved plan '$planId' does not match its pinned plan-id anchor."
+    }
+    $pinnedLayout = if ($null -ne (Get-PinnedTreeEntry -Root $repoRootFull `
+                -CommitOid $PinnedBaseOid -Path "$planRelativeDir/assets/requirements.md")) {
+        'assets'
+    }
+    else {
+        'legacy'
+    }
+    $alternateLayout = if ($pinnedLayout -eq 'assets') { 'legacy' } else { 'assets' }
+    foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+        $alternate = Get-PinnedPlanAssetRelativePath -PlanRelativePath $planRelativeDir `
+            -Layout $alternateLayout -Kind $kind
+        if ($null -ne (Get-PinnedTreeEntry -Root $repoRootFull -CommitOid $PinnedBaseOid `
+                    -Path $alternate)) {
+            throw "Pinned plan '$planId' contains split-brain '$kind' assets."
+        }
+    }
+    foreach ($kind in @('LearningOverflowRoot', 'HarvestReceiptRoot')) {
+        $alternate = Get-PinnedPlanAssetRelativePath -PlanRelativePath $planRelativeDir `
+            -Layout $alternateLayout -Kind $kind
+        if (@(Get-PinnedTreeEntries -Root $repoRootFull -CommitOid $PinnedBaseOid `
+                    -Prefix $alternate -MaxCount 1).Count -gt 0) {
+            throw "Pinned plan '$planId' contains split-brain '$kind' assets."
+        }
     }
 
 $sourceSpecs = [System.Collections.Generic.List[object]]::new()
@@ -830,13 +1068,16 @@ foreach ($ledgerName in $ledgerNames) {
     Add-SourceSpec -Path (Join-Path $repoRootFull "docs/review-ledger/$ledgerName") -Kind ledger -MaxBytes 4MB
 }
 foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
-    Add-SourceSpec -Path (Resolve-PlanAssetPath -PlanDir $planDir -Kind $kind `
-            -RepoRoot $repoRootFull -Inventory $inventory) -Kind plan-log -MaxBytes 4MB
+    $relative = Get-PinnedPlanAssetRelativePath -PlanRelativePath $planRelativeDir `
+        -Layout $pinnedLayout -Kind $kind
+    Add-SourceSpec -Path (Join-Path $repoRootFull $relative) -Kind plan-log -MaxBytes 4MB
 }
 Add-SourceSpec -Path (Join-Path $repoRootFull 'docs/feedback/queue.md') -Kind feedback -MaxBytes 4MB
 
-$overflowRoot = Resolve-PlanAssetPath -PlanDir $planDir -Kind LearningOverflowRoot `
-    -RepoRoot $repoRootFull -Inventory $inventory
+$overflowRoot = Join-Path $repoRootFull (
+    Get-PinnedPlanAssetRelativePath -PlanRelativePath $planRelativeDir `
+        -Layout $pinnedLayout -Kind LearningOverflowRoot
+)
 $overflowRelative = Get-RelativeHarvestPath -Root $repoRootFull -Path $overflowRoot
 $overflowEntries = @(Get-PinnedTreeEntries -Root $repoRootFull -CommitOid $PinnedBaseOid `
         -Prefix $overflowRelative -MaxCount 64)
@@ -849,8 +1090,10 @@ foreach ($entry in $overflowEntries) {
         -MaxBytes 512KB -Entry $entry
 }
 
-$receiptRoot = Resolve-PlanAssetPath -PlanDir $planDir -Kind HarvestReceiptRoot `
-    -RepoRoot $repoRootFull -Inventory $inventory
+$receiptRoot = Join-Path $repoRootFull (
+    Get-PinnedPlanAssetRelativePath -PlanRelativePath $planRelativeDir `
+        -Layout $pinnedLayout -Kind HarvestReceiptRoot
+)
 $receiptRelative = Get-RelativeHarvestPath -Root $repoRootFull -Path $receiptRoot
 $receiptEntries = @(Get-PinnedTreeEntries -Root $repoRootFull -CommitOid $PinnedBaseOid `
         -Prefix $receiptRelative -MaxCount 64)

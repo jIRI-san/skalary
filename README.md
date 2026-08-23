@@ -77,5 +77,5 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `design-review` | 1.0.3 | stable | — | 15 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.3 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
-| `self-improvement` | 1.0.50 | stable | create-implementation-plan | 31 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
+| `self-improvement` | 1.0.51 | stable | create-implementation-plan | 31 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
 <!-- END SKALARY PLUGIN CATALOG -->

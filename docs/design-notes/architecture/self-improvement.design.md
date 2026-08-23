@@ -215,10 +215,14 @@ candidate-ID and ranked-set-digest algorithm before any outcome counts are surfa
 the closed active set (manifest, seven ledger categories, three layout-resolved logs, learning
 overflow, phase receipts, recorded feedback, and active SI runs), and reads every present file once
 when creating a snapshot from the pinned commit's immutable blobs, never from a concurrently
-changing worktree. Git object sizes are checked against source and aggregate ceilings before blob
+changing worktree. Plan identity and assets-versus-legacy layout are also resolved from that pinned
+tree, so mutable worktree metadata cannot redirect or omit a source; duplicate pinned copies across
+both layouts fail closed rather than silently selecting one. Git object sizes are checked
 content is materialized. A scan refuses more than 256 files, 160 MiB, or 60 seconds, streams
 directory discovery to its plus-one boundary, validates manifest/run/phase-receipt integrity, and
-enforces each source's smaller operational ceiling. Archives and resolver outputs are absent unless
+enforces each source's smaller operational ceiling. Every Git child process shares the same
+remaining scan deadline and is terminated on expiry; a blocked object read cannot outlive the
+60-second contract. Archives and resolver outputs are absent unless
 the operator supplies an exact pinned path under a closed auxiliary/archive root. The scanner
 selects at most 1,024 records / 4 MiB in recurrence-severity-blast-radius order, proves each record
 can fit a page before publication, pages at 64 records / 256 KiB, and wraps every returned record

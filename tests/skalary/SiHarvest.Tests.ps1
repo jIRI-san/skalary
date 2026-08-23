@@ -246,6 +246,64 @@ No queued feedback.
         $index.sources.Count | Should -Be 13
     }
 
+    It 'resolves plan identity and layout only from the pinned tree' {
+        Remove-Item -LiteralPath (Join-Path $script:fixture.PlanDir 'assets/requirements.md')
+        Move-Item -LiteralPath (Join-Path $script:fixture.PlanDir 'assets/logs') `
+            -Destination (Join-Path $script:fixture.PlanDir 'worktree-only-logs')
+        Write-Utf8 -Path (Join-Path $script:fixture.PlanDir 'cr-log.md') `
+            -Content "- [1.1] Mutable worktree evidence must not be harvested.`n"
+
+        $result = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $script:fixture.Oid
+
+        $result.Status | Should -Be complete
+        $index = Get-Content -LiteralPath $result.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        @($index.sources.path) | Should -Contain (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/assets/logs/cr-log.md'
+        )
+        @($index.sources.path) | Should -Not -Contain (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/cr-log.md'
+        )
+        ($result.Items.wrappedContent -join "`n") | Should -Match 'A repeated scanner defect'
+        ($result.Items.wrappedContent -join "`n") | Should -Not -Match 'Mutable worktree evidence'
+    }
+
+    It 'rejects split-brain plan logs in the pinned tree' {
+        Write-Utf8 -Path (Join-Path $script:fixture.PlanDir 'cr-log.md') `
+            -Content "- [1.1] Duplicate legacy evidence.`n"
+        & git -C $script:fixture.Root add (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/cr-log.md'
+        )
+        & git -C $script:fixture.Root commit --quiet -m 'split-brain plan log'
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        {
+            & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $oid
+        } | Should -Throw "*split-brain 'CrLog'*"
+    }
+
+    It 'bounds every Git child process by the shared scan deadline' {
+        $source = [System.IO.File]::ReadAllText(
+            (Join-Path $script:pluginRoot 'scripts/Get-SiHarvest.ps1')
+        )
+        @([regex]::Matches(
+                $source,
+                '\.WaitForExit\(\(Get-RemainingScanMilliseconds\)\)'
+            )).Count | Should -BeGreaterOrEqual 3
+        $source | Should -Match 'Stop-HarvestProcess -Process \$process'
+        $source | Should -Match 'capacity-blocked: git.+exceeded the SI harvest scan deadline'
+        @([regex]::Matches($source, '\$process\.Start\(\)')).Count | Should -Be 4
+        @([regex]::Matches(
+                $source,
+                'finally\s*\{\s*if \(\$started\) \{ Stop-HarvestProcess -Process \$process \}'
+            )).Count | Should -Be 4
+        $source.IndexOf('$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()') |
+            Should -BeLessThan $source.IndexOf(
+                "Invoke-GitText -Root `$repoRootFull -Argument @('cat-file'"
+            )
+    }
+
     It 'rejects a continuation when persisted ranking metadata is mutated' {
         $first = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
             -PinnedBaseOid $script:fixture.Oid -PageSize 1
