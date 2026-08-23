@@ -63,6 +63,37 @@ reads fetch at most 100 issues and probe item 101 to refuse overflow. Native exe
 30 seconds, stdout at 8 MiB, and stderr at 64 KiB.
 Rendered output contains action summaries and the deterministic action digest, not remote body text.
 
+## Confirmed Apply
+
+`Invoke-WorkHierarchyApply` accepts the displayed dry run and its exact mapping-file digest. The
+confirmation callback receives that dry run and must return exactly one Boolean. A decline performs no
+reads or writes. After confirmation, apply re-reads the mapping and remote state and requires the
+projection, mapping, and action digests to match before the first mutation.
+
+Apply executes the refreshed actions in their displayed order. Successful creates and updates refresh the
+mapping immediately, so a later provider failure leaves a durable successful prefix that a new dry run can
+resume. A stable apply-lock sidecar serializes cooperating writers for one mapping path. Before each update,
+apply re-reads the issue and verifies the exact title and full body observed by the refreshed action; this
+protects managed and unmanaged edits made while earlier actions execute.
+
+GitHub does not document conditional requests for the issue PATCH endpoint, so the immediate pre-write read
+is the narrowest supported optimistic check; edits racing between that read and PATCH cannot be made atomic
+by this adapter.
+
+File-bound dry runs scan the authoritative repository issue listing for the exact managed start marker
+before proposing creation. A unique existing issue requires explicit adoption, and multiple candidates are
+ambiguous, so a create that outlives mapping persistence is refused rather than duplicated on retry. The
+adapter scans at most 1,000 issues, returns at most two candidates, and refuses larger repositories rather
+than falling back to eventually consistent search.
+
+When remote content already equals the projection but stored baseline hashes are stale, dry run emits a
+mapping-only update. Apply revalidates the issue and repairs the mapping without a provider mutation, so a
+successful PATCH followed by a mapping-save failure remains recoverable.
+
+Parent-child and blocked-by writes use the same provider boundary. After the final write, apply refreshes
+all state and fails unless the result is refusal-free and contains only no-op actions; applying that returned
+dry run again performs no mutations.
+
 ## Mapping File
 
 `Read-WorkHierarchyMappingFile` and `Save-WorkHierarchyMappingFile` own one JSON mapping from canonical

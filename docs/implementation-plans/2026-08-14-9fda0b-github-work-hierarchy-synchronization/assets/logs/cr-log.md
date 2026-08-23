@@ -38,3 +38,11 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Med] Invalid entries bypass collision indexing for their otherwise valid issue number or provider ID.
 - [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=3 outcome=findings summary=1-finding-run-review-step-2-1-final
 - [2.1] [src:note] [sev:Low] review-cycle-decision stage=step-2.1 after=3 action=wrap
+- [2.2] [src:code-review] [sev:High] Updates can overwrite title or body edits made after the initial refresh because expected remote hashes were not consumed immediately before PATCH.
+- [2.2] [src:code-review] [sev:High] A successful create can outlive mapping persistence after a crash, ambiguous provider failure, or concurrent apply and then be duplicated by the next dry run.
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=1 outcome=findings summary=2-high run-apply-review-1
+- [2.2] [src:code-review] [sev:High] Update revalidation still has a time-of-check/time-of-use window because the provider PATCH is not conditionally bound to the preceding GET snapshot.
+- [2.2] [src:code-review] [sev:High] Search-based orphan recovery can miss a just-created issue during GitHub search indexing delay and permit a duplicate create.
+- [2.2] [src:code-review] [sev:Med] A successful update followed by mapping-save failure leaves stale baseline hashes that later dry runs treat as a no-op without repairing.
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=2 outcome=findings summary=2-high-1-med run-apply-review-2
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=3 outcome=clean summary=clean run-apply-review-3

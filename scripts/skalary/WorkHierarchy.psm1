@@ -9,6 +9,7 @@ $script:ProjectionSchema = 'skalary/work-hierarchy-projection@1'
 $script:ProviderSchema = 'skalary/work-hierarchy-provider@1'
 $script:MappingSchema = 'skalary/work-hierarchy-mapping@1'
 $script:DryRunSchema = 'skalary/work-hierarchy-dry-run@1'
+$script:ApplySchema = 'skalary/work-hierarchy-apply@1'
 $script:MappingMaxBytes = 1MB
 $script:IntentSectionOrder = @(
     'Goal',
@@ -885,6 +886,84 @@ function Add-WorkHierarchyMappingItem {
     }
 }
 
+function Set-WorkHierarchyMappingItemBaseline {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Mapping,
+
+        [Parameter(Mandatory)]
+        $Desired,
+
+        [Parameter(Mandatory)]
+        $RemoteIssue
+    )
+
+    Assert-WorkHierarchyMappingEntries -Mapping $Mapping
+    $localId = [string](Get-WorkHierarchyObjectValue -InputObject $Desired -Name localId -Required)
+    $kind = [string](Get-WorkHierarchyObjectValue -InputObject $Desired -Name kind -Required)
+    $sourceItems = Get-WorkHierarchyObjectValue -InputObject $Mapping -Name items -Required
+    $existing = Get-WorkHierarchyMappingItem -MappingItems $sourceItems -LocalId $localId
+    if ($null -eq $existing) {
+        throw "Mapping for '$localId' does not exist."
+    }
+
+    $numberValue = Get-WorkHierarchyObjectValue -InputObject $RemoteIssue -Name number -Required
+    $providerIdValue = Get-WorkHierarchyObjectValue -InputObject $RemoteIssue -Name providerId -Required
+    $providerId = [string]$providerIdValue
+    if (
+        -not (Test-WorkHierarchyPositiveInt32 -Value $numberValue) -or
+        $providerIdValue -isnot [string] -or
+        $providerId -notmatch '^[1-9][0-9]*$'
+    ) {
+        throw "Remote issue returned for '$localId' has an invalid identity."
+    }
+    $number = [int]$numberValue
+    if (
+        [string](Get-WorkHierarchyObjectValue -InputObject $existing -Name kind -Required) -cne $kind -or
+        [int](Get-WorkHierarchyObjectValue -InputObject $existing -Name number -Required) -ne $number -or
+        [string](Get-WorkHierarchyObjectValue -InputObject $existing -Name providerId -Required) -cne $providerId
+    ) {
+        throw "Remote issue returned for '$localId' does not match its mapping."
+    }
+
+    $title = [string](Get-WorkHierarchyObjectValue -InputObject $RemoteIssue -Name title -Required)
+    $body = [string](Get-WorkHierarchyObjectValue -InputObject $RemoteIssue -Name body -Required)
+    $region = Get-WorkHierarchyManagedRegion -Body $body -Kind $kind -LocalId $localId
+    if ($region.status -ne 'present') {
+        throw "Remote issue returned for '$localId' has invalid managed content: $($region.reason)."
+    }
+
+    $items = [ordered]@{}
+    $localIds = [string[]]@(Get-WorkHierarchyObjectNames -InputObject $sourceItems)
+    [array]::Sort($localIds, [System.StringComparer]::Ordinal)
+    foreach ($id in $localIds) {
+        if ($id -cne $localId) {
+            $items[$id] = Get-WorkHierarchyMappingItem -MappingItems $sourceItems -LocalId $id
+            continue
+        }
+
+        $entry = [ordered]@{
+            kind            = $kind
+            number          = $number
+            providerId      = $providerId
+            titleHash       = Get-WorkHierarchyDigest -Value $title
+            managedBodyHash = Get-WorkHierarchyDigest -Value ([string]$region.managedBody)
+        }
+        $url = [string](Get-WorkHierarchyObjectValue -InputObject $RemoteIssue -Name url)
+        if (-not [string]::IsNullOrWhiteSpace($url)) {
+            $entry.url = $url
+        }
+        $items[$id] = $entry
+    }
+
+    return [pscustomobject][ordered]@{
+        schema     = $script:MappingSchema
+        repository = [string](Get-WorkHierarchyObjectValue -InputObject $Mapping -Name repository -Required)
+        items      = $items
+    }
+}
+
 function Get-WorkHierarchyManagedRegion {
     [CmdletBinding()]
     param(
@@ -986,7 +1065,10 @@ function Get-WorkHierarchyFieldDecision {
     $desiredHash = Get-WorkHierarchyDigest -Value $Desired
     $remoteHash = Get-WorkHierarchyDigest -Value $Remote
     if ($desiredHash -eq $remoteHash) {
-        return [pscustomobject]@{ state = 'same'; reason = '' }
+        return [pscustomobject]@{
+            state  = $(if ($desiredHash -eq $BaselineHash) { 'same' } else { 'baseline-stale' })
+            reason = ''
+        }
     }
     if ($remoteHash -eq $BaselineHash) {
         return [pscustomobject]@{ state = 'update'; reason = "$Field-local-change" }
@@ -1036,6 +1118,9 @@ function New-WorkHierarchyDryRun {
 
         [Parameter(Mandatory)]
         $Mapping,
+
+        [ValidatePattern('^$|^[0-9a-f]{64}$')]
+        [string]$MappingDigest = '',
 
         [Parameter(Mandatory)]
         $Provider
@@ -1179,6 +1264,34 @@ function New-WorkHierarchyDryRun {
         }
         $mappingEntry = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $localId
         if ($null -eq $mappingEntry) {
+            if (-not [string]::IsNullOrWhiteSpace($MappingDigest)) {
+                $candidates = @(Invoke-WorkHierarchyProviderRead -Provider $Provider -Request ([pscustomobject][ordered]@{
+                            kind       = 'managed-issues'
+                            repository = $Repository
+                            itemKind   = [string]$desired.kind
+                            localId    = $localId
+                        }))
+                if ($candidates.Count -gt 0) {
+                    $candidateReason = if ($candidates.Count -gt 1) {
+                        'mapping-adoption-ambiguous'
+                    }
+                    else {
+                        $candidateRegion = Get-WorkHierarchyManagedRegion `
+                            -Body ([string]$candidates[0].body) `
+                            -Kind ([string]$desired.kind) `
+                            -LocalId $localId
+                        if ($candidateRegion.status -eq 'present') {
+                            'mapping-adoption-required'
+                        }
+                        else {
+                            'mapping-candidate-invalid'
+                        }
+                    }
+                    $actions.Add((New-WorkHierarchyAction -Kind refuse -Subject $subject -Reason $candidateReason -Detail $null))
+                    [void]$refusedItems.Add($localId)
+                    continue
+                }
+            }
             $actions.Add((New-WorkHierarchyAction -Kind create -Subject $subject -Reason 'mapping-missing' -Detail ([pscustomobject][ordered]@{
                             itemKind    = [string]$desired.kind
                             title       = [string]$desired.title
@@ -1221,7 +1334,21 @@ function New-WorkHierarchyDryRun {
                             providerId              = [string]$remote.providerId
                             title                   = [string]$desired.title
                             body                    = "$($region.prefix)$($desired.managedBody)$($region.suffix)"
+                            mappingOnly             = $false
                             expectedTitleHash       = Get-WorkHierarchyDigest -Value ([string]$remote.title)
+                            expectedBodyHash        = Get-WorkHierarchyDigest -Value ([string]$remote.body)
+                            expectedManagedBodyHash = Get-WorkHierarchyDigest -Value ([string]$region.managedBody)
+                        })))
+        }
+        elseif ($titleDecision.state -eq 'baseline-stale' -or $bodyDecision.state -eq 'baseline-stale') {
+            $actions.Add((New-WorkHierarchyAction -Kind update -Subject $subject -Reason 'mapping-baseline-stale' -Detail ([pscustomobject][ordered]@{
+                            number                  = [int]$remote.number
+                            providerId              = [string]$remote.providerId
+                            title                   = [string]$remote.title
+                            body                    = [string]$remote.body
+                            mappingOnly             = $true
+                            expectedTitleHash       = Get-WorkHierarchyDigest -Value ([string]$remote.title)
+                            expectedBodyHash        = Get-WorkHierarchyDigest -Value ([string]$remote.body)
                             expectedManagedBodyHash = Get-WorkHierarchyDigest -Value ([string]$region.managedBody)
                         })))
         }
@@ -1315,10 +1442,259 @@ function New-WorkHierarchyDryRun {
         schema           = $script:DryRunSchema
         repository       = $Repository
         projectionDigest = Get-WorkHierarchyDigest -Value $projectionJson
+        mappingDigest    = $MappingDigest
         actionDigest     = Get-WorkHierarchyDigest -Value $actionsJson
         hasChanges       = @($actions | Where-Object kind -In @('create', 'update', 'link')).Count -gt 0
         hasRefusals      = @($actions | Where-Object kind -EQ 'refuse').Count -gt 0
         actions          = $actions.ToArray()
+    }
+}
+
+function Invoke-WorkHierarchyApply {
+    <#
+    .SYNOPSIS
+    Confirms, refreshes, and executes one displayed work-hierarchy action set.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Projection,
+
+        [Parameter(Mandatory)]
+        [string]$Repository,
+
+        [Parameter(Mandatory)]
+        [string]$MappingPath,
+
+        [Parameter(Mandatory)]
+        $DisplayedDryRun,
+
+        [Parameter(Mandatory)]
+        $Provider,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$Confirm
+    )
+
+    Assert-WorkHierarchyProvider -Provider $Provider
+    if ([string](Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name schema -Required) -ne $script:DryRunSchema) {
+        throw "Displayed dry run schema must be '$script:DryRunSchema'."
+    }
+    $displayedRepository = [string](Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name repository -Required)
+    if (-not [System.StringComparer]::OrdinalIgnoreCase.Equals($displayedRepository, $Repository)) {
+        throw "Displayed dry run repository does not match '$Repository'."
+    }
+
+    $projectionDigest = Get-WorkHierarchyDigest -Value (ConvertTo-WorkHierarchyProjectionJson -Projection $Projection)
+    $displayedProjectionDigest = [string](Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name projectionDigest -Required)
+    if ($displayedProjectionDigest -cne $projectionDigest) {
+        throw 'Displayed dry run does not match the current projection.'
+    }
+    $displayedMappingDigest = [string](Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name mappingDigest -Required)
+    if ($displayedMappingDigest -notmatch '^[0-9a-f]{64}$') {
+        throw 'Displayed dry run is not bound to an exact mapping-file digest.'
+    }
+
+    $displayedActions = @(Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name actions -Required)
+    $displayedActionsJson = ConvertTo-Json -InputObject $displayedActions -Depth 30 -Compress
+    $displayedActionDigest = [string](Get-WorkHierarchyObjectValue -InputObject $DisplayedDryRun -Name actionDigest -Required)
+    if ((Get-WorkHierarchyDigest -Value $displayedActionsJson) -cne $displayedActionDigest) {
+        throw 'Displayed dry run action digest is invalid.'
+    }
+    if (@($displayedActions | Where-Object kind -EQ 'refuse').Count -gt 0) {
+        throw 'Displayed dry run contains refusals and cannot be applied.'
+    }
+
+    $confirmation = @(& $Confirm $DisplayedDryRun)
+    if ($confirmation.Count -ne 1 -or $confirmation[0] -isnot [bool]) {
+        throw 'Work hierarchy confirmation must return exactly one Boolean value.'
+    }
+    if (-not $confirmation[0]) {
+        return [pscustomobject][ordered]@{
+            schema        = $script:ApplySchema
+            status        = 'declined'
+            mutationCount = 0
+            before        = $DisplayedDryRun
+            after         = $null
+        }
+    }
+
+    $mappingFullPath = [System.IO.Path]::GetFullPath($MappingPath)
+    $mappingParent = Split-Path -Parent $mappingFullPath
+    if (-not (Test-Path -LiteralPath $mappingParent -PathType Container)) {
+        [void][System.IO.Directory]::CreateDirectory($mappingParent)
+    }
+    $applyLockPath = "$mappingFullPath.apply.lock"
+    $applyLock = $null
+    try {
+        try {
+            $applyLock = [System.IO.FileStream]::new(
+                $applyLockPath,
+                [System.IO.FileMode]::OpenOrCreate,
+                [System.IO.FileAccess]::ReadWrite,
+                [System.IO.FileShare]::None
+            )
+        }
+        catch [System.IO.IOException] {
+            throw "Work hierarchy apply is already running for '$mappingFullPath': $($_.Exception.Message)"
+        }
+
+    $mappingState = Read-WorkHierarchyMappingFile -Path $MappingPath -Repository $Repository
+    if ([string]$mappingState.digest -cne $displayedMappingDigest) {
+        throw 'Work hierarchy mapping changed after the displayed dry run; refusing to apply.'
+    }
+    $freshDryRun = New-WorkHierarchyDryRun `
+        -Projection $Projection `
+        -Repository $Repository `
+        -Mapping $mappingState.mapping `
+        -MappingDigest $mappingState.digest `
+        -Provider $Provider
+    if (
+        [string]$freshDryRun.projectionDigest -cne $displayedProjectionDigest -or
+        [string]$freshDryRun.mappingDigest -cne $displayedMappingDigest -or
+        [string]$freshDryRun.actionDigest -cne $displayedActionDigest
+    ) {
+        throw 'Work hierarchy state changed after confirmation; run a fresh dry run.'
+    }
+    if ($freshDryRun.hasRefusals) {
+        throw 'Refreshed work hierarchy state contains refusals and cannot be applied.'
+    }
+
+    $desiredById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($desired in @($Projection.epic) + @($Projection.children)) {
+        $desiredById.Add([string]$desired.localId, $desired)
+    }
+
+    $executed = [System.Collections.Generic.List[object]]::new()
+    foreach ($action in @($freshDryRun.actions)) {
+        $actionKind = [string]$action.kind
+        if ($actionKind -eq 'no-op') {
+            continue
+        }
+        if ($actionKind -eq 'refuse') {
+            throw "Refusal action '$($action.subject)' reached apply execution."
+        }
+
+        if ($actionKind -in @('create', 'update')) {
+            $localId = ([string]$action.subject).Substring('item:'.Length)
+            if (-not $desiredById.ContainsKey($localId)) {
+                throw "Apply action references unknown projected item '$localId'."
+            }
+            $desired = $desiredById[$localId]
+            if ($actionKind -eq 'create') {
+                $remote = Invoke-WorkHierarchyProviderWrite -Provider $Provider -Operation ([pscustomobject][ordered]@{
+                        kind       = 'create-issue'
+                        repository = $Repository
+                        title      = [string]$action.detail.title
+                        body       = [string]$action.detail.managedBody
+                    })
+                $nextMapping = Add-WorkHierarchyMappingItem `
+                    -Mapping $mappingState.mapping `
+                    -Desired $desired `
+                    -RemoteIssue $remote
+            }
+            else {
+                $current = Invoke-WorkHierarchyProviderRead -Provider $Provider -Request ([pscustomobject][ordered]@{
+                        kind       = 'issue'
+                        repository = $Repository
+                        number     = [int]$action.detail.number
+                    })
+                if (
+                    $null -eq $current -or
+                    [string]$current.providerId -cne [string]$action.detail.providerId -or
+                    [int]$current.number -ne [int]$action.detail.number -or
+                    (Get-WorkHierarchyDigest -Value ([string]$current.title)) -cne [string]$action.detail.expectedTitleHash -or
+                    (Get-WorkHierarchyDigest -Value ([string]$current.body)) -cne [string]$action.detail.expectedBodyHash
+                ) {
+                    throw "Remote issue for '$localId' changed immediately before update; run a fresh dry run."
+                }
+                if ([bool]$action.detail.mappingOnly) {
+                    $remote = $current
+                }
+                else {
+                    $remote = Invoke-WorkHierarchyProviderWrite -Provider $Provider -Operation ([pscustomobject][ordered]@{
+                            kind       = 'update-issue'
+                            repository = $Repository
+                            number     = [int]$action.detail.number
+                            title      = [string]$action.detail.title
+                            body       = [string]$action.detail.body
+                        })
+                }
+                $nextMapping = Set-WorkHierarchyMappingItemBaseline `
+                    -Mapping $mappingState.mapping `
+                    -Desired $desired `
+                    -RemoteIssue $remote
+            }
+            $mappingState = Save-WorkHierarchyMappingFile `
+                -Path $MappingPath `
+                -Mapping $nextMapping `
+                -ExpectedDigest $mappingState.digest
+        }
+        elseif ($actionKind -eq 'link') {
+            $sourceId = [string]$action.detail.sourceId
+            $targetId = [string]$action.detail.targetId
+            $mappingItems = Get-WorkHierarchyObjectValue -InputObject $mappingState.mapping -Name items -Required
+            $source = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $sourceId
+            $target = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $targetId
+            if ($null -eq $source -or $null -eq $target) {
+                throw "Relation '$($action.subject)' cannot resolve both mapped issues."
+            }
+
+            $operation = if ([string]$action.detail.relationKind -eq 'parent-child') {
+                [pscustomobject][ordered]@{
+                    kind            = 'link-child'
+                    repository      = $Repository
+                    parentNumber    = [int](Get-WorkHierarchyObjectValue -InputObject $source -Name number -Required)
+                    childProviderId = [string](Get-WorkHierarchyObjectValue -InputObject $target -Name providerId -Required)
+                }
+            }
+            elseif ([string]$action.detail.relationKind -eq 'depends-on') {
+                [pscustomobject][ordered]@{
+                    kind               = 'link-blocked-by'
+                    repository         = $Repository
+                    blockedNumber      = [int](Get-WorkHierarchyObjectValue -InputObject $source -Name number -Required)
+                    blockingProviderId = [string](Get-WorkHierarchyObjectValue -InputObject $target -Name providerId -Required)
+                }
+            }
+            else {
+                throw "Apply action has unsupported relation kind '$($action.detail.relationKind)'."
+            }
+            [void](Invoke-WorkHierarchyProviderWrite -Provider $Provider -Operation $operation)
+        }
+        else {
+            throw "Apply action kind '$actionKind' is unsupported."
+        }
+
+        $executed.Add([pscustomobject][ordered]@{
+                kind    = $actionKind
+                subject = [string]$action.subject
+            })
+    }
+
+    $finalMapping = Read-WorkHierarchyMappingFile -Path $MappingPath -Repository $Repository
+    $after = New-WorkHierarchyDryRun `
+        -Projection $Projection `
+        -Repository $Repository `
+        -Mapping $finalMapping.mapping `
+        -MappingDigest $finalMapping.digest `
+        -Provider $Provider
+    if ($after.hasChanges -or $after.hasRefusals) {
+        throw 'Work hierarchy apply did not converge to a refusal-free no-op state.'
+    }
+
+    return [pscustomobject][ordered]@{
+        schema        = $script:ApplySchema
+        status        = 'applied'
+        mutationCount = $executed.Count
+        before        = $freshDryRun
+        after         = $after
+        executed      = $executed.ToArray()
+    }
+    }
+    finally {
+        if ($null -ne $applyLock) {
+            $applyLock.Dispose()
+        }
     }
 }
 
@@ -1414,6 +1790,6 @@ Export-ModuleMember -Function `
     Get-WorkHierarchyDigest, Get-WorkHierarchyManagedRegion, `
     New-WorkHierarchyMapping, ConvertTo-WorkHierarchyMappingJson, `
     Read-WorkHierarchyMappingFile, Save-WorkHierarchyMappingFile, Add-WorkHierarchyMappingItem, `
-    New-WorkHierarchyDryRun, ConvertTo-WorkHierarchyDryRunText, `
+    New-WorkHierarchyDryRun, ConvertTo-WorkHierarchyDryRunText, Invoke-WorkHierarchyApply, `
     New-WorkHierarchyProvider, Assert-WorkHierarchyProvider, `
     Invoke-WorkHierarchyProviderRead, Invoke-WorkHierarchyProviderWrite

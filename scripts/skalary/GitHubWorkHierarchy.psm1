@@ -253,6 +253,45 @@ function Invoke-GitHubWorkHierarchyRead {
     $kind = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name kind)
     $repository = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name repository)
     Assert-GitHubWorkHierarchyRepository -Repository $repository
+    if ($kind -eq 'managed-issues') {
+        $itemKind = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name itemKind)
+        $localId = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name localId)
+        if ($itemKind -notin @('epic', 'plan') -or $localId -notmatch '^[A-Za-z0-9-]+$') {
+            throw 'GitHub managed-issue lookup identity is invalid.'
+        }
+        $marker = "<!-- skalary:work-hierarchy:${itemKind}:${localId}:start -->"
+        $matches = [System.Collections.Generic.List[object]]::new()
+        for ($page = 1; $page -le 10; $page++) {
+            $path = "repos/$repository/issues?state=all&per_page=100&page=$page&sort=created&direction=desc"
+            $json = Invoke-GitHubWorkHierarchyCommand -Arguments @('api', $path) -CommandRunner $CommandRunner
+            $pageItems = @(ConvertFrom-GitHubWorkHierarchyJson -Json $json -Operation "managed issue lookup '$localId' page $page")
+            foreach ($item in $pageItems) {
+                if ($item.PSObject.Properties.Name -contains 'pull_request') {
+                    continue
+                }
+                $issue = ConvertFrom-GitHubWorkHierarchyIssue -Issue $item
+                if ($issue.body.Contains($marker, [System.StringComparison]::Ordinal)) {
+                    $matches.Add($issue)
+                    if ($matches.Count -eq 2) {
+                        return $matches.ToArray()
+                    }
+                }
+            }
+            if ($pageItems.Count -lt 100) {
+                return $matches.ToArray()
+            }
+        }
+
+        $overflowJson = Invoke-GitHubWorkHierarchyCommand `
+            -Arguments @('api', "repos/$repository/issues?state=all&per_page=1&page=1001&sort=created&direction=desc") `
+            -CommandRunner $CommandRunner
+        $overflow = @(ConvertFrom-GitHubWorkHierarchyJson -Json $overflowJson -Operation "managed issue lookup '$localId' overflow probe")
+        if ($overflow.Count -gt 0) {
+            throw "GitHub managed-issue lookup for '$localId' exceeded 1000 repository items."
+        }
+        return $matches.ToArray()
+    }
+
     $number = [int](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name number)
     if ($number -le 0) {
         throw 'GitHub issue number must be positive.'
@@ -342,6 +381,17 @@ function Invoke-GitHubWorkHierarchyWrite {
             $arguments = @(
                 'api', '--method', 'POST', "repos/$repository/issues/$parentNumber/sub_issues",
                 '-F', "sub_issue_id=$childProviderId"
+            )
+        }
+        'link-blocked-by' {
+            $blockedNumber = [int](Get-GitHubWorkHierarchyProperty -InputObject $Operation -Name blockedNumber)
+            $blockingProviderId = [long](Get-GitHubWorkHierarchyProperty -InputObject $Operation -Name blockingProviderId)
+            if ($blockedNumber -le 0 -or $blockingProviderId -le 0) {
+                throw 'GitHub blocked issue number and blocking provider id must be positive.'
+            }
+            $arguments = @(
+                'api', '--method', 'POST', "repos/$repository/issues/$blockedNumber/dependencies/blocked_by",
+                '-F', "issue_id=$blockingProviderId"
             )
         }
         default {
