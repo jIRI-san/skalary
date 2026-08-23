@@ -31,3 +31,4 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Med] Template prose still allowed thematic breaks and mixed space-tab indentation that CommonMark parses as block structure.
 - [3.1] [src:code-review] [sev:Low] Fixed and covered: thematic breaks and mixed space-tab indentation are rejected as template-prose block openers.
 - [-] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=3 outcome=findings summary=1-med-run-plan-final-guard-review
+- [-] [src:note] [sev:Low] review-cycle-decision stage=plan-finalization after=3 action=wrap
