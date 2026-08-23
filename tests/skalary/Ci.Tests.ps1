@@ -336,6 +336,9 @@ Describe 'ci workflow' {
         $verifyEnv['DETECTOR_CONCLUSION'].Value | Should -Be '${{ needs.detector.result }}'
         $verifyEnv['RELEVANCE'].Value | Should -Be '${{ needs.detector.outputs.relevance }}'
         $verifyEnv['IMAGE_CONCLUSION'].Value | Should -Be '${{ needs.image.result }}'
+        $verifyEnv['MEASUREMENT_COMPARISON'].Value | Should -Be '${{ needs.image.outputs.comparison }}'
+        $verifyEnv['MEASUREMENT_CANDIDATE_ONLY_REASON'].Value |
+            Should -Be '${{ needs.image.outputs.candidate_only_reason }}'
         # The terminal receipt is the only one that always exists. It must be able to name the
         # commit it judged and the detector evidence behind that judgement, or a reader of a red
         # main has a verdict attached to nothing.
@@ -346,6 +349,8 @@ Describe 'ci workflow' {
                 '-BaseSha \$env:BASE_SHA',
                 '-CandidateSha \$env:CANDIDATE_SHA',
                 '-DetectionCandidateOnlyReason \$env:CANDIDATE_ONLY_REASON',
+                '-MeasurementComparison \$env:MEASUREMENT_COMPARISON',
+                '-MeasurementCandidateOnlyReason \$env:MEASUREMENT_CANDIDATE_ONLY_REASON',
                 '-RelevantPathCount \$env:RELEVANT_PATH_COUNT'
             )) {
             $verify[0].Node['run'].Value |
@@ -385,7 +390,12 @@ Describe 'ci workflow' {
         $detectorOutputs['relevance'].Value | Should -Be '${{ steps.detect.outputs.relevance }}'
         $detectorOutputs['candidate_only_reason'].Value |
             Should -Be '${{ steps.detect.outputs.candidate_only_reason }}'
+        $imageOutputs = $jobsNode['image'].Value['outputs'].Value
+        $imageOutputs['comparison'].Value | Should -Be '${{ steps.measure.outputs.comparison }}'
+        $imageOutputs['candidate_only_reason'].Value |
+            Should -Be '${{ steps.measure.outputs.candidate_only_reason }}'
         $jobs.detector.Body | Should -Match '-StepOutputPath \$env:GITHUB_OUTPUT'
+        $jobs.image.Body | Should -Match '-StepOutputPath \$env:GITHUB_OUTPUT'
         $jobs.detector.Body |
             Should -Not -Match 'candidate_only_reason=' -Because 'the closed reason set has one owner, the runner'
         $jobsNode['image'].Value['env'].Value['DETECTION_CANDIDATE_ONLY_REASON'].Value |
