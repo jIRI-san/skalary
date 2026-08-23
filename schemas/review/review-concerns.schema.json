@@ -30,7 +30,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "pattern": "^[^\\r\\n{}]+$"
+      "pattern": "^[^\\r\\n@{}]+$"
     },
     "focusAreas": {
       "type": "array",
