@@ -26,3 +26,4 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] Markdown colon-bound named Join-Path arguments bypassed dynamic-reference detection.
 - [1.2] [src:code-review] [sev:Med] Outer PSScriptRoot sidecar command extents exempted nested RepoRoot scaffold reads.
 - [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=4 outcome=findings summary=med=3 low=0 run=step-1-2-review-continued
+- [1.2] [src:note] [sev:Low] review-cycle-decision stage=step-1.2 after=4 action=continue
