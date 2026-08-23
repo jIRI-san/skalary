@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Adoption and drift proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Generate the current CR/DR agents and mappings, update their manifest entries, and run existing plugin sync, version, dogfood, marketplace, and registry writers. Preserve current agent behavior and review-run v1 ownership; add `test:ReviewConcerns.GeneratedBehaviorAndDistribution` (REQ-2, REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) [after: 1.2] `L`
+- [x] 2.1 Generate the current CR/DR agents and mappings, update their manifest entries, and run existing plugin sync, version, dogfood, marketplace, and registry writers. Preserve current agent behavior and review-run v1 ownership; add `test:ReviewConcerns.GeneratedBehaviorAndDistribution` (REQ-2, REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) [after: 1.2] `L`
 - [ ] 2.2 Add one detect-only drift test that reruns the generator in `-WhatIf` mode and fails on changed, missing, extra, or hand-edited generated agents/mappings. Include a registry mutation proving all expected outputs change and a clean second pass proving determinism: `test:ReviewConcerns.GenerationDrift` (REQ-3, REQ-4, RISK-2, RISK-3, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Documentation and integration

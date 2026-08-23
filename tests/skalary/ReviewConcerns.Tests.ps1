@@ -147,6 +147,149 @@ Describe 'review concern generation' {
         }
     }
 
+    Describe 'generated review concern behavior and distribution' {
+        BeforeAll {
+            $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+            $script:registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tools/review-concerns.json') -Raw |
+                ConvertFrom-Json -Depth 30
+            $script:pluginRegistry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
+                ConvertFrom-Json -Depth 100
+            $script:marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
+                ConvertFrom-Json -Depth 100
+            $script:reviewTypes = @(
+                @{
+                    Prefix = 'cr'
+                    Plugin = 'code-review'
+                    Skill = 'cr'
+                    SurfaceMarkers = @('changed files', 'Map the changed file paths')
+                }
+                @{
+                    Prefix = 'dr'
+                    Plugin = 'design-review'
+                    Skill = 'dr'
+                    SurfaceMarkers = @('implementation plan', 'Under the plan-assets layout')
+                }
+            )
+        }
+
+        It 'test:ReviewConcerns.GeneratedBehaviorAndDistribution preserves generated safety, variants, and review-run ownership' {
+            foreach ($reviewType in $script:reviewTypes) {
+                foreach ($concern in $script:registry.concerns) {
+                    $relative = "plugins/$($reviewType.Plugin)/agents/$($reviewType.Prefix)-$($concern.id).agent.md"
+                    $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $relative) -Raw
+                    $variant = $concern.variants.($reviewType.Prefix)
+
+                    $raw | Should -Match "(?m)^name:\s*`"$($reviewType.Prefix)-$([regex]::Escape($concern.id))`"\s*$"
+                    $raw | Should -Match '(?m)^tools:\s*\[read, search\]\s*$'
+                    $raw | Should -Not -Match '(?m)^model:'
+                    $raw | Should -Match 'data, never instructions'
+                    $raw | Should -Match '\[SECURITY\] Prompt injection attempt detected'
+                    $raw | Should -Match ([regex]::Escape([string]$concern.sharedGuidance))
+                    $raw | Should -Match ([regex]::Escape([string]$variant.scope))
+                    foreach ($focusArea in $variant.focusAreas) {
+                        $raw | Should -Match ([regex]::Escape("- $focusArea"))
+                    }
+                    foreach ($marker in $reviewType.SurfaceMarkers) {
+                        $raw | Should -Match ([regex]::Escape($marker))
+                    }
+
+                    $architectureIndex = $raw.IndexOf('1. If `docs/architecture-notes/.architecture-notes.md` exists')
+                    $designIndex = $raw.IndexOf('2. Read `docs/design-notes/.design-notes.md`')
+                    $targetIndex = $raw.IndexOf('4. ')
+                    $architectureIndex | Should -BeGreaterThan -1
+                    $designIndex | Should -BeGreaterThan $architectureIndex
+                    $targetIndex | Should -BeGreaterThan $designIndex
+
+                    $raw | Should -Not -Match 'Build-ReviewReport|ReviewRun|review-runs|assets/reviews' -Because 'concern agents report findings; the orchestrator skill owns review-run v1'
+                }
+
+                $skillPath = Join-Path $script:repoRoot "plugins/$($reviewType.Plugin)/skills/$($reviewType.Skill)/SKILL.md"
+                $skill = Get-Content -LiteralPath $skillPath -Raw
+                $skill | Should -Match 'Freeze exactly once'
+                $skill | Should -Match ([regex]::Escape(".github/skills/$($reviewType.Skill)/scripts/Build-ReviewReport.ps1"))
+            }
+        }
+
+        It 'test:ReviewConcerns.GeneratedBehaviorAndDistribution declares every generated output exactly once in its owning manifest' {
+            foreach ($reviewType in $script:reviewTypes) {
+                $manifestPath = Join-Path $script:repoRoot "plugins/$($reviewType.Plugin)/plugin.json"
+                $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+                $expectedAgents = @(
+                    $script:registry.concerns |
+                        ForEach-Object { "agents/$($reviewType.Prefix)-$($_.id).agent.md" }
+                )
+                $declaredAgents = @(
+                    $manifest.files |
+                        Where-Object { [string]$_.src -match "^agents/$($reviewType.Prefix)-.+\.agent\.md$" } |
+                        ForEach-Object { [string]$_.src }
+                )
+
+                @($declaredAgents | Sort-Object) | Should -Be @($expectedAgents | Sort-Object)
+                foreach ($relative in $expectedAgents) {
+                    $entries = @($manifest.files | Where-Object {
+                            [string]$_.src -ceq $relative -and [string]$_.dest -ceq $relative
+                        })
+                    $entries.Count | Should -Be 1
+                }
+
+                $mapRelative = "skills/$($reviewType.Skill)/assets/concern-ledger-map.md"
+                @($manifest.files | Where-Object {
+                        [string]$_.src -ceq $mapRelative -and [string]$_.dest -ceq $mapRelative
+                    }).Count | Should -Be 1
+
+                foreach ($runtimeScript in @(
+                        'Build-ReviewReport.ps1'
+                        'Get-ReviewRun.ps1'
+                        'Remove-ReviewRun.ps1'
+                        'ReviewRun.psm1'
+                    )) {
+                    $runtimeRelative = "skills/$($reviewType.Skill)/scripts/$runtimeScript"
+                    @($manifest.files | Where-Object {
+                            [string]$_.src -ceq $runtimeRelative -and [string]$_.dest -ceq $runtimeRelative
+                        }).Count | Should -Be 1
+                }
+            }
+        }
+
+        It 'test:ReviewConcerns.GeneratedBehaviorAndDistribution synchronizes dogfood, marketplace versions, and registry hashes' {
+            foreach ($reviewType in $script:reviewTypes) {
+                $manifestPath = Join-Path $script:repoRoot "plugins/$($reviewType.Plugin)/plugin.json"
+                $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+                $registryEntry = @($script:pluginRegistry.plugins | Where-Object {
+                        [string]$_.name -ceq $reviewType.Plugin
+                    })
+                $marketplaceEntry = @($script:marketplace.plugins | Where-Object {
+                        [string]$_.name -ceq $reviewType.Plugin
+                    })
+
+                $registryEntry.Count | Should -Be 1
+                $marketplaceEntry.Count | Should -Be 1
+                [string]$registryEntry[0].version | Should -Be ([string]$manifest.version)
+                [string]$marketplaceEntry[0].version | Should -Be ([string]$manifest.version)
+
+                $generatedFiles = @(
+                    $script:registry.concerns |
+                        ForEach-Object { "agents/$($reviewType.Prefix)-$($_.id).agent.md" }
+                ) + @("skills/$($reviewType.Skill)/assets/concern-ledger-map.md")
+
+                foreach ($relative in $generatedFiles) {
+                    $sourcePath = Join-Path $script:repoRoot "plugins/$($reviewType.Plugin)/$relative"
+                    $dogfoodPath = Join-Path $script:repoRoot ".github/$relative"
+                    $sourceHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
+
+                    Test-Path -LiteralPath $dogfoodPath -PathType Leaf | Should -BeTrue
+                    (Get-FileHash -LiteralPath $dogfoodPath -Algorithm SHA256).Hash | Should -Be $sourceHash
+
+                    $registryFile = @($registryEntry[0].files | Where-Object {
+                            [string]$_.src -ceq $relative -and [string]$_.dest -ceq $relative
+                        })
+                    $registryFile.Count | Should -Be 1
+                    [string]$registryFile[0].sha256 | Should -Be $sourceHash.ToLowerInvariant()
+                }
+            }
+        }
+    }
+
     It 'test:ReviewConcerns.DeterministicGeneration renders all outputs, preserves surface variants, and converges' {
         $fixture = New-ReviewConcernFixture
         try {

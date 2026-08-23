@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-16T04:46:33.8412338Z",
+  "generatedAt": "2026-08-23T13:00:55.1890279Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -288,37 +288,37 @@
       "files": [
         {
           "dest": "agents/cr-architecture-patterns.agent.md",
-          "sha256": "0ffd319431ce36ee16db6626c4a201be612e12ab099161514d2e52fb56596f43",
+          "sha256": "69938cbf0a98aed6005bb612902dc0ffa42e76f6579f4acc3d7b33cb0eaedb10",
           "src": "agents/cr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/cr-correctness-reliability.agent.md",
-          "sha256": "d97726d8ffe3b671c73e3aa0660189d6a22451730497c805d6c4530ecd8caacc",
+          "sha256": "b6e2c1df908127ee6c296c3edf563c1619624e37d1dadb4c1d5dff211e08c8ee",
           "src": "agents/cr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/cr-maintainability-consistency.agent.md",
-          "sha256": "565165120825209e7497b0ff827fe8be48fdee6f0e126a27d07859d7e873f934",
+          "sha256": "a9d2adc5c4b302a3e876dbc35d2cffd5de41eae95b72e164709491a8798e3dfc",
           "src": "agents/cr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/cr-operability-observability.agent.md",
-          "sha256": "2cd39682ce0d7a8bab016dcb203bc16a540b91f37f274bfe461c83529de3ca59",
+          "sha256": "318f58211602a81b42998a8da143830792fa8e14a849f571ae793faefff0b7c8",
           "src": "agents/cr-operability-observability.agent.md"
         },
         {
           "dest": "agents/cr-performance.agent.md",
-          "sha256": "6f4e0d823cf6a3f03eecc71c4e299178466104f5297013305552b02e7a4d25c6",
+          "sha256": "2b5e128c8ff0f74ae983f9f44e106e3aed80a19bd28e1e6e0fa793b34abe4c87",
           "src": "agents/cr-performance.agent.md"
         },
         {
           "dest": "agents/cr-security.agent.md",
-          "sha256": "37f10370daf92d1977c8659fddf7853d9b96dbf2e4b8471cf8c4c510275ab11f",
+          "sha256": "4b2c30ba50010e43da2e52ed640a9021b76413e8f9ea7fa981565cdfeb612301",
           "src": "agents/cr-security.agent.md"
         },
         {
           "dest": "agents/cr-testing-evidence.agent.md",
-          "sha256": "4c3abd98a58e5d9301430a0da182cd13be29d951bb18355c02cfb5f34f096ab4",
+          "sha256": "7c2da8986163dd37535572b261336e49b96f9e9283f561661cb8e481193026d1",
           "src": "agents/cr-testing-evidence.agent.md"
         },
         {
@@ -348,7 +348,7 @@
         },
         {
           "dest": "skills/cr/assets/concern-ledger-map.md",
-          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "sha256": "64fc780efccaa68f6582efd4542b7f2673a6ab606b9ae5f7d9c8fd0470e7a00e",
           "src": "skills/cr/assets/concern-ledger-map.md"
         },
         {
@@ -425,7 +425,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.25"
+      "version": "1.0.26"
     },
     {
       "author": "jIRI-san",
@@ -795,37 +795,37 @@
       "files": [
         {
           "dest": "agents/dr-architecture-patterns.agent.md",
-          "sha256": "9d99b72f9cd0ed211073a353b67f407e913357f792d3c4e34941392d50b6f43c",
+          "sha256": "15dd84a8f8d09375f169985ed49394c3a9cf43e09f7f0ad1d11f2957d09577c8",
           "src": "agents/dr-architecture-patterns.agent.md"
         },
         {
           "dest": "agents/dr-correctness-reliability.agent.md",
-          "sha256": "95d381eda89877e81b231345cb5c7ff579439c438aacd28489b38888ed59b3c4",
+          "sha256": "4bb3ff2f98ca7b820c9e80cf23b94cf6f5f14f1a32edd046db663a121f04d116",
           "src": "agents/dr-correctness-reliability.agent.md"
         },
         {
           "dest": "agents/dr-maintainability-consistency.agent.md",
-          "sha256": "e96bdce755d0af36e6ad70e6a2c9ddcea600d7839357c6444d543afbbd5200c1",
+          "sha256": "7a8a24361093a3442036301fb3f54387c0f708b17c9b67cd4c62a060c25804d5",
           "src": "agents/dr-maintainability-consistency.agent.md"
         },
         {
           "dest": "agents/dr-operability-observability.agent.md",
-          "sha256": "6c81ac38b339673a142fcffe1ef127bcd35e98ee6da91d3fb05dbb97bda05b11",
+          "sha256": "dd55edb3f64b175b588dec0743626342de0009cca5a5a739e4dacb5ca47550a7",
           "src": "agents/dr-operability-observability.agent.md"
         },
         {
           "dest": "agents/dr-performance.agent.md",
-          "sha256": "4d4aad68d8766cc0279e0021f185631b7acab537fe3044b9bdc9b024d57e6c63",
+          "sha256": "fa01f9d3f42ad1a3e359785e51278992178623e097581efc2dba5c3ed3864226",
           "src": "agents/dr-performance.agent.md"
         },
         {
           "dest": "agents/dr-security.agent.md",
-          "sha256": "758aa585ad155e1874fcda9d572aa1b93b278a3ad79aba456706db9a7b0b836b",
+          "sha256": "37b8f21aae936cd23f4e284587a4d63a50123c87a74435ddfeb63cbd17f15675",
           "src": "agents/dr-security.agent.md"
         },
         {
           "dest": "agents/dr-testing-evidence.agent.md",
-          "sha256": "edf215bbeffb58d5abe22ab74dc46850ea1879c7c3bb7a388956987cff0fdd38",
+          "sha256": "4f2b481f926497873c4bea7139ba6d86703a2494987f19bc559e8c364da3adc2",
           "src": "agents/dr-testing-evidence.agent.md"
         },
         {
@@ -850,7 +850,7 @@
         },
         {
           "dest": "skills/dr/assets/concern-ledger-map.md",
-          "sha256": "2a592a834a563fa727da07e7f96fc8cdd6555879130c88be4608eb14a1bf4271",
+          "sha256": "64fc780efccaa68f6582efd4542b7f2673a6ab606b9ae5f7d9c8fd0470e7a00e",
           "src": "skills/dr/assets/concern-ledger-map.md"
         },
         {
@@ -927,7 +927,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.24"
+      "version": "1.0.25"
     },
     {
       "author": "jIRI-san",
