@@ -1,4 +1,4 @@
-# 79cfe1: Concern registry and generated agents
+# 79cfe1: Concern registry and generated agents [DONE]
 <!-- plan-id: 79cfe1 -->
 <!-- epic: 33b1f9 -->
 <!-- cip-stage: dr-round-5 -->
