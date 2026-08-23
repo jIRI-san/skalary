@@ -67,12 +67,12 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 <!-- BEGIN SKALARY PLUGIN CATALOG -->
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
-| `architecture-notes` | 1.0.6 | partial | — | 18 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
+| `architecture-notes` | 1.0.7 | partial | — | 18 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `autopilot` | 1.2.12 | partial | — | 26 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.26 | stable | — | 26 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.34 | stable | autopilot, code-review | 14 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.34 | stable | design-review | 24 | Implementation plan generation skill for coding workflows. |
-| `design-notes` | 1.1.2 | stable | — | 6 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
+| `create-implementation-plan` | 1.0.36 | stable | design-review | 24 | Implementation plan generation skill for coding workflows. |
+| `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.25 | stable | — | 25 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.17 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.1 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |

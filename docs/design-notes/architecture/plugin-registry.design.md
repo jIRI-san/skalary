@@ -242,6 +242,11 @@ loads one manifest-hashed installed payload per plugin. Each plugin then runs on
 deterministic behavior through the installed path (or an exact local refusal preflight); the matrix
 does not use source payloads, network access, provider credentials, or skipped-success results.
 
+`Invoke-ConsumerFirstUseScaffoldLifecycle` derives distinct first-use owners from active
+`scaffolds[]` declarations and runs each installed owner in an isolated copy of the foreign fixture.
+The lifecycle proves non-empty starter content, safe reruns and modified-target preservation where
+applicable, declaration-bound output paths, mutation-free hostile refusal, and successful retry.
+
 ## Skill Size Cap
 
 A `SKILL.md` is loaded in full on every invocation of its skill, so its size is a recurring

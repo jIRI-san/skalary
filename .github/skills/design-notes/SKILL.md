@@ -28,15 +28,16 @@ Read the argument that follows `/design-notes` and run exactly one workflow:
 
 ## Init — scaffold the design-notes structure
 
-Create the initial `docs/design-notes/` structure from the templates bundled with this skill.
+Run the bundled owner through an argument array:
 
-1. **Check whether the scaffold already exists** at [docs/design-notes/.design-notes.md](../../../docs/design-notes/.design-notes.md).
-   - If it exists, report `design-notes already initialized` and stop. Do **not** overwrite anything.
-2. **Create the folders** `docs/design-notes/` and `docs/design-notes/project/`.
-3. **Copy the bundled templates** (never overwrite an existing target):
-   - [./assets/templates/design-notes-index.template.md](./assets/templates/design-notes-index.template.md) → `docs/design-notes/.design-notes.md`
-   - [./assets/templates/design-note-writing-style.template.md](./assets/templates/design-note-writing-style.template.md) → `docs/design-notes/project/design-note-writing-style.design.md`
-4. **Report** the created files and point the user at the next steps: `/design-notes create <name>` and `/design-notes update` (or their `/cdn` and `/udn` shortcuts).
+```powershell
+& ./.github/skills/design-notes/scripts/Initialize-DesignNotes.ps1 -RepoRoot (Get-Location)
+```
+
+It creates `docs/design-notes/` and `docs/design-notes/project/` from the installed templates,
+stops with `design-notes already initialized` when the index exists, and never overwrites consumer
+content. Report the result and point the user at `/design-notes create <name>` and
+`/design-notes update` (or their `/cdn` and `/udn` shortcuts).
 
 > The templates are repo-agnostic starting points. After init, edit `docs/design-notes/.design-notes.md`
 > to describe your project and add rows to the Available Skills table as you create notes.

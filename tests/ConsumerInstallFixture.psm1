@@ -69,11 +69,11 @@ function Get-ConsumerInstallManifestCatalog {
             }
 
             $record = [pscustomobject]@{
-                Plugin = $pluginName
-                Src = $src
-                Dest = $dest
-                Sha256 = Get-ConsumerInstallSha256 -Path $sourcePath
-                Install = $src -notmatch '^evals(?:/|$)'
+                Plugin     = $pluginName
+                Src        = $src
+                Dest       = $dest
+                Sha256     = Get-ConsumerInstallSha256 -Path $sourcePath
+                Install    = $src -notmatch '^evals(?:/|$)'
                 SourcePath = [System.IO.Path]::GetFullPath($sourcePath)
             }
             $pluginFiles.Add($record)
@@ -81,31 +81,31 @@ function Get-ConsumerInstallManifestCatalog {
         }
 
         $plugins.Add([pscustomobject]@{
-                Name = $pluginName
-                Version = [string]$manifest.version
-                Status = if ($manifest.PSObject.Properties.Name -contains 'status') {
+                Name         = $pluginName
+                Version      = [string]$manifest.version
+                Status       = if ($manifest.PSObject.Properties.Name -contains 'status') {
                     [string]$manifest.status
                 }
                 else {
                     'stable'
                 }
                 Dependencies = @($manifest.dependencies | ForEach-Object { [string]$_ })
-                Scaffolds = if ($manifest.PSObject.Properties.Name -contains 'scaffolds') {
+                Scaffolds    = if ($manifest.PSObject.Properties.Name -contains 'scaffolds') {
                     @($manifest.scaffolds)
                 }
                 else {
                     @()
                 }
-                Files = @($pluginFiles)
+                Files        = @($pluginFiles)
                 ManifestPath = $manifestPath.FullName
             })
     }
 
     return [pscustomobject]@{
         SourceRepoRoot = $sourceRoot
-        Plugins = @($plugins)
-        Files = @($files)
-        PluginNames = @($plugins | ForEach-Object { [string]$_.Name })
+        Plugins        = @($plugins)
+        Files          = @($files)
+        PluginNames    = @($plugins | ForEach-Object { [string]$_.Name })
     }
 }
 
@@ -240,23 +240,23 @@ function New-ConsumerInstallFixture {
                 throw "Production install for '$pluginName' omitted dependency receipt(s): $($missingReceipts -join ', ')."
             }
             $installResults.Add([pscustomobject]@{
-                    Plugin = $pluginName
-                    ExitCode = $result.ExitCode
-                    Output = $result.Output
+                    Plugin               = $pluginName
+                    ExitCode             = $result.ExitCode
+                    Output               = $result.Output
                     ExpectedReceiptNames = $expectedReceipts
-                    NewReceiptNames = @($afterReceipts | Where-Object { $_ -notin $beforeReceipts })
+                    NewReceiptNames      = @($afterReceipts | Where-Object { $_ -notin $beforeReceipts })
                 })
         }
 
         $registry = Get-Content -LiteralPath (Join-Path $sourceRoot 'registry.json') -Raw |
             ConvertFrom-Json -Depth 100
         return [pscustomobject]@{
-            Root = $root
-            SourceRepoRoot = $sourceRoot
-            Catalog = $catalog
-            Registry = $registry
+            Root                = $root
+            SourceRepoRoot      = $sourceRoot
+            Catalog             = $catalog
+            Registry            = $registry
             PoisonRelativePaths = $poisonRelativePaths
-            InstallResults = @($installResults)
+            InstallResults      = @($installResults)
         }
     }
     catch {
@@ -524,15 +524,15 @@ function Test-ConsumerInstallInventory {
         $outsideWrites
     )
     return [pscustomobject]@{
-        IsClean = @($issues | ForEach-Object { @($_) }).Count -eq 0
-        Missing = @($missing | Sort-Object)
-        Extra = @($extra | Sort-Object)
-        HashMismatched = @($hashMismatched | Sort-Object)
-        Escaping = @($escaping | Sort-Object)
-        StaleMappings = @($staleMappings | Sort-Object)
-        ReceiptMismatches = @($receiptMismatches | Sort-Object)
+        IsClean              = @($issues | ForEach-Object { @($_) }).Count -eq 0
+        Missing              = @($missing | Sort-Object)
+        Extra                = @($extra | Sort-Object)
+        HashMismatched       = @($hashMismatched | Sort-Object)
+        Escaping             = @($escaping | Sort-Object)
+        StaleMappings        = @($staleMappings | Sort-Object)
+        ReceiptMismatches    = @($receiptMismatches | Sort-Object)
         DependencyMismatches = @($dependencyMismatches | Sort-Object)
-        OutsideWrites = @($outsideWrites | Sort-Object)
+        OutsideWrites        = @($outsideWrites | Sort-Object)
     }
 }
 
@@ -545,13 +545,13 @@ function Test-ConsumerRuntimeReferenceClosure {
         -WorkingDirectory $Fixture.SourceRepoRoot `
         -TimeoutSeconds 120 `
         -ArgumentList @(
-            '-NoProfile'
-            '-File'
-            $syncScript
-            '-RepoRoot'
-            $Fixture.SourceRepoRoot
-            '-WhatIf'
-        )
+        '-NoProfile'
+        '-File'
+        $syncScript
+        '-RepoRoot'
+        $Fixture.SourceRepoRoot
+        '-WhatIf'
+    )
     $inventory = Test-ConsumerInstallInventory -Fixture $Fixture
     $changedPoison = [System.Collections.Generic.List[string]]::new()
     foreach ($relativePath in @($Fixture.PoisonRelativePaths)) {
@@ -565,11 +565,11 @@ function Test-ConsumerRuntimeReferenceClosure {
     }
 
     return [pscustomobject]@{
-        IsClean = $staticScan.ExitCode -eq 0 -and $inventory.IsClean -and $changedPoison.Count -eq 0
+        IsClean        = $staticScan.ExitCode -eq 0 -and $inventory.IsClean -and $changedPoison.Count -eq 0
         StaticExitCode = $staticScan.ExitCode
-        StaticOutput = $staticScan.Output
-        Inventory = $inventory
-        ChangedPoison = @($changedPoison)
+        StaticOutput   = $staticScan.Output
+        Inventory      = $inventory
+        ChangedPoison  = @($changedPoison)
     }
 }
 
@@ -780,6 +780,503 @@ function Invoke-ConsumerInstalledSmokeMatrix {
     return @($results)
 }
 
+function Invoke-ConsumerFirstUseScaffoldLifecycle {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Fixture)
+
+    $owners = @(
+        $Fixture.Catalog.Plugins |
+            ForEach-Object { @($_.Scaffolds) } |
+            ForEach-Object { [string]$_.owner } |
+            Sort-Object -Unique
+    )
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    function Get-InstalledPath {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][string]$Destination
+        )
+
+        return Join-Path (Join-Path $Root '.github') (
+            $Destination -replace '/', [System.IO.Path]::DirectorySeparatorChar
+        )
+    }
+
+    function Get-EntryMap {
+        param([Parameter(Mandatory)][string]$Root)
+
+        $map = [System.Collections.Generic.Dictionary[string, string]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        foreach ($entry in Get-ChildItem -LiteralPath $Root -Recurse -Force) {
+            $relative = [System.IO.Path]::GetRelativePath($Root, $entry.FullName).Replace('\', '/')
+            if ($relative -eq '.git' -or $relative.StartsWith('.git/')) {
+                continue
+            }
+            if ($entry.LinkType) {
+                $map[$relative] = "L:$($entry.LinkTarget)"
+            }
+            elseif ($entry.PSIsContainer) {
+                $map[$relative] = 'D'
+            }
+            else {
+                $map[$relative] = 'F:' + [Convert]::ToBase64String(
+                    [System.IO.File]::ReadAllBytes($entry.FullName)
+                )
+            }
+        }
+        return $map
+    }
+
+    function Test-OwnerDeclaredEntry {
+        param(
+            [AllowEmptyString()][string]$Owner,
+            [Parameter(Mandatory)][string]$RelativePath,
+            [Parameter(Mandatory)][string]$EntryKind
+        )
+
+        $declarations = @(
+            $Fixture.Catalog.Plugins |
+                ForEach-Object { @($_.Scaffolds) } |
+                Where-Object {
+                    [string]::IsNullOrEmpty($Owner) -or [string]$_.owner -ceq $Owner
+                }
+        )
+        foreach ($declaration in $declarations) {
+            $expanded = [string]$declaration.path
+            $expanded = $expanded.Replace('<category>', 'testing')
+            $expanded = $expanded.Replace('<plan>', '2026-01-02-a1b2c3-consumer-scaffold')
+            $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
+            $subtree = $expanded.EndsWith('/**', [System.StringComparison]::Ordinal)
+            if ($subtree) { $expanded = $expanded.Substring(0, $expanded.Length - 3) }
+            $literalDirectory = $expanded -notmatch '\.(?:json|md|ps1|psm1|txt|ya?ml)$'
+
+            if ($RelativePath -ceq $expanded) { return $true }
+            if (($subtree -or $literalDirectory) -and
+                $RelativePath.StartsWith("$expanded/", [System.StringComparison]::Ordinal)) {
+                return $true
+            }
+            if ($EntryKind -ceq 'D' -and
+                $expanded.StartsWith("$RelativePath/", [System.StringComparison]::Ordinal)) {
+                return $true
+            }
+        }
+        return $false
+    }
+
+    function Test-FileMapEqual {
+        param(
+            [Parameter(Mandatory)]$Left,
+            [Parameter(Mandatory)]$Right
+        )
+
+        if ($Left.Count -ne $Right.Count) { return $false }
+        foreach ($key in $Left.Keys) {
+            if (-not $Right.ContainsKey($key) -or $Left[$key] -cne $Right[$key]) { return $false }
+        }
+        return $true
+    }
+
+    function Invoke-OwnerProcess {
+        param(
+            [Parameter(Mandatory)][string]$Owner,
+            [Parameter(Mandatory)][string]$Root,
+            [switch]$Hostile,
+            [switch]$Repeat
+        )
+
+        $missingRoot = Join-Path $Root '.github/.skalary/missing-scaffold-root'
+        $argumentList = switch ($Owner) {
+            'Copy-ArchScaffold.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/architecture-notes/scripts/Copy-ArchScaffold.ps1'
+                )
+                @('-NoProfile', '-File', $scriptPath, '-TargetRoot', $(if ($Hostile) { $missingRoot } else { $Root }))
+            }
+            'Import-ArchHarvest.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/architecture-notes/scripts/Import-ArchHarvest.ps1'
+                )
+                $arguments = @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $Root)
+                if ($Hostile) {
+                    $arguments += @(
+                        '-StagingRoot',
+                        (Join-Path (Split-Path -Parent $Root) (
+                            "$(Split-Path -Leaf $Root)-escaped-architecture-harvest"
+                        ))
+                    )
+                }
+                $arguments
+            }
+            'Import-ArchAdr.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/architecture-notes/scripts/Import-ArchAdr.ps1'
+                )
+                $planDir = Join-Path $Root '.github/.skalary/scaffold-input/plan'
+                $arguments = @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-PlanDir', $planDir,
+                    '-RepoRoot', $Root
+                )
+                if ($Hostile) {
+                    $arguments += @(
+                        '-StagingRoot',
+                        (Join-Path (Split-Path -Parent $Root) (
+                            "$(Split-Path -Leaf $Root)-escaped-architecture-adr"
+                        ))
+                    )
+                }
+                $arguments
+            }
+            'New-ArchHumanDoc.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/architecture-notes/scripts/New-ArchHumanDoc.ps1'
+                )
+                @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $(if ($Hostile) { $missingRoot } else { $Root }))
+            }
+            'Add-LedgerEntry.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/ci/scripts/Add-LedgerEntry.ps1'
+                )
+                @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-Category', $(if ($Hostile) { '../testing' } else { 'testing' }),
+                    '-Plan', '007',
+                    '-Src', 'ci',
+                    '-Severity', 'Med',
+                    '-Entry', 'consumer scaffold lifecycle',
+                    '-Date', '2026-01-02',
+                    '-RepoRoot', $Root
+                )
+            }
+            'Remove-LedgerEntry.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/ci/scripts/Remove-LedgerEntry.ps1'
+                )
+                $line = '- [2026-01-01] retired consumer lesson (plan-006, src:ci, sev:Med)'
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($line))
+                @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-Category', 'testing',
+                    '-MatchBase64', $(if ($Hostile) { '***' } else { $encoded }),
+                    '-CurrentPlan', '007',
+                    '-RepoRoot', $Root
+                )
+            }
+            'New-Plan.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination 'skills/cip/scripts/New-Plan.ps1'
+                $templatePath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/cip/assets/plan-template.md'
+                )
+                $arguments = @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-Title', 'Consumer scaffold',
+                    '-Slug', 'consumer-scaffold',
+                    '-Date', '2026-01-02',
+                    '-PlanId', $(if ($Hostile) { '../bad' } else { 'a1b2c3' }),
+                    '-TemplatePath', $templatePath,
+                    '-RepoRoot', $Root
+                )
+                $arguments
+            }
+            'New-Epic.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination 'skills/cep/scripts/New-Epic.ps1'
+                @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-Title', 'Consumer epic',
+                    '-Slug', 'consumer-epic',
+                    '-Date', '2026-01-02',
+                    '-EpicId', $(if ($Hostile) { '../bad' } else { 'd4e5f6' }),
+                    '-RepoRoot', $Root
+                )
+            }
+            'Initialize-DesignNotes.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/design-notes/scripts/Initialize-DesignNotes.ps1'
+                )
+                @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-RepoRoot', $(if ($Hostile) {
+                            Join-Path $Root '.github/.skalary/not-a-directory'
+                        }
+                        else { $Root })
+                )
+            }
+            'Update-FeedbackQueue.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/pfb/scripts/Update-FeedbackQueue.ps1'
+                )
+                @(
+                    '-NoProfile', '-File', $scriptPath,
+                    '-Action', 'Queue',
+                    '-Plan', $(if ($Hostile) { '../bad' } else { 'b0c0d3' }),
+                    '-Question', 'Did the scaffold lifecycle preserve consumer files?',
+                    '-Date', '2026-01-02',
+                    '-RepoRoot', $Root
+                )
+            }
+            default {
+                return [pscustomobject]@{
+                    ExitCode = -1
+                    Output   = "no lifecycle invocation is defined for owner '$Owner'"
+                }
+            }
+        }
+
+        return Invoke-SuiteFixtureProcess `
+            -WorkingDirectory $Root `
+            -TimeoutSeconds 60 `
+            -ArgumentList $argumentList
+    }
+
+    foreach ($owner in $owners) {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) (
+            "skalary-scaffold-owner-$([guid]::NewGuid().ToString('N'))"
+        )
+        Copy-SkalaryFixtureTree -Source $Fixture.Root -Destination $root
+        try {
+            if ($owner -eq 'Import-ArchAdr.ps1') {
+                $decisions = Join-Path $root '.github/.skalary/scaffold-input/plan/assets/decisions'
+                [void](New-Item -ItemType Directory -Path $decisions -Force)
+                Set-Content -LiteralPath (Join-Path $decisions 'consumer-choice.md') `
+                    -Value "# Decision: Consumer Choice`n`nKeep scaffold writes confined.`n" `
+                    -NoNewline -Encoding utf8NoBOM
+            }
+            elseif ($owner -eq 'New-ArchHumanDoc.ps1') {
+                $copyScript = Get-InstalledPath -Root $root -Destination (
+                    'skills/architecture-notes/scripts/Copy-ArchScaffold.ps1'
+                )
+                $setup = Invoke-SuiteFixtureProcess -WorkingDirectory $root -TimeoutSeconds 30 `
+                    -ArgumentList @('-NoProfile', '-File', $copyScript, '-TargetRoot', $root)
+                if ($setup.ExitCode -ne 0) { throw "Human-doc prerequisite failed: $($setup.Output)" }
+            }
+            elseif ($owner -eq 'Remove-LedgerEntry.ps1') {
+                $ledgerPath = Join-Path $root 'docs/review-ledger/testing.md'
+                [void](New-Item -ItemType Directory -Path (Split-Path -Parent $ledgerPath) -Force)
+                Set-Content -LiteralPath $ledgerPath `
+                    -Value "- [2026-01-01] retired consumer lesson (plan-006, src:ci, sev:Med)`n" `
+                    -NoNewline -Encoding utf8NoBOM
+            }
+            elseif ($owner -eq 'Initialize-DesignNotes.ps1') {
+                Set-Content -LiteralPath (Join-Path $root '.github/.skalary/not-a-directory') `
+                    -Value 'not a directory' -NoNewline -Encoding utf8NoBOM
+            }
+
+            $baseline = Get-EntryMap -Root $root
+            $hostile = Invoke-OwnerProcess -Owner $owner -Root $root -Hostile
+            $afterHostile = Get-EntryMap -Root $root
+            $hostileEscapePath = switch ($owner) {
+                'Import-ArchHarvest.ps1' {
+                    Join-Path (Split-Path -Parent $root) (
+                        "$(Split-Path -Leaf $root)-escaped-architecture-harvest"
+                    )
+                }
+                'Import-ArchAdr.ps1' {
+                    Join-Path (Split-Path -Parent $root) (
+                        "$(Split-Path -Leaf $root)-escaped-architecture-adr"
+                    )
+                }
+                default { $null }
+            }
+            $first = Invoke-OwnerProcess -Owner $owner -Root $root
+            $afterFirst = Get-EntryMap -Root $root
+            $created = @($afterFirst.Keys | Where-Object { -not $baseline.ContainsKey($_) } | Sort-Object)
+
+            $unexpectedBaselineMutation = @(
+                $baseline.Keys |
+                    Where-Object {
+                        (-not $afterFirst.ContainsKey($_) -or $baseline[$_] -cne $afterFirst[$_]) -and
+                        -not (Test-OwnerDeclaredEntry `
+                                -Owner $owner `
+                                -RelativePath $_ `
+                                -EntryKind $baseline[$_]) -and
+                        -not ($owner -ceq 'Remove-LedgerEntry.ps1' -and
+                            $_ -ceq 'docs/review-ledger/testing.md')
+                    }
+            )
+            $confined = $created.Count -gt 0 -and $unexpectedBaselineMutation.Count -eq 0 -and @(
+                $created |
+                    Where-Object {
+                        -not (Test-OwnerDeclaredEntry `
+                                -Owner $owner `
+                                -RelativePath $_ `
+                                -EntryKind $afterFirst[$_])
+                    }
+            ).Count -eq 0
+            $starterContent = $created.Count -gt 0 -and @(
+                $created | Where-Object {
+                    $afterFirst[$_] -like 'F:*' -and
+                    [string]::IsNullOrWhiteSpace(
+                        [System.IO.File]::ReadAllText((Join-Path $root ($_ -replace '/', [IO.Path]::DirectorySeparatorChar)))
+                    )
+                }
+            ).Count -eq 0
+            $ownerDeclarations = @(
+                $Fixture.Catalog.Plugins |
+                    ForEach-Object { @($_.Scaffolds) } |
+                    Where-Object { [string]$_.owner -ceq $owner } |
+                    ForEach-Object {
+                        $expanded = [string]$_.path
+                        $expanded = $expanded.Replace('<category>', 'testing')
+                        $expanded = $expanded.Replace('<plan>', '2026-01-02-a1b2c3-consumer-scaffold')
+                        $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
+                        if ($expanded.EndsWith('/**', [System.StringComparison]::Ordinal)) {
+                            $expanded = $expanded.Substring(0, $expanded.Length - 3)
+                        }
+                        $expanded
+                    } |
+                    Sort-Object -Unique
+            )
+            $declaredScaffoldsPresent = @(
+                $ownerDeclarations |
+                    Where-Object {
+                        $declaredPath = Join-Path $root (
+                            $_ -replace '/', [IO.Path]::DirectorySeparatorChar
+                        )
+                        if ($_ -match '\.(?:json|md|ps1|psm1|txt|ya?ml)$') {
+                            -not (Test-Path -LiteralPath $declaredPath -PathType Leaf)
+                        }
+                        else {
+                            -not (Test-Path -LiteralPath $declaredPath -PathType Container)
+                        }
+                    }
+            ).Count -eq 0
+
+            $beforeRepeat = Get-EntryMap -Root $root
+            $repeat = Invoke-OwnerProcess -Owner $owner -Root $root -Repeat
+            $afterRepeat = Get-EntryMap -Root $root
+            $idempotent = Test-FileMapEqual -Left $beforeRepeat -Right $afterRepeat
+            $repeatChanges = @(
+                @($beforeRepeat.Keys) + @($afterRepeat.Keys) |
+                    Sort-Object -Unique |
+                    Where-Object {
+                        -not $beforeRepeat.ContainsKey($_) -or
+                        -not $afterRepeat.ContainsKey($_) -or
+                        $beforeRepeat[$_] -cne $afterRepeat[$_]
+                    }
+            )
+
+            $partialRetrySucceeded = $true
+            if ($owner -ceq 'Initialize-DesignNotes.ps1') {
+                $partialPath = Join-Path $root (
+                    'docs/design-notes/project/design-note-writing-style.design.md' -replace '/',
+                    [IO.Path]::DirectorySeparatorChar
+                )
+                Remove-Item -LiteralPath $partialPath -Force
+                $partialRetry = Invoke-OwnerProcess -Owner $owner -Root $root -Repeat
+                $partialRetrySucceeded = [int]$partialRetry.ExitCode -eq 0 -and
+                (Test-Path -LiteralPath $partialPath -PathType Leaf) -and
+                -not [string]::IsNullOrWhiteSpace([System.IO.File]::ReadAllText($partialPath))
+            }
+
+            $sentinel = 'CONSUMER_MODIFIED_TARGET'
+            $modifiedPath = switch ($owner) {
+                'Copy-ArchScaffold.ps1' { 'docs/architecture-notes/.architecture-notes.md' }
+                'Import-ArchHarvest.ps1' { 'docs/architecture-notes/.staging/HARVEST.md' }
+                'Import-ArchAdr.ps1' { 'docs/architecture-notes/.staging/adr/ADR-consumer-choice.md' }
+                'New-ArchHumanDoc.ps1' { 'docs/architecture-notes/architecture.human.md' }
+                'Add-LedgerEntry.ps1' { 'docs/review-ledger/testing.md' }
+                'New-Plan.ps1' {
+                    'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold/assets/intent.md'
+                }
+                'New-Epic.ps1' {
+                    'docs/implementation-plans/epics/2026-01-02-d4e5f6-consumer-epic/epic.md'
+                }
+                'Remove-LedgerEntry.ps1' { 'docs/review-ledger/.archive/testing.md' }
+                'Initialize-DesignNotes.ps1' { 'docs/design-notes/.design-notes.md' }
+                'Update-FeedbackQueue.ps1' { 'docs/feedback/queue.md' }
+                default { $null }
+            }
+            if ($modifiedPath) {
+                $fullModifiedPath = Join-Path $root (
+                    $modifiedPath -replace '/', [IO.Path]::DirectorySeparatorChar
+                )
+                $modifiedText = [System.IO.File]::ReadAllText($fullModifiedPath)
+                [System.IO.File]::WriteAllText(
+                    $fullModifiedPath,
+                    $sentinel + "`n" + $modifiedText,
+                    [Text.UTF8Encoding]::new($false)
+                )
+            }
+            $beforeModifiedRetry = Get-EntryMap -Root $root
+            $modifiedRetry = if ($modifiedPath) {
+                Invoke-OwnerProcess -Owner $owner -Root $root -Repeat
+            }
+            else {
+                $null
+            }
+            $afterModifiedRetry = Get-EntryMap -Root $root
+            $modifiedPreserved = if ($modifiedPath) {
+                (Test-FileMapEqual -Left $beforeModifiedRetry -Right $afterModifiedRetry) -and
+                [System.IO.File]::ReadAllText((Join-Path $root (
+                            $modifiedPath -replace '/', [IO.Path]::DirectorySeparatorChar
+                        ))).Contains($sentinel)
+            }
+            else {
+                $true
+            }
+            $safeRefusalPattern = switch ($owner) {
+                'New-Plan.ps1' { 'Plan folder already exists' }
+                'New-Epic.ps1' { 'Epic id .* is already taken' }
+                'Remove-LedgerEntry.ps1' { 'No exact ledger entry match' }
+                default { $null }
+            }
+            $repeatOutcomeExpected = if ($safeRefusalPattern) {
+                [int]$repeat.ExitCode -ne 0 -and [string]$repeat.Output -match $safeRefusalPattern
+            }
+            else {
+                [int]$repeat.ExitCode -eq 0
+            }
+            $modifiedRetryOutcomeExpected = if (-not $modifiedPath) {
+                $true
+            }
+            elseif ($safeRefusalPattern) {
+                [int]$modifiedRetry.ExitCode -ne 0 -and
+                [string]$modifiedRetry.Output -match $safeRefusalPattern
+            }
+            else {
+                [int]$modifiedRetry.ExitCode -eq 0
+            }
+
+            $results.Add([pscustomobject]@{
+                    Owner                        = $owner
+                    Created                      = $created
+                    Declared                     = @(
+                        $Fixture.Catalog.Plugins |
+                            ForEach-Object { @($_.Scaffolds) } |
+                            Where-Object { [string]$_.owner -ceq $owner } |
+                            ForEach-Object { [string]$_.path }
+                    )
+                    FirstExitCode                = [int]$first.ExitCode
+                    HostileExitCode              = [int]$hostile.ExitCode
+                    RepeatExitCode               = [int]$repeat.ExitCode
+                    StarterContent               = $starterContent
+                    Confined                     = $confined
+                    HostileRefused               = [int]$hostile.ExitCode -ne 0 -and
+                    (Test-FileMapEqual -Left $baseline -Right $afterHostile) -and
+                    (-not $hostileEscapePath -or -not (Test-Path -LiteralPath $hostileEscapePath))
+                    RetrySucceeded               = [int]$first.ExitCode -eq 0
+                    DeclaredScaffoldsPresent     = $declaredScaffoldsPresent
+                    Idempotent                   = $idempotent
+                    RepeatChanges                = $repeatChanges
+                    RepeatOutcomeExpected        = $repeatOutcomeExpected
+                    PartialRetrySucceeded        = $partialRetrySucceeded
+                    ModifiedTargetPreserved      = $modifiedPreserved
+                    ModifiedRetryOutcomeExpected = $modifiedRetryOutcomeExpected
+                    Output                       = [string]$first.Output
+                })
+        }
+        finally {
+            if (Test-Path -LiteralPath $root -PathType Container) {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    return @($results)
+}
+
 function Remove-ConsumerInstallFixture {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Fixture)
@@ -791,4 +1288,4 @@ function Remove-ConsumerInstallFixture {
 
 Export-ModuleMember -Function Get-ConsumerInstallManifestCatalog, New-ConsumerInstallFixture,
 Test-ConsumerInstallInventory, Test-ConsumerRuntimeReferenceClosure, Invoke-ConsumerInstalledSmokeMatrix,
-Remove-ConsumerInstallFixture
+Invoke-ConsumerFirstUseScaffoldLifecycle, Remove-ConsumerInstallFixture

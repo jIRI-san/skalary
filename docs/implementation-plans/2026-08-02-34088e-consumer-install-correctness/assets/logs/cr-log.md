@@ -38,3 +38,17 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Med] Smoke probes use unanchored case-insensitive output matching, allowing unexpected output or larger counts to pass.
 - [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=1 outcome=findings summary=1-Med run-step-2-1-review
 - [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=2 outcome=clean summary=0-findings run-step-2-1-rereview
+- [2.2] [src:code-review] [sev:High] The design-notes init owner is replaced by test-only template-copy logic instead of an installed executable owner.
+- [2.2] [src:code-review] [sev:High] The confinement snapshot excludes directories and installed-tree mutations and uses broader hard-coded paths than owner declarations.
+- [2.2] [src:code-review] [sev:High] Architecture harvest hostile probes fail prerequisites instead of challenging unconfined StagingRoot write paths.
+- [2.2] [src:code-review] [sev:Med] Lifecycle reruns change invocation modes or skip repeat execution, bypassing faithful idempotence and full modified-target checks.
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=1 outcome=findings summary=3-High-1-Med run-step-2-2-review
+- [2.2] [src:code-review] [sev:High] Architecture staging confinement uses unconditional case-insensitive prefix comparison, permitting case-variant sibling escapes on case-sensitive systems.
+- [2.2] [src:code-review] [sev:High] Architecture staging validation omits subsequently used adr, schemas, and notes child paths, allowing child symlink escapes.
+- [2.2] [src:code-review] [sev:High] Initialize-DesignNotes writes through linked destination ancestors without validating each path segment.
+- [2.2] [src:code-review] [sev:Med] Several owners skip modified-target retries and repeat exit outcomes are not checked, allowing failure-shaped idempotence passes.
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=2 outcome=findings summary=3-High-1-Med run-step-2-2-rereview
+- [2.2] [src:code-review] [sev:Med] Design-notes initialization exits when only the index exists, so interruption can leave the second scaffold permanently missing.
+- [2.2] [src:code-review] [sev:Med] Lifecycle validation checks created entries but does not require every expanded owner declaration to materialize.
+- [2.2] [src:code-review] [sev:Med] Confinement accepts baseline mutations declared by other scaffold owners instead of restricting changes to the active owner.
+- [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=3 outcome=findings summary=med=3 run=step-2-2-final-review

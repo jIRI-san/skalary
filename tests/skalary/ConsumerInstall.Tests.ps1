@@ -27,9 +27,9 @@ Describe 'foreign consumer plugin installation' {
         @(
             $script:fixture.InstallResults |
                 Where-Object { @($_.NewReceiptNames).Count -gt 1 }
-        ).Count | Should -BeGreaterThan 0 -Because (
-            'a dependent must run before its dependencies and prove production transitive installation'
-        )
+            ).Count | Should -BeGreaterThan 0 -Because (
+                'a dependent must run before its dependencies and prove production transitive installation'
+            )
 
         $clean = Test-ConsumerInstallInventory -Fixture $script:fixture
         $clean.IsClean | Should -BeTrue -Because (
@@ -71,11 +71,11 @@ Describe 'foreign consumer plugin installation' {
             foreach ($file in @($script:fixture.Catalog.Files)) {
                 if ($file -eq $installedFile) {
                     [pscustomobject]@{
-                        Plugin = [string]$file.Plugin
-                        Src = [string]$file.Src
-                        Dest = '../consumer-install-escape.txt'
-                        Sha256 = [string]$file.Sha256
-                        Install = [bool]$file.Install
+                        Plugin     = [string]$file.Plugin
+                        Src        = [string]$file.Src
+                        Dest       = '../consumer-install-escape.txt'
+                        Sha256     = [string]$file.Sha256
+                        Install    = [bool]$file.Install
                         SourcePath = [string]$file.SourcePath
                     }
                 }
@@ -86,9 +86,9 @@ Describe 'foreign consumer plugin installation' {
         )
         $escapedCatalog = [pscustomobject]@{
             SourceRepoRoot = $script:fixture.Catalog.SourceRepoRoot
-            Plugins = $script:fixture.Catalog.Plugins
-            Files = $escapedFiles
-            PluginNames = $script:fixture.Catalog.PluginNames
+            Plugins        = $script:fixture.Catalog.Plugins
+            Files          = $escapedFiles
+            PluginNames    = $script:fixture.Catalog.PluginNames
         }
         $escaping = Test-ConsumerInstallInventory -Fixture $script:fixture -Catalog $escapedCatalog
         $escaping.Escaping | Should -Contain "$($installedFile.Plugin):../consumer-install-escape.txt"
@@ -206,8 +206,8 @@ Describe 'foreign consumer plugin installation' {
                     [bool]$_.Install -and
                     [string]$_.Dest -match '^skills/[^/]+/scripts/[^/]+\.psm?1$' -and
                     (Test-Path -LiteralPath (
-                            Join-Path $script:repoRoot ([string]$_.Dest -replace '^skills/[^/]+/scripts/', 'scripts/skalary/')
-                        ) -PathType Leaf)
+                        Join-Path $script:repoRoot ([string]$_.Dest -replace '^skills/[^/]+/scripts/', 'scripts/skalary/')
+                    ) -PathType Leaf)
                 }
         )
         $bundled.Count | Should -BeGreaterThan 0
@@ -235,9 +235,9 @@ Describe 'foreign consumer plugin installation' {
                             )
                         ))
                 }
-        ).Count | Should -BeGreaterThan 0 -Because (
-            'declared first-use paths remain absent until their runtime owner scaffolds them'
-        )
+            ).Count | Should -BeGreaterThan 0 -Because (
+                'declared first-use paths remain absent until their runtime owner scaffolds them'
+            )
 
         $missingReference = @($installedReferences)[0]
         $missingPath = Join-Path (Join-Path $script:fixture.Root '.github') (
@@ -267,7 +267,7 @@ Describe 'foreign consumer plugin installation' {
                 name = 'fixture'; version = '1.0.0'; description = 'Fixture.'
                 author = 'test'; license = 'MIT'; tags = @('skill'); dependencies = @()
                 status = 'partial'
-                files = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
+                files  = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
             }
             Set-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Value (
                 $manifest | ConvertTo-Json -Depth 10
@@ -321,5 +321,58 @@ Describe 'foreign consumer plugin installation' {
         }
         (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
             Should -BeTrue -Because 'installed smokes must leave the shared foreign fixture unchanged'
+    }
+
+    It 'test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo' {
+        $expectedOwners = @(
+            $script:fixture.Catalog.Plugins |
+                ForEach-Object { @($_.Scaffolds) } |
+                ForEach-Object { [string]$_.owner } |
+                Sort-Object -Unique
+        )
+        $lifecycles = @(Invoke-ConsumerFirstUseScaffoldLifecycle -Fixture $script:fixture)
+
+        @($lifecycles.Owner | Sort-Object) | Should -Be $expectedOwners
+        foreach ($lifecycle in $lifecycles) {
+            $lifecycle.DeclaredScaffoldsPresent | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must materialize every scaffold declared by its manifest"
+            )
+            $lifecycle.StarterContent | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must create non-empty starter content: $($lifecycle.Output)"
+            )
+            $lifecycle.Idempotent | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must not change its scaffold on a repeated invocation"
+            )
+            $lifecycle.RepeatOutcomeExpected | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must report success or its explicit safe repeat refusal"
+            )
+            $lifecycle.PartialRetrySucceeded | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must recover any supported partially-created scaffold"
+            )
+            $lifecycle.ModifiedTargetPreserved | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must preserve consumer-owned target content"
+            )
+            $lifecycle.ModifiedRetryOutcomeExpected | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must report success or an explicit safe refusal for modified content"
+            )
+            $lifecycle.Confined | Should -BeTrue -Because (
+                "$($lifecycle.Owner) created undeclared path(s): $($lifecycle.Created -join ', ')"
+            )
+            $lifecycle.HostileRefused | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must reject hostile input before outside-.github mutation"
+            )
+            $lifecycle.RetrySucceeded | Should -BeTrue -Because (
+                "$($lifecycle.Owner) must succeed when retried with valid input: $($lifecycle.Output)"
+            )
+        }
+
+        foreach ($poisonRelativePath in $script:fixture.PoisonRelativePaths) {
+            $poisonPath = Join-Path $script:fixture.Root (
+                $poisonRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            [System.IO.File]::ReadAllText($poisonPath) | Should -BeExactly 'SKALARY_SOURCE_PATH_POISON'
+        }
+        (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
+            Should -BeTrue -Because 'owner probes must leave the shared foreign fixture unchanged'
     }
 }

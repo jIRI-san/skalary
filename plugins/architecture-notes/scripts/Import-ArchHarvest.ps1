@@ -57,6 +57,30 @@ if (-not $StagingRoot) {
     $StagingRoot = Join-Path $RepoRoot 'docs/architecture-notes/.staging'
 }
 
+function Assert-ArchRepoPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $relative = [System.IO.Path]::GetRelativePath($RepoRoot, $fullPath)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith("../", [System.StringComparison]::Ordinal) -or
+        $relative.StartsWith("..\", [System.StringComparison]::Ordinal)) {
+        throw "Architecture staging path '$fullPath' escapes repository root '$RepoRoot'."
+    }
+
+    $current = $RepoRoot
+    foreach ($segment in ($relative -split '[\\/]')) {
+        if ([string]::IsNullOrWhiteSpace($segment) -or $segment -eq '.') { continue }
+        $current = Join-Path $current $segment
+        if ((Test-Path -LiteralPath $current) -and (Get-Item -LiteralPath $current -Force).LinkType) {
+            throw "Architecture staging path contains a linked segment: $current"
+        }
+    }
+    return $fullPath
+}
+$StagingRoot = Assert-ArchRepoPath -Path $StagingRoot
+
 $validateContract = Join-Path $PSScriptRoot 'Test-ArchContract.ps1'
 if (-not (Test-Path -LiteralPath $validateContract -PathType Leaf)) {
     throw "Required sibling script missing: $validateContract"
@@ -153,7 +177,7 @@ $dotnetProjects = foreach ($ext in @('*.csproj', '*.fsproj', '*.vbproj')) {
     Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Filter $ext -ErrorAction SilentlyContinue
 }
 foreach ($proj in ($dotnetProjects |
-        Where-Object { -not (Test-PrunedPath $_.FullName) } | Sort-Object FullName)) {
+            Where-Object { -not (Test-PrunedPath $_.FullName) } | Sort-Object FullName)) {
     $relDir = Get-RelDir $proj.FullName
     $scope = if ($relDir -eq '.') { '**' } else { "$relDir/**" }
     $candidatesFound.Add([pscustomobject]@{
@@ -167,7 +191,7 @@ foreach ($proj in ($dotnetProjects |
 
 # JS/TS packages (any package.json outside pruned dirs).
 foreach ($pkg in (Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Filter 'package.json' -ErrorAction SilentlyContinue |
-        Where-Object { -not (Test-PrunedPath $_.FullName) } | Sort-Object FullName)) {
+            Where-Object { -not (Test-PrunedPath $_.FullName) } | Sort-Object FullName)) {
     $relDir = Get-RelDir $pkg.FullName
     $scope = if ($relDir -eq '.') { '**' } else { "$relDir/**" }
     $pkgName = $null
@@ -220,8 +244,8 @@ foreach ($c in $selected) {
 }
 
 # --- Write quarantine --------------------------------------------------------------------------
-$stagingSchemas = Join-Path $StagingRoot 'schemas'
-$stagingNotes = Join-Path $StagingRoot 'notes'
+$stagingSchemas = Assert-ArchRepoPath -Path (Join-Path $StagingRoot 'schemas')
+$stagingNotes = Assert-ArchRepoPath -Path (Join-Path $StagingRoot 'notes')
 
 function Write-HarvestFile {
     param(
@@ -335,7 +359,7 @@ $rows
 3. Only then, and only via a human-authored commit, promote a contract to ``locked``.
 4. Flip ``reviewed: true`` here (or delete this staging directory) once promotion is complete.
 "@
-$manifestPath = Join-Path $StagingRoot 'HARVEST.md'
+$manifestPath = Assert-ArchRepoPath -Path (Join-Path $StagingRoot 'HARVEST.md')
 $manifestAction = Write-HarvestFile -DestPath $manifestPath -Content $manifest -Cmdlet $PSCmdlet
 
 [pscustomobject]@{

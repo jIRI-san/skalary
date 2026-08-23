@@ -126,9 +126,6 @@ TBD
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $plansRoot = Join-Path $repoRootPath 'docs/implementation-plans'
-if (-not (Test-Path -LiteralPath $plansRoot)) {
-    New-Item -ItemType Directory -Path $plansRoot -Force | Out-Null
-}
 
 if ($Date -notmatch '^\d{4}-\d{2}-\d{2}$') {
     throw "Date '$Date' must be in yyyy-MM-dd format."
@@ -183,6 +180,10 @@ if (-not $TemplatePath) {
 }
 if (-not (Test-Path -LiteralPath $TemplatePath -PathType Leaf)) {
     throw "Plan template not found: $TemplatePath"
+}
+
+if (-not (Test-Path -LiteralPath $plansRoot)) {
+    New-Item -ItemType Directory -Path $plansRoot -Force | Out-Null
 }
 
 $templateRaw = Get-Content -LiteralPath $TemplatePath -Raw
@@ -240,14 +241,14 @@ foreach ($entry in (Get-PlanAssetScaffold).GetEnumerator()) {
 }
 
 $result = [pscustomobject]@{
-    PlanId = $PlanId
-    Slug = $slugClean
-    Date = $Date
+    PlanId     = $PlanId
+    Slug       = $slugClean
+    Date       = $Date
     FolderName = $folderName
-    Path = $targetDir
-    PlanFile = $planFile
-    Stage = $stamped.Stage
-    AssetsDir = $assetsDir
+    Path       = $targetDir
+    PlanFile   = $planFile
+    Stage      = $stamped.Stage
+    AssetsDir  = $assetsDir
     AssetFiles = $assetFiles.ToArray()
 }
 
