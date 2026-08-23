@@ -43,7 +43,9 @@ function Invoke-GitHubWorkHierarchyCommand {
         [Parameter(Mandatory)]
         [string[]]$Arguments,
 
-        [scriptblock]$CommandRunner
+        [scriptblock]$CommandRunner,
+
+        [switch]$AllowNotFound
     )
 
     $result = if ($CommandRunner) {
@@ -133,8 +135,8 @@ function Invoke-GitHubWorkHierarchyCommand {
             $process.WaitForExit()
             [pscustomobject]@{
                 ExitCode = $process.ExitCode
-                Output = $stdout.ToString()
-                Error = $stderr.ToString()
+                Output   = $stdout.ToString()
+                Error    = $stderr.ToString()
             }
         }
         finally {
@@ -166,6 +168,9 @@ function Invoke-GitHubWorkHierarchyCommand {
         }
         $diagnostics += ([string]$result.Output).Trim()
         $detail = ($diagnostics | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join "`n"
+        if ($AllowNotFound -and $detail -match '(?i)(HTTP\s+404\b|status(?:\s+code)?\s*[:=]?\s*404\b)') {
+            return $null
+        }
         throw $(if ($detail) { "GitHub CLI request failed: $detail" } else { 'GitHub CLI request failed with no diagnostic output.' })
     }
     return [string]$result.Output
@@ -225,14 +230,14 @@ function ConvertFrom-GitHubWorkHierarchyIssue {
     }
 
     return [pscustomobject][ordered]@{
-        kind = 'issue'
+        kind       = 'issue'
         providerId = [string]$providerId
-        nodeId = $nodeId
-        number = $number
-        title = $title
-        body = [string]$body
-        state = $state
-        url = $url
+        nodeId     = $nodeId
+        number     = $number
+        title      = $title
+        body       = [string]$body
+        state      = $state
+        url        = $url
     }
 }
 
@@ -260,7 +265,20 @@ function Invoke-GitHubWorkHierarchyRead {
         default { throw "GitHub adapter does not support read kind '$kind'." }
     }
 
-    $json = Invoke-GitHubWorkHierarchyCommand -Arguments @('api', $path) -CommandRunner $CommandRunner
+    $json = Invoke-GitHubWorkHierarchyCommand `
+        -Arguments @('api', $path) `
+        -CommandRunner $CommandRunner `
+        -AllowNotFound:($kind -eq 'issue')
+    if ($null -eq $json) {
+        $repositoryIdText = Invoke-GitHubWorkHierarchyCommand `
+            -Arguments @('api', "repos/$repository", '--jq', '.id') `
+            -CommandRunner $CommandRunner
+        $repositoryId = 0L
+        if (-not [long]::TryParse($repositoryIdText.Trim(), [ref]$repositoryId) -or $repositoryId -le 0) {
+            throw "GitHub CLI returned an invalid repository identity for '$repository'."
+        }
+        return $null
+    }
     $result = ConvertFrom-GitHubWorkHierarchyJson -Json $json -Operation "$kind read '$repository#$number'"
     if ($kind -eq 'issue') {
         return ConvertFrom-GitHubWorkHierarchyIssue -Issue $result

@@ -62,3 +62,30 @@ Hierarchy relations use GitHub sub-issues; dependencies use the blocked-by relat
 reads fetch at most 100 issues and probe item 101 to refuse overflow. Native execution is capped at
 30 seconds, stdout at 8 MiB, and stderr at 64 KiB.
 Rendered output contains action summaries and the deterministic action digest, not remote body text.
+
+## Mapping File
+
+`Read-WorkHierarchyMappingFile` and `Save-WorkHierarchyMappingFile` own one JSON mapping from canonical
+local IDs to GitHub issue numbers and immutable provider IDs. Entries retain the issue kind, URL, and
+last-synchronized title and managed-body hashes. Serialization sorts local IDs ordinally and is capped
+at 1 MiB.
+
+Every save supplies the digest returned by the matching read. The writer holds an exclusive file handle,
+compares the exact current bytes with that digest, writes and flushes a sibling temporary file, rechecks
+the source digest, and atomically replaces the mapping. A stable, never-unlinked `.lock` sidecar prevents
+cooperating writers from racing by replacing the mapping pathname; stale or concurrently edited mappings
+are refused. UTF-8 input may carry a BOM, but canonical output is BOM-free.
+
+`Add-WorkHierarchyMappingItem` records only an explicitly selected issue whose unique managed markers
+match the requested local ID and kind. It never changes an existing baseline; reused issue numbers or
+provider IDs, changed targets, malformed markers, and unmanaged issues are refused.
+
+Dry run indexes issue numbers and provider IDs across the whole mapping before any provider read, so an
+unrelated or currently unprojected entry cannot collide with active work. Structurally readable invalid
+identities and kinds remain rendered refusal actions, and projected items must retain their expected
+`epic` or `plan` kind.
+
+A provider that reports a mapped issue as absent produces `mapping-target-missing`. After an issue HTTP
+404, the GitHub adapter probes the repository identity before returning that sentinel; inaccessible or
+missing repositories, relation 404s, authorization failures, and other transport failures still propagate
+and stop synchronization.

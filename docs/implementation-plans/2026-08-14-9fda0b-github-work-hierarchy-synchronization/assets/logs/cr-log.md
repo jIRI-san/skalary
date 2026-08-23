@@ -21,3 +21,19 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Low] Mapping repository comparison was case-sensitive even though GitHub owner/repository identity is case-insensitive.
 - [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=2 outcome=findings summary=3-low run-step-1-2-duck
 - [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=3 outcome=clean summary=clean run-step-1-2-final-review
+
+## CR Capture
+Phase: 2
+
+- [2.1] [src:code-review] [sev:High] Mapping numbers are cast before validation and duplicate numbers are not marked ambiguous.
+- [2.1] [src:code-review] [sev:Med] GitHub issue 404s throw before core missing-target refusal can be rendered.
+- [2.1] [src:code-review] [sev:High] Locking the mapping inode does not prevent Unix pathname replacement races.
+- [2.1] [src:code-review] [sev:Med] Truncating before writing can destroy the prior mapping on interruption or write failure.
+- [2.1] [src:code-review] [sev:Med] Read and save digest BOM-bearing UTF-8 mapping bytes differently.
+- [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=1 outcome=findings summary=5-findings-run-review-step-2-1
+- [2.1] [src:code-review] [sev:Med] Duplicate identity preflight ignores mapping entries outside the current projection.
+- [2.1] [src:code-review] [sev:Med] Dry run accepts invalid or projection-mismatched mapping kinds.
+- [2.1] [src:code-review] [sev:Med] Issue 404 classification can conceal inaccessible or missing repositories.
+- [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=2 outcome=findings summary=3-findings-run-review-step-2-1-fixes
+- [2.1] [src:code-review] [sev:Med] Invalid entries bypass collision indexing for their otherwise valid issue number or provider ID.
+- [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=3 outcome=findings summary=1-finding-run-review-step-2-1-final
