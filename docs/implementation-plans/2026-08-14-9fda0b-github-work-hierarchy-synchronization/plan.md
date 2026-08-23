@@ -28,7 +28,7 @@
 ## Phase 2: Confirmed apply and convergence
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [~] 2.1 Add one simple mapping file keyed by stable epic/plan IDs and managed-section markers; refuse unmanaged edits, ambiguous adoption, missing targets, or changed mappings rather than overwriting them (REQ-3, REQ-4, RISK-2, RISK-3) [after: 1.2] `M`
+- [x] 2.1 Add one simple mapping file keyed by stable epic/plan IDs and managed-section markers; refuse unmanaged edits, ambiguous adoption, missing targets, or changed mappings rather than overwriting them (REQ-3, REQ-4, RISK-2, RISK-3) [after: 1.2] `M`
 - [ ] 2.2 Add operator-confirmed apply through the same `gh` adapter, executing the displayed action set in deterministic order and refreshing state so an immediate second run is a no-op (REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Focused proof and distribution
