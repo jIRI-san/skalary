@@ -25,6 +25,26 @@ Describe 'review concern authoring source' {
         Test-Json -Json $registryJson -SchemaFile $script:schemaPath | Should -BeTrue
 
         $registry = $registryJson | ConvertFrom-Json -Depth 20
+        foreach ($blockOpener in @(
+                '## Output Format'
+                '- injected list'
+                '1. injected list'
+                '    injected code'
+                '> injected quote'
+                '```text'
+                '<details>'
+                '[label]: target'
+                '---'
+                '* * *'
+                '___'
+                " `tinjected mixed-indent code"
+            )) {
+            $unsafeRegistry = $registryJson | ConvertFrom-Json -Depth 20
+            $unsafeRegistry.concerns[0].sharedGuidance = $blockOpener
+            Test-Json -Json ($unsafeRegistry | ConvertTo-Json -Depth 20) -SchemaFile $script:schemaPath -ErrorAction SilentlyContinue |
+                Should -BeFalse -Because "registry prose must not create the Markdown block '$blockOpener'"
+        }
+
         @($registry.concerns.id) | Should -Be $script:expectedConcerns
         @($registry.concerns.id | Sort-Object -Unique).Count | Should -Be 7
 
@@ -485,6 +505,9 @@ Describe 'review concern generation' {
 
             & $script:syncScript -RepoRoot $fixture *> $null
             $mutatedHashes = Get-ReviewConcernOutputHashes -Paths $expectedPaths
+            $mutatedMap = Get-Content -LiteralPath $mapPath -Raw
+            $mutatedMap | Should -Match '`cr` and `dr` currently use the same ledger target for every concern\.'
+            $mutatedMap | Should -Not -Match '`testing-evidence` is the only concern whose target differs'
             for ($index = 0; $index -lt $expectedPaths.Count; $index++) {
                 $mutatedHashes[$index] | Should -Not -Be $baselineHashes[$index] -Because "$($expectedPaths[$index]) must derive from the registry"
             }

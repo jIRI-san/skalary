@@ -32,6 +32,12 @@
       "maxLength": 512,
       "pattern": "^[^\\r\\n@{}]+$"
     },
+    "templateProse": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!(?: {4,}| {0,3}\\t| {0,3}(?:#{1,6}(?:[ \\t]|$)|```|~~~|>|[-+*](?:[ \\t]|$)|\\d{1,9}[.)](?:[ \\t]|$)|<|\\[[^\\]]+\\]:|(?:(?:\\*[ \\t]*){3,}|(?:-[ \\t]*){3,}|(?:_[ \\t]*){3,})$)))[^\\r\\n@{}]+$"
+    },
     "focusAreas": {
       "type": "array",
       "minItems": 1,
@@ -50,7 +56,7 @@
       ],
       "properties": {
         "scope": {
-          "$ref": "#/$defs/singleLine"
+          "$ref": "#/$defs/templateProse"
         },
         "focusAreas": {
           "$ref": "#/$defs/focusAreas"
@@ -91,7 +97,7 @@
           "maxLength": 64
         },
         "sharedGuidance": {
-          "$ref": "#/$defs/singleLine"
+          "$ref": "#/$defs/templateProse"
         },
         "ledger": {
           "type": "object",

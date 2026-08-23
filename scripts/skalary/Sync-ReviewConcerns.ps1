@@ -237,11 +237,32 @@ function Render-LedgerMap {
     foreach ($concern in $Concerns) {
         $lines.Add("| ``$($concern.id)`` | ``$($concern.ledger.cr)`` | ``$($concern.ledger.dr)`` |")
     }
+    $lines.Add('')
+    $differingConcerns = @($Concerns | Where-Object {
+            [string]$_.ledger.cr -cne [string]$_.ledger.dr
+        })
+    if ($differingConcerns.Count -eq 1 -and
+        [string]$differingConcerns[0].id -ceq 'testing-evidence' -and
+        [string]$differingConcerns[0].ledger.cr -ceq 'testing.md' -and
+        [string]$differingConcerns[0].ledger.dr -ceq 'plan-structure.md') {
+        foreach ($line in @(
+                '`testing-evidence` is the only concern whose target differs by review type: in a plan review,'
+                'evidence findings are about phase gating and marker coverage (`plan-structure`), while in a code'
+                'review they are about test quality (`testing`).'
+            )) {
+            $lines.Add($line)
+        }
+    }
+    elseif ($differingConcerns.Count -eq 0) {
+        $lines.Add('`cr` and `dr` currently use the same ledger target for every concern.')
+    }
+    else {
+        $lines.Add('Ledger targets that differ by review type:')
+        foreach ($concern in $differingConcerns) {
+            $lines.Add("- ``$($concern.id)``: ``cr`` -> ``$($concern.ledger.cr)``; ``dr`` -> ``$($concern.ledger.dr)``")
+        }
+    }
     foreach ($line in @(
-            ''
-            '`testing-evidence` is the only concern whose target differs by review type: in a plan review,'
-            'evidence findings are about phase gating and marker coverage (`plan-structure`), while in a code'
-            'review they are about test quality (`testing`).'
             ''
             '## Usage'
             ''

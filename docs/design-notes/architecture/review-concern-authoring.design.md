@@ -38,7 +38,8 @@ without repairing the tree.
 Template placeholders are a closed interface between the template and generator. Adding or removing a
 placeholder requires updating both sides and the placeholder assertion in
 `tests/skalary/ReviewConcerns.Tests.ps1`; unresolved placeholders are generation failures. Free-form
-registry prose rejects line breaks and `@`, `{`, or `}` so it cannot create template structure or tokens.
+registry prose rejects line breaks, template-token characters, and Markdown block-forming prefixes so it
+cannot create template structure or tokens.
 
 ## Distribution boundary
 
