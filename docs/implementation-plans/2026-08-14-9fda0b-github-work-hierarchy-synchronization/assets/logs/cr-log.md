@@ -37,3 +37,4 @@ Phase: 2
 - [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=2 outcome=findings summary=3-findings-run-review-step-2-1-fixes
 - [2.1] [src:code-review] [sev:Med] Invalid entries bypass collision indexing for their otherwise valid issue number or provider ID.
 - [2.1] [src:note] [sev:Low] review-cycle stage=step-2.1 cycle=3 outcome=findings summary=1-finding-run-review-step-2-1-final
+- [2.1] [src:note] [sev:Low] review-cycle-decision stage=step-2.1 after=3 action=wrap
