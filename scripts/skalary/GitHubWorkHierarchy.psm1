@@ -5,6 +5,10 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'WorkHierarchy.psm1') -DisableNameChecking
 
+$script:GhTimeoutMilliseconds = 30000
+$script:GhMaxOutputBytes = 8MB
+$script:GhMaxErrorBytes = 64KB
+
 function Assert-GitHubWorkHierarchyRepository {
     [CmdletBinding()]
     param(
@@ -61,13 +65,76 @@ function Invoke-GitHubWorkHierarchyCommand {
             if (-not $process.Start()) {
                 throw "GitHub CLI process did not start."
             }
-            $stdout = $process.StandardOutput.ReadToEndAsync()
-            $stderr = $process.StandardError.ReadToEndAsync()
+            $stdout = [System.Text.StringBuilder]::new()
+            $stderr = [System.Text.StringBuilder]::new()
+            $stdoutBytes = 0
+            $stderrBytes = 0
+            $stdoutDone = $false
+            $stderrDone = $false
+            $stdoutBuffer = [char[]]::new(4096)
+            $stderrBuffer = [char[]]::new(4096)
+            $stdoutRead = $process.StandardOutput.ReadAsync($stdoutBuffer, 0, $stdoutBuffer.Length)
+            $stderrRead = $process.StandardError.ReadAsync($stderrBuffer, 0, $stderrBuffer.Length)
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+            while (-not ($process.HasExited -and $stdoutDone -and $stderrDone)) {
+                if ($stopwatch.ElapsedMilliseconds -ge $script:GhTimeoutMilliseconds) {
+                    $process.Kill($true)
+                    $process.WaitForExit()
+                    throw "GitHub CLI request exceeded $($script:GhTimeoutMilliseconds / 1000) seconds."
+                }
+
+                $pending = [System.Collections.Generic.List[System.Threading.Tasks.Task]]::new()
+                if (-not $stdoutDone) { $pending.Add($stdoutRead) }
+                if (-not $stderrDone) { $pending.Add($stderrRead) }
+                if ($pending.Count -eq 0) {
+                    [System.Threading.Thread]::Sleep(10)
+                    continue
+                }
+                $completed = [System.Threading.Tasks.Task]::WaitAny($pending.ToArray(), 100)
+                if ($completed -lt 0) { continue }
+                $task = $pending[$completed]
+
+                if (-not $stdoutDone -and [object]::ReferenceEquals($task, $stdoutRead)) {
+                    $count = $stdoutRead.GetAwaiter().GetResult()
+                    if ($count -eq 0) {
+                        $stdoutDone = $true
+                    }
+                    else {
+                        $chunk = [string]::new($stdoutBuffer, 0, $count)
+                        $stdoutBytes += [System.Text.Encoding]::UTF8.GetByteCount($chunk)
+                        if ($stdoutBytes -gt $script:GhMaxOutputBytes) {
+                            $process.Kill($true)
+                            $process.WaitForExit()
+                            throw "GitHub CLI response exceeded the adapter byte limit."
+                        }
+                        [void]$stdout.Append($chunk)
+                        $stdoutRead = $process.StandardOutput.ReadAsync($stdoutBuffer, 0, $stdoutBuffer.Length)
+                    }
+                }
+                elseif (-not $stderrDone -and [object]::ReferenceEquals($task, $stderrRead)) {
+                    $count = $stderrRead.GetAwaiter().GetResult()
+                    if ($count -eq 0) {
+                        $stderrDone = $true
+                    }
+                    else {
+                        $chunk = [string]::new($stderrBuffer, 0, $count)
+                        $stderrBytes += [System.Text.Encoding]::UTF8.GetByteCount($chunk)
+                        if ($stderrBytes -gt $script:GhMaxErrorBytes) {
+                            $process.Kill($true)
+                            $process.WaitForExit()
+                            throw "GitHub CLI response exceeded the adapter byte limit."
+                        }
+                        [void]$stderr.Append($chunk)
+                        $stderrRead = $process.StandardError.ReadAsync($stderrBuffer, 0, $stderrBuffer.Length)
+                    }
+                }
+            }
             $process.WaitForExit()
             [pscustomobject]@{
                 ExitCode = $process.ExitCode
-                Output = $stdout.GetAwaiter().GetResult()
-                Error = $stderr.GetAwaiter().GetResult()
+                Output = $stdout.ToString()
+                Error = $stderr.ToString()
             }
         }
         finally {
@@ -81,6 +148,16 @@ function Invoke-GitHubWorkHierarchyCommand {
         $result.PSObject.Properties.Name -notcontains 'Output'
     ) {
         throw 'GitHub command runner must return ExitCode and Output.'
+    }
+    $outputBytes = [System.Text.Encoding]::UTF8.GetByteCount([string]$result.Output)
+    $errorBytes = if ($result.PSObject.Properties.Name -contains 'Error') {
+        [System.Text.Encoding]::UTF8.GetByteCount([string]$result.Error)
+    }
+    else {
+        0
+    }
+    if ($outputBytes -gt $script:GhMaxOutputBytes -or $errorBytes -gt $script:GhMaxErrorBytes) {
+        throw "GitHub CLI response exceeded the adapter byte limit."
     }
     if ([int]$result.ExitCode -ne 0) {
         $diagnostics = @()
@@ -122,6 +199,10 @@ function ConvertFrom-GitHubWorkHierarchyIssue {
         [Parameter(Mandatory)]
         $Issue
     )
+
+    if ($Issue.PSObject.Properties.Name -contains 'pull_request') {
+        throw 'GitHub CLI returned a pull request where an issue was required.'
+    }
 
     $id = Get-GitHubWorkHierarchyProperty -InputObject $Issue -Name id
     $nodeId = [string](Get-GitHubWorkHierarchyProperty -InputObject $Issue -Name node_id)
@@ -165,10 +246,6 @@ function Invoke-GitHubWorkHierarchyRead {
     )
 
     $kind = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name kind)
-    if ($kind -ne 'issue') {
-        throw "GitHub adapter does not support read kind '$kind'."
-    }
-
     $repository = [string](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name repository)
     Assert-GitHubWorkHierarchyRepository -Repository $repository
     $number = [int](Get-GitHubWorkHierarchyProperty -InputObject $Request -Name number)
@@ -176,11 +253,34 @@ function Invoke-GitHubWorkHierarchyRead {
         throw 'GitHub issue number must be positive.'
     }
 
-    $json = Invoke-GitHubWorkHierarchyCommand `
-        -Arguments @('api', "repos/$repository/issues/$number") `
-        -CommandRunner $CommandRunner
-    $issue = ConvertFrom-GitHubWorkHierarchyJson -Json $json -Operation "issue read '$repository#$number'"
-    return ConvertFrom-GitHubWorkHierarchyIssue -Issue $issue
+    $path = switch ($kind) {
+        'issue' { "repos/$repository/issues/$number" }
+        'sub-issues' { "repos/$repository/issues/$number/sub_issues?per_page=100&page=1" }
+        'blocked-by' { "repos/$repository/issues/$number/dependencies/blocked_by?per_page=100&page=1" }
+        default { throw "GitHub adapter does not support read kind '$kind'." }
+    }
+
+    $json = Invoke-GitHubWorkHierarchyCommand -Arguments @('api', $path) -CommandRunner $CommandRunner
+    $result = ConvertFrom-GitHubWorkHierarchyJson -Json $json -Operation "$kind read '$repository#$number'"
+    if ($kind -eq 'issue') {
+        return ConvertFrom-GitHubWorkHierarchyIssue -Issue $result
+    }
+    $issues = @($result)
+    if ($issues.Count -eq 100) {
+        $overflowPath = switch ($kind) {
+            'sub-issues' { "repos/$repository/issues/$number/sub_issues?per_page=1&page=101" }
+            'blocked-by' { "repos/$repository/issues/$number/dependencies/blocked_by?per_page=1&page=101" }
+        }
+        $overflowJson = Invoke-GitHubWorkHierarchyCommand -Arguments @('api', $overflowPath) -CommandRunner $CommandRunner
+        $overflow = @(ConvertFrom-GitHubWorkHierarchyJson -Json $overflowJson -Operation "$kind overflow probe '$repository#$number'")
+        if ($overflow.Count -gt 0) {
+            throw "GitHub adapter relation read '$kind' returned more than 100 issues."
+        }
+    }
+    if ($issues.Count -gt 100) {
+        throw "GitHub adapter relation read '$kind' returned more than 100 issues."
+    }
+    return @($issues | ForEach-Object { ConvertFrom-GitHubWorkHierarchyIssue -Issue $_ })
 }
 
 function Invoke-GitHubWorkHierarchyWrite {

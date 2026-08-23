@@ -7,6 +7,8 @@ Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChec
 
 $script:ProjectionSchema = 'skalary/work-hierarchy-projection@1'
 $script:ProviderSchema = 'skalary/work-hierarchy-provider@1'
+$script:MappingSchema = 'skalary/work-hierarchy-mapping@1'
+$script:DryRunSchema = 'skalary/work-hierarchy-dry-run@1'
 $script:IntentSectionOrder = @(
     'Goal',
     'Desired outcome',
@@ -424,6 +426,477 @@ function ConvertTo-WorkHierarchyProjectionJson {
     }
 }
 
+function Get-WorkHierarchyDigest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Value
+    )
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    return ([System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes))).ToLowerInvariant()
+}
+
+function Get-WorkHierarchyObjectValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $InputObject,
+
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [switch]$Required
+    )
+
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        if ($InputObject.Contains($Name)) {
+            return $InputObject[$Name]
+        }
+    }
+    else {
+        $property = $InputObject.PSObject.Properties[$Name]
+        if ($null -ne $property) {
+            return $property.Value
+        }
+    }
+
+    if ($Required) {
+        throw "Work hierarchy value is missing required property '$Name'."
+    }
+    return $null
+}
+
+function Get-WorkHierarchyMappingItem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $MappingItems,
+
+        [Parameter(Mandatory)]
+        [string]$LocalId
+    )
+
+    return Get-WorkHierarchyObjectValue -InputObject $MappingItems -Name $LocalId
+}
+
+function Get-WorkHierarchyManagedRegion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Body,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('epic', 'plan')]
+        [string]$Kind,
+
+        [Parameter(Mandatory)]
+        [string]$LocalId
+    )
+
+    $markerPattern = '<!--\s*skalary:work-hierarchy:(?<kind>epic|plan):(?<id>[A-Za-z0-9-]+):(?<edge>start|end)\s*-->'
+    $markerMatches = [regex]::Matches($Body, $markerPattern)
+    $hasMarkerPrefix = [regex]::IsMatch($Body, '<!--\s*skalary:work-hierarchy:')
+    if ($markerMatches.Count -eq 0) {
+        return [pscustomobject][ordered]@{
+            status = $(if ($hasMarkerPrefix) { 'conflict' } else { 'missing' })
+            reason = $(if ($hasMarkerPrefix) { 'malformed-marker' } else { 'managed-region-missing' })
+            prefix = ''
+            managedBody = ''
+            suffix = ''
+        }
+    }
+    if ($markerMatches.Count -ne 2) {
+        return [pscustomobject][ordered]@{
+            status = 'conflict'
+            reason = 'duplicate-or-nested-marker'
+            prefix = ''
+            managedBody = ''
+            suffix = ''
+        }
+    }
+    $unmatchedMarkerText = [regex]::Replace($Body, $markerPattern, '')
+    if ([regex]::IsMatch($unmatchedMarkerText, '<!--\s*skalary:work-hierarchy:')) {
+        return [pscustomobject][ordered]@{
+            status = 'conflict'
+            reason = 'malformed-marker'
+            prefix = ''
+            managedBody = ''
+            suffix = ''
+        }
+    }
+
+    $start = $markerMatches[0]
+    $end = $markerMatches[1]
+    if (
+        $start.Groups['edge'].Value -ne 'start' -or
+        $end.Groups['edge'].Value -ne 'end' -or
+        $start.Groups['kind'].Value -ne $Kind -or
+        $end.Groups['kind'].Value -ne $Kind -or
+        $start.Groups['id'].Value -cne $LocalId -or
+        $end.Groups['id'].Value -cne $LocalId
+    ) {
+        return [pscustomobject][ordered]@{
+            status = 'conflict'
+            reason = 'mismatched-marker'
+            prefix = ''
+            managedBody = ''
+            suffix = ''
+        }
+    }
+
+    $endIndex = $end.Index + $end.Length
+    return [pscustomobject][ordered]@{
+        status = 'present'
+        reason = ''
+        prefix = $Body.Substring(0, $start.Index)
+        managedBody = $Body.Substring($start.Index, $endIndex - $start.Index)
+        suffix = $Body.Substring($endIndex)
+    }
+}
+
+function Get-WorkHierarchyFieldDecision {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Field,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Desired,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Remote,
+
+        [Parameter(Mandatory)]
+        [string]$BaselineHash
+    )
+
+    if ($BaselineHash -notmatch '^[0-9a-f]{64}$') {
+        return [pscustomobject]@{ state = 'refuse'; reason = "$Field-baseline-invalid" }
+    }
+
+    $desiredHash = Get-WorkHierarchyDigest -Value $Desired
+    $remoteHash = Get-WorkHierarchyDigest -Value $Remote
+    if ($desiredHash -eq $remoteHash) {
+        return [pscustomobject]@{ state = 'same'; reason = '' }
+    }
+    if ($remoteHash -eq $BaselineHash) {
+        return [pscustomobject]@{ state = 'update'; reason = "$Field-local-change" }
+    }
+    if ($desiredHash -eq $BaselineHash) {
+        return [pscustomobject]@{ state = 'refuse'; reason = "$Field-remote-change" }
+    }
+    return [pscustomobject]@{ state = 'refuse'; reason = "$Field-concurrent-change" }
+}
+
+function New-WorkHierarchyAction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('create', 'update', 'link', 'no-op', 'refuse')]
+        [string]$Kind,
+
+        [Parameter(Mandatory)]
+        [string]$Subject,
+
+        [Parameter(Mandatory)]
+        [string]$Reason,
+
+        $Detail
+    )
+
+    return [pscustomobject][ordered]@{
+        kind = $Kind
+        subject = $Subject
+        reason = $Reason
+        detail = $Detail
+    }
+}
+
+function New-WorkHierarchyDryRun {
+    <#
+    .SYNOPSIS
+    Reads mapped provider state and emits a deterministic mutation-free synchronization action set.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Projection,
+
+        [Parameter(Mandatory)]
+        [string]$Repository,
+
+        [Parameter(Mandatory)]
+        $Mapping,
+
+        [Parameter(Mandatory)]
+        $Provider
+    )
+
+    Assert-WorkHierarchyProvider -Provider $Provider
+    if ([string](Get-WorkHierarchyObjectValue -InputObject $Projection -Name schema -Required) -ne $script:ProjectionSchema) {
+        throw "Projection schema must be '$script:ProjectionSchema'."
+    }
+    if ([string](Get-WorkHierarchyObjectValue -InputObject $Mapping -Name schema -Required) -ne $script:MappingSchema) {
+        throw "Mapping schema must be '$script:MappingSchema'."
+    }
+    $mappingRepository = [string](Get-WorkHierarchyObjectValue -InputObject $Mapping -Name repository -Required)
+    if (-not [System.StringComparer]::OrdinalIgnoreCase.Equals($mappingRepository, $Repository)) {
+        throw "Mapping repository does not match '$Repository'."
+    }
+    $mappingItems = Get-WorkHierarchyObjectValue -InputObject $Mapping -Name items -Required
+
+    $desiredItems = @($Projection.epic) + @($Projection.children)
+    $desiredById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($item in $desiredItems) {
+        $desiredById.Add([string]$item.localId, $item)
+    }
+
+    $requiredMappingIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($item in $desiredItems) {
+        if ($null -ne (Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $item.localId)) {
+            [void]$requiredMappingIds.Add([string]$item.localId)
+        }
+    }
+    foreach ($relation in @($Projection.relations | Where-Object kind -eq 'depends-on')) {
+        if ($null -ne (Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $relation.targetId)) {
+            [void]$requiredMappingIds.Add([string]$relation.targetId)
+        }
+    }
+
+    $mappingById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    $remoteById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    $providerIds = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+    $ambiguousMappingIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $mappingRefusals = [System.Collections.Generic.List[object]]::new()
+    $orderedRequiredIds = [string[]]@($requiredMappingIds)
+    [array]::Sort($orderedRequiredIds, [System.StringComparer]::Ordinal)
+    foreach ($localId in $orderedRequiredIds) {
+        $entry = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $localId
+        $number = [int](Get-WorkHierarchyObjectValue -InputObject $entry -Name number -Required)
+        $providerId = [string](Get-WorkHierarchyObjectValue -InputObject $entry -Name providerId -Required)
+        if ($number -le 0 -or $providerId -notmatch '^[1-9][0-9]*$') {
+            $mappingRefusals.Add((New-WorkHierarchyAction -Kind refuse -Subject "item:$localId" -Reason 'mapping-identity-invalid' -Detail $null))
+            continue
+        }
+        if ($providerIds.ContainsKey($providerId)) {
+            [void]$ambiguousMappingIds.Add($providerIds[$providerId])
+            [void]$ambiguousMappingIds.Add($localId)
+            continue
+        }
+        $providerIds.Add($providerId, $localId)
+        $mappingById.Add($localId, $entry)
+
+        $remote = Invoke-WorkHierarchyProviderRead -Provider $Provider -Request ([pscustomobject][ordered]@{
+            kind = 'issue'
+            repository = $Repository
+            number = $number
+        })
+        if ([string]$remote.providerId -cne $providerId -or [int]$remote.number -ne $number) {
+            $mappingRefusals.Add((New-WorkHierarchyAction -Kind refuse -Subject "item:$localId" -Reason 'mapping-remote-identity-mismatch' -Detail ([pscustomobject]@{
+                expectedProviderId = $providerId
+                expectedNumber = $number
+                actualProviderId = [string]$remote.providerId
+                actualNumber = [int]$remote.number
+            })))
+            continue
+        }
+        $remoteById.Add($localId, $remote)
+    }
+    $orderedAmbiguousIds = [string[]]@($ambiguousMappingIds)
+    [array]::Sort($orderedAmbiguousIds, [System.StringComparer]::Ordinal)
+    foreach ($localId in $orderedAmbiguousIds) {
+        $mappingRefusals.Add((New-WorkHierarchyAction -Kind refuse -Subject "item:$localId" -Reason 'mapping-identity-ambiguous' -Detail $null))
+    }
+
+    $actions = [System.Collections.Generic.List[object]]::new()
+    $refusedItems = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $mappingRefusalById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($refusal in $mappingRefusals) {
+        $localId = ([string]$refusal.subject).Substring('item:'.Length)
+        if (-not $mappingRefusalById.ContainsKey($localId)) {
+            $mappingRefusalById.Add($localId, $refusal)
+        }
+        [void]$refusedItems.Add($localId)
+    }
+
+    foreach ($desired in $desiredItems) {
+        $localId = [string]$desired.localId
+        $subject = "item:$localId"
+        if ($mappingRefusalById.ContainsKey($localId)) {
+            $actions.Add($mappingRefusalById[$localId])
+            continue
+        }
+        $mappingEntry = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $localId
+        if ($null -eq $mappingEntry) {
+            $actions.Add((New-WorkHierarchyAction -Kind create -Subject $subject -Reason 'mapping-missing' -Detail ([pscustomobject][ordered]@{
+                itemKind = [string]$desired.kind
+                title = [string]$desired.title
+                managedBody = [string]$desired.managedBody
+            })))
+            continue
+        }
+        if ($refusedItems.Contains($localId) -or -not $remoteById.ContainsKey($localId)) {
+            continue
+        }
+
+        $remote = $remoteById[$localId]
+        $region = Get-WorkHierarchyManagedRegion -Body ([string]$remote.body) -Kind $desired.kind -LocalId $localId
+        if ($region.status -ne 'present') {
+            $actions.Add((New-WorkHierarchyAction -Kind refuse -Subject $subject -Reason $region.reason -Detail $null))
+            [void]$refusedItems.Add($localId)
+            continue
+        }
+
+        $titleDecision = Get-WorkHierarchyFieldDecision `
+            -Field title `
+            -Desired ([string]$desired.title) `
+            -Remote ([string]$remote.title) `
+            -BaselineHash ([string](Get-WorkHierarchyObjectValue -InputObject $mappingEntry -Name titleHash))
+        $bodyDecision = Get-WorkHierarchyFieldDecision `
+            -Field managed-body `
+            -Desired ([string]$desired.managedBody) `
+            -Remote ([string]$region.managedBody) `
+            -BaselineHash ([string](Get-WorkHierarchyObjectValue -InputObject $mappingEntry -Name managedBodyHash))
+        $refusalReasons = @(@($titleDecision, $bodyDecision) | Where-Object state -eq 'refuse' | ForEach-Object reason)
+        if ($refusalReasons.Count -gt 0) {
+            $actions.Add((New-WorkHierarchyAction -Kind refuse -Subject $subject -Reason ($refusalReasons -join ',') -Detail $null))
+            [void]$refusedItems.Add($localId)
+            continue
+        }
+
+        if ($titleDecision.state -eq 'update' -or $bodyDecision.state -eq 'update') {
+            $actions.Add((New-WorkHierarchyAction -Kind update -Subject $subject -Reason 'local-projection-changed' -Detail ([pscustomobject][ordered]@{
+                number = [int]$remote.number
+                providerId = [string]$remote.providerId
+                title = [string]$desired.title
+                body = "$($region.prefix)$($desired.managedBody)$($region.suffix)"
+                expectedTitleHash = Get-WorkHierarchyDigest -Value ([string]$remote.title)
+                expectedManagedBodyHash = Get-WorkHierarchyDigest -Value ([string]$region.managedBody)
+            })))
+        }
+        else {
+            $actions.Add((New-WorkHierarchyAction -Kind no-op -Subject $subject -Reason 'item-current' -Detail $null))
+        }
+    }
+
+    $externalRefusalIds = [string[]]@($mappingRefusalById.Keys | Where-Object { -not $desiredById.ContainsKey($_) })
+    [array]::Sort($externalRefusalIds, [System.StringComparer]::Ordinal)
+    foreach ($localId in $externalRefusalIds) {
+        $actions.Add($mappingRefusalById[$localId])
+    }
+
+    $subIssueIds = $null
+    if ($mappingById.ContainsKey([string]$Projection.epic.localId) -and -not $refusedItems.Contains([string]$Projection.epic.localId)) {
+        $epicRemote = $remoteById[[string]$Projection.epic.localId]
+        $subIssues = @(Invoke-WorkHierarchyProviderRead -Provider $Provider -Request ([pscustomobject][ordered]@{
+            kind = 'sub-issues'
+            repository = $Repository
+            number = [int]$epicRemote.number
+        }))
+        $subIssueIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($subIssue in $subIssues) {
+            [void]$subIssueIds.Add([string]$subIssue.providerId)
+        }
+    }
+
+    $blockedByCache = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($relation in @($Projection.relations)) {
+        $subject = "relation:$($relation.kind):$($relation.sourceId):$($relation.targetId)"
+        if ($refusedItems.Contains([string]$relation.sourceId) -or $refusedItems.Contains([string]$relation.targetId)) {
+            $actions.Add((New-WorkHierarchyAction -Kind refuse -Subject $subject -Reason 'related-item-refused' -Detail $null))
+            continue
+        }
+
+        $sourceEntry = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $relation.sourceId
+        $targetEntry = Get-WorkHierarchyMappingItem -MappingItems $mappingItems -LocalId $relation.targetId
+        if ($relation.kind -eq 'depends-on' -and $null -eq $targetEntry -and -not [bool]$relation.targetInEpic) {
+            $actions.Add((New-WorkHierarchyAction -Kind refuse -Subject $subject -Reason 'dependency-target-unmapped' -Detail $null))
+            continue
+        }
+
+        if ($null -eq $sourceEntry -or $null -eq $targetEntry) {
+            $actions.Add((New-WorkHierarchyAction -Kind link -Subject $subject -Reason 'relation-missing-after-create' -Detail ([pscustomobject][ordered]@{
+                relationKind = [string]$relation.kind
+                sourceId = [string]$relation.sourceId
+                targetId = [string]$relation.targetId
+            })))
+            continue
+        }
+
+        $targetProviderId = [string](Get-WorkHierarchyObjectValue -InputObject $targetEntry -Name providerId -Required)
+        if ($relation.kind -eq 'parent-child') {
+            $linked = $null -ne $subIssueIds -and $subIssueIds.Contains($targetProviderId)
+        }
+        else {
+            $sourceId = [string]$relation.sourceId
+            if (-not $blockedByCache.ContainsKey($sourceId)) {
+                $sourceRemote = $remoteById[$sourceId]
+                $blockedBy = @(Invoke-WorkHierarchyProviderRead -Provider $Provider -Request ([pscustomobject][ordered]@{
+                    kind = 'blocked-by'
+                    repository = $Repository
+                    number = [int]$sourceRemote.number
+                }))
+                $ids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                foreach ($blockingIssue in $blockedBy) {
+                    [void]$ids.Add([string]$blockingIssue.providerId)
+                }
+                $blockedByCache.Add($sourceId, $ids)
+            }
+            $linked = $blockedByCache[$sourceId].Contains($targetProviderId)
+        }
+
+        $actions.Add((New-WorkHierarchyAction `
+            -Kind $(if ($linked) { 'no-op' } else { 'link' }) `
+            -Subject $subject `
+            -Reason $(if ($linked) { 'relation-current' } else { 'relation-missing' }) `
+            -Detail $(if ($linked) { $null } else {
+                [pscustomobject][ordered]@{
+                    relationKind = [string]$relation.kind
+                    sourceId = [string]$relation.sourceId
+                    targetId = [string]$relation.targetId
+                }
+            })))
+    }
+
+    $projectionJson = ConvertTo-WorkHierarchyProjectionJson -Projection $Projection
+    $actionsJson = ConvertTo-Json -InputObject $actions.ToArray() -Depth 30 -Compress
+    return [pscustomobject][ordered]@{
+        schema = $script:DryRunSchema
+        repository = $Repository
+        projectionDigest = Get-WorkHierarchyDigest -Value $projectionJson
+        actionDigest = Get-WorkHierarchyDigest -Value $actionsJson
+        hasChanges = @($actions | Where-Object kind -in @('create', 'update', 'link')).Count -gt 0
+        hasRefusals = @($actions | Where-Object kind -eq 'refuse').Count -gt 0
+        actions = $actions.ToArray()
+    }
+}
+
+function ConvertTo-WorkHierarchyDryRunText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        $DryRun
+    )
+
+    process {
+        if ([string]$DryRun.schema -ne $script:DryRunSchema) {
+            throw "Dry run schema must be '$script:DryRunSchema'."
+        }
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $lines.Add("Work hierarchy dry run: $($DryRun.repository)")
+        foreach ($action in @($DryRun.actions)) {
+            $lines.Add(("[{0}] {1} - {2}" -f ([string]$action.kind).ToUpperInvariant(), $action.subject, $action.reason))
+        }
+        $lines.Add("Action digest: $($DryRun.actionDigest)")
+        return ($lines -join "`n")
+    }
+}
+
 function New-WorkHierarchyProvider {
     [CmdletBinding()]
     param(
@@ -492,5 +965,7 @@ function Invoke-WorkHierarchyProviderWrite {
 
 Export-ModuleMember -Function `
     New-WorkHierarchyProjection, ConvertTo-WorkHierarchyProjectionJson, `
+    Get-WorkHierarchyDigest, Get-WorkHierarchyManagedRegion, `
+    New-WorkHierarchyDryRun, ConvertTo-WorkHierarchyDryRunText, `
     New-WorkHierarchyProvider, Assert-WorkHierarchyProvider, `
     Invoke-WorkHierarchyProviderRead, Invoke-WorkHierarchyProviderWrite

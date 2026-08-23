@@ -23,7 +23,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 1.1 Build a pure deterministic projection from one local epic and its child plan assets to a GitHub parent issue, child issues, dependencies, phases, purpose, and acceptance content; define a narrow provider interface and one GitHub `gh` adapter (REQ-1, REQ-5, RISK-3, RISK-5) `M`
-- [ ] 1.2 Add a read-only dry run that queries GitHub through the adapter, compares the projection with marker-managed remote sections and stable local-to-remote mappings, and renders ordered create/update/link/no-op/refuse actions without mutation (REQ-2, REQ-3, RISK-1, RISK-2, RISK-4) [after: 1.1] `M`
+- [x] 1.2 Add a read-only dry run that queries GitHub through the adapter, compares the projection with marker-managed remote sections and stable local-to-remote mappings, and renders ordered create/update/link/no-op/refuse actions without mutation (REQ-2, REQ-3, RISK-1, RISK-2, RISK-4) [after: 1.1] `M`
 
 ## Phase 2: Confirmed apply and convergence
 <!-- worktree: (recorded by /ci when worktree is created) -->

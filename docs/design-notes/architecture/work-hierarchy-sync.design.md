@@ -45,3 +45,20 @@ The boundary stays deliberately small until a second provider exists:
 
 GitHub v1 supports issue reads and create/update/sub-issue-link writes through `gh api`. Azure DevOps
 has no implementation, capability layer, compatibility protocol, or shared provider framework.
+
+## Dry Run
+
+`New-WorkHierarchyDryRun` accepts the projection, an in-memory
+`skalary/work-hierarchy-mapping@1` value, and a provider. It never invokes the provider write handler.
+For every mapped item it compares desired, last-synced, and current title/managed-body hashes:
+
+- matching desired and remote content is a no-op;
+- a clean remote baseline plus changed local projection is an update;
+- remote-only or concurrent managed changes are refusals;
+- missing, malformed, duplicate, nested, or mismatched managed markers are refusals.
+
+Actions stay in executable order: parent then ordinal children, followed by projection relations.
+Hierarchy relations use GitHub sub-issues; dependencies use the blocked-by relation. Adapter relation
+reads fetch at most 100 issues and probe item 101 to refuse overflow. Native execution is capped at
+30 seconds, stdout at 8 MiB, and stderr at 64 KiB.
+Rendered output contains action summaries and the deterministic action digest, not remote body text.

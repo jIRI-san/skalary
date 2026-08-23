@@ -137,6 +137,31 @@ The second slice works.
 '@
             return $root
         }
+
+        $newMappingEntry = {
+            param($Desired, [int]$Number, [string]$ProviderId, [string]$Title, [string]$ManagedBody)
+            [pscustomobject][ordered]@{
+                kind = [string]$Desired.kind
+                number = $Number
+                providerId = $ProviderId
+                titleHash = Get-WorkHierarchyDigest -Value $Title
+                managedBodyHash = Get-WorkHierarchyDigest -Value $ManagedBody
+            }
+        }
+
+        $newRemoteIssue = {
+            param($Desired, [int]$Number, [string]$ProviderId, [string]$Title, [string]$Body)
+            [pscustomobject][ordered]@{
+                kind = 'issue'
+                providerId = $ProviderId
+                nodeId = "I_$ProviderId"
+                number = $Number
+                title = $Title
+                body = $Body
+                state = 'open'
+                url = "https://github.example/issues/$Number"
+            }
+        }
     }
 
     Context 'test:WorkHierarchy.Projection' {
@@ -286,6 +311,306 @@ The second slice works.
                     number = 7
                 })
             } | Should -Throw "*missing required property 'id'*"
+        }
+
+        It 'refuses pull requests returned by the issues endpoint' {
+            $runner = {
+                param([string[]]$Arguments)
+                [pscustomobject]@{
+                    ExitCode = 0
+                    Output = '{"id":42,"node_id":"PR_node","number":7,"title":"PR","body":"body","state":"open","html_url":"https://github.example/pull/7","pull_request":{"url":"https://api.github.example/pulls/7"}}'
+                }
+            }
+            $provider = New-GitHubWorkHierarchyProvider -CommandRunner $runner
+
+            {
+                Invoke-WorkHierarchyProviderRead -Provider $provider -Request ([pscustomobject]@{
+                    kind = 'issue'
+                    repository = 'owner/repo'
+                    number = 7
+                })
+            } | Should -Throw '*pull request where an issue was required*'
+        }
+
+        It 'maps hierarchy and dependency reads to bounded gh api requests' {
+            $calls = [System.Collections.Generic.List[object]]::new()
+            $runner = {
+                param([string[]]$Arguments)
+                $calls.Add(@($Arguments))
+                [pscustomobject]@{
+                    ExitCode = 0
+                    Output = '[{"id":42,"node_id":"I_node","number":7,"title":"Remote","body":"body","state":"open","html_url":"https://github.example/issues/7"}]'
+                }
+            }.GetNewClosure()
+            $provider = New-GitHubWorkHierarchyProvider -CommandRunner $runner
+
+            $subIssues = @(Invoke-WorkHierarchyProviderRead -Provider $provider -Request ([pscustomobject]@{
+                kind = 'sub-issues'
+                repository = 'owner/repo'
+                number = 2
+            }))
+            $blockedBy = @(Invoke-WorkHierarchyProviderRead -Provider $provider -Request ([pscustomobject]@{
+                kind = 'blocked-by'
+                repository = 'owner/repo'
+                number = 7
+            }))
+
+            $calls[0] | Should -Be @('api', 'repos/owner/repo/issues/2/sub_issues?per_page=100&page=1')
+            $calls[1] | Should -Be @('api', 'repos/owner/repo/issues/7/dependencies/blocked_by?per_page=100&page=1')
+            $subIssues[0].providerId | Should -Be '42'
+            $blockedBy[0].providerId | Should -Be '42'
+        }
+
+        It 'refuses relation results with more than 100 issues' {
+            $issue = [pscustomobject]@{
+                id = 42
+                node_id = 'I_node'
+                number = 7
+                title = 'Remote'
+                body = 'body'
+                state = 'open'
+                html_url = 'https://github.example/issues/7'
+            }
+            $firstPage = ConvertTo-Json -InputObject @(1..100 | ForEach-Object { $issue }) -Depth 5 -Compress
+            $overflowPage = ConvertTo-Json -InputObject @($issue) -Depth 5 -Compress
+            $runner = {
+                param([string[]]$Arguments)
+                [pscustomobject]@{
+                    ExitCode = 0
+                    Output = $(if ($Arguments[1] -match 'page=101') { $overflowPage } else { $firstPage })
+                }
+            }.GetNewClosure()
+            $provider = New-GitHubWorkHierarchyProvider -CommandRunner $runner
+
+            {
+                Invoke-WorkHierarchyProviderRead -Provider $provider -Request ([pscustomobject]@{
+                    kind = 'sub-issues'
+                    repository = 'owner/repo'
+                    number = 2
+                })
+            } | Should -Throw "*relation read 'sub-issues' returned more than 100 issues*"
+        }
+    }
+
+    Context 'test:WorkHierarchy.DryRunAndConfirmation' {
+        It 'defers in-epic dependency links until newly created issues exist' {
+            $fixture = & $newFixture
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $mapping = [pscustomobject][ordered]@{
+                    schema = 'skalary/work-hierarchy-mapping@1'
+                    repository = 'Owner/Repo'
+                    items = [ordered]@{}
+                }
+                $provider = New-WorkHierarchyProvider -Name github -Read {
+                    throw 'an empty mapping must not query the provider'
+                } -Write { throw 'dry run must not write' }
+
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+
+                @($dryRun.actions | Where-Object kind -eq 'create') | Should -HaveCount 3
+                @($dryRun.actions | Where-Object kind -eq 'link') | Should -HaveCount 3
+                @($dryRun.actions | Where-Object kind -eq 'refuse') | Should -HaveCount 0
+                ($dryRun.actions | Where-Object subject -eq 'relation:depends-on:222bbb:111aaa').reason |
+                    Should -Be 'relation-missing-after-create'
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
+        It 'reads mapped state without writes and renders ordered create, link, and no-op actions' {
+            $fixture = & $newFixture
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $epic = $projection.epic
+                $first = $projection.children[0]
+                $mapping = [pscustomobject][ordered]@{
+                    schema = 'skalary/work-hierarchy-mapping@1'
+                    repository = 'owner/repo'
+                    items = [ordered]@{
+                        'a1b2c3' = & $newMappingEntry $epic 10 '100' $epic.title $epic.managedBody
+                        '111aaa' = & $newMappingEntry $first 11 '101' $first.title $first.managedBody
+                    }
+                }
+                $remote = @{
+                    10 = & $newRemoteIssue $epic 10 '100' $epic.title $epic.managedBody
+                    11 = & $newRemoteIssue $first 11 '101' $first.title $first.managedBody
+                }
+                $reads = [System.Collections.Generic.List[string]]::new()
+                $writes = [System.Collections.Generic.List[object]]::new()
+                $read = {
+                    param($Request)
+                    $reads.Add("$($Request.kind):$($Request.number)")
+                    switch ($Request.kind) {
+                        'issue' { return $remote[[int]$Request.number] }
+                        'sub-issues' { return @($remote[11]) }
+                        'blocked-by' { return @() }
+                    }
+                }.GetNewClosure()
+                $write = {
+                    param($Operation)
+                    $writes.Add($Operation)
+                }.GetNewClosure()
+                $provider = New-WorkHierarchyProvider -Name github -Read $read -Write $write
+
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                $text = ConvertTo-WorkHierarchyDryRunText -DryRun $dryRun
+
+                $writes | Should -HaveCount 0
+                $reads | Should -Be @('issue:11', 'issue:10', 'sub-issues:10')
+                @($dryRun.actions.kind) | Should -Be @('no-op', 'no-op', 'create', 'no-op', 'link', 'link')
+                $dryRun.hasChanges | Should -BeTrue
+                $dryRun.hasRefusals | Should -BeFalse
+                $text | Should -Match '(?m)^\[CREATE\] item:222bbb - mapping-missing$'
+                $text | Should -Match '(?m)^\[LINK\] relation:depends-on:222bbb:111aaa - relation-missing-after-create$'
+                $text | Should -Match "(?m)^Action digest: $($dryRun.actionDigest)$"
+
+                $repeat = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                $repeat.actionDigest | Should -BeExactly $dryRun.actionDigest
+                (ConvertTo-Json $repeat.actions -Depth 30) |
+                    Should -BeExactly (ConvertTo-Json $dryRun.actions -Depth 30)
+                $writes | Should -HaveCount 0
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
+        It 'updates only a clean baseline and preserves unmanaged body text' {
+            $fixture = & $newFixture
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $first = $projection.children[0]
+                $oldTitle = 'Earlier first child'
+                $oldManagedBody = $first.managedBody.Replace('Deliver the first slice.', 'Deliver the earlier slice.')
+                $mapping = [pscustomobject][ordered]@{
+                    schema = 'skalary/work-hierarchy-mapping@1'
+                    repository = 'owner/repo'
+                    items = [ordered]@{
+                        '111aaa' = & $newMappingEntry $first 11 '101' $oldTitle $oldManagedBody
+                    }
+                }
+                $remote = & $newRemoteIssue $first 11 '101' $oldTitle "human prefix`n$oldManagedBody`nhuman suffix"
+                $provider = New-WorkHierarchyProvider -Name github -Read ({
+                    param($Request)
+                    return $remote
+                }.GetNewClosure()) -Write { throw 'dry run must not write' }
+
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                $update = $dryRun.actions | Where-Object subject -eq 'item:111aaa'
+
+                $update.kind | Should -Be 'update'
+                $update.detail.title | Should -Be $first.title
+                $update.detail.body | Should -Be "human prefix`n$($first.managedBody)`nhuman suffix"
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
+        It 'refuses remote managed edits and malformed markers' {
+            $fixture = & $newFixture
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $first = $projection.children[0]
+                $mapping = [pscustomobject][ordered]@{
+                    schema = 'skalary/work-hierarchy-mapping@1'
+                    repository = 'owner/repo'
+                    items = [ordered]@{
+                        '111aaa' = & $newMappingEntry $first 11 '101' $first.title $first.managedBody
+                    }
+                }
+                $remoteEdited = $first.managedBody.Replace('First acceptance.', 'Human remote edit.')
+                $remote = & $newRemoteIssue $first 11 '101' $first.title $remoteEdited
+                $provider = New-WorkHierarchyProvider -Name github -Read ({
+                    param($Request)
+                    return $remote
+                }.GetNewClosure()) -Write { throw 'dry run must not write' }
+
+                $editedRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                ($editedRun.actions | Where-Object subject -eq 'item:111aaa').reason |
+                    Should -Be 'managed-body-remote-change'
+
+                $remote.body = '<!-- skalary:work-hierarchy:plan:111aaa:start -->broken'
+                $markerRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                ($markerRun.actions | Where-Object subject -eq 'item:111aaa').reason |
+                    Should -Be 'duplicate-or-nested-marker'
+                $markerRun.hasRefusals | Should -BeTrue
+
+                $remote.body = "$($first.managedBody)`n<!-- skalary:work-hierarchy:plan:111aaa:bogus -->"
+                $extraMarkerRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+                ($extraMarkerRun.actions | Where-Object subject -eq 'item:111aaa').reason |
+                    Should -Be 'malformed-marker'
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
+        It 'keeps mapping refusals in parent-then-child item order' {
+            $fixture = & $newFixture
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $first = $projection.children[0]
+                $mapping = [pscustomobject][ordered]@{
+                    schema = 'skalary/work-hierarchy-mapping@1'
+                    repository = 'owner/repo'
+                    items = [ordered]@{
+                        '111aaa' = [pscustomobject]@{
+                            kind = $first.kind
+                            number = 11
+                            providerId = 'invalid'
+                            titleHash = Get-WorkHierarchyDigest $first.title
+                            managedBodyHash = Get-WorkHierarchyDigest $first.managedBody
+                        }
+                    }
+                }
+                $provider = New-WorkHierarchyProvider -Name github -Read {
+                    throw 'invalid mapping identity must be refused before remote reads'
+                } -Write { throw 'dry run must not write' }
+
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping `
+                    -Provider $provider
+
+                @($dryRun.actions | Select-Object -First 3 | ForEach-Object subject) |
+                    Should -Be @('item:a1b2c3', 'item:111aaa', 'item:222bbb')
+                ($dryRun.actions | Where-Object subject -eq 'item:111aaa').kind | Should -Be 'refuse'
+            }
+            finally {
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
         }
     }
 }
