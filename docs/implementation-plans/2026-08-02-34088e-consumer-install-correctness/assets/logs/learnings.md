@@ -11,3 +11,8 @@ Phase: 1
 Phase: 2
 
 - [2.2] [trigger:rework>1] Scaffold lifecycle evidence must invoke installed production owners and compare complete entry snapshots against owner-specific manifest declarations; file-only test shims hide escapes and mutation.
+
+## Learnings Capture
+Phase: 3
+
+No entries for this phase.

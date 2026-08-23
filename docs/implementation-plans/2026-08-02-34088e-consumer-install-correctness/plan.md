@@ -46,7 +46,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Distribution proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Use current plugin sync, version, registry, marketplace, dogfood, and test infrastructure to converge changed payloads. Add `test:ConsumerInstall.DistributionDrift` and run focused install tests, structural evals, and normal repository validation without introducing a separate probe schema or hosted proof protocol (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Use current plugin sync, version, registry, marketplace, dogfood, and test infrastructure to converge changed payloads. Add `test:ConsumerInstall.DistributionDrift` and run focused install tests, structural evals, and normal repository validation without introducing a separate probe schema or hosted proof protocol (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
 
 ## Finalization (conditional)
 

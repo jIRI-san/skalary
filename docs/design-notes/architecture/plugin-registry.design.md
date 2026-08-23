@@ -247,6 +247,12 @@ does not use source payloads, network access, provider credentials, or skipped-s
 The lifecycle proves non-empty starter content, safe reruns and modified-target preservation where
 applicable, declaration-bound output paths, mutation-free hostile refusal, and successful retry.
 
+`Test-ConsumerDistributionDrift` composes the existing detect-only plugin-script bundle, registry,
+marketplace, and dogfood gates in isolated processes and compares content snapshots of every
+distribution-owned surface across the run. Those production gates remain authoritative for payload
+hashes and plugin versions; the consumer suite adds no parallel distribution schema or hosted proof
+protocol.
+
 ## Skill Size Cap
 
 A `SKILL.md` is loaded in full on every invocation of its skill, so its size is a recurring

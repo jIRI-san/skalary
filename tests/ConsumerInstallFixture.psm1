@@ -1277,6 +1277,101 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
     return @($results)
 }
 
+function Test-ConsumerDistributionDrift {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SourceRepoRoot)
+
+    $sourceRoot = [System.IO.Path]::GetFullPath($SourceRepoRoot)
+
+    function Get-DistributionSnapshot {
+        $entries = [System.Collections.Generic.List[string]]::new()
+        foreach ($relativeRoot in @('plugins', '.github')) {
+            $root = Join-Path $sourceRoot $relativeRoot
+            if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+                $entries.Add("M:$relativeRoot")
+                continue
+            }
+
+            $entries.Add("D:$relativeRoot")
+            foreach ($entry in Get-ChildItem -LiteralPath $root -Recurse -Force) {
+                $relative = [System.IO.Path]::GetRelativePath($sourceRoot, $entry.FullName).Replace('\', '/')
+                if ($entry.LinkType) {
+                    $entries.Add("L:$relative=$($entry.LinkTarget)")
+                }
+                elseif ($entry.PSIsContainer) {
+                    $entries.Add("D:$relative")
+                }
+                else {
+                    $entries.Add("F:$relative=$(Get-ConsumerInstallSha256 -Path $entry.FullName)")
+                }
+            }
+        }
+
+        foreach ($relativePath in @('registry.json', 'README.md')) {
+            $path = Join-Path $sourceRoot $relativePath
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                $entries.Add("F:$relativePath=$(Get-ConsumerInstallSha256 -Path $path)")
+            }
+            else {
+                $entries.Add("M:$relativePath")
+            }
+        }
+
+        return [string[]]@($entries | Sort-Object)
+    }
+
+    $before = @(Get-DistributionSnapshot)
+    $checks = [System.Collections.Generic.List[object]]::new()
+    foreach ($definition in @(
+            [pscustomobject]@{
+                Name      = 'plugin-script-bundles'
+                Script    = 'Sync-PluginScripts.ps1'
+                Arguments = @('-WhatIf')
+            },
+            [pscustomobject]@{
+                Name      = 'registry'
+                Script    = 'Test-Registry.ps1'
+                Arguments = @()
+            },
+            [pscustomobject]@{
+                Name      = 'marketplace'
+                Script    = 'Build-Marketplace.ps1'
+                Arguments = @('-WhatIf')
+            },
+            [pscustomobject]@{
+                Name      = 'dogfood'
+                Script    = 'Sync-Dogfood.ps1'
+                Arguments = @('-WhatIf')
+            }
+        )) {
+        $scriptPath = Join-Path $sourceRoot "scripts/skalary/$($definition.Script)"
+        $result = Invoke-SuiteFixtureProcess `
+            -WorkingDirectory $sourceRoot `
+            -TimeoutSeconds 120 `
+            -ArgumentList (@(
+                '-NoProfile'
+                '-File'
+                $scriptPath
+                '-RepoRoot'
+                $sourceRoot
+            ) + @($definition.Arguments))
+        $checks.Add([pscustomobject]@{
+                Name     = [string]$definition.Name
+                ExitCode = [int]$result.ExitCode
+                Output   = [string]$result.Output
+            })
+    }
+    $after = @(Get-DistributionSnapshot)
+    $changes = @(Compare-Object -ReferenceObject $before -DifferenceObject $after -SyncWindow 0 |
+            ForEach-Object { "$($_.SideIndicator) $($_.InputObject)" })
+
+    return [pscustomobject]@{
+        Checks    = @($checks)
+        Unchanged = $changes.Count -eq 0
+        Changes   = $changes
+    }
+}
+
 function Remove-ConsumerInstallFixture {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Fixture)
@@ -1288,4 +1383,4 @@ function Remove-ConsumerInstallFixture {
 
 Export-ModuleMember -Function Get-ConsumerInstallManifestCatalog, New-ConsumerInstallFixture,
 Test-ConsumerInstallInventory, Test-ConsumerRuntimeReferenceClosure, Invoke-ConsumerInstalledSmokeMatrix,
-Invoke-ConsumerFirstUseScaffoldLifecycle, Remove-ConsumerInstallFixture
+Invoke-ConsumerFirstUseScaffoldLifecycle, Test-ConsumerDistributionDrift, Remove-ConsumerInstallFixture

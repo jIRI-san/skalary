@@ -375,4 +375,20 @@ Describe 'foreign consumer plugin installation' {
         (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
             Should -BeTrue -Because 'owner probes must leave the shared foreign fixture unchanged'
     }
+
+    It 'test:ConsumerInstall.DistributionDrift keeps generated distribution surfaces converged without mutation' {
+        $distribution = Test-ConsumerDistributionDrift -SourceRepoRoot $script:repoRoot
+
+        @($distribution.Checks.Name) |
+            Should -Be @('plugin-script-bundles', 'registry', 'marketplace', 'dogfood')
+        foreach ($check in @($distribution.Checks)) {
+            $check.ExitCode | Should -Be 0 -Because (
+                "$($check.Name) remains the production drift authority: $($check.Output)"
+            )
+        }
+        $distribution.Unchanged | Should -BeTrue -Because (
+            'detect-only distribution checks must not mutate distribution-owned content: ' +
+            ($distribution.Changes -join '; ')
+        )
+    }
 }

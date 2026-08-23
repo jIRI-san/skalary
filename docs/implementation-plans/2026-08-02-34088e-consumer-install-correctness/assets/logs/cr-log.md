@@ -53,3 +53,10 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Med] Confinement accepts baseline mutations declared by other scaffold owners instead of restricting changes to the active owner.
 - [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=3 outcome=findings summary=med=3 run=step-2-2-final-review
 - [2.2] [src:note] [sev:Low] review-cycle-decision stage=step-2.2 after=3 action=wrap
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:code-review] [sev:Med] Distribution mutation check compared only porcelain status, so writes to already-dirty files could pass unnoticed; snapshot distribution-owned content instead.
+- [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=1 outcome=findings summary=1-med-run-distribution-step-review
+- [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=2 outcome=clean summary=0-findings-run-distribution-fix-review

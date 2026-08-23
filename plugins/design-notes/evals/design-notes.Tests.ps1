@@ -42,9 +42,15 @@ Describe 'design-notes structural evals' {
             }
         }
 
-        # The skill must reference both bundled templates and the governance index.
-        @($resolvedTargets | Where-Object { $_ -match '/assets/templates/design-notes-index\.template\.md$' }).Count | Should -BeGreaterThan 0
-        @($resolvedTargets | Where-Object { $_ -match '/assets/templates/design-note-writing-style\.template\.md$' }).Count | Should -BeGreaterThan 0
+        # The skill delegates scaffold writes to the installed owner and still links the governance index.
+        $raw | Should -Match ([regex]::Escape('.github/skills/design-notes/scripts/Initialize-DesignNotes.ps1'))
+        @(
+            $script:manifest.files |
+                Where-Object {
+                    [string]$_.src -ceq 'skills/design-notes/scripts/Initialize-DesignNotes.ps1' -and
+                    [string]$_.dest -ceq 'skills/design-notes/scripts/Initialize-DesignNotes.ps1'
+                }
+        ).Count | Should -Be 1
         @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
     }
 
@@ -98,5 +104,10 @@ Describe 'design-notes structural evals' {
         $resolved = Test-ReferencedFile -BasePath $script:pluginRoot -RelativePath $Src
         [string]$resolved.Replace('\', '/') | Should -Match ([regex]::Escape($Src) + '$')
         Test-Path -LiteralPath (Join-Path $script:pluginRoot $Src) -PathType Leaf | Should -BeTrue
+
+        $initializer = Get-Content -LiteralPath (
+            Join-Path $script:pluginRoot 'skills/design-notes/scripts/Initialize-DesignNotes.ps1'
+        ) -Raw
+        $initializer | Should -Match ([regex]::Escape([System.IO.Path]::GetFileName($Src)))
     }
 }
