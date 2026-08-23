@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/review/review-concerns.schema.json",
+  "title": "Skalary review concern registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema",
+    "concerns"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../schemas/review/review-concerns.schema.json"
+    },
+    "schema": {
+      "const": "skalary/review-concerns@1"
+    },
+    "concerns": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/concern"
+      }
+    }
+  },
+  "$defs": {
+    "singleLine": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\r\\n{}]+$"
+    },
+    "focusAreas": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/singleLine"
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "focusAreas"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/singleLine"
+        },
+        "focusAreas": {
+          "$ref": "#/$defs/focusAreas"
+        }
+      }
+    },
+    "ledgerCategory": {
+      "type": "string",
+      "pattern": "^[a-z][a-z-]*\\.md$",
+      "maxLength": 64
+    },
+    "concern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "sharedGuidance",
+        "ledger",
+        "variants"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "security",
+            "correctness-reliability",
+            "architecture-patterns",
+            "performance",
+            "testing-evidence",
+            "maintainability-consistency",
+            "operability-observability"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z &]+$",
+          "maxLength": 64
+        },
+        "sharedGuidance": {
+          "$ref": "#/$defs/singleLine"
+        },
+        "ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cr",
+            "dr"
+          ],
+          "properties": {
+            "cr": {
+              "$ref": "#/$defs/ledgerCategory"
+            },
+            "dr": {
+              "$ref": "#/$defs/ledgerCategory"
+            }
+          }
+        },
+        "variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cr",
+            "dr"
+          ],
+          "properties": {
+            "cr": {
+              "$ref": "#/$defs/variant"
+            },
+            "dr": {
+              "$ref": "#/$defs/variant"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,3 +11,8 @@ Phase: 0
 - [-] [src:note] [sev:Med] dr: bind migration parity to immutable Git bytes and keep live generated-output verification separate
 - [-] [src:note] [sev:High] dr: after round 3, keep receipt-safe dogfood deletion, durable no-journal version debt, and Slow-tier runtime authority as explicit Known Plan Issues
 - [-] [src:note] [sev:High] readiness: all known plan issues resolved; final correctness blocker recheck found none
+
+## Capture
+Phase: 1
+
+No entries for this phase.

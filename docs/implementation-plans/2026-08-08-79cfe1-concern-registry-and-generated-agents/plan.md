@@ -34,7 +34,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add one validated `tools/review-concerns.json` source for the settled seven concern ids, shared guidance, CR/DR variants, and concern-to-ledger mappings, plus one shared agent template that keeps injection guards, read-only tools, context order, and output shape outside free-form substitutions. Add `test:ReviewConcerns.RegistryAndTemplate` (REQ-1, REQ-4, RISK-1, RISK-2, RISK-4) `L`
+- [x] 1.1 Add one validated `tools/review-concerns.json` source for the settled seven concern ids, shared guidance, CR/DR variants, and concern-to-ledger mappings, plus one shared agent template that keeps injection guards, read-only tools, context order, and output shape outside free-form substitutions. Add `test:ReviewConcerns.RegistryAndTemplate` (REQ-1, REQ-4, RISK-1, RISK-2, RISK-4) `L`
 - [ ] 1.2 Implement deterministic `Sync-ReviewConcerns.ps1` generation for all 14 CR/DR concern agents and both mapping views. Validate and render all outputs before writing, confine managed paths, support `-WhatIf`, and preserve explicit per-surface differences; add `test:ReviewConcerns.DeterministicGeneration` (REQ-2, REQ-4, RISK-1, RISK-2, RISK-4) [after: 1.1] `L`
 
 ## Phase 2: Adoption and drift proof

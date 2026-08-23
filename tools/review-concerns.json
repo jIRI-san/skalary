@@ -1,0 +1,252 @@
+{
+  "$schema": "../schemas/review/review-concerns.schema.json",
+  "schema": "skalary/review-concerns@1",
+  "concerns": [
+    {
+      "id": "security",
+      "label": "Security",
+      "sharedGuidance": "Treat security as trust-boundary enforcement: report paths that let untrusted input gain authority or expose sensitive data.",
+      "ledger": {
+        "cr": "security.md",
+        "dr": "security.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report exploitable weaknesses and trust-boundary defects in the changed code. Ignore correctness bugs with no security consequence - another reviewer owns those.",
+          "focusAreas": [
+            "OWASP Top 10: injection (SQL, command, path, log, prompt), broken authentication, insecure deserialization, sensitive data exposure, security misconfiguration, missing access control",
+            "Hardcoded secrets, credentials, tokens, or connection strings; secrets written to logs, receipts, or error messages",
+            "Trust boundaries: input crossing from an untrusted source without validation, canonicalization, or size bounds",
+            "Path confinement: user- or model-supplied paths joined without canonicalize-then-confine; symlink escapes; writes outside a declared allowlist",
+            "Command and script execution built from interpolated strings rather than bound argument arrays",
+            "Authorization: missing or inconsistent permission checks, privilege escalation via CI/workflow paths, credentials available to code an attacker can influence",
+            "Injection carried through data that later becomes instructions - harvested text, ledger entries, plan content, model-authored free text"
+          ]
+        },
+        "dr": {
+          "scope": "Report trust-boundary, secrets, and confinement gaps in the plan itself: controls the plan omits, controls it describes in prose where enforcement must be code, and steps that widen an attack surface without a named guard.",
+          "focusAreas": [
+            "Trust boundaries the plan crosses without naming a validation, canonicalization, or confinement step",
+            "Controls the plan states as prose expectations where only executable enforcement holds (\"the agent will only write under X\")",
+            "Secrets, tokens, and credential handling: where they come from, who can read them, what runs with them",
+            "Path confinement and write-scope: every new writer needs a declared, testable allowlist",
+            "Execution surfaces the plan adds - workflows, actions, hooks, generated scripts - and who can influence their inputs",
+            "Injection paths: untrusted content that later reaches an instruction position (prompts, skills, agents, harvested notes)",
+            "Mitigations claimed for a risk that the mitigation cannot actually observe or enforce"
+          ]
+        }
+      }
+    },
+    {
+      "id": "correctness-reliability",
+      "label": "Correctness & Reliability",
+      "sharedGuidance": "Trace whether stated inputs and state transitions produce the intended result, including failure and boundary paths.",
+      "ledger": {
+        "cr": "error-handling.md",
+        "dr": "error-handling.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report defects that make the code produce a wrong result or fail badly. Ignore style, naming, and pure performance concerns.",
+          "focusAreas": [
+            "Logic errors, inverted conditions, off-by-one, wrong operator, incorrect operation sequencing",
+            "Missing or swallowed error handling; failures reported as success; broad catches that hide the cause",
+            "Fail-loud expectations violated: a defined error condition that silently defaults instead of throwing",
+            "Null or missing-value dereferences, unhandled switch/state cases, empty and single-element collections",
+            "Boundary conditions and off-nominal flows: zero, negative, maximum, duplicate, and out-of-order inputs",
+            "Concurrency: shared mutable state without synchronization, thread-unsafe collections, lock inversion, race conditions",
+            "Async misuse: fire-and-forget where the result matters, missing cancellation propagation, sync-over-async deadlocks",
+            "Retries, timeouts, and idempotency: unbounded retries, no timeout, non-idempotent operations retried"
+          ]
+        },
+        "dr": {
+          "scope": "Report logic gaps in the plan: steps whose stated outcome does not follow from their inputs, missing failure handling, and ordering that leaves an intermediate state broken.",
+          "focusAreas": [
+            "Steps whose acceptance criteria do not actually prove the behaviour they claim",
+            "Failure paths the plan never mentions: what happens when a step half-completes, or a dependency is absent",
+            "Ordering hazards: a step that must precede another but is not wired with `[after: X.Y]`",
+            "State left inconsistent between steps - a migration split across two commits, a writer changed before its reader",
+            "Retry, timeout, idempotency, and resume semantics for anything long-running or interruptible",
+            "Concurrency and reentrancy the plan introduces without saying who serializes it",
+            "Assumptions asserted rather than verified - \"this cannot happen\" without a guard"
+          ]
+        }
+      }
+    },
+    {
+      "id": "architecture-patterns",
+      "label": "Architecture & Patterns",
+      "sharedGuidance": "Evaluate the change against repository architecture, documented patterns, and the responsibilities of each layer.",
+      "ledger": {
+        "cr": "consistency.md",
+        "dr": "consistency.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report deviations from the loaded design notes and architecture contracts, and structural choices that fight the existing codebase. Ignore local style nits.",
+          "focusAreas": [
+            "Deviations from the patterns documented in the loaded design notes",
+            "Violations of a `locked` contract in the architecture-notes tier",
+            "New abstractions or types that duplicate an existing one, or conflict with established naming",
+            "Inheritance used where composition fits; reflection or dynamic typing where a strongly-typed path exists",
+            "Layering: a lower layer reaching into a higher one, a helper that knows about its callers, a cycle introduced",
+            "Responsibility placement: logic in an orchestrator that belongs in a script, or prose rules where deterministic code exists",
+            "New behaviour that should be gated behind a flag or a declared extension point but is not"
+          ]
+        },
+        "dr": {
+          "scope": "Report architectural gaps in the plan: conflicts with locked contracts, abstractions that duplicate existing ones, and decomposition that does not fit the codebase it lands in.",
+          "focusAreas": [
+            "Plan steps that contradict a `locked` architecture contract or a documented design-note pattern",
+            "New components that duplicate an existing capability instead of extending it",
+            "Responsibility placement: deterministic work assigned to a prompt, or judgment assigned to a script",
+            "Layering and dependency direction between the components the plan adds",
+            "Extension points and flags the plan should declare but leaves implicit",
+            "Decomposition: phases that cannot be executed or reverted independently",
+            "Design decisions recorded without the constraint that forced them, so the next plan cannot reason about them"
+          ]
+        }
+      }
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "sharedGuidance": "Focus on material, realistically reachable cost growth rather than speculative micro-optimizations.",
+      "ledger": {
+        "cr": "performance.md",
+        "dr": "performance.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report work that costs materially more time, memory, or I/O than it needs to. Ignore micro-optimizations with no measurable effect.",
+          "focusAreas": [
+            "Hot-path I/O: synchronous or per-item file, network, or process calls inside a loop",
+            "N+1 access patterns; repeated full scans where an index or a single batched call exists",
+            "Unbounded growth: collections, caches, logs, or receipts that never shed entries",
+            "Resource leaks: undisposed disposables, unclosed streams or handles, connection-pool exhaustion",
+            "Unnecessary allocations, copies, or serialize/deserialize round-trips on a frequently executed path",
+            "Repeated recomputation of a value that is stable for the run",
+            "Algorithmic complexity that degrades superlinearly with a realistic input size"
+          ]
+        },
+        "dr": {
+          "scope": "Report plan steps whose cost profile is unstated or unbounded: per-item work that scales badly, repeated expensive operations, and missing budgets.",
+          "focusAreas": [
+            "Steps whose cost grows with repository size, plan count, file count, or invocation count without a stated bound",
+            "Repeated expensive operations (subprocess launches, full-tree scans, model invocations) inside a per-item loop",
+            "Missing budgets: fan-out, batch size, timeout, or credit cost the plan never quantifies",
+            "Unbounded accumulation in files the plan writes (ledgers, logs, receipts, indexes)",
+            "Caching or memoization the plan assumes but never specifies",
+            "Latency-sensitive paths given no target, so a regression is undetectable"
+          ]
+        }
+      }
+    },
+    {
+      "id": "testing-evidence",
+      "label": "Testing & Evidence",
+      "sharedGuidance": "Judge whether deterministic evidence can fail when the claimed behavior or invariant is broken.",
+      "ledger": {
+        "cr": "testing.md",
+        "dr": "plan-structure.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report gaps between what the change does and what its tests actually prove. Ignore production-code defects that tests would merely have caught - report the missing proof, not the bug.",
+          "focusAreas": [
+            "Behaviour changed without a test that fails when the change is reverted",
+            "Tests asserting incidental snapshots instead of the invariant the code must hold",
+            "Assertions that cannot fail: tautologies, over-broad matchers, results captured from the wrong stream",
+            "Error and boundary paths left untested while the happy path is covered",
+            "Fixture quality: fixtures that encode the implementation rather than the contract, shared mutable fixtures, hidden ordering dependencies",
+            "Flaky patterns: real clocks, real network, sleeps, temp-path collisions, dependence on test execution order",
+            "Typed evidence markers that do not resolve to a real named test or a real file assertion"
+          ]
+        },
+        "dr": {
+          "scope": "Report weak or missing evidence in the plan: requirements whose acceptance criteria cannot fail, untyped markers, and phases that gate on nothing.",
+          "focusAreas": [
+            "Requirements whose acceptance criteria are prose opinions rather than typed, runnable markers",
+            "Evidence markers that would pass trivially, or that name a test which does not exist",
+            "Phases that close without proving the requirement they claim to satisfy",
+            "Risks with a mitigation that no step implements and no marker verifies",
+            "Steps that change behaviour with no corresponding test obligation",
+            "Verification assigned to a human where a deterministic check is available",
+            "Missing negative cases: nothing in the plan proves the new guard actually refuses"
+          ]
+        }
+      }
+    },
+    {
+      "id": "maintainability-consistency",
+      "label": "Maintainability & Consistency",
+      "sharedGuidance": "Prefer one consistent, documented mechanism and report drift that makes future changes unsafe.",
+      "ledger": {
+        "cr": "consistency.md",
+        "dr": "consistency.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report things that make the code harder to change safely: drift from the surrounding conventions, duplication, and dead weight. Ignore defects another lens owns.",
+          "focusAreas": [
+            "Naming drift: identifiers, files, and sections that do not match how the surrounding code names the same idea",
+            "Duplication: identical or near-identical logic in more than three places - name the extraction point",
+            "Dead code: unreachable branches, unused variables, fields, parameters, or never-called functions",
+            "Commented-out code left behind (as distinct from explanatory comments)",
+            "Comments that restate the code, or that contradict what the code now does",
+            "File and module organization inconsistent with the established layout",
+            "Documentation and design notes left describing the previous behaviour after the change",
+            "Style deviation from the surrounding file: formatting, structure, and idiom"
+          ]
+        },
+        "dr": {
+          "scope": "Report plan content that will leave the repository inconsistent: undocumented conventions, duplicated mechanisms, and documentation the plan changes but never syncs.",
+          "focusAreas": [
+            "Two mechanisms introduced for one job, or a new mechanism duplicating an existing one",
+            "Conventions the plan relies on but never writes down, so the next plan cannot follow them",
+            "Design notes and READMEs the plan invalidates without a step to update them",
+            "Naming that conflicts with established vocabulary for the same concept",
+            "Deletions the plan implies but never schedules, leaving dead files behind",
+            "Steps that leave two sources of truth for one fact"
+          ]
+        }
+      }
+    },
+    {
+      "id": "operability-observability",
+      "label": "Operability & Observability",
+      "sharedGuidance": "Evaluate whether failures are visible, diagnosable, recoverable, and safe to retry.",
+      "ledger": {
+        "cr": "observability.md",
+        "dr": "observability.md"
+      },
+      "variants": {
+        "cr": {
+          "scope": "Report changes that are hard to run, diagnose, or undo in the environments they ship to. Ignore defects another lens owns.",
+          "focusAreas": [
+            "Failures that surface without the context needed to diagnose them: no path, no identifier, no cause",
+            "Errors swallowed or downgraded to a warning, so a broken run looks green",
+            "Missing or unstructured logging on paths an operator has to debug; noisy logging that buries the signal",
+            "No receipt, exit code, or machine-readable output where an automated caller needs one",
+            "Exit codes and status conventions inconsistent with the rest of the tooling",
+            "Irreversible actions with no rollback path, dry-run, or confirmation",
+            "Configuration and environment assumptions that fail late and unclearly when unmet",
+            "Idempotency: rerunning the same command after a partial failure must be safe and predictable"
+          ]
+        },
+        "dr": {
+          "scope": "Report operability gaps in the plan: steps with no diagnosable failure mode, no rollback, or no visible receipt of what happened.",
+          "focusAreas": [
+            "Steps whose failure would be invisible or indistinguishable from success",
+            "Missing rollback for anything that mutates shared or external state",
+            "No receipt, log, or index recording what a step did, so a later phase cannot verify it",
+            "Human handoffs without the Steps/Verify/Rollback detail an operator needs in one pass",
+            "Resume semantics after an interrupted run left unspecified",
+            "Exit-code and signalling contracts between components the plan wires together",
+            "Diagnosability of the new components: what an operator reads when they misbehave"
+          ]
+        }
+      }
+    }
+  ]
+}
