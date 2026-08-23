@@ -140,6 +140,21 @@
         "skill"
       ],
       "version": "1.0.26"
+    },
+    {
+      "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
+      "license": "MIT",
+      "name": "work-hierarchy-sync",
+      "source": "plugins/work-hierarchy-sync",
+      "strict": false,
+      "tags": [
+        "github",
+        "issues",
+        "planning",
+        "skill",
+        "sync"
+      ],
+      "version": "1.0.1"
     }
   ]
 }

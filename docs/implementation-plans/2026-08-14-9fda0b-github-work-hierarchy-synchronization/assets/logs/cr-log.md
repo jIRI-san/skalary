@@ -56,3 +56,7 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Low] The smoke runbook suggested the Git common directory for disposable mapping state; prefer a gitignored or out-of-tree operator-owned path.
 - [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=2 outcome=findings summary=3-low run-step-3-1-duck
 - [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=3 outcome=clean summary=clean run-step-3-1-final
+- [3.2] [src:code-review] [sev:High] The installed skill imported only GitHubWorkHierarchy, so projection, mapping, dry-run, and apply commands were unavailable; import WorkHierarchy explicitly and assert the public workflow surface.
+- [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=1 outcome=findings summary=1-high run-step-3-2-review
+- [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=2 outcome=clean summary=clean run-step-3-2-rereview
+- [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=3 outcome=clean summary=clean run-step-3-2-duck

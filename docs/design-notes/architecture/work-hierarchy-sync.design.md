@@ -3,7 +3,7 @@ description: Deterministic local epic and plan projection plus the narrow provid
 globs:
   - scripts/skalary/*WorkHierarchy*
   - plugins/work-hierarchy-sync/**
-  - tests/skalary/WorkHierarchy.Tests.ps1
+  - tests/skalary/WorkHierarchy*.Tests.ps1
 ---
 
 # Work Hierarchy Synchronization
@@ -143,3 +143,15 @@ runs without credentials. An operator may additionally smoke-test a disposable r
 
 Never automate this smoke in CI, store a token in repository files, treat a live pass as required evidence,
 or run it against production planning issues.
+
+## Distribution
+
+The `work-hierarchy-sync` plugin installs the interactive skill and a byte-identical module closure under
+`.github/skills/work-hierarchy-sync/`. `Sync-PluginScripts.ps1` is the only writer of the bundled
+`GitHubWorkHierarchy.psm1`, `WorkHierarchy.psm1`, and `PlanState.psm1` copies. The plugin manifest, registry,
+marketplace catalog, and dogfood copies use the existing repository generators; no feature-specific
+installer or activation path exists.
+
+`WorkHierarchyConsumerInstall.Tests.ps1` installs only manifest-declared files into an isolated repository,
+loads all three modules from that installed boundary, and runs projection plus a mocked read-only GitHub dry
+run. Live credentials are never part of installed-consumer or generated-drift evidence.
