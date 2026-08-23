@@ -43,6 +43,7 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 
 ## Prior art
 
+- [2026-08-22 simplification review](../../epics/2026-08-22-plan-simplification-review.md) — approved deriving corroboration in the existing report and rejected review-run v2, policy/version maps, large scoring/admission machinery, and a second publication lifecycle.
 - `plugins/code-review/skills/cr/assets/dispatch-guide.md` — declared/served analysis, Pro-tier
   degradation path, model roster.
 - `scripts/skalary/Build-ReviewReport.ps1` — merge keys, elevation rule, header construction.
@@ -53,11 +54,11 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 
 ## Settled boundary
 
-This child depends on `c21cdc review-report-as-data`. `c21cdc` owns immutable v1 frozen-task/result
-schemas, validation, persistence, derived attendance, and deterministic rendering. This child consumes
-that boundary without rewriting it: existing v1 authority remains readable and unchanged, while new CR/DR
-runs submit a raw result contract and publish an explicit engine-derived v2 authority. Served-model identity
-remains unobservable; similarity is evidence against independence, while its absence is not identity proof.
+This child depends on archived `c21cdc review-report-as-data`. `c21cdc` owns review-run v1 frozen-task/result
+schemas, validation, persistence, derived attendance, deterministic rendering, and retained evidence. This
+child extends the existing report with engine-derived corroboration fields without replacing that lifecycle.
+Served-model identity remains unobservable; similarity is evidence against independence, while its absence
+is not identity proof.
 
 ## Cross-plan index consultation
 
@@ -65,7 +66,7 @@ Consulted on 2026-08-16 with:
 
 `Get-PlanIndex.ps1 -Filter 'corroborat|review[- ]run|review evidence|model corroboration|finding corroboration' -Format Json`
 
-- `c21cdc` — reuse its v1 authority/lifecycle records; extend RISK-7; resolve RISK-10 through explicit v2 ownership.
+- `c21cdc` — reuse and extend its v1 report and authority/lifecycle records; do not introduce v2 ownership.
 - `863d97` — reuse the decision that marker/receipt truth stays separate from review attendance.
 - `34088e` — reuse REQ-6's owner-local, versioned contract descriptor pattern.
 - `583308` — reuse the decision that ordinary Pester is the typed `test:` evidence host.
@@ -75,29 +76,10 @@ The index reported `docs/implementation-plans/2026-08-14-cda9da-architecture-tes
 That error makes the generated index incomplete for the malformed entry; no corroboration overlap is known,
 and this plan does not infer or reconstruct records from it.
 
-## Design review round 1 decisions
+## Superseded design-review mechanics
 
-- Fail-closed suspicious evidence is accepted even when malicious echo suppresses elevation; findings remain visible and never gain confidence.
-- Suspicious-pair evidence is bounded by one deterministic witness per affected finding plus complete pair count/digest.
-- Frozen v1 runs receive a completion bridge; all new freezes bind v2 publication and the policy digest.
-- Admission partitioning is merge-group atomic, compact retained evidence carries v2 corroboration commitments, and rollout is reader-first.
-- The complete lexical policy is a shipped schema-validated descriptor. Canonical authority records pair counts, not runtime timing.
-
-## Design review round 2 decisions
-
-- A single unpartitionable group produces permanent terminal admission@2 for that run id; identical replay remains exit 3.
-- Reader-first deployment does not create v2 freezes. Activation changes new freeze and publish together; frozen runs always finish under their bound policy.
-- Finalization retains raw and effective severity, and any suspicion forces `needs-review` rather than approval.
-- Compact evidence uses aggregate commitments within the existing 8 KiB budget; raw input is retained as `review-result.<sha256>.json` and manifest role `rawResult`.
-- The reachable two-model candidate ceiling is 16,384, derived from shared roster/finding limits.
-
-## Design review round 3 decisions
-
-- Policy@1 is exactly two-model and ASCII-tokenized; direct pure-gate evidence covers synthetic count 16,385 while envelope evidence covers reachable 16,384.
-- Receipt@2 and terminal-status@2 expose engine-derived `needs-review`; caller approval is rejected and successful process exit remains 0.
-- The existing worker ceiling applies to the aggregate parent operation across all children and rollup; both CI platforms must report evidence before finalization.
-- Witnesses are derived identifiers/digests only, and retained evidence has a mandatory diagnosis floor within 8 KiB.
-- The engine version map pins policy descriptor digests; v2 has its own limits parity owner and explicit canonical schema paths.
+- Review rounds 1-3 established useful invariants: suspicious support only lowers confidence, raw findings remain visible, raw/effective severity stay distinct, and similarity never proves model identity.
+- Their v2 schema/lifecycle, policy descriptor, 16,384-item scoring envelope, partitioning/admission, witness commitments, and activation protocol are superseded by the simplicity decision.
 
 ## Architecture and implementation context
 

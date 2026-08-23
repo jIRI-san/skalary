@@ -1,41 +1,17 @@
 # Decisions
 
-<!-- Key decisions made during planning — one bullet per decision. Extended rationale goes in assets/decisions/<topic>.md. -->
+- **Keep the control plane on the host.** Child containers implement one plan; they never select siblings or mutate epic-run state.
+- **Reuse `Get-PlanState`.** Epic rollup and `NextChild` remain the graph/selection authority.
+- **Reuse the per-plan launcher.** Container creation, child execution, terminal outputs, and existing stop codes stay owned by current launcher machinery.
+- **Run one child at a time.** Sequential child execution is the complete v1; parallel children are deferred.
+- **Keep one small state file.** Only `epic`, `target`, `currentChild`, `branch`, `run`, and `outcome` persist for resume.
+- **Stop for operator merge.** The host verifies terminal output and remote head, then waits; it does not merge or push the target.
+- **Refresh after every merge.** Target and dependency graph are recomputed before another child is selected.
+- **Never skip failure.** Blocked, failed, or degraded outcomes remain visible and resumable.
+- **Use simplified final review.** Invoke `25aa23` when available; otherwise crosscheck epic intent and definition of done directly.
+- **Depend only on dispatch behavior.** `8a0644` is required for bounded orchestration. Folder naming, generated concerns, and coherency review are not core sequential-loop blockers.
+- **Reject prior expansion.** No Git-bundle transport, provider/state contract family, large exit matrix, capability audit, generated delivery concerns, finalization state machine, or evidence-only finalization PR is included.
 
-- **Extend `/ci <epic-id>`, not a new top-level skill.** `/ci` already resolves epics and consumes deterministic `NextChild`; a second skill would duplicate lifecycle semantics.
-- **Keep orchestration on the host.** The host owns target snapshots, epic graph, durable state, runtime lifecycle, verification, merge handoff, and operator-authorized resume; a container owns one child only.
-- **Sequential whole-child MVP.** One fresh container and child branch run at a time. Parallel children are deferred until non-overlapping scopes and shared fleet admission can be proven.
-- **Merged target state gates dependencies.** An unmerged completed child branch never satisfies a dependent; the host refreshes and recomputes after operator-approved merge.
-- **Pause on non-clean outcomes.** Failed, degraded, blocked, conflicting, or human-gated children stop the epic; rejected: silently skip to unrelated work.
-- **Reuse existing child execution.** The current container launcher, exit 42/43 contracts, receipts, and package rebundle loop remain the per-plan engine.
-- **Reuse the external host authority.** Epic state lives under `669ad3`'s verified host authority root and namespace protocol, not Git common dir. Total lock order is namespace, epic, fleet, coherency/review-run, ledger; external provider/model calls hold no repository lock.
-- **Share helpers, not publication state machines.** Reuse only stateless canonical JSON, digesting, confinement, and bounded atomic-replace helpers. Epic locks, publication generations, recovery, and cleanup remain domain-owned; review-run and migration keep their own authorities.
-- **Bound state and history exactly.** State is 64 KiB, receipt 8 KiB, manifest 4 KiB, 64 children, eight operator attempts per child, 128 launches, 64 rebundles, seven cumulative runtime days, eight delivery audits, and 16 reset archives. Append-only indexes survive completion/reset; payloads compact to verified digests after success.
-- **Persist target authority.** The first run records the selected target branch and OID; resume rejects target drift, and every post-merge advance starts from refreshed target state.
-- **Add an autopilot selector mode.** Preserve global `NextChild`; epic autopilot schedules one topologically ready child from one clean target snapshot, continues past ordinary unmet in-epic dependencies, and stops on terminal/non-clean or unresolvable blockers.
-- **Pin privileged authority and scope.** Persist graph membership/edges plus host/reviewer path digests at epic start. Any merged change requires explicit digest-bound operator authorization before later credentialed work.
-- **Require exact merge ancestry.** A verified child head must remain reachable from target HEAD. PR status and squash-equivalent content are insufficient in the MVP.
-- **Reserve before launch and verify runtime identity.** Persist nonce/run/epoch, separate operator/runtime/rebundle counters, original deadline, and cumulative budgets before container creation; labels are only selectors. Reattach verifies container ID, image digest, command, user, mounts, network, branch, and target, then inherits timeout/transcript/cleanup ownership.
-- **Do not auto-retry non-clean children.** Exit 43 remains the existing bounded child-local rebundle loop; every other failure, degradation, conflict, or human gate pauses for explicit remediation/resume.
-- **Require stale-safe resume.** Resume names an action and expected state digest; changed live facts must justify the transition. A stale request or unchanged failure cannot create another attempt.
-- **Keep Status read-only and actionable.** Status verifies only; Run and Reset own mutation. It emits state digest, allowed actions, prerequisites, exact identities/facts, progress, and Steps/Verify/Rollback.
-- **Keep the public command surface small.** Remove `Recover`: Run performs deterministic recoverable-state repair, Reset handles operator-attested abandonment, and Status stays read-only. Verified degradation uses process exit 5.
-- **Reset starts a new epoch, not a new history.** Preserve verified merges, reviews, transition indexes, and cumulative budgets; clear current wait/run authorization and attempt state only after fail-closed liveness proof.
-- **Separate state dimensions.** Run state, child outcome, wait kind, merge state, coherency verdict, reason, and process exit are orthogonal closed fields with one tested transition table.
-- **Defer live ADO epic execution.** First delivery supports GitHub and preserves a provider-neutral seam. This follows the governing epic non-goal; ADO activation requires a later plan with protected live integration evidence.
-- **Support live Windows and Linux hosts.** Windows retains Credential Manager; Linux uses authenticated `gh`/Azure CLI/environment token sources. Secrets never enter epic state or retained diagnostics.
-- **Bound provider operations.** Every provider call has 60 seconds; one reconcile cycle has five minutes. Structured output is bounded, repository/ref identity is explicit, and provider timeout never authorizes retry.
-- **Transport commits as bounded Git bundles.** Children receive Copilot authentication but no repository-write credential. They export a deterministic bounded bundle into host-retained authority; the host verifies/imports it, audits commits/paths, then performs expected-old-OID push and explicit-base PR creation.
-- **Bound child audit scale.** A child supports at most 256 commits, 4,096 changed paths, 32 MiB diff metadata, and 16 MiB provider output; one-over terminates the process tree and blocks handoff.
-- **Keep fleet and process admission separate.** `8a0644` continues to govern declared agent tasks within `/ci`; epic child containers use a fixed sequential cap of one, not a fabricated repo-wide fleet semaphore.
-- **Keep review-run v1 unchanged.** `epic-delivery@1` is owner-state family/version metadata. Its adapter freezes review-run v1 as `purpose=design` and `designSource.kind=rfc`, with exact eight slots, registry-generated variants, epic-associated storage, and existing verdict authority.
-- **Run one blocking delivery audit.** Already-merged work cannot be silently rewritten by reviewers. Findings or degraded attendance wait for a corrective child/plan and an entirely fresh source/review generation; only a clean verdict creates the epic-finalization PR.
-- **Bound review input and calls at the owner.** At most 64 children, 8 KiB per receipt, and 768 KiB including framing/metadata. The fleet owner authorizes eight logical and 16 attempted calls; admission occurs before the first run and projects before every merge.
-- **Seal finalization.** A clean verdict authorizes only an evidence-only PR with exact reviewed parent, path allowlist, and digest-bound bytes. Any other target advance invalidates the verdict.
-- **Bound runtime artifacts and cache.** Sanitized transcript head/tail is 256 KiB and retained for current plus eight attempts until completion/reset compaction. Image keys reuse the toolchain digest; retain three inactive images, 10 GiB, and 30 days, with active-image protection.
-- **Provide operational disablement.** `AUTOPILOT_DISABLE_EPIC=true` blocks Run and Reset at skill and script boundaries while Status remains available.
-- **Use scenario-level deterministic evidence.** A closed scenario/tier/platform inventory and outer completed-result gate prove unique non-skipped execution. Real Docker smoke remains supplemental, never required evidence. No merge polling, metric, health check, or third-party package is added.
-- **Add a provisional architecture contract.** `ARCH-Epic-Autopilot-V1` owns target authority, clone-wide state, sequential execution, merge proof, and final-coherency boundaries; generated human architecture and affected design notes update with it.
-- **Generalize dependency preflight before implementation.** Every declared dependency must be done, review-approved, evidence-clean, and digest-compatible before step 1.1 mutates the repository. The 006-only gate is replaced by a general installed gate.
-- **Keep acceptance phase-local.** Each requirement is authored and verifiable within one phase; final distribution has its own integration requirement rather than making early crosschecks wait on later artifacts.
-- **Keep implementation reversible.** Every repository change is rolled back by git revert; runtime merge handoffs and external branches/PRs are never deleted by reset or rollback automation.
+## Simplification decision
+
+The accepted 2026-08-22 cut is a thin host loop around existing rollup and launch behavior. Durable state is limited to the six fields needed to resume one current child.

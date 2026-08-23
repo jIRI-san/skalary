@@ -42,6 +42,7 @@ changes, that is out of scope and the epic's non-goal governs.
 
 ## Prior art
 
+- [2026-08-22 simplification review](../../epics/2026-08-22-plan-simplification-review.md) — approved one registry, deterministic generator, generated agents/mappings, and a drift test while rejecting generated-inventory, migration, transaction, and dogfood-recovery protocols.
 - `tests/skalary/ConcernAgents.Tests.ps1` — `test:concern-agents-complete` (seven per review type,
   declared in the manifest), injection-guard and read-only assertions.
 - `tests/skalary/DispatchGuide.Tests.ps1` — byte-identical shared guide, concern-ledger-map totals.
@@ -73,8 +74,7 @@ Consulted on 2026-08-16 with `Get-PlanIndex.ps1` using the topic filter
 - `docs/design-notes/project/copilot-customizations.design.md` — concern-agent and model-binding conventions.
 - `docs/design-notes/architecture/plugin-registry.design.md` — plugin source, dogfood, registry, marketplace, and version ownership.
 - `docs/design-notes/architecture/review-reporting.design.md` — CR/DR caller and review-run v1 boundaries.
-- `docs/design-notes/project/ci-gates.design.md` — gate inventory, host ownership, Fast/Slow tiers, and runtime budgets.
+- `docs/design-notes/project/ci-gates.design.md` — existing validation hosting and runtime boundaries reused by the drift test.
 - `docs/review-ledger/consistency.md` — generated payload changes must regenerate registry and marketplace data in the same commit.
 - `docs/review-ledger/testing.md` — determinism checks require clean rebuilds and non-blind mutation fixtures.
 - `docs/review-ledger/security.md` — machine declarations and write confinement must be enforced rather than asserted.
-- Archived plan `31a3ef` — subsequently activated the manifest-owned Slow tier, 1,800-second ceiling, separate CI gate, and over-budget exit-5 evidence reused by REQ-7.

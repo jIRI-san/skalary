@@ -1,25 +1,11 @@
 # Decisions
 
-<!-- Key decisions made during planning — one bullet per decision. Extended rationale goes in assets/decisions/<topic>.md. -->
+<!-- Key decisions made during planning — one bullet per decision. -->
 
-- **Test the installed shape, not the source tree.** Consumer fixtures must contain only declared installed payloads and first-use scaffolds.
-- **Keep installer confinement.** Rejected: post-install writes outside `.github/`; runtime owners materialize declared scaffolds on first use.
-- **Carry Cluster C explicitly.** The invocation cap, plan-size thresholds, and phase-budget default must derive from or be checked against canonical values; this handoff was previously dropped once.
-- **Distribution is part of correctness.** Payload, bundles, dogfood, manifests, marketplace, and registry updates are one change, not optional packaging follow-up.
-- **Fail loud on undeclared runtime dependencies.** Missing assets or source-tree fallbacks must not degrade into partial consumer behavior.
-- **Derive coverage from active manifests.** Rejected: a fixed plugin list or copied source wildcard; additions and retirements must change the required probe set automatically.
-- **Use one probe contract per active plugin.** Scripts execute from installed paths; markdown customizations prove parseability and dependency closure; external integrations may return only an exact, bounded, offline prerequisite refusal.
-- **Root scaffold scanning in the grammar.** The current declaration-derived root set is self-referential. `docs`, `schemas`, and `tools` references are checked even when no plugin declared that root yet.
-- **Keep limits owner-local.** Rejected: one global limits catalog. Plan authoring exposes one structured plan-workflow owner, review reporting exposes one review-schema owner, and the future fleet scheduler owns its concurrency cap; parity tests bind their consumers.
-- **Make future consumers declare themselves.** `8a0644` depends on this plan and must register its scheduler-owned cap with parity coverage rather than copying a literal into prose.
-- **Keep deterministic tests offline.** No consumer proof requires provider credentials, live GitHub, or network access; prerequisite paths are exact tested outcomes, not skips.
-- **Use container whole-plan execution with no new packages.** Existing PowerShell/Pester and repository helpers are sufficient; package or lockfile changes are out of scope.
-- **Consume retirement; do not re-own it.** `cda9da` owns tombstones, source identity, preview/apply state, journal/fault behavior, outcomes, and immutable fixture `tests/skalary/fixtures/plugin-retirement/architecture-tests-pre-cda9da-v1/`; this plan owns broad installed-entry-point integration around that settled protocol.
-- **One fixture substrate, production installer.** Existing review and retirement fixtures consume the shared snapshot/mutation-copy API or remain explicitly narrower adapters; the shared substrate never reimplements materialization.
-- **One child process per plugin.** Rejected: in-process runspaces, which share environment, authentication, and network state. Each active plugin gets at most one 30-second process and an exact terminal attendance record.
-- **Scanner migration is enumerate, disposition, enforce.** Rejected: widening the hard gate in one edit and discovering existing violations only after validation becomes unusable.
-- **Depend on `cda9da`.** Retirement identity, inventory, journaling, and legacy policy remain upstream; this plan owns only transition proof from the immutable previous-generation consumer fixture.
-- **Use parent-identity rechecks.** Rejected for this plan: a new native handle-relative no-follow abstraction across platforms. Canonical parent identity is checked immediately before mutation; residual TOCTOU is documented for later hardening.
-- **CI owns platform authority.** Final evidence waits for current-tree Linux and Windows CI receipts. Container measurements guide implementation but cannot satisfy the platform acceptance claim.
-- **Split before raising or dropping coverage.** If the matrix cannot fit its 30-second Linux/60-second Windows allocation, it becomes a named blocking integration tier with its own ceiling and inventory; it never becomes optional.
-- **Raise the advisory phase cap to 12.** Phase 2 is four serial `L` steps because descriptor, complete attendance, scaffold lifecycle, and runtime disposition form one inspectable all-plugin increment; splitting before measurement would leave an unbounded or incomplete matrix.
+- **Simplicity decision: test foreign installation only.** The plan owns a manifest-derived foreign fixture, runtime-reference closure, representative installed smokes, scaffold lifecycle, and current distribution drift.
+- **Use the production installer and existing test harness.** The fixture never reimplements installation, copies source wildcards, or introduces a per-plugin descriptor/run schema unless a demonstrated harness limitation requires one.
+- **Derive attendance from active manifests.** Every active plugin gets one representative installed smoke; additions and retirements change the expected set automatically.
+- **Keep installer confinement unchanged.** Installation writes only under `.github/`; declared runtime owners create repo-level scaffolds on first use and preserve modified files.
+- **Keep deterministic tests offline.** Smokes use existing process controls and exact prerequisite outcomes without network, provider credentials, or hosted proof receipts.
+- **Use existing distribution writers.** Plugin sync, version, dogfood, marketplace, registry, structural evals, and repository validation remain authoritative.
+- **Rejected as unrelated or overengineered.** Workflow-limit ownership/parity, the `8a0644` fleet handoff, architecture-retirement transition testing, custom probe protocol/schema, exhaustive process matrix, and a second CI attestation lifecycle are outside this plan. Therefore `34088e` has no dependencies.

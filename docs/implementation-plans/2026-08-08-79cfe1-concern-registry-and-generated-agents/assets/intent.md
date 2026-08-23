@@ -23,6 +23,7 @@ One concern registry defines the settled seven concerns and drives generated `cr
 - Changing which seven concerns exist or what they mean.
 - Merging code review and design review into one generic reviewer.
 - A registry that nothing derives from and therefore becomes another copy of the list.
+- Generated-inventory authority, migration transactions/provenance protocols, custom multi-plugin atomic transactions, or a dedicated dogfood recovery subsystem.
 
 ## Definition of done
 

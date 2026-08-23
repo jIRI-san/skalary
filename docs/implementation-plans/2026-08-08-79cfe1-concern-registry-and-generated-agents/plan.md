@@ -27,25 +27,24 @@
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
-## Phase 1: Authoring policy and full-graph generator
+## Phase 1: Concern source and deterministic generator
 <!-- worktree: (recorded by /ci when worktree is created) -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Commit the indexed concern-authoring design note and governing ownership updates, then add Git-bound migration provenance, the closed registry, independent schema, literal marker-bearing template, generated-inventory contract, refusal matrix, byte bounds, and Fast policy tests; verify `test:ReviewConcerns.RegistryPolicyAndRefusals` and `test:ReviewConcerns.MigrationProvenanceAndAgentSafety` (REQ-1, REQ-2, REQ-8, RISK-1, RISK-5, RISK-6, RISK-8, RISK-9) `L`
-- [ ] 1.2 Implement full-graph render-before-write, marker/inventory adoption, type-specific boundaries, bounded statuses, shared manifest-writer locking, and atomic per-plugin version-first convergence; converge downstream artifacts and verify generator, payload-version, serialization, byte-parity, and safety focused tests before commit (REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5, RISK-7, RISK-9) [after: 1.1] `L`
+- [ ] 1.1 Add one validated `tools/review-concerns.json` source for the settled seven concern ids, shared guidance, CR/DR variants, and concern-to-ledger mappings, plus one shared agent template that keeps injection guards, read-only tools, context order, and output shape outside free-form substitutions. Add `test:ReviewConcerns.RegistryAndTemplate` (REQ-1, REQ-4, RISK-1, RISK-2, RISK-4) `L`
+- [ ] 1.2 Implement deterministic `Sync-ReviewConcerns.ps1` generation for all 14 CR/DR concern agents and both mapping views. Validate and render all outputs before writing, confine managed paths, support `-WhatIf`, and preserve explicit per-surface differences; add `test:ReviewConcerns.DeterministicGeneration` (REQ-2, REQ-4, RISK-1, RISK-2, RISK-4) [after: 1.1] `L`
 
-## Phase 2: Convergence, versioning, and installed-copy pruning
+## Phase 2: Adoption and drift proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Create `ReviewConcernsIntegration.Tests.ps1` and add it to Slow in one edit; add per-family mutation, hostile input/path, malformed marker, culture/order, capability, joint-writer, explicit-base, per-plugin, and bounded atomic-fault fixtures; run focused tests and `npm run test:slow`, then converge downstream artifacts (REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-7, RISK-9) [after: 1.2] `L`
-- [ ] 2.2 In the same change, update `ARCH-Install-Confinement`, its source contract, human architecture output, and copy-only docs; then put dogfood copy/prune under the mutation lock with explicit-prior-base inventory, batched receipt/Git authority, total status shapes, preflight-zero-write refusals, and resumable partial failures; verify `test:ReviewConcerns.DogfoodAuthorityAndDistribution`, `test:ReviewConcerns.DogfoodRefusalMatrix`, `test:ReviewConcerns.DogfoodPartialRecovery`, architecture freshness, and `npm run test:slow`, then prove a clean second pass (REQ-6, REQ-8, RISK-2, RISK-3, RISK-10) [after: 2.1] `L`
+- [ ] 2.1 Generate the current CR/DR agents and mappings, update their manifest entries, and run existing plugin sync, version, dogfood, marketplace, and registry writers. Preserve current agent behavior and review-run v1 ownership; add `test:ReviewConcerns.GeneratedBehaviorAndDistribution` (REQ-2, REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) [after: 1.2] `L`
+- [ ] 2.2 Add one detect-only drift test that reruns the generator in `-WhatIf` mode and fails on changed, missing, extra, or hand-edited generated agents/mappings. Include a registry mutation proving all expected outputs change and a clean second pass proving determinism: `test:ReviewConcerns.GenerationDrift` (REQ-3, REQ-4, RISK-2, RISK-3, RISK-4) [after: 2.1] `M`
 
-## Phase 3: Consumer cutover, gate, and contracts
+## Phase 3: Documentation and integration
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Cut active consumers to registry-plus-policy joins; add `gate:review-concern-generation`, workflow-hosted `gate:review-concern-payload-version`, event-base plumbing for version and dogfood gates, all CI inventory rows/exits/remedies, per-host capability coverage, sub-5-second Fast-path evidence, and unchanged ceiling assertions; verify `test:ReviewConcerns.GateInventoryAndRuntime`, `test:ReviewConcerns.PayloadVersionGate`, `test:CiGates.InventoryMatchesWorkflow`, then run `npm test` and `npm run test:slow` (REQ-3, REQ-5, REQ-6, REQ-7, RISK-3, RISK-4, RISK-5, RISK-8, RISK-10) [after: 2.2] `L`
-- [ ] 3.2 Finish indexed design-note authority updates, run focused review-run/consumer checks, converge every generated artifact, run `npm test` and `npm run test:slow`, then complete final CR/DR and repository validation (REQ-8, RISK-3, RISK-10) [after: 3.1] `M`
+- [ ] 3.1 Update concern-authoring, plugin-registry, and review-reporting design notes; run focused generator/agent tests, structural evals, installed-consumer checks, generated-artifact drift checks, and normal repository validation. Record `review:cr` and `review:dr` without changing review-run v1 (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.2] `M`
 <!-- implementation-ready: 2026-08-17 -->

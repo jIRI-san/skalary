@@ -1,35 +1,16 @@
 # Decisions
 
-<!-- Key decisions made during planning — one bullet per decision. Extended rationale goes in assets/decisions/<topic>.md. -->
+- **Prefix only new hash plans by default.** New epic children and standalone plans start with their final navigational prefix.
+- **Preserve canonical identity.** `plan-id` remains authoritative; folder prefix, branch, worktree, run, and review names do not become identity.
+- **Preserve legacy numbered plans.** `NNN-<slug>` folders are never renamed or reinterpreted.
+- **Keep current hash folders readable.** Existing unprefixed hash-schema folders remain supported; migration is optional and operator-run.
+- **Retain a script-owned migration capability.** Confirmed intent requires a migration path, so one simple command provides deterministic `-WhatIf`, mapping, apply, and resume.
+- **Preflight before movement.** Collision, identity, membership, and confinement errors reject the run before any folder moves.
+- **Use sequential recovery.** One existing repository lock or safe sequential move plus mapping progress is sufficient; no namespace transaction protocol is needed.
+- **Defer bulk migration.** This implementation ships and tests the command but does not automatically migrate active or archived plans.
+- **Reuse shared resolution.** Inventory, plan state, epic rollup, archive, and test consumers learn the additional grammar through existing helpers.
+- **Reject prior platform expansion.** No namespace protocol, capability/journal schemas, new exits, review-run contract changes, container relaunches, host authority mounts, four-tuple CI aggregation, or new architecture contract is included.
 
-- **Prefix the folder, not the identity.** Target grammar is `<epic-id>-<date>-<plan-id>-<slug>` or `standalone-<date>-<plan-id>-<slug>`; `plan-id` remains canonical.
-- **Create the final name immediately.** `/cep` passes epic identity into child scaffolding; direct `/cip` defaults to `standalone`.
-- **Rename on attachment or re-parenting.** `New-Epic.ps1` updates the marker and eligible folder in one script-owned operation, then refreshes both epic mirrors.
-- **Migrate only current hash-schema folders.** Legacy `NNN-<slug>` plans remain untouched; active and archived eligible folders use a confined, collision-preflighted, idempotent migration with `-WhatIf`.
-- **Preserve every stable key.** Migration never changes `plan-id`, `depends-on`, ledger keys, or evidence identity.
-- **Support mixed grammars during rollout.** Inventory, resolution, archival, launchers, tests, and documentation accept old hash, target hash, and legacy numbered plans.
-- **Fail the complete preflight.** Attachment, re-parenting, and bulk migration compute and validate every destination before the first mutation; any malformed candidate, unresolvable epic, path violation, or collision blocks the whole operation.
-- **Compensate runtime move failures.** Filesystem moves are not transactional, so a failure after mutation starts restores completed moves and edited membership/mirror files in reverse order; restoration failure is reported as a blocking error with the affected paths.
-- **Emit typed migration records with host-persisted authority.** The migration command returns deterministic old/new/status objects, always persists its journal/receipt in the verified host-session root, and accepts only a fixed-root optional deterministic export.
-- **Migrate the executing plan.** The final corpus migration includes `669ad3`; `/ci` and autopilot must re-resolve the canonical ID after the move instead of retaining the old plan path.
-- **Keep the implementation PowerShell-native and linear.** Reuse `PlanState.psm1`, `SupportsShouldProcess`, literal-path APIs, canonicalize-then-confine helpers, and minimal synthetic Pester fixtures. No new package, service, API, metric, or health-check surface is introduced.
-- **Run as whole-plan container autopilot with one bootstrap handoff.** Implementation steps are `@ai-agent`; step 4.3 is the one `@human` host-update boundary. Expected third-party packages are `none`. Git revert covers repository-only edits before mutation; the journal covers a started filesystem operation.
-- **Keep two migration commands with disjoint ownership.** `Repair-Plans.ps1` continues to migrate legacy loose-file layouts only. Cip owns and bundles `Migrate-PlanFolderPrefixes.ps1`; both consume the shared `PlanState.psm1` grammar API, and tests reject duplicate folder parsers.
-- **Serialize plan-folder mutation through protocol v1.** One host namespace lock spans authoritative discovery, under-lock revalidation, mutation, receipt publication, and recovery. Lock order is namespace, review-run, then ledger/store; mixed protocol generations refuse to write.
-- **Journal only the destructive boundary.** A small versioned write-ahead journal records fingerprints, intended same-volume renames, bounded marker/mirror snapshots, and closed states. Startup recovery handles interruption; `RecoveryRequired` uses exit `44`, distinct from human stop `42` and package rebundle `43`, and launchers never retry it automatically.
-- **Use one host authority root.** Plan-folder mutation never stores authoritative state under clone-local `.github/.skalary/`. The launcher owns one platform state root with isolated namespace-lock and per-session recovery/capability leaves; containers mount only those leaves.
-- **Reject live mutable state.** Bulk migration refuses candidates with live review locks/runs, active workflow mutation, or unclassified untracked/ignored plan state. Readiness records the blocking paths; it never deletes operator state. Same-folder ignored bytes otherwise move with the atomic directory rename.
-- **Historical text is provenance, not a path API.** Active templates, headers, commands, and links are updated or canonical-ID-resolved. Archived plans and finalized review artifacts may retain old path/grammar prose as non-authoritative history when link-integrity tests prove no active consumer follows it.
-- **Keep the architecture-tier unchanged.** The operator chose implementation-level design-note ownership for this naming contract. `plan-workflow.design.md` remains the authority; no new architecture contract is added by this plan.
-- **Address apply by dry-run identity.** Apply requires `-ApprovedDryRunId`; it validates that exact ready receipt and candidate digest. There is no implicit latest operation and no caller-selected persistence path.
-- **Make recovery authority survive runtime disposal.** The host launcher creates and verifies a bounded session root outside the disposable clone, mounts it read-write, restores it before relaunch, and retains it on exits `44`/`45`. Container-local ignored state is never the sole recovery authority.
-- **Use stable namespace and launcher handles.** The namespace lock is derived from host git-common-dir and shared across worktrees/runtimes. Branch, worktree, and run IDs do not derive from the mutable plan basename; every writer resolves canonical plan ID in its own checkout.
-- **Bootstrap planned relaunch once.** Existing entrypoints cannot honor a newly introduced exit code mid-run. After Phase 4, a one-time `@human` exit-42 handoff updates the host checkout and relaunches by canonical ID. Updated launchers use exit `45` for automatic planned relaunch, preserve recovery authority, and never execute later phases in the old process.
-- **Permit one owner-bound live-state exception.** Terminal self-migration finalizes completed review authority, acquires the namespace lock, and permits only operation-owned state for `669ad3`; every other live writer or review state remains blocking.
-- **Authorize self-migration with a host capability.** A random nonce generated outside the model process is single-use, read-only mounted, and bound to repository/session/operation/branch/commit/dry-run/digest/expiry. Schema validity or plan ID alone grants nothing.
-- **Bound planned relaunch.** Exit `45` is accepted once per operation only after a pushed progress commit and next-step transition; it shares the original plan deadline. A repeat, no-progress request, or failed host update stops.
-- **Host invokes the cip apply command.** `/ci` and autopilot do not own migration. The updated host validates capability/readiness and calls the bundled cip command; runtime consumers only request relaunch and read status.
-- **Reuse transaction validation, not a generic engine.** Plan-folder mutation shares canonical JSON, schema validation, bounded fingerprints, and receipt verification with the installer transaction where confinement permits. Commands, operation allowlists, and locks remain domain-specific.
-- **Fix forward after a completed rename.** No inverse corpus migration is provided. A red post-migration gate blocks merge/finalization while canonical IDs and the committed mapping anchor repairs and missing-gate resume.
-- **Keep old hash folders readable.** Unprefixed hash grammar is permanent read-only compatibility for old checkouts and foreign consumers; target creation never emits it and the migrated repository contains none.
-- **Measure Slow without inventing a budget.** Existing Fast budgets remain enforced. Slow runtime is recorded before/after on Windows and Linux, but this plan adds no Slow ceiling.
+## Simplification decision
+
+The accepted cut separates future naming from corpus migration. New plans gain the prefix immediately; existing plans remain valid until an operator explicitly reviews and applies the bounded migration mapping.

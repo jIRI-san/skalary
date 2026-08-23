@@ -8,22 +8,24 @@ Make self-improvement learned in a consumer repository reach the upstream custom
 
 ## Desired outcome
 
-A consumer-side `/si` run produces a durable, typed candidate artifact under a narrow harvest-only write scope. Proposal work then runs in a real upstream checkout under upstream instructions and either creates a small reviewable change or feeds a normal `/cip` plan for larger work.
+A consumer-side `/si` run exports one bounded typed candidate artifact. Proposal work then runs in a clean upstream checkout under upstream instructions and uses normal upstream `/si` for small changes or `/cip` for larger work. Separately, a repository may provide a small local review-standards file that is reconciled with generated generic guidance.
 
 ## Success signals
 
 - Installed plugin copies in a consumer repository are never edited as if they were upstream source.
-- Every harvest and proposal outcome has a durable record, including declined candidates.
+- Export and upstream handling retain enough identity and outcome context to explain what was carried and what the upstream workflow decided.
 - Cross-repo evidence is identified as a claim and re-judged against current upstream code and standards.
 - The proposal path cannot write steering files outside its phase-specific allowlist or merge autonomously.
+- CR and DR consume generic standards from the `79cfe1` source model plus an optional repo-owned local file without changing review-run v1 authority.
 
 ## Non-goals
 
 - A free-form autonomous `/si` writer outside the normal plan contract.
 - Automatic merge or silent promotion of consumer-specific rules into generic standards.
 - Treating a consumer repository's instructions as if they governed the upstream checkout.
+- Cache generations, paged history, a dedicated container platform, dependency receipts, a global evidence registry, or review-run v2.
 
 ## Definition of done
 
 - A consumer run can carry a typed, version-pinned learning into an upstream-rooted review or implementation plan without editing disposable installed copies.
-- Promotion and rejection decisions remain inspectable after the session ends.
+- Generic-versus-local standards resolve deterministically through the existing concern generator and review dispatch path.
