@@ -165,11 +165,10 @@ if ((Test-Path -LiteralPath $targetDir) -and -not $Force) {
 }
 
 if (-not $TemplatePath) {
-    # An installed copy has no `plugins/` tree — only `.github/skills/<skill>/…` — so probe the skill's
-    # own assets folder beside this script first and fall back to the source-repo layout.
+    # The generated script lives beside the skill assets in authored and installed layouts.
+    # A repo-root plugins/ fallback would work only while dogfooding and hide a broken bundle.
     $templateCandidates = @(
         (Join-Path $PSScriptRoot '..' 'assets' 'plan-template.md')
-        (Join-Path $repoRootPath 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md')
         (Join-Path $repoRootPath '.github/skills/cip/assets/plan-template.md')
     )
     foreach ($candidate in $templateCandidates) {

@@ -90,6 +90,12 @@ function Get-ConsumerInstallManifestCatalog {
                     'stable'
                 }
                 Dependencies = @($manifest.dependencies | ForEach-Object { [string]$_ })
+                Scaffolds = if ($manifest.PSObject.Properties.Name -contains 'scaffolds') {
+                    @($manifest.scaffolds)
+                }
+                else {
+                    @()
+                }
                 Files = @($pluginFiles)
                 ManifestPath = $manifestPath.FullName
             })
@@ -530,6 +536,43 @@ function Test-ConsumerInstallInventory {
     }
 }
 
+function Test-ConsumerRuntimeReferenceClosure {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Fixture)
+
+    $syncScript = Join-Path $Fixture.SourceRepoRoot 'scripts/skalary/Sync-PluginScripts.ps1'
+    $staticScan = Invoke-SuiteFixtureProcess `
+        -WorkingDirectory $Fixture.SourceRepoRoot `
+        -TimeoutSeconds 120 `
+        -ArgumentList @(
+            '-NoProfile'
+            '-File'
+            $syncScript
+            '-RepoRoot'
+            $Fixture.SourceRepoRoot
+            '-WhatIf'
+        )
+    $inventory = Test-ConsumerInstallInventory -Fixture $Fixture
+    $changedPoison = [System.Collections.Generic.List[string]]::new()
+    foreach ($relativePath in @($Fixture.PoisonRelativePaths)) {
+        $path = Join-Path $Fixture.Root (
+            $relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+        )
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or
+            [System.IO.File]::ReadAllText($path) -cne 'SKALARY_SOURCE_PATH_POISON') {
+            $changedPoison.Add([string]$relativePath)
+        }
+    }
+
+    return [pscustomobject]@{
+        IsClean = $staticScan.ExitCode -eq 0 -and $inventory.IsClean -and $changedPoison.Count -eq 0
+        StaticExitCode = $staticScan.ExitCode
+        StaticOutput = $staticScan.Output
+        Inventory = $inventory
+        ChangedPoison = @($changedPoison)
+    }
+}
+
 function Remove-ConsumerInstallFixture {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Fixture)
@@ -540,4 +583,4 @@ function Remove-ConsumerInstallFixture {
 }
 
 Export-ModuleMember -Function Get-ConsumerInstallManifestCatalog, New-ConsumerInstallFixture,
-    Test-ConsumerInstallInventory, Remove-ConsumerInstallFixture
+    Test-ConsumerInstallInventory, Test-ConsumerRuntimeReferenceClosure, Remove-ConsumerInstallFixture

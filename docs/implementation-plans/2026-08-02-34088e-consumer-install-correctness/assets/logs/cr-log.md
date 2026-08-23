@@ -11,3 +11,13 @@ Phase: 1
 - [1.1] [src:note] [sev:Low] review-cycle stage=step-1.1 cycle=3 outcome=findings summary=med=1 low=0 run=step-1-1-final-review
 - [1.1] [src:note] [sev:Low] review-cycle-decision stage=step-1.1 after=3 action=continue
 - [1.1] [src:note] [sev:Low] review-cycle stage=step-1.1 cycle=4 outcome=clean summary=critical=0 high=0 med=0 low=0 run=step-1-1-final-review-continued
+- [1.2] [src:code-review] [sev:Med] Join-Path exemption ignored its base path, allowing RepoRoot-based undeclared scaffold paths to bypass validation.
+- [1.2] [src:code-review] [sev:Med] Regex-only dynamic detection missed named Join-Path parameters and interpolated child arguments.
+- [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=1 outcome=findings summary=med=2 low=0 run=step-1-2-review
+- [1.2] [src:code-review] [sev:Med] RepoRoot-based Join-Path source-tree fallbacks remained invisible to the scanner.
+- [1.2] [src:code-review] [sev:Med] Inline CommandParameterAst arguments such as -Path:value bypassed dynamic Join-Path detection.
+- [1.2] [src:code-review] [sev:Med] Renaming the undeclared-root baseline test without an enumerated removal broke suite coverage inventory.
+- [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=2 outcome=findings summary=med=3 low=0 run=step-1-2-rereview
+- [1.2] [src:code-review] [sev:Med] Markdown inline named Join-Path syntax such as -Path:value bypasses dynamic-reference detection.
+- [1.2] [src:code-review] [sev:Med] Nested RepoRoot joins inherit an outer PSScriptRoot sidecar command extent and can bypass scaffold validation.
+- [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=3 outcome=findings summary=med=2 low=0 run=step-1-2-final-review

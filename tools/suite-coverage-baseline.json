@@ -3914,6 +3914,11 @@
   ],
   "removals": [
     {
+      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
+      "reason": "Superseded by the inverse closure test that rejects an undeclared scaffold root after the scanner grammar stopped deriving roots from existing declarations.",
+      "step": "34088e:1.2"
+    },
+    {
       "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
       "reason": "Superseded by 'cep skill.preserves preliminary epic context while delegating full child drafting to /cip', which retains drafting delegation and adds the child-context preservation contract.",
       "step": "epic-scaffold-context-preservation"
@@ -4150,4 +4155,3 @@
     }
   ]
 }
-

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-16T04:46:33.8412338Z",
+  "generatedAt": "2026-08-23T13:49:23.5290291Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -353,7 +353,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
+          "sha256": "8af77c3b400a013d0119b7cb74f7ad8f1837ad47747c1b133f7f4db65f92d53f",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -425,7 +425,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.25"
+      "version": "1.0.26"
     },
     {
       "author": "jIRI-san",
@@ -596,7 +596,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
+          "sha256": "9beb3d1bdc960aa3d4b94ebf27ef37e657c288abb440e3ff7bd260ee19cbecbf",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -661,7 +661,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "69ac8b9aa46ce58d62639fe9d8cf2ebaf3c40ff3649c38c40b886159563e65f8",
+          "sha256": "9beb3d1bdc960aa3d4b94ebf27ef37e657c288abb440e3ff7bd260ee19cbecbf",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -713,7 +713,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.33"
+      "version": "1.0.34"
     },
     {
       "author": "jIRI-san",
@@ -855,7 +855,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "98016ce9e2e30a8f38429b49d087810e542ec16bd245d37a208d3273e8356ce9",
+          "sha256": "8af77c3b400a013d0119b7cb74f7ad8f1837ad47747c1b133f7f4db65f92d53f",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -927,7 +927,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.24"
+      "version": "1.0.25"
     },
     {
       "author": "jIRI-san",
@@ -1033,7 +1033,7 @@
       "files": [
         {
           "dest": "skills/process-pr-comments/SKILL.md",
-          "sha256": "a7602814fda705d3f918d01fe48326a738f7562497a453b0f310da61d01c5ee2",
+          "sha256": "c8a9b46c93537358e4c362446885a1d6209d1d57b4f3e506b6fa4a9fb22effa9",
           "src": "skills/process-pr-comments/SKILL.md"
         },
         {
@@ -1051,7 +1051,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "author": "jIRI-san",

@@ -5,8 +5,8 @@ $ErrorActionPreference = 'Stop'
 
 # RISK-9: a payload that reads a file the installer never materializes fails *quietly* in a
 # consumer repo — the agent reads nothing and degrades instead of erroring. These tests pin the
-# scanner that closes that gap: the grammar it recognizes, the two false-positive sources it
-# must ignore (fenced examples, dynamically composed paths), and the drift gate that fails.
+# scanner that closes that gap: the grammar it recognizes, fenced examples it must ignore,
+# unsupported dynamic/source-tree references it rejects, and the drift gate that fails.
 
 Describe 'Asset bootstrap scanner' {
     BeforeAll {
@@ -316,7 +316,7 @@ Describe 'Asset bootstrap scanner' {
         # A bundled script that reads an asset is as much a runtime read as a SKILL.md that does.
         $root = & $script:newFixture -Files @{
             'skills/demo/SKILL.md'            = "# Demo`n"
-            'skills/demo/scripts/Read-It.ps1' = "# Reads ./assets/missing-guide.md at runtime.`nparam()`n"
+            'skills/demo/scripts/Read-It.ps1' = "param()`nGet-Content './assets/missing-guide.md' -Raw`n"
         }
 
         try {
@@ -326,6 +326,80 @@ Describe 'Asset bootstrap scanner' {
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects source-tree paths that cannot exist in a foreign consumer' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nImport-Module ./plugins/demo/skills/demo/scripts/Read-It.psm1.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'source-tree path'
+            $result.Message | Should -Match 'plugins/demo/skills/demo/scripts/Read-It\.psm1'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects repository-root joins to authoring-only plugin paths' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md'            = "# Demo`n"
+            'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$module = Join-Path $RepoRoot 'plugins/fixture/skills/demo/scripts/Read-It.psm1'
+'@
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'joins source-tree path'
+            $result.Message | Should -Match 'plugins/fixture/skills/demo/scripts/Read-It\.psm1'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects dynamic composition of a supported runtime root' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nUse ``Join-Path './assets' `$name`` to load the guide.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'dynamically composes supported runtime root'
+            $result.Message | Should -Match '\./assets'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects named and interpolated dynamic Join-Path arguments in PowerShell payloads' {
+        foreach ($expression in @(
+                'Join-Path -Path ''./assets'' -ChildPath $name',
+                'Join-Path ''./assets'' "$name.md"',
+                'Join-Path -Path:''./assets'' -ChildPath:$name'
+            )) {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md'            = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = "param([string]`$name)`n`$path = $expression`n"
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'dynamically composes supported runtime root'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
         }
     }
 
@@ -488,15 +562,36 @@ Describe 'Asset bootstrap scanner' {
             }
         }
 
-        It 'test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar' {
-            # The closed set is the declared set: a root nobody declares is a path this
-            # contract says nothing about, not an implicit violation.
+        It 'does not exempt a repository-root Join-Path from scaffold declarations' {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md'            = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$path = Join-Path $RepoRoot 'docs/undeclared/file.md'
+'@
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/undeclared/file\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+
+        It 'test:asset-refs-declared-in-files rejects an undeclared scaffold root' {
             $root = & $script:newFixture -Files @{
                 'skills/demo/SKILL.md' = "# Demo`n`nRead docs/some-other-tier/index.md.`n"
             }
 
             try {
-                (& $script:invoke -Root $root).Threw | Should -BeFalse
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/some-other-tier/index\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
             }
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force

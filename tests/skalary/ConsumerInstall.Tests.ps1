@@ -160,4 +160,140 @@ Describe 'foreign consumer plugin installation' {
         (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
             Should -BeTrue -Because 'negative probes must restore the shared foreign fixture'
     }
+
+    It 'test:ConsumerInstall.RuntimeReferenceClosure proves installed, bundled, scaffolded, missing, source, and dynamic references' {
+        $closure = Test-ConsumerRuntimeReferenceClosure -Fixture $script:fixture
+        $closure.IsClean | Should -BeTrue -Because (
+            'the production scanner and foreign installed inventory must both close: ' +
+            ($closure | ConvertTo-Json -Depth 10 -Compress)
+        )
+
+        $declaredByDest = [System.Collections.Generic.Dictionary[string, object]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        foreach ($file in @($script:fixture.Catalog.Files | Where-Object { [bool]$_.Install })) {
+            $declaredByDest[[string]$file.Dest] = $file
+        }
+
+        $installedReferences = [System.Collections.Generic.List[object]]::new()
+        foreach ($file in @($script:fixture.Catalog.Files)) {
+            $extension = [System.IO.Path]::GetExtension([string]$file.SourcePath).ToLowerInvariant()
+            if ($extension -notin @('.md', '.ps1', '.psm1', '.txt')) {
+                continue
+            }
+            $content = [System.IO.File]::ReadAllText([string]$file.SourcePath)
+            foreach ($match in [regex]::Matches(
+                    $content,
+                    '\.github/(?<dest>(?:skills|agents|prompts)/[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
+                )) {
+                $dest = $match.Groups['dest'].Value
+                if ($declaredByDest.ContainsKey($dest)) {
+                    $installedReferences.Add($declaredByDest[$dest])
+                }
+            }
+        }
+        $installedReferences.Count | Should -BeGreaterThan 0
+        foreach ($reference in @($installedReferences)) {
+            $installedPath = Join-Path (Join-Path $script:fixture.Root '.github') (
+                ([string]$reference.Dest) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            Test-Path -LiteralPath $installedPath -PathType Leaf | Should -BeTrue
+        }
+
+        $bundled = @(
+            $script:fixture.Catalog.Files |
+                Where-Object {
+                    [bool]$_.Install -and
+                    [string]$_.Dest -match '^skills/[^/]+/scripts/[^/]+\.psm?1$' -and
+                    (Test-Path -LiteralPath (
+                            Join-Path $script:repoRoot ([string]$_.Dest -replace '^skills/[^/]+/scripts/', 'scripts/skalary/')
+                        ) -PathType Leaf)
+                }
+        )
+        $bundled.Count | Should -BeGreaterThan 0
+        foreach ($bundle in $bundled) {
+            $installedPath = Join-Path (Join-Path $script:fixture.Root '.github') (
+                ([string]$bundle.Dest) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            Test-Path -LiteralPath $installedPath -PathType Leaf | Should -BeTrue
+            (Get-FileHash -LiteralPath $installedPath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                Should -BeExactly ([string]$bundle.Sha256)
+        }
+
+        $literalScaffolds = @(
+            $script:fixture.Catalog.Plugins |
+                ForEach-Object { @($_.Scaffolds) } |
+                Where-Object { [string]$_.mode -eq 'literal' }
+        )
+        $literalScaffolds.Count | Should -BeGreaterThan 0
+        @(
+            $literalScaffolds |
+                Where-Object {
+                    -not (Test-Path -LiteralPath (
+                            Join-Path $script:fixture.Root (
+                                ([string]$_.path) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                            )
+                        ))
+                }
+        ).Count | Should -BeGreaterThan 0 -Because (
+            'declared first-use paths remain absent until their runtime owner scaffolds them'
+        )
+
+        $missingReference = @($installedReferences)[0]
+        $missingPath = Join-Path (Join-Path $script:fixture.Root '.github') (
+            ([string]$missingReference.Dest) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+        )
+        $missingBytes = [System.IO.File]::ReadAllBytes($missingPath)
+        try {
+            Remove-Item -LiteralPath $missingPath -Force
+            $missing = Test-ConsumerRuntimeReferenceClosure -Fixture $script:fixture
+            $missing.IsClean | Should -BeFalse
+            $missing.Inventory.Missing | Should -Contain ([string]$missingReference.Dest)
+        }
+        finally {
+            [System.IO.File]::WriteAllBytes($missingPath, $missingBytes)
+        }
+
+        $scanRoot = Join-Path (
+            [System.IO.Path]::GetTempPath()
+        ) "skalary-runtime-reference-$([System.Guid]::NewGuid().ToString('N'))"
+        try {
+            [void](New-Item -ItemType Directory -Path $scanRoot)
+            [void](New-Item -ItemType Directory -Path (Join-Path $scanRoot '.git') -Force)
+            $pluginRoot = Join-Path $scanRoot 'plugins/fixture'
+            $skillPath = Join-Path $pluginRoot 'skills/demo/SKILL.md'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $skillPath) -Force)
+            $manifest = [ordered]@{
+                name = 'fixture'; version = '1.0.0'; description = 'Fixture.'
+                author = 'test'; license = 'MIT'; tags = @('skill'); dependencies = @()
+                status = 'partial'
+                files = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
+            }
+            Set-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Value (
+                $manifest | ConvertTo-Json -Depth 10
+            ) -Encoding utf8NoBOM
+
+            Set-Content -LiteralPath $skillPath -Value (
+                "# Demo`n`nImport-Module ./plugins/fixture/skills/demo/scripts/SourceOnly.psm1.`n"
+            ) -Encoding utf8NoBOM
+            {
+                & (Join-Path $script:repoRoot 'scripts/skalary/Sync-PluginScripts.ps1') `
+                    -RepoRoot $scanRoot -WhatIf *> $null
+            } | Should -Throw '*source-tree path*'
+
+            Set-Content -LiteralPath $skillPath -Value (
+                "# Demo`n`nLoad ``Join-Path './assets' `$name`` at runtime.`n"
+            ) -Encoding utf8NoBOM
+            {
+                & (Join-Path $script:repoRoot 'scripts/skalary/Sync-PluginScripts.ps1') `
+                    -RepoRoot $scanRoot -WhatIf *> $null
+            } | Should -Throw '*dynamically composes supported runtime root*'
+        }
+        finally {
+            Remove-Item -LiteralPath $scanRoot -Recurse -Force
+        }
+
+        (Test-ConsumerRuntimeReferenceClosure -Fixture $script:fixture).IsClean |
+            Should -BeTrue -Because 'negative probes must restore the foreign fixture'
+    }
 }

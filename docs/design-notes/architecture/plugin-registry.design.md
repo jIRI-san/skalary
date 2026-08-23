@@ -199,28 +199,16 @@ this is a gate rather than a convention.
 
 1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.
 2. **Skill-relative** — `./assets/<file>`, resolved against the payload's **skill root**, so a guide living under `assets/` spells a sibling exactly as its `SKILL.md` does. The leading `./` is load-bearing: a bare `assets/intent.md` names a *plan folder* asset, which is not a payload file at all.
-3. **Scaffold path** — a `docs/`, `schemas/`, or `tools/` runtime path under a root some plugin scaffolds; it must match a `scaffolds[]` entry.
+3. **Scaffold path** — every `docs/`, `schemas/`, or `tools/` runtime path must match a `scaffolds[]` entry. The grammar roots are fixed rather than derived from existing declarations, so a wholly undeclared runtime tree fails instead of becoming invisible. Relative `Join-Path $PSScriptRoot ...` / asset-root arguments are installed sidecars, not repo-level scaffolds.
+4. **Source-tree path** — explicit `./plugins/...` / `./scripts/skalary/...` reads and PowerShell `Join-Path` calls that attach `plugins/...` to a repo-root variable are rejected because those authoring trees do not exist in a foreign consumer; payloads use their installed `.github/` destinations.
 
 Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
-fence is an error, because blanking the remainder of a file would silently narrow the gate),
-dynamically composed reads (`Join-Path './assets' $name` — unsupported, must not appear in a
-payload), and a path whose final segment is a bare `<placeholder>` (prose describing a shape).
-
-**Known bound — enforcement is self-referential.** Arm 3 only inspects a reference whose root some
-plugin *already* declares in `scaffolds[]`, because the root set is derived from the declarations
-themselves. A root nobody has declared is not a violation; it is skipped, so the gate cannot see it.
-`docs/review-ledger/` is declared and therefore checked; `docs/design-notes/` is not, so
-`design-notes/SKILL.md` reading `docs/design-notes/.design-notes.md` at runtime — outside `.github/`,
-absent from `files[]` and from every `scaffolds[]` — passes silently, and would degrade in a consumer
-repo that lacks the file. Two paths of the same class, opposite enforcement, decided by which plugin
-happened to declare first.
-
-So the guarantee is narrower than "every runtime path is declared": it is *"declarations are
-exhaustive for roots that already have at least one declaration."* Widening it means rooting the
-closed set in the grammar (`docs`, `schemas`, `tools`) rather than in the declared set, which turns
-every currently-invisible reference into a violation that must be declared or excluded. That is
-tracked, not done — see
-[explorations/asset-scanner-root-bound.design.md](../explorations/asset-scanner-root-bound.design.md).
+fence is an error, because blanking the remainder of the file would silently narrow the gate), and a
+path whose final segment is a bare `<placeholder>` (prose describing a shape). PowerShell comment
+tokens are blanked before matching so fixture examples and documentation are not runtime reads.
+Dynamic composition of a supported root such as `Join-Path './assets' $name` is not out of grammar:
+it fails closed because no finite manifest inventory can prove its target. PowerShell AST binding
+covers positional, named, inline (`-Path:value`), and interpolated `Join-Path` arguments.
 
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
@@ -239,6 +227,11 @@ per-plugin receipts, dependency closure, and `.github/` confinement. It separate
 manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
 make the production installer and its test agree on the same wrong payload. The process-heavy
 evidence lives in the existing Slow suite tier.
+
+`Test-ConsumerRuntimeReferenceClosure` composes that installed inventory with the production
+`Sync-PluginScripts.ps1 -WhatIf` scan. The named evidence proves literal installed references and
+canonical script bundles exist with manifest hashes, declared scaffolds remain first-use paths, and
+missing installed files, source-relative reads, or dynamic supported-root reads fail closed.
 
 ## Skill Size Cap
 
