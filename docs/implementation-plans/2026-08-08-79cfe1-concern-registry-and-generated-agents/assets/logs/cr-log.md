@@ -22,3 +22,4 @@ Phase: 3
 - [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=2 outcome=clean summary=0-findings-run-phase3-code-recheck
 - [3.1] [src:code-review] [sev:Low] Exact-byte comparison rejected a zero-length on-disk byte array at parameter binding, preventing apply mode from repairing a truncated generated file.
 - [3.1] [src:code-review] [sev:Low] Fixed and covered: zero-byte generated outputs now enter ordinary drift detection and are repaired in apply mode.
+- [-] [src:note] [sev:Low] review-cycle stage=phase-3 cycle=1 outcome=clean summary=0-findings-run-phase3-head-review
