@@ -58,7 +58,7 @@ $assetSourceRegex = [regex]'(?<![A-Za-z0-9._/-])(?<path>\./(?:plugins|scripts/sk
 # A variable tail prevents the literal inventory from proving closure. This deliberately
 # targets the supported roots in the grammar rather than every Join-Path call in executable
 # scripts, where dynamic consumer-selected output paths are valid.
-$assetDynamicRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path\s+)?[''"](?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?)[''"]\s+(?:-ChildPath\s+)?(?<tail>\$[A-Za-z_][A-Za-z0-9_]*|[''"][^''"\r\n]*\$[A-Za-z_][^''"\r\n]*[''"])'
+$assetDynamicRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path(?:\s*:\s*|\s+))?[''"](?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?)[''"]\s+(?:-ChildPath(?:\s*:\s*|\s+))?(?<tail>\$[A-Za-z_][A-Za-z0-9_]*|[''"][^''"\r\n]*\$[A-Za-z_][^''"\r\n]*[''"])'
 
 function Get-ScaffoldRoot {
     <#
@@ -264,14 +264,6 @@ function Get-PowerShellRuntimeFacts {
         }
         if (-not $pathArgument) { continue }
 
-        if ($pathArgument -is [System.Management.Automation.Language.VariableExpressionAst] -and
-            $pathArgument.VariablePath.UserPath -in @('PSScriptRoot', 'AssetRoot')) {
-            $sidecarRanges.Add([pscustomobject]@{
-                    Start = $command.Extent.StartOffset
-                    End = $command.Extent.EndOffset
-                })
-        }
-
         $pathText = $null
         $pathDynamic = $false
         if ($pathArgument -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
@@ -293,6 +285,20 @@ function Get-PowerShellRuntimeFacts {
         }
 
         if ($pathArgument -is [System.Management.Automation.Language.VariableExpressionAst] -and
+            $pathArgument.VariablePath.UserPath -in @('PSScriptRoot', 'AssetRoot')) {
+            foreach ($childArgument in $childArguments) {
+                if ($childArgument -is [System.Management.Automation.Language.StringConstantExpressionAst] -or
+                    ($childArgument -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -and
+                        @($childArgument.NestedExpressions).Count -eq 0)) {
+                    $sidecarRanges.Add([pscustomobject]@{
+                            Start = $childArgument.Extent.StartOffset
+                            End = $childArgument.Extent.EndOffset
+                        })
+                }
+            }
+        }
+
+        if ($pathArgument -is [System.Management.Automation.Language.VariableExpressionAst] -and
             $pathArgument.VariablePath.UserPath -notin @('PSScriptRoot', 'AssetRoot')) {
             foreach ($childArgument in $childArguments) {
                 $childText = if ($childArgument -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
@@ -305,7 +311,7 @@ function Get-PowerShellRuntimeFacts {
                 else {
                     $null
                 }
-                if ($childText -match '^(?:\./)?plugins/') {
+                if ($childText -match '^(?:\./)?(?:plugins/|scripts/skalary/(?!registry\.json$))') {
                     $sourceTreeJoins.Add([pscustomobject]@{
                             Path = $childText
                             Base = [string]$pathArgument.Extent.Text

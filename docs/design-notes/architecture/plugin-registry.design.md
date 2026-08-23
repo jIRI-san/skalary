@@ -199,8 +199,8 @@ this is a gate rather than a convention.
 
 1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.
 2. **Skill-relative** — `./assets/<file>`, resolved against the payload's **skill root**, so a guide living under `assets/` spells a sibling exactly as its `SKILL.md` does. The leading `./` is load-bearing: a bare `assets/intent.md` names a *plan folder* asset, which is not a payload file at all.
-3. **Scaffold path** — every `docs/`, `schemas/`, or `tools/` runtime path must match a `scaffolds[]` entry. The grammar roots are fixed rather than derived from existing declarations, so a wholly undeclared runtime tree fails instead of becoming invisible. Relative `Join-Path $PSScriptRoot ...` / asset-root arguments are installed sidecars, not repo-level scaffolds.
-4. **Source-tree path** — explicit `./plugins/...` / `./scripts/skalary/...` reads and PowerShell `Join-Path` calls that attach `plugins/...` to a repo-root variable are rejected because those authoring trees do not exist in a foreign consumer; payloads use their installed `.github/` destinations.
+3. **Scaffold path** — every `docs/`, `schemas/`, or `tools/` runtime path must match a `scaffolds[]` entry. The grammar roots are fixed rather than derived from existing declarations, so a wholly undeclared runtime tree fails instead of becoming invisible. Direct literal child arguments to `Join-Path $PSScriptRoot ...` / asset-root calls are installed sidecars, not repo-level scaffolds; the exemption never covers nested commands or their repo-root reads.
+4. **Source-tree path** — explicit `./plugins/...` / `./scripts/skalary/...` reads and PowerShell `Join-Path` calls that attach either authoring tree to a repo-root variable are rejected because those trees do not exist after plugin installation; payloads use their installed `.github/` destinations. The documented bootstrapped-repository fallback at `scripts/skalary/registry.json` remains valid because bootstrap, rather than plugin installation, owns that runtime file.
 
 Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
 fence is an error, because blanking the remainder of the file would silently narrow the gate), and a
@@ -208,7 +208,8 @@ path whose final segment is a bare `<placeholder>` (prose describing a shape). P
 tokens are blanked before matching so fixture examples and documentation are not runtime reads.
 Dynamic composition of a supported root such as `Join-Path './assets' $name` is not out of grammar:
 it fails closed because no finite manifest inventory can prove its target. PowerShell AST binding
-covers positional, named, inline (`-Path:value`), and interpolated `Join-Path` arguments.
+covers positional, named, inline (`-Path:value`), and interpolated `Join-Path` arguments; the prose
+grammar applies the same inline-name rule to Markdown payloads.
 
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner

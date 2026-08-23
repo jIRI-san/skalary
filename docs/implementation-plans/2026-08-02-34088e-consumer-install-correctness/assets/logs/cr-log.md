@@ -22,3 +22,7 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] Nested RepoRoot joins inherit an outer PSScriptRoot sidecar command extent and can bypass scaffold validation.
 - [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=3 outcome=findings summary=med=2 low=0 run=step-1-2-final-review
 - [1.2] [src:note] [sev:Low] review-cycle-decision stage=step-1.2 after=3 action=continue
+- [1.2] [src:code-review] [sev:Med] Repo-root Join-Path detection rejected plugins paths but missed scripts/skalary source fallbacks.
+- [1.2] [src:code-review] [sev:Med] Markdown colon-bound named Join-Path arguments bypassed dynamic-reference detection.
+- [1.2] [src:code-review] [sev:Med] Outer PSScriptRoot sidecar command extents exempted nested RepoRoot scaffold reads.
+- [1.2] [src:note] [sev:Low] review-cycle stage=step-1.2 cycle=4 outcome=findings summary=med=3 low=0 run=step-1-2-review-continued

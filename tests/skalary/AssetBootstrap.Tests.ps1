@@ -346,19 +346,41 @@ Describe 'Asset bootstrap scanner' {
     }
 
     It 'rejects repository-root joins to authoring-only plugin paths' {
+        foreach ($sourcePath in @(
+                'plugins/fixture/skills/demo/scripts/Read-It.psm1',
+                'scripts/skalary/Read-It.psm1'
+            )) {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md'            = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = (@'
+param([string]$RepoRoot)
+$module = Join-Path $RepoRoot '__SOURCE_PATH__'
+'@).Replace('__SOURCE_PATH__', $sourcePath)
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'joins source-tree path'
+                $result.Message | Should -Match ([regex]::Escape($sourcePath))
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    It 'keeps the documented bootstrap registry fallback outside source-script rejection' {
         $root = & $script:newFixture -Files @{
             'skills/demo/SKILL.md'            = "# Demo`n"
             'skills/demo/scripts/Read-It.ps1' = @'
 param([string]$RepoRoot)
-$module = Join-Path $RepoRoot 'plugins/fixture/skills/demo/scripts/Read-It.psm1'
+$registry = Join-Path $RepoRoot 'scripts/skalary/registry.json'
 '@
         }
 
         try {
-            $result = & $script:invoke -Root $root
-            $result.Threw | Should -BeTrue
-            $result.Message | Should -Match 'joins source-tree path'
-            $result.Message | Should -Match 'plugins/fixture/skills/demo/scripts/Read-It\.psm1'
+            (& $script:invoke -Root $root).Threw | Should -BeFalse
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force
@@ -400,6 +422,21 @@ $module = Join-Path $RepoRoot 'plugins/fixture/skills/demo/scripts/Read-It.psm1'
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force
             }
+        }
+    }
+
+    It 'rejects colon-bound named dynamic Join-Path arguments in Markdown payloads' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nLoad ``Join-Path -Path:'./assets' -ChildPath:`$name`` at runtime.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'dynamically composes supported runtime root'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
         }
     }
 
@@ -568,6 +605,26 @@ $module = Join-Path $RepoRoot 'plugins/fixture/skills/demo/scripts/Read-It.psm1'
                 'skills/demo/scripts/Read-It.ps1' = @'
 param([string]$RepoRoot)
 $path = Join-Path $RepoRoot 'docs/undeclared/file.md'
+'@
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/undeclared/file\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+
+        It 'does not let an outer sidecar join exempt a nested repository read' {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md'            = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$path = Join-Path $PSScriptRoot (Get-Content (Join-Path $RepoRoot 'docs/undeclared/file.md'))
 '@
             }
 

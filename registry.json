@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-23T13:49:23.5290291Z",
+  "generatedAt": "2026-08-23T14:12:31.9705415Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -207,6 +207,26 @@
           "src": "schemas/autopilot.schema.json"
         },
         {
+          "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
+          "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
+          "src": "skills/autopilot/scripts/PlanEvidence.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/PlanState.psm1",
+          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "src": "skills/autopilot/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
+          "sha256": "0145c8550dbc805652e9feb4ee46015a280c7f7c92d5c8a175d9f9e799c63cc7",
+          "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Test-Plan.ps1",
+          "sha256": "083a5e4492eb4838f29424c60099cfdcfd7e0438b6188bcd6890d4535a761b68",
+          "src": "skills/autopilot/scripts/Test-Plan.ps1"
+        },
+        {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
           "sha256": "1fbaabd01c08aaefb966d25df66e98a5a1221cc13ffc99faff455a5fea42ca1b",
           "src": "scripts/autopilot-dispatch.ps1"
@@ -248,7 +268,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "fae0d6dcf97aee225a869465ce2810e1b6e0104ad9cabc0007057c673c5d55d0",
+          "sha256": "1b12bdd5a1b9c4abc817ffc85d5d228b879f934d1a66b59a8b015b07423464ea",
           "src": "scripts/launch.ps1"
         },
         {
@@ -276,7 +296,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.11"
+      "version": "1.2.12"
     },
     {
       "author": "jIRI-san",
@@ -500,7 +520,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "1d1e449b89dbd82d4af6e1d4eda493e81883931be19f213131434d9ebe50c51c",
+          "sha256": "0145c8550dbc805652e9feb4ee46015a280c7f7c92d5c8a175d9f9e799c63cc7",
           "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -557,7 +577,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.33"
+      "version": "1.0.34"
     },
     {
       "author": "jIRI-san",

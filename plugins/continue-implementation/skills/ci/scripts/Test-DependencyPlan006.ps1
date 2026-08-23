@@ -131,7 +131,7 @@ try {
         exit 0
     }
 
-    $testPlanPath = Join-Path $resolvedRoot 'scripts/skalary/Test-Plan.ps1'
+    $testPlanPath = Join-Path $PSScriptRoot 'Test-Plan.ps1'
     if (-not (Test-Path -LiteralPath $testPlanPath -PathType Leaf)) {
         throw "Missing required script 'scripts/skalary/Test-Plan.ps1'."
     }

@@ -48,7 +48,7 @@ $PlanPath = Join-Path $PlanFolder 'plan.md'
 $planContent = Get-Content -LiteralPath $PlanPath -Raw -Encoding utf8
 $requires006DependencyGate = [regex]::IsMatch($planContent, '<!--\s*depends-on:\s*[^>]*\b006\b[^>]*-->', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 if ($requires006DependencyGate) {
-    $dependencyGateScript = Join-Path $RepoRoot 'scripts/skalary/Test-DependencyPlan006.ps1'
+    $dependencyGateScript = Join-Path $RepoRoot '.github/skills/autopilot/scripts/Test-DependencyPlan006.ps1'
     if (-not (Test-Path -LiteralPath $dependencyGateScript -PathType Leaf)) {
         Write-Error "Missing dependency gate script: $dependencyGateScript"
         exit 1
