@@ -145,6 +145,37 @@ Describe 'review concern generation' {
             }
             return $root
         }
+
+        function Get-ExpectedReviewConcernOutputs {
+            param([Parameter(Mandatory)][string]$Root)
+
+            $paths = [System.Collections.Generic.List[string]]::new()
+            foreach ($reviewType in @(
+                    @{ Prefix = 'cr'; Plugin = 'code-review'; Skill = 'cr' }
+                    @{ Prefix = 'dr'; Plugin = 'design-review'; Skill = 'dr' }
+                )) {
+                foreach ($concernId in $script:concernIds) {
+                    $paths.Add((Join-Path $Root "plugins/$($reviewType.Plugin)/agents/$($reviewType.Prefix)-$concernId.agent.md"))
+                }
+                $paths.Add((Join-Path $Root "plugins/$($reviewType.Plugin)/skills/$($reviewType.Skill)/assets/concern-ledger-map.md"))
+            }
+            return @($paths)
+        }
+
+        function Get-ReviewConcernOutputHashes {
+            param([Parameter(Mandatory)][string[]]$Paths)
+
+            return @(
+                $Paths | ForEach-Object {
+                    if (Test-Path -LiteralPath $_ -PathType Leaf) {
+                        (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash
+                    }
+                    else {
+                        '<missing>'
+                    }
+                }
+            )
+        }
     }
 
     Describe 'generated review concern behavior and distribution' {
@@ -368,6 +399,78 @@ Describe 'review concern generation' {
             { & $script:syncScript -RepoRoot $fixture *> $null } | Should -Throw
             (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash |
                 Should -Be $originalHash -Because 'an invalid late registry value must be rejected before any output is written'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:ReviewConcerns.GenerationDrift detects every drift shape without writing and converges deterministically after a registry mutation' {
+        { & $script:syncScript -RepoRoot $script:repoRoot -WhatIf *> $null } | Should -Not -Throw
+
+        $fixture = New-ReviewConcernFixture
+        try {
+            & $script:syncScript -RepoRoot $fixture *> $null
+            $expectedPaths = Get-ExpectedReviewConcernOutputs -Root $fixture
+            $expectedPaths.Count | Should -Be 16
+            $baselineHashes = Get-ReviewConcernOutputHashes -Paths $expectedPaths
+
+            $agentPath = Join-Path $fixture 'plugins/code-review/agents/cr-security.agent.md'
+            Add-Content -LiteralPath $agentPath -Value 'hand-edited agent' -Encoding utf8NoBOM
+            $handEditedAgentHash = (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*1 changed or missing output(s), 0 extra agent(s)*'
+            (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash |
+                Should -Be $handEditedAgentHash -Because '-WhatIf must not repair a hand edit'
+            & $script:syncScript -RepoRoot $fixture *> $null
+
+            Remove-Item -LiteralPath $agentPath -Force
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*1 changed or missing output(s), 0 extra agent(s)*'
+            Test-Path -LiteralPath $agentPath | Should -BeFalse -Because '-WhatIf must not recreate a missing output'
+            & $script:syncScript -RepoRoot $fixture *> $null
+
+            $extraPath = Join-Path $fixture 'plugins/design-review/agents/dr-extra.agent.md'
+            Set-Content -LiteralPath $extraPath -Value 'extra generated-looking agent' -Encoding utf8NoBOM
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*0 changed or missing output(s), 1 extra agent(s)*'
+            Test-Path -LiteralPath $extraPath -PathType Leaf | Should -BeTrue -Because '-WhatIf must not prune an extra output'
+            & $script:syncScript -RepoRoot $fixture *> $null
+
+            $mapPath = Join-Path $fixture 'plugins/code-review/skills/cr/assets/concern-ledger-map.md'
+            Add-Content -LiteralPath $mapPath -Value 'hand-edited mapping' -Encoding utf8NoBOM
+            $handEditedMapHash = (Get-FileHash -LiteralPath $mapPath -Algorithm SHA256).Hash
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*1 changed or missing output(s), 0 extra agent(s)*'
+            (Get-FileHash -LiteralPath $mapPath -Algorithm SHA256).Hash |
+                Should -Be $handEditedMapHash -Because '-WhatIf must not repair a hand-edited mapping'
+            & $script:syncScript -RepoRoot $fixture *> $null
+
+            $registryPath = Join-Path $fixture 'tools/review-concerns.json'
+            $registry = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json -Depth 30
+            $existingLedger = [string]$registry.concerns[0].ledger.cr
+            for ($index = 0; $index -lt $registry.concerns.Count; $index++) {
+                $registry.concerns[$index].sharedGuidance = "$($registry.concerns[$index].sharedGuidance) Mutation sentinel $index"
+                $registry.concerns[$index].ledger.cr = $existingLedger
+                $registry.concerns[$index].ledger.dr = $existingLedger
+            }
+            Set-Content -LiteralPath $registryPath -Value ($registry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*16 changed or missing output(s), 0 extra agent(s)*'
+            (Get-ReviewConcernOutputHashes -Paths $expectedPaths) |
+                Should -Be $baselineHashes -Because 'detect-only validation must leave every expected output unchanged'
+
+            & $script:syncScript -RepoRoot $fixture *> $null
+            $mutatedHashes = Get-ReviewConcernOutputHashes -Paths $expectedPaths
+            for ($index = 0; $index -lt $expectedPaths.Count; $index++) {
+                $mutatedHashes[$index] | Should -Not -Be $baselineHashes[$index] -Because "$($expectedPaths[$index]) must derive from the registry"
+            }
+
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } | Should -Not -Throw
+            & $script:syncScript -RepoRoot $fixture *> $null
+            (Get-ReviewConcernOutputHashes -Paths $expectedPaths) |
+                Should -Be $mutatedHashes -Because 'a clean second generation pass must be byte-deterministic'
         }
         finally {
             Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
