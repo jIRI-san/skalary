@@ -9,3 +9,8 @@ Phase: 2
 
 - [2.1] [trigger:rework>1] Digest persisted files from exact bytes, serialize writes behind a stable sidecar lock, and atomically replace only after a second source check.
 - [2.2] [trigger:reusable-pattern] Before retrying a non-idempotent remote create, search its unique managed ownership marker and refuse ambiguous or unmapped survivors instead of duplicating them.
+
+## Learnings Capture
+Phase: 3
+
+No entries for this phase.

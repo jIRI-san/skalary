@@ -46,3 +46,13 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Med] A successful update followed by mapping-save failure leaves stale baseline hashes that later dry runs treat as a no-op without repairing.
 - [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=2 outcome=findings summary=2-high-1-med run-apply-review-2
 - [2.2] [src:note] [sev:Low] review-cycle stage=step-2.2 cycle=3 outcome=clean summary=clean run-apply-review-3
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=1 outcome=clean summary=clean run-step-3-1-review
+- [3.1] [src:code-review] [sev:Low] Directive-shaped body text used an escaped canary that could not detect execution; use a literal side-effect canary and assert no artifact exists.
+- [3.1] [src:code-review] [sev:Low] The ambiguous-adoption dry-run write count was vacuous; pass the refusal-bearing run through apply and prove the provider write boundary stays untouched.
+- [3.1] [src:code-review] [sev:Low] The smoke runbook suggested the Git common directory for disposable mapping state; prefer a gitignored or out-of-tree operator-owned path.
+- [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=2 outcome=findings summary=3-low run-step-3-1-duck
+- [3.1] [src:note] [sev:Low] review-cycle stage=step-3.1 cycle=3 outcome=clean summary=clean run-step-3-1-final

@@ -34,5 +34,5 @@
 ## Phase 3: Focused proof and distribution
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Add focused mocked adapter tests for projection, dry run, apply confirmation, mapping, markers, conflict refusal, partial failure, and second-run no-op; document an optional operator-owned real smoke without making live credentials required evidence (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Add focused mocked adapter tests for projection, dry run, apply confirmation, mapping, markers, conflict refusal, partial failure, and second-run no-op; document an optional operator-owned real smoke without making live credentials required evidence (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
 - [ ] 3.2 Synchronize plugin/generated copies through existing writers, run focused mocked/installed/generated-drift/validation checks, rebuild the existing evidence receipt, and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `M`

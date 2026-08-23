@@ -120,3 +120,26 @@ A provider that reports a mapped issue as absent produces `mapping-target-missin
 404, the GitHub adapter probes the repository identity before returning that sentinel; inaccessible or
 missing repositories, relation 404s, authorization failures, and other transport failures still propagate
 and stop synchronization.
+
+## Optional Real GitHub Smoke
+
+Live GitHub access is not validation evidence. The deterministic mocked suite is the required proof and
+runs without credentials. An operator may additionally smoke-test a disposable repository they own:
+
+1. Verify the selected repository permits issues, sub-issues, and blocked-by relations, then authenticate
+   the local `gh` CLI with an account authorized to create and edit those issues.
+2. Import `WorkHierarchy.psm1` and `GitHubWorkHierarchy.psm1`; create the projection with
+   `New-WorkHierarchyProjection`, a provider with `New-GitHubWorkHierarchyProvider`, and mapping state with
+   `Read-WorkHierarchyMappingFile`. Keep the mapping at a gitignored or out-of-tree operator-owned path;
+   never commit a disposable smoke mapping.
+3. Pass the exact mapping and digest to `New-WorkHierarchyDryRun`, render it with
+   `ConvertTo-WorkHierarchyDryRunText`, and inspect every ordered action. Do not apply a run containing a
+   refusal or an unexpected target.
+4. Call `Invoke-WorkHierarchyApply` only after comparing the confirmation callback's action digest with the
+   rendered digest. A decline must leave the repository unchanged.
+5. Read the refreshed mapping and run a second dry run. It must contain only no-op actions. Inspect the
+   created hierarchy in GitHub, then remove the disposable issues and local mapping through operator-owned
+   cleanup.
+
+Never automate this smoke in CI, store a token in repository files, treat a live pass as required evidence,
+or run it against production planning issues.
