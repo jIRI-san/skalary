@@ -8,6 +8,8 @@ globs:
   - schemas/registry/registry.schema.json
   - schemas/receipt/receipt.schema.json
   - .github/.skalary/**
+  - tests/ConsumerInstallFixture.psm1
+  - tests/skalary/ConsumerInstall.Tests.ps1
 ---
 
 # Plugin Registry
@@ -223,6 +225,20 @@ tracked, not done — see
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
 and stays subject to the `files[]` check.
+
+## Foreign Consumer Inventory
+
+`tests/ConsumerInstallFixture.psm1` creates one empty foreign Git repository, poisons the skalary
+source-root shapes, and invokes the production `Install-Plugin.ps1` once for every active
+`plugins/*/plugin.json`. Active attendance is manifest-derived: both `stable` and `partial` bundles
+are installed, while retired plugins have no active manifest and therefore do not enter the set.
+
+The inventory oracle is independent of `registry.json`: it hashes each manifest source, excludes
+the installer's non-runtime `evals/` mappings, and compares that expected set with installed files,
+per-plugin receipts, dependency closure, and `.github/` confinement. It separately compares every
+manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
+make the production installer and its test agree on the same wrong payload. The process-heavy
+evidence lives in the existing Slow suite tier.
 
 ## Skill Size Cap
 
