@@ -34,7 +34,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [~] 1.1 Build one foreign-repository fixture from active plugin manifests by invoking the production installer and existing test helpers. Poison skalary source paths, derive expected installed files from manifests, and add `test:ConsumerInstall.ForeignFixtureInventory` for missing, extra, hash-mismatched, escaping, and stale mappings (REQ-1, REQ-5, RISK-1, RISK-4, RISK-5) `L`
+- [x] 1.1 Build one foreign-repository fixture from active plugin manifests by invoking the production installer and existing test helpers. Poison skalary source paths, derive expected installed files from manifests, and add `test:ConsumerInstall.ForeignFixtureInventory` for missing, extra, hash-mismatched, escaping, and stale mappings (REQ-1, REQ-5, RISK-1, RISK-4, RISK-5) `L`
 - [ ] 1.2 Extend the current runtime-reference scan to reject source-tree assumptions and undeclared runtime assets across the supported reference grammar. Pair static findings with the foreign fixture and add `test:ConsumerInstall.RuntimeReferenceClosure` for installed, bundled, scaffolded, missing, and dynamic-reference cases (REQ-2, REQ-5, RISK-1, RISK-2, RISK-5) [after: 1.1] `L`
 
 ## Phase 2: Installed behavior and scaffold lifecycle
