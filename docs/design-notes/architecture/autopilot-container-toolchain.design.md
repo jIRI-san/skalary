@@ -472,8 +472,11 @@ nothing.
 The final receipt carries the identities too. It is the only artifact that always exists, and when the
 image job is skipped it is the only one there is — so a verdict that named no commit could not be
 attributed to the change it judged. `VerifyResult` therefore receives the base and candidate SHAs, the
-detector's candidate-only reason, and the count of relevant paths, and writes them into the same
-`identities`, `comparison`, `candidateOnlyReason` and `diagnostic` fields a measured receipt uses. The
+detector's candidate-only reason, the count of relevant paths, and the image job's measured
+`comparison` plus candidate-only reason. The latter two are outputs written by the runner from the
+terminal measurement receipt; they are never inferred from a successful job conclusion because a
+base build failure is itself a successful candidate-only measurement. `VerifyResult` writes those
+values into the same `identities`, `comparison`, `candidateOnlyReason` and `diagnostic` fields. The
 path *names* cannot travel that wire: step outputs are restricted to a bounded `[A-Za-z0-9._-]`
 alphabet precisely so nothing candidate-shaped reaches `$GITHUB_OUTPUT`, and a repository path
 contains `/`. The count travels, and the detector uploads its own receipt as an artifact so the names

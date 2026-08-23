@@ -27,6 +27,10 @@ param(
     [string]$DetectorConclusion,
     [string]$Relevance,
     [string]$ImageConclusion,
+    [ValidateSet('', 'not-run', 'comparable', 'candidate-only')]
+    [string]$MeasurementComparison,
+    [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift', 'base-build-failed', 'base-timeout')]
+    [string]$MeasurementCandidateOnlyReason,
     [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift')]
     [string]$DetectionCandidateOnlyReason,
     [ValidateSet('', 'true', 'false')]
@@ -1885,6 +1889,8 @@ function Invoke-ContainerToolchainGate {
         [string]$DetectorConclusion,
         [string]$Relevance,
         [string]$ImageConclusion,
+        [ValidateSet('', 'not-run', 'comparable', 'candidate-only')][string]$MeasurementComparison,
+        [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift', 'base-build-failed', 'base-timeout')][string]$MeasurementCandidateOnlyReason,
         [ValidateSet('', 'zero-base', 'base-unreachable', 'base-context-absent', 'base-payload-drift')]
         [string]$DetectionCandidateOnlyReason,
         [ValidateSet('', 'true', 'false')]
@@ -1958,22 +1964,28 @@ function Invoke-ContainerToolchainGate {
             # that decides whether main is green could not be attributed to the change it judged.
             # The identities and the detector's evidence — why the base was unusable, how many
             # relevant paths it found — are carried through so the terminal receipt stands alone.
-            # `comparison` is a fact about a measurement, and this job has none: it reads two job
-            # conclusions and never builds anything. It may therefore only claim `comparable` when
-            # a measurement that could have produced a comparison actually succeeded — the image
-            # job reporting `success` with no detector-time candidate-only reason. Deriving it from
-            # relevance alone made a skipped or failed image job produce a receipt claiming a
-            # comparison next to a null `deltaBytes`, and the base-side failures that convert to
-            # candidate-only *during* measurement are exactly the case that would contradict the
-            # measurement receipt for the same run. Anything else is `not-run`, which is what the
-            # gate job actually knows.
-            $comparison = if ($DetectionCandidateOnlyReason) { 'candidate-only' }
-            elseif ($relevant -and $ImageConclusion -eq 'success') { 'comparable' }
+            # Comparison is produced by Measure, not inferred from a successful image job. A base
+            # failure is a successful candidate-only measurement, so re-deriving this value from
+            # job conclusions would contradict the measurement receipt for the same run.
+            $comparison = if ($ImageConclusion -eq 'success' -and $MeasurementComparison) { $MeasurementComparison }
+            elseif ($DetectionCandidateOnlyReason) { 'candidate-only' }
             else { 'not-run' }
+            $finalCandidateOnlyReason = if ($ImageConclusion -eq 'success' -and $MeasurementCandidateOnlyReason) {
+                $MeasurementCandidateOnlyReason
+            }
+            else {
+                $DetectionCandidateOnlyReason
+            }
+            if ($comparison -eq 'candidate-only' -and -not $finalCandidateOnlyReason) {
+                throw 'A candidate-only measurement did not report its reason.'
+            }
+            if ($comparison -eq 'comparable' -and $finalCandidateOnlyReason) {
+                throw 'A comparable measurement reported a candidate-only reason.'
+            }
             $pathEvidence = if ($RelevantPathCount) { "relevantPaths=$RelevantPathCount" } else { 'relevantPaths=unreported' }
-            $reasonEvidence = if ($DetectionCandidateOnlyReason) { $DetectionCandidateOnlyReason } else { 'none' }
+            $reasonEvidence = if ($finalCandidateOnlyReason) { $finalCandidateOnlyReason } else { 'none' }
             $receipt = New-ContainerGateReceipt -Outcome $outcome -Relevant $relevant -Comparison $comparison `
-                -CandidateOnlyReason $DetectionCandidateOnlyReason -BaseSha $BaseSha -CandidateSha $CandidateSha `
+                -CandidateOnlyReason $finalCandidateOnlyReason -BaseSha $BaseSha -CandidateSha $CandidateSha `
                 -Architecture $RunnerArchitecture `
                 -Diagnostic "detector=$DetectorConclusion; relevance=$Relevance; image=$ImageConclusion; $pathEvidence; candidateOnlyReason=$reasonEvidence" `
                 -AdvisoryGrowthMiB $AdvisoryGrowthMiB
@@ -2420,6 +2432,12 @@ function Invoke-ContainerToolchainGate {
             $receipt.timing.baseMs = [math]::Max([int64]0, [int64]$clock.ElapsedMilliseconds - $basePhaseStartMs)
         }
         $json = Write-ContainerGateReceipt -Receipt $receipt -Path $ReceiptPath
+        if ($Mode -eq 'Measure' -and $StepOutputPath) {
+            Write-GateStepOutput -Path $StepOutputPath -Value ([ordered]@{
+                    comparison = [string]$receipt.comparison
+                    candidate_only_reason = [string]$receipt.candidateOnlyReason
+                })
+        }
         if ($SummaryPath) { Write-ContainerGateSummary -Receipt $receipt -Path $SummaryPath }
         Write-Host $json
     }

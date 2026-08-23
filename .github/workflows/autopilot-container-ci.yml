@@ -168,6 +168,9 @@ jobs:
     name: build and smoke container
     needs: detector
     if: needs.detector.result == 'success' && needs.detector.outputs.relevance == 'true'
+    outputs:
+      comparison: ${{ steps.measure.outputs.comparison }}
+      candidate_only_reason: ${{ steps.measure.outputs.candidate_only_reason }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -251,9 +254,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not import base commit $env:BASE_SHA." }
 
       - name: Measure candidate toolchain
+        id: measure
         shell: pwsh
         run: |
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Measure -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -DetectionRelevance $env:DETECTION_RELEVANCE -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -ProvenancePath "$env:EVIDENCE_ROOT/provenance.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -DiagnosticLogPath "$env:EVIDENCE_ROOT/diagnostics.log" -CopilotVersion $env:COPILOT_CLI_VERSION -CandidateBudgetSeconds 1500 -BaseBudgetSeconds 600 -RunnerBudgetSeconds 2100 -AdvisoryGrowthMiB 250
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode Measure -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -BaseRoot $env:BASE_ROOT -CandidateRoot $env:CANDIDATE_ROOT -DetectionCandidateOnlyReason $env:DETECTION_CANDIDATE_ONLY_REASON -DetectionRelevance $env:DETECTION_RELEVANCE -ReceiptPath "$env:EVIDENCE_ROOT/receipt.json" -ProvenancePath "$env:EVIDENCE_ROOT/provenance.json" -SummaryPath "$env:EVIDENCE_ROOT/summary.md" -DiagnosticLogPath "$env:EVIDENCE_ROOT/diagnostics.log" -StepOutputPath $env:GITHUB_OUTPUT -CopilotVersion $env:COPILOT_CLI_VERSION -CandidateBudgetSeconds 1500 -BaseBudgetSeconds 600 -RunnerBudgetSeconds 2100 -AdvisoryGrowthMiB 250
           if ($LASTEXITCODE -ne 0) {
             throw 'Candidate container toolchain validation failed.'
           }
@@ -315,13 +319,15 @@ jobs:
           DETECTOR_CONCLUSION: ${{ needs.detector.result }}
           RELEVANCE: ${{ needs.detector.outputs.relevance }}
           IMAGE_CONCLUSION: ${{ needs.image.result }}
+          MEASUREMENT_COMPARISON: ${{ needs.image.outputs.comparison }}
+          MEASUREMENT_CANDIDATE_ONLY_REASON: ${{ needs.image.outputs.candidate_only_reason }}
         run: |
           # The final receipt is the one artifact that always exists, and when the measurement job
           # was skipped it is the only one. It used to name no commit, so the verdict that decides
           # whether main is green could not be attributed to the commit it judged. The identities
           # and the detector's own evidence — the candidate-only reason, the number of relevant
           # paths — are passed in so this receipt stands on its own.
-          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode VerifyResult -DetectorConclusion $env:DETECTOR_CONCLUSION -Relevance $env:RELEVANCE -ImageConclusion $env:IMAGE_CONCLUSION -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionCandidateOnlyReason $env:CANDIDATE_ONLY_REASON -RelevantPathCount $env:RELEVANT_PATH_COUNT -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md"
+          & "$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1" -Mode VerifyResult -DetectorConclusion $env:DETECTOR_CONCLUSION -Relevance $env:RELEVANCE -ImageConclusion $env:IMAGE_CONCLUSION -MeasurementComparison $env:MEASUREMENT_COMPARISON -MeasurementCandidateOnlyReason $env:MEASUREMENT_CANDIDATE_ONLY_REASON -BaseSha $env:BASE_SHA -CandidateSha $env:CANDIDATE_SHA -DetectionCandidateOnlyReason $env:CANDIDATE_ONLY_REASON -RelevantPathCount $env:RELEVANT_PATH_COUNT -ReceiptPath "$env:FINAL_ROOT/receipt.json" -SummaryPath "$env:FINAL_ROOT/summary.md"
           if ($LASTEXITCODE -ne 0) {
             throw 'Autopilot container result combination failed closed.'
           }

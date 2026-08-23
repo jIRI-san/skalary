@@ -2184,6 +2184,7 @@ Describe 'Autopilot container gate runner' {
         $receiptPath = Join-Path $TestDrive 'final-identities.json'
         $result = Invoke-ContainerToolchainGate -Mode VerifyResult `
             -DetectorConclusion success -Relevance true -ImageConclusion success `
+            -MeasurementComparison comparable `
             -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -RelevantPathCount '3' `
             -ReceiptPath $receiptPath 6>$null
         $result.ExitCode | Should -Be 0
@@ -2199,12 +2200,13 @@ Describe 'Autopilot container gate runner' {
         $degradedPath = Join-Path $TestDrive 'final-identities-degraded.json'
         [void](Invoke-ContainerToolchainGate -Mode VerifyResult `
                 -DetectorConclusion success -Relevance true -ImageConclusion success `
+                -MeasurementComparison candidate-only -MeasurementCandidateOnlyReason base-build-failed `
                 -BaseSha ('0' * 40) -CandidateSha ('b' * 40) -RelevantPathCount '2' `
-                -DetectionCandidateOnlyReason 'zero-base' -ReceiptPath $degradedPath 6>$null)
+                -ReceiptPath $degradedPath 6>$null)
         $degraded = Get-Content -LiteralPath $degradedPath -Raw | ConvertFrom-Json
-        $degraded.candidateOnlyReason | Should -Be 'zero-base'
+        $degraded.candidateOnlyReason | Should -Be 'base-build-failed'
         $degraded.comparison | Should -Be 'candidate-only'
-        $degraded.diagnostic | Should -Match 'candidateOnlyReason=zero-base'
+        $degraded.diagnostic | Should -Match 'candidateOnlyReason=base-build-failed'
 
         # An absent count is reported as absent rather than as zero relevant paths, which would be
         # a different claim entirely.
@@ -2227,6 +2229,7 @@ Describe 'Autopilot container gate runner' {
             $path = Join-Path $TestDrive "final-comparison-$($case.Image).json"
             [void](Invoke-ContainerToolchainGate -Mode VerifyResult `
                     -DetectorConclusion success -Relevance true -ImageConclusion $case.Image `
+                    -MeasurementComparison $(if ($case.Image -eq 'success') { 'comparable' } else { '' }) `
                     -BaseSha ('a' * 40) -CandidateSha ('b' * 40) -ReceiptPath $path 6>$null)
             $written = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
             $written.comparison | Should -Be $case.Expected -Because "image=$($case.Image) measured $(if ($case.Image -eq 'success') { 'something' } else { 'nothing' })"

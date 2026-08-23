@@ -69,3 +69,36 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Med] Attestation read only candidate-authored provenance and accepted a zero-case manifest; now reads live /etc/apt, requires a non-empty case set, and the note records what attestation cannot prove.
 - [3.1] [src:code-review] [sev:Med] Gate bootstrap step ignored needs.detector.result, so a failed detector produced a green required gate; it now fails unless the detector succeeded.
 - [3.1] [src:code-review] [sev:Med] Live apt-config reader stopped at a URI userinfo delimiter, so it disagreed with the recorded-file reader about the host; both now compare the full authority minus port.
+
+## CR Capture
+Phase: 4
+
+- [-] [src:code-review] [sev:Critical] Finalization review: retained measurement provenance names a Dockerfile hash that no longer matches the shipped payload; rebuild current image evidence before archival.
+- [-] [src:code-review] [sev:High] Finalization review: npm test omits four cited Slow-tier tests; run and record the Slow tier before claiming those markers.
+- [-] [src:code-review] [sev:High] Finalization review: VerifyResult can publish comparable after Measure degraded to candidate-only on a base failure; propagate measurement comparison truth into the final receipt.
+- [-] [src:code-review] [sev:Med] Finalization review: detector and final-gate failures produce no diagnostics log.
+- [-] [src:code-review] [sev:Med] Finalization review: execution note duplicates and weakens the delegated container trust contract.
+- [-] [src:code-review] [sev:Med] Finalization review: failing smoke cases discard their failure reason.
+- [-] [src:code-review] [sev:Med] Finalization review: final root layer does not mirror the documented binary-scoped relocation check.
+- [-] [src:code-review] [sev:Med] Finalization review: host apt scan admits excessive regex work after its deadline check.
+- [-] [src:code-review] [sev:Med] Finalization review: image summary rendering can mask the originating failure.
+- [-] [src:code-review] [sev:Med] Finalization review: local measurements retain SHA-tagged multi-gigabyte images.
+- [-] [src:code-review] [sev:Med] Finalization review: mutable upstream packages can replace privileged runtime tooling.
+- [-] [src:code-review] [sev:Med] Finalization review: no test binds retained measurements to the current payload.
+- [-] [src:code-review] [sev:Med] Finalization review: retained receipt evidences only a warm cached build.
+- [-] [src:code-review] [sev:Med] Finalization review: smoke validator hand-rolls inconsistent result shapes.
+- [-] [src:code-review] [sev:Med] Finalization review: npm global cache is baked into the oversized image.
+- [-] [src:code-review] [sev:Low] Finalization review: base budget has no cold-build measurement.
+- [-] [src:code-review] [sev:Low] Finalization review: candidate containers retain default capabilities and no resource bounds.
+- [-] [src:code-review] [sev:Low] Finalization review: devcontainer grants host-Docker authority while the trust note denies host mounts.
+- [-] [src:code-review] [sev:Low] Finalization review: diagnostics log has no run timestamp or delimiter.
+- [-] [src:code-review] [sev:Low] Finalization review: evolution log records review rounds out of order.
+- [-] [src:code-review] [sev:Low] Finalization review: fallback evidence artifacts name no commit.
+- [-] [src:code-review] [sev:Low] Finalization review: gate runner contains dead exit-code writes and a dead guard.
+- [-] [src:code-review] [sev:Low] Finalization review: growth marker asserts a hand-authored number.
+- [-] [src:code-review] [sev:Low] Finalization review: image-size exception rule contradicts its rationale.
+- [-] [src:code-review] [sev:Low] Finalization review: indentation obscures two control-flow blocks.
+- [-] [src:code-review] [sev:Low] Finalization review: injected-repository negative fixture is tautological.
+- [-] [src:code-review] [sev:Low] Finalization review: job-summary size formatting is culture-sensitive.
+- [-] [src:code-review] [sev:Low] Finalization review: smoke encoder rebuilds the whole JSON case array once per case.
+- [-] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=critical=1-high=2-medium=12-low=13-run=dcb0835e-fd97-4cc6-b0cd-38251198ed96
