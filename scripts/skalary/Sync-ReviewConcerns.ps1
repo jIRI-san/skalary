@@ -275,6 +275,23 @@ function Write-FileAtomically {
     }
 }
 
+function Test-ByteSequenceEqual {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Left,
+        [Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Right
+    )
+
+    if ($Left.Length -ne $Right.Length) {
+        return $false
+    }
+    for ($index = 0; $index -lt $Left.Length; $index++) {
+        if ($Left[$index] -ne $Right[$index]) {
+            return $false
+        }
+    }
+    return $true
+}
+
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 if (-not (Test-Path -LiteralPath $repoRootPath -PathType Container)) {
     throw "Repository root not found: '$RepoRoot'."
@@ -363,12 +380,12 @@ foreach ($reviewType in @('cr', 'dr')) {
 
 $changed = @(
     $outputs | Where-Object {
-        -not (Test-Path -LiteralPath $_.Path -PathType Leaf) -or
-        -not [string]::Equals(
-            [System.IO.File]::ReadAllText($_.Path),
-            [string]$_.Content,
-            [System.StringComparison]::Ordinal
-        )
+        if (-not (Test-Path -LiteralPath $_.Path -PathType Leaf)) {
+            return $true
+        }
+        $actualBytes = [System.IO.File]::ReadAllBytes($_.Path)
+        $expectedBytes = $script:Utf8NoBom.GetBytes([string]$_.Content)
+        return -not (Test-ByteSequenceEqual -Left $actualBytes -Right $expectedBytes)
     }
 )
 

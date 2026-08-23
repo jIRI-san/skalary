@@ -446,6 +446,28 @@ Describe 'review concern generation' {
                 Should -Be $handEditedMapHash -Because '-WhatIf must not repair a hand-edited mapping'
             & $script:syncScript -RepoRoot $fixture *> $null
 
+            $agentBytes = [System.IO.File]::ReadAllBytes($agentPath)
+            $preamble = [System.Text.UTF8Encoding]::new($true).GetPreamble()
+            $bytesWithPreamble = [byte[]]::new($preamble.Length + $agentBytes.Length)
+            [System.Array]::Copy($preamble, 0, $bytesWithPreamble, 0, $preamble.Length)
+            [System.Array]::Copy($agentBytes, 0, $bytesWithPreamble, $preamble.Length, $agentBytes.Length)
+            [System.IO.File]::WriteAllBytes($agentPath, $bytesWithPreamble)
+            $encodingDriftHash = (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*1 changed or missing output(s), 0 extra agent(s)*'
+            (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash |
+                Should -Be $encodingDriftHash -Because '-WhatIf must not normalize encoding drift'
+            & $script:syncScript -RepoRoot $fixture *> $null
+
+            [System.IO.File]::WriteAllBytes($agentPath, [byte[]]::new(0))
+            { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
+                Should -Throw '*1 changed or missing output(s), 0 extra agent(s)*'
+            (Get-Item -LiteralPath $agentPath).Length |
+                Should -Be 0 -Because '-WhatIf must not repair a truncated output'
+            & $script:syncScript -RepoRoot $fixture *> $null
+            (Get-Item -LiteralPath $agentPath).Length |
+                Should -BeGreaterThan 0 -Because 'apply mode must repair a truncated generated output'
+
             $registryPath = Join-Path $fixture 'tools/review-concerns.json'
             $registry = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json -Depth 30
             $existingLedger = [string]$registry.concerns[0].ledger.cr

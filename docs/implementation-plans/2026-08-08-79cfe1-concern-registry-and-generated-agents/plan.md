@@ -46,5 +46,5 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Documentation and integration
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Update concern-authoring, plugin-registry, and review-reporting design notes; run focused generator/agent tests, structural evals, installed-consumer checks, generated-artifact drift checks, and normal repository validation. Record `review:cr` and `review:dr` without changing review-run v1 (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.2] `M`
+- [x] 3.1 Update concern-authoring, plugin-registry, and review-reporting design notes; run focused generator/agent tests, structural evals, installed-consumer checks, generated-artifact drift checks, and normal repository validation. Record `review:cr` and `review:dr` without changing review-run v1 (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.2] `M`
 <!-- implementation-ready: 2026-08-17 -->
