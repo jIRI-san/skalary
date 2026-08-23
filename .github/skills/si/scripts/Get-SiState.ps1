@@ -18,7 +18,8 @@ try {
 catch {
     if ($inspection.Status -notin @(
             'repairable-corrupt', 'migration-required', 'forward-readonly',
-            'forward-blocked', 'capacity-blocked', 'apply-incomplete'
+            'forward-blocked', 'capacity-blocked', 'apply-incomplete',
+            'archive-incomplete', 'invalid'
         )) {
         throw
     }
@@ -49,5 +50,6 @@ return [pscustomobject]@{
     RecentCount = $recent.Count
     Items = $items
     IncompleteApplies = @($inspection.IncompleteApplies)
+    ArchiveRecovery = $inspection.ArchiveRecovery
     NextCursor = if ($offset + $items.Count -lt $total) { [string]($offset + $items.Count) } else { $null }
 }

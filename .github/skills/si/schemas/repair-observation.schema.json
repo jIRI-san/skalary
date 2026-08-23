@@ -26,7 +26,8 @@
             "forward-blocked",
             "capacity-blocked",
             "invalid",
-            "apply-incomplete"
+            "apply-incomplete",
+            "archive-incomplete"
           ]
         },
         "observed": {

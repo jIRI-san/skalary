@@ -18,12 +18,13 @@ $script:SiStateContract = [pscustomobject]@{
         ForwardReadonly = 3; ForwardBlocked = 3
         CapacityBlocked = 4; Invalid = 5; LockTimeout = 6
         CasConflict = 7; CasExhausted = 8; ApplyIncomplete = 9
+        ArchiveIncomplete = 9
     }
     Limits                   = [pscustomobject]@{
         ManifestBytes = 256KB; PendingDues = 128; RecentRunReferences = 64
         ActiveCompletedRuns = 32; ActiveInFlightRuns = 16
         ArchivedRuns = 4096; RunsPerShard = 256; RunBytes = 1MB
-        RankedCandidates = 5; LockSeconds = 30; CasRetries = 3
+        RankedCandidates = 5; LockSeconds = 30; CasRetries = 3; InspectionSeconds = 60
         AuxiliaryRecordsPerKind = 256; ResolverReceipts = 512; HarvestIndexBytes = 8MB
     }
     RunStatuses              = [pscustomobject]@{
@@ -47,6 +48,7 @@ $script:SiStateContract = [pscustomobject]@{
         ObservationSegments = @('repair-observations')
         ReceiptSegments     = @('repair-receipts')
         ResolverReceiptSegments = @('resolver-receipts'); HarvestIndexName = 'harvest-index.json'
+        ArchiveJournalName = 'archive-journal.json'
         LockName            = '.state.lock'
     }
     TransactionOrder         = @(
@@ -80,7 +82,8 @@ function Get-SiStateRelativePath {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Root', 'Manifest', 'ActiveRuns', 'Archive', 'Backups', 'Quarantine',
-            'RepairObservations', 'RepairReceipts', 'ResolverReceipts', 'HarvestIndex'
+            'RepairObservations', 'RepairReceipts', 'ResolverReceipts', 'HarvestIndex',
+            'ArchiveJournal'
         )]
         [string]$Kind,
         [string[]]$Child = @()
@@ -128,6 +131,7 @@ function Get-SiStateRelativePath {
             }
         }
         'HarvestIndex' { $segments.Add([string]$script:SiStateContract.Topology.HarvestIndexName) }
+        'ArchiveJournal' { $segments.Add([string]$script:SiStateContract.Topology.ArchiveJournalName) }
     }
     foreach ($segment in @($Child)) {
         if ([string]::IsNullOrWhiteSpace($segment) -or $segment -in @('.', '..') -or
@@ -238,6 +242,107 @@ function Resolve-SiStatePath {
         throw "Resolved SI state path '$full' escapes repository root via link."
     }
     return $full
+}
+
+function Get-SiBoundedFileSet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [ValidateRange(1, [int]::MaxValue)][int]$MaxFiles,
+        [ValidateRange(1, [long]::MaxValue)][long]$MaxFileBytes,
+        [ValidateRange(1, [long]::MaxValue)][long]$MaxTotalBytes,
+        [string]$FileName,
+        [string]$Extension,
+        [datetime]$DeadlineUtc = [datetime]::UtcNow.AddSeconds(
+            $script:SiStateContract.Limits.InspectionSeconds
+        )
+    )
+
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+        return [pscustomobject]@{
+            Status = 'complete'; Files = @(); TotalBytes = [long]0; Reason = ''
+        }
+    }
+    $rootItem = Get-Item -LiteralPath $Root -Force
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        return [pscustomobject]@{
+            Status = 'invalid'; Files = @(); TotalBytes = [long]0
+            Reason = "SI state discovery refuses reparse-point root '$Root'."
+        }
+    }
+
+    $files = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+    $directories = [System.Collections.Generic.Stack[System.IO.DirectoryInfo]]::new()
+    $directories.Push([System.IO.DirectoryInfo]::new(
+            [System.IO.Path]::GetFullPath($Root)
+        ))
+    $totalBytes = [long]0
+    $entryCount = 0
+    $maxEntries = [long]$MaxFiles * 10L + 32L
+    while ($directories.Count -gt 0) {
+        if ([datetime]::UtcNow -gt $DeadlineUtc) {
+            return [pscustomobject]@{
+                Status = 'capacity-blocked'; Files = @($files); TotalBytes = $totalBytes
+                Reason = 'SI state discovery exceeded its 60-second deadline.'
+            }
+        }
+        $directory = $directories.Pop()
+        foreach ($entry in $directory.EnumerateFileSystemInfos()) {
+            $entryCount++
+            if ($entryCount -gt $maxEntries) {
+                return [pscustomobject]@{
+                    Status = 'capacity-blocked'; Files = @($files); TotalBytes = $totalBytes
+                    Reason = "SI state discovery exceeded its bounded entry count of $maxEntries."
+                }
+            }
+            if ([datetime]::UtcNow -gt $DeadlineUtc) {
+                return [pscustomobject]@{
+                    Status = 'capacity-blocked'; Files = @($files); TotalBytes = $totalBytes
+                    Reason = 'SI state discovery exceeded its 60-second deadline.'
+                }
+            }
+            if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                return [pscustomobject]@{
+                    Status = 'invalid'; Files = @($files); TotalBytes = $totalBytes
+                    Reason = "SI state discovery refuses reparse point '$($entry.FullName)'."
+                }
+            }
+            if ($entry -is [System.IO.DirectoryInfo]) {
+                $directories.Push($entry)
+                continue
+            }
+            if ($FileName -and -not [string]::Equals(
+                    $entry.Name, $FileName, [System.StringComparison]::Ordinal
+                )) {
+                continue
+            }
+            if ($Extension -and -not [string]::Equals(
+                    $entry.Extension, $Extension, [System.StringComparison]::OrdinalIgnoreCase
+                )) {
+                continue
+            }
+            if ($entry.Length -gt $MaxFileBytes) {
+                return [pscustomobject]@{
+                    Status = 'capacity-blocked'; Files = @($files); TotalBytes = $totalBytes
+                    Reason = "SI state file '$($entry.FullName)' exceeds its byte limit."
+                }
+            }
+            $files.Add($entry)
+            $totalBytes += $entry.Length
+            if ($files.Count -gt $MaxFiles -or $totalBytes -gt $MaxTotalBytes) {
+                return [pscustomobject]@{
+                    Status = 'capacity-blocked'; Files = @($files); TotalBytes = $totalBytes
+                    Reason = 'SI state discovery exceeded its file or aggregate byte limit.'
+                }
+            }
+        }
+    }
+    return [pscustomobject]@{
+        Status = 'complete'
+        Files = @($files | Sort-Object FullName)
+        TotalBytes = $totalBytes
+        Reason = ''
+    }
 }
 
 function Get-SiManifestPath {
@@ -444,9 +549,20 @@ function Write-SiRun {
     }
     Test-SiJsonSchema -Json $json -Schema run
     $path = Get-SiRunPath -RepoRoot $RepoRoot -RunId ([string]$Run.runId) -Timestamp ([datetime]$Run.createdAtUtc)
-    $runFiles = @(Get-ChildItem -LiteralPath (Resolve-SiStatePath -RepoRoot $RepoRoot `
-                -Segments @($script:SiStateContract.Topology.ActiveRunsSegments)) `
-            -Filter '*.json' -Recurse -File -ErrorAction SilentlyContinue)
+    $runDiscovery = Get-SiBoundedFileSet -Root (
+        Resolve-SiStatePath -RepoRoot $RepoRoot `
+            -Segments @($script:SiStateContract.Topology.ActiveRunsSegments)
+    ) -Extension '.json' `
+        -MaxFiles ($script:SiStateContract.Limits.ActiveCompletedRuns +
+            $script:SiStateContract.Limits.ActiveInFlightRuns) `
+        -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+        -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+            ($script:SiStateContract.Limits.ActiveCompletedRuns +
+                $script:SiStateContract.Limits.ActiveInFlightRuns))
+    if ($runDiscovery.Status -ne 'complete') {
+        throw "$($runDiscovery.Status): $($runDiscovery.Reason)"
+    }
+    $runFiles = @($runDiscovery.Files)
     $completedCount = 0
     $inFlightCount = 0
     foreach ($file in $runFiles) {
@@ -495,9 +611,22 @@ function Invoke-SiManifestUpdate {
             -TimeoutSeconds $script:SiStateContract.Limits.LockSeconds -Action {
             $backupsRoot = Resolve-SiStatePath -RepoRoot $root `
                 -Segments @($script:SiStateContract.Topology.BackupSegments)
-            if (@(Get-ChildItem -LiteralPath $backupsRoot -Filter 'apply-journal.json' `
-                    -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).Count -gt 0) {
+            $journalDiscovery = Get-SiBoundedFileSet -Root $backupsRoot `
+                -FileName 'apply-journal.json' `
+                -MaxFiles $script:SiStateContract.Limits.AuxiliaryRecordsPerKind `
+                -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+                -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+                    $script:SiStateContract.Limits.AuxiliaryRecordsPerKind)
+            if ($journalDiscovery.Status -ne 'complete') {
+                throw "$($journalDiscovery.Status): $($journalDiscovery.Reason)"
+            }
+            if (@($journalDiscovery.Files).Count -gt 0) {
                 throw 'apply-incomplete: SI manifest mutation is blocked until repair rollback.'
+            }
+            $archiveJournalPath = Resolve-SiStatePath -RepoRoot $root `
+                -Segments @($script:SiStateContract.Topology.ArchiveJournalName)
+            if (Test-Path -LiteralPath $archiveJournalPath -PathType Leaf) {
+                throw 'archive-incomplete: SI manifest mutation is blocked until archive recovery.'
             }
             $preparedValue = $null
             for ($attempt = 1; $attempt -le $script:SiStateContract.Limits.CasRetries; $attempt++) {
@@ -595,8 +724,17 @@ function Get-SiStoreInspection {
         -Segments @($script:SiStateContract.Topology.ActiveRunsSegments)
     $backupsRoot = Resolve-SiStatePath -RepoRoot $root `
         -Segments @($script:SiStateContract.Topology.BackupSegments)
-    $journalFiles = @(Get-ChildItem -LiteralPath $backupsRoot `
-            -Filter 'apply-journal.json' -Recurse -File -ErrorAction SilentlyContinue)
+    $deadlineUtc = [datetime]::UtcNow.AddSeconds(
+        $script:SiStateContract.Limits.InspectionSeconds
+    )
+    $journalDiscovery = Get-SiBoundedFileSet -Root $backupsRoot `
+        -FileName 'apply-journal.json' `
+        -MaxFiles $script:SiStateContract.Limits.AuxiliaryRecordsPerKind `
+        -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+        -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+            $script:SiStateContract.Limits.AuxiliaryRecordsPerKind) `
+        -DeadlineUtc $deadlineUtc
+    $journalFiles = @($journalDiscovery.Files)
     $journalPathComparison = if ($IsWindows) {
         [System.StringComparison]::OrdinalIgnoreCase
     }
@@ -643,7 +781,15 @@ function Get-SiStoreInspection {
                 journalPath = [System.IO.Path]::GetRelativePath($root, $_.FullName).Replace('\', '/')
             }
         } | Sort-Object observationId, journalPath)
-    $runFiles = @(Get-ChildItem -LiteralPath $runsRoot -Filter '*.json' -Recurse -File -ErrorAction SilentlyContinue)
+    $runDiscovery = Get-SiBoundedFileSet -Root $runsRoot -Extension '.json' `
+        -MaxFiles ($script:SiStateContract.Limits.ActiveCompletedRuns +
+            $script:SiStateContract.Limits.ActiveInFlightRuns) `
+        -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+        -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+            ($script:SiStateContract.Limits.ActiveCompletedRuns +
+                $script:SiStateContract.Limits.ActiveInFlightRuns)) `
+        -DeadlineUtc $deadlineUtc
+    $runFiles = @($runDiscovery.Files)
     $observed = [System.Collections.Generic.List[object]]::new()
     $currentRuns = 0
     $forwardRuns = 0
@@ -798,7 +944,19 @@ function Get-SiStoreInspection {
         }
     }
 
-    $underlyingStatus = if ($completedRuns -gt $script:SiStateContract.Limits.ActiveCompletedRuns) { 'capacity-blocked' }
+    $discoveryStatus = if ($journalDiscovery.Status -eq 'invalid' -or
+        $runDiscovery.Status -eq 'invalid') {
+        'invalid'
+    }
+    elseif ($journalDiscovery.Status -ne 'complete' -or
+        $runDiscovery.Status -ne 'complete') {
+        'capacity-blocked'
+    }
+    else {
+        $null
+    }
+    $underlyingStatus = if ($discoveryStatus) { $discoveryStatus }
+    elseif ($completedRuns -gt $script:SiStateContract.Limits.ActiveCompletedRuns) { 'capacity-blocked' }
     elseif ($inFlightRuns -gt $script:SiStateContract.Limits.ActiveInFlightRuns) { 'capacity-blocked' }
     elseif ($manifestKind -eq 'forward' -or $forwardRuns -gt 0) {
         if ($manifestKind -eq 'current' -or $currentRuns -gt 0 -or $corruptRuns -gt 0) { 'forward-blocked' } else { 'forward-readonly' }
@@ -809,7 +967,13 @@ function Get-SiStoreInspection {
     elseif ($manifestKind -eq 'absent' -and $currentRuns -gt 0) { 'repairable-orphans' }
     elseif ($manifestKind -eq 'absent') { 'absent' }
     else { 'valid' }
-    $status = if ($journalFiles.Count -gt 0) { 'apply-incomplete' } else { $underlyingStatus }
+    $archiveJournalPath = Resolve-SiStatePath -RepoRoot $root `
+        -Segments @($script:SiStateContract.Topology.ArchiveJournalName)
+    $hasArchiveJournal = Test-Path -LiteralPath $archiveJournalPath -PathType Leaf
+    $status = if ($journalFiles.Count -gt 0 -and $hasArchiveJournal) { 'invalid' }
+    elseif ($journalFiles.Count -gt 0) { 'apply-incomplete' }
+    elseif ($hasArchiveJournal) { 'archive-incomplete' }
+    else { $underlyingStatus }
 
     return [pscustomobject]@{
         Status       = $status
@@ -819,6 +983,16 @@ function Get-SiStoreInspection {
         RunFiles     = $runFiles
         Observed     = @($observed | Sort-Object path)
         IncompleteApplies = $incompleteApplies
+        ArchiveRecovery = if ($hasArchiveJournal) {
+            [pscustomobject][ordered]@{
+                journalPath = [System.IO.Path]::GetRelativePath(
+                    $root, $archiveJournalPath
+                ).Replace('\', '/')
+            }
+        }
+        else {
+            $null
+        }
     }
 }
 
@@ -970,8 +1144,15 @@ function Get-SiVerifiedRepairBackups {
             Bytes = $bytes
         }
     }
-    $actual = @(Get-ChildItem -LiteralPath $filesRoot -File -Recurse `
-            -ErrorAction SilentlyContinue | ForEach-Object {
+    $backupDiscovery = Get-SiBoundedFileSet -Root $filesRoot `
+        -MaxFiles $script:SiStateContract.Limits.AuxiliaryRecordsPerKind `
+        -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+        -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+            $script:SiStateContract.Limits.AuxiliaryRecordsPerKind)
+    if ($backupDiscovery.Status -ne 'complete') {
+        throw "$($backupDiscovery.Status): $($backupDiscovery.Reason)"
+    }
+    $actual = @($backupDiscovery.Files | ForEach-Object {
                 [System.IO.Path]::GetRelativePath($filesRoot, $_.FullName).Replace('\', '/')
             })
     if ($actual.Count -ne $verified.Count -or
@@ -1137,9 +1318,16 @@ function Invoke-SiRepair {
         $backupRoot = Resolve-SiStatePath -RepoRoot $RepoRoot -Segments @('backups', $Observation)
         $backupsRoot = Resolve-SiStatePath -RepoRoot $RepoRoot `
             -Segments @($script:SiStateContract.Topology.BackupSegments)
-        $otherJournal = @(Get-ChildItem -LiteralPath $backupsRoot `
-                -Filter 'apply-journal.json' -File -Recurse -ErrorAction SilentlyContinue |
-                Select-Object -First 1)
+        $journalDiscovery = Get-SiBoundedFileSet -Root $backupsRoot `
+            -FileName 'apply-journal.json' `
+            -MaxFiles $script:SiStateContract.Limits.AuxiliaryRecordsPerKind `
+            -MaxFileBytes $script:SiStateContract.Limits.RunBytes `
+            -MaxTotalBytes ([long]$script:SiStateContract.Limits.RunBytes *
+                $script:SiStateContract.Limits.AuxiliaryRecordsPerKind)
+        if ($journalDiscovery.Status -ne 'complete') {
+            throw "$($journalDiscovery.Status): $($journalDiscovery.Reason)"
+        }
+        $otherJournal = @($journalDiscovery.Files | Select-Object -First 1)
         if ($otherJournal.Count -gt 0) {
             throw 'apply-incomplete: another SI repair must be rolled back before Apply.'
         }
@@ -1664,8 +1852,8 @@ function Invoke-SiRepair {
 }
 
 Export-ModuleMember -Function Get-SiStateContract, Test-SiRunStatus, Get-SiStateRelativePath,
-Get-SiStateLockScope,
-Resolve-SiStatePath, New-SiManifest,
+Get-SiStateLockScope, Get-SiBoundedFileSet,
+Resolve-SiStatePath, Test-SiPhysicalDescendant, New-SiManifest,
 Read-SiManifest, Get-SiManifestPath, Get-SiArtifactDigest, Get-SiDueId, Get-SiRepoId,
 Get-SiRunPath, Assert-SiRunIntegrity, Write-SiRun,
 Invoke-SiManifestUpdate, Add-SiDue, Get-SiStoreInspection, Get-SiObservationPayload,

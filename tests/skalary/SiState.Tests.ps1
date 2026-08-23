@@ -514,10 +514,11 @@ Describe 'Durable self-improvement state' {
 
             $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
                 -PinnedBaseOid ('a' * 40)
+            $snapshot.Status | Should -Be 'invalid'
             {
                 Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
                     -Observation $snapshot.ObservationId
-            } | Should -Throw '*escapes the SI state root via link*'
+            } | Should -Throw "*refuses observed status 'invalid'*"
 
             Test-Path -LiteralPath (
                 Join-Path $script:stateRoot (
@@ -558,7 +559,7 @@ Describe 'Durable self-improvement state' {
             {
                 Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
                     -Observation $snapshot.ObservationId
-            } | Should -Throw '*escapes its observation root via link*'
+            } | Should -Throw '*refuses reparse point*'
             @(Get-ChildItem -LiteralPath $outside -File -Recurse).Count | Should -Be 0
         }
         finally {
@@ -982,6 +983,98 @@ Describe 'Durable self-improvement state' {
         @($after.inFlight | Where-Object runId -EQ $protectedRunId).Count | Should -Be 1
         @($after.recentRuns | Where-Object runId -EQ $archiveRunId).Count | Should -Be 0
     }
+
+    It 'test:SiState.BoundedManifestPagingAndRepair recovers an interrupted archive before continuing' {
+        $runId = '6' * 64
+        $dueId = Get-SiDueId -RepoId 'owner/repo' -PlanId '1936cb' `
+            -SourceCommit ('c' * 40)
+        $run = New-DeclinedRun -RunId $runId -DueId $dueId
+        $run.provenance.sourceCommit = 'c' * 40
+        $source = Write-SiRun -RepoRoot $script:stateRoot -Run $run
+        $manifest = New-SiManifest
+        $manifest.recentRuns = @([pscustomobject][ordered]@{
+                runId = $runId
+                dueId = $dueId
+                status = 'declined-before-ranking'
+                path = "docs/self-improvement/runs/2026/08/$runId.json"
+                completedAtUtc = '2026-08-09T01:00:00Z'
+            })
+        $manifestPath = Get-SiManifestPath -RepoRoot $script:stateRoot
+        $manifestJson = ($manifest | ConvertTo-Json -Depth 20 -Compress) + "`n"
+        [System.IO.File]::WriteAllText($manifestPath, $manifestJson)
+        $beforeDigest = Get-SiArtifactDigest -Path $manifestPath
+        $afterManifest = New-SiManifest
+        $afterManifest.generation = 1
+        $afterJson = ($afterManifest | ConvertTo-Json -Depth 20 -Compress) + "`n"
+        $afterDigest = Get-SiArtifactDigest -Bytes (
+            [System.Text.UTF8Encoding]::new($false).GetBytes($afterJson)
+        )
+        $target = Join-Path $script:stateRoot (
+            "docs/self-improvement/archive/2026/08/$runId.json"
+        )
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force)
+        $entry = [ordered]@{
+            runId = $runId
+            source = "docs/self-improvement/runs/2026/08/$runId.json"
+            target = "docs/self-improvement/archive/2026/08/$runId.json"
+            sha256 = Get-SiArtifactDigest -Path $source
+        }
+        $payload = [ordered]@{
+            protocol = 'si-archive-journal-v1'
+            beforeManifestDigest = $beforeDigest
+            afterManifestDigest = $afterDigest
+            entries = @($entry)
+        }
+        $transactionId = [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData(
+                [System.Text.Encoding]::UTF8.GetBytes(
+                    'si-archive-journal-v1' +
+                    ($payload | ConvertTo-Json -Depth 20 -Compress)
+                )
+            )
+        ).ToLowerInvariant()
+        $journal = [ordered]@{
+            protocol = 'si-archive-journal-v1'
+            transactionId = $transactionId
+            beforeManifestDigest = $beforeDigest
+            afterManifestDigest = $afterDigest
+            entries = @($entry)
+        }
+        $journalPath = Join-Path $script:stateRoot (
+            'docs/self-improvement/archive-journal.json'
+        )
+        [System.IO.File]::WriteAllText(
+            $journalPath,
+            (($journal | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        )
+        [System.IO.File]::Move($source, $target, $false)
+
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status |
+            Should -Be 'archive-incomplete'
+        $result = & $script:archive -RepoRoot $script:stateRoot `
+            -BeforeUtc ([datetime]::UtcNow.AddDays(1))
+
+        $result.Status | Should -Be 'complete'
+        $result.Recovery | Should -Be 'rollback'
+        Test-Path -LiteralPath $journalPath | Should -BeFalse
+        Test-Path -LiteralPath $source | Should -BeFalse
+        Test-Path -LiteralPath $target -PathType Leaf | Should -BeTrue
+        (Get-SiStoreInspection -RepoRoot $script:stateRoot).Status | Should -Be 'valid'
+    }
+
+    It 'test:SiState.BoundedManifestPagingAndRepair rejects the active run plus-one during discovery' {
+        $runsRoot = Join-Path $script:stateRoot 'docs/self-improvement/runs/2026/08'
+        [void](New-Item -ItemType Directory -Path $runsRoot -Force)
+        foreach ($index in 0..48) {
+            $name = $index.ToString('x64') + '.json'
+            [System.IO.File]::WriteAllText((Join-Path $runsRoot $name), '{}')
+        }
+
+        $inspection = Get-SiStoreInspection -RepoRoot $script:stateRoot
+
+        $inspection.Status | Should -Be 'capacity-blocked'
+        @($inspection.RunFiles).Count | Should -Be 49
+    }
 }
 
 Describe 'Shared atomic writer closure' {
@@ -1067,6 +1160,7 @@ Describe 'Installed SI state paging and repair' {
                 'docs/self-improvement/state.json',
                 'docs/self-improvement/runs/<yyyy>/<mm>/<run>.json',
                 'docs/self-improvement/archive/<yyyy>/<mm>/<run>.json',
+                'docs/self-improvement/archive-journal.json',
                 'docs/self-improvement/backups/<observation>/**',
                 'docs/self-improvement/quarantine/index.json',
                 'docs/self-improvement/quarantine/<observation>/**',

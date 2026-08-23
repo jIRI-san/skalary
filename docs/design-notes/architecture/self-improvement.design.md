@@ -172,6 +172,7 @@ remain read-only.
 
 All runtime state paths outside `.github/` are first-use scaffolds declared by
 `plugins/self-improvement/plugin.json`: the manifest; year/month active and archive run shards;
+the content-addressed archive recovery journal;
 observation-keyed backup and quarantine trees plus the quarantine index; repair observations and
 receipts; and resolver receipts. Parameterized paths route through `Resolve-SiStatePath`.
 `Get-SiState` pages only `{dueId,runId,status}` plus counts/generation; it never returns candidate
@@ -181,6 +182,12 @@ with an indexed digest, and refuses Apply/Rollback when the exact observation/re
 stale, altered, or missing. Successful rollback emits its own content-addressed receipt.
 Archival holds the state lock and never selects a run ID still referenced by `manifest.inFlight`,
 even if the run file itself claims a terminal status; recoverable run-first state remains active.
+Before moving a completed run, it persists a content-addressed journal binding the exact
+before/after manifest digests and every source/target byte digest. A retry rolls back moves when
+the before digest remains authoritative or completes source cleanup when the after digest won.
+Inspection surfaces the journal as `archive-incomplete` rather than misclassifying dangling
+references as valid. State-tree discovery is lazy, reparse-point refusing, deadline-bound, and
+stops at the exact active/auxiliary/archive plus-one before reading file content.
 
 `Invoke-SiLifecycle.ps1 -Operation Surface` is the interactive remote-state entry point. It fetches
 and pins `origin/main`, reads bounded schema-valid manifest/run blobs from that immutable commit, and

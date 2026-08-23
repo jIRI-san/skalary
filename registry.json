@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-16T08:13:57.6630225Z",
+  "generatedAt": "2026-08-23T12:57:08.6401568Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1222,7 +1222,7 @@
         },
         {
           "dest": "skills/si/schemas/repair-observation.schema.json",
-          "sha256": "2794f9e947bfedd1d9c29463ac33fddff674ce3041a2800c013a1456da4d4a9f",
+          "sha256": "8ca2270a4e3c58293a9cbaa50e49932c608d8082903dc5e338aad246162112c2",
           "src": "schemas/repair-observation.schema.json"
         },
         {
@@ -1242,7 +1242,7 @@
         },
         {
           "dest": "skills/si/scripts/Archive-SiState.ps1",
-          "sha256": "c611e1199bf2ed1c767dfc650b6436975604c6988806529e7a16cef5d5f79b4b",
+          "sha256": "18755cfc745fc0c28c7746c12d7579e383e91b9c249606f188c2bc1893ab4345",
           "src": "scripts/Archive-SiState.ps1"
         },
         {
@@ -1267,7 +1267,7 @@
         },
         {
           "dest": "skills/si/scripts/Get-SiState.ps1",
-          "sha256": "0013457ba556f2c024209f310f04b180afc67d2947fdae89a704068fe8fec06a",
+          "sha256": "388447ebf88eecd830a86bac62d59c1a2bdb238bfb8515e73c31646d254e6b67",
           "src": "scripts/Get-SiState.ps1"
         },
         {
@@ -1297,7 +1297,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "85d630d4656cd85458916ed7badfa5b6b5b0780758147e5615bdaf22a7c38a7b",
+          "sha256": "6df34f0f2c249f857f1ff874a7b0503ded5ea4ce20eed833a0fd9ebc0be24de2",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1324,6 +1324,12 @@
           "owner": "Update-FeedbackQueue.ps1",
           "path": "docs/feedback/queue.md",
           "trigger": "first queued /pfb marker"
+        },
+        {
+          "mode": "literal",
+          "owner": "Archive-SiState.ps1",
+          "path": "docs/self-improvement/archive-journal.json",
+          "trigger": "recover interrupted completed-run archive"
         },
         {
           "confine": "Resolve-SiStatePath",
@@ -1412,7 +1418,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.49"
+      "version": "1.0.50"
     }
   ]
 }

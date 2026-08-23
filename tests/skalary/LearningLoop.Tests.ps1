@@ -227,6 +227,7 @@ Describe 'Learning loop distribution contract' {
         $expectedSiScaffolds = @(
             'docs/feedback/queue.md',
             'docs/self-improvement/archive/<yyyy>/<mm>/<run>.json',
+            'docs/self-improvement/archive-journal.json',
             'docs/self-improvement/backups/<observation>/**',
             'docs/self-improvement/harvest-index.json',
             'docs/self-improvement/quarantine/<observation>/**',
