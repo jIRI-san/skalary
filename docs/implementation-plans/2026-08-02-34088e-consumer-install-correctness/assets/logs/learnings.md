@@ -5,3 +5,4 @@ Phase: 1
 - [1.1] [trigger:rework>1] Filesystem inventory oracles must use ordinal comparisons for both lookup keys and exclusion rules; PowerShell operators such as -in and -eq are case-insensitive by default.
 - [1.2] [trigger:rework>1] Runtime-reference scanners must distinguish executable paths from PowerShell comments and Join-Path-relative bundled sidecars before widening a closed root grammar.
 - [1.2] [trigger:rework>1] AST exemptions must bind to direct literal argument extents; exempting a whole command hides nested runtime reads.
+- [1.2] [trigger:rework>1] Closed reference grammars must reconstruct literal path-building calls and prove sidecars against installed destinations rather than exempting syntax alone.

@@ -207,9 +207,12 @@ fence is an error, because blanking the remainder of the file would silently nar
 path whose final segment is a bare `<placeholder>` (prose describing a shape). PowerShell comment
 tokens are blanked before matching so fixture examples and documentation are not runtime reads.
 Dynamic composition of a supported root such as `Join-Path './assets' $name` is not out of grammar:
-it fails closed because no finite manifest inventory can prove its target. PowerShell AST binding
-covers positional, named, inline (`-Path:value`), and interpolated `Join-Path` arguments; the prose
-grammar applies the same inline-name rule to Markdown payloads.
+it fails closed because no finite manifest inventory can prove its target. Static `Join-Path` calls
+are reconstructed and checked through the same installed, skill-relative, scaffold, and source-tree
+rules as direct literals. PowerShell AST binding covers positional, named, inline (`-Path:value`),
+and interpolated arguments; the prose grammar applies the same literal and inline-name rules to
+Markdown payloads. Direct `$PSScriptRoot` and `$AssetRoot` sidecars are exempt from repo-scaffold
+matching only after their resolved destination is found in `files[]` or the verified script bundle.
 
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner

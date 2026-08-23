@@ -38,7 +38,9 @@ The operator's call was that a narrower gate with honest documentation beats a w
 
 `Sync-PluginScripts.ps1` now roots scaffold references directly in the closed `docs|schemas|tools`
 grammar. Every concrete reference must match a declaration even when no plugin previously declared
-that root. PowerShell comments and relative `Join-Path` sidecars are excluded by syntax rather than
-by declaration presence. The foreign-consumer closure evidence pairs this static result with the
-production-installed manifest inventory. Scaffold owner execution remains covered separately by
+that root. PowerShell comments are excluded by syntax; literal `Join-Path` targets are reconstructed,
+and relative `$PSScriptRoot` or `$AssetRoot` sidecars are excluded from scaffold matching only when
+their installed destination is declared or belongs to a verified bundle closure. The
+foreign-consumer closure evidence pairs this static result with the production-installed manifest
+inventory. Scaffold owner execution remains covered separately by
 `test:ConsumerInstall.FirstUseScaffoldLifecycle`.

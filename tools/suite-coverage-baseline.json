@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-15T18:12:27.3269225+00:00",
-  "commit": "645daa942a8c2c193f4fb74ce010472d7a69598a",
+  "capturedAt": "2026-08-23T14:28:46.0399603+00:00",
+  "commit": "f8e6d4dbdf776852f0c2bd46fd852f0326d28acc",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 777,
-  "executionCount": 781,
+  "uniqueTestCount": 921,
+  "executionCount": 926,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -830,6 +830,11 @@
       "count": 1
     },
     {
+      "file": "tests/evals/TestEvalsRequired.Tests.ps1",
+      "test": "required structural eval enforcement.test:ReviewReport.StructuralEvalEnforcement executes required cases and rejects missing skipped or duplicate outcomes",
+      "count": 1
+    },
+    {
       "file": "tests/evals/WazaArchitectureNotesConvention.Tests.ps1",
       "test": "architecture-notes waza convention.test:live-tree-clean — the convention cannot write outside a disposable workspace.test:live-tree-clean no spec/task references an absolute or UNC path (gate-a escape vector)",
       "count": 1
@@ -1077,6 +1082,11 @@
     {
       "file": "tests/evals/WazaCrConvention.Tests.ps1",
       "test": "cr waza convention.test:injection-guard — the injection case is covered functionally AND by the adversarial pack.test:injection-guard eval.yaml declares the prompt-injection pack with on_unsafe_outcome: fail",
+      "count": 1
+    },
+    {
+      "file": "tests/evals/WazaCrConvention.Tests.ps1",
+      "test": "cr waza convention.test:injection-guard — the injection case is covered functionally AND by the adversarial pack.test:injection-guard pairs malicious detection with a legitimate-policy contrast task",
       "count": 1
     },
     {
@@ -1676,6 +1686,11 @@
     },
     {
       "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
+      "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary follows the sanctioned plan archive move",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ArchitectureRetirementBaseline.Tests.ps1",
       "test": "architecture-test retirement baseline.test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary freezes a nonempty pre-retirement fixture",
       "count": 1
     },
@@ -1741,12 +1756,57 @@
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.keeps the documented bootstrap registry fallback outside source-script rejection",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects colon-bound named dynamic Join-Path arguments in Markdown payloads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects dynamic composition of a supported runtime root",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects named and interpolated dynamic Join-Path arguments in PowerShell payloads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects repository-root joins to authoring-only plugin paths",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects source-tree paths that cannot exist in a foreign consumer",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.requires literal installed sidecars to be declared or bundled",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.scaffold declarations.does not exempt a repository-root Join-Path from scaffold declarations",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.scaffold declarations.does not let an outer sidecar join exempt a nested repository read",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
       "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files accepts a scaffold path and rejects an undeclared sibling",
       "count": 1
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
-      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
+      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files rejects an undeclared scaffold root",
       "count": 1
     },
     {
@@ -1845,6 +1905,116 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.validates literal Join-Path targets against the installed inventory",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainer.Tests.ps1",
+      "test": "Autopilot container toolchain.test:AutopilotContainer.ToolchainContract enforces the manifest, image, smoke, and distribution contract",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.derives relevance from real changed paths in both directions",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.fails closed on a redirected or unsupported apt source tree",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.fails closed on a source that waives its own authentication",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.fails closed on an apt configuration that relocates or extends itself out of view",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.fails closed when bounded process capture overflows or contains controls",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.forces unusable bases relevant before deriving the path set",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.keeps a failing smoke run reasons when its digests and cases are unavailable",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.kills a timed-out process tree and returns bounded diagnostics",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.names failing smoke cases and attests image claims against the trusted host",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.names the commit and the detector evidence in the final receipt",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.preserves hostile NUL-delimited Git paths with ordinal literal matching",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.reaches every terminal Measure outcome without a Docker daemon",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.reads image attestation from the host without granting the candidate trust",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.refuses an empty manifest and reads the live apt configuration from the image",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.refuses an image environment that points apt at a configuration this gate never reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.rejects a measurement re-detection that contradicts the detector",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.reports sizes, delta, and advisory status in the job summary",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.test:AutopilotContainer.GateRunnerContract enforces gate runner invariants",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.writes a blocking placeholder when a relevant commit job never started",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
+      "test": "Autopilot container gate runner.writes the detector verdict to the step-output file the workflow named",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/Bootstrap.Tests.ps1",
       "test": "bootstrap.ps1.test:Bootstrap.InstallsPluginManager parses and auto-installs plugin-manager with an approval offer",
       "count": 1
@@ -1865,56 +2035,6 @@
       "count": 1
     },
     {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.fails loud on a malformed finding instead of dropping it",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.sorts severity-descending",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.stays a pure formatter with no file I/O",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-deterministic orders entries that tie on severity, agreement, and title",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-deterministic reports the dispatch budget and handles an empty finding set",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-deterministic returns identical text regardless of reviewer return order",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-merge-dedup collapses one root cause in one component into a single entry",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-merge-dedup keeps distinct root causes in the same file apart",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-severity-elevation never elevates past Critical",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Build-ReviewReport.Tests.ps1",
-      "test": "Build-ReviewReport.test:build-reviewreport-severity-elevation raises severity only on full model agreement",
-      "count": 1
-    },
-    {
       "file": "tests/skalary/BuildRegistryCollation.Tests.ps1",
       "test": "catalog collation stability.test:BuildRegistry.CzechCollationFixtureIsStable rebuilds byte-identical catalogs under cs-CZ and en-US",
       "count": 1
@@ -1932,6 +2052,11 @@
     {
       "file": "tests/skalary/Ci.Tests.ps1",
       "test": "ci workflow.test:Ci.ArtifactNamePerPlatform names the report after the platform that produced it, and uploads it even when the run is red",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.ContainerGateIsPostMerge reports on merged main and claims nothing about pull requests",
       "count": 1
     },
     {
@@ -1962,6 +2087,16 @@
     {
       "file": "tests/skalary/Ci.Tests.ps1",
       "test": "ci workflow.test:Ci.TimeoutExceedsHardCeiling gives every leg longer than the ceiling it is enforcing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.WorkflowSecurityContract enforces the container workflow trust and result boundaries",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Ci.Tests.ps1",
+      "test": "ci workflow.test:Ci.WorkflowYamlParserIsStrict refuses the shapes a text split silently accepts",
       "count": 1
     },
     {
@@ -2007,6 +2142,16 @@
     {
       "file": "tests/skalary/ConcernAgents.Tests.ps1",
       "test": "concern reviewer agents.test:legacy-model-agents-removed leaves the shipped agent set clean under the model allowlist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.ForeignFixtureInventory installs the manifest inventory with hashes, dependencies, and confinement intact",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.RuntimeReferenceClosure proves installed, bundled, scaffolded, missing, source, and dynamic references",
       "count": 1
     },
     {
@@ -2121,7 +2266,7 @@
     },
     {
       "file": "tests/skalary/DispatchGuide.Tests.ps1",
-      "test": "reviewer dispatch guide.test:dispatch-budget-reported states the 28-invocation budget as reported, not enforced",
+      "test": "reviewer dispatch guide.test:dispatch-budget-enforced freezes and reports the 28-invocation budget",
       "count": 1
     },
     {
@@ -3111,12 +3256,32 @@
     },
     {
       "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
+      "test": "Plugin script bundling.test:bundle-schema-closure copies literal schema references from canonical schemas/review",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
+      "test": "Plugin script bundling.test:bundle-schema-resolution ignores a parent schema directory in installed layouts",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
+      "test": "Plugin script bundling.test:bundle-schema-resolution recognizes canonical execution under a repo named skills",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
       "test": "Plugin script bundling.test:bundle-version-bump bumps the plugin version when a bundled source changes",
       "count": 1
     },
     {
       "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
       "test": "Plugin script bundling.test:SyncPluginScripts.DotSourceClosure co-bundles _Common.ps1 for a .ps1 script that dot-sources it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PluginScriptBundle.Tests.ps1",
+      "test": "Plugin script bundling.test:SyncPluginScripts.SchemaClosure uses canonical source, prunes stale sidecars, and bumps once",
       "count": 1
     },
     {
@@ -3190,23 +3355,528 @@
       "count": 1
     },
     {
-      "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
-      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled leaves the report layout to the script, never to prose",
+      "file": "tests/skalary/ReviewConsumerInstall.Tests.ps1",
+      "test": "isolated review-run consumer installs.test:ReviewReport.ConsumerInstallInvocation executes the full lifecycle through the isolated <Id> install",
+      "count": 2
+    },
+    {
+      "file": "tests/skalary/ReviewCycleGate.Tests.ps1",
+      "test": "review cycle gate.test:ReviewCycleGate caps automatic review at three cycles and persists across invocations",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewCycleGate.Tests.ps1",
+      "test": "review cycle gate.test:ReviewCycleGate completes immediately when a recorded review is clean",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewCycleGate.Tests.ps1",
+      "test": "review cycle gate.test:ReviewCycleGate grants one extra cycle per continue decision then asks again",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewCycleGate.Tests.ps1",
+      "test": "review cycle gate.test:ReviewCycleGate records wrap and isolates independent stages",
       "count": 1
     },
     {
       "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
-      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled makes both orchestrators call the formatter and write what it returns",
+      "test": "review-run consumer distribution and callers.test:ReviewReport.AtomicLegacyRetirement removes the object API only after both consumers are installed",
       "count": 1
     },
     {
       "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
-      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled round-trips typed findings through each bundled copy",
+      "test": "review-run consumer distribution and callers.test:ReviewReport.PayloadOwnershipAndDrift maps the complete root, plugin, dogfood, and registry closure",
       "count": 1
     },
     {
       "file": "tests/skalary/ReviewReportBundle.Tests.ps1",
-      "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled ships the formatter with both review skills, declared and registered",
+      "test": "review-run consumer distribution and callers.test:ReviewReport.SharedCallerExitIndependenceAndAbandonment pins one lifecycle for both callers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization encodes and fences untrusted reviewer text in both views",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization names every merged finding, attendance total, task and raw finding in the two views",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the archived report normalization receipt after legacy retirement",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change bytes of the review the corpus stands for",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization pins the pre-change semantic projection of every merged finding",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the corpus to the committed new-layout summary and full bytes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization renders the new layout identically across culture and shuffled task, finding and property order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization reproduces the committed goldens through the step 1.2 production renderer and ships its module and CLIs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportCorpus.Tests.ps1",
+      "test": "review report corpus.test:ReviewReport.GoldenSemanticParityAndCanonicalization returns identical bytes across culture, platform and input order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportDiscovery.Tests.ps1",
+      "test": "review-report test and eval discovery.test:ReviewReport.NoNewRuntimeDependency keeps the review engine package-free and unvendored",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportDiscovery.Tests.ps1",
+      "test": "review-report test and eval discovery.test:ReviewReport.StructuralEvalDiscovery discovers the exact separately asserted CR and DR review-run cases",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewReportDiscovery.Tests.ps1",
+      "test": "review-report test and eval discovery.test:ReviewReport.TestAndEvalDiscovery discovers every required ordinary marker and the exact structural eval sets",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection blocks every block-case token and passes every allow-case token in the versioned corpus",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection consumes only the caller-renamed fixed input and removes it after a successful freeze and publish",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection destroys an untrusted result input on every terminal Publish exit that never reaches the secret scan",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection destroys the rejected input immediately and leaves no trace of the secret",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection deterministically refuses a fixed input leaf reported as a reparse point before read or destruction",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection never consumes a .tmp the caller did not rename",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection prepares the sole run root without writing and Freeze never creates it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection propagates generic cleanup failures",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection refuses to freeze into a run directory whose ancestor became a symlink",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection rejects a reparse plan leaf before inventory or layout reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection removes a verified generic run and refuses to remove outside the store",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection resolves a plan run under ReviewRuns and a generic run under the gitignored store, rejecting any other root",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.ArtifactHandshakeLocationCleanupAndSecretRejection validates a plan directory through the plan inventory and refuses every hostile path",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.CommittedAuthorityCleanupTruth keeps committed Freeze and Publish outcomes truthful when post-commit shredding fails",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.FinalizedResultCompaction converges from a partially deleted cleanup tombstone",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.FinalizedResultCompaction ignores live plan state but keeps compact siblings trackable",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.FinalizedResultCompaction never falls back to legacy verification for a malformed current manifest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.FinalizedResultCompaction retains a bounded verified result and removes the live plan run",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunArtifacts.Tests.ps1",
+      "test": "review report artifact handshake, location, cleanup and secret rejection.test:ReviewReport.LegacyFinalizedResultCompaction refuses retired live authority after historical migration",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunBudget.Tests.ps1",
+      "test": "review report maximum envelope budget.test:ReviewReport.MaximumEnvelopeBudget processes the maximum envelope inside its platform ceiling and 256 MiB, rejecting its over-budget full view",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract applies error precedence: parse/schema before semantic before admission",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract bounds an oversized invalid run id to one schema-valid exit-2 status that never echoes it",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract enforces the 2 KiB task diagnostic budget and drops status diagnostics to fit 8 KiB",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract gives semantically equivalent envelopes identical canonical bytes, one digest and an idempotent replay",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract holds a five-second publication lock and fails with exit 4 when it cannot be acquired",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract prints exactly one bounded, schema-valid terminal-status object on every CLI exit",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract produces identical canonical bytes and digests under cs-CZ, tr-TR, de-DE and the invariant culture",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract turns an unexpected CLI failure into an explicit exit 4 status instead of an unhandled error",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEncoding.Tests.ps1",
+      "test": "review report encoding, exit, diagnostic and lock contract.test:ReviewReport.EncodingExitDiagnosticAndLockContract writes canonical bytes as UTF-8 no BOM, LF, NFC and a digest taken after canonicalization, stable across shuffle",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState carries c21cdc in both consumer dependency markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState proves the same state rule on a synthetic incomplete, complete and archived dependency",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunEpicGraph.Tests.ps1",
+      "test": "review-run consumer edges.test:Epic.ReviewRunConsumerEdgesAndState resolves both edges through the epic rollup and keeps blocked equivalent to an incomplete dependency",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix binds canonical scope records and explicit model degradation without claiming served identity",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix binds Publish to the exact frozen task set and its digest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix derives branch identities and path records from Git instead of caller claims",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix freezes a valid plan and rejects duplicate ids, duplicate slots and zero tasks",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix makes a frozen plan immutable and idempotent on identical replay",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix refuses to write a plan generation into a published run, including one whose committed state is corrupt",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects a task model outside the frozen roster",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects credential-shaped branch identities before Git diagnostics",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects identities that become duplicates after canonicalization",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix rejects Publish before Freeze and a finding on a non-completed task",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix reports a bounded exit 2 when the host cannot validate against a schema file",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix returns clean only for all-completed and degraded for every other valid mix",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunFreeze.Tests.ps1",
+      "test": "review report frozen plan and attendance.test:ReviewReport.FrozenPlanAndAttendanceMatrix scans the plan strings it is about to persist and destroys a rejected plan input",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix admits only from the mode's legal prior state, never stamping admission onto published authority and never claiming a decision it could not persist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix bounds a tampered frozen plan and an unreadable published manifest to exit 2 with a terminal status",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix commits the manifest last and reads it back verifying every digest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix enforces each role's own byte budget and artifact encoding, even when the manifest agrees with the bytes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix finds an incomplete frozen run and stops reporting it once published",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix is idempotent on identical replay and rejects changed reuse, publish-before-freeze and frozen mutation with exit 2",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix keeps an admission decision terminal for its UUID and out of the incomplete list",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix names every generation by its content digest and verifies name, digest, byte count and identity on read",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix recovers from a fault at every publication edge, preserving prior authority and clean staging, and a retry succeeds",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix refuses a verified read through a symlinked run directory or a symlinked leaf artifact",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix refuses to overwrite an unreadable published manifest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix rejects missing or duplicate partitions, scope gaps, finding drift, and changed task outcomes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix serializes concurrent publications so only one commits and the lock file is never unlinked",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix verifies bounded admission partitions preserve scope and every raw finding",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunManifest.Tests.ps1",
+      "test": "review report manifest, reader and exit matrix.test:ReviewReport.ManifestReaderPublicationAndExitMatrix verifies the committed manifest in full before replaying it, so a tampered-but-parseable manifest is exit 2 rather than idempotent success",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard allows only exact synthetic shapes, not any token that merely contains a marker word",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard blocks a credential shape before acceptance and reports only its redacted type and location",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard counts the merged maximum on the canonical reference order the renderer publishes, not the raw order the caller wrote",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard keeps both views inside their byte budgets and rejects an over-budget render with exit 3 without touching the manifest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard keeps full model attribution and correct unanimity when a schema-valid model name carries a control character",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard preserves every raw finding when distinct records normalize to the same merge tuple",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard proves a clean publication fits both budgets",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard rejects a schema-valid envelope over the 2 MiB input cap with a terminal exit 3, never a retryable 4",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard rejects a structurally valid run that merges into more than the vocabulary's 128 groups with exit 2 before it renders anything",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunPublish.Tests.ps1",
+      "test": "review report output admission, completeness and secret guard.test:ReviewReport.OutputAdmissionCompletenessReductionAndSecretGuard writes canonical JSON as authority and names every merged finding, attendance and task in the views",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.MaximumEnvelopeFixtureStructural admits the largest legal envelope inside the 2 MiB input cap",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics accepts every minimum and maximum structural fixture",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics accepts the committed 44-finding corpus as plan and envelope",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics bounds an artifact name at 96 characters, extension included",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics cannot be argued into capability by its own test seams",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics closes every object the contract defines",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics commits five canonical schemas with repository ids on one dialect",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 0 with one bounded status object on a capable host",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 2 when Test-Json exposes no -SchemaFile",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics exits 2 with one bounded status object when the host is below PowerShell 7.6",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics keeps every shared limit in one schema-owned vocabulary",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics leaves duplicates, slot mismatch, dangling findings and byte budgets to the semantic layer",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics proves the validator can reject at all",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics rejects unknown versions, unknown properties, one-above maxima, manifest path violations and aggregate spoofs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewRunSchema.Tests.ps1",
+      "test": "review run schemas.test:ReviewReport.SchemaCapabilityAndSemantics runs as a named CI preflight before the repository and unit gates",
       "count": 1
     },
     {
@@ -3316,6 +3986,11 @@
     },
     {
       "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
       "test": "run unit tests.test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked",
       "count": 1
     },
@@ -3326,7 +4001,27 @@
     },
     {
       "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.InvalidTierManifestExitsNine fails malformed and incomplete manifests diagnostically",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
       "test": "run unit tests.test:RunUnitTests.MissingPesterExitsNonZero fails and names the install command when Pester is absent",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.RequiredReviewEvidenceSkippedFails exits 8 when a review-report evidence marker is skipped",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.SlowOverBudgetFails exits 5 and names both Slow runtime figures",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.TierExecution isolates Fast and Slow while preserving the runner verdicts",
       "count": 1
     },
     {
@@ -3407,6 +4102,21 @@
     {
       "file": "tests/skalary/SetScriptApproval.Tests.ps1",
       "test": "Repo settings auto-approval.test:RepoSettings.PluginScriptsApproved approves read-only plugin scripts and excludes mutating ones",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SetScriptApproval.Tests.ps1",
+      "test": "Set-ScriptApproval.test:ReviewReport.SafeInputAndApprovalBoundary adds and removes only two exact object-valued writer exceptions",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SetScriptApproval.Tests.ps1",
+      "test": "Set-ScriptApproval.test:ReviewReport.SafeInputAndApprovalBoundary appends after a final multiline object without a comma",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SetScriptApproval.Tests.ps1",
+      "test": "Set-ScriptApproval.test:ReviewReport.SafeInputAndApprovalBoundary updates and removes multiline JSONC approval objects",
       "count": 1
     },
     {
@@ -3635,6 +4345,11 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/SkillContracts.Tests.ps1",
+      "test": "Skill contract token guards.test:review-cycle-cap binds ci and autopilot to three cycles plus an operator decision",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/SkillSize.Tests.ps1",
       "test": "skill size cap.test:skill-size-cap-enforced fails loud on an over-cap SKILL.md and names the remedy",
       "count": 1
@@ -3782,6 +4497,11 @@
     {
       "file": "tests/skalary/SuiteScriptHost.Tests.ps1",
       "test": "suite script host.test:SuiteScriptHost.UnhandledErrorIsReportedAsExitOne",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteTier.Tests.ps1",
+      "test": "suite tiers.test:SuiteTier.PartitionContract keeps the manifest valid, disjoint, and complete by complement",
       "count": 1
     },
     {
