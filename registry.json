@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-23T15:58:10.5286047Z",
+  "generatedAt": "2026-08-23T16:24:45.6239816Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1168,7 +1168,7 @@
         },
         {
           "dest": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1",
-          "sha256": "e4f0f5f2f8846d2f1f838374223c26d4a6e85ee54515357af661cd8f43ab903c",
+          "sha256": "b66cb7572d54bb1ba99d9504583bd5b20f11942cae4010c46dd4d0780f6e0b44",
           "src": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1"
         }
       ],
@@ -1182,7 +1182,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.1"
+      "version": "1.0.4"
     }
   ],
   "retiredPlugins": [

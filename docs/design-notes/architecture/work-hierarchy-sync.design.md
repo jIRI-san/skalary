@@ -101,11 +101,17 @@ local IDs to GitHub issue numbers and immutable provider IDs. Entries retain the
 last-synchronized title and managed-body hashes. Serialization sorts local IDs ordinally and is capped
 at 1 MiB.
 
-Every save supplies the digest returned by the matching read. The writer holds an exclusive file handle,
-compares the exact current bytes with that digest, writes and flushes a sibling temporary file, rechecks
-the source digest, and atomically replaces the mapping. A stable, never-unlinked `.lock` sidecar prevents
-cooperating writers from racing by replacing the mapping pathname; stale or concurrently edited mappings
-are refused. UTF-8 input may carry a BOM, but canonical output is BOM-free.
+Every save supplies the digest returned by the matching read. A standalone save holds the stable,
+never-unlinked `.lock` sidecar while comparing exact current bytes, writing and flushing a sibling temporary
+file, rechecking the source digest, and atomically replacing the mapping. Apply holds that same lock from
+its refreshed read through every remote mutation and mapping checkpoint; each mutation first revalidates
+the current mapping digest under the lock. Updates revalidate again after their immediate remote
+precondition read and before PATCH. Stale or concurrently edited mappings are refused. UTF-8 input may
+carry a BOM, but canonical output is BOM-free.
+
+The mapping path is either absent or a regular file. Existing directories and other non-file targets are
+rejected during read, save, and the final pre-mutation apply check so a remote write cannot precede an
+unpersistable mapping.
 
 `Add-WorkHierarchyMappingItem` records only an explicitly selected issue whose unique managed markers
 match the requested local ID and kind. It never changes an existing baseline; reused issue numbers or

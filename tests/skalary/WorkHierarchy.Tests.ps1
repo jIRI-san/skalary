@@ -1281,6 +1281,56 @@ $(Set-Content -LiteralPath "{0}" -Value true)
             }
         }
 
+        It 'refuses a directory mapping path before any provider mutation' {
+            $fixture = & $newFixture
+            $mappingPath = Join-Path ([System.IO.Path]::GetTempPath()) ('work-hierarchy-directory-' + [guid]::NewGuid().ToString('N'))
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $mapping = Read-WorkHierarchyMappingFile -Path $mappingPath -Repository 'owner/repo'
+                $readCount = [pscustomobject]@{ Value = 0 }
+                $writes = [System.Collections.Generic.List[object]]::new()
+                $provider = New-WorkHierarchyProvider -Name github -Read ({
+                        param($Request)
+                        if ($Request.kind -eq 'managed-issues') {
+                            $readCount.Value++
+                            if ($readCount.Value -eq 4) {
+                                [void](New-Item -ItemType Directory -Path $mappingPath)
+                            }
+                            return @()
+                        }
+                        throw "Unexpected provider read '$($Request.kind)'."
+                    }.GetNewClosure()) -Write ({
+                        param($Operation)
+                        $writes.Add($Operation)
+                    }.GetNewClosure())
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $mapping.mapping `
+                    -MappingDigest $mapping.digest `
+                    -Provider $provider
+
+                {
+                    Invoke-WorkHierarchyApply `
+                        -Projection $projection `
+                        -Repository 'owner/repo' `
+                        -MappingPath $mappingPath `
+                        -DisplayedDryRun $dryRun `
+                        -Provider $provider `
+                        -Confirm { return $true }
+                } | Should -Throw '*exists but is not a file*'
+                $writes | Should -HaveCount 0
+            }
+            finally {
+                foreach ($path in @($mappingPath, "$mappingPath.lock", "$mappingPath.apply.lock")) {
+                    if (Test-Path -LiteralPath $path) {
+                        Remove-Item -LiteralPath $path -Recurse -Force
+                    }
+                }
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
         It 'refuses a projection changed after display before confirmation or writes' {
             $fixture = & $newFixture
             $mappingPath = Join-Path ([System.IO.Path]::GetTempPath()) ('work-hierarchy-apply-' + [guid]::NewGuid().ToString('N') + '.json')
@@ -1436,6 +1486,80 @@ $(Set-Content -LiteralPath "{0}" -Value true)
                 foreach ($path in @($mappingPath, "$mappingPath.lock", "$mappingPath.apply.lock")) {
                     if (Test-Path -LiteralPath $path) {
                         Remove-Item -LiteralPath $path -Force
+                    }
+                }
+                Remove-Item -LiteralPath $fixture -Recurse -Force
+            }
+        }
+
+        It 'revalidates mapping persistence after the remote update precondition read' {
+            $fixture = & $newFixture
+            $mappingPath = Join-Path ([System.IO.Path]::GetTempPath()) ('work-hierarchy-update-mapping-' + [guid]::NewGuid().ToString('N') + '.json')
+            try {
+                $projection = New-WorkHierarchyProjection -Epic a1b2c3 -RepoRoot $fixture
+                $epic = $projection.epic
+                $first = $projection.children[0]
+                $second = $projection.children[1]
+                $oldTitle = 'Earlier first child'
+                $remotes = @{
+                    10 = & $newRemoteIssue $epic 10 '100' $epic.title $epic.managedBody
+                    11 = & $newRemoteIssue $first 11 '101' $oldTitle $first.managedBody
+                    12 = & $newRemoteIssue $second 12 '102' $second.title $second.managedBody
+                }
+                $initial = Read-WorkHierarchyMappingFile -Path $mappingPath -Repository 'owner/repo'
+                $mapping = Add-WorkHierarchyMappingItem -Mapping $initial.mapping -Desired $epic -RemoteIssue $remotes[10]
+                $mapping = Add-WorkHierarchyMappingItem -Mapping $mapping -Desired $first -RemoteIssue $remotes[11]
+                $mapping = Add-WorkHierarchyMappingItem -Mapping $mapping -Desired $second -RemoteIssue $remotes[12]
+                $saved = Save-WorkHierarchyMappingFile `
+                    -Path $mappingPath `
+                    -Mapping $mapping `
+                    -ExpectedDigest $initial.digest
+                $issueReads = [pscustomobject]@{ Count = 0 }
+                $writes = [System.Collections.Generic.List[object]]::new()
+                $provider = New-WorkHierarchyProvider -Name github -Read ({
+                        param($Request)
+                        switch ($Request.kind) {
+                            'managed-issues' { return @() }
+                            'issue' {
+                                if ($Request.number -eq 11) {
+                                    $issueReads.Count++
+                                    if ($issueReads.Count -eq 3) {
+                                        Remove-Item -LiteralPath $mappingPath -Force
+                                        [void](New-Item -ItemType Directory -Path $mappingPath)
+                                    }
+                                }
+                                return $remotes[[int]$Request.number]
+                            }
+                            'sub-issues' { return @($remotes[11], $remotes[12]) }
+                            'blocked-by' { return @($remotes[11]) }
+                            default { throw "Unexpected provider read '$($Request.kind)'." }
+                        }
+                    }.GetNewClosure()) -Write ({
+                        param($Operation)
+                        $writes.Add($Operation)
+                    }.GetNewClosure())
+                $dryRun = New-WorkHierarchyDryRun `
+                    -Projection $projection `
+                    -Repository 'owner/repo' `
+                    -Mapping $saved.mapping `
+                    -MappingDigest $saved.digest `
+                    -Provider $provider
+
+                {
+                    Invoke-WorkHierarchyApply `
+                        -Projection $projection `
+                        -Repository 'owner/repo' `
+                        -MappingPath $mappingPath `
+                        -DisplayedDryRun $dryRun `
+                        -Provider $provider `
+                        -Confirm { return $true }
+                } | Should -Throw '*exists but is not a file*'
+                $writes | Should -HaveCount 0
+            }
+            finally {
+                foreach ($path in @($mappingPath, "$mappingPath.lock", "$mappingPath.apply.lock")) {
+                    if (Test-Path -LiteralPath $path) {
+                        Remove-Item -LiteralPath $path -Recurse -Force
                     }
                 }
                 Remove-Item -LiteralPath $fixture -Recurse -Force

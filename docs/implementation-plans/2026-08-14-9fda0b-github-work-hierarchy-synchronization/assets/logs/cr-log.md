@@ -60,3 +60,9 @@ Phase: 3
 - [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=1 outcome=findings summary=1-high run-step-3-2-review
 - [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=2 outcome=clean summary=clean run-step-3-2-rereview
 - [3.2] [src:note] [sev:Low] review-cycle stage=step-3.2 cycle=3 outcome=clean summary=clean run-step-3-2-duck
+- [3.2] [src:code-review] [sev:Med] An existing directory at the mapping path was treated as a missing file, allowing remote writes before persistence failed; reject non-leaf paths before mutation.
+- [-] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=1-med run-plan-final-review
+- [3.2] [src:code-review] [sev:Med] A one-time pre-mutation path check left a TOCTOU window; hold the mapping sidecar lock across refresh, mutations, and checkpoints and revalidate the digest before every provider write.
+- [-] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=2 outcome=findings summary=1-med run-plan-final-rereview
+- [3.2] [src:code-review] [sev:Med] Update validation still preceded the remote precondition read; revalidate the mapping again after that read and immediately before PATCH.
+- [-] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=3 outcome=findings summary=1-med run-plan-final-third
