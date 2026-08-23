@@ -218,6 +218,7 @@ when creating a snapshot from the pinned commit's immutable blobs, never from a 
 changing worktree. Plan identity and assets-versus-legacy layout are also resolved from that pinned
 tree, so mutable worktree metadata cannot redirect or omit a source; duplicate pinned copies across
 both layouts fail closed rather than silently selecting one. Git object sizes are checked
+against source and aggregate ceilings before blob
 content is materialized. A scan refuses more than 256 files, 160 MiB, or 60 seconds, streams
 directory discovery to its plus-one boundary, validates manifest/run/phase-receipt integrity, and
 enforces each source's smaller operational ceiling. Every Git child process shares the same
