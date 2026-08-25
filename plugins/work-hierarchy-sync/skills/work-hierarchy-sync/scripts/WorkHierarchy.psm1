@@ -424,7 +424,7 @@ function ConvertTo-WorkHierarchyProjectionJson {
         if ([string]$Projection.schema -ne $script:ProjectionSchema) {
             throw "Projection schema must be '$script:ProjectionSchema'."
         }
-        return (ConvertTo-Json -InputObject $Projection -Depth 30)
+        return (ConvertTo-Json -InputObject $Projection -Depth 30).Replace("`r`n", "`n")
     }
 }
 

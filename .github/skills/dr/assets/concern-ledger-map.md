@@ -1,4 +1,4 @@
-# Concern → review-ledger category map
+# Concern -> review-ledger category map
 
 The map is **total** (every concern has a target for both review types) and **deterministic**, but
 not bijective: two concerns can land in the same ledger category. Its job is to remove the judgment

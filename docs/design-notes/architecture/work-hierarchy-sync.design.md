@@ -33,8 +33,8 @@ handlers: `read(request)` and `write(operation)`. The GitHub provider translates
   replace only the content between a matching pair.
 - Dependency tokens resolve through canonical plan inventory. Unknown, ambiguous, or self dependencies
   fail projection instead of producing a guessed remote relation.
-- `ConvertTo-WorkHierarchyProjectionJson` preserves the projection's ordered properties so unchanged
-  local inputs produce byte-identical JSON.
+- `ConvertTo-WorkHierarchyProjectionJson` preserves the projection's ordered properties and canonicalizes
+  line endings to LF so unchanged local inputs produce byte-identical JSON on every host.
 
 ## Provider Boundary
 

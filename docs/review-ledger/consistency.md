@@ -3,4 +3,5 @@
 - [2026-08-01] A constant restated in prose needs either a pointer to the gated source or a test tying the two; an ungated third copy goes stale the moment the gated one moves. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-17
 - [2026-08-01] A gate whose scope is derived from what is already declared is self-referential; root the closed set in the grammar or state the residual bound where a reader will find it. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-08-01] A plugin payload edit must regenerate marketplace.json and registry.json in the same commit; the unit suite passes while the generated catalogs go stale. (plan-b0c0d3, src:autopilot, sev:Critical) #phase-10 #req-17
+- [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2
 
