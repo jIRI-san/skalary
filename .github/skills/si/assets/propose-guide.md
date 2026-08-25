@@ -25,17 +25,21 @@ proposal genuinely needs a workflow change, it is a plan, not a `/si` run.
 
 ## Step 4: Isolate the work
 
-Create a worktree and a branch before the first edit, **cut from the base ref, not from whatever
-branch you are standing on**:
+Step 0 creates a detached worktree at pinned `origin/main` for a new run, or at the surfaced fixed
+branch head for a resumed run. Lifecycle `Begin` creates or resumes the only correlation branch,
+`si/<due-id>`, there before writing the ranked run:
 
 ```powershell
-git worktree add .worktrees/si-<slug> -b si/<slug> origin/main
+git worktree add --detach .worktrees/si-<due-prefix> <pinned-origin-main-oid>
+pwsh -NoProfile -File .github/skills/si/scripts/Invoke-SiLifecycle.ps1 `
+  -RepoRoot .worktrees/si-<due-prefix> -Operation Begin `
+  -DueId <due-id> -RunId <run-id> -Receipt <receipt-id> -InputPath <candidate-input>
 ```
 
-Two reasons the base matters. The blast radius of a bad proposal becomes a directory the operator
-can delete — and the Step 6 guard reads `main...HEAD`, so a branch cut from a plan's feature branch
-would drag that entire plan diff into the proposal's scope and refuse every time. Use `main` when
-there is no `origin`.
+Do not hand-create a slug branch. The due-derived identity makes retries converge on one branch,
+while the detached worktree keeps the blast radius removable. The Step 6 guard reads `main...HEAD`,
+so a worktree cut from a plan feature branch would drag that entire plan diff into the proposal's
+scope and refuse every time.
 
 Never propose from the plan's own branch, never commit into it, and never from `main` itself.
 
@@ -55,16 +59,29 @@ If an edit touches a plugin payload, re-run the payload pipeline (`Sync-PluginSc
 
 ## Step 6: Gate the write scope (blocking)
 
-Before the PR — not after — run the named guard from the worktree:
+Before the PR — not after — invoke trusted synchronization from a clean checkout pinned exactly to
+the fetched main OID and target the proposal worktree. Never invoke the proposal branch's copy of its
+own guard:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/si/scripts/Test-SiWriteScope.ps1 -RepoRoot . -BaseRef main
+pwsh -NoProfile -File .github/skills/si/scripts/Invoke-SiProposalSync.ps1 `
+  -RepoRoot .worktrees/si-<due-prefix> -Operation Sync `
+  -DueId <due-id> -RunId <run-id> -Receipt <receipt-id> `
+  -LifecycleHeadOid <lifecycle-state-commit> -ExpectedRemoteHead <oid-or-absent>
 ```
 
-It enumerates every path the proposal touches — committed against `main...HEAD`, staged, unstaged,
-**and untracked** — canonicalizes each one, follows symlinks component by component, and refuses on
-anything that escapes the repository, traverses out of it, lands outside the allowlist, or touches a
-denied execution-carrying path.
+The sync requires a clean fixed branch and refuses any state edit after the lifecycle commit. In a
+disposable detached worktree it fetches and merges current main, restores the complete
+`docs/self-improvement/**` tree from that authority, and regenerates only the verified
+receipt/run/manifest. It rejects every path in the closed SI trust-anchor set before invoking the
+trusted `Test-SiWriteScope.ps1`. That guard enumerates committed, staged, unstaged, and untracked
+paths, canonicalizes each one, follows symlinks component by component, and refuses anything
+escaping the repository, outside the allowlist, or under a denied execution-carrying path. Sync
+pins HEAD before those final checks, uploads that exact object through a unique staging ref, and
+uses GitHub's non-force ref transaction to compare `ExpectedRemoteHead` while installing the
+validated OID. It confirms remote-head equality and removes both the staging ref and disposable
+worktree on success or failure. A cleanup failure is itself blocking and is reported rather than
+returning a successful synchronization.
 
 - Exit **0**: continue to Step 7.
 - Exit **1**: stop. Remove the offending paths from the proposal and re-run.

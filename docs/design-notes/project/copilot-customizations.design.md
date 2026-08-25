@@ -118,7 +118,7 @@ Critical injection finding.
 - `Get-PlanState.ps1` (`npm run plan-state`) — text/`-Json` snapshot composing resolve + progress + next-step + flags (`@human`/`[discovery]`/blocked/uncommitted). Replaces the hand-walked "find next step" prose in `ci`.
 - `New-Plan.ps1` (`npm run new-plan`) — scaffolds `<yyyy-mm-dd>-<6hex>-<slug>/plan.md` from `plan-template.md`, injecting the `<!-- plan-id: <6hex> -->` anchor (idempotently) with slug sanitization + path confinement.
 - `Set-PlanStage.ps1` — idempotent `<!-- cip-stage: ... -->` writer (DR rounds, etc.).
-- `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture → `cr-log.md`/`learnings.md`/`capture.md`); emits schema tokens from typed params, sanitizes only the free-text body, owns init/append + the `No entries for this phase.` placeholder fail-loud contract. The 10-entry fold-to-overflow cap is Learnings-only (`CrLog`/`Capture` uncapped).
+- `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture) with concern/sorted-REQ/review provenance and domain-separated source-record IDs. It inventory-confines the selected plan, owns placeholders, and keeps ten active learnings by writing exact older records to layout-resolved content-addressed overflow batches before replacing the active file. `CrLog`/`Capture` remain uncapped; legacy summaries surface explicit loss.
 - `Build-EvidenceReceipt.ps1` — formats verifier output into the shared golden `✓/✗ REQ-N — evidence — result — commit` grammar (full HEAD SHA, `✗`/unrun preserved).
 - `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
 

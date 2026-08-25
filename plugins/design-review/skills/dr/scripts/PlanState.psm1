@@ -61,7 +61,82 @@ $script:PlanAssetMap = [ordered]@{
     CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
     Learnings       = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
     Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
-    ReviewRuns      = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
+    LearningOverflowRoot = [pscustomobject]@{ Asset = 'logs/learning-overflow'; Legacy = 'learning-overflow' }
+    HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
+    ReviewRuns           = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
+}
+
+function Normalize-PhysicalPathRoot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (-not $IsWindows) {
+        return $fullPath
+    }
+
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    return $root.ToUpperInvariant() + $fullPath.Substring($root.Length)
+}
+
+function Resolve-PhysicalRepoPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = Normalize-PhysicalPathRoot -Path $Path
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    $relative = $fullPath.Substring($root.Length)
+    $segments = @($relative -split '[\\/]' | Where-Object { $_.Length -gt 0 })
+    $current = $root
+    foreach ($segment in $segments) {
+        $candidate = Join-Path $current $segment
+        if (Test-Path -LiteralPath $candidate) {
+            $children = @(Get-ChildItem -LiteralPath $current -Force)
+            $matches = @($children | Where-Object {
+                    [string]::Equals($_.Name, $segment, [System.StringComparison]::Ordinal)
+                })
+            if ($matches.Count -eq 0) {
+                $matches = @($children | Where-Object {
+                        [string]::Equals($_.Name, $segment, [System.StringComparison]::OrdinalIgnoreCase)
+                    })
+            }
+            if ($matches.Count -ne 1) {
+                throw "Cannot resolve a unique physical path component '$segment' under '$current'."
+            }
+
+            $item = $matches[0]
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                $target = $item.ResolveLinkTarget($true)
+                if ($null -eq $target) {
+                    throw "Cannot resolve reparse-point target '$candidate'."
+                }
+                $current = Normalize-PhysicalPathRoot -Path $target.FullName
+                continue
+            }
+            $current = Normalize-PhysicalPathRoot -Path $item.FullName
+            continue
+        }
+        $current = Normalize-PhysicalPathRoot -Path $candidate
+    }
+    return $current
+}
+
+function Assert-PhysicalPlanConfinement {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $physicalPlan = Resolve-PhysicalRepoPath -Path $PlanDir
+    $physicalPath = Resolve-PhysicalRepoPath -Path $Path
+    $prefix = $physicalPlan.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $physicalPath.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+        throw "Resolved plan asset path '$Path' escapes inventoried plan folder '$PlanDir' through a link or reparse point."
+    }
 }
 
 function Get-PlanLayout {
@@ -107,14 +182,58 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'ReviewRuns')]
+        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]
-        [string]$Layout
+        [string]$Layout,
+
+        [string]$RepoRoot,
+
+        [object[]]$Inventory
     )
 
     $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
+    if ($RepoRoot) {
+        $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $physicalRepoRoot = Resolve-PhysicalRepoPath -Path $repoRootFull
+        $plansRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/implementation-plans'))
+        $physicalPlansRoot = Resolve-PhysicalRepoPath -Path $plansRoot
+        $physicalPlanDir = Resolve-PhysicalRepoPath -Path $planDirFull
+        $plansPrefix = $physicalPlansRoot.TrimEnd([char[]]@(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            )) + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $physicalPlanDir.StartsWith($plansPrefix, [System.StringComparison]::Ordinal)) {
+            throw "Plan folder '$planDirFull' escapes repository plan root '$plansRoot'."
+        }
+        Assert-PhysicalPlanConfinement -PlanDir $plansRoot -Path $planDirFull
+
+        if (-not $PSBoundParameters.ContainsKey('Inventory')) {
+            $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
+        }
+        $inventoryMatch = @($Inventory | Where-Object {
+                $_.Path -and [string]::Equals(
+                    (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
+                    $physicalPlanDir,
+                    [System.StringComparison]::Ordinal
+                )
+            })
+        if ($inventoryMatch.Count -ne 1) {
+            throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
+        }
+
+        $planRelativePath = [System.IO.Path]::GetRelativePath($physicalRepoRoot, $physicalPlanDir)
+        if ($planRelativePath -eq '..' -or
+            $planRelativePath.StartsWith(
+                '..' + [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Plan folder '$planDirFull' escapes physical repository root '$physicalRepoRoot'."
+        }
+        $planDirFull = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $planRelativePath))
+    }
+
     if (-not $Layout) {
         $Layout = Get-PlanLayout -PlanDir $planDirFull
     }
@@ -122,7 +241,11 @@ function Resolve-PlanAssetPath {
     $entry = $script:PlanAssetMap[$Kind]
     if (-not $entry.Legacy) {
         # Section assets have no sibling-file legacy form — their legacy home is inside plan.md.
-        return [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
+        $resolvedPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
+        if ($RepoRoot) {
+            Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
+        }
+        return $resolvedPath
     }
 
     $assetPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
@@ -134,11 +257,11 @@ function Resolve-PlanAssetPath {
         throw "Plan folder '$planDirFull' holds '$Kind' at both '$assetPath' and '$legacyPath'. Move the legacy copy under assets/ so writers and readers cannot disagree."
     }
 
-    if ($Layout -eq 'assets') {
-        return $assetPath
+    $resolvedPath = if ($Layout -eq 'assets') { $assetPath } else { $legacyPath }
+    if ($RepoRoot) {
+        Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
     }
-
-    return $legacyPath
+    return $resolvedPath
 }
 
 function Get-PlanSectionRecord {
@@ -1475,4 +1598,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision
+Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

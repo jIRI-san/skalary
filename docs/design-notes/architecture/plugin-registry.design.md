@@ -183,7 +183,33 @@ Skills and agents that invoke deterministic PowerShell at runtime must ship that
 | Managed duplication | Bundled copies are generated, not hand-authored: `scripts/skalary/` is the single source of truth and `Sync-PluginScripts.ps1` is the only writer of `plugins/**/skills/**/scripts/`. A `-WhatIf` drift gate (wired into `scripts/validate.ps1`) proves every bundled copy is byte-identical to its source. |
 | Version independence | Plugins install and version independently, so each carries its own copy — duplication across plugins is intentional and accepted (no shared runtime module, no cross-plugin hierarchy). |
 | Version-bump coupling | Because there is exactly one source per script, **any change to a shared script bumps the `version` of every plugin that bundles it.** `Sync-PluginScripts.ps1` performs this patch bump automatically when it re-copies a changed bundle, so the advertised version never lags the payload. A script edit is a content change to each dependent plugin's payload; a stale (unsynced) bundle fails the `-WhatIf` drift gate. |
-| Plugin-owned scripts (exception) | Not every plugin script is a `scripts/skalary/` bundle. The `architecture-notes` scripts (`Copy-ArchScaffold`, `Import-ArchHarvest`, `Import-ArchAdr`, …) are canonical inside their own plugin, not `scripts/skalary/`. `Sync-PluginScripts.ps1` does not manage them; `Sync-Dogfood.ps1` mirrors them to `.github/`. Referencing a plugin-owned script by the literal installed path `.github/skills/<skill>/scripts/<Name>.ps1` from a **foreign** plugin's content triggers a stray cross-plugin bundle (the bundler's ref regex) — so cross-plugin references use bare names or gated wording. |
+| Plugin-owned scripts (exception) | Not every plugin script is a `scripts/skalary/` bundle. The self-improvement lifecycle/schema payload (`plugins/self-improvement/{scripts,schemas}/`) and the `architecture-notes` scripts (`Copy-ArchScaffold`, `Import-ArchHarvest`, `Import-ArchAdr`, …) are canonical inside their own plugins. `Sync-PluginScripts.ps1` does not manage them; `Sync-Dogfood.ps1` mirrors them to `.github/`. Foreign consumers depend on the owning plugin rather than copying its executable. A literal installed path in foreign plugin content can trigger a stray cross-plugin bundle through the bundler's reference scanner, so such references use the installed path only where the dependency contract and drift test explicitly permit it; otherwise use gated wording. |
+
+`AtomicStore.psm1` is another normal root-canonical bundle, shared by PFB, CI, CIP, SI, and
+autopilot. SI remains the owner of its lifecycle scripts and schemas; only their generic atomic
+write dependency comes from `scripts/skalary/`. Every generated copy is explicitly registered in
+the consumer manifest so foreign installs receive the same lock/CAS/replace implementation.
+
+`Invoke-PhaseHarvest.ps1` and its `LedgerStore.psm1` closure have exactly two distribution
+consumers: `continue-implementation` (`skills/ci/scripts/`) and `autopilot`
+(`skills/autopilot/scripts/`). Both invoke their installed copy, declare current and legacy
+phase-receipt scaffolds, and carry the same root-canonical bytes.
+
+Autopilot declares `self-improvement` as a plugin dependency rather than copying SI-owned lifecycle
+scripts into its payload. Dependency installation supplies `skills/si/scripts/Enqueue-SiDue.ps1`
+at an independently versioned SI release, preserving SI's sole ownership and allowing standalone SI
+installs to use the same due writer. Interactive CI receives the same dependency transitively
+through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor CI bundles a
+foreign lifecycle copy.
+
+Autopilot's installed `Invoke-SiDueEnqueue.ps1` remains an orchestration boundary rather than an SI
+lifecycle owner: it invokes the dependency writer and converts exceptions or non-complete statuses
+into an explicit non-blocking `degraded` result without reading or mutating SI state itself.
+
+`test:LearningLoop.PayloadOwnershipAndDrift` is the cross-surface proof for this split. It enumerates
+the closed SI-owned sets, shared harvest consumers, dependency edges, installed calls, scaffolds,
+dogfood bytes, catalog hashes, and manifest/catalog versions. The existing generator and drift
+gates remain authoritative; no learning-loop-specific validation gate is added.
 
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
@@ -202,6 +228,11 @@ this is a gate rather than a convention.
 | Declarations reach the registry | Consumer installs resolve against `registry.json`, not the source tree, so `Build-Registry.ps1` carries `scaffolds[]` through. A declaration that stops at `plugin.json` never reaches the repo that has to honour it. |
 | Two modes, both explicit | A **literal** entry names a fixed path and forbids a `confine` helper. A **parameterized** entry uses `<name>` (one segment) or `**` (subtree), **requires** a `confine` helper, and may carry a closed `values` domain. The schema enforces both branches, so a variable path cannot be mislabelled as fixed to dodge the helper requirement. |
 | Declarations must be true | The declared `confine` helper has to be shipped **and called** by the declaring plugin's own payload — asserted by test, because a manifest that describes a control nobody implements is worse than no manifest: it passes the gate while the gap stays open. `owner` and `trigger` are **documentation, not assertions**; they name who to go ask, and nothing verifies that the named owner performs the write. |
+
+Self-improvement declares its complete `docs/self-improvement/` runtime topology in this form:
+literal manifest/quarantine-index paths and parameterized active/archive run, backup, quarantine,
+repair-observation/receipt, and resolver-receipt paths. Installation still writes only `.github/`;
+the installed SI scripts materialize these paths on first use through `Resolve-SiStatePath`.
 
 **The scanner grammar is closed** (`Sync-PluginScripts.ps1`, gated by `validate.ps1` via `-WhatIf`):
 

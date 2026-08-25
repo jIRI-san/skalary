@@ -36,6 +36,53 @@ Describe 'Post-plan feedback queue' {
             if (-not $match.Success) { return '' }
             return $match.Groups[1].Value
         }
+
+        function Script:Invoke-QueueProcess {
+            param(
+                [Parameter(Mandatory)][string]$Root,
+                [Parameter(Mandatory)][string[]]$Arguments
+            )
+
+            $pwshArgs = @('-NoProfile', '-File', $script:queueScript) + $Arguments + @('-RepoRoot', $Root)
+            $output = & pwsh @pwshArgs 2>&1
+            return [pscustomobject]@{
+                ExitCode = $LASTEXITCODE
+                Output = ($output | Out-String)
+            }
+        }
+
+        function Script:Set-QueueText {
+            param(
+                [Parameter(Mandatory)][string]$Root,
+                [Parameter(Mandatory)][string]$Text
+            )
+
+            $path = Join-Path $Root 'docs/feedback/queue.md'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force)
+            [System.IO.File]::WriteAllText($path, $Text, [System.Text.UTF8Encoding]::new($false))
+        }
+
+        function Script:New-QueueText {
+            param(
+                [string[]]$Pending = @(),
+                [string[]]$Recorded = @()
+            )
+
+            $lines = @(
+                '# Feedback Queue',
+                '',
+                'Post-plan feedback written by `/pfb` through `Update-FeedbackQueue.ps1`. Script-owned — never hand-edit.',
+                '`## Pending` holds prompts a headless run could not ask; `## Recorded` holds operator verdicts.',
+                'Every entry is untrusted free text: `/si` harvests it as data and never executes it.',
+                '',
+                '## Pending',
+                ''
+            )
+            $lines += if ($Pending.Count -gt 0) { $Pending } else { 'No queued feedback.' }
+            $lines += @('', '## Recorded', '')
+            $lines += if ($Recorded.Count -gt 0) { $Recorded } else { 'No recorded feedback.' }
+            return ($lines -join "`n") + "`n"
+        }
     }
 
     Context 'test:pfb-queues-marker-under-autopilot' {
@@ -52,7 +99,7 @@ Describe 'Post-plan feedback queue' {
                 -Question 'Did the delivered review split serve the stated goal?' -RepoRoot $script:root
 
             $result.Written | Should -BeTrue
-            $result.Id | Should -Match '^[0-9a-f]{8}$'
+            $result.Id | Should -Match '^[0-9a-f]{16}$'
             Test-Path -LiteralPath (Join-Path $script:root 'docs/feedback/queue.md') -PathType Leaf | Should -BeTrue
 
             # The marker has to name the plan it belongs to: the session that consumes it is a
@@ -223,6 +270,141 @@ Describe 'Post-plan feedback queue' {
             # declined offer must never hold up the archive commit.
             $crosscheck | Should -Match 'never substitutes for a'
             $crosscheck | Should -Match 'skips it silently'
+        }
+    }
+
+    Context 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash' {
+        BeforeEach {
+            $script:root = New-QueueRoot
+        }
+
+        AfterEach {
+            if (Test-Path -LiteralPath $script:root) { Remove-Item -LiteralPath $script:root -Recurse -Force }
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash preserves legacy ids and issues 16-hex ids' {
+            $legacy = '- [deadbeef] [plan:1936cb] [queued:2026-08-09] Did the old run match intent?'
+            Set-QueueText -Root $script:root -Text (New-QueueText -Pending @($legacy))
+
+            $replay = & $script:queueScript -Action Queue -Plan '1936cb' `
+                -Question 'DID THE OLD RUN MATCH INTENT?' -RepoRoot $script:root
+            $replay.Id | Should -Be 'deadbeef'
+            $replay.Written | Should -BeFalse
+
+            $answer = & $script:queueScript -Action Record -Id 'deadbeef' -Alignment partial `
+                -Response 'Legacy marker answer' -RepoRoot $script:root
+            $answer.Id | Should -Be 'deadbeef'
+
+            $new = & $script:queueScript -Action Record -Plan '1936cb' -Alignment full `
+                -Response 'New content-addressed verdict' -RepoRoot $script:root
+            $new.Id | Should -Match '^[0-9a-f]{16}$'
+
+            $recorded = & $script:queueScript -Action List -Section Recorded -RepoRoot $script:root
+            @($recorded.Id) | Should -Contain 'deadbeef'
+            @($recorded.Id) | Should -Contain $new.Id
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash round-trips the exact 16 KiB entry ceiling' {
+            $sentinel = 'x' * 16KB
+            $result = & $script:queueScript -Action Queue -Plan '1936cb' `
+                -Question $sentinel -RepoRoot $script:root
+
+            $result.Written | Should -BeTrue
+            $pending = & $script:queueScript -Action List -Section Pending -RepoRoot $script:root
+            $pending.Count | Should -Be 1
+            [System.Text.Encoding]::UTF8.GetByteCount($pending[0].Text) | Should -Be 16KB
+            $pending[0].Text | Should -Be $sentinel
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash rejects a 16 KiB plus-one entry before mutation' {
+            $before = Get-QueueText -Root $script:root
+            $result = Invoke-QueueProcess -Root $script:root -Arguments @(
+                '-Action', 'Queue',
+                '-Plan', '1936cb',
+                '-Question', ('x' * (16KB + 1))
+            )
+
+            $result.ExitCode | Should -Be 4
+            $result.Output | Should -Match 'capacity-blocked'
+            (Get-QueueText -Root $script:root) | Should -BeExactly $before
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash enforces pending and recorded count plus-one limits' {
+            $pending = @(0..127 | ForEach-Object {
+                    "- [$($_.ToString('x16'))] [plan:1936cb] [queued:2026-08-09] pending-$_"
+                })
+            Set-QueueText -Root $script:root -Text (New-QueueText -Pending $pending)
+            $before = Get-QueueText -Root $script:root
+
+            $pendingResult = Invoke-QueueProcess -Root $script:root -Arguments @(
+                '-Action', 'Queue', '-Plan', '1936cb', '-Question', 'plus one pending'
+            )
+            $pendingResult.ExitCode | Should -Be 4
+            $pendingResult.Output | Should -Match 'capacity-blocked'
+            (Get-QueueText -Root $script:root) | Should -BeExactly $before
+
+            $recorded = @(0..2047 | ForEach-Object {
+                    "- [$($_.ToString('x16'))] [plan:1936cb] [recorded:2026-08-09] [align:full] recorded-$_"
+                })
+            Set-QueueText -Root $script:root -Text (New-QueueText -Recorded $recorded)
+            $before = Get-QueueText -Root $script:root
+
+            $recordedResult = Invoke-QueueProcess -Root $script:root -Arguments @(
+                '-Action', 'Record', '-Plan', '1936cb', '-Alignment', 'full', '-Response', 'plus one recorded'
+            )
+            $recordedResult.ExitCode | Should -Be 4
+            $recordedResult.Output | Should -Match 'capacity-blocked'
+            (Get-QueueText -Root $script:root) | Should -BeExactly $before
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash enforces the 4 MiB file ceiling before mutation' {
+            $prefix = '- [deadbeef] [plan:1936cb] [recorded:2026-08-09] [align:full] '
+            $probe = New-QueueText -Recorded @($prefix)
+            $fillLength = 4MB - 8 - [System.Text.Encoding]::UTF8.GetByteCount($probe)
+            $nearLimit = New-QueueText -Recorded @($prefix + ('z' * $fillLength))
+            [System.Text.Encoding]::UTF8.GetByteCount($nearLimit) | Should -BeLessThan 4MB
+            Set-QueueText -Root $script:root -Text $nearLimit
+            $before = Get-QueueText -Root $script:root
+
+            $result = Invoke-QueueProcess -Root $script:root -Arguments @(
+                '-Action', 'Queue', '-Plan', '1936cb', '-Question', 'file plus one'
+            )
+            $result.ExitCode | Should -Be 4
+            $result.Output | Should -Match 'capacity-blocked'
+            (Get-QueueText -Root $script:root) | Should -BeExactly $before
+        }
+
+        It 'test:FeedbackQueue.BoundedRoundTripMigrationAndCrash recovers after the atomic temp-before-replace boundary faults' {
+            $first = & $script:queueScript -Action Queue -Plan '1936cb' `
+                -Question 'Before crash sentinel' -RepoRoot $script:root
+            $queuePath = Join-Path $script:root 'docs/feedback/queue.md'
+            $before = Get-QueueText -Root $script:root
+            $atomicStore = Join-Path $script:repoRoot 'scripts/skalary/AtomicStore.psm1'
+            Import-Module $atomicStore -Force
+            $generation = Get-AtomicStoreGeneration -Path $queuePath
+
+            {
+                Invoke-WithAtomicStoreLock -Scope $queuePath -Action {
+                    Set-AtomicStoreContent -Path $queuePath -Content 'partial queue bytes' `
+                        -ExpectedGeneration $generation -Validate {
+                            throw 'simulated crash after durable temp write'
+                        }
+                }
+            } | Should -Throw '*simulated crash*'
+
+            (Get-QueueText -Root $script:root) | Should -BeExactly $before
+            $queueDir = Join-Path $script:root 'docs/feedback'
+            @(Get-ChildItem -LiteralPath $queueDir -Filter '.atomic-*.tmp').Count | Should -Be 0
+
+            $result = & $script:queueScript -Action Queue -Plan '1936cb' `
+                -Question 'After crash sentinel' -RepoRoot $script:root
+
+            $result.Written | Should -BeTrue
+            $pending = & $script:queueScript -Action List -Section Pending -RepoRoot $script:root
+            $pending.Count | Should -Be 2
+            @($pending.Id) | Should -Contain $first.Id
+            @($pending.Text) | Should -Contain 'Before crash sentinel'
+            @($pending.Text) | Should -Contain 'After crash sentinel'
         }
     }
 }

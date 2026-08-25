@@ -8,7 +8,8 @@
     command, times it end to end, and writes a row for the platform it ran on into
     `tools/suite-runtime.json`.
 
-    A figure without its environment is not a measurement — the same suite ran roughly 10x
+    A figure without its environment and exact tracked-input fingerprint is not a measurement —
+    the same suite ran roughly 10x
     apart between the Linux container and a Windows host, so a bare number cannot be
     attributed to a ceiling. Every row therefore carries the OS, PowerShell and Pester
     versions, processor count, commit and provenance label alongside the seconds.
@@ -57,6 +58,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
+. (Join-Path $repoRootPath 'scripts/skalary/Get-SuiteInputFingerprint.ps1')
 
 $budgetPath = Join-Path $repoRootPath 'tools/suite-budget.psd1'
 if (-not (Test-Path -LiteralPath $budgetPath -PathType Leaf)) {
@@ -84,8 +86,8 @@ if (-not $OutputPath) {
     $OutputPath = Join-Path $repoRootPath ([string]$recordOwner[$recordMember])
 }
 
-$rowSchema = 'skalary/suite-runtime-row@1'
-$documentSchema = 'skalary/suite-runtime@1'
+$rowSchema = 'skalary/suite-runtime-row@2'
+$documentSchema = 'skalary/suite-runtime@2'
 $rowMarker = 'SUITE-RUNTIME-ROW:'
 
 function Get-CurrentPlatformKey {
@@ -112,10 +114,14 @@ function ConvertTo-CanonicalRow {
     if ($source.ContainsKey('environment') -and $null -ne $source['environment']) {
         $raw = @{}
         if ($source['environment'] -is [System.Collections.IDictionary]) {
-            foreach ($key in $source['environment'].Keys) { $raw[[string]$key] = $source['environment'][$key] }
+            foreach ($key in $source['environment'].Keys) {
+                $raw[[string]$key] = $source['environment'][$key]
+            }
         }
         else {
-            foreach ($property in $source['environment'].PSObject.Properties) { $raw[$property.Name] = $property.Value }
+            foreach ($property in $source['environment'].PSObject.Properties) {
+                $raw[$property.Name] = $property.Value
+            }
         }
         foreach ($field in @('os', 'psVersion', 'pesterVersion', 'processorCount', 'ci', 'runner')) {
             if ($raw.ContainsKey($field)) { $environment[$field] = $raw[$field] }
@@ -126,7 +132,10 @@ function ConvertTo-CanonicalRow {
     }
 
     $canonical = [ordered]@{}
-    foreach ($field in @('schema', 'platform', 'measuredCommand', 'seconds', 'succeeded', 'measuredAt', 'commit', 'source', 'note')) {
+    foreach ($field in @(
+            'schema', 'platform', 'measuredCommand', 'fingerprintProtocol', 'inputFingerprint',
+            'seconds', 'succeeded', 'measuredAt', 'commit', 'source', 'note'
+        )) {
         if ($source.ContainsKey($field)) { $canonical[$field] = $source[$field] }
     }
     $canonical['environment'] = $environment
@@ -145,7 +154,16 @@ function Write-RuntimeDocument {
         $existing = Get-Content -LiteralPath $OutputPath -Raw | ConvertFrom-Json
         if ($existing.PSObject.Properties.Name -contains 'platforms') {
             foreach ($property in $existing.platforms.PSObject.Properties) {
-                $rows[$property.Name] = ConvertTo-CanonicalRow -Row $property.Value
+                $existingRow = ConvertTo-CanonicalRow -Row $property.Value
+                if (
+                    [string]$existingRow.schema -eq $rowSchema -and
+                    [string]$existingRow.fingerprintProtocol -eq
+                    [string]$canonical.fingerprintProtocol -and
+                    [string]$existingRow.inputFingerprint -eq
+                    [string]$canonical.inputFingerprint
+                ) {
+                    $rows[$property.Name] = $existingRow
+                }
             }
         }
     }
@@ -191,6 +209,11 @@ if ($PSCmdlet.ParameterSetName -eq 'Import') {
     if (-not [bool]$imported.succeeded) {
         throw 'Refusing to import a row from a failed run: a stopped command did less work than the one the ceiling governs.'
     }
+    $importFingerprint = Get-SuiteInputFingerprint -RepoRoot $repoRootPath
+    if ([string]$imported.fingerprintProtocol -ne $importFingerprint.Protocol -or
+        [string]$imported.inputFingerprint -ne $importFingerprint.Fingerprint) {
+        throw 'Refusing to import a runtime row measured against a different tracked-input fingerprint.'
+    }
 
     $row = [ordered]@{}
     foreach ($property in $imported.PSObject.Properties) { $row[$property.Name] = $property.Value }
@@ -199,31 +222,65 @@ if ($PSCmdlet.ParameterSetName -eq 'Import') {
 }
 
 $pesterModule = Get-Module -ListAvailable -Name Pester | Sort-Object Version -Descending | Select-Object -First 1
+$measurementFingerprint = Get-SuiteInputFingerprint -RepoRoot $repoRootPath
+$authorization = New-SuiteMeasurementAuthorization `
+    -Fingerprint $measurementFingerprint.Fingerprint -ParentPid $PID
+$previousToken = [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_TOKEN')
+$previousKey = [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_KEY')
 
 Push-Location -LiteralPath $repoRootPath
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 try {
+    [Environment]::SetEnvironmentVariable(
+        'SKALARY_SUITE_MEASUREMENT_TOKEN',
+        $authorization.Token
+    )
+    [Environment]::SetEnvironmentVariable(
+        'SKALARY_SUITE_MEASUREMENT_KEY',
+        $authorization.Key
+    )
     # The budgeted command verbatim, so the figure and the ceiling measure the same thing.
     if ($Tier -eq 'Slow') { & npm run test:slow } else { & npm test }
     $exitCode = $LASTEXITCODE
 }
 finally {
+    if ($null -eq $previousToken) {
+        Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_TOKEN -ErrorAction SilentlyContinue
+    }
+    else {
+        [Environment]::SetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_TOKEN', $previousToken)
+    }
+    if ($null -eq $previousKey) {
+        Remove-Item -LiteralPath Env:SKALARY_SUITE_MEASUREMENT_KEY -ErrorAction SilentlyContinue
+    }
+    else {
+        [Environment]::SetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_KEY', $previousKey)
+    }
     $stopwatch.Stop()
     Pop-Location
 }
 
+$afterFingerprint = Get-SuiteInputFingerprint -RepoRoot $repoRootPath
+if ($exitCode -eq 0 -and
+    $afterFingerprint.Fingerprint -ne $measurementFingerprint.Fingerprint) {
+    Write-Error 'The tracked-input fingerprint changed during measurement; refusing to emit a row for mixed inputs.'
+    exit 1
+}
+
 $commit = (& git -C $repoRootPath rev-parse HEAD 2>$null)
 $row = [ordered]@{
-    schema          = $rowSchema
-    platform        = Get-CurrentPlatformKey
-    measuredCommand = $measuredCommand
-    seconds         = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
-    succeeded       = ($exitCode -eq 0)
-    measuredAt      = [DateTimeOffset]::UtcNow.ToString('o')
-    commit          = if ($commit) { ([string]$commit).Trim() } else { 'unknown' }
-    source          = $Source
-    note            = $Note
-    environment     = [ordered]@{
+    schema              = $rowSchema
+    platform            = Get-CurrentPlatformKey
+    measuredCommand     = $measuredCommand
+    fingerprintProtocol = $measurementFingerprint.Protocol
+    inputFingerprint    = $measurementFingerprint.Fingerprint
+    seconds             = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
+    succeeded           = ($exitCode -eq 0)
+    measuredAt          = [DateTimeOffset]::UtcNow.ToString('o')
+    commit              = if ($commit) { ([string]$commit).Trim() } else { 'unknown' }
+    source              = $Source
+    note                = $Note
+    environment         = [ordered]@{
         os             = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription.Trim()
         psVersion      = $PSVersionTable.PSVersion.ToString()
         pesterVersion  = if ($pesterModule) { $pesterModule.Version.ToString() } else { 'absent' }

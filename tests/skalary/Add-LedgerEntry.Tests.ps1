@@ -155,6 +155,25 @@ Describe 'Add-LedgerEntry script' {
         $result.ExitCode | Should -Not -Be 0
     }
 
+    It 'rejects a ledger path redirected outside the repository by a symbolic link' {
+        if ($IsWindows) {
+            Set-ItResult -Skipped -Because 'Creating symbolic links is not consistently available on Windows runners.'
+            return
+        }
+
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("add-ledger-link-" + [guid]::NewGuid().ToString('N'))
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) ("add-ledger-outside-" + [guid]::NewGuid().ToString('N'))
+        $tempRoots.Add($root)
+        $tempRoots.Add($outside)
+        New-Item -ItemType Directory -Path (Join-Path $root 'docs') -Force | Out-Null
+        New-Item -ItemType Directory -Path $outside -Force | Out-Null
+        New-Item -ItemType SymbolicLink -Path (Join-Path $root 'docs/review-ledger') -Target $outside | Out-Null
+
+        $result = Invoke-AddLedger -Root $root -Entry 'must remain confined'
+        $result.ExitCode | Should -Not -Be 0
+        Test-Path -LiteralPath (Join-Path $outside 'security.md') | Should -BeFalse
+    }
+
     It 'Add-LedgerEntry.ConcurrentAppend' {
         $root = New-TestRepoRoot
         $processes = @()

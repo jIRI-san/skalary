@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-25T12:04:41.7313134Z",
+  "generatedAt": "2026-08-25T13:48:13.4992981Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -150,7 +150,9 @@
     },
     {
       "author": "jIRI-san",
-      "dependencies": [],
+      "dependencies": [
+        "self-improvement"
+      ],
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
       "evals": {
         "status": "none"
@@ -158,7 +160,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "34aecd64e09288192acb3ee21af2db0e8049707d1ee837167805fc8dbb91288c",
+          "sha256": "72f50f2c7b79df84f6544e04a13021bbb35fe0f1dd1a16305b2cfcab571482af",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -205,6 +207,31 @@
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
           "sha256": "7e8b52da5da2344eed9d17f4394e93c1cbd9385e5bff384c51d045c4795f8067",
           "src": "schemas/autopilot.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/autopilot/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
+          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1",
+          "sha256": "4b76e200a8f428fe22f021db045c3b5c5f6ea5202fd835149396ed9a2539008d",
+          "src": "scripts/Invoke-SiDueEnqueue.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/LedgerStore.psm1",
+          "sha256": "d759a6db3670dfe1c606c22cbbdf13ac2618465f576d67b1491fd73fda8e5cf0",
+          "src": "skills/autopilot/scripts/LedgerStore.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/PlanState.psm1",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
+          "src": "skills/autopilot/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
@@ -269,6 +296,22 @@
       ],
       "license": "MIT",
       "name": "autopilot",
+      "scaffolds": [
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+          "trigger": "first assets-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+          "trigger": "first legacy-layout phase harvest"
+        }
+      ],
       "status": "partial",
       "tags": [
         "agent",
@@ -276,7 +319,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.11"
+      "version": "1.2.20"
     },
     {
       "author": "jIRI-san",
@@ -373,7 +416,7 @@
         },
         {
           "dest": "skills/cr/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/cr/scripts/PlanState.psm1"
         },
         {
@@ -425,7 +468,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.26"
+      "version": "1.0.27"
     },
     {
       "author": "jIRI-san",
@@ -445,23 +488,28 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "74d232cfa052b2279d4167038a1e4ab8ac6d4b93e9ae710d135deb1411ae19d7",
+          "sha256": "988cdfa10854fbaefe15fadbc39a4cbdcbe7adaaecac8e78baa5cd5076f59834",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "953195a90f7116ac5c48831c90faaad79ce3bf24adc61a6848bfb5b5f12bf9ce",
+          "sha256": "be06caa84871a1da958347011ac47316ec83665513b17534c192d745f434ed31",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
           "dest": "skills/ci/scripts/Add-LedgerEntry.ps1",
-          "sha256": "2daf1849cfd29f83ceb18ecdb92546766a5e05b64b7cb50cff46305987c0cf05",
+          "sha256": "d6a6a2288357abccff34364028847517aceb095b22dee82aa2dff04ae983a2d1",
           "src": "skills/ci/scripts/Add-LedgerEntry.ps1"
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
+          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/ci/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
@@ -474,13 +522,23 @@
           "src": "skills/ci/scripts/Get-PlanState.ps1"
         },
         {
+          "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
+          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/LedgerStore.psm1",
+          "sha256": "d759a6db3670dfe1c606c22cbbdf13ac2618465f576d67b1491fd73fda8e5cf0",
+          "src": "skills/ci/scripts/LedgerStore.psm1"
+        },
+        {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
           "sha256": "b12f195c18f1b1146f51061e635767ef43304f9205fc5b3f1bce2fb4c1627f5c",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -495,7 +553,7 @@
         },
         {
           "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
-          "sha256": "96b96f9e43c74eef69cdf7625e68d8b11d3f8439a305beeb3af0a24c4c186ee9",
+          "sha256": "b8e472550196975a4aee92e024302ca1d993abc4a614b61aeb21bfb6336dcdb6",
           "src": "skills/ci/scripts/ReviewCycleGate.ps1"
         },
         {
@@ -512,6 +570,34 @@
       "license": "MIT",
       "name": "continue-implementation",
       "scaffolds": [
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+          "trigger": "first assets-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Add-WorkflowNote.ps1",
+          "path": "docs/implementation-plans/<plan>/assets/logs/learning-overflow/**",
+          "trigger": "first assets-layout learning overflow"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Invoke-PhaseHarvest.ps1",
+          "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+          "trigger": "first legacy-layout phase harvest"
+        },
+        {
+          "confine": "Resolve-PlanAssetPath",
+          "mode": "parameterized",
+          "owner": "Add-WorkflowNote.ps1",
+          "path": "docs/implementation-plans/<plan>/learning-overflow/**",
+          "trigger": "first legacy-layout learning overflow"
+        },
         {
           "mode": "literal",
           "owner": "Remove-LedgerEntry.ps1",
@@ -557,7 +643,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.33"
+      "version": "1.0.47"
     },
     {
       "author": "jIRI-san",
@@ -606,7 +692,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
@@ -626,12 +712,12 @@
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "d6d2dd11baa2184c6f5f569809b89e182f2db20bfea04ca0fa4e82c87263f65f",
+          "sha256": "8ca525426521f1302afeeef16dd60015716a0ad91650147a8a01fd89d84b0b87",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "676499d3abdaf81b09b72fce1419ff606037618ae5ddb42fa5fac239a5e03ad3",
+          "sha256": "0e5c25f7349bd09454714b0aa513ae8e06c724919eb5eeb59a653c6558c0317e",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -651,8 +737,13 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "b2905c745979f3d938879103a10c7c087d223ffd156f7107433c7a8ef550898b",
+          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/cip/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/cip/scripts/Get-PlanIndex.ps1",
@@ -671,7 +762,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -713,7 +804,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.33"
+      "version": "1.0.38"
     },
     {
       "author": "jIRI-san",
@@ -875,7 +966,7 @@
         },
         {
           "dest": "skills/dr/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/dr/scripts/PlanState.psm1"
         },
         {
@@ -927,7 +1018,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.25"
+      "version": "1.0.26"
     },
     {
       "author": "jIRI-san",
@@ -1085,43 +1176,138 @@
         },
         {
           "dest": "skills/pfb/assets/queue-guide.md",
-          "sha256": "c91d6b7b149ed9614532cd3fde6159ee4150c196bf4fc750a985dc5df1e3ea56",
+          "sha256": "dc6eff23d039affd516c684130c00d4492746f03535cf6d978cdfd1992985e41",
           "src": "skills/pfb/assets/queue-guide.md"
         },
         {
+          "dest": "skills/pfb/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/pfb/scripts/AtomicStore.psm1"
+        },
+        {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-          "sha256": "23ea021c7477251349ffe1d8e55e7ecd0947fbdafbefe26b9faf018f1af0d32b",
+          "sha256": "ab7124ea73a405e9576195cf07a4ed6f694970cf9ba519228fdf4a095664a6f7",
           "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "9dab1115ca6f920df5eb8a0f5a8955d750ae36c56292beb618f4c1845207c2d9",
+          "sha256": "6c90f94a3c17503dedc1bb021d747a611208dc539b34f826ab3bcd828f32b4b7",
           "src": "skills/si/SKILL.md"
         },
         {
           "dest": "skills/si/assets/harvest-guide.md",
-          "sha256": "09abb19a988b165f41144b38410dcbd3de4f98dc4ac8278247bdab48e578e345",
+          "sha256": "601fe4bda9d05e00c9317f2c4180e8d6cc6ce3c4e1a504e121f5808a2243a5de",
           "src": "skills/si/assets/harvest-guide.md"
         },
         {
           "dest": "skills/si/assets/propose-guide.md",
-          "sha256": "200696e0c708f0bb6944ce28b9fca662ad9a986b7fd141bfff24eda9011b1c5e",
+          "sha256": "0a8d8fe0cef8430db2457278c37a4a5701c659da0abfc8f49bd3f2ce3937844c",
           "src": "skills/si/assets/propose-guide.md"
         },
         {
+          "dest": "skills/si/schemas/manifest.schema.json",
+          "sha256": "08e3e7f6073ba521dd1b92c5db5fbca81349a59d65499b0336a171bb1e88a5ba",
+          "src": "schemas/manifest.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/repair-observation.schema.json",
+          "sha256": "8ca2270a4e3c58293a9cbaa50e49932c608d8082903dc5e338aad246162112c2",
+          "src": "schemas/repair-observation.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/repair-receipt.schema.json",
+          "sha256": "92f8d23c33815519257741112905ea1b43a6e01ae6079f2593e8f0e0d7101196",
+          "src": "schemas/repair-receipt.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/resolver-receipt.schema.json",
+          "sha256": "354582bcf286f4c12188321055a7dff3dd17f62121a2d5acfa3e0b8d3b714297",
+          "src": "schemas/resolver-receipt.schema.json"
+        },
+        {
+          "dest": "skills/si/schemas/run.schema.json",
+          "sha256": "a97e6f93a865ecd4f77db4e0d7483fa6278f211a05fcaece7f6af780d0cb1016",
+          "src": "schemas/run.schema.json"
+        },
+        {
+          "dest": "skills/si/scripts/Archive-SiState.ps1",
+          "sha256": "18755cfc745fc0c28c7746c12d7579e383e91b9c249606f188c2bc1893ab4345",
+          "src": "scripts/Archive-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/si/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/Complete-SiProposal.ps1",
+          "sha256": "1fc6a009a11009b0bcec0323c5e5fd2c4ee289be578033d7e6f7f3f95aa54e5f",
+          "src": "scripts/Complete-SiProposal.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
+          "sha256": "4510467179eea93b66d2e10dab798efdcd2f694a8c96ceac4de64c50b4bc1fb0",
+          "src": "scripts/Enqueue-SiDue.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Get-SiHarvest.ps1",
+          "sha256": "022c6dac7ee6686b910009c505b631e9586f44d7190fce66f2eb72828468baaf",
+          "src": "scripts/Get-SiHarvest.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Get-SiState.ps1",
+          "sha256": "388447ebf88eecd830a86bac62d59c1a2bdb238bfb8515e73c31646d254e6b67",
+          "src": "scripts/Get-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
+          "sha256": "b484f0a1a0e6a2a75b4e2f00978d834023bbc9e888c829a4b9ba8696e52188aa",
+          "src": "scripts/Invoke-SiLifecycle.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1",
+          "sha256": "c9fa848f3a46837a64e4054bc400e8e07f83c5761d9d9e2b6853c4f000cb2135",
+          "src": "scripts/Invoke-SiProposalSync.ps1"
+        },
+        {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/si/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/Repair-SiState.ps1",
+          "sha256": "7b849a526582dcc5a147aab2b8585ae532fc3fb186803f9d1e695451d9fb99f3",
+          "src": "scripts/Repair-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/SiResolverReceipt.psm1",
+          "sha256": "a91d965d45dcf8136f8d7248faf89687c486d40fd89558a7c3416f37648192f3",
+          "src": "scripts/SiResolverReceipt.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/SiStateStore.psm1",
+          "sha256": "7aa23ece4d64feec1e0ae783571d060c09f146727a54898a66f2abc029556593",
+          "src": "scripts/SiStateStore.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/Test-SiResolverReceipt.ps1",
+          "sha256": "6f1d45fb5f7d623698356a9bcbac4cb53a860c355c016d77dc873842b44506b3",
+          "src": "scripts/Test-SiResolverReceipt.ps1"
         },
         {
           "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
           "sha256": "a656313e9034482d7ead0688b541e25c9d9b92ca0914982cd22f12968ebf6625",
           "src": "skills/si/scripts/Test-SiWriteScope.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Update-SiState.ps1",
+          "sha256": "c8d3b4affd5665988730a9e83170ac7d56112109d5673d2a44b10aa4613e2f3a",
+          "src": "scripts/Update-SiState.ps1"
         }
       ],
       "license": "MIT",
@@ -1132,6 +1318,91 @@
           "owner": "Update-FeedbackQueue.ps1",
           "path": "docs/feedback/queue.md",
           "trigger": "first queued /pfb marker"
+        },
+        {
+          "mode": "literal",
+          "owner": "Archive-SiState.ps1",
+          "path": "docs/self-improvement/archive-journal.json",
+          "trigger": "recover interrupted completed-run archive"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Archive-SiState.ps1",
+          "path": "docs/self-improvement/archive/<yyyy>/<mm>/<run>.json",
+          "trigger": "completed-run archive"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/backups/<observation>/**",
+          "trigger": "repair apply journal and backup"
+        },
+        {
+          "mode": "literal",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/harvest-index.json",
+          "trigger": "bounded SI evidence scan"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/quarantine/<observation>/**",
+          "trigger": "corrupt artifact quarantine"
+        },
+        {
+          "mode": "literal",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/quarantine/index.json",
+          "trigger": "first corrupt artifact quarantine"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-observations/<observation>.json",
+          "trigger": "repair snapshot"
+        },
+        {
+          "mode": "literal",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-receipts",
+          "trigger": "repair receipt enumeration"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Repair-SiState.ps1",
+          "path": "docs/self-improvement/repair-receipts/<receipt>.json",
+          "trigger": "repair apply or rollback completion"
+        },
+        {
+          "mode": "literal",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/resolver-receipts",
+          "trigger": "resolver receipt verification"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "Get-SiHarvest.ps1",
+          "path": "docs/self-improvement/resolver-receipts/<receipt>.json",
+          "trigger": "resolver receipt issuance"
+        },
+        {
+          "confine": "Resolve-SiStatePath",
+          "mode": "parameterized",
+          "owner": "SiStateStore.psm1",
+          "path": "docs/self-improvement/runs/<yyyy>/<mm>/<run>.json",
+          "trigger": "SI run begin or update"
+        },
+        {
+          "mode": "literal",
+          "owner": "SiStateStore.psm1",
+          "path": "docs/self-improvement/state.json",
+          "trigger": "first SI due or repaired manifest"
         }
       ],
       "status": "stable",
@@ -1141,7 +1412,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.26"
+      "version": "1.0.52"
     },
     {
       "author": "jIRI-san",
@@ -1163,7 +1434,7 @@
         },
         {
           "dest": "skills/work-hierarchy-sync/scripts/PlanState.psm1",
-          "sha256": "a2d0ad9cb137d9ffbaebfa49dcb749ecad43ff7cddeba63d57ac5214bb11ca12",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
           "src": "skills/work-hierarchy-sync/scripts/PlanState.psm1"
         },
         {
@@ -1182,7 +1453,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     }
   ],
   "retiredPlugins": [

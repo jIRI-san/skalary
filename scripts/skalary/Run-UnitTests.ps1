@@ -28,6 +28,8 @@
       7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
     8  RequiredEvidenceSkipped — mandatory review evidence did not execute
     9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
+    10 StaleMeasurement — this platform's runtime row does not match the tracked inputs
+    11 MeasurementTokenInvalid — a measurement-mode token failed closed validation
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
 #>
@@ -75,10 +77,42 @@ if (-not $BudgetClockPath) {
 # The clock is a file because the legs of `npm test` are separate processes: an environment
 # variable set by the first one is gone by the time the last one reads it.
 if ($StartBudgetClock) {
+    $measurementNonce = $null
+    $hasToken = -not [string]::IsNullOrWhiteSpace(
+        [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_TOKEN')
+    )
+    $hasKey = -not [string]::IsNullOrWhiteSpace(
+        [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_KEY')
+    )
+    if ($hasToken -or $hasKey) {
+        $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+        if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
+            Write-Host "MeasurementTokenInvalid: fingerprint verifier '$fingerprintScript' is missing." -ForegroundColor Red
+            exit 11
+        }
+        . $fingerprintScript
+        $fingerprint = Get-SuiteInputFingerprint -RepoRoot $RepoRoot
+        $authorization = Test-SuiteMeasurementAuthorization `
+            -Token $env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+            -Key $env:SKALARY_SUITE_MEASUREMENT_KEY `
+            -ExpectedFingerprint $fingerprint.Fingerprint
+        if ($authorization.Status -ne 'complete') {
+            Write-Host "MeasurementTokenInvalid: $($authorization.Reason)." -ForegroundColor Red
+            exit 11
+        }
+        $claim = Use-SuiteMeasurementNonce -Nonce $authorization.Nonce `
+            -ParentPid $authorization.ParentPid
+        if ($claim.Status -ne 'complete') {
+            Write-Host "MeasurementTokenInvalid: $($claim.Reason)." -ForegroundColor Red
+            exit 11
+        }
+        $measurementNonce = $authorization.Nonce
+    }
     $clock = [ordered]@{
-        schema    = $budgetClockSchema
-        startedAt = $legStart.ToString('o')
-        command   = 'npm test'
+        schema           = $budgetClockSchema
+        startedAt        = $legStart.ToString('o')
+        command          = 'npm test'
+        measurementNonce = $measurementNonce
     }
     Set-Content -LiteralPath $BudgetClockPath -Value (($clock | ConvertTo-Json -Depth 4) + "`n") -Encoding utf8NoBOM
     exit 0
@@ -91,6 +125,7 @@ $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
 # Read and clear the clock before anything that can exit from a Fast run. Slow is a separate,
 # unbudgeted gate and must not consume authorization that belongs to a concurrent or later Fast run.
 $clockStartedAt = $null
+$clockMeasurementNonce = $null
 if ($Tier -eq 'Fast' -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
     $clockText = Get-Content -LiteralPath $BudgetClockPath -Raw
     Remove-Item -LiteralPath $BudgetClockPath -Force -ErrorAction SilentlyContinue
@@ -98,6 +133,9 @@ if ($Tier -eq 'Fast' -and (Test-Path -LiteralPath $BudgetClockPath -PathType Lea
     $clock = $null
     try { $clock = $clockText | ConvertFrom-Json } catch { $clock = $null }
     if ($clock -and @($clock.PSObject.Properties.Name) -contains 'startedAt') {
+        if (@($clock.PSObject.Properties.Name) -contains 'measurementNonce') {
+            $clockMeasurementNonce = [string]$clock.measurementNonce
+        }
         # ConvertFrom-Json coerces an ISO timestamp to [datetime], and casting that back to a
         # string renders it invariant (MM/dd/yyyy) while TryParse reads the current culture. On
         # a dd/MM host the two disagree and the clock is misread as ~59 days old, silently
@@ -352,11 +390,15 @@ $platformBudget = $budget.Platforms[$platformKey]
 # Every field this check reads, named before any of them is read. Under Set-StrictMode a
 # missing key is a terminating error, which would exit 1 — the code that means "tests failed",
 # which is the one distinction this script exists to make.
-foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds')) {
+foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds', 'MeasurementRecord')) {
     if (-not $budget.Contains($required)) {
         Write-Host "BudgetNotDefined: '$budgetPath' is missing '$required'. A budget that does not state it cannot be enforced." -ForegroundColor Red
         exit 6
     }
+}
+if ([string]::IsNullOrWhiteSpace([string]$budget.MeasurementRecord)) {
+    Write-Host "BudgetNotDefined: '$budgetPath' has an empty 'MeasurementRecord'. A budget that does not name its freshness evidence cannot be enforced." -ForegroundColor Red
+    exit 6
 }
 foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
     if (-not $platformBudget.Contains($required)) {
@@ -367,6 +409,27 @@ foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
 
 $hardCeilingSeconds = [double]$platformBudget.HardCeilingSeconds
 $targetSeconds = [double]$platformBudget.TargetSeconds
+
+$fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
+    Write-Host "BudgetNotDefined: '$budgetPath' names a measurement record but '$fingerprintScript' is missing." -ForegroundColor Red
+    exit 6
+}
+. $fingerprintScript
+$freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
+    -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
+    -CurrentProcessId $PID
+if ($freshness.Status -eq 'measurement-token-invalid') {
+    Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
+    exit 11
+}
+if ($freshness.Status -ne 'complete') {
+    Write-Host "StaleMeasurement: $($freshness.Reason). Run scripts/skalary/Measure-SuiteRuntime.ps1 on the exact tracked inputs." -ForegroundColor Red
+    exit 10
+}
+if ($freshness.MeasurementMode) {
+    Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
+}
 
 # The budget measures the whole `npm test` command (D2). This leg can only see the rest of it
 # through the clock the `pretest` hook started, so the scope is reported with the figure: an

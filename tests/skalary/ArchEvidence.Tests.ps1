@@ -90,7 +90,7 @@ Describe 'retired arch evidence marker' {
 
     It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch synchronizes the manifest-derived parser closure' {
         @($script:stateBundles.Skill) |
-            Should -Be @('cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si', 'work-hierarchy-sync')
+            Should -Be @('autopilot', 'cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si', 'work-hierarchy-sync')
         @($script:validatorBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
         @($script:evidenceBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
 
