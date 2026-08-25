@@ -9,6 +9,7 @@
 - [2026-08-05] An order-independence test needs a paired non-blindness check that runs each probe body over a tainted tree. Run-to-run equality alone is satisfied by a probe that reports a constant. (plan-768d7b, src:autopilot, sev:Med) #phase-3 #req-3
 - [2026-08-15] Commit measured implementation before generating coverage profile or runtime metadata so provenance identifies exercised code. (plan-cda9da, src:autopilot, sev:Med) #phase-4
 - [2026-06-28] Extract launcher dispatch into a side-effect-free dot-sourceable library so loop logic is unit-testable without the launcher's mandatory params avoids Pester mandatory-param prompt hang . Share test state via .GetNewClos (plan-aaf29b, src:ci, sev:Med) #dot-source #pester #testability
+- [2026-08-23] Generated-text drift checks must compare encoded bytes and cover BOM-only and zero-byte files so detection and repair observe the same drift. (plan-79cfe1, src:ci, sev:Med) #generated-output #phase-3 #req-3 #testing
 - [2026-06-28] Mock the script's own restore helpers Invoke-NpmRestore/Invoke-DotnetRestore instead of external npm/dotnet: real npm ci runs ~20s and isn't intercepted by Pester mocks. Avoid angle brackets in It names ParseException . (plan-aaf29b, src:ci, sev:Med) #mocking #npm #pester
 - [2026-08-05] Workflow-shape tests earn their cost only when each assertion is proven red by mutating the workflow. 18 mutations one named test red each is what separates a shape test from a spell-checker. (plan-768d7b, src:autopilot, sev:High) #phase-8 #req-9
 
