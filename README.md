@@ -55,6 +55,7 @@ pwsh -NoProfile -File scripts/skalary/Find-Plugin.ps1 -Query review
 ### Plugin-specific prerequisites
 
 - `process-pr-comments`: requires GitHub CLI (`gh`) installed and authenticated for the current user (`gh auth login`), because the plugin resolves auth exclusively via `gh auth token`.
+- `work-hierarchy-sync`: requires GitHub CLI (`gh`) installed and authenticated for the target repository. Dry run is read-only; issue mutations require explicit confirmation of the displayed action digest.
 
 ## Security Note (`irm | iex`)
 
@@ -77,4 +78,5 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `plugin-manager` | 1.0.17 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.0 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.26 | stable | create-implementation-plan | 12 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
+| `work-hierarchy-sync` | 1.0.5 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
 <!-- END SKALARY PLUGIN CATALOG -->

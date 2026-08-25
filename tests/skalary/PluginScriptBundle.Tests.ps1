@@ -16,7 +16,8 @@ Describe 'Plugin script bundling' {
             [pscustomobject]@{ Plugin = 'continue-implementation'; Skill = 'ci' },
             [pscustomobject]@{ Plugin = 'create-implementation-plan'; Skill = 'cip' },
             [pscustomobject]@{ Plugin = 'code-review'; Skill = 'cr' },
-            [pscustomobject]@{ Plugin = 'design-review'; Skill = 'dr' }
+            [pscustomobject]@{ Plugin = 'design-review'; Skill = 'dr' },
+            [pscustomobject]@{ Plugin = 'work-hierarchy-sync'; Skill = 'work-hierarchy-sync' }
         )
 
         function Get-ManifestFiles {
