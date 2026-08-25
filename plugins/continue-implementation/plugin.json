@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -56,16 +56,16 @@
       "dest": "skills/ci/scripts/LedgerStore.psm1"
     },
     {
-      "src": "skills/ci/scripts/ArchReceipt.psm1",
-      "dest": "skills/ci/scripts/ArchReceipt.psm1"
-    },
-    {
       "src": "skills/ci/scripts/PlanEvidence.psm1",
       "dest": "skills/ci/scripts/PlanEvidence.psm1"
     },
     {
       "src": "skills/ci/scripts/PlanState.psm1",
       "dest": "skills/ci/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/ci/scripts/ReviewCycleGate.ps1",
+      "dest": "skills/ci/scripts/ReviewCycleGate.ps1"
     },
     {
       "src": "skills/ci/scripts/Remove-LedgerEntry.ps1",

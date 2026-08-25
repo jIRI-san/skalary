@@ -43,12 +43,17 @@ The same `plugins/*/plugin.json` sources feed two independent catalogs; neither 
 | Guard | Rule |
 |---|---|
 | Verb allowlist | Only `Get`/`Find`/`Test`/`Validate` scripts (read-only). `Install`/`Uninstall`/`Update`/`Remove`/`Set`/`bootstrap` are never approved, so a prompt-injected `-Repository`/`-Ref`/`-Source` cannot ride an approval into a silent remote install. |
+| Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. Approval authorizes only that command shape—it does not provision the writer's PowerShell 7.6+ prerequisite. |
 | Sensitive-name deny-list | A script whose name contains `credential`/`secret`/`token`/`password`/`passphrase` is never approved even if its verb is read-only (e.g. `get-credential.ps1`). |
 | Key shape | Plain path string (`.github/skills/<skill>/scripts/<Script>.ps1`), matching the existing settings convention. VS Code prefix-matches it per sub-command, so a chained `<script> ; curl … | sh` still prompts (the second sub-command matches no key). |
 | Confinement | Keys are resolved from registry `files[]`, confined to `.github/`, and only written for scripts that exist on disk. |
 | JSONC safety | The writer preserves comments and trailing commas via a comment-aware brace scan; it never round-trips through `ConvertTo-Json` (which would drop comments). |
 
-`-All` batches every plugin's read-only scripts; `-Remove` drops a plugin's keys (uninstall runs it first, while the files still resolve). Approval is always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and lists each approvable script before writing.
+`-All` batches every plugin's read-only scripts plus the two closed review-writer exceptions;
+`-Remove` drops a plugin's keys (uninstall runs it first, while the files still resolve). Approval is
+always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and lists each approvable
+entry before writing. Object-valued entries are stored on one JSONC line so the comment-preserving
+add/remove parser can treat one rule atomically.
 
 ## Bootstrap flow
 

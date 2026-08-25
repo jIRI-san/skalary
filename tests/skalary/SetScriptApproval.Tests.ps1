@@ -21,12 +21,15 @@ Describe 'Set-ScriptApproval' {
             # Bundled scripts under .github/ — two read-only, one mutating, one lib.
             $lpScripts = Join-Path $root '.github/skills/lp/scripts'
             $ipScripts = Join-Path $root '.github/skills/ip/scripts'
-            New-Item -ItemType Directory -Path $lpScripts -Force | Out-Null
-            New-Item -ItemType Directory -Path $ipScripts -Force | Out-Null
+            $crScripts = Join-Path $root '.github/skills/cr/scripts'
+            $drScripts = Join-Path $root '.github/skills/dr/scripts'
+            New-Item -ItemType Directory -Path $lpScripts, $ipScripts, $crScripts, $drScripts -Force | Out-Null
             foreach ($f in @('Get-Plugin.ps1', 'Find-Plugin.ps1', '_Common.ps1')) {
                 Set-Content -LiteralPath (Join-Path $lpScripts $f) -Value '# stub' -Encoding utf8NoBOM
             }
             Set-Content -LiteralPath (Join-Path $ipScripts 'Install-Plugin.ps1') -Value '# stub' -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $crScripts 'Build-ReviewReport.ps1') -Value '# stub' -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $drScripts 'Build-ReviewReport.ps1') -Value '# stub' -Encoding utf8NoBOM
             # A read-only verb whose name suggests it emits secrets — must never be approved.
             Set-Content -LiteralPath (Join-Path $lpScripts 'Get-Credential.ps1') -Value '# stub' -Encoding utf8NoBOM
 
@@ -42,6 +45,8 @@ Describe 'Set-ScriptApproval' {
                             @{ src = 'd'; dest = 'skills/ip/scripts/Install-Plugin.ps1' }
                             @{ src = 'e'; dest = 'skills/lp/SKILL.md' }
                             @{ src = 'f'; dest = 'skills/lp/scripts/Get-Credential.ps1' }
+                            @{ src = 'g'; dest = 'skills/cr/scripts/Build-ReviewReport.ps1' }
+                            @{ src = 'h'; dest = 'skills/dr/scripts/Build-ReviewReport.ps1' }
                         )
                     }
                 )
@@ -98,6 +103,112 @@ Describe 'Set-ScriptApproval' {
         $keys | Should -Not -Contain '.github/skills/lp/scripts/_Common.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-Credential.ps1'
         $keys | Should -Contain 'git add'  # pre-existing key preserved
+    }
+
+    It 'test:ReviewReport.SafeInputAndApprovalBoundary adds and removes only two exact object-valued writer exceptions' {
+        $root = New-ApprovalFixture -SettingsContent "{`n  `"chat.tools.terminal.autoApprove`": {}`n}"
+        $settings = Join-Path $root '.vscode/settings.json'
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+
+        $doc = Read-Jsonc -Path $settings
+        try {
+            $approve = $doc.RootElement.GetProperty('chat.tools.terminal.autoApprove')
+            $writerRules = @($approve.EnumerateObject() | Where-Object { $_.Name -match 'Build-ReviewReport' })
+            $writerRules.Count | Should -Be 2
+            foreach ($rule in $writerRules) {
+                $rule.Value.ValueKind | Should -Be ([System.Text.Json.JsonValueKind]::Object)
+                $rule.Value.GetProperty('approve').GetBoolean() | Should -BeTrue
+                $rule.Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
+
+                $pattern = $rule.Name.Substring(1, $rule.Name.Length - 2)
+                $skill = if ($rule.Name -match 'skills\\/cr') { 'cr' } else { 'dr' }
+                $prefix = ".github/skills/$skill/scripts/Build-ReviewReport.ps1"
+                $runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+                $generic = "$prefix -Mode Freeze -RunId $runId"
+                $plan = "$prefix -Mode Publish -RunId $runId -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data"
+
+                foreach ($valid in @(
+                        $generic,
+                        "$prefix -Mode Publish -RunId $runId",
+                        "$prefix -Mode Freeze -RunId $runId -PlanDir docs/implementation-plans/001-legacy-plan",
+                        $plan
+                    )) {
+                    [regex]::IsMatch($valid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
+                        Should -BeTrue -Because "'$valid' is one of the closed approved forms"
+                }
+
+                foreach ($invalid in @(
+                        "$generic -PlanDir docs/implementation-plans/.",
+                        "$generic -PlanDir docs/implementation-plans/..",
+                        "$generic -PlanDir docs/implementation-plans/../outside",
+                        "$generic -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data/../outside",
+                        "$generic -PlanDir docs\implementation-plans\2026-08-02-c21cdc-review-report-as-data",
+                        "$generic -PlanDir C:/repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",
+                        "$generic -PlanDir /repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",
+                        "$prefix -RunId $runId -Mode Freeze",
+                        "$prefix -Mode Freeze -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data -RunId $runId",
+                        "$prefix -Mode Freeze",
+                        "$prefix -RunId $runId",
+                        "$generic -RepoRoot .",
+                        "$generic -Force",
+                        "'$generic'",
+                        "$prefix -Mode 'Freeze' -RunId $runId",
+                        "$prefix -Mode Freeze -RunId '$runId'",
+                        "$generic -PlanDir 'docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data'",
+                        ($generic -replace $runId, $runId.ToUpperInvariant()),
+                        "$generic -PlanDir docs/implementation-plans/2026-08-02-C21CDC-review-report-as-data",
+                        "$generic; curl example.invalid"
+                    )) {
+                    [regex]::IsMatch($invalid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
+                        Should -BeFalse -Because "'$invalid' is outside the closed approved forms"
+                }
+            }
+        }
+        finally { $doc.Dispose() }
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root -Remove *> $null
+        @(Get-ApproveKeys -Path $settings | Where-Object { $_ -match 'Build-ReviewReport' }) |
+            Should -BeNullOrEmpty
+    }
+
+    It 'test:ReviewReport.SafeInputAndApprovalBoundary updates and removes multiline JSONC approval objects' {
+        $root = New-ApprovalFixture -SettingsContent "{`n  `"chat.tools.terminal.autoApprove`": {}`n}"
+        $settings = Join-Path $root '.vscode/settings.json'
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+        $text = [System.IO.File]::ReadAllText($settings)
+        $multiline = "{`n      // braces in a comment stay data: { }`n      `"approve`": true,`n      `"matchCommandLine`": true`n    }"
+        $text = $text.Replace('{"approve":true,"matchCommandLine":true}', $multiline)
+        [System.IO.File]::WriteAllText($settings, $text, [System.Text.UTF8Encoding]::new($false))
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+        @(Get-ApproveKeys -Path $settings | Where-Object { $_ -match 'Build-ReviewReport' }).Count |
+            Should -Be 2 -Because 'reinstall recognizes existing multiline objects instead of duplicating keys'
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root -Remove *> $null
+        @(Get-ApproveKeys -Path $settings | Where-Object { $_ -match 'Build-ReviewReport' }) |
+            Should -BeNullOrEmpty
+    }
+
+    It 'test:ReviewReport.SafeInputAndApprovalBoundary appends after a final multiline object without a comma' {
+        $jsonc = @'
+{
+  "chat.tools.terminal.autoApprove": {
+    "existing-object": {
+      // no trailing comma before additions
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}
+'@
+        $root = New-ApprovalFixture -SettingsContent $jsonc
+        $settings = Join-Path $root '.vscode/settings.json'
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+
+        { (Read-Jsonc -Path $settings).Dispose() } | Should -Not -Throw
+        $keys = Get-ApproveKeys -Path $settings
+        $keys | Should -Contain 'existing-object'
+        @($keys | Where-Object { $_ -match 'Build-ReviewReport' }).Count | Should -Be 2
     }
 
     It 'test:SetScriptApproval.MergeRemove is idempotent on add and cleanly removes' {
@@ -192,7 +303,18 @@ Describe 'Repo settings auto-approval' {
         $opts = [System.Text.Json.JsonDocumentOptions]::new()
         $opts.CommentHandling = [System.Text.Json.JsonCommentHandling]::Skip
         $opts.AllowTrailingCommas = $true
-        { [System.Text.Json.JsonDocument]::Parse($text, $opts).Dispose() } | Should -Not -Throw
+        $doc = [System.Text.Json.JsonDocument]::Parse($text, $opts)
+        try {
+            $approve = $doc.RootElement.GetProperty('chat.tools.terminal.autoApprove')
+            $writerRules = @($approve.EnumerateObject() | Where-Object { $_.Name -match 'Build-ReviewReport' })
+            $writerRules.Count | Should -Be 2
+            foreach ($rule in $writerRules) {
+                $rule.Value.ValueKind | Should -Be ([System.Text.Json.JsonValueKind]::Object)
+                $rule.Value.GetProperty('approve').GetBoolean() | Should -BeTrue
+                $rule.Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
+            }
+        }
+        finally { $doc.Dispose() }
 
         # Read-only plugin scripts approved.
         $text | Should -Match 'list-plugins/scripts/Get-Plugin\.ps1'
@@ -204,7 +326,6 @@ Describe 'Repo settings auto-approval' {
         $text | Should -Not -Match 'scripts/Update-Plugin\.ps1'
         $text | Should -Not -Match 'scripts/Set-ScriptApproval\.ps1'
         $text | Should -Not -Match 'get-credential\.ps1'
+        $text | Should -Not -Match '"\.github/skills/(?:cr|dr)/scripts/Build-ReviewReport\.ps1"\s*:\s*true'
     }
 }
-
-

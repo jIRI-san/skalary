@@ -1,16 +1,17 @@
 # 2366ad: Cross-repo si and review standards
 <!-- plan-id: 2366ad -->
-<!-- depends-on: 1936cb, 34088e -->
+<!-- cip-stage: done -->
+<!-- depends-on: 1936cb, 79cfe1 -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
 <!-- Optional execution metadata — defaults used by /ci mode selection -->
-<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->
-<!-- scope: step | phase | plan -->
+<!-- execution-mode: manual -->
+<!-- scope: step -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 6 -->
 <!-- Offline package bundling (autonomous container/sandbox plans): list expected new third-party packages so they can be batched and the offline rebundle round-trip fires at most once. Use `none` when the plan adds no packages. -->
-<!-- expected-packages: dotnet:<list>; npm:<list> -->
+<!-- expected-packages: none -->
 
 ## Assets
 
@@ -26,45 +27,24 @@
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
-## Phase 1: Name
+## Phase 1: Bounded consumer-to-upstream transport
 <!-- worktree: (recorded by /ci when worktree is created) -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Step title (REQ-1) `S`
-- [ ] 1.2 Step title (REQ-1, RISK-1) @human `M`
-  <details><summary>Details</summary>
+- [ ] 1.1 Add one bounded typed export artifact produced from the existing `1936cb` capture, ledger, and SI activity records. Include source identity, candidate text, provenance, and disposition context; redact secrets, reject oversize input before writing, fence all imported text as untrusted, and add `test:CrossRepoSi.ExportBoundsRedactionAndReplay` (REQ-1, REQ-5, RISK-1, RISK-2, RISK-5) `L`
+- [ ] 1.2 Add the handoff that opens or accepts a clean upstream checkout, loads that checkout's instructions, imports the artifact as untrusted context, and invokes normal upstream `/si` for small changes or `/cip` for plan-sized work. Preserve existing `/si` scope, draft-PR, and never-auto-merge controls; add `test:CrossRepoSi.CleanUpstreamHandoff` (REQ-2, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.1] `L`
 
-  **Steps:**
-  1. Navigate to **Azure Portal > Resource Group > ...**
-  2. Run: `az resource ...`
-
-  **Verify:** the concrete, observable condition that proves the step worked.
-
-  **Rollback:** Delete the resource / revert the setting to X.
-
-  </details>
-
-## Phase 2: Name
+## Phase 2: Generic and repository-local review standards
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Step title (REQ-1, RISK-1) [after: 1.1] `S`
+- [ ] 2.1 Extend the `79cfe1` concern source model with optional generic review-standard entries and add a bounded resolver for an optional repo-owned `docs/review-standards.md`. Local entries may extend or replace only explicitly localizable generic guidance; absence leaves generated CR/DR behavior unchanged. Add `test:ReviewStandards.GenericLocalResolution` (REQ-3, REQ-5, RISK-4, RISK-5) `L`
+- [ ] 2.2 Feed the resolved standards into existing CR/DR dispatch inputs without changing review-run v1 publication or authority. Use existing generator, plugin sync, version, registry, marketplace, and dogfood writers; prove generic-only, local-extension, malformed-local, and installed-consumer cases with `test:ReviewStandards.InstalledConsumptionAndDrift` (REQ-3, REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.1] `L`
 
-## Finalization (conditional)
+## Phase 3: Integrated proof
+<!-- worktree: (recorded by /ci when worktree is created) -->
 
-<!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
-     Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
-
-- [ ] X.Y Finalization gate (REQ-1) @human `S`
-  <details><summary>Details</summary>
-
-  **Steps:**
-  1. What the operator has to do, in order.
-
-  **Verify:** what proves it worked.
-
-  **Rollback:** how to undo it.
-
-  </details>
+- [ ] 3.1 Run the focused transport and standards tests, required structural evals, generated-artifact drift checks, and normal repository validation; update only the owning self-improvement, review-reporting, and concern-generator notes (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 1.2, 2.2] `M`
+- [ ] 3.2 Review the bounded export, upstream instruction boundary, optional local standards precedence, and unchanged review-run v1 authority; record `review:cr` and leave typed evidence ready for plan crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `S`

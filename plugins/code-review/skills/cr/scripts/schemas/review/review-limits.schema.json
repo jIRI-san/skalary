@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/schemas/review/review-limits.schema.json",
+  "title": "Skalary Review Limit Vocabulary",
+  "description": "Plan c21cdc D3/D17. The single owner of every shared limit and leaf type the review-plan, review-run, review-manifest and terminal-status schemas apply. Each of those schemas embeds the definitions it needs verbatim under its own `$defs` and refers to them with internal `#/$defs/...` pointers only: an external `$ref` would make one schema file unusable on its own, and step 2.1 distributes these files individually into consumer installs. `test:ReviewReport.SchemaCapabilityAndSemantics` proves every embedded copy is deep-equal to the definition here, so the duplication cannot drift. Numeric budgets no structural keyword can express (UTF-8 byte counts, rendered view sizes) live in `x-skalary-limits` for the semantic layer to read.",
+  "type": "object",
+  "$defs": {
+    "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "reviewType": { "type": "string", "enum": ["code", "design"] },
+    "contentTrust": {
+      "const": "reviewer-authored-data"
+    },
+    "scope": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "scopeMode": {
+      "type": "string",
+      "enum": [
+        "branch",
+        "uncommitted",
+        "paths",
+        "design"
+      ]
+    },
+    "sourceIdentity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "scopePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "scopePathStatus": {
+      "type": "string",
+      "enum": [
+        "added",
+        "modified",
+        "deleted",
+        "renamed",
+        "untracked"
+      ]
+    },
+    "scopePathRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "status"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/scopePath"
+        },
+        "status": {
+          "$ref": "#/$defs/scopePathStatus"
+        }
+      }
+    },
+    "scopePathRecords": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/scopePathRecord"
+      }
+    },
+    "designSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "digest"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "plan",
+            "design-note",
+            "rfc"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/scopePath"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "scopeAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "paths",
+        "digest"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/scopeMode"
+        },
+        "base": {
+          "$ref": "#/$defs/sourceIdentity"
+        },
+        "head": {
+          "$ref": "#/$defs/sourceIdentity"
+        },
+        "paths": {
+          "$ref": "#/$defs/scopePathRecords"
+        },
+        "designSource": {
+          "$ref": "#/$defs/designSource"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "roster": { "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": { "$ref": "#/$defs/model" } },
+    "modelPreflight": {
+      "type": "string",
+      "enum": [
+        "available",
+        "unavailable",
+        "not-run"
+      ]
+    },
+    "modelDegradation": {
+      "type": "string",
+      "enum": [
+        "none",
+        "fallback",
+        "preflight-unavailable"
+      ]
+    },
+    "modelSelectionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "declared",
+        "preflight",
+        "degradation",
+        "servedIdentity"
+      ],
+      "properties": {
+        "requested": {
+          "$ref": "#/$defs/model"
+        },
+        "declared": {
+          "$ref": "#/$defs/model"
+        },
+        "preflight": {
+          "$ref": "#/$defs/modelPreflight"
+        },
+        "fallback": {
+          "$ref": "#/$defs/model"
+        },
+        "degradation": {
+          "$ref": "#/$defs/modelDegradation"
+        },
+        "servedIdentity": {
+          "const": "unverified"
+        }
+      }
+    },
+    "modelSelection": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/modelSelectionRecord"
+      }
+    },
+    "restartRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parentRunId",
+        "parentRunDigest",
+        "restartOrdinal",
+        "partitionIndex",
+        "partitionCount"
+      ],
+      "properties": {
+        "parentRunId": {
+          "$ref": "#/$defs/runId"
+        },
+        "parentRunDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "restartOrdinal": {
+          "const": 1
+        },
+        "partitionIndex": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "partitionCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
+    "invocationBudget": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "taskId": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$" },
+    "concern": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$" },
+    "outcome": { "type": "string", "enum": ["completed", "failed", "timed-out", "omitted", "cancelled", "pending"] },
+    "diagnostic": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "severity": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "body": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "action": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "rootCause": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "component": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "reference": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "references": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/reference" } },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifactName": { "type": "string", "maxLength": 96, "pattern": "^[a-z0-9][a-z0-9._-]{0,94}\\.(json|md)$" },
+    "byteCount": { "type": "integer", "minimum": 1, "maximum": 2097152 },
+    "exitCode": { "type": "integer", "enum": [0, 2, 3, 4, 5] },
+    "statusMessage": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "statusDiagnostics": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
+  },
+  "x-skalary-limits": {
+    "maxEnvelopeBytes": 2097152,
+    "maxTasks": 128,
+    "minTasks": 1,
+    "maxFindings": 256,
+    "maxMergedFindings": 128,
+    "maxRosterModels": 16,
+    "maxScopePaths": 1024,
+    "maxAdmissionRestarts": 1,
+    "maxAdmissionPartitions": 16,
+    "maxInvocationBudget": 128,
+    "maxScopeLength": 1024,
+    "maxTitleLength": 160,
+    "maxBodyBytes": 4096,
+    "maxActionLength": 1024,
+    "maxRootCauseLength": 256,
+    "maxComponentLength": 256,
+    "maxReferences": 8,
+    "maxReferenceLength": 256,
+    "maxTaskDiagnosticBytes": 2048,
+    "maxSummaryBytes": 32768,
+    "maxRetainedReportBytes": 8192,
+    "maxFullBytes": 1048576,
+    "maxTerminalStatusBytes": 8192,
+    "maxStderrBytes": 16384,
+    "maxArtifactNameLength": 96,
+    "lockTimeoutSeconds": 5
+  },
+  "x-skalary-layers": {
+    "structural": "Everything expressible as a draft-2020-12 keyword: closed objects, discriminators, enumerations, patterns, cardinality and per-string maxLength (counted by the validator in UTF-16 code units).",
+    "semantic": "Everything a single-document schema cannot decide: unique task ids, unique concern/model slots, exact frozen-plan equality, findings tied to a completed task, UTF-8 byte budgets, rendered view budgets and manifest digest verification."
+  }
+}

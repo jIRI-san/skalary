@@ -1,6 +1,6 @@
 # Decisions
 
-<!-- Key decisions made during planning — one bullet per decision. Extended rationale goes in assets/decisions/<topic>.md. -->
+<!-- Key decisions made during planning — one bullet per decision. Historical detailed decision files are retained as review history; this file records the executable direction. -->
 
 - **Scope is Cluster F plus G1–G3.** This plan fixes both missing durable `/si` state and the capture/resolution defects that bias or erase the evidence `/si` consumes. Splitting either half would leave a durable record over incomplete data, or better data with no durable handoff.
 - **Reuse plan `b0c0d3`'s safety boundary.** `UNTRUSTED_INPUT`, explicit operator selection, worktree isolation, `Test-SiWriteScope`, draft PR only, and never-auto-merge remain unchanged. This plan extends persistence around that workflow; it does not weaken or redesign it.

@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -40,6 +40,10 @@
     {
       "src": "scripts/Test-ArchContract.ps1",
       "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1"
+    },
+    {
+      "src": "scripts/Get-ArchContractContentHash.ps1",
+      "dest": "skills/architecture-notes/scripts/Get-ArchContractContentHash.ps1"
     },
     {
       "src": "scripts/New-ArchSeed.ps1",

@@ -50,6 +50,13 @@ Typed evidence markers:
 
 Every `REQ-N` must have at least one acceptance criterion containing at least one typed marker.
 
+## Focused validation scope
+
+- Draft each implementation step so its referenced requirements identify a named `test:<TestId>` or another typed marker that can falsify that step without running the complete project suite.
+- Cover the affected surface: changed behavior plus direct consumers, generated artifacts, and architecture contracts that the change can invalidate.
+- Keep validation commands out of plan text. Executors select trusted targets from committed project/test metadata; the plan supplies typed evidence identifiers only.
+- Reserve complete project build/test validation for the final plan crosscheck. Do not require it after every step or phase.
+
 ## Concision and decisions extraction
 
 - Multi-paragraph rationale belongs in `assets/decisions/<topic>.md`.

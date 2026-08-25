@@ -33,6 +33,10 @@ param(
 
     [string]$OutputPath,
 
+    [Parameter(ParameterSetName = 'Measure')]
+    [ValidateSet('Fast', 'Slow')]
+    [string]$Tier = 'Fast',
+
     # Where the figure came from, so a row can be read back as evidence rather than as a
     # number of unknown provenance: 'container:autopilot', 'ci:windows-latest', 'host:...'.
     [Parameter(ParameterSetName = 'Measure')]
@@ -65,13 +69,21 @@ if (-not $budget.Contains('MeasuredCommand')) {
     throw "'$budgetPath' does not state a MeasuredCommand, so there is nothing to measure against."
 }
 $measuredCommand = [string]$budget.MeasuredCommand
+$tierManifest = $null
+if ($Tier -eq 'Slow') {
+    $tierManifestPath = Join-Path $repoRootPath 'tools/suite-tier.psd1'
+    $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
+    $measuredCommand = 'npm run test:slow'
+}
 
 # The budget names the document its figures live in, so the two cannot drift apart.
 if (-not $OutputPath) {
-    if (-not $budget.Contains('MeasurementRecord')) {
-        throw "'$budgetPath' does not name a MeasurementRecord for the achieved figures to be written to."
+    $recordMember = if ($Tier -eq 'Slow') { 'SlowMeasurementRecord' } else { 'MeasurementRecord' }
+    $recordOwner = if ($Tier -eq 'Slow') { $tierManifest } else { $budget }
+    if (-not $recordOwner.Contains($recordMember)) {
+        throw "The $Tier runtime contract does not name '$recordMember' for achieved figures."
     }
-    $OutputPath = Join-Path $repoRootPath ([string]$budget.MeasurementRecord)
+    $OutputPath = Join-Path $repoRootPath ([string]$recordOwner[$recordMember])
 }
 
 $rowSchema = 'skalary/suite-runtime-row@2'
@@ -173,7 +185,10 @@ function Write-RuntimeDocument {
     Set-Content -LiteralPath $OutputPath -Value (($document | ConvertTo-Json -Depth 12) + "`n") -Encoding utf8NoBOM
 
     $ceiling = 'no ceiling recorded'
-    if ($budget.Contains('Platforms') -and $budget.Platforms.Contains($platform)) {
+    if ($Tier -eq 'Slow') {
+        $ceiling = "ceiling $($tierManifest.SlowHardCeilingSeconds)s"
+    }
+    elseif ($budget.Contains('Platforms') -and $budget.Platforms.Contains($platform)) {
         $ceiling = "ceiling $($budget.Platforms[$platform].HardCeilingSeconds)s"
     }
     Write-Host "Recorded $platform at $($canonical.seconds)s in $OutputPath ($ceiling)."
@@ -225,7 +240,7 @@ try {
         $authorization.Key
     )
     # The budgeted command verbatim, so the figure and the ceiling measure the same thing.
-    & npm test
+    if ($Tier -eq 'Slow') { & npm run test:slow } else { & npm test }
     $exitCode = $LASTEXITCODE
 }
 finally {

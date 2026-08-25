@@ -8,7 +8,6 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 - `test:<TestId>` -> run only the named Pester test and fail if it is missing or failing.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
-- `arch:<ContractId>` -> verified by the same validator: `Invoke-PlanArchEvidence` PURE-PARSES the contract's integrity/freshness receipt (never runs a toolchain), rejecting a missing/stale/malformed receipt and mapping the recorded verdict through the taxonomy x maturity gate (`locked`: only a real `pass` greens; `fail`/`error`/`skip` block; `draft`/`provisional` warn; `semantic-eval` advisory-always).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
@@ -29,32 +28,6 @@ Receipt rules:
 - Emit one line per required marker; unexecuted markers emit `✗ … — unrun`.
 - Use the current `HEAD` commit SHA in every emitted line.
 
-## Arch-tests receipts (opt-in real run)
-
-An `arch:<ContractId>` marker pure-parses a receipt; the receipt is produced by the **arch-tests runner**, which
-is the ONLY component that shells a real toolchain (`dotnet test`/`vitest`). Running it is **opt-in**, homed here
-in `/ci` implementation/crosscheck exactly like the eval harness's `-IncludeLlm` — never in `scripts/validate.ps1`
-or `npm test`, which stay dependency-free/structural and only pure-parse the committed receipts.
-
-When a step touches a `locked` contract (or at a crosscheck that must refresh a stale receipt), regenerate the
-receipt with the runner, then commit it alongside `evidence.md`. The runner lives in the **`architecture-tests`
-plugin** (it carries the adapters/providers + lock authority a real run needs, which are plugin-owned and not
-bundled into `ci`); invoke it only when that plugin is installed:
-
-```powershell
-# requires the architecture-tests plugin installed; $archSkill is its installed skill dir,
-# i.e. architecture-tests under the .github/skills install root (NOT bundled into ci).
-$archSkill = Join-Path '.github/skills' 'architecture-tests'
-pwsh -NoProfile -File (Join-Path $archSkill 'scripts/Invoke-ArchTests.ps1') -ConfigPath <arch-test-config.json> -RepoRoot .
-```
-
-The runner installs frozen (`npm ci --ignore-scripts` / `dotnet restore --locked-mode`), runs only human-reviewed
-`locked` bodies behind the lock gate, and writes a taxonomy verdict into `docs/architecture-notes/receipts/`. The
-`arch:` marker (above) then verifies that receipt by pure parse — no toolchain runs at verification time.
-**Containment is honest:** `--ignore-scripts` disables install-lifecycle scripts only — `vitest`/`dotnet test`
-still execute third-party framework/dev-dep code (and MSBuild targets) in-process, so real runs execute in the
-documented **non-containing sandbox**, not a true container.
-
 ## Phase crosscheck
 
 The root-canonical harvest engine is distributed at
@@ -66,7 +39,7 @@ engine and is not a second harvest implementation.
 
 1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction -Concern architecture-patterns -Requirement <REQ-N...> -ReviewType none`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
-3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`).
+3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`). Keep execution focused on the phase's affected surface and named evidence; do not run complete project validation here.
 4. Invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
 5. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
 6. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
@@ -75,9 +48,10 @@ engine and is not a second harvest implementation.
 ## Plan crosscheck
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
-2. Validate all REQ and RISK rows before completion.
-3. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
-4. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
+2. Run complete project validation once: the project's full build and test commands. This is the integration gate for interactions outside the affected surfaces checked during step and phase loops.
+3. Validate all REQ and RISK rows before completion.
+4. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
+5. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
 
 ## archival-gate
 
@@ -176,6 +150,11 @@ Fail-loud behavior: error only when expected log sections/placeholders are missi
 ## `ledger-consult` (before a CR round)
 
 Before launching a CR round (`@cr`, `code-review`, or `rubber-duck`), consult only the relevant category files from `docs/review-ledger/`:
+
+Every `/ci`-launched CR round at crosscheck is also gated by
+`.github/skills/ci/scripts/ReviewCycleGate.ps1`: use stage `phase-<N>` for phase crosscheck and
+`plan-finalization` for plan crosscheck. The same three-cycle cap and operator Continue/Wrap decision
+from `execution-guide.md` applies; crosscheck is not a fresh counter.
 
 - `security.md` — auth/trust-boundary/injection/secret/ACL
 - `performance.md` — latency/throughput/allocation/N+1

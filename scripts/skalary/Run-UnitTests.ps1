@@ -26,14 +26,19 @@
       5  OverBudget — the run is slower than this platform's hard ceiling
       6  BudgetNotDefined — no budget file, or no entry for this platform
       7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
-      8  StaleMeasurement — this platform's runtime row does not match the tracked inputs
-      9  MeasurementTokenInvalid — a measurement-mode token failed closed validation
+    8  RequiredEvidenceSkipped — mandatory review evidence did not execute
+    9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
+    10 StaleMeasurement — this platform's runtime row does not match the tracked inputs
+    11 MeasurementTokenInvalid — a measurement-mode token failed closed validation
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
 #>
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+
+    [ValidateSet('Fast', 'Slow', 'All')]
+    [string]$Tier = 'Fast',
 
     # Writes the budget clock and returns. The `pretest` hook calls this before the first leg
     # of `npm test`, which is the only way a leg can measure a command that spans three of them.
@@ -83,7 +88,7 @@ if ($StartBudgetClock) {
         $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
         if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
             Write-Host "MeasurementTokenInvalid: fingerprint verifier '$fingerprintScript' is missing." -ForegroundColor Red
-            exit 9
+            exit 11
         }
         . $fingerprintScript
         $fingerprint = Get-SuiteInputFingerprint -RepoRoot $RepoRoot
@@ -93,13 +98,13 @@ if ($StartBudgetClock) {
             -ExpectedFingerprint $fingerprint.Fingerprint
         if ($authorization.Status -ne 'complete') {
             Write-Host "MeasurementTokenInvalid: $($authorization.Reason)." -ForegroundColor Red
-            exit 9
+            exit 11
         }
         $claim = Use-SuiteMeasurementNonce -Nonce $authorization.Nonce `
             -ParentPid $authorization.ParentPid
         if ($claim.Status -ne 'complete') {
             Write-Host "MeasurementTokenInvalid: $($claim.Reason)." -ForegroundColor Red
-            exit 9
+            exit 11
         }
         $measurementNonce = $authorization.Nonce
     }
@@ -117,12 +122,11 @@ if ($StartBudgetClock) {
 # carry the way out of that state rather than only the diagnosis.
 $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
 
-# Read and clear the clock before anything that can exit. A clock left behind by a run that
-# ended on any other branch — a failing earlier leg, an absent Pester, a red suite — would be
-# charged to the next invocation, which is a failure invented rather than measured.
+# Read and clear the clock before anything that can exit from a Fast run. Slow is a separate,
+# unbudgeted gate and must not consume authorization that belongs to a concurrent or later Fast run.
 $clockStartedAt = $null
 $clockMeasurementNonce = $null
-if (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf) {
+if ($Tier -eq 'Fast' -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
     $clockText = Get-Content -LiteralPath $BudgetClockPath -Raw
     Remove-Item -LiteralPath $BudgetClockPath -Force -ErrorAction SilentlyContinue
 
@@ -165,14 +169,98 @@ if (-not (Test-Path -LiteralPath $testPath -PathType Container)) {
     throw "Unit test path not found: $testPath"
 }
 
-# Pester throws rather than returning a result when the path holds no test file at all.
-# Checking first keeps that case as this script's own diagnosis and leaves every other
-# Invoke-Pester failure loud instead of swallowed by a catch.
-$testFiles = @(Get-ChildItem -LiteralPath $testPath -Recurse -File -Filter '*.Tests.ps1')
+$allTestFiles = @(Get-ChildItem -LiteralPath $testPath -Recurse -File -Filter '*.Tests.ps1')
+$tierManifestPath = Join-Path $RepoRoot 'tools/suite-tier.psd1'
+$slowPaths = @()
+$dedicatedPaths = @()
+
+if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
+    try {
+        $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
+    }
+    catch {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' could not be imported: $($_.Exception.Message)" -ForegroundColor Red
+        exit 9
+    }
+
+    $requiredTierMembers = @('Schema', 'SlowFiles', 'DedicatedFiles', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')
+    $missingMembers = @($requiredTierMembers | Where-Object { -not $tierManifest.Contains($_) })
+    if ($missingMembers.Count -gt 0) {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' is missing required member(s): $($missingMembers -join ', ')." -ForegroundColor Red
+        exit 9
+    }
+    if ([string]$tierManifest['Schema'] -ne 'skalary/suite-tier@1') {
+        Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest['Schema'])'." -ForegroundColor Red
+        exit 9
+    }
+    foreach ($numericMember in @('SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+        $numericValue = 0.0
+        if (-not [double]::TryParse(
+                [string]$tierManifest[$numericMember],
+                [System.Globalization.NumberStyles]::Float,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [ref]$numericValue) -or $numericValue -le 0) {
+            Write-Host "SuiteTierInvalid: '$tierManifestPath' member '$numericMember' must be a positive number." -ForegroundColor Red
+            exit 9
+        }
+    }
+
+    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+    $rootPrefix = $repoRootFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $resolveTierPath = {
+        param([string]$RelativePath)
+
+        if ([string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) {
+            throw "Suite tier path must be a non-empty repository-relative path: '$RelativePath'."
+        }
+        $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $RelativePath))
+        if (-not $fullPath.StartsWith($rootPrefix, $pathComparison)) {
+            throw "Suite tier path escapes the repository: '$RelativePath'."
+        }
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            throw "Suite tier path does not exist: '$RelativePath'."
+        }
+        return $fullPath
+    }
+
+    try {
+        $slowPaths = @($tierManifest['SlowFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
+        $dedicatedPaths = @($tierManifest['DedicatedFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
+    }
+    catch {
+        Write-Host "SuiteTierInvalid: $($_.Exception.Message)" -ForegroundColor Red
+        exit 9
+    }
+
+    $allDeclared = @($slowPaths) + @($dedicatedPaths)
+    $distinctDeclared = @($allDeclared | Sort-Object -Unique)
+    if ($distinctDeclared.Count -ne $allDeclared.Count) {
+        Write-Host "SuiteTierInvalid: slow and dedicated paths must be unique and disjoint." -ForegroundColor Red
+        exit 9
+    }
+}
+else {
+    Write-Host "SuiteTierInvalid: tier '$Tier' requires '$tierManifestPath'." -ForegroundColor Red
+    exit 9
+}
+
+$pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
+$slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
+$dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
+$testFiles = @(switch ($Tier) {
+        'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
+        'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
+        default { @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) }) }
+    })
+
+# Pester throws rather than returning a result when the selected tier holds no test file.
 if ($testFiles.Count -eq 0) {
-    Write-Host "NoTestsDiscovered: no *.Tests.ps1 file exists under '$testPath', so there was nothing to discover." -ForegroundColor Red
+    Write-Host "NoTestsDiscovered: tier '$Tier' selected no *.Tests.ps1 file under '$testPath'." -ForegroundColor Red
     exit 3
 }
+
+Write-Host "Suite tier: $Tier ($($testFiles.Count) file(s))."
 
 Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 
@@ -181,7 +269,7 @@ Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 # code with "that many tests failed" — the one distinction this script exists to make — so the
 # NUnit output is kept and the exit is taken back.
 $configuration = New-PesterConfiguration
-$configuration.Run.Path = $testPath
+$configuration.Run.Path = @($testFiles.FullName)
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
@@ -226,6 +314,17 @@ if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
     exit 1
 }
 
+# Stable review-report evidence ids are mandatory on every supported leg. Deterministic seams keep
+# these cases executable; a skip is an unexecuted evidence marker, not a pass.
+$skippedReviewEvidence = @($result.Tests | Where-Object {
+        [string]$_.Result -eq 'Skipped' -and [string]$_.Name -match '^test:ReviewReport\.'
+    })
+if ($skippedReviewEvidence.Count -gt 0) {
+    $names = @($skippedReviewEvidence | ForEach-Object { [string]$_.Name })
+    Write-Host "RequiredEvidenceSkipped: $($skippedReviewEvidence.Count) review-report evidence test(s) did not execute: $($names -join ', ')" -ForegroundColor Red
+    exit 8
+}
+
 # A green suite that leaves HOME pointing at TestDrive is still a defect: it sends git looking for
 # .gitconfig and .ssh in a deleted temp directory for the rest of the shell's life, and nothing in
 # the run reports it. Checked after the failure gates so a real test failure keeps the clearer code.
@@ -251,6 +350,21 @@ foreach ($name in ($candidateNames | Sort-Object)) {
 if ($leakedNames.Count -gt 0) {
     Write-Host "EnvironmentLeaked: the suite changed $($leakedNames.Count) environment variable(s) and did not restore them: $($leakedNames -join '; '). Snapshot and restore them in the owning test." -ForegroundColor Red
     exit 7
+}
+
+if ($Tier -eq 'Slow') {
+    $slowSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
+    $slowCeiling = [double]$tierManifest['SlowHardCeilingSeconds']
+    Write-Host "Slow tier runtime: $([math]::Round($slowSeconds, 3))s against a ceiling of ${slowCeiling}s."
+    if ($slowSeconds -gt $slowCeiling) {
+        Write-Host "OverBudget: Slow tier runtime $([math]::Round($slowSeconds, 3))s exceeded its ${slowCeiling}s ceiling." -ForegroundColor Red
+        exit 5
+    }
+    exit 0
+}
+if ($Tier -eq 'All') {
+    Write-Host "Suite budget: not applied to diagnostic tier 'All'."
+    exit 0
 }
 
 # REQ-2: the gate the ceiling exists for. A suite nobody runs because it is slow is a gate
@@ -307,11 +421,11 @@ $freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
     -CurrentProcessId $PID
 if ($freshness.Status -eq 'measurement-token-invalid') {
     Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
-    exit 9
+    exit 11
 }
 if ($freshness.Status -ne 'complete') {
     Write-Host "StaleMeasurement: $($freshness.Reason). Run scripts/skalary/Measure-SuiteRuntime.ps1 on the exact tracked inputs." -ForegroundColor Red
-    exit 8
+    exit 10
 }
 if ($freshness.MeasurementMode) {
     Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."

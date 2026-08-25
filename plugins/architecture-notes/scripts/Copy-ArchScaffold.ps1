@@ -9,8 +9,9 @@ steps, templates) into the consuming repo's own tree — e.g. schemas/architectu
 Installers cannot write outside .github/, so this runtime helper performs the copy.
 
 The copy is strictly no-overwrite: an existing target file is left untouched and reported as
-'skipped'. Each shipped asset is emitted as an object with its resolved target path and the
-action taken ('created' or 'skipped') so callers (and evals) can assert the outcome.
+'skipped'. The contract schema is versioned: the one known unversioned v1 scaffold is upgraded,
+while an unversioned customized or unknown-version schema is refused rather than overwritten.
+Each shipped asset is emitted with the action taken (`created`, `upgraded`, or `skipped`).
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -81,7 +82,48 @@ function Copy-ScaffoldFile {
     )
 
     if (Test-Path -LiteralPath $DestPath -PathType Leaf) {
-        return [pscustomobject]@{ Path = $DestPath; Action = 'skipped' }
+        if ([System.IO.Path]::GetFileName($DestPath) -ne 'architecture-contract.schema.json') {
+            return [pscustomobject]@{ Path = $DestPath; Action = 'skipped' }
+        }
+
+        $sourceSchema = Get-Content -LiteralPath $SourcePath -Raw | ConvertFrom-Json -Depth 100
+        $currentVersion = $sourceSchema.'x-skalary-schema-version'
+        $parsedVersion = 0
+        if (-not [int]::TryParse([string]$currentVersion, [ref]$parsedVersion) -or $parsedVersion -lt 1) {
+            throw "Shipped architecture schema has no valid x-skalary-schema-version: $SourcePath"
+        }
+        $currentVersion = $parsedVersion
+
+        $targetRaw = [System.IO.File]::ReadAllText($DestPath)
+        try {
+            $targetSchema = $targetRaw | ConvertFrom-Json -Depth 100
+        }
+        catch {
+            throw "Existing architecture schema is invalid JSON and cannot be upgraded safely: $DestPath"
+        }
+        $targetVersion = if ($targetSchema.PSObject.Properties.Name -contains 'x-skalary-schema-version') {
+            $targetSchema.'x-skalary-schema-version'
+        }
+        else {
+            $null
+        }
+        if ($targetVersion -eq $currentVersion) {
+            return [pscustomobject]@{ Path = $DestPath; Action = 'skipped' }
+        }
+
+        $legacyV1Sha256 = '2ee7b24548076cdcb077ef4ef29cd218c4641a91cbe6e41bd587a2ed3ad9067d'
+        $targetSha256 = (Get-FileHash -LiteralPath $DestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($null -ne $targetVersion -or
+            -not [string]::Equals($targetSha256, $legacyV1Sha256, [System.StringComparison]::Ordinal)) {
+            throw "Existing architecture schema version is unknown or customized; refusing unsafe overwrite: $DestPath"
+        }
+
+        $action = 'whatif'
+        if ($Cmdlet.ShouldProcess($DestPath, "Upgrade architecture schema to version $currentVersion")) {
+            Copy-Item -LiteralPath $SourcePath -Destination $DestPath -Force
+            $action = 'upgraded'
+        }
+        return [pscustomobject]@{ Path = $DestPath; Action = $action }
     }
 
     $action = 'whatif'

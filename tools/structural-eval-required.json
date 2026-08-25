@@ -1,0 +1,23 @@
+{
+  "schema": "skalary/structural-eval-required@1",
+  "caseIds": [
+    "eval:ReviewReport.CR.WriterScope",
+    "eval:ReviewReport.CR.FreezeBeforeDispatch",
+    "eval:ReviewReport.CR.IndependentDispatch",
+    "eval:ReviewReport.CR.CompleteDispatch",
+    "eval:ReviewReport.CR.NonzeroTaskPlan",
+    "eval:ReviewReport.CR.RendererOwnedMarkdown",
+    "eval:ReviewReport.CR.FixedPolicyAndRoot",
+    "eval:ReviewReport.CR.DegradedArtifactPreservation",
+    "eval:ReviewReport.CR.BoundedRetry",
+    "eval:ReviewReport.DR.WriterScope",
+    "eval:ReviewReport.DR.FreezeBeforeDispatch",
+    "eval:ReviewReport.DR.IndependentDispatch",
+    "eval:ReviewReport.DR.CompleteDispatch",
+    "eval:ReviewReport.DR.NonzeroTaskPlan",
+    "eval:ReviewReport.DR.RendererOwnedMarkdown",
+    "eval:ReviewReport.DR.FixedPolicyAndRoot",
+    "eval:ReviewReport.DR.DegradedArtifactPreservation",
+    "eval:ReviewReport.DR.BoundedRetry"
+  ]
+}

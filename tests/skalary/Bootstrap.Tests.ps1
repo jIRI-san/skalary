@@ -22,6 +22,8 @@ Describe 'bootstrap.ps1' {
         # plugin-manager is auto-installed via Install-Plugin.ps1 (payload copy only).
         $text | Should -Match 'Install-Plugin\.ps1'
         $text | Should -Match "-Name 'plugin-manager'"
+        $text | Should -Match '\$installExitCode\s*=\s*\$LASTEXITCODE'
+        $text | Should -Match '\$installExitCode\s+-in\s+@\(20,\s*21\)'
 
         # Read-only auto-approval is offered (opt-in via -AutoApprove).
         $text | Should -Match 'Set-ScriptApproval'

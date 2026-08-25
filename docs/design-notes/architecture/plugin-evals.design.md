@@ -16,10 +16,14 @@ globs:
 
 | Tier | Scope | Execution mode | Gate policy |
 |---|---|---|---|
-| Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Always-on in `npm run eval`; not part of `npm test` / `scripts/validate.ps1` |
+| Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Always-on via `scripts/skalary/Test-Evals.ps1` | Blocking `npm run eval` CI step on both platform legs; separate from `npm test` / `scripts/validate.ps1` |
 | LLM (Tier-2) | Declarative **waza** specs in `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`) run by the `copilot-sdk` executor and scored by graders (deterministic `text` pre-check + LLM `prompt` judge, plus `tool_constraint`/`behavior` where a tool contract exists) | Opt-in via `npm run eval:llm` → `scripts/skalary/Invoke-WazaEvals.ps1` | Never part of `npm test` / `scripts/validate.ps1` / `npm run eval` |
 
-`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` (Tier-1) is the documented pre-commit path; `npm run eval:llm` (Tier-2) is the opt-in, auth+premium-cost path.
+`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`. `npm run eval` is the deterministic CI/pre-commit gate; it verifies every id in `tools/structural-eval-required.json` executed exactly once and passed. `npm run eval:llm` remains the opt-in, auth+premium-cost path.
+
+`-PluginsRoot` and `-RequiredContractPath` are executable test seams: ordinary tests point them at
+fixture evals to prove missing, skipped, and duplicate required IDs fail. Production and CI omit both,
+so the runner always resolves the repository `plugins/` tree and committed required-ID contract.
 
 ## File Layout and Contracts
 
@@ -34,7 +38,15 @@ globs:
 | `tests/evals/LegacyCutover.Tests.ps1` | Locks the migrated state: every plugin with a waza spec has no legacy `evals/llm/*.eval.json`, and `EvalLlm.psm1` stays deleted/unwired (`test:evalllm-retired`) |
 | `tools/eval-tools.psd1` | Single source of truth for pinned tool versions (waza `0.38.0`, `gh`), sources, per-OS assets + committed checksums |
 
-The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. The later-added `plugin-manager` plugin ships a waza spec from the start under the same convention (skill target `install-plugin`, two describe-only tasks, no adversarial block), so all **ten** plugins are on the two-tier harness. `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` and `architecture-tests` plugins (added on the `agents/ai-plugin-architecture-plan` branch, never had legacy llm cases) ship waza specs from the start following the same convention — describe-only reasoning/safety tasks (draft-by-default + human-only lock; taxonomy×maturity gate + advisory semantic-eval + untrusted-prose-as-data), each guarded by a `Waza<Plugin>Convention.Tests.ps1` fail-closed shape test.
+Structural cases that protect a cross-plugin runtime contract use a stable first token
+(`eval:<Subsystem>.<Consumer>.<Invariant>`) followed by a human-readable description. Discovery gates
+compare those tokens exactly, not Pester's display text, so renaming prose does not rewrite evidence
+while deleting or merging one invariant fails loudly. Review reporting applies this to separate CR
+and DR cases rather than treating one aggregate nonzero eval count as coverage. Their thin per-plugin
+cases call the shared invariant assertions in `EvalCommon.psm1`, preserving plugin attribution without
+copying the contract logic.
+
+The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. The later-added `plugin-manager` plugin ships a waza spec from the start under the same convention (skill target `install-plugin`, two describe-only tasks, no adversarial block). `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` plugin ships describe-only draft-by-default and human-review cases under the same convention, guarded by a fail-closed shape test. All ten current plugins use the two-tier harness.
 
 ## Backend and Isolation Boundary
 
@@ -141,7 +153,7 @@ The runner (`Invoke-WazaEvals.ps1` → `Get-WazaEvalSpec`) discovers exactly **o
 
 | Plugin | Skill target | Case style | Adversarial pack |
 |---|---|---|---|
-| `code-review` (`cr`) | agent | functional review-quality + injection resistance | `prompt-injection` |
+| `code-review` (`cr`) | agent | functional review-quality + injection resistance, including a malicious-directive/legitimate-policy contrast pair | `prompt-injection` |
 | `design-review` (`dr`) | agent | describe-only feasibility/security reasoning | — |
 | `autopilot` | agent | describe-only behavioral (execution forbidden — an un-constrained agent tries to really execute and times out) | — |
 | `continue-implementation` (`ci`) | skill | one describe-only + one real `tool_calls`/`behavior` grader (build/test ran before commit) | — |
@@ -149,7 +161,6 @@ The runner (`Invoke-WazaEvals.ps1` → `Get-WazaEvalSpec`) discovers exactly **o
 | `design-notes` | skill (consolidated from 3 prompts in 4.1) | describe-only bootstrap/create/update reasoning | — |
 | `process-pr-comments` | skill (interactive-only, injection-aware) | describe-only: headless approval-gate refusal + reviewer-text-as-data | `prompt-injection` |
 | `architecture-notes` | skill | describe-only: draft-by-default authoring, review drift/coverage, human-only lock refusal | — |
-| `architecture-tests` | skill | describe-only: locked+skip gate outcome, advisory semantic-eval, untrusted-prose-as-data | — |
 | `plugin-manager` | skill (`install-plugin`; 4 skills ship, but one body injects per spec) | describe-only: default-source + direct-invocation discipline, opt-in read-only auto-approval decision | — |
 
 Rules baked in: a skill whose `SKILL.md` declares **no `tools:` frontmatter** gets **no** spec-level `tool_constraint` (waza auto-injects nothing to suppress — contrast cr/dr agent frontmatter, Gotcha A); describe-only cases assert on the response text only; every `prompt` judge sets `continue_session: true`; injection-aware skills carry the `prompt-injection` adversarial pack with `on_unsafe_outcome: fail`.

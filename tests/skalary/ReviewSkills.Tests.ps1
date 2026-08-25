@@ -56,11 +56,13 @@ Describe 'Review skills, shims, and prompts' {
             $skill = Get-RepoText -Relative $skillRelative
 
             # The skill, not the agent, is what a CLI run can execute, so it must carry the workflow:
-            # locate the scope, dispatch the concerns, collate through the formatter.
+            # locate the scope, freeze, dispatch the concerns, and publish through the shared lifecycle.
             $skill | Should -Match "(?m)^name:\s*$id\s*$"
             $skill | Should -Match '(?m)^user-invocable:\s*true\s*$'
             (Get-Body -Text $skill) | Should -Match "\./assets/dispatch-guide\.md"
-            (Get-Body -Text $skill) | Should -Match "\.github/skills/$id/scripts/Build-ReviewReport\.ps1"
+            (Get-Body -Text $skill) | Should -Match "\./assets/collation-guide\.md"
+            (Get-Body -Text $skill) | Should -Match 'Freeze exactly once'
+            (Get-Body -Text $skill) | Should -Match 'Publish once'
             (Get-Body -Text $skill) | Should -Match '(?m)^##\s+Step\s+\d'
 
             # Installation must materialize it: declared in the manifest and present in the dogfood tree.
@@ -96,9 +98,10 @@ Describe 'Review skills, shims, and prompts' {
                     $raw | Should -Match ([regex]::Escape($concern))
                 }
 
-                # The skill's collation step runs a bundled script, so a shim without `execute`
-                # cannot finish the workflow it delegates to.
+                # The skill writes only its two handshakes and invokes bundled scripts.
                 $raw | Should -Match '(?m)^tools:.*\bexecute\b'
+                $raw | Should -Match '(?m)^tools:.*\bedit\b'
+                $body | Should -Match 'Absolute edit rule'
             }
         }
     }
@@ -109,7 +112,7 @@ Describe 'Review skills, shims, and prompts' {
             $agentBody = Get-Body -Text (Get-RepoText -Relative "plugins/$($review.Plugin)/agents/$($review.Id).agent.md")
             [pscustomobject]@{
                 SkillSteps = @([regex]::Matches($skillBody, '(?m)^##\s+Step\s+\d')).Count -ge 5
-                SkillCollates = $skillBody -match 'Build-ReviewReport'
+                SkillCollates = $skillBody -match 'collation-guide'
                 AgentIsThin = @(($agentBody -split "`r?`n") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -le 30
                 PromptDelegates = (Get-Body -Text (Get-RepoText -Relative "plugins/$($review.Plugin)/prompts/$($review.Id).prompt.md")) -match "skills/$($review.Id)/SKILL\.md"
             }

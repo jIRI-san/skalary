@@ -40,8 +40,9 @@ Because the concern agents deliberately declare no `model:`, the explicit parame
 binding that matters. That is what keeps the agent count at 7 per review type instead of 14 and lets
 the roster change without touching agent files.
 
-The operator may override the roster for a single run. Honour the override, and report the models
-actually requested in the review header.
+The operator may override the roster for a single run. Honour the override and persist each requested
+and declared label in the frozen plan's `modelSelection`; no rendered label is evidence of served
+identity.
 
 ## 3. Preflight: validate the declared model configuration
 
@@ -55,8 +56,8 @@ It reads committed files — `tools/model-allowlist.psd1`, every `*.agent.md`, a
 `.autopilot.json` — so it is deterministic. A non-zero exit is **fail-loud: stop and report the
 violation. Never fall back to "review anyway with whatever model answers"**, and never downgrade the
 failure to a warning. If the script is not present (a consumer repo that installed only the review
-plugins), state that the preflight could not run and continue — an absent script is a known
-limitation, not a silent pass.
+plugins), continue with `preflight: not-run` persisted for every selection. Absence is data, not a
+silent pass.
 
 Every model you dispatch must be a name from the roster above, in the qualified
 `Model Name (vendor)` form used by VS Code-hosted agents.
@@ -80,7 +81,9 @@ control here claims to close this gap.
 Enterprise only). A frontmatter fallback array does not help: explicit-param dispatch outranks
 frontmatter, so the array is never consulted and the subagent silently falls back to the *parent*
 model. When the tier does not carry the roster models, pass the GA fallback
-`Claude Sonnet 4.6 (copilot)` **as the explicit parameter**, and say so in the review header.
+`Claude Sonnet 4.6 (copilot)` **as the explicit parameter**. Persist the original label as
+`requested`, the fallback as both `declared` and `fallback`, `preflight: unavailable`,
+`degradation: fallback`, and `servedIdentity: unverified`.
 
 ## 4. Concern selection scales with change size
 
@@ -114,24 +117,25 @@ to tame. Batching tells a reviewer how to *read*, not how many times to *run*.
 
 ## 6. Invocation budget: 28 per review round
 
-**Budget: 28 invocations per review round.** This is a budget the orchestrator **reports against**,
-not an enforced gate — dispatch is a model-driven sequence of subagent calls, and nothing counts or
-wraps them at runtime. Calling it a hard cap would claim an enforcement that does not exist.
-
-Report the count in the review header, in this shape:
+**Budget: 28 invocations per review round.** Freeze enforces that the planned task count does not
+exceed the persisted invocation budget. The engine renders the count from those frozen records;
+callers do not author a review header. The resulting data means:
 
 ```
 Dispatched 14 of 28 budgeted invocations (7 concerns × 2 models).
 ```
 
-If the plan of record for a run would exceed 28, narrow the concern set or the scope and say why in
-the header rather than silently spending the credits.
+If the plan of record for a run would exceed 28, narrow the concern set or scope before Freeze and
+record the resulting exact task set; never silently spend beyond the frozen budget.
 
 ## 7. After the reviewers return
 
-1. Collect every `## Findings (<Concern>)` section from every dispatched reviewer.
-2. Hand the typed findings to `Build-ReviewReport.ps1` and write the text it returns. The merge rule,
-   the dedup rule, the severity-elevation rule, and the sort order live in that script — never
-   re-derive them in prose.
-3. Map findings to review-ledger categories with [`concern-ledger-map.md`](concern-ledger-map.md)
+1. Keep every returned `## Findings (<Concern>)` section and every task outcome in memory.
+2. Never prime one reviewer with another result, suppress an independent dispatch, or dedupe before
+   publication.
+3. Follow `collation-guide.md`: derive every dispatch payload from the frozen `scopeAuthority` path
+  records/source identities and task slot, write one result JSON input with the exact same authority,
+  Publish once, and read the verifying summary. Rendering, merge, elevation, ordering, attendance,
+  and artifact persistence belong to the review-run engine — never re-derive them in prose.
+4. Map findings to review-ledger categories with [`concern-ledger-map.md`](concern-ledger-map.md)
    when harvesting; the map is deterministic, so harvest stops being a judgment call.

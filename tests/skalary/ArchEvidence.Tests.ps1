@@ -3,305 +3,161 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Describe 'arch evidence marker' {
+Describe 'retired arch evidence marker' {
     BeforeAll {
-        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
-        $script:archRepoRoot = $repoRoot
-        $script:planStateModule = Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking -PassThru
-        Import-Module (Join-Path $repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
-        # Capture the ArchReceipt module so the fixture helper can invoke its exported hasher via the module's
-        # own session state (-PassThru), which is robust to another test file re-importing PlanEvidence -Force
-        # (whose nested ArchReceipt import would otherwise clobber a bare session-level import).
-        $script:archReceiptModule = Import-Module (Join-Path $repoRoot 'scripts/skalary/ArchReceipt.psm1') -Force -DisableNameChecking -PassThru
-        # Dot-source the review-report generator (its own imports load PlanEvidence then ArchReceipt last).
-        . (Join-Path $repoRoot 'scripts/skalary/Get-ArchReviewReport.ps1')
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $script:canonicalState = Join-Path $script:repoRoot 'scripts/skalary/PlanState.psm1'
+        $script:canonicalEvidence = Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1'
+        $script:canonicalValidator = Join-Path $script:repoRoot 'scripts/skalary/Test-Plan.ps1'
 
-        # Builds a self-contained repo with a contract + config + a FRESH receipt for the given maturity/verdict.
-        # The receipt's sourcesHash is computed with the same canonical hasher the runner uses, so it is fresh.
-        function New-ArchFixture {
-            param(
-                [string]$ContractId = 'ARCH-Fix-1',
-                [string]$Maturity = 'locked',
-                [string]$Verdict = 'pass',
-                [string]$Adapter = 'netarchtest',
-                [bool]$Ran = $true,
-                [switch]$NoReceipt,
-                [string]$RawReceipt,
-                [hashtable]$Forge,
-                [switch]$Stale
-            )
-            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("archev-" + [guid]::NewGuid().ToString('N'))
-            [void](New-Item -ItemType Directory -Path $root -Force)
-            git -C $root init --quiet 2>&1 | Out-Null
-            git -C $root config user.email 't@t' 2>&1 | Out-Null
-            git -C $root config user.name 't' 2>&1 | Out-Null
+        function Get-ManifestScriptBundle {
+            param([Parameter(Mandatory)][string]$LeafName)
 
-            Set-Content -LiteralPath (Join-Path $root 'arch-contract.json') -Value ('{"id":"' + $ContractId + '","maturity":"' + $Maturity + '"}') -NoNewline
-            [void](New-Item -ItemType Directory -Path (Join-Path $root 'src') -Force)
-            Set-Content -LiteralPath (Join-Path $root 'src/a.cs') -Value 'class A {}' -NoNewline
-
-            $check = [pscustomobject]@{ contractId = $ContractId; adapter = $Adapter; maturity = $Maturity; contractPath = 'arch-contract.json'; targets = @('src'); testProject = 'tests/does-not-exist.csproj' }
-            (@{ version = '1'; checks = @($check) } | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath (Join-Path $root 'arch-test-config.json') -NoNewline
-            git -C $root add -A 2>&1 | Out-Null
-            git -C $root commit -qm init 2>&1 | Out-Null
-            $head = (git -C $root rev-parse HEAD).Trim()
-
-            $receiptDir = Join-Path $root 'docs/architecture-notes/receipts'
-            [void](New-Item -ItemType Directory -Path $receiptDir -Force)
-            $receiptPath = Join-Path $receiptDir "$ContractId.arch-receipt.json"
-
-            if (-not $NoReceipt) {
-                if ($PSBoundParameters.ContainsKey('RawReceipt')) {
-                    Set-Content -LiteralPath $receiptPath -Value $RawReceipt -NoNewline
-                }
-                else {
-                    $hash = & $script:archReceiptModule { param($c, $m, $r) Get-ArchTestCheckSourcesHash -Check $c -Maturity $m -RepoRoot $r } $check $Maturity $root
-                    if ($Stale) { $hash = ('0' * 64) }
-                    $receipt = [ordered]@{ schemaVersion = '1'; contractId = $ContractId; maturity = $Maturity; adapter = $Adapter; verdict = $Verdict; ran = $Ran; parentCommit = $head; sourcesHash = $hash; generatedAt = '2026-07-04T00:00:00Z' }
-                    # Forge patches receipt fields AFTER the fresh hash is computed, WITHOUT touching the config,
-                    # so a gate-steering field (adapter/maturity) disagrees with the trusted config while the
-                    # freshness hash still matches -- exactly the tamper the verifier must reject.
-                    if ($Forge) { foreach ($k in $Forge.Keys) { $receipt[$k] = $Forge[$k] } }
-                    ($receipt | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $receiptPath -NoNewline
+            $bundles = [System.Collections.Generic.List[object]]::new()
+            foreach ($manifestPath in (Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -File -Recurse -Filter 'plugin.json')) {
+                $pluginRoot = Split-Path -Parent $manifestPath.FullName
+                $manifest = Get-Content -LiteralPath $manifestPath.FullName -Raw | ConvertFrom-Json -Depth 100
+                foreach ($entry in @($manifest.files)) {
+                    if ([System.IO.Path]::GetFileName([string]$entry.src) -ne $LeafName) { continue }
+                    $dest = ([string]$entry.dest).Replace('\', '/')
+                    $skill = [regex]::Match($dest, '^skills/(?<name>[^/]+)/scripts/').Groups['name'].Value
+                    $bundles.Add([pscustomobject]@{
+                            Plugin = [string]$manifest.name
+                            Skill = $skill
+                            Path = Join-Path $pluginRoot ([string]$entry.src)
+                        })
                 }
             }
-            return [pscustomobject]@{ Root = $root; ContractId = $ContractId; ReceiptPath = $receiptPath }
+            return @($bundles | Sort-Object Skill, Plugin)
         }
 
-        $script:archFixtures = [System.Collections.Generic.List[string]]::new()
-        function Use-ArchFixture {
-            param([hashtable]$FixtureArgs = @{})
-            $f = New-ArchFixture @FixtureArgs
-            $script:archFixtures.Add($f.Root)
-            return $f
+        function New-MarkerPlanFixture {
+            param([switch]$SeedFile)
+
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("marker-retirement-" + [guid]::NewGuid().ToString('N'))
+            [void](New-Item -ItemType Directory -Path $root -Force)
+            if ($SeedFile) {
+                Set-Content -LiteralPath (Join-Path $root 'README.md') -Value 'seeded' -NoNewline
+            }
+            $criteria = '`test:Known` and `file:README.md#exists` and `review:cr` and `review:dr` and `arch:ARCH-Retired` and `bogus:still-red`'
+            $plan = @(
+                '# 900: Marker retirement fixture'
+                '<!-- evidence: required -->'
+                '<!-- phase-budget-points: 6 -->'
+                ''
+                '## Requirements'
+                ''
+                '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                '|----|-------------|---------------------|--------------|'
+                "| REQ-1 | Retired marker fails loud | $criteria | 1.1 |"
+                ''
+                '## Risks'
+                ''
+                '| ID | Risk | Likelihood | Impact | Mitigation | Steps |'
+                '|----|------|------------|--------|------------|-------|'
+                '| RISK-1 | False green | Low | High | Tokenize independently | 1.1 |'
+                ''
+                '## Phase 1: Baseline'
+                ''
+                '- [ ] 1.1 Validate marker retirement (REQ-1, RISK-1) `S`'
+            ) -join "`n"
+            $path = Join-Path $root 'plan.md'
+            Set-Content -LiteralPath $path -Value $plan -NoNewline
+            return [pscustomobject]@{ Root = $root; PlanPath = $path }
         }
+
+        function Invoke-MarkerPlan {
+            param(
+                [Parameter(Mandatory)]$Fixture,
+                [Parameter(Mandatory)][ValidateSet('Draft', 'PhaseCrosscheck')][string]$Stage
+            )
+
+            $output = pwsh -NoProfile -File $script:canonicalValidator -PlanPath $Fixture.PlanPath -RepoRoot $Fixture.Root -Stage $Stage 2>&1
+            return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output -join "`n") }
+        }
+
+        $script:stateBundles = @(Get-ManifestScriptBundle -LeafName 'PlanState.psm1')
+        $script:evidenceBundles = @(Get-ManifestScriptBundle -LeafName 'PlanEvidence.psm1')
+        $script:validatorBundles = @(Get-ManifestScriptBundle -LeafName 'Test-Plan.ps1')
+        $script:fixtures = [System.Collections.Generic.List[string]]::new()
     }
 
     AfterAll {
-        foreach ($r in $script:archFixtures) {
-            if (Test-Path -LiteralPath $r) { Remove-Item -LiteralPath $r -Recurse -Force -ErrorAction SilentlyContinue }
+        foreach ($root in $script:fixtures) {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
-    Context 'extraction (REQ-11)' {
-        It 'Marker-ArchRecognized: an arch marker is extracted from acceptance criteria' {
-            $markers = Get-TypedEvidenceMarkers -AcceptanceCriteria '`arch:ARCH-Foo-1` · `test:X` · `file:a/b#exists`'
-            $markers | Should -Contain 'arch:ARCH-Foo-1'
-            $markers | Should -Contain 'test:X'
+    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch synchronizes the manifest-derived parser closure' {
+        @($script:stateBundles.Skill) | Should -Be @('cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si')
+        @($script:validatorBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
+        @($script:evidenceBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
+
+        $canonicalStateHash = (Get-FileHash -LiteralPath $script:canonicalState -Algorithm SHA256).Hash
+        foreach ($bundle in $script:stateBundles) {
+            Test-Path -LiteralPath $bundle.Path -PathType Leaf | Should -BeTrue
+            (Get-FileHash -LiteralPath $bundle.Path -Algorithm SHA256).Hash | Should -Be $canonicalStateHash
         }
-
-        It 'Marker-UnknownPrefixFailsLoud: a marker-shaped token with an unknown prefix is surfaced, never dropped' {
-            $markers = Get-TypedEvidenceMarkers -AcceptanceCriteria '`bogus:whatever` · `arch:ARCH-Ok`'
-            # The unknown-prefix token is surfaced verbatim so the evaluator flags it (a stale bundle that does
-            # not know arch: would surface arch:... the same way and BLOCK rather than silently drop it).
-            $markers | Should -Contain 'bogus:whatever'
-            $markers | Should -Contain 'arch:ARCH-Ok'
-            # Unanchored: an unknown marker with surrounding text is still surfaced, never silently dropped.
-            (Get-TypedEvidenceMarkers -AcceptanceCriteria '`weird:token` and more prose') | Should -Contain 'weird:token'
+        $canonicalEvidenceHash = (Get-FileHash -LiteralPath $script:canonicalEvidence -Algorithm SHA256).Hash
+        foreach ($bundle in $script:evidenceBundles) {
+            (Get-FileHash -LiteralPath $bundle.Path -Algorithm SHA256).Hash | Should -Be $canonicalEvidenceHash
         }
-    }
-
-    Context 'receipt pure-parse verification (REQ-11/REQ-17)' {
-        It 'Marker-ArchReadsReceiptNoExec: a fresh locked pass receipt greens WITHOUT running any test project' {
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'pass' }
-            # The configured testProject does not exist; a fresh pass receipt still greens by PURE PARSE.
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeTrue
-        }
-        It 'Marker-ArchFailsWhenReceiptMissingOrStale: a missing or stale receipt is a blocking failure' {
-            $missing = Use-ArchFixture @{ NoReceipt = $true }
-            $rm = Invoke-PlanArchEvidence -RepoRoot $missing.Root -Marker "arch:$($missing.ContractId)" -Stage 'PhaseCrosscheck'
-            $rm.Success | Should -BeFalse
-            $rm.Blocking | Should -BeTrue
-
-            $stale = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'pass'; Stale = $true }
-            $rs = Invoke-PlanArchEvidence -RepoRoot $stale.Root -Marker "arch:$($stale.ContractId)" -Stage 'PhaseCrosscheck'
-            $rs.Success | Should -BeFalse
-            $rs.Blocking | Should -BeTrue
-            $rs.Message | Should -Match 'Stale'
-        }
-
-        It 'Marker-ArchRejectsMalformed: a malformed receipt is a blocking failure, never a false-green' {
-            $f = Use-ArchFixture @{ RawReceipt = '{ this is not valid json' }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeTrue
-
-            # A pass verdict with ran=false is a false-green attempt and must be rejected as malformed.
-            $forge = Use-ArchFixture @{ RawReceipt = (@{ schemaVersion = '1'; contractId = 'ARCH-Fix-1'; maturity = 'locked'; adapter = 'netarchtest'; verdict = 'pass'; ran = $false; parentCommit = ('a' * 40); sourcesHash = ('0' * 64); generatedAt = '2026-07-04T00:00:00Z' } | ConvertTo-Json) }
-            $rf = Invoke-PlanArchEvidence -RepoRoot $forge.Root -Marker 'arch:ARCH-Fix-1' -Stage 'PhaseCrosscheck'
-            $rf.Success | Should -BeFalse
-        }
-
-        It 'Marker-ArchReadsReceiptNoExec: the evaluator never invokes a build toolchain (pure parse)' {
-            # Prove no execution: the fixture pins a bogus testProject and no dotnet is needed; a fresh pass greens.
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'pass' }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'Draft'
-            $r.Success | Should -BeTrue
-        }
-
-        It 'Marker-ArchRejectsForgedGateFields: forging the receipt adapter or maturity on a fresh locked fail still blocks' {
-            # Forge adapter -> semantic-eval (would flip a locked fail to advisory warn) while the config stays
-            # netarchtest and the freshness hash still matches: the config cross-check must reject it.
-            $fa = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail'; Adapter = 'netarchtest'; Forge = @{ adapter = 'semantic-eval' } }
-            $ra = Invoke-PlanArchEvidence -RepoRoot $fa.Root -Marker "arch:$($fa.ContractId)" -Stage 'PhaseCrosscheck'
-            $ra.Success | Should -BeFalse
-            $ra.Blocking | Should -BeTrue
-
-            # Forge maturity -> draft (would flip a locked fail to advisory warn); the contract-derived maturity
-            # cross-check must reject it.
-            $fm = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail'; Forge = @{ maturity = 'draft' } }
-            $rm = Invoke-PlanArchEvidence -RepoRoot $fm.Root -Marker "arch:$($fm.ContractId)" -Stage 'PhaseCrosscheck'
-            $rm.Success | Should -BeFalse
-            $rm.Blocking | Should -BeTrue
+        $canonicalValidatorHash = (Get-FileHash -LiteralPath $script:canonicalValidator -Algorithm SHA256).Hash
+        foreach ($bundle in $script:validatorBundles) {
+            (Get-FileHash -LiteralPath $bundle.Path -Algorithm SHA256).Hash | Should -Be $canonicalValidatorHash
         }
     }
 
-    Context 'taxonomy x maturity gate mapping (REQ-16)' {
-        It 'Maturity-LockedBlocksOnFail: a locked contract with a fail receipt blocks' {
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail' }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeTrue
-        }
-
-        It 'Maturity-DraftWarnsOnly: a draft contract with a fail receipt warns (never blocks)' {
-            $f = Use-ArchFixture @{ Maturity = 'draft'; Verdict = 'fail' }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeFalse
-        }
-
-        It 'Maturity-SkipDoesNotFalseGreenLocked: a locked skip-absent-toolchain never greens and blocks' {
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'skip-absent-toolchain'; Ran = $false }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeTrue
-        }
-
-        It 'Maturity-ErrorDoesNotFalseGreenLocked: a locked error never greens and blocks' {
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'error'; Ran = $false }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeTrue
-        }
-
-        It 'semantic-eval stays advisory: a locked semantic-eval fail warns, never blocks' {
-            $f = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail'; Adapter = 'semantic-eval'; Ran = $true }
-            $r = Invoke-PlanArchEvidence -RepoRoot $f.Root -Marker "arch:$($f.ContractId)" -Stage 'PhaseCrosscheck'
-            $r.Success | Should -BeFalse
-            $r.Blocking | Should -BeFalse
+    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch extracts every mixed occurrence in every parser bundle' {
+        $criteria = '`test:Known` and `file:README.md#exists` and `review:cr` and `review:dr` and `arch:ARCH-Retired` and `bogus:still-red`'
+        $expected = @('test:Known', 'file:README.md#exists', 'review:cr', 'review:dr', 'arch:ARCH-Retired', 'bogus:still-red')
+        foreach ($bundle in $script:stateBundles) {
+            Import-Module $bundle.Path -Force -DisableNameChecking
+            (@(Get-TypedEvidenceMarkers -AcceptanceCriteria $criteria) | ConvertTo-Json -Compress) |
+                Should -Be ($expected | ConvertTo-Json -Compress)
+            (@(Get-TypedEvidenceMarkers -AcceptanceCriteria '`file:a#contains:foo bar`') | ConvertTo-Json -Compress) |
+                Should -Be '["file:a#contains:foo bar"]'
+            (@(Get-TypedEvidenceMarkers -AcceptanceCriteria '`review:critical` · `review:drift`') | ConvertTo-Json -Compress) |
+                Should -Be (@('review:critical', 'review:drift') | ConvertTo-Json -Compress)
+            (@(Get-TypedEvidenceMarkers -AcceptanceCriteria 'prose arch:ARCH-Unquoted and test:Known') | ConvertTo-Json -Compress) |
+                Should -Be '["arch:ARCH-Unquoted","test:Known"]'
+            Remove-Module PlanState -Force -ErrorAction SilentlyContinue
         }
     }
 
-    Context 'SKILL review surfaces the runner taxonomy (REQ-16)' {
-        It 'Review-SurfacesRunnerTaxonomy: the review report surfaces each contract''s receipt verdict; a locked non-pass or absent receipt is a blocking finding' {
-            # A locked contract whose receipt FAILED must surface as a blocking finding -- a schema-only review
-            # (contract file is valid) must never false-green it.
-            $lf = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'fail' }
-            $repLf = Get-ArchReviewReport -RepoRoot $lf.Root
-            $repLf.Blocking | Should -Be 1
-            $repLf.LockedCount | Should -Be 1
-            $repLf.Contracts[0].ContractId | Should -Be $lf.ContractId
-            $repLf.Contracts[0].Success | Should -BeFalse
-            $repLf.Contracts[0].Blocking | Should -BeTrue
+    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch removes the evaluator and ArchReceipt workflow closure' {
+        $evidence = Get-Content -LiteralPath $script:canonicalEvidence -Raw
+        $validator = Get-Content -LiteralPath $script:canonicalValidator -Raw
+        $evidence | Should -Not -Match 'ArchReceipt|Invoke-PlanArchEvidence|Find-ArchCheckForContract'
+        $validator | Should -Not -Match 'Invoke-PlanArchEvidence|StartsWith\(''arch:''\)'
 
-            # A locked PASS greens (no blocking finding).
-            $lp = Use-ArchFixture @{ Maturity = 'locked'; Verdict = 'pass' }
-            $repLp = Get-ArchReviewReport -RepoRoot $lp.Root
-            $repLp.Blocking | Should -Be 0
-            $repLp.Contracts[0].Success | Should -BeTrue
-
-            # A locked contract with NO receipt is unrun -> blocking (a schema-only review cannot false-green it).
-            $lm = Use-ArchFixture @{ Maturity = 'locked'; NoReceipt = $true }
-            (Get-ArchReviewReport -RepoRoot $lm.Root).Blocking | Should -Be 1
-
-            # A draft fail is advisory -> no blocking finding.
-            $df = Use-ArchFixture @{ Maturity = 'draft'; Verdict = 'fail' }
-            (Get-ArchReviewReport -RepoRoot $df.Root).Blocking | Should -Be 0
-
-            # A draft contract with NO receipt is unrun: the missing-receipt path is maturity-blind and blocks
-            # at crosscheck (safe direction -- over-strict, never a false-green). Pinned so any change is deliberate.
-            $dn = Use-ArchFixture @{ Maturity = 'draft'; NoReceipt = $true }
-            (Get-ArchReviewReport -RepoRoot $dn.Root).Blocking | Should -Be 1
+        foreach ($pluginName in @('create-implementation-plan', 'continue-implementation')) {
+            $manifest = Get-Content -LiteralPath (Join-Path $script:repoRoot "plugins/$pluginName/plugin.json") -Raw
+            $manifest | Should -Not -Match 'ArchReceipt\.psm1'
         }
     }
-}
 
-Describe 'ci arch-runner integration (REQ-12)' {
-    BeforeAll {
-        $script:ciRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
-        $script:runnerCanonical = Join-Path $script:ciRepoRoot 'scripts/skalary/Invoke-ArchTests.ps1'
-        # npm test = validate-plan && validate.ps1 && test:unit -> all three legs must stay structural.
-        $script:structuralEntrypoints = @(
-            (Join-Path $script:ciRepoRoot 'scripts/validate.ps1'),
-            (Join-Path $script:ciRepoRoot 'scripts/skalary/Validate-Plan.ps1'),
-            (Join-Path $script:ciRepoRoot 'scripts/skalary/Run-UnitTests.ps1')
-        )
-        $script:packageJsonPath = Join-Path $script:ciRepoRoot 'package.json'
-        $script:ciPluginJsonPath = Join-Path $script:ciRepoRoot 'plugins/continue-implementation/plugin.json'
-        $script:ciCrosscheckGuide = Join-Path $script:ciRepoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
-        . $script:runnerCanonical
-    }
-
-    It 'Validate-StructuralOnly-NoToolchainShell: no npm-test structural leg shells a build toolchain' {
-        # Every leg of `npm test` (validate.ps1 + Validate-Plan.ps1 + Run-UnitTests.ps1) is dependency-free:
-        # none may INVOKE dotnet/npm/npx/vitest (real toolchains belong only to the opt-in /ci runner). Match
-        # invocation shapes (call operator, Start-Process, verb sub-commands) rather than incidental prose.
-        foreach ($entry in $script:structuralEntrypoints) {
-            Test-Path -LiteralPath $entry -PathType Leaf | Should -BeTrue -Because "$entry is an npm-test structural leg"
-            $src = Get-Content -LiteralPath $entry -Raw
-            $src | Should -Not -Match '(?im)&\s*(npm|npx|dotnet|vitest|node)\b' -Because "$entry must not shell a toolchain"
-            $src | Should -Not -Match '(?i)\bStart-Process\b' -Because "$entry must not Start-Process a toolchain"
-            $src | Should -Not -Match '(?i)\b(dotnet\s+(test|build|restore|run|msbuild)|npm\s+(ci|install|exec)|npx\s|vitest)\b' -Because "$entry must not run a build sub-command"
+    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch is red at Draft and PhaseCrosscheck with seeded known evidence' {
+        $fixture = New-MarkerPlanFixture -SeedFile
+        $script:fixtures.Add($fixture.Root)
+        foreach ($stage in @('Draft', 'PhaseCrosscheck')) {
+            $result = Invoke-MarkerPlan -Fixture $fixture -Stage $stage
+            $result.ExitCode | Should -Not -Be 0
+            $result.Output | Should -Match "unknown evidence marker 'arch:ARCH-Retired'"
+            $result.Output | Should -Match "unknown evidence marker 'bogus:still-red'"
+            $result.Output | Should -Not -Match 'Missing target'
+            $result.Output | Should -Not -Match "unknown evidence marker '(test|file|review):"
         }
-
-        # Allowlist the `npm test` chain itself: it may only compose pwsh structural scripts, never a toolchain.
-        $pkg = Get-Content -LiteralPath $script:packageJsonPath -Raw | ConvertFrom-Json
-        $pkg.scripts.test | Should -Match 'validate-plan'
-        $pkg.scripts.test | Should -Match 'test:unit'
-        $pkg.scripts.test | Should -Match 'validate\.ps1'
-        $pkg.scripts.test | Should -Not -Match '(?i)\b(dotnet|npx|vitest)\b'
     }
 
-    It 'Ci-CrosscheckRunsArchRunner: the ci crosscheck guide wires the runner as an opt-in, gated, non-bundled run' {
-        $guide = Get-Content -LiteralPath $script:ciCrosscheckGuide -Raw
-        $guide | Should -Match 'Invoke-ArchTests\.ps1'
-        # Design B: invoked from the architecture-tests install, gated on it being present.
-        $guide | Should -Match '(?i)requires the architecture-tests plugin installed'
-        # Opt-in, and the structural gate is explicitly excluded from real runs.
-        $guide | Should -Match '(?i)opt-in'
-        $guide | Should -Match '(?i)never in ..?scripts/validate\.ps1'
-
-        # The runner must NOT be bundled/forked into the ci plugin: no Invoke-ArchTests.ps1 file entry.
-        $ciFilesJson = (Get-Content -LiteralPath $script:ciPluginJsonPath -Raw | ConvertFrom-Json).files | ConvertTo-Json -Depth 6
-        $ciFilesJson | Should -Not -Match 'Invoke-ArchTests\.ps1'
-    }
-
-    It 'Runner-OptInRealRun: the runner produces the taxonomy receipt the marker reads (deterministic mock = pass/ran)' {
-        $root = Join-Path $TestDrive ("ropt-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $root -Force)
-        git -C $root init --quiet 2>&1 | Out-Null
-        git -C $root config user.email 't@t' 2>&1 | Out-Null
-        git -C $root config user.name 't' 2>&1 | Out-Null
-        Set-Content -LiteralPath (Join-Path $root 'arch-contract.json') -Value '{"id":"ARCH-Ci-1","maturity":"draft"}' -NoNewline
-        $cfg = Join-Path $root 'arch-test-config.json'
-        # A semantic-eval mock check produces a receipt with NO real toolchain (advisory). The mock provider is
-        # deterministic (status=pass, ran), so pin the exact verdict -- a taxonomy-membership assertion alone is
-        # tautological (New-ArchTestReceipt's ValidateSet already enforces membership) and would mask a regression.
-        (@{ version = '1'; checks = @(@{ contractId = 'ARCH-Ci-1'; adapter = 'semantic-eval'; provider = 'mock'; maturity = 'draft'; contractPath = 'arch-contract.json'; targets = @('arch-contract.json') }) } | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $cfg -NoNewline
-        git -C $root add -A 2>&1 | Out-Null
-        git -C $root commit -qm init 2>&1 | Out-Null
-
-        $providerRoot = Join-Path $script:ciRepoRoot 'plugins/architecture-tests/scripts/providers'
-        $summary = Invoke-ArchTests -ConfigPath $cfg -RepoRoot $root -ProviderRoot $providerRoot
-        $receiptPath = Join-Path $root 'docs/architecture-notes/receipts/ARCH-Ci-1.arch-receipt.json'
-        Test-Path -LiteralPath $receiptPath -PathType Leaf | Should -BeTrue
-        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-        $receipt.verdict | Should -Be 'pass'
-        $receipt.ran | Should -BeTrue
-        $receipt.adapter | Should -Be 'semantic-eval'
-        $summary.Checks[0].Adapter | Should -Be 'semantic-eval'
-        $summary.Checks[0].Verdict | Should -Be 'pass'
+    It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch keeps retired and missing-file failures visible on an empty root' {
+        $fixture = New-MarkerPlanFixture
+        $script:fixtures.Add($fixture.Root)
+        foreach ($stage in @('Draft', 'PhaseCrosscheck')) {
+            $result = Invoke-MarkerPlan -Fixture $fixture -Stage $stage
+            $result.ExitCode | Should -Not -Be 0
+            $result.Output | Should -Match "unknown evidence marker 'arch:ARCH-Retired'"
+            $result.Output | Should -Match "Missing target 'README.md'"
+        }
     }
 }

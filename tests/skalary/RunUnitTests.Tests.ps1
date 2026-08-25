@@ -51,6 +51,15 @@ Describe 'run unit tests' {
     }
 }
 '@
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @()
+}
+'@
 
             if ($TestFileContent) {
                 Set-Content -LiteralPath (Join-Path $root 'tests/Sandbox.Tests.ps1') -Value $TestFileContent -Encoding utf8
@@ -135,6 +144,36 @@ Describe 'run unit tests' {
             }
         }
 
+        function Set-SandboxTier {
+            param(
+                [Parameter(Mandatory)]
+                [string]$SandboxRoot,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('Fast', 'Slow')]
+                [string]$Tier,
+
+                [string[]]$SlowFiles = @('tests/Sandbox.Tests.ps1')
+            )
+
+            if ($Tier -eq 'Slow') {
+                $quotedPaths = @($SlowFiles | ForEach-Object { "        '$($_)'" }) -join [Environment]::NewLine
+                @"
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @(
+$quotedPaths
+    )
+}
+"@ | Set-Content -LiteralPath (Join-Path $SandboxRoot 'tools/suite-tier.psd1') -Encoding utf8NoBOM
+            }
+
+            return @('-Tier', $Tier)
+        }
+
         $script:passingTestFile = @'
 Describe 'sandbox' {
     It 'passes' { $true | Should -BeTrue }
@@ -154,6 +193,14 @@ Describe 'sandbox' {
         # result for it, which is the shape that used to be reported as a pass.
         $script:noTestsFile = @'
 Describe 'sandbox' {
+}
+'@
+
+        $script:skippedReviewEvidenceFile = @'
+Describe 'skipped evidence' {
+    It 'test:ReviewReport.MandatorySeam executes' {
+        Set-ItResult -Skipped -Because 'seeded missing mandatory seam'
+    }
 }
 '@
 
@@ -229,11 +276,14 @@ Describe 'sandbox' {
         # for a tests tree that discovers nothing, so the runner reported a pass having
         # asserted nothing — and it is the `test:` evidence executor, so that pass was
         # indistinguishable from a suite that actually ran.
-        $emptyFile = New-RunnerSandbox -TestFileContent $script:noTestsFile
-        $discoveredNothing = Invoke-Runner -SandboxRoot $emptyFile
-        $discoveredNothing.ExitCode |
-            Should -Not -Be 0 -Because "a test file that declares no test asserts nothing: $($discoveredNothing.Output)"
-        $discoveredNothing.Output | Should -Match 'NoTestsDiscovered'
+        foreach ($tier in @('Fast', 'Slow')) {
+            $emptyFile = New-RunnerSandbox -TestFileContent $script:noTestsFile
+            $tierArgs = Set-SandboxTier -SandboxRoot $emptyFile -Tier $tier
+            $discoveredNothing = Invoke-Runner -SandboxRoot $emptyFile -ExtraArguments $tierArgs
+            $discoveredNothing.ExitCode |
+                Should -Be 3 -Because "$tier must fail when a test file declares no test: $($discoveredNothing.Output)"
+            $discoveredNothing.Output | Should -Match 'NoTestsDiscovered'
+        }
 
         # The other shape of the same condition: nothing to discover in the first place. Pester
         # throws here rather than returning a result, so it needs its own answer.
@@ -252,19 +302,119 @@ Describe 'sandbox' {
         $nothingToDiscover.ExitCode | Should -Not -Be $ran.ExitCode
     }
 
+    It 'test:RunUnitTests.RequiredReviewEvidenceSkippedFails exits 8 when a review-report evidence marker is skipped' {
+        foreach ($tier in @('Fast', 'Slow')) {
+            $sandbox = New-RunnerSandbox -TestFileContent $script:skippedReviewEvidenceFile
+            $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier
+            $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments $tierArgs
+
+            $result.ExitCode | Should -Be 8 -Because "$tier must fail on skipped required evidence"
+            $result.Output | Should -Match 'RequiredEvidenceSkipped'
+            $result.Output | Should -Match 'test:ReviewReport\.MandatorySeam'
+        }
+    }
+
+    It 'test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI' {
+        $runnerText = Get-Content -LiteralPath $script:runner -Raw
+        $dedicated = Join-Path $script:repoRoot 'scripts/skalary/Test-ReviewConsumerInstall.ps1'
+        $workflow = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/workflows/registry-ci.yml') -Raw
+        $tiers = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/suite-tier.psd1')
+
+        @($tiers.DedicatedFiles) | Should -Contain 'tests/skalary/ReviewConsumerInstall.Tests.ps1'
+        $runnerText | Should -Match 'DedicatedFiles'
+        Test-Path -LiteralPath $dedicated -PathType Leaf | Should -BeTrue
+        (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
+        $workflow | Should -Match 'name:\s*Review consumer install matrix'
+        $workflow | Should -Match 'scripts/skalary/Test-ReviewConsumerInstall\.ps1'
+        $workflow | Should -Not -Match 'Test-ReviewConsumerInstall\.ps1[^\r\n]*-TestPath'
+
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $fixture = Join-Path $sandbox 'tests/Sandbox.Tests.ps1'
+        $passOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($passOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:failingTestFile -Encoding utf8NoBOM
+        $failOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 1 -Because ($failOutput | Out-String)
+
+        Set-Content -LiteralPath $fixture -Value $script:skippedReviewEvidenceFile -Encoding utf8NoBOM
+        $skipOutput = & pwsh -NoProfile -File $dedicated -RepoRoot $sandbox -TestPath $fixture 2>&1
+        $LASTEXITCODE | Should -Be 3 -Because "skipped runtime evidence is cannot-test, never green: $($skipOutput | Out-String)"
+
+        $cleanupFixture = Join-Path $TestDrive 'cleanup-cli'
+        [void](New-Item -ItemType Directory -Path $cleanupFixture -Force)
+        Copy-Item -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Remove-ReviewRun.ps1') -Destination $cleanupFixture
+        @'
+function Finalize-ReviewPlanRun {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$RunId, [string]$PlanDir, [string]$Verdict)
+    return [pscustomobject]@{
+        RunId = $RunId; Verdict = $Verdict; Report = 'report'; Receipt = 'receipt'
+        Preview = $false; CleanupPending = $true; CleanupDiagnostic = 'access denied while deleting tombstone'
+    }
+}
+Export-ModuleMember -Function Finalize-ReviewPlanRun
+'@ | Set-Content -LiteralPath (Join-Path $cleanupFixture 'ReviewRun.psm1') -Encoding utf8NoBOM
+        $cleanupOutput = & pwsh -NoProfile -File (Join-Path $cleanupFixture 'Remove-ReviewRun.ps1') `
+            -RunId '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35' -PlanDir 'docs/implementation-plans/example' -Verdict blocked 2>&1
+        $LASTEXITCODE | Should -Be 4 -Because 'durable evidence with pending cleanup is retryable failure, not success'
+        ($cleanupOutput | Out-String) | Should -Match 'access denied while deleting tombstone'
+    }
+
+    It 'test:RunUnitTests.TierExecution isolates Fast and Slow while preserving the runner verdicts' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @('tests/Slow.Tests.ps1')
+}
+'@
+
+        $fastFails = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Fast')
+        $slowPasses = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Slow')
+        $fastFails.ExitCode | Should -Be 1 -Because $fastFails.Output
+        $slowPasses.ExitCode | Should -Be 0 -Because $slowPasses.Output
+        $slowPasses.Output | Should -Match 'Suite tier: Slow'
+        $slowPasses.Output | Should -Match 'Slow tier runtime:'
+
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Sandbox.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Value $script:failingTestFile -Encoding utf8NoBOM
+
+        $fastPasses = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Fast')
+        $slowFails = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Slow')
+        $fastPasses.ExitCode | Should -Be 0 -Because $fastPasses.Output
+        $slowFails.ExitCode | Should -Be 1 -Because $slowFails.Output
+        $fastPasses.Output | Should -Match 'Suite tier: Fast'
+        $fastPasses.Output | Should -Match 'Suite budget:'
+
+        $clockPath = Join-Path $sandbox 'slow-must-not-consume-clock.json'
+        $null = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-StartBudgetClock', "-BudgetClockPath '$clockPath'")
+        $slowWithClock = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier Slow', "-BudgetClockPath '$clockPath'")
+        $slowWithClock.ExitCode | Should -Be 1 -Because $slowWithClock.Output
+        Test-Path -LiteralPath $clockPath -PathType Leaf |
+            Should -BeTrue -Because 'Slow is unbudgeted and cannot consume Fast measurement state'
+    }
+
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
         # A file that throws during discovery contributes nothing to FailedCount or TotalCount
         # — Pester counts it separately — so a whole file can silently not run while the suite
         # reports a pass. That includes this file, which would take the REQ-5 gate down with it.
-        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
-        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Undiscoverable.Tests.ps1') -Value $script:undiscoverableTestFile -Encoding utf8
+        foreach ($tier in @('Fast', 'Slow')) {
+            $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+            Set-Content -LiteralPath (Join-Path $sandbox 'tests/Undiscoverable.Tests.ps1') -Value $script:undiscoverableTestFile -Encoding utf8
+            $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier -SlowFiles @('tests/Sandbox.Tests.ps1', 'tests/Undiscoverable.Tests.ps1')
 
-        $result = Invoke-Runner -SandboxRoot $sandbox
-        $result.ExitCode |
-            Should -Not -Be 0 -Because "a file that never loaded is a gate that never ran: $($result.Output)"
-        $result.Output | Should -Match 'TestFilesNotDiscoverable'
-        $result.Output |
-            Should -Match 'Undiscoverable\.Tests\.ps1' -Because 'the file that did not load has to be nameable from the output'
+            $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments $tierArgs
+            $result.ExitCode |
+                Should -Be 4 -Because "$tier must fail when a file never loads: $($result.Output)"
+            $result.Output | Should -Match 'TestFilesNotDiscoverable'
+            $result.Output |
+                Should -Match 'Undiscoverable\.Tests\.ps1' -Because 'the file that did not load has to be nameable from the output'
+        }
     }
 
     It 'test:RunUnitTests.WritesNUnitToRequestedPath puts the report where CI asked, creating the folder it named' {
@@ -294,14 +444,16 @@ Describe 'sandbox' {
         # Pester runs in-process, so a test assigning $env:X rewrites the shell that invoked the
         # suite. Nothing in a green run says so: the eval tests left HOME under TestDrive, and git
         # then looked for .gitconfig and .ssh in a deleted temp directory until the shell was closed.
-        $sandbox = New-RunnerSandbox -TestFileContent $script:environmentLeakingTestFile
+        foreach ($tier in @('Fast', 'Slow')) {
+            $sandbox = New-RunnerSandbox -TestFileContent $script:environmentLeakingTestFile
+            $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier
 
-        $result = Invoke-Runner -SandboxRoot $sandbox
-        $result.ExitCode |
-            Should -Be 7 -Because "every test passed, so only the environment check can catch this: $($result.Output)"
-        $result.Output | Should -Match 'EnvironmentLeaked'
-        $result.Output |
-            Should -Match 'HOME' -Because 'the variable that leaked has to be nameable from the output'
+            $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments $tierArgs
+            $result.ExitCode |
+                Should -Be 7 -Because "$tier must catch an environment leak after passing tests: $($result.Output)"
+            $result.Output | Should -Match 'EnvironmentLeaked'
+            $result.Output | Should -Match 'HOME'
+        }
     }
 
     It 'test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked' {
@@ -309,13 +461,61 @@ Describe 'sandbox' {
         # hides: locally the variable is usually already set, so the restore looks correct and only a
         # clean environment disagrees. The report has to distinguish unset from empty, or the
         # difference renders as "('' -> '')" and reads like a bug in the check.
-        $sandbox = New-RunnerSandbox -TestFileContent $script:environmentCreatingTestFile
+        foreach ($tier in @('Fast', 'Slow')) {
+            $sandbox = New-RunnerSandbox -TestFileContent $script:environmentCreatingTestFile
+            $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier
 
-        $result = Invoke-Runner -SandboxRoot $sandbox
-        $result.ExitCode |
-            Should -Be 7 -Because "creating a variable changes the caller's environment too: $($result.Output)"
-        $result.Output | Should -Match 'SKALARY_LEAK_PROBE'
-        $result.Output |
-            Should -Match '<unset>' -Because 'an absent variable and an empty one must not render identically'
+            $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments $tierArgs
+            $result.ExitCode |
+                Should -Be 7 -Because "$tier must treat environment creation as a leak: $($result.Output)"
+            $result.Output | Should -Match 'SKALARY_LEAK_PROBE'
+            $result.Output | Should -Match '<unset>'
+        }
+    }
+
+    It 'test:RunUnitTests.InvalidTierManifestExitsNine fails malformed and incomplete manifests diagnostically' {
+        $invalidManifests = @(
+            "@{ Schema = 'skalary/suite-tier@1'; SlowFiles = @(",
+            "@{ Schema = 'wrong'; SlowHardCeilingSeconds = 600; CiSetupAllowanceSeconds = 60; DedicatedFiles = @(); SlowFiles = @() }",
+            "@{ Schema = 'skalary/suite-tier@1' }",
+            "@{ Schema = 'skalary/suite-tier@1'; SlowHardCeilingSeconds = 0; CiSetupAllowanceSeconds = 60; DedicatedFiles = @(); SlowFiles = @() }",
+            "@{ Schema = 'skalary/suite-tier@1'; SlowHardCeilingSeconds = 600; CiSetupAllowanceSeconds = 60; DedicatedFiles = @(); SlowFiles = @('tests/missing.Tests.ps1') }",
+            "@{ Schema = 'skalary/suite-tier@1'; SlowHardCeilingSeconds = 600; CiSetupAllowanceSeconds = 60; DedicatedFiles = @('tests/Sandbox.Tests.ps1'); SlowFiles = @('tests/Sandbox.Tests.ps1') }",
+            "@{ Schema = 'skalary/suite-tier@1'; SlowHardCeilingSeconds = 600; CiSetupAllowanceSeconds = 60; DedicatedFiles = @(); SlowFiles = @('../escape.Tests.ps1') }"
+        )
+        foreach ($manifest in $invalidManifests) {
+            $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+            Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Value $manifest -Encoding utf8NoBOM
+
+            $result = Invoke-Runner -SandboxRoot $sandbox
+            $result.ExitCode | Should -Be 9 -Because $result.Output
+            $result.Output | Should -Match 'SuiteTierInvalid'
+        }
+
+        $missing = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        Remove-Item -LiteralPath (Join-Path $missing 'tools/suite-tier.psd1') -Force
+        foreach ($tier in @('Fast', 'Slow', 'All')) {
+            $result = Invoke-Runner -SandboxRoot $missing -ExtraArguments @('-Tier', $tier)
+            $result.ExitCode | Should -Be 9 -Because "$tier requires the tracked tier authority"
+            $result.Output | Should -Match 'SuiteTierInvalid'
+        }
+    }
+
+    It 'test:RunUnitTests.SlowOverBudgetFails exits 5 and names both Slow runtime figures' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 0.001
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @('tests/Sandbox.Tests.ps1')
+}
+'@ | Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Encoding utf8NoBOM
+
+        $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier', 'Slow')
+        $result.ExitCode | Should -Be 5 -Because $result.Output
+        $result.Output | Should -Match 'OverBudget: Slow tier runtime'
+        $result.Output | Should -Match '0\.001s ceiling'
     }
 }

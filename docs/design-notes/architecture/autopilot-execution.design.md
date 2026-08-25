@@ -9,6 +9,7 @@ globs:
   - .autopilot.host.json
   - plugins/autopilot/schemas/autopilot.schema.json
   - plugins/autopilot/schemas/autopilot.host.schema.json
+  - scripts/skalary/Invoke-ContainerToolchainGate.ps1
 ---
 
 # Autonomous Plan Execution
@@ -62,6 +63,82 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
+
+#### Linux container toolchain
+
+The approved toolchain baseline, its acquisition and pinning rules, the provenance and
+attestation contract, and the gate's outcome table live in
+`docs/design-notes/architecture/autopilot-container-toolchain.design.md`; the structural test
+reads that note, so it must stay outside the plan folder that gets archived.
+
+`plugins/autopilot/devcontainer/toolchain.tsv` is the sole additional-tool inventory; its
+installed dogfood copy is built through the plugin manifest. The baseline covers search and
+navigation, archive/file operations, native builds, Python helpers, shell linting, process and
+network diagnostics, SSH, and SQLite. Bootstrap dependencies needed to install and launch
+Copilot (`git`, `curl`, `jq`, certificates, GnuPG, Node.js, and npm) remain a separate named
+Dockerfile set and are excluded from baseline equality.
+
+The first apt layer accepts enabled sources only from `deb.debian.org` and
+`security.debian.org`, installs without recommends, and records OS, source, requested-package,
+selected-origin, and installed dependency-closure provenance before cleanup. The image uses the
+floating `debian:trixie-slim` base and installs the maintained .NET 10 SDK from Microsoft's
+Debian 13 repository after the Debian-only baseline layer. Debian package versions and the
+launch-time Copilot version remain floating: one comparison run shares resolved inputs, but
+rebuilds on different dates are not promised to be byte-identical.
+
+Every root-trusted fetch that is not an apt package is pinned to a digest or a key fingerprint —
+Microsoft's `packages-microsoft-prod.deb` and the GitHub CLI `.deb` by SHA-256, the Docker apt
+signing key by full fingerprint — and `curl` runs with `-f` so an error page can never be
+installed as a package. A rotated upstream file fails the build closed rather than installing an
+unverified one; that maintenance cost is the point. The provenance the smoke script reports is
+captured in a **final** root layer, after the last root-owned install, so a layer added below the
+recorded one cannot escape the record. Sources are parsed directive-aware (`deb`/`deb-src` lines
+and `URIs:` fields, comments skipped) because Debian's own `.sources` file carries a
+`snapshot.debian.org` URL inside a comment that a naive URL scan would report as an enabled
+origin.
+
+The toolchain is Linux-container-only; Windows Sandbox has a separate cache and lifecycle.
+Editors, browsers, language-version managers, cloud CLIs, database servers, and background
+daemons are excluded. Root-owned `fd` and `bat` aliases normalize Debian command names, while
+`container-toolchain-smoke.sh` runs every manifest case as `autopilot` and emits one bounded
+closed-schema JSON line naming each failing case. Image growth is reported against an advisory
+250 MiB threshold rather than failing solely on size.
+
+`launch-container.ps1` builds with the installed autopilot skill directory as its context.
+`dockerfileExtensions` are inserted at the literal `# Non-root user` anchor, before
+`USER autopilot`; keep that anchor stable and keep all root-owned toolchain setup above it.
+
+`Invoke-ContainerToolchainGate.ps1` is the shared Docker-free detector and Docker-backed
+measurement runner for local use and CI. It owns the image-input path set, deriving plugin
+source/destination pairs from `plugin.json` and local `COPY` sources from the Dockerfile;
+context-level and Dockerfile-specific ignore paths are always relevant and must join parity
+when present.
+Detection consumes NUL-delimited Git output and compares paths ordinally; any unusable base
+forces relevance and a closed candidate-only reason. Candidate payload parity, build, smoke,
+and bounded output are blocking. Comparable base failure or timeout becomes candidate-only
+evidence, while growth above 250 MiB stays advisory. Every invocation writes a bounded
+`skalary/container-toolchain-receipt@1` terminal receipt from `finally`; process budgets kill
+the process tree and reserve the outer job's upload window.
+
+The smoke JSON is written **by the image being judged**, so on its own it is a claim, not
+evidence. The runner therefore attests the claim from the host: it creates a container with
+`--network none`, copies the recorded provenance files out with `docker cp`, and hashes and
+parses them outside the image. No mount, no volume, no host path is handed to candidate code,
+and the container is removed in a `finally`. Attested apt origins are checked against a
+four-host allowlist, and disagreement between what the image claimed and what the host read is
+itself a failure — an image that reports a clean smoke while its provenance says otherwise is
+exactly the case a self-report cannot catch.
+
+Process capture is head+tail bounded (16 KiB head, the remainder as tail, with an explicit
+`...[N characters truncated]...` marker), and a failing build or smoke also writes its bounded
+capture to a diagnostics log the workflow uploads. A truncated middle is stated rather than
+implied, and the exit code of a still-running process is never read.
+
+The workflow carries the detector's candidate-only reason and its relevance verdict into
+measurement. A later successful base-checkout retry cannot turn an unusable detection base into
+a comparable run, and a measurement-time re-detection that contradicts the detector's `true`
+resolves toward the blocking path rather than silently skipping the work the truth table still
+expects.
 
 ### Sandbox Mode
 
@@ -163,7 +240,7 @@ Key fields:
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
 - `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
-- `maxIterationsPerStep`: Fix-retry cap
+- `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle per-stage gate.
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
 
 **No plan path in config.** `launch.ps1` takes `-PlanSlug` and derives `docs/implementation-plans/<PlanSlug>/plan.md`; the config never carries a plan path.
@@ -200,9 +277,18 @@ The in-editor autopilot skill — not the launcher — owns first-run config. On
 
 Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 1. Read plan → find next `[ ]` step → mark `[~]`
-2. Implement → build → test → format
+2. Implement → focused build/test of the affected surface → format
 3. `git add <specific-files>` → commit (atomic with plan mark)
 4. Loop until phase complete → push
+
+The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step and phase loops run named evidence and focused targets; the complete configured build/test pair runs once at plan completion as the integration gate.
+
+CR dispatch is capped independently for each `step-*`, `phase-*`, and `plan-finalization` stage by
+`scripts/skalary/ReviewCycleGate.ps1`. The CR log is the durable counter. Three cycles run
+automatically; a persisted operator Continue decision grants one additional cycle, then the gate asks
+again if findings remain. In a headless run autopilot logs all remaining findings, commits the
+in-progress state, reports Continue/Wrap as the required operator choice, and exits `42`. It never
+uses `maxIterationsPerStep` or a fresh context to bypass the review cap.
 
 Absolute rules enforced:
 - Never force-push, never push to main
@@ -217,10 +303,10 @@ Absolute rules enforced:
 |---|---|
 | Loop participation | Autopilot is a first-class verification participant: it runs `validate-plan`, executes typed evidence checks (`test:`/`file:`/`review:`), and writes `evidence.md` receipts during crosschecks. |
 | Phase budget | One invocation remains one phase/context window; phase-budget points (`S=1/M=2/L=3`, advisory cap 6) are guidance for phase sizing, not a hard launcher block. |
-| Rule 5 trust boundary | `.autopilot.json` `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. The committed `npm test` script is the blessed evidence-runner path. |
-| Composite test command | The composite gate lives in `package.json` (`validate-plan` + `validate.ps1` + `test:unit`, in that order). This avoids launcher allowlist rejection of shell-chained `.autopilot.json` commands. `test:unit` runs last because it is where the runtime budget is enforced, and a `pretest` hook starts the clock it measures the whole command with. |
+| Rule 5 trust boundary | `.autopilot.json` complete `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. Focused filters come only from changed files and committed project/test metadata. The committed plan reconcile entry point and named typed-evidence tests are authorized focused checks. |
+| Composite test command | The composite gate lives in `package.json` (`validate-plan` + `validate.ps1` + `test:unit`, in that order) and runs once at plan completion, not after each step or phase. This avoids launcher allowlist rejection of shell-chained `.autopilot.json` commands. `test:unit` runs last because it is where the runtime budget is enforced, and a `pretest` hook starts the clock it measures the whole command with. |
 | Finalization ordering | Escalation ordering remains strict: commit -> push -> `gh pr create --draft` -> write uncommitted gitignored `.autopilot-finalize-needed` marker -> exit 42. |
-| Container dependency | `.devcontainer/autopilot/Dockerfile` pins `Install-Module Pester` so `test:unit` and `test:` evidence are runnable in container-autopilot. |
+| Container dependency | `.github/skills/autopilot/devcontainer/Dockerfile` installs Pester at an exact pinned version (`Install-PSResource -Name Pester -Version "[5.6.1]"`) so `test:unit` and `test:` evidence are runnable in container-autopilot. |
 | Canonical harvest host | Workflow-memory harvest is specified in `autopilot.agent.md` (canonical), not `ci` assets; `/ci` guidance is a marked mirror. |
 | Harvest guardrail | Finalization harvest runs when the installed `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` exists. Ledger categories scaffold on demand, so fresh installs do not require preexisting ledger files. Missing infra falls through to standard branch behavior. |
 | Harvest branch split | Append-harvest executes and commits before branch selection; autonomous branch archives + real PR, escalation branch runs `/udn` + prune + draft PR + marker + exit 42 (never archive). |

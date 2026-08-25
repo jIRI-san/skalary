@@ -258,9 +258,11 @@ Describe 'cep skill' {
         $pluginRoot = Join-Path $repoRoot 'plugins/create-implementation-plan'
         $skillPath = Join-Path $pluginRoot 'skills/cep/SKILL.md'
         $guidePath = Join-Path $pluginRoot 'skills/cep/assets/decomposition-guide.md'
+        $cipSkillPath = Join-Path $pluginRoot 'skills/cip/SKILL.md'
         $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw | ConvertFrom-Json
         $skillText = Get-Content -LiteralPath $skillPath -Raw
         $guideText = Get-Content -LiteralPath $guidePath -Raw
+        $cipSkillText = Get-Content -LiteralPath $cipSkillPath -Raw
     }
 
     It 'ships the skill and its decomposition asset from the create-implementation-plan plugin' {
@@ -300,15 +302,28 @@ Describe 'cep skill' {
         # The orchestrator carries the flow; the question bank, gates, and anti-patterns live in the asset.
         (Get-Item -LiteralPath $skillPath).Length | Should -BeLessOrEqual 8192
         $guideText | Should -Match 'epic-intent'
+        $guideText | Should -Match 'child-context'
+        $guideText | Should -Match 'Epic discussion provenance'
+        $guideText | Should -Match 'rejected alternatives'
         $guideText | Should -Match 'Independent-executability test'
         $skillText | Should -Match './assets/decomposition-guide.md'
         $skillText | Should -Not -Match 'Anti-pattern \|'
     }
 
-    It 'scaffolds and wires only, delegating child plan content to /cip' {
+    It 'preserves preliminary epic context while delegating full child drafting to /cip' {
         $skillText | Should -Match '/cip'
         $skillText | Should -Match 'New-Epic\.ps1'
         $skillText | Should -Match '-DependsOn'
+        $skillText | Should -Match 'child-context'
+        $skillText | Should -Match 'assets/intent\.md'
+        $skillText | Should -Match 'assets/decisions\.md'
+        $skillText | Should -Match 'assets/references\.md'
+        $skillText | Should -Match 'Epic discussion provenance'
+        $skillText | Should -Match 'must not reset them to templates'
+        $skillText | Should -Match 'owns child requirements, risks, evidence, and steps'
+        $skillText | Should -Match '/cep` never writes those sections'
+        $cipSkillText | Should -Match 'preserve their \*\*Epic discussion provenance\*\*'
+        $cipSkillText | Should -Match 'never reset them to scaffold templates'
         # Membership authority has to stay with the child plan marker, not the generated epic table.
         $skillText | Should -Match '<!-- epic: <id> -->'
     }

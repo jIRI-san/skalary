@@ -1,9 +1,8 @@
 id: review-tier-drift
-name: Reviews the tier and flags a locked contract with no fitness check as a blocking gap
+name: Reviews the tier and flags locked-content digest drift
 description: >
-  The architecture-notes skill's Review workflow must surface drift and, critically, flag a
-  locked contract with NO configured fitness check as a blocking coverage gap (it would
-  otherwise green by omission) while treating draft contracts as warn-only.
+  The architecture-notes skill's Review workflow must surface a locked contract whose canonical
+  content no longer matches its digest while keeping draft contracts advisory.
 tags:
   - architecture-notes-quality
   - functional
@@ -11,14 +10,14 @@ inputs:
   prompt: |
     Following the architecture-notes skill's Review workflow, review an architecture tier with
     three contracts:
-      - ARCH-A: locked, with a fresh passing runner receipt.
-      - ARCH-B: locked, with NO configured fitness check (no arch-test-config entry).
-      - ARCH-C: draft, with no receipt.
+      - ARCH-A: locked, with a matching lockedContentSha256.
+      - ARCH-B: locked, but its prose changed after lockedContentSha256 was recorded.
+      - ARCH-C: draft and schema-valid.
     Report what you would flag and how each maps to a blocking vs advisory finding.
 
     IMPORTANT — respond in THIS conversation. Do NOT run any repository scripts or write files.
   follow_up_prompts:
-    - "State it plainly in a sentence or two: which contract is a BLOCKING finding, and why is a locked contract with no fitness check dangerous?"
+    - "State it plainly in a sentence or two: which contract has BLOCKING integrity drift, and what does the digest prove?"
 
 checkpoints:
   - after_turn: 1
@@ -29,7 +28,7 @@ checkpoints:
         config:
           regex_match:
             - "(?i)lock"
-            - "(?i)coverage|check|gap"
+            - "(?i)digest|hash|content|integrity"
 
 graders:
   - type: prompt
@@ -39,14 +38,13 @@ graders:
       continue_session: true
       prompt: |
         You are grading the architecture-notes skill's Review workflow output over a tier with a
-        locked+passing contract (ARCH-A), a locked+UNCHECKED contract (ARCH-B), and a draft
-        contract (ARCH-C).
+        locked contract with a matching digest (ARCH-A), a locked contract whose content drifted
+        after the digest was recorded (ARCH-B), and a valid draft contract (ARCH-C).
 
         Call set_waza_grade_pass ONLY if the response:
-          1. Flags ARCH-B (locked with NO fitness check) as a BLOCKING coverage gap — an
-             unchecked locked contract would otherwise green by omission, and
+          1. Flags ARCH-B as BLOCKING locked-content integrity drift, and
           2. Treats ARCH-C (draft) as warn-only / advisory, not blocking, and
-          3. Does NOT false-green a locked contract on schema validity alone (a valid contract is
-             not a passing one — a locked contract needs a fresh passing receipt).
+          3. Explains that lockedContentSha256 binds canonical contract content while human
+             promotion remains reviewer-enforced policy, not machine-authenticated identity.
 
         Otherwise call set_waza_grade_fail with a short reason.

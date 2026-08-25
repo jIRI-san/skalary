@@ -1,37 +1,22 @@
 # References
 
-<!-- Design notes, architecture contracts, and prior plans consulted while drafting. -->
+## Operator provenance
 
-## Where this came from
+- Session `8706d364-f92e-4056-bb1b-40a59b015d38`, turns 90-92 (2026-08-08): declare selected review work and omissions before dispatch.
+- Session `e64afe83-10c6-427c-bc6c-9a51069bea14`, turns 2-5 (2026-08-14): share the contract across Designer, Requirements Validator, Judge, Implementor, and reviewers with at most four admitted calls per run.
+- Epic `bcece1` accepted simplified cut and initial execution policy.
+- [2026-08-22 plan simplification review](../../epics/2026-08-22-plan-simplification-review.md): keep the pure planner and run-scoped adapter; reject a durable fleet platform.
 
-Operator comparison against a parallel implementation of the same ideas (2026-08-08), which prints
-an invocation plan before the review run: concerns selected, model per concern, what was dropped by
-the cap, and estimated waves.
+## Existing owners reused
 
-## The gap
+- `docs/architecture-notes/arch-review-run-v1.md`: frozen review tasks, publication, and retained evidence remain authoritative.
+- `docs/design-notes/architecture/review-reporting.design.md`: review task and attendance boundaries.
+- `docs/design-notes/architecture/plan-workflow.design.md`: plan state, typed evidence, and plugin distribution.
+- Existing review agents and concern definitions are reused unchanged.
 
-`plugins/code-review/skills/cr/SKILL.md` L57 asks the orchestrator to add a todo per dispatch, so
-the fan-out becomes visible *as it happens*. `scripts/skalary/Build-ReviewReport.ps1` L244 reports
-`Dispatched N of M budgeted invocations` *after* the run. Neither is a statement of what the run
-intends to do before it starts.
+## Dependency rationale
 
-The part that matters most is **what was dropped**. `tests/skalary/DispatchGuide.Tests.ps1`
-`test:dispatch-budget-reported` confirms the 28-invocation budget is *reported, not enforced*, and
-concern selection scales with change size (dispatch-guide §4). So concerns can fall out of a run
-with nothing stating which ones, or why. The operator cannot tell a deliberately narrowed review
-from a silently truncated one.
-
-## Prior art
-
-- `plugins/code-review/skills/cr/assets/dispatch-guide.md` §4 — scope tiers and concern sets.
-- `tests/skalary/DispatchGuide.Tests.ps1` — `test:dispatch-guide-scaling-thresholds`,
-  `test:dispatch-budget-reported`.
-- `scripts/skalary/Build-ReviewReport.ps1` — post-run invocation count.
-- `plugins/design-review/skills/dr/SKILL.md` — the same dispatch shape on the design-review surface;
-  whatever lands here has to land there too.
-
-## Note
-
-Independent of sibling `ca8ba8 review-corroboration-truth`. That plan makes the report honest about
-what *did* happen; this one makes the run legible about what *will* happen. Neither blocks the
-other, but the two together are what "the review describes itself truthfully" means.
+- `57cc2c` supplies confirmed planning context consumed by `/cip` and downstream workflows.
+- `6a629b` supplies the vertical phase/checkpoint loop into which implementation roles are dispatched.
+- Archived `c21cdc` is the delivered review-run v1 authority consumed by the CR/DR adapter; because it is complete, the explicit contract edge adds no active blockage.
+- No dependency on consumer-install, concern-generation, or durable fleet infrastructure is required.

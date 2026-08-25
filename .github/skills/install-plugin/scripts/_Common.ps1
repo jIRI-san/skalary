@@ -68,6 +68,218 @@ function Resolve-RegistryPath {
     throw "No skalary registry found under '$RepoRoot' (looked for registry.json and scripts/skalary/registry.json). This is not a skalary-managed repo - run scripts/skalary/bootstrap.ps1 first, or pass -RegistryPath."
 }
 
+function Assert-PluginName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    if ($PluginName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw 'Plugin name must contain only lowercase letters, digits, and hyphens, and must start with a letter or digit.'
+    }
+}
+
+function Get-StringSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Value
+    )
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    return [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
+function ConvertTo-CanonicalGithubRepository {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Repository
+    )
+
+    $value = $Repository.Trim()
+    $owner = $null
+    $name = $null
+
+    if ($value -match '^github\.com/(?<owner>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/(?<name>[A-Za-z0-9._-]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    elseif ($value -match '^(?<owner>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/(?<name>[A-Za-z0-9._-]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    elseif ($value -match '^(?:[^@\s]+@)?github\.com:(?<owner>[^/\s]+)/(?<name>[^/\s]+?)(?:\.git)?$') {
+        $owner = $Matches.owner
+        $name = $Matches.name
+    }
+    else {
+        $uri = $null
+        if (-not [System.Uri]::TryCreate($value, [System.UriKind]::Absolute, [ref]$uri) -or
+            $uri.Host -ne 'github.com') {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+
+        $validTransport = switch ($uri.Scheme.ToLowerInvariant()) {
+            'https' { $uri.IsDefaultPort -or $uri.Port -eq 443 }
+            'http' { $uri.IsDefaultPort -or $uri.Port -eq 80 }
+            'ssh' { $uri.Port -eq -1 -or $uri.Port -eq 22 }
+            'git' { $uri.Port -eq -1 -or $uri.Port -eq 9418 }
+            default { $false }
+        }
+        if (-not $validTransport) {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+
+        $segments = @($uri.AbsolutePath.Trim('/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries))
+        if ($segments.Count -ne 2) {
+            throw 'Repository source is not a supported GitHub repository identity.'
+        }
+        $owner = $segments[0]
+        $name = $segments[1] -replace '\.git$', ''
+    }
+
+    if ($owner -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$' -or
+        $name -notmatch '^[A-Za-z0-9._-]+$') {
+        throw 'Repository source is not a supported GitHub repository identity.'
+    }
+
+    return "github.com/$($owner.ToLowerInvariant())/$($name.ToLowerInvariant())"
+}
+
+function New-PluginSourceIdentity {
+    [CmdletBinding(DefaultParameterSetName = 'Github')]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Github')]
+        [string]$Repository,
+
+        [Parameter(Mandatory, ParameterSetName = 'Local')]
+        [string]$LocalPath
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Local') {
+        $canonicalPath = [System.IO.Path]::GetFullPath($LocalPath)
+        return [pscustomobject][ordered]@{
+            version = 1
+            kind = 'local'
+            identity = "sha256:$(Get-StringSha256 -Value $canonicalPath)"
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+        version = 1
+        kind = 'github'
+        identity = ConvertTo-CanonicalGithubRepository -Repository $Repository
+    }
+}
+
+function Assert-PluginSourceIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $SourceIdentity
+    )
+
+    $properties = @($SourceIdentity.PSObject.Properties.Name)
+    $version = $SourceIdentity.version
+    $isIntegerVersion = ($version -is [byte] -or
+        $version -is [sbyte] -or
+        $version -is [int16] -or
+        $version -is [uint16] -or
+        $version -is [int32] -or
+        $version -is [uint32] -or
+        $version -is [int64] -or
+        $version -is [uint64])
+    if ($properties.Count -ne 3 -or
+        $properties -notcontains 'version' -or
+        $properties -notcontains 'kind' -or
+        $properties -notcontains 'identity' -or
+        -not $isIntegerVersion -or
+        $version -ne 1) {
+        throw 'Plugin source identity has an unsupported or ambiguous shape.'
+    }
+
+    $kind = [string]$SourceIdentity.kind
+    $identity = [string]$SourceIdentity.identity
+    if ($kind -ceq 'github') {
+        if ($identity -cne (ConvertTo-CanonicalGithubRepository -Repository $identity)) {
+            throw 'GitHub plugin source identity is not canonical.'
+        }
+    }
+    elseif ($kind -ceq 'local') {
+        if ($identity -cnotmatch '^sha256:[a-f0-9]{64}$') {
+            throw 'Local plugin source identity is invalid.'
+        }
+    }
+    else {
+        throw 'Plugin source identity kind is unsupported.'
+    }
+}
+
+function Resolve-PluginReceiptSourceIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Receipt
+    )
+
+    if ($Receipt.PSObject.Properties.Name -contains 'sourceIdentity') {
+        Assert-PluginSourceIdentity -SourceIdentity $Receipt.sourceIdentity
+        return $Receipt.sourceIdentity
+    }
+
+    if ($Receipt.PSObject.Properties.Name -notcontains 'source' -or
+        $Receipt.PSObject.Properties.Name -notcontains 'ref') {
+        throw 'Legacy plugin receipt source identity is missing and cannot be reconciled safely.'
+    }
+
+    $legacy = [string]$Receipt.source
+    $ref = [string]$Receipt.ref
+    if ([string]::IsNullOrWhiteSpace($legacy) -or
+        $ref -notmatch '^[a-f0-9]{40}([a-f0-9]{24})?$') {
+        throw 'Legacy plugin receipt source identity is ambiguous and requires an explicit migration.'
+    }
+
+    $suffix = "@$ref"
+    $label = if ($legacy.EndsWith($suffix, [System.StringComparison]::Ordinal) -and
+        $legacy.Length -gt $suffix.Length) {
+        $legacy.Substring(0, $legacy.Length - $suffix.Length)
+    }
+    else {
+        $legacy
+    }
+    if ($label.StartsWith('remote:', [System.StringComparison]::Ordinal)) {
+        return New-PluginSourceIdentity -Repository $label.Substring('remote:'.Length)
+    }
+    if ($label.StartsWith('local:', [System.StringComparison]::Ordinal)) {
+        return New-PluginSourceIdentity -LocalPath $label.Substring('local:'.Length)
+    }
+    try {
+        return New-PluginSourceIdentity -Repository $label
+    }
+    catch {
+        throw 'Legacy plugin receipt source identity is ambiguous and requires an explicit migration.'
+    }
+}
+
+function Test-PluginSourceIdentityEqual {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Left,
+
+        [Parameter(Mandatory)]
+        $Right
+    )
+
+    Assert-PluginSourceIdentity -SourceIdentity $Left
+    Assert-PluginSourceIdentity -SourceIdentity $Right
+    return ([int]$Left.version -eq [int]$Right.version -and
+        [string]$Left.kind -ceq [string]$Right.kind -and
+        [string]$Left.identity -ceq [string]$Right.identity)
+}
+
 function Test-GithubRelativePath {
     [CmdletBinding()]
     param(
@@ -435,7 +647,1964 @@ function Write-JsonFileStable {
 
     $sorted = ConvertTo-SortedObject -InputObject $InputObject
     $json = $sorted | ConvertTo-Json -Depth 100
-    Set-Content -LiteralPath $Path -Value "$json`n" -Encoding utf8
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $directory = Split-Path -Parent $fullPath
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        throw "JSON destination directory not found: $directory"
+    }
+    $tempPath = Join-Path $directory (".$([System.IO.Path]::GetFileName($fullPath)).$([guid]::NewGuid().ToString('N')).tmp")
+    $stream = $null
+    try {
+        $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes("$json`n")
+        $stream = [System.IO.File]::Open(
+            $tempPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None)
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+        $stream.Dispose()
+        $stream = $null
+        [System.IO.File]::Move($tempPath, $fullPath, $true)
+    }
+    finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+        if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
+            Remove-Item -LiteralPath $tempPath -Force
+        }
+    }
+}
+
+function Get-PluginRetirementStateSchema {
+    [CmdletBinding()]
+    param()
+
+    return @'
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "status", "transactionId", "updatedAt", "tombstoneSha256", "prior", "affectedFiles", "remedy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "status": { "enum": ["preview", "applying", "retired", "residue", "failed"] },
+    "transactionId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "tombstoneSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "prior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceIdentity", "ref", "version"],
+      "properties": {
+        "sourceIdentity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "kind", "identity"],
+          "properties": {
+            "version": { "const": 1 },
+            "kind": { "enum": ["github", "local"] },
+            "identity": {
+              "type": "string",
+              "pattern": "^(github\\.com/[a-z0-9-]+/[a-z0-9._-]+|sha256:[a-f0-9]{64})$"
+            }
+          }
+        },
+        "ref": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+        }
+      }
+    },
+    "affectedFiles": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dest", "expectedSha256", "observedSha256", "outcome"],
+        "properties": {
+          "dest": { "type": "string", "minLength": 1 },
+          "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "observedSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "outcome": { "enum": ["pending", "removed", "residue"] }
+        }
+      }
+    },
+    "manualResidue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "remedy"],
+        "properties": {
+          "kind": { "enum": ["scaffold", "copilot-cli", "approval-key"] },
+          "path": { "type": "string", "minLength": 1 },
+          "remedy": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "terminalOutcome": { "enum": ["retired", "residue", "manual-required"] },
+    "replayCursor": { "type": "integer", "minimum": 0 },
+    "remedy": { "type": "string" },
+    "error": { "type": "string" }
+  }
+}
+'@
+}
+
+function Get-PluginRetirementStatePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    Assert-PluginName -PluginName $PluginName
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ".skalary/retirements/$PluginName.json"
+}
+
+function Assert-GithubStatePathSafe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $githubRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot '.github'))
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    $relative = [System.IO.Path]::GetRelativePath($githubRoot, $candidate)
+    if ($relative.StartsWith('..') -or [System.IO.Path]::IsPathRooted($relative)) {
+        throw 'Managed state path escapes the .github root.'
+    }
+
+    $current = $githubRoot
+    foreach ($segment in @($relative.Split(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringSplitOptions]::RemoveEmptyEntries))) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+                throw "Managed state path traverses a link or reparse point at '$current'."
+            }
+        }
+        $current = Join-Path $current $segment
+    }
+
+    if (Test-Path -LiteralPath $current) {
+        $item = Get-Item -LiteralPath $current -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+            throw "Managed state path resolves to a link or reparse point at '$current'."
+        }
+    }
+}
+
+function Assert-PluginRetirementStatePathSafe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $Path
+}
+
+function Test-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State
+    )
+
+    $json = ConvertTo-SortedObject -InputObject $State | ConvertTo-Json -Depth 100
+    if (-not ($json | Test-Json -Schema (Get-PluginRetirementStateSchema) -ErrorAction SilentlyContinue)) {
+        throw 'Plugin retirement state does not satisfy the version 1 schema.'
+    }
+    Assert-PluginName -PluginName ([string]$State.name)
+    Assert-PluginSourceIdentity -SourceIdentity $State.prior.sourceIdentity
+
+    foreach ($entry in @($State.affectedFiles)) {
+        if (-not (Test-GithubRelativePath -RelativePath ([string]$entry.dest))) {
+            throw 'Plugin retirement state contains an invalid affected destination.'
+        }
+    }
+}
+
+function Write-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $State
+    )
+
+    Test-PluginRetirementState -State $State
+    $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName ([string]$State.name)
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    $stateRoot = Split-Path -Parent $statePath
+    if (-not (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $stateRoot -Force)
+    }
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    Write-JsonFileStable -Path $statePath -InputObject $State
+    return $statePath
+}
+
+function Read-PluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $PluginName
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+        return $null
+    }
+
+    Assert-PluginRetirementStatePathSafe -RepoRoot $RepoRoot -Path $statePath
+    $state = Read-JsonFile -Path $statePath
+    Test-PluginRetirementState -State $state
+    if ([string]$state.name -cne $PluginName) {
+        throw 'Plugin retirement state name does not match its confined file name.'
+    }
+    return $state
+}
+
+function Get-PluginRetirementSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State,
+
+        [ValidateRange(0, 64)]
+        [int]$MaxPaths = 8
+    )
+
+    Test-PluginRetirementState -State $State
+    $allPaths = @($State.affectedFiles | ForEach-Object { [string]$_.dest })
+    $shown = @($allPaths | Select-Object -First $MaxPaths)
+    return [pscustomobject][ordered]@{
+        name = [string]$State.name
+        status = [string]$State.status
+        totalPaths = $allPaths.Count
+        paths = $shown
+        omittedPaths = [Math]::Max(0, $allPaths.Count - $shown.Count)
+        remedy = [string]$State.remedy
+    }
+}
+
+function Get-StableJsonSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $InputObject
+    )
+
+    $json = ConvertTo-SortedObject -InputObject $InputObject | ConvertTo-Json -Depth 100 -Compress
+    return Get-StringSha256 -Value $json
+}
+
+function Invoke-ParentDirectoryPrune {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Directories,
+
+        [Parameter(Mandatory)]
+        [string]$GithubRoot
+    )
+
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $normalizedGithubRoot = [System.IO.Path]::GetFullPath($GithubRoot).TrimEnd($separator)
+    $rootWithSeparator = $normalizedGithubRoot + $separator
+    $queue = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($directory in $Directories) {
+        if ([string]::IsNullOrWhiteSpace($directory)) {
+            continue
+        }
+        $current = [System.IO.Path]::GetFullPath($directory)
+        while (-not [string]::IsNullOrWhiteSpace($current) -and
+            $current.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Assert-GithubStatePathSafe -RepoRoot (Split-Path -Parent $normalizedGithubRoot) -Path $current
+            if (-not $queue.Add($current)) {
+                break
+            }
+            $parent = Split-Path -Parent $current
+            if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $current) {
+                break
+            }
+            $current = $parent
+        }
+    }
+
+    foreach ($directory in ($queue | Sort-Object Length -Descending)) {
+        Assert-GithubStatePathSafe -RepoRoot (Split-Path -Parent $normalizedGithubRoot) -Path $directory
+        if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+            continue
+        }
+        if (@(Get-ChildItem -LiteralPath $directory -Force).Count -eq 0) {
+            Remove-Item -LiteralPath $directory -Force
+        }
+    }
+}
+
+function Invoke-WithPluginMutationLock {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$Body
+    )
+
+    $stream = Enter-PluginMutationLock -RepoRoot $RepoRoot
+    try {
+        return & $Body
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
+function Enter-PluginMutationLock {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    $lockPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath '.skalary/mutation.lock'
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $lockPath
+    $lockRoot = Split-Path -Parent $lockPath
+    if (-not (Test-Path -LiteralPath $lockRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $lockRoot -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $lockPath
+
+    return [System.IO.File]::Open(
+        $lockPath,
+        [System.IO.FileMode]::OpenOrCreate,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None)
+}
+
+function Get-PluginRemovalJournalSchema {
+    [CmdletBinding()]
+    param()
+
+    return @'
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "transactionId", "pluginName", "mode", "sourceIdentity", "operationRoot", "receiptBefore", "receiptBeforeSha256", "receiptAfter", "receiptAfterSha256", "entries", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "transactionId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+    "pluginName": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "mode": { "enum": ["explicit", "retirement"] },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "kind", "identity"],
+      "properties": {
+        "version": { "const": 1 },
+        "kind": { "enum": ["github", "local"] },
+        "identity": { "type": "string", "pattern": "^(github\\.com/[a-z0-9-]+/[a-z0-9._-]+|sha256:[a-f0-9]{64})$" }
+      }
+    },
+    "operationRoot": { "type": "string", "pattern": "^\\.skalary/tmp/removal-[a-f0-9]{32}$" },
+    "receiptBefore": { "type": "object" },
+    "receiptBeforeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "receiptAfter": { "type": ["object", "null"] },
+    "receiptAfterSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dest", "expectedSha256", "originalSha256", "backupRelativePath", "backupSha256", "phase"],
+        "properties": {
+          "dest": { "type": "string", "minLength": 1 },
+          "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "originalSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "backupRelativePath": { "type": "string", "minLength": 1 },
+          "backupSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "phase": { "enum": ["planned", "backed-up", "deleted"] }
+        }
+      }
+    },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}
+'@
+}
+
+function Get-PluginRemovalJournalPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    Assert-PluginName -PluginName $PluginName
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ".skalary/journals/remove-$PluginName.json"
+}
+
+function Test-PluginReceiptShape {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [string]$ExpectedPluginName,
+
+        $ExpectedSourceIdentity
+    )
+
+    $allowed = @('name', 'version', 'source', 'sourceIdentity', 'ref', 'installedAt', 'degraded', 'evalStatus', 'files')
+    $properties = @($Receipt.PSObject.Properties.Name)
+    foreach ($property in $properties) {
+        if ($property -notin $allowed) {
+            throw "Plugin receipt contains unsupported property '$property'."
+        }
+    }
+    foreach ($required in @('name', 'version', 'ref', 'installedAt', 'files')) {
+        if ($properties -notcontains $required) {
+            throw "Plugin receipt is missing required property '$required'."
+        }
+    }
+    Assert-PluginName -PluginName ([string]$Receipt.name)
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPluginName) -and
+        [string]$Receipt.name -cne $ExpectedPluginName) {
+        throw 'Plugin receipt identity does not match the requested plugin.'
+    }
+    [void](ConvertTo-SemVer -Version ([string]$Receipt.version))
+    if ([string]$Receipt.ref -cnotmatch '^[a-f0-9]{40}([a-f0-9]{24})?$') {
+        throw 'Plugin receipt immutable ref is invalid.'
+    }
+    $installedAt = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse(
+            [string]$Receipt.installedAt,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::RoundtripKind,
+            [ref]$installedAt)) {
+        throw 'Plugin receipt installedAt timestamp is invalid.'
+    }
+
+    $sourceIdentity = Resolve-PluginReceiptSourceIdentity -Receipt $Receipt
+    if ($null -ne $ExpectedSourceIdentity -and
+        -not (Test-PluginSourceIdentityEqual -Left $sourceIdentity -Right $ExpectedSourceIdentity)) {
+        throw 'Plugin receipt source identity does not match the expected recovery source.'
+    }
+
+    $files = @($Receipt.files)
+    if ($files.Count -eq 0) {
+        throw 'Plugin receipt must own at least one file.'
+    }
+    $destinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in $files) {
+        $entryProperties = @($entry.PSObject.Properties.Name)
+        if ($entryProperties.Count -ne 3 -or
+            $entryProperties -notcontains 'dest' -or
+            $entryProperties -notcontains 'sha256' -or
+            $entryProperties -notcontains 'outcome') {
+            throw 'Plugin receipt file entry has an unsupported shape.'
+        }
+        $dest = [string]$entry.dest
+        if (-not $destinations.Add($dest) -or -not (Test-GithubRelativePath -RelativePath $dest)) {
+            throw "Plugin receipt contains an invalid or duplicate destination '$dest'."
+        }
+        if ([string]$entry.sha256 -cnotmatch '^[a-f0-9]{64}$') {
+            throw "Plugin receipt contains an invalid hash for '$dest'."
+        }
+        if ([string]$entry.outcome -cnotin @('installed', 'updated', 'skipped-modified')) {
+            throw "Plugin receipt contains an invalid outcome for '$dest'."
+        }
+    }
+    return $sourceIdentity
+}
+
+function Test-PluginRemovalJournal {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Journal
+    )
+
+    $json = ConvertTo-SortedObject -InputObject $Journal | ConvertTo-Json -Depth 100
+    if (-not ($json | Test-Json -Schema (Get-PluginRemovalJournalSchema) -ErrorAction SilentlyContinue)) {
+        throw 'Plugin removal journal does not satisfy the version 1 schema.'
+    }
+
+    Assert-PluginName -PluginName ([string]$Journal.pluginName)
+    Assert-PluginSourceIdentity -SourceIdentity $Journal.sourceIdentity
+    [void](Test-PluginReceiptShape -Receipt $Journal.receiptBefore -ExpectedPluginName ([string]$Journal.pluginName) -ExpectedSourceIdentity $Journal.sourceIdentity)
+    if ($null -ne $Journal.receiptAfter) {
+        [void](Test-PluginReceiptShape -Receipt $Journal.receiptAfter -ExpectedPluginName ([string]$Journal.pluginName) -ExpectedSourceIdentity $Journal.sourceIdentity)
+    }
+    $expectedOperationRoot = ".skalary/tmp/removal-$([string]$Journal.transactionId)"
+    if ([string]$Journal.operationRoot -cne $expectedOperationRoot) {
+        throw 'Plugin removal journal operation root does not match its transaction identity.'
+    }
+    if ((Get-StableJsonSha256 -InputObject $Journal.receiptBefore) -cne [string]$Journal.receiptBeforeSha256) {
+        throw 'Plugin removal journal pre-state receipt hash is invalid.'
+    }
+    if ($null -ne $Journal.receiptAfter) {
+        if ([string]::IsNullOrWhiteSpace([string]$Journal.receiptAfterSha256) -or
+            (Get-StableJsonSha256 -InputObject $Journal.receiptAfter) -cne [string]$Journal.receiptAfterSha256) {
+            throw 'Plugin removal journal post-state receipt hash is invalid.'
+        }
+    }
+    elseif ($null -ne $Journal.receiptAfterSha256) {
+        throw 'Plugin removal journal has a post-state hash without a post-state receipt.'
+    }
+
+    $operationRoot = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$Journal.operationRoot)
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $operationRoot
+    $receiptBeforeByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($receiptEntry in @($Journal.receiptBefore.files)) {
+        $receiptBeforeByDest.Add([string]$receiptEntry.dest, $receiptEntry)
+    }
+    $index = 0
+    $destinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in @($Journal.entries)) {
+        $dest = [string]$entry.dest
+        if (-not $destinations.Add($dest)) {
+            throw "Plugin removal journal contains duplicate destination '$dest'."
+        }
+        if (-not $receiptBeforeByDest.ContainsKey($dest) -or
+            [string]$receiptBeforeByDest[$dest].sha256 -cne [string]$entry.expectedSha256) {
+            throw "Plugin removal journal destination '$dest' is not owned by its receipt pre-state."
+        }
+        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        $expectedBackup = "$([string]$Journal.operationRoot)/backups/$('{0:d5}.bak' -f $index)"
+        if ([string]$entry.backupRelativePath -cne $expectedBackup) {
+            throw "Plugin removal journal backup path for '$dest' is not transaction-derived."
+        }
+        $backupPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $expectedBackup
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $backupPath
+        if ([string]$entry.phase -ne 'planned') {
+            if (-not (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
+                throw "Plugin removal journal backup is missing for '$dest'."
+            }
+            $actualBackupSha = Get-FileSha256 -Path $backupPath
+            if ($actualBackupSha -cne [string]$entry.backupSha256 -or
+                $actualBackupSha -cne [string]$entry.originalSha256) {
+                throw "Plugin removal journal backup hash is invalid for '$dest'."
+            }
+        }
+        $index++
+    }
+
+    if ($null -ne $Journal.receiptAfter) {
+        $receiptAfterByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+        foreach ($receiptEntry in @($Journal.receiptAfter.files)) {
+            $receiptAfterByDest.Add([string]$receiptEntry.dest, $receiptEntry)
+        }
+        foreach ($dest in $receiptBeforeByDest.Keys) {
+            if ($destinations.Contains($dest)) {
+                if ($receiptAfterByDest.ContainsKey($dest)) {
+                    throw "Plugin removal journal post-state still owns deleted destination '$dest'."
+                }
+                continue
+            }
+            if (-not $receiptAfterByDest.ContainsKey($dest) -or
+                [string]$receiptAfterByDest[$dest].sha256 -cne [string]$receiptBeforeByDest[$dest].sha256) {
+                throw "Plugin removal journal post-state changed unrelated destination '$dest'."
+            }
+        }
+        if ($receiptAfterByDest.Count -ne ($receiptBeforeByDest.Count - $destinations.Count)) {
+            throw 'Plugin removal journal post-state introduced unrelated receipt ownership.'
+        }
+    }
+}
+
+function Write-PluginRemovalJournal {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Journal
+    )
+
+    $Journal.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    Test-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $Journal
+    $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName ([string]$Journal.pluginName)
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+    $journalRoot = Split-Path -Parent $journalPath
+    if (-not (Test-Path -LiteralPath $journalRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $journalRoot -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+    Write-JsonFileStable -Path $journalPath -InputObject $Journal
+    return $journalPath
+}
+
+function Read-PluginRemovalJournal {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName
+    )
+
+    $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $PluginName
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+    if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
+        return $null
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+    $journal = Read-JsonFile -Path $journalPath
+    Test-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal
+    if ([string]$journal.pluginName -cne $PluginName) {
+        throw 'Plugin removal journal identity does not match its confined file name.'
+    }
+    return $journal
+}
+
+function Remove-PluginRemovalTransactionArtifacts {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Journal
+    )
+
+    $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName ([string]$Journal.pluginName)
+    $operationRoot = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$Journal.operationRoot)
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $operationRoot
+    if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+        Remove-Item -LiteralPath $journalPath -Force
+    }
+    if (Test-Path -LiteralPath $operationRoot -PathType Container) {
+        Remove-Item -LiteralPath $operationRoot -Recurse -Force
+    }
+}
+
+function Invoke-PluginRemovalRecovery {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName,
+
+        $ExpectedSourceIdentity,
+
+        [string]$ExpectedRef,
+
+        [string]$ExpectedVersion
+    )
+
+    $journal = Read-PluginRemovalJournal -RepoRoot $RepoRoot -PluginName $PluginName
+    if ($null -eq $journal) {
+        return $false
+    }
+    if ($null -ne $ExpectedSourceIdentity -and
+        -not (Test-PluginSourceIdentityEqual -Left $journal.sourceIdentity -Right $ExpectedSourceIdentity)) {
+        throw "Plugin removal journal source identity does not match recovery scope for '$PluginName'."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedRef) -and
+        [string]$journal.receiptBefore.ref -cne $ExpectedRef) {
+        throw "Plugin removal journal immutable ref does not match recovery scope for '$PluginName'."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion) -and
+        [string]$journal.receiptBefore.version -cne $ExpectedVersion) {
+        throw "Plugin removal journal version does not match recovery scope for '$PluginName'."
+    }
+
+    $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
+    if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
+        $currentReceipt = Read-JsonFile -Path $receiptPath
+        $currentSha = Get-StableJsonSha256 -InputObject $currentReceipt
+        $allowed = $currentSha -ceq [string]$journal.receiptBeforeSha256
+        if (-not $allowed -and $null -ne $journal.receiptAfterSha256) {
+            $allowed = $currentSha -ceq [string]$journal.receiptAfterSha256
+        }
+        if (-not $allowed) {
+            throw "Plugin '$PluginName' receipt changed across removal recovery; refusing mixed-version rollback."
+        }
+    }
+    elseif ($null -ne $journal.receiptAfter) {
+        throw "Plugin '$PluginName' receipt is missing across a partial removal transaction."
+    }
+    elseif (@($journal.entries).Count -ne @($journal.receiptBefore.files).Count) {
+        throw "Plugin '$PluginName' journal has no post-state receipt and does not cover every pre-state destination."
+    }
+
+    foreach ($entry in @($journal.entries)) {
+        if ([string]$entry.phase -eq 'planned') {
+            continue
+        }
+        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+        $backupPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.backupRelativePath)
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $backupPath
+        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+            if ((Get-FileSha256 -Path $targetPath) -cne [string]$entry.originalSha256) {
+                throw "Plugin removal recovery found unexpected content at '$([string]$entry.dest)'."
+            }
+            continue
+        }
+        $targetRoot = Split-Path -Parent $targetPath
+        if (-not (Test-Path -LiteralPath $targetRoot -PathType Container)) {
+            [void](New-Item -ItemType Directory -Path $targetRoot -Force)
+        }
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        Copy-Item -LiteralPath $backupPath -Destination $targetPath -Force
+        if ((Get-FileSha256 -Path $targetPath) -cne [string]$entry.originalSha256) {
+            throw "Plugin removal recovery failed to restore '$([string]$entry.dest)'."
+        }
+    }
+
+    $receiptRoot = Split-Path -Parent $receiptPath
+    if (-not (Test-Path -LiteralPath $receiptRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $receiptRoot -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
+    Write-JsonFileStable -Path $receiptPath -InputObject $journal.receiptBefore
+    if ((Get-StableJsonSha256 -InputObject (Read-JsonFile -Path $receiptPath)) -cne [string]$journal.receiptBeforeSha256) {
+        throw "Plugin '$PluginName' receipt recovery verification failed."
+    }
+
+    Remove-PluginRemovalTransactionArtifacts -RepoRoot $RepoRoot -Journal $journal
+    return $true
+}
+
+function Reset-FailedPluginRetirementState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName,
+
+        [switch]$LockHeld
+    )
+
+    $operation = {
+        $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $PluginName
+        $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
+        $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $PluginName
+        foreach ($path in @($statePath, $receiptPath, $journalPath)) {
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $path
+        }
+
+        $state = Read-PluginRetirementState -RepoRoot $RepoRoot -PluginName $PluginName
+        if ($null -eq $state -or [string]$state.status -cne 'failed') {
+            throw "Plugin '$PluginName' has no failed retirement state to recover."
+        }
+        $expectedSource = $state.prior.sourceIdentity
+        if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+            [void](Invoke-PluginRemovalRecovery -RepoRoot $RepoRoot -PluginName $PluginName -ExpectedSourceIdentity $expectedSource -ExpectedRef ([string]$state.prior.ref) -ExpectedVersion ([string]$state.prior.version))
+        }
+
+        $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $PluginName
+        if ($null -eq $receipt -or
+            -not (Test-PluginSourceIdentityEqual -Left (Resolve-PluginReceiptSourceIdentity -Receipt $receipt) -Right $expectedSource) -or
+            [string]$receipt.ref -cne [string]$state.prior.ref -or
+            [string]$receipt.version -cne [string]$state.prior.version) {
+            throw "Plugin '$PluginName' recovery pre-state does not match the failed retirement authority."
+        }
+
+        $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+        foreach ($entry in @($receipt.files)) {
+            $receiptByDest.Add([string]$entry.dest, $entry)
+        }
+        foreach ($entry in @($state.affectedFiles)) {
+            $dest = [string]$entry.dest
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            if (-not $receiptByDest.ContainsKey($dest) -or
+                [string]$receiptByDest[$dest].sha256 -cne [string]$entry.expectedSha256) {
+                throw "Plugin '$PluginName' recovery receipt does not own expected destination '$dest'."
+            }
+            $observed = [string]$entry.observedSha256
+            if ([string]::IsNullOrWhiteSpace($observed)) {
+                if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                    throw "Plugin '$PluginName' recovery expected '$dest' to be absent."
+                }
+            }
+            elseif (-not (Test-Path -LiteralPath $targetPath -PathType Leaf) -or
+                (Get-FileSha256 -Path $targetPath) -cne $observed) {
+                throw "Plugin '$PluginName' recovery content does not match the recorded pre-state for '$dest'."
+            }
+        }
+
+        $state.status = 'preview'
+        $state.transactionId = [guid]::NewGuid().ToString('N')
+        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        if ($state.PSObject.Properties.Name -contains 'error') {
+            $state.PSObject.Properties.Remove('error')
+        }
+        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+        return $state
+    }
+    if ($LockHeld) {
+        return & $operation
+    }
+    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
+}
+
+function Get-RetirementRemovalAuthority {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $PayloadSet
+    )
+
+    $payloadSource = [pscustomobject][ordered]@{
+        version = 1
+        kind = [string]$PayloadSet.sourceKind
+        identity = [string]$PayloadSet.sourceIdentity
+    }
+    Assert-PluginSourceIdentity -SourceIdentity $payloadSource
+    $receiptSource = Resolve-PluginReceiptSourceIdentity -Receipt $Receipt
+    if (-not (Test-PluginSourceIdentityEqual -Left $receiptSource -Right $payloadSource)) {
+        throw 'Retirement payload source does not match the installed receipt source.'
+    }
+    if ([string]$Receipt.ref -cne [string]$PayloadSet.ref -or
+        [string]$Receipt.version -cne [string]$PayloadSet.version) {
+        throw 'Retirement payload ref/version does not match the installed receipt pre-state.'
+    }
+
+    $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in @($Receipt.files)) {
+        $dest = [string]$entry.dest
+        if ($receiptByDest.ContainsKey($dest)) {
+            throw "Installed receipt contains duplicate destination '$dest'."
+        }
+        $receiptByDest.Add($dest, $entry)
+    }
+
+    $authority = @()
+    $payloadDestinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($file in @($PayloadSet.files)) {
+        $dest = [string]$file.dest
+        if (-not $payloadDestinations.Add($dest)) {
+            throw "Retirement payload contains duplicate destination '$dest'."
+        }
+        if ($receiptByDest.ContainsKey($dest) -and
+            [string]$receiptByDest[$dest].sha256 -ceq [string]$file.sha256) {
+            $authority += , $receiptByDest[$dest]
+        }
+    }
+
+    return [pscustomobject]@{
+        Entries = $authority
+        SourceIdentity = $payloadSource
+    }
+}
+
+function Invoke-PluginRemovalPrimitive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName,
+
+        [ValidateSet('explicit', 'retirement')]
+        [string]$Mode = 'explicit',
+
+        [switch]$Force,
+
+        $PayloadSet,
+
+        [switch]$LockHeld,
+
+        [ValidateSet('', 'after-journal', 'after-backup', 'after-delete', 'after-receipt', 'pause-after-delete')]
+        [string]$FaultAt = ''
+    )
+
+    Assert-PluginName -PluginName $PluginName
+    if ($Mode -eq 'retirement' -and $null -eq $PayloadSet) {
+        throw 'Retirement removal requires a tombstone payload set.'
+    }
+    if ($Mode -eq 'retirement' -and $Force) {
+        throw 'Automatic retirement cannot use force removal.'
+    }
+
+    $operation = {
+        $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
+        $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $PluginName
+        $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $PluginName
+        foreach ($stateFile in @($receiptPath, $journalPath, $statePath)) {
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $stateFile
+        }
+
+        $existingJournal = Read-PluginRemovalJournal -RepoRoot $RepoRoot -PluginName $PluginName
+        if ($null -ne $existingJournal) {
+            $expectedRecoverySource = if ($Mode -eq 'retirement') {
+                [pscustomobject][ordered]@{
+                    version = 1
+                    kind = [string]$PayloadSet.sourceKind
+                    identity = [string]$PayloadSet.sourceIdentity
+                }
+            }
+            else {
+                $null
+            }
+            $expectedRecoveryRef = if ($Mode -eq 'retirement') { [string]$PayloadSet.ref } else { $null }
+            $expectedRecoveryVersion = if ($Mode -eq 'retirement') { [string]$PayloadSet.version } else { $null }
+            [void](Invoke-PluginRemovalRecovery -RepoRoot $RepoRoot -PluginName $PluginName -ExpectedSourceIdentity $expectedRecoverySource -ExpectedRef $expectedRecoveryRef -ExpectedVersion $expectedRecoveryVersion)
+        }
+
+        $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $PluginName
+        if ($null -eq $receipt) {
+            throw "Plugin '$PluginName' is not installed (receipt missing)."
+        }
+        $sourceIdentity = Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $PluginName
+        $authorityEntries = @($receipt.files)
+        if ($Mode -eq 'retirement') {
+            $authority = Get-RetirementRemovalAuthority -Receipt $receipt -PayloadSet $PayloadSet
+            $sourceIdentity = $authority.SourceIdentity
+            $authorityEntries = @($authority.Entries)
+            if ($authorityEntries.Count -eq 0) {
+                return [pscustomobject]@{
+                    PluginName = $PluginName
+                    Mode = $Mode
+                    RemovedCount = 0
+                    ModifiedCount = 0
+                    MissingCount = 0
+                    RemainingCount = @($receipt.files).Count
+                    SourceIdentity = $sourceIdentity
+                }
+            }
+        }
+
+        $authorityByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+        foreach ($entry in $authorityEntries) {
+            $dest = [string]$entry.dest
+            if ($authorityByDest.ContainsKey($dest)) {
+                throw "Removal authority contains duplicate destination '$dest'."
+            }
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            $authorityByDest.Add($dest, $entry)
+        }
+        foreach ($entry in @($receipt.files)) {
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        }
+
+        $removedDestinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $modifiedDestinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $missingDestinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $deleteCandidates = @()
+        foreach ($dest in (Sort-Ordinal -InputObject @($authorityByDest.Keys))) {
+            $entry = $authorityByDest[$dest]
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+            if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+                [void]$missingDestinations.Add($dest)
+                continue
+            }
+            $actualSha = Get-FileSha256 -Path $targetPath
+            if (-not $Force -and
+                ([string]$entry.outcome -ceq 'skipped-modified' -or
+                $actualSha -cne [string]$entry.sha256)) {
+                [void]$modifiedDestinations.Add($dest)
+                continue
+            }
+            $deleteCandidates += , [pscustomobject]@{
+                Dest = $dest
+                ExpectedSha256 = [string]$entry.sha256
+                OriginalSha256 = $actualSha
+                TargetPath = $targetPath
+            }
+        }
+
+        $transactionId = [guid]::NewGuid().ToString('N')
+        $operationRelativeRoot = ".skalary/tmp/removal-$transactionId"
+        $operationRoot = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $operationRelativeRoot
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $operationRoot
+
+        $journalEntries = @()
+        $index = 0
+        foreach ($candidate in $deleteCandidates) {
+            $backupRelativePath = "$operationRelativeRoot/backups/$('{0:d5}.bak' -f $index)"
+            $backupPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $backupRelativePath
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $backupPath
+            $journalEntries += , [pscustomobject][ordered]@{
+                dest = [string]$candidate.Dest
+                expectedSha256 = [string]$candidate.ExpectedSha256
+                originalSha256 = [string]$candidate.OriginalSha256
+                backupRelativePath = $backupRelativePath
+                backupSha256 = $null
+                phase = 'planned'
+            }
+            $index++
+        }
+        foreach ($dest in (Sort-Ordinal -InputObject @($missingDestinations))) {
+            $backupRelativePath = "$operationRelativeRoot/backups/$('{0:d5}.bak' -f $index)"
+            $journalEntries += , [pscustomobject][ordered]@{
+                dest = $dest
+                expectedSha256 = [string]$authorityByDest[$dest].sha256
+                originalSha256 = [string]$authorityByDest[$dest].sha256
+                backupRelativePath = $backupRelativePath
+                backupSha256 = $null
+                phase = 'planned'
+            }
+            $index++
+        }
+
+        $journal = [pscustomobject][ordered]@{
+            schemaVersion = 1
+            transactionId = $transactionId
+            pluginName = $PluginName
+            mode = $Mode
+            sourceIdentity = $sourceIdentity
+            operationRoot = $operationRelativeRoot
+            receiptBefore = $receipt
+            receiptBeforeSha256 = Get-StableJsonSha256 -InputObject $receipt
+            receiptAfter = $null
+            receiptAfterSha256 = $null
+            entries = $journalEntries
+            updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        }
+
+        try {
+            [void](Write-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal)
+            if ($FaultAt -eq 'after-journal') { throw 'Injected plugin removal fault after journal.' }
+            [void](New-Item -ItemType Directory -Path (Join-Path $operationRoot 'backups') -Force)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $operationRoot
+
+            for ($entryIndex = 0; $entryIndex -lt $deleteCandidates.Count; $entryIndex++) {
+                $candidate = $deleteCandidates[$entryIndex]
+                $journalEntry = $journal.entries[$entryIndex]
+                $backupPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$journalEntry.backupRelativePath)
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $backupPath
+                Copy-Item -LiteralPath $candidate.TargetPath -Destination $backupPath -Force
+                $backupSha = Get-FileSha256 -Path $backupPath
+                if ($backupSha -cne [string]$candidate.OriginalSha256) {
+                    throw "Plugin removal backup verification failed for '$([string]$candidate.Dest)'."
+                }
+                $journalEntry.backupSha256 = $backupSha
+                $journalEntry.phase = 'backed-up'
+                [void](Write-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal)
+                if ($FaultAt -eq 'after-backup') { throw 'Injected plugin removal fault after backup.' }
+
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $candidate.TargetPath
+                if ((Get-FileSha256 -Path $candidate.TargetPath) -cne [string]$candidate.OriginalSha256) {
+                    throw "Plugin removal pre-state changed for '$([string]$candidate.Dest)'."
+                }
+                Remove-Item -LiteralPath $candidate.TargetPath -Force
+                [void]$removedDestinations.Add([string]$candidate.Dest)
+                $journalEntry.phase = 'deleted'
+                [void](Write-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal)
+                if ($FaultAt -eq 'after-delete') { throw 'Injected plugin removal fault after delete.' }
+                if ($FaultAt -eq 'pause-after-delete') { Start-Sleep -Seconds 30 }
+            }
+
+            $nextFiles = @()
+            foreach ($entry in @($receipt.files)) {
+                $dest = [string]$entry.dest
+                if ($removedDestinations.Contains($dest) -or $missingDestinations.Contains($dest)) {
+                    continue
+                }
+                $nextOutcome = if ($modifiedDestinations.Contains($dest)) { 'skipped-modified' } else { [string]$entry.outcome }
+                $nextFiles += , [pscustomobject][ordered]@{
+                    dest = $dest
+                    sha256 = [string]$entry.sha256
+                    outcome = $nextOutcome
+                }
+            }
+
+            $nextReceipt = $null
+            if ($nextFiles.Count -gt 0) {
+                $nextReceipt = [ordered]@{}
+                foreach ($property in $receipt.PSObject.Properties) {
+                    if ($property.Name -notin @('files', 'degraded')) {
+                        $nextReceipt[$property.Name] = $property.Value
+                    }
+                }
+                $nextReceipt.files = $nextFiles
+                $nextReceipt.degraded = $true
+                $nextReceipt = [pscustomobject]$nextReceipt
+            }
+            $journal.receiptAfter = $nextReceipt
+            $journal.receiptAfterSha256 = if ($null -ne $nextReceipt) { Get-StableJsonSha256 -InputObject $nextReceipt } else { $null }
+            [void](Write-PluginRemovalJournal -RepoRoot $RepoRoot -Journal $journal)
+
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
+            if ($null -eq $nextReceipt) {
+                if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
+                    Remove-Item -LiteralPath $receiptPath -Force
+                }
+            }
+            else {
+                Write-JsonFileStable -Path $receiptPath -InputObject $nextReceipt
+            }
+            if ($FaultAt -eq 'after-receipt') { throw 'Injected plugin removal fault after receipt.' }
+
+            $deletedParentDirs = @($deleteCandidates | ForEach-Object { Split-Path -Parent $_.TargetPath })
+            Invoke-ParentDirectoryPrune -Directories $deletedParentDirs -GithubRoot (Join-Path $RepoRoot '.github')
+            Remove-PluginRemovalTransactionArtifacts -RepoRoot $RepoRoot -Journal $journal
+
+            return [pscustomobject]@{
+                PluginName = $PluginName
+                Mode = $Mode
+                RemovedCount = $removedDestinations.Count
+                ModifiedCount = $modifiedDestinations.Count
+                MissingCount = $missingDestinations.Count
+                RemainingCount = $nextFiles.Count
+                SourceIdentity = $sourceIdentity
+            }
+        }
+        catch {
+            $failure = $_
+            try {
+                [void](Invoke-PluginRemovalRecovery -RepoRoot $RepoRoot -PluginName $PluginName -ExpectedSourceIdentity $sourceIdentity -ExpectedRef ([string]$receipt.ref) -ExpectedVersion ([string]$receipt.version))
+            }
+            catch {
+                throw "Plugin removal failed and exact recovery was refused: $($failure.Exception.Message) Recovery error: $($_.Exception.Message)"
+            }
+            throw $failure
+        }
+    }
+    if ($LockHeld) {
+        return & $operation
+    }
+    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
+}
+
+function Get-PluginRetirementCursorPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath '.skalary/retirement-cursor.json'
+}
+
+function Get-PluginRetirementSelection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$RetiredPlugins,
+
+        [string]$DirectTarget,
+
+        [ValidateRange(1, 8)]
+        [int]$MaxPlugins = 8
+    )
+
+    $ordered = @(Sort-Ordinal -InputObject $RetiredPlugins -Property 'name')
+    if ($ordered.Count -eq 0) {
+        return [pscustomobject]@{ Selected = @(); NextIndex = 0 }
+    }
+
+    $cursorPath = Get-PluginRetirementCursorPath -RepoRoot $RepoRoot
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    $start = 0
+    if (Test-Path -LiteralPath $cursorPath -PathType Leaf) {
+        $cursor = Read-JsonFile -Path $cursorPath
+        $cursorProperties = @($cursor.PSObject.Properties.Name)
+        if ($cursorProperties.Count -ne 2 -or
+            $cursorProperties -notcontains 'schemaVersion' -or
+            $cursorProperties -notcontains 'nextIndex' -or
+            $cursor.schemaVersion -ne 1 -or
+            ($cursor.nextIndex -isnot [long] -and $cursor.nextIndex -isnot [int]) -or
+            [long]$cursor.nextIndex -lt 0) {
+            throw 'Plugin retirement cursor is invalid.'
+        }
+        $start = [int]([long]$cursor.nextIndex % $ordered.Count)
+    }
+
+    $rotated = @()
+    for ($offset = 0; $offset -lt $ordered.Count; $offset++) {
+        $rotated += , $ordered[($start + $offset) % $ordered.Count]
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DirectTarget)) {
+        $direct = @($rotated | Where-Object { [string]$_.name -ceq $DirectTarget } | Select-Object -First 1)
+        if ($direct.Count -gt 0) {
+            $rotated = @($direct[0]) + @($rotated | Where-Object { [string]$_.name -cne $DirectTarget })
+        }
+    }
+
+    $selected = @($rotated | Select-Object -First $MaxPlugins)
+    $nextIndex = ($start + $selected.Count) % $ordered.Count
+    return [pscustomobject]@{ Selected = $selected; NextIndex = $nextIndex }
+}
+
+function Write-PluginRetirementCursor {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$NextIndex
+    )
+
+    $cursorPath = Get-PluginRetirementCursorPath -RepoRoot $RepoRoot
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    $cursorRoot = Split-Path -Parent $cursorPath
+    if (-not (Test-Path -LiteralPath $cursorRoot -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $cursorRoot -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $cursorPath
+    Write-JsonFileStable -Path $cursorPath -InputObject ([pscustomobject][ordered]@{
+            schemaVersion = 1
+            nextIndex = $NextIndex
+        })
+}
+
+function Get-MatchingPluginRetirementPayload {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $CurrentSourceIdentity
+    )
+
+    $receiptSource = Resolve-PluginReceiptSourceIdentity -Receipt $Receipt
+    if (-not (Test-PluginSourceIdentityEqual -Left $receiptSource -Right $CurrentSourceIdentity)) {
+        return [pscustomobject]@{ Outcome = 'foreign-source'; PayloadSet = $null; SourceIdentity = $receiptSource }
+    }
+
+    foreach ($payloadSet in @($Tombstone.payloadSets)) {
+        $payloadSource = [pscustomobject][ordered]@{
+            version = 1
+            kind = [string]$payloadSet.sourceKind
+            identity = [string]$payloadSet.sourceIdentity
+        }
+        Assert-PluginSourceIdentity -SourceIdentity $payloadSource
+        if ((Test-PluginSourceIdentityEqual -Left $payloadSource -Right $receiptSource) -and
+            [string]$payloadSet.ref -ceq [string]$Receipt.ref -and
+            [string]$payloadSet.version -ceq [string]$Receipt.version) {
+            return [pscustomobject]@{ Outcome = 'match'; PayloadSet = $payloadSet; SourceIdentity = $receiptSource }
+        }
+    }
+    return [pscustomobject]@{ Outcome = 'manual-required'; PayloadSet = $null; SourceIdentity = $receiptSource }
+}
+
+function Get-PluginRetirementAffectedFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $PayloadSet
+    )
+
+    $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in @($Receipt.files)) {
+        $receiptByDest.Add([string]$entry.dest, $entry)
+    }
+
+    $affected = @()
+    foreach ($file in @($PayloadSet.files)) {
+        $dest = [string]$file.dest
+        if (-not $receiptByDest.ContainsKey($dest) -or
+            [string]$receiptByDest[$dest].sha256 -cne [string]$file.sha256) {
+            continue
+        }
+        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
+        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+        $observed = if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+            Get-FileSha256 -Path $targetPath
+        }
+        else {
+            $null
+        }
+        $affected += , [pscustomobject][ordered]@{
+            dest = $dest
+            expectedSha256 = [string]$file.sha256
+            observedSha256 = $observed
+            outcome = 'pending'
+        }
+    }
+    return $affected
+}
+
+function Test-PluginRetirementPreviewCurrent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $State,
+
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [object[]]$AffectedFiles
+    )
+
+    if ([string]$State.status -cne 'preview' -or
+        [string]$State.tombstoneSha256 -cne (Get-StableJsonSha256 -InputObject $Tombstone) -or
+        -not (Test-PluginSourceIdentityEqual -Left $State.prior.sourceIdentity -Right $SourceIdentity) -or
+        [string]$State.prior.ref -cne [string]$Receipt.ref -or
+        [string]$State.prior.version -cne [string]$Receipt.version) {
+        return $false
+    }
+    return (Get-StableJsonSha256 -InputObject @($State.affectedFiles)) -ceq
+        (Get-StableJsonSha256 -InputObject @($AffectedFiles))
+}
+
+function New-PluginRetirementPreviewState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [object[]]$AffectedFiles
+    )
+
+    return [pscustomobject][ordered]@{
+        schemaVersion = 1
+        name = [string]$Tombstone.name
+        status = 'preview'
+        transactionId = [guid]::NewGuid().ToString('N')
+        updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        tombstoneSha256 = Get-StableJsonSha256 -InputObject $Tombstone
+        prior = [pscustomobject][ordered]@{
+            sourceIdentity = $SourceIdentity
+            ref = [string]$Receipt.ref
+            version = [string]$Receipt.version
+        }
+        affectedFiles = $AffectedFiles
+        manualResidue = @($Tombstone.manualResidue)
+        replayCursor = 0
+        remedy = 'Rerun any install/update operation to apply this exact preview, or use -ApplyRetirements.'
+    }
+}
+
+function Resolve-PluginManualResidueObservationPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$ManualPath,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+    )
+
+    $root = $RepoRoot
+    $relative = $ManualPath
+    if ($ManualPath -match '^~[\\/](?<tail>.+)$') {
+        if ([string]::IsNullOrWhiteSpace($UserHome)) {
+            return $null
+        }
+        $root = $UserHome
+        $relative = $Matches.tail
+    }
+    if (-not (Test-GithubRelativePath -RelativePath $relative)) {
+        return $null
+    }
+
+    $normalizedRoot = [System.IO.Path]::GetFullPath($root)
+    $relativeSystemPath = $relative -replace '[\\/]', [System.IO.Path]::DirectorySeparatorChar
+    $candidate = [System.IO.Path]::GetFullPath((Join-Path $normalizedRoot $relativeSystemPath))
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $rootWithSeparator = $normalizedRoot.TrimEnd($separator) + $separator
+    if (-not $candidate.StartsWith($rootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $null
+    }
+    return $candidate
+}
+
+function Get-PluginRetirementReplayPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $State,
+
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$StartIndex = 0,
+
+        [ValidateRange(0, 64)]
+        [int]$MaxPaths = 64,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+    )
+
+    $descriptors = @()
+    $payloadEntries = if ([string]$State.status -ceq 'preview') {
+        @($State.affectedFiles)
+    }
+    else {
+        @($State.affectedFiles | Where-Object { [string]$_.outcome -eq 'residue' })
+    }
+    foreach ($entry in $payloadEntries) {
+        $descriptors += , [pscustomobject][ordered]@{
+            kind = 'payload'
+            path = ".github/$([string]$entry.dest)"
+            relativeDest = [string]$entry.dest
+            remedy = if ([string]$State.status -ceq 'preview') {
+                'Rerun an install/update operation to apply this exact preview.'
+            }
+            else {
+                'Run Remove-Plugin -Force after reviewing the modified file.'
+            }
+        }
+    }
+    $manualEntries = if ($State.PSObject.Properties.Name -contains 'manualResidue') {
+        @($State.manualResidue)
+    }
+    else {
+        @($Tombstone.manualResidue)
+    }
+    foreach ($manual in $manualEntries) {
+        $descriptors += , [pscustomobject][ordered]@{
+            kind = [string]$manual.kind
+            path = [string]$manual.path
+            relativeDest = $null
+            remedy = [string]$manual.remedy
+        }
+    }
+
+    if ($descriptors.Count -eq 0 -or $MaxPaths -eq 0) {
+        return [pscustomobject]@{
+            TotalPaths = $descriptors.Count
+            Paths = @()
+            NextIndex = 0
+        }
+    }
+    $start = $StartIndex % $descriptors.Count
+    $take = [Math]::Min($MaxPaths, $descriptors.Count)
+    $paths = @()
+    for ($offset = 0; $offset -lt $take; $offset++) {
+        $descriptor = $descriptors[($start + $offset) % $descriptors.Count]
+        $present = $null
+        if ([string]$descriptor.kind -ceq 'payload') {
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$descriptor.relativeDest)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            $present = [bool](Test-Path -LiteralPath $targetPath)
+        }
+        else {
+            $candidate = Resolve-PluginManualResidueObservationPath `
+                -RepoRoot $RepoRoot `
+                -ManualPath ([string]$descriptor.path) `
+                -UserHome $UserHome
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                $present = [bool](Test-Path -LiteralPath $candidate)
+            }
+        }
+        $paths += , [pscustomobject][ordered]@{
+            kind = [string]$descriptor.kind
+            path = [string]$descriptor.path
+            present = $present
+            remedy = [string]$descriptor.remedy
+        }
+    }
+    return [pscustomobject]@{
+        TotalPaths = $descriptors.Count
+        Paths = $paths
+        NextIndex = ($start + $take) % $descriptors.Count
+    }
+}
+
+function Get-PluginRetirementOutcomeName {
+    [CmdletBinding()]
+    param()
+
+    return @('no-match', 'preview', 'retired', 'residue', 'foreign-source', 'manual-required', 'recovered', 'failed')
+}
+
+function New-PluginRetirementManualState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Tombstone,
+
+        [Parameter(Mandatory)]
+        $Receipt,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [Parameter(Mandatory)]
+        [string]$Remedy
+    )
+
+    return [pscustomobject][ordered]@{
+        schemaVersion = 1
+        name = [string]$Tombstone.name
+        status = 'residue'
+        transactionId = [guid]::NewGuid().ToString('N')
+        updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        tombstoneSha256 = Get-StableJsonSha256 -InputObject $Tombstone
+        prior = [pscustomobject][ordered]@{
+            sourceIdentity = $SourceIdentity
+            ref = [string]$Receipt.ref
+            version = [string]$Receipt.version
+        }
+        affectedFiles = @()
+        manualResidue = @($Tombstone.manualResidue)
+        terminalOutcome = 'manual-required'
+        replayCursor = 0
+        remedy = $Remedy
+    }
+}
+
+function Invoke-PluginRetirementReconciliation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Registry,
+
+        [Parameter(Mandatory)]
+        $SourceIdentity,
+
+        [string]$DirectTarget,
+
+        [switch]$ApplyRetirements,
+
+        [switch]$LockHeld,
+
+        [ValidateRange(1, 8)]
+        [int]$MaxPlugins = 8,
+
+        [ValidateRange(1, 64)]
+        [int]$MaxPaths = 64,
+
+        [string]$UserHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+    )
+
+    Assert-PluginSourceIdentity -SourceIdentity $SourceIdentity
+    $retiredPlugins = if ($Registry.PSObject.Properties.Name -contains 'retiredPlugins') {
+        @($Registry.retiredPlugins)
+    }
+    else {
+        @()
+    }
+    $retiredByName = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($tombstone in $retiredPlugins) {
+        Assert-PluginName -PluginName ([string]$tombstone.name)
+        $retiredByName.Add([string]$tombstone.name, $tombstone)
+    }
+    $directRetired = -not [string]::IsNullOrWhiteSpace($DirectTarget) -and $retiredByName.ContainsKey($DirectTarget)
+    if (@($retiredPlugins).Count -eq 0) {
+        return [pscustomobject]@{
+            Record = $null
+            Failed = $false
+            DirectTargetRetired = $false
+            ExitCode = 0
+        }
+    }
+
+    $operation = {
+        $selection = Get-PluginRetirementSelection -RepoRoot $RepoRoot -RetiredPlugins $retiredPlugins -DirectTarget $DirectTarget -MaxPlugins $MaxPlugins
+        $outcomes = [System.Collections.Generic.List[object]]::new()
+        $failed = $false
+        $emittedPathCount = 0
+
+        foreach ($tombstone in @($selection.Selected)) {
+            $name = [string]$tombstone.name
+            $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $name
+            $statePath = Get-PluginRetirementStatePath -RepoRoot $RepoRoot -PluginName $name
+            foreach ($path in @($receiptPath, $statePath)) {
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $path
+            }
+            $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $name
+            $state = Read-PluginRetirementState -RepoRoot $RepoRoot -PluginName $name
+            $outcome = $null
+            $remedy = ''
+
+            if ($null -ne $state -and [string]$state.status -ceq 'applying') {
+                $journalPath = Get-PluginRemovalJournalPath -RepoRoot $RepoRoot -PluginName $name
+                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $journalPath
+                if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+                    [void](Invoke-PluginRemovalRecovery -RepoRoot $RepoRoot -PluginName $name -ExpectedSourceIdentity $state.prior.sourceIdentity -ExpectedRef ([string]$state.prior.ref) -ExpectedVersion ([string]$state.prior.version))
+                    $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $name
+                    $state.status = 'preview'
+                    $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                    [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                }
+                elseif ($null -eq $receipt) {
+                    $allRemoved = $true
+                    foreach ($entry in @($state.affectedFiles)) {
+                        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                        Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                            $allRemoved = $false
+                            break
+                        }
+                    }
+                    if ($allRemoved) {
+                        foreach ($entry in @($state.affectedFiles)) {
+                            $entry.observedSha256 = $null
+                            $entry.outcome = 'removed'
+                        }
+                        $state.status = 'retired'
+                        $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue 'retired' -Force
+                        $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                        $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $state.status = 'failed'
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Applying state has no receipt or journal but payload remains; repair manually.'
+                        $state | Add-Member -NotePropertyName error -NotePropertyValue $state.remedy -Force
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                }
+                else {
+                    [void](Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $name -ExpectedSourceIdentity $state.prior.sourceIdentity)
+                    if ([string]$receipt.ref -cne [string]$state.prior.ref -or
+                        [string]$receipt.version -cne [string]$state.prior.version) {
+                        $state.status = 'failed'
+                        $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                        $state.remedy = 'Applying state receipt changed source ref/version; repair manually.'
+                        $state | Add-Member -NotePropertyName error -NotePropertyValue $state.remedy -Force
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $receiptByDest = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+                        foreach ($receiptEntry in @($receipt.files)) {
+                            $receiptByDest.Add([string]$receiptEntry.dest, $receiptEntry)
+                        }
+                        $committed = $false
+                        foreach ($entry in @($state.affectedFiles)) {
+                            $dest = [string]$entry.dest
+                            if (-not $receiptByDest.ContainsKey($dest) -or
+                                [string]$receiptByDest[$dest].outcome -ceq 'skipped-modified') {
+                                $committed = $true
+                                break
+                            }
+                        }
+                        if ($committed) {
+                            $hasResidue = $false
+                            foreach ($entry in @($state.affectedFiles)) {
+                                $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                                Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                                if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                                    $entry.observedSha256 = Get-FileSha256 -Path $targetPath
+                                    $entry.outcome = 'residue'
+                                    $hasResidue = $true
+                                }
+                                else {
+                                    $entry.observedSha256 = $null
+                                    $entry.outcome = 'removed'
+                                }
+                            }
+                            $state.status = if ($hasResidue) { 'residue' } else { 'retired' }
+                            $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue ([string]$state.status) -Force
+                            $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                            $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                            $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                            $state.remedy = if ($hasResidue) {
+                                'Review modified residue, then run Remove-Plugin -Force.'
+                            }
+                            else {
+                                'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                            }
+                            [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                        }
+                        else {
+                            $state.status = 'preview'
+                            $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                            [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                        }
+                    }
+                }
+            }
+
+            if ($null -ne $state -and [string]$state.status -in @('retired', 'residue')) {
+                $outcome = if ($state.PSObject.Properties.Name -contains 'terminalOutcome') {
+                    [string]$state.terminalOutcome
+                }
+                else {
+                    [string]$state.status
+                }
+                $remedy = [string]$state.remedy
+            }
+            elseif ($null -ne $state -and [string]$state.status -ceq 'failed') {
+                try {
+                    $state = Reset-FailedPluginRetirementState -RepoRoot $RepoRoot -PluginName $name -LockHeld
+                    $outcome = 'recovered'
+                    $remedy = 'Rerun the operation to apply the recovered preview.'
+                }
+                catch {
+                    $outcome = 'failed'
+                    $remedy = $_.Exception.Message
+                    $failed = $true
+                }
+            }
+            elseif ($null -eq $receipt) {
+                if ($name -ceq $DirectTarget) {
+                    $outcome = 'no-match'
+                    $remedy = 'This plugin name is retired and cannot be installed.'
+                }
+            }
+            else {
+                [void](Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $name)
+                $match = Get-MatchingPluginRetirementPayload -Tombstone $tombstone -Receipt $receipt -CurrentSourceIdentity $SourceIdentity
+                if ([string]$match.Outcome -cne 'match') {
+                    $outcome = [string]$match.Outcome
+                    $remedy = if ($outcome -eq 'foreign-source') {
+                        'Use the catalog that owns this installed receipt.'
+                    }
+                    else {
+                        'Restore the pinned known version or remove the plugin manually.'
+                    }
+                    if ($outcome -eq 'manual-required') {
+                        $state = New-PluginRetirementManualState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -Remedy $remedy
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                }
+                else {
+                    $affected = @(Get-PluginRetirementAffectedFile -RepoRoot $RepoRoot -Receipt $receipt -PayloadSet $match.PayloadSet)
+                    if ($affected.Count -eq 0) {
+                        $outcome = 'manual-required'
+                        $remedy = 'No receipt-owned destination matches this immutable tombstone payload.'
+                        $state = New-PluginRetirementManualState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -Remedy $remedy
+                        [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                    }
+                    else {
+                        $previewCurrent = $null -ne $state -and
+                            (Test-PluginRetirementPreviewCurrent -State $state -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected)
+                        if ($null -eq $state) {
+                            if ($ApplyRetirements) {
+                                $outcome = 'failed'
+                                $remedy = 'Explicit apply requires an existing exact preview; run without -ApplyRetirements first.'
+                                $failed = $true
+                            }
+                            else {
+                                $state = New-PluginRetirementPreviewState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'preview'
+                                $remedy = [string]$state.remedy
+                            }
+                        }
+                        elseif (-not $previewCurrent) {
+                            if ($ApplyRetirements) {
+                                $outcome = 'failed'
+                                $remedy = 'Explicit apply refused a stale preview; refresh without -ApplyRetirements first.'
+                                $failed = $true
+                            }
+                            else {
+                                $state = New-PluginRetirementPreviewState -Tombstone $tombstone -Receipt $receipt -SourceIdentity $match.SourceIdentity -AffectedFiles $affected
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'preview'
+                                $remedy = 'Stale retirement preview refreshed with zero deletion; rerun to apply.'
+                            }
+                        }
+                        else {
+                            try {
+                                $state.status = 'applying'
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $result = Invoke-PluginRemovalPrimitive -RepoRoot $RepoRoot -PluginName $name -Mode retirement -PayloadSet $match.PayloadSet -LockHeld
+                                $terminalFiles = @()
+                                $hasResidue = $false
+                                foreach ($entry in $affected) {
+                                    $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$entry.dest)
+                                    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+                                    if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                                        $entry.observedSha256 = Get-FileSha256 -Path $targetPath
+                                        $entry.outcome = 'residue'
+                                        $hasResidue = $true
+                                    }
+                                    else {
+                                        $entry.observedSha256 = $null
+                                        $entry.outcome = 'removed'
+                                    }
+                                    $terminalFiles += , $entry
+                                }
+                                $state.status = if ($hasResidue) { 'residue' } else { 'retired' }
+                                $state.transactionId = [guid]::NewGuid().ToString('N')
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                $state.affectedFiles = $terminalFiles
+                                $state | Add-Member -NotePropertyName manualResidue -NotePropertyValue @($tombstone.manualResidue) -Force
+                                $state | Add-Member -NotePropertyName terminalOutcome -NotePropertyValue ([string]$state.status) -Force
+                                $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue 0 -Force
+                                $state.remedy = if ($hasResidue) {
+                                    'Review modified residue, then run Remove-Plugin -Force.'
+                                }
+                                else {
+                                    'Use the tombstone pinned ref to restore this retired plugin if needed.'
+                                }
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = [string]$state.status
+                                $remedy = [string]$state.remedy
+                            }
+                            catch {
+                                $state.status = 'failed'
+                                $state.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+                                $state.remedy = 'Repair the recorded failure, then rerun to recover to preview.'
+                                $state | Add-Member -NotePropertyName error -NotePropertyValue $_.Exception.Message -Force
+                                [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                                $outcome = 'failed'
+                                $remedy = $_.Exception.Message
+                                $failed = $true
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($null -ne $outcome) {
+                $available = [Math]::Max(0, $MaxPaths - $emittedPathCount)
+                $shown = @()
+                $totalPaths = 0
+                if ($null -ne $state -and [string]$state.status -in @('preview', 'retired', 'residue')) {
+                    $startIndex = if ($state.PSObject.Properties.Name -contains 'replayCursor') {
+                        [int]$state.replayCursor
+                    }
+                    else {
+                        0
+                    }
+                    $replay = Get-PluginRetirementReplayPath -RepoRoot $RepoRoot -State $state -Tombstone $tombstone -StartIndex $startIndex -MaxPaths $available -UserHome $UserHome
+                    $shown = @($replay.Paths)
+                    $totalPaths = [int]$replay.TotalPaths
+                    if ($state.PSObject.Properties.Name -contains 'replayCursor') {
+                        $state.replayCursor = [int]$replay.NextIndex
+                    }
+                    else {
+                        $state | Add-Member -NotePropertyName replayCursor -NotePropertyValue ([int]$replay.NextIndex)
+                    }
+                    [void](Write-PluginRetirementState -RepoRoot $RepoRoot -State $state)
+                }
+                elseif ($null -ne $state) {
+                    $allPaths = @($state.affectedFiles | ForEach-Object {
+                            [pscustomobject][ordered]@{
+                                kind = 'payload'
+                                path = ".github/$([string]$_.dest)"
+                                present = $null
+                                remedy = $remedy
+                            }
+                        })
+                    $totalPaths = $allPaths.Count
+                    $shown = @($allPaths | Select-Object -First $available)
+                }
+                $emittedPathCount += $shown.Count
+                $outcomes.Add([pscustomobject][ordered]@{
+                        name = $name
+                        outcome = $outcome
+                        totalPaths = $totalPaths
+                        paths = $shown
+                        omittedPaths = [Math]::Max(0, $totalPaths - $shown.Count)
+                        remedy = $remedy
+                    })
+            }
+        }
+
+        Write-PluginRetirementCursor -RepoRoot $RepoRoot -NextIndex ([int]$selection.NextIndex)
+        $record = if ($outcomes.Count -gt 0) {
+            [pscustomobject][ordered]@{
+                schemaVersion = 1
+                processedPlugins = @($selection.Selected).Count
+                emittedPaths = $emittedPathCount
+                outcomes = $outcomes.ToArray()
+            }
+        }
+        else {
+            $null
+        }
+        return [pscustomobject]@{
+            Record = $record
+            Failed = $failed
+            DirectTargetRetired = $directRetired
+            ExitCode = if ($failed) { 21 } elseif ($directRetired) { 20 } else { 0 }
+        }
+    }
+
+    if ($LockHeld) {
+        return & $operation
+    }
+    return Invoke-WithPluginMutationLock -RepoRoot $RepoRoot -Body $operation
+}
+
+function Write-PluginRetirementRecord {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Result
+    )
+
+    if ($null -ne $Result.Record) {
+        $json = ConvertTo-SortedObject -InputObject $Result.Record | ConvertTo-Json -Depth 100 -Compress
+        Write-Output "RETIREMENT: $json"
+    }
 }
 
 function Get-PluginReceiptPath {
@@ -448,8 +2617,8 @@ function Get-PluginReceiptPath {
         [string]$PluginName
     )
 
-    $receiptsRoot = Join-Path $RepoRoot '.github/.skalary/receipts'
-    return Join-Path $receiptsRoot "$PluginName.json"
+    Assert-PluginName -PluginName $PluginName
+    return Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ".skalary/receipts/$PluginName.json"
 }
 
 function Read-PluginReceipt {

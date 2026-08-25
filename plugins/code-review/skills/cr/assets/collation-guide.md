@@ -1,67 +1,183 @@
-# Collation guide (shared by `/cr` and `/dr`)
+# Review-run lifecycle (shared by `/cr` and `/dr`)
 
-Merging 6–28 reviewer outputs into one report is deterministic formatting, so it is a script, not a
-prompt. `Build-ReviewReport.ps1` is bundled into this skill's `scripts/` folder and installed with
-it. Both installed copies of this guide (`.github/skills/cr/assets/collation-guide.md` and
-`.github/skills/dr/assets/collation-guide.md`) are byte-identical by construction — edit one and the
-drift gate fails until both match.
+This guide owns the caller contract for `skalary/review-run@1`. Both installed copies are
+byte-identical. The writer, reader, and cleanup scripts are bundled under
+`.github/skills/<skill>/scripts/`.
 
-## 1. Build typed findings
+## Runtime prerequisite
 
-Every finding a reviewer returns becomes one object:
+The installed writer requires PowerShell 7.6 or newer. Native
+`Test-Json -SchemaFile` provides the draft-2020-12 validation boundary; no vendored validator or
+package fallback exists. Consumer environments must provision PowerShell 7.6+ before review
+dispatch. If the host lacks the required version or schema capability, Freeze returns bounded exit
+`2` and the orchestrator stops before any reviewer runs.
 
-| Field | Required | Meaning |
-|---|---|---|
-| `Concern` | yes | the concern id that surfaced it, e.g. `security` |
-| `Model` | yes | the model that produced it, in the roster's qualified form |
-| `Severity` | yes | `Critical` · `High` · `Medium` · `Low` |
-| `Title` | yes | one-line summary |
-| `Body` | no | description paragraphs, verbatim from the reviewer |
-| `References` | no | string or string[] of file/step references |
-| `RootCause` | no | explicit grouping key; falls back to the normalized title |
-| `Component` | no | explicit grouping key; falls back to the first reference |
-| `Action` | no | one-sentence recommendation; falls back to the body's first sentence |
+## Absolute write boundary
 
-Set `RootCause` and `Component` whenever two reviewers describe the same defect in different words —
-they are the grouping keys, and leaving them empty makes the dedup fall back to title text.
+The orchestrator's `edit` tool may write **only** these two files for the UUID it allocated:
 
-Do not rewrite a reviewer's body while transcribing it, and do not drop a finding because another
-reviewer already reported it: collapsing duplicates is the script's job, and the record of *which*
-models agreed is what drives severity elevation.
+- `<run-root>/.review-plan.input.tmp`
+- `<run-root>/.review-result.input.tmp`
 
-## 2. Run the formatter
+It must never edit reviewed code, the reviewed plan, fixed input names, manifests, generated
+artifacts, or any other path. Create complete UTF-8 JSON with `edit`, then use one fixed local rename
+to move the matching temporary file onto `review-plan.input.json` or `review-result.input.json`.
+Reviewer text never appears in a terminal command, PowerShell source, or command argument.
 
-The findings are **objects**, so they and the call must live in the same PowerShell session. Use the
-call operator, never `pwsh -File`: `-File` binds every argument as a string, so the typed findings
-arrive empty and the script fails loud on the first one.
+Before `New-Item`, `edit`, or a rename, invoke the engine-owned read-only preflight:
 
 ```powershell
-pwsh -NoProfile -Command @'
-$findings = @(
-  [pscustomobject]@{ Concern = '<concern id>'; Model = '<model>'; Severity = 'High'
-                     Title = '<one-line summary>'; Body = '<reviewer text>'; References = '<file or step>' }
-)
-$roster = @('<model A>', '<model B>')
-& .github/skills/<skill>/scripts/Build-ReviewReport.ps1 -Finding $findings -Model $roster `
-  -Scope '<what was reviewed>' -ReportTitle '<Code Review|Design Review>' `
-  -InvocationCount <dispatched> -InvocationBudget 28
-'@
+.github/skills/<skill>/scripts/Get-ReviewRun.ps1 -Prepare -RunId <uuid> [-PlanDir <plan>]
 ```
 
-- `-Model` is the roster **actually dispatched**, including a Pro-tier fallback substitution. The
-  script elevates a finding's severity only when *every* listed model flagged it, so an inflated
-  roster silently suppresses elevation.
-- `-InvocationCount` is the number of reviewer invocations you actually made; the header line
-  reports it against the budget.
-- `-Scope` is the one-line description of what was reviewed.
-- An empty `-Finding` array is valid and returns a well-formed "No findings." report — never
-  hand-write that case either.
+Use only the returned `runRoot`; never derive a generic or plan layout in the caller. `Prepare`
+rejects every reparse ancestor/leaf before plan inventory or layout parsing and does not create the
+directory. Create exactly that returned directory, then author the temporary input. Freeze never
+creates a missing run root and rejects a caller that skipped initialization.
 
-## 3. Write what it returns
+## Start: abandon interrupted runs
 
-Print the returned text verbatim. The report layout, the merge rule, the dedup rule, the
-severity-elevation rule, and the sort order all live in the script; re-deriving any of them in prose
-would let two review types drift apart and make the output unreviewable against a fixture.
+Before allocating a new UUID, run `Get-ReviewRun.ps1 -ListIncomplete` with the same optional
+`-PlanDir`. For every returned UUID:
 
-The only text you add is what surrounds the report: the closing question about which findings to act
-on, and any advisory note (for example a reviewer's self-reported model, which is **not** evidence).
+1. Read its sole content-addressed frozen plan.
+2. Preserve every identity field and task slot.
+3. Write one result input with every task outcome `cancelled`, diagnostic
+   `orchestrator-interrupted`, and no findings.
+4. Publish once. Read and surface both the verified summary and full detail on exit `5`.
+
+Never resume missing outputs or reuse an interrupted run for the new review.
+
+## Freeze before dispatch
+
+Allocate one lowercase UUID. Build the complete task matrix from the selected concerns and the
+declared dispatch roster. Stable task ids are `<concern>-m<one-based-roster-index>`. Write:
+
+```json
+{
+  "schema": "skalary/review-plan@1",
+  "runId": "<uuid>",
+  "reviewType": "<code|design>",
+  "contentTrust": "reviewer-authored-data",
+  "scope": "<bounded description>",
+  "scopeAuthority": {
+    "mode": "branch",
+    "base": "<base commit identity>",
+    "head": "<head commit identity>",
+    "paths": [{ "path": "<advisory path; Freeze replaces branch records from Git>", "status": "modified" }]
+  },
+  "roster": ["<declared dispatch model>"],
+  "modelSelection": [{
+    "requested": "<requested model label>",
+    "declared": "<declared dispatch label>",
+    "preflight": "available",
+    "degradation": "none",
+    "servedIdentity": "unverified"
+  }],
+  "invocationBudget": 28,
+  "tasks": [
+    { "taskId": "security-m1", "concern": "security", "model": "<model>" }
+  ]
+}
+```
+
+For branch review, `base` and `head` must resolve to commits in the repository. Freeze resolves both
+to full immutable SHAs and replaces every caller path/status record with
+`git diff --name-status --no-renames <base>...<head>` before computing the scope digest. A caller
+cannot narrow or widen a branch review by supplying its own records.
+
+For design review, use `scopeAuthority.mode = "design"` and include a `designSource` with `kind`,
+canonical repository-relative `path`, and SHA-256 `digest`; `paths` names the reviewed plan/design
+files. Freeze canonicalizes path records and adds the engine-owned `scopeAuthority.digest`. Read the
+frozen plan and use its ordered path records, source identities, scope digest, model selection, and
+task slots as the complete dispatch payload. No out-of-band path list may widen or narrow it.
+
+Atomically rename the temporary plan onto the fixed input, then invoke the installed writer in this
+exact argument order:
+
+```powershell
+.github/skills/<skill>/scripts/Build-ReviewReport.ps1 -Mode Freeze -RunId <uuid> [-PlanDir <plan>]
+```
+
+Freeze must return exit `0` before any reviewer dispatch. Exit `2` aborts invalid input; exit `3`
+abandons that UUID and restarts with a narrower scope; exit `4` may retry the identical input only
+after correcting the lock/publication fault. No other exit is valid.
+
+## Independent dispatch and in-memory collection
+
+Dispatch every frozen task exactly once. Do not show one reviewer's output to another reviewer, use
+it to prime a later prompt, suppress a task because an earlier task found the same issue, or dedupe
+before publication. Keep each returned section and task outcome in memory until all tasks terminate.
+
+Map successful task output to `completed`, including a legitimate `None.` result. Map failures to the
+specific terminal outcome (`failed`, `timed-out`, `omitted`, or `cancelled`) with a bounded diagnostic.
+Only completed tasks may own findings.
+
+Reviewers and the orchestrator must redact any suspected credential value before it enters the
+result. Preserve only the credential type and source location. The engine independently rejects and
+destroys plan-associated input that still contains a high-confidence credential shape.
+
+## Publish once
+
+Read the `sha256:...` value from `<run-root>/.review-run.frozen`. Build one result preserving the
+frozen identity fields and exact task slots:
+
+```json
+{
+  "schema": "skalary/review-run@1",
+  "runId": "<uuid>",
+  "reviewType": "<code|design>",
+  "contentTrust": "reviewer-authored-data",
+  "scope": "<same frozen scope>",
+  "scopeAuthority": { "<exact frozen authority including digest>": "..." },
+  "roster": ["<same frozen roster>"],
+  "modelSelection": [{ "<exact frozen model state>": "..." }],
+  "invocationBudget": 28,
+  "planDigest": "sha256:<frozen digest>",
+  "tasks": [
+    {
+      "taskId": "security-m1",
+      "concern": "security",
+      "model": "<same model>",
+      "outcome": "completed"
+    }
+  ],
+  "findings": [
+    {
+      "taskId": "security-m1",
+      "severity": "High",
+      "title": "<one-line title>",
+      "body": "<reviewer-authored data>",
+      "references": ["<file or plan reference>"]
+    }
+  ]
+}
+```
+
+Do not hand-build Markdown. Write and atomically rename the single result input, then invoke Publish
+once in the same exact argument order as Freeze. Handle the terminal status:
+
+| Exit | Required caller behavior |
+|---|---|
+| `0` | Read and deliver the verified summary with `-View Summary`, then deliver or explicitly surface the verified full detail with `-View Full`; preserve plan artifacts, then remove a generic run. |
+| `5` | Read and deliver the degraded summary and verified full detail with `-View Full`, including task diagnostics, before propagating non-success; remove a generic run only after both are delivered. |
+| `2` | Abort as invalid, surface bounded diagnostics, and preserve existing authority. |
+| `3` | Terminal for this UUID. Read verified admission state. If `restartable` is false, stop. Otherwise create at most 16 ordered child partitions in the sole allowed restart generation, preserving the parent tasks/model state and distributing every parent finding exactly once. |
+| `4` | Surface the lock/publication failure; retry the same UUID and unchanged input only after the fault is corrected. |
+
+Use `Get-ReviewRun.ps1 -View Summary|Full` as the only reader. Both modes verify the complete
+live `review-run.manifest.json`, every digest, encoding, and the selected role's byte bound. A reader failure is a failed
+review and must not trigger cleanup. After verified summary and full-detail delivery, use
+`Remove-ReviewRun.ps1` directly for generic runs. For a plan run, the human gate invokes it with the
+same `-PlanDir` and an explicit `-Verdict approved|blocked`: it verifies the live bundle, writes the
+bounded `<uuid>.review.md` and digest-bound `<uuid>.receipt.json` siblings, then removes the gitignored
+live directory. `approved` is refused unless the run is clean with no Critical or High findings.
+
+Read admission metadata with `Get-ReviewRun.ps1 -ReadAdmission -RunId <parent>`. Each child plan/result
+carries `restart` with that parent id/digest, `restartOrdinal: 1`, and its ordered partition index/count.
+After every child publishes, `Get-ReviewRun.ps1 -VerifyAdmissionRollup -RunId <parent>` must return
+`state: verified`; it rejects missing/duplicate partitions, scope gaps, and any changed or omitted raw
+finding. There is no second restart generation.
+
+The summary carries `contentTrust: reviewer-authored-data` structurally. Render its verified bytes
+verbatim and put any operator-facing handling outside the artifact.

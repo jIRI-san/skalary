@@ -9,6 +9,12 @@ implementation claims two controls this repo lacks: near-identical findings from
 different models are flagged rather than counted as agreement, and the report header states the
 corroboration behind findings and never downgrades it silently.
 
+## Epic discussion provenance
+
+- Session `8706d364-f92e-4056-bb1b-40a59b015d38`, turns 90-92 (2026-08-08): the operator selected the most valuable missing review controls; suspicious similarity and truthful corroboration were kept together as one control.
+- The session explicitly rejected splitting measurement from reporting: a similarity detector nobody reports and a corroboration claim with no evidence are each incomplete.
+- Epic `33b1f9` keeps this child independent of `8a0644` while requiring the two together to make review execution truthful.
+
 ## The gap
 
 `plugins/code-review/skills/cr/assets/dispatch-guide.md` §"What the preflight cannot see" already
@@ -37,6 +43,7 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 
 ## Prior art
 
+- [2026-08-22 simplification review](../../epics/2026-08-22-plan-simplification-review.md) — approved deriving corroboration in the existing report and rejected review-run v2, policy/version maps, large scoring/admission machinery, and a second publication lifecycle.
 - `plugins/code-review/skills/cr/assets/dispatch-guide.md` — declared/served analysis, Pro-tier
   degradation path, model roster.
 - `scripts/skalary/Build-ReviewReport.ps1` — merge keys, elevation rule, header construction.
@@ -45,7 +52,39 @@ configuration, which is exactly what the dispatch guide says cannot be trusted.
 - `docs/design-notes/explorations/review-system-enforcement-gaps.design.md` — the enforcement-gap
   clusters this epic decomposes.
 
-## Boundary to settle before drafting
+## Settled boundary
 
-Sibling `c21cdc review-report-as-data` is undrafted and also owns `Build-ReviewReport.ps1`. Decide
-which plan owns the report's shape before either starts, or the second rewrites the first.
+This child depends on archived `c21cdc review-report-as-data`. `c21cdc` owns review-run v1 frozen-task/result
+schemas, validation, persistence, derived attendance, deterministic rendering, and retained evidence. This
+child extends the existing report with engine-derived corroboration fields without replacing that lifecycle.
+Served-model identity remains unobservable; similarity is evidence against independence, while its absence
+is not identity proof.
+
+## Cross-plan index consultation
+
+Consulted on 2026-08-16 with:
+
+`Get-PlanIndex.ps1 -Filter 'corroborat|review[- ]run|review evidence|model corroboration|finding corroboration' -Format Json`
+
+- `c21cdc` — reuse and extend its v1 report and authority/lifecycle records; do not introduce v2 ownership.
+- `863d97` — reuse the decision that marker/receipt truth stays separate from review attendance.
+- `34088e` — reuse REQ-6's owner-local, versioned contract descriptor pattern.
+- `583308` — reuse the decision that ordinary Pester is the typed `test:` evidence host.
+- `ca8ba8` — current epic-seeded records were treated as interview input, not prior art.
+
+The index reported `docs/implementation-plans/2026-08-14-cda9da-architecture-test-retirement: no plan.md`.
+That error makes the generated index incomplete for the malformed entry; no corroboration overlap is known,
+and this plan does not infer or reconstruct records from it.
+
+## Superseded design-review mechanics
+
+- Review rounds 1-3 established useful invariants: suspicious support only lowers confidence, raw findings remain visible, raw/effective severity stay distinct, and similarity never proves model identity.
+- Their v2 schema/lifecycle, policy descriptor, 16,384-item scoring envelope, partitioning/admission, witness commitments, and activation protocol are superseded by the simplicity decision.
+
+## Architecture and implementation context
+
+- `docs/architecture-notes/arch-review-run-v1.md` — immutable v1 execution authority and retained-evidence boundary.
+- `docs/design-notes/architecture/review-reporting.design.md` — review engine, schemas, rendering, lifecycle, distribution, and resource bounds.
+- `docs/design-notes/architecture/plan-workflow.design.md` — typed evidence, retained review pairs, and plan finalization.
+- `PSScriptAnalyzerSettings.psd1` — default PowerShell rules at Error/Warning severity with repository exclusions.
+- `tools/suite-budget.psd1` — complete-suite platform ceilings; corroboration must not loosen them.

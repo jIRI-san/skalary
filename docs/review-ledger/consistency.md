@@ -10,3 +10,4 @@
 - [2026-08-10] Second-opinion review found report-only wording obscured that a named structural eval is blocking typed evidence; clarified the boundary. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-8 #req-8
 - [2026-08-09] The autopilot design note retained the obsolete Add-LedgerEntry execution carve-out after installed phase harvest replaced it. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-7
 - [2026-08-09] The harvester rejected writer-valid CrLog sources and the writer accepted hidden kind fields that could not be reconstructed for digest validation. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-4
+- [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2

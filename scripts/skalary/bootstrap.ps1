@@ -127,6 +127,13 @@ $installScript = Join-Path $scriptsRoot 'Install-Plugin.ps1'
 Write-Host ''
 Write-Host "Installing the 'plugin-manager' plugin from '$Repository' at ref '$Ref' (payload copy only, no code execution)..."
 & $installScript -Name 'plugin-manager' -RepoRoot $targetRoot -Repository $Repository -Ref $Ref
+$installExitCode = $LASTEXITCODE
+if ($installExitCode -in @(20, 21)) {
+    exit $installExitCode
+}
+if ($installExitCode -ne 0) {
+    throw "Plugin-manager installation failed with exit code $installExitCode."
+}
 
 # Offer to auto-approve plugin-manager's read-only scripts. Bootstrap is
 # non-interactive, so this is opt-in via -AutoApprove; otherwise print the command.

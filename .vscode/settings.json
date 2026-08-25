@@ -9,8 +9,14 @@
     "git push": true,
     "git rev-parse": true,
     ".github/agents/scripts/Get-ReviewScope.ps1": true,
-    ".github/skills/cr/scripts/Build-ReviewReport.ps1": true,
-    ".github/skills/dr/scripts/Build-ReviewReport.ps1": true,
+    "/^\\.github\\/skills\\/cr\\/scripts\\/Build-ReviewReport\\.ps1 -Mode (?:Freeze|Publish) -RunId [0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}(?: -PlanDir docs\\/implementation-plans\\/(?:(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{6})|[0-9]{3})-[a-z0-9]+(?:-[a-z0-9]+)*)?$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^\\.github\\/skills\\/dr\\/scripts\\/Build-ReviewReport\\.ps1 -Mode (?:Freeze|Publish) -RunId [0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}(?: -PlanDir docs\\/implementation-plans\\/(?:(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{6})|[0-9]{3})-[a-z0-9]+(?:-[a-z0-9]+)*)?$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
     "./plugins/autopilot/scripts/launch.ps1": true,
     ".github/skills/autopilot/scripts/validate-auth.ps1": true,
     ".github/skills/ci/scripts/Get-PlanState.ps1": true,
@@ -19,5 +25,22 @@
     ".github/skills/cip/scripts/Test-Plan.ps1": true,
     ".github/skills/list-plugins/scripts/Find-Plugin.ps1": true,
     ".github/skills/list-plugins/scripts/Get-Plugin.ps1": true,
+    ".github/skills/cep/scripts/New-Plan.ps1": true,
+    ".github/skills/cep/scripts/New-Epic.ps1": true,
+    "scripts/skalary/Get-PlanState.ps1": true,
+    ".github/skills/cip/scripts/Set-PlanStage.ps1": true,
+    "scripts/skalary/Validate-Plan.ps1": true,
+    ".github/skills/cip/scripts/Get-PlanIndex.ps1": true,
+    "scripts/skalary/Test-Plan.ps1": true,
+    ".github/skills/cip/scripts/Add-WorkflowNote.ps1": true,
+    "Resolve-Path": true,
+    "scripts/skalary/New-Epic.ps1": true,
+    "/^pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist\\.ps1$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "Invoke-Pester": true,
+    "Resolve-Plan": true,
+    ".github/skills/dr/scripts/Get-ReviewRun.ps1": true
   }
 }

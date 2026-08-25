@@ -2,7 +2,9 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
-    [string]$OutputRoot
+    [string]$OutputRoot,
+    [string]$PluginsRoot,
+    [string]$RequiredContractPath
 )
 
 Set-StrictMode -Version Latest
@@ -214,7 +216,7 @@ function ConvertTo-EvalMarkdownReport {
 }
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$pluginsRoot = Join-Path $repoRootPath 'plugins'
+$pluginsRoot = if ($PluginsRoot) { [System.IO.Path]::GetFullPath($PluginsRoot) } else { Join-Path $repoRootPath 'plugins' }
 
 $outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot } else { Join-Path $repoRootPath 'tests/evals/output' }
 $runStamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
@@ -250,6 +252,35 @@ else {
 }
 
 $entryArray = @($entries)
+$requiredPath = if ($RequiredContractPath) { [System.IO.Path]::GetFullPath($RequiredContractPath) } else { Join-Path $repoRootPath 'tools/structural-eval-required.json' }
+$requiredCaseIds = @()
+$requiredFailures = [System.Collections.Generic.List[string]]::new()
+if (Test-Path -LiteralPath $requiredPath -PathType Leaf) {
+    $requiredContract = Get-Content -LiteralPath $requiredPath -Raw | ConvertFrom-Json -Depth 10
+    if ([string]$requiredContract.schema -ne 'skalary/structural-eval-required@1') {
+        $requiredFailures.Add("required structural-eval contract has unknown schema '$($requiredContract.schema)'")
+    }
+    $requiredCaseIds = @($requiredContract.caseIds | ForEach-Object { [string]$_ })
+    if ($requiredCaseIds.Count -eq 0 -or @($requiredCaseIds | Sort-Object -Unique).Count -ne $requiredCaseIds.Count) {
+        $requiredFailures.Add('required structural-eval case ids must be non-empty and unique')
+    }
+    foreach ($caseId in $requiredCaseIds) {
+        $matches = @($entryArray | Where-Object {
+                [regex]::IsMatch([string]$_.case, "(?:^|\.)$([regex]::Escape($caseId))(?:\s|$)")
+            })
+        if ($matches.Count -ne 1) {
+            $requiredFailures.Add("required structural eval '$caseId' executed $($matches.Count) times")
+            continue
+        }
+        if ([string]$matches[0].outcome -ne 'pass') {
+            $requiredFailures.Add("required structural eval '$caseId' completed as '$($matches[0].outcome)'")
+        }
+    }
+}
+else {
+    $requiredFailures.Add("required structural-eval contract is missing: $requiredPath")
+}
+
 $summary = [ordered]@{
     total = $entryArray.Count
     pass = Get-OutcomeCount -Entries $entryArray -Outcome 'pass'
@@ -261,6 +292,10 @@ $summary = [ordered]@{
 $report = [ordered]@{
     generatedAt = (Get-Date).ToString('o')
     summary = $summary
+    requiredCases = [ordered]@{
+        expected = @($requiredCaseIds)
+        failures = @($requiredFailures)
+    }
     entries = $entryArray
 }
 
@@ -274,11 +309,13 @@ Write-Host "  pass:  $($summary.pass)" -ForegroundColor Green
 Write-Host "  fail:  $($summary.fail)" -ForegroundColor Red
 Write-Host "  skip:  $($summary.skip)" -ForegroundColor Yellow
 Write-Host "  error: $($summary.error)" -ForegroundColor Red
+Write-Host "  required: $($requiredCaseIds.Count - $requiredFailures.Count)/$($requiredCaseIds.Count)"
 Write-Host "  run dir: $runDir"
 Write-Host "  report:  $reportPath"
 Write-Host "  summary: $reportMdPath"
 
-if ($summary.fail -gt 0 -or $summary.error -gt 0) {
+if ($summary.fail -gt 0 -or $summary.error -gt 0 -or $requiredFailures.Count -gt 0) {
+    foreach ($failure in $requiredFailures) { Write-Host "  required failure: $failure" -ForegroundColor Red }
     exit 1
 }
 

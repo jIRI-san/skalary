@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: f429c5142c6fc749a1b7a7a92bf725e722b888132e665cdab59f7ac590ef6045 -->
+<!-- arch-contracts-sha256: e646c14e670f563545b684096b911e0bb8775bf123727f5fa70b3c363bc8198c -->
 
 # Skalary — Architecture Overview
 
@@ -26,6 +26,7 @@
 graph TD
   ARCH_Eval_Gate_Separation["Two-tier eval gate separation"]
   ARCH_Install_Confinement["Installer .github confinement"]
+  ARCH_Review_Run_V1["Review-run v1 authority and evidence"]
 ```
 
 ## Components
@@ -38,7 +39,12 @@ graph TD
 ### Installer .github confinement
 
 - **Governing contract:** `ARCH-Install-Confinement` (provisional)
-- **Boundary:** Security boundary: a plugin manifest (untrusted for this purpose) can never cause a write outside .github/. Enforced by Resolve-GithubConstrainedPath and Test-Registry; covered by install/remove tests.
+- **Boundary:** Security boundary: untrusted plugin metadata and recovery state can never cause mutation outside .github/ or through linked parents. Enforced by confinement, link rejection, the shared mutation lock, journal validation, and registry/install/remove tests.
+
+### Review-run v1 authority and evidence
+
+- **Governing contract:** `ARCH-Review-Run-V1` (provisional)
+- **Boundary:** Defines the interface-level boundary between frozen review scope, published execution authority, verified delivery, and compact durable plan evidence.
 
 <!-- END GENERATED: contracts -->
 

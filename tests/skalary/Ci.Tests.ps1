@@ -11,6 +11,8 @@ Describe 'ci workflow' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:workflowPath = Join-Path $script:repoRoot '.github/workflows/registry-ci.yml'
+        $script:containerWorkflowPath = Join-Path $script:repoRoot '.github/workflows/autopilot-container-ci.yml'
+        $script:containerRunnerPath = Join-Path $script:repoRoot 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
         # Shared with CiGates.Tests.ps1: one parser for the workflow, because a second copy
         # would be a second thing to drift.
         Import-Module (Join-Path $PSScriptRoot '..' 'CiWorkflow.psm1') -Force -DisableNameChecking
@@ -18,6 +20,10 @@ Describe 'ci workflow' {
         if (Test-Path -LiteralPath $script:workflowPath -PathType Leaf) {
             $script:workflowText = Get-Content -LiteralPath $script:workflowPath -Raw
         }
+        $script:containerWorkflowText = if (Test-Path -LiteralPath $script:containerWorkflowPath -PathType Leaf) {
+            Get-Content -LiteralPath $script:containerWorkflowPath -Raw
+        }
+        else { $null }
 
         # Each gate the workflow is responsible for, and the invocation that proves it ran. The
         # unit-test pattern excludes the clock-start invocation of the same script: that call
@@ -27,7 +33,8 @@ Describe 'ci workflow' {
             'PSScriptAnalyzer'       = 'Invoke-ScriptAnalyzer'
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
             'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1'
             'generated output drift' = 'Build-Registry\.ps1'
@@ -35,15 +42,17 @@ Describe 'ci workflow' {
 
         # What makes each gate *fail*, which is not always what names it. The drift gate is
         # `git diff --exit-code`, not the rebuild that precedes it, and a dogfood sync only
-        # detects drift with `-WhatIf`. PSScriptAnalyzer is deliberately absent: it writes
-        # findings to the output stream and sets no exit code, so its step cannot go red on a
-        # finding. That is a real property of the gate rather than an oversight here, and it
-        # belongs in the gate inventory as an advisory row rather than in an assertion that
-        # would claim an enforcement the step does not have.
+        # detects drift with `-WhatIf`. PSScriptAnalyzer is absent from this table for a narrower
+        # reason than it used to state: its step *can* go red — `test:Ci.LintStepCanFail` pins the
+        # `throw` on an error-severity finding — but it goes red on the throw rather than on the
+        # analyzer's own exit code, so there is no invocation pattern here that identifies it.
+        # The gate inventory carries it as a blocking row with a typed exclusion for the warning
+        # tier, which is the part that really is unenforced.
         $script:gateEnforcingPatterns = [ordered]@{
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
             'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1(?![^\r\n]*-StartBudgetClock)'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf'
             'generated output drift' = 'git diff --exit-code'
@@ -121,10 +130,19 @@ Describe 'ci workflow' {
             $fingerprintScript = 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
             Copy-Item -LiteralPath (Join-Path $script:repoRoot $fingerprintScript) `
                 -Destination (Join-Path $root $fingerprintScript)
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @()
+}
+'@
 
             Set-Content -LiteralPath (Join-Path $root 'tests/Seeded.Tests.ps1') -Value $TestFileContent -Encoding utf8
             & git -C $root init --quiet
-            & git -C $root add -- scripts tests tools/suite-budget.psd1
+            & git -C $root add -- scripts tests tools/suite-budget.psd1 tools/suite-tier.psd1
             . (Join-Path $root $fingerprintScript)
             $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
             $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
@@ -216,6 +234,357 @@ Describe 'ci workflow' {
         }
     }
 
+    It 'test:Ci.WorkflowSecurityContract enforces the container workflow trust and result boundaries' {
+        $script:containerWorkflowText |
+            Should -Not -BeNullOrEmpty -Because 'the container check must exist as an operational workflow'
+        $parsed = ConvertFrom-CiWorkflowYaml -Text $script:containerWorkflowText
+        $root = $parsed.Document.Value
+        $code = Remove-CiComment -Text $script:containerWorkflowText
+        $runnerCode = Remove-CiComment -Text (
+            Get-Content -LiteralPath $script:containerRunnerPath -Raw)
+
+        $jobsNode = $root['jobs'].Value
+        @($jobsNode.Keys) | Should -Be @('detector', 'image', 'gate', 'notify')
+        $jobs = @{}
+        foreach ($job in @(Get-CiWorkflowJob -Text $script:containerWorkflowText)) {
+            $jobs[$job.Name] = $job
+        }
+
+        # --- Trigger ---
+        # The whole trust argument rests on this: the definition GitHub reads must not be one the
+        # measured candidate wrote. Only a push to an already-merged ref satisfies that here.
+        @($root['on'].Value.Keys) | Should -Be @('push') -Because (
+            'a pull_request trigger reads the workflow from the candidate head, so the candidate ' +
+            'would define the boundary meant to contain it')
+        @($root['on'].Value['push'].Value['branches'].Value | ForEach-Object { $_.Value }) |
+            Should -Be @('main')
+        $root['on'].Value['push'].Value.Contains('paths') | Should -BeFalse
+        $root['on'].Value['push'].Value.Contains('paths-ignore') | Should -BeFalse
+        @($root['permissions'].Value.Keys) | Should -Be @('contents')
+        $root['permissions'].Value['contents'].Value | Should -Be 'read'
+        # Exactly one job may widen the read-only workflow token, and only to what it takes to make
+        # a red post-merge gate visible in the repository. Naming the job and its scopes here means
+        # a second widening — or a broader one on this job — is red rather than a diff nobody reads.
+        foreach ($jobName in @($jobsNode.Keys)) {
+            if ($jobName -eq 'notify') { continue }
+            $jobsNode[$jobName].Value.Contains('permissions') |
+                Should -BeFalse -Because "job '$jobName' must not widen the workflow token"
+        }
+        @($jobsNode['notify'].Value['permissions'].Value.Keys | Sort-Object) |
+            Should -Be @('contents', 'issues') -Because 'the notification job gets one extra scope, not a blank cheque'
+        $jobsNode['notify'].Value['permissions'].Value['contents'].Value | Should -Be 'read'
+        $jobsNode['notify'].Value['permissions'].Value['issues'].Value | Should -Be 'write'
+        # The widened token must never be handed to a job that runs candidate-authored code, and
+        # the reported text must be fixed strings plus identities the platform supplies.
+        $notifyBody = $jobs.notify.Body
+        $notifyBody | Should -Not -Match 'actions/checkout' -Because 'the notifying job checks out nothing'
+        $notifyBody | Should -Not -Match 'Invoke-ContainerToolchainGate' -Because 'the notifying job runs no candidate-reachable script'
+        $jobsNode['notify'].Value['if'].Value |
+            Should -Be "always() && needs.gate.result != 'success'" -Because 'a green gate must not open an issue'
+        @($jobsNode['notify'].Value['needs'].Value | ForEach-Object { $_.Value }) |
+            Should -Be @('detector', 'image', 'gate')
+        $root['concurrency'].Value['cancel-in-progress'].Value |
+            Should -Be 'false' -Because 'every merged commit gets its own verdict'
+        # …and a group keyed only by workflow and ref does not deliver that: two merges seconds
+        # apart queue behind one group, so a commit can be superseded without ever being measured.
+        $root['concurrency'].Value['group'].Value |
+            Should -Match '\$\{\{\s*github\.sha\s*\}\}' -Because 'the concurrency group must be unique per merged commit'
+        $root['env'].Value['CANDIDATE_SHA'].Value | Should -Be '${{ github.sha }}'
+        $root['env'].Value['BASE_SHA'].Value | Should -Be '${{ github.event.before }}'
+
+        # --- Job shape ---
+        $jobs.detector.Body | Should -Match '(?m)^\s*timeout-minutes: 5\s*$'
+        $jobs.image.Body | Should -Match '(?m)^\s*timeout-minutes: 45\s*$'
+        $jobsNode['gate'].Value['name'].Value | Should -Be 'autopilot container / gate'
+        $jobs.gate.Body | Should -Match '(?m)^\s*timeout-minutes: 5\s*$'
+        $jobsNode['gate'].Value['if'].Value | Should -Be 'always()'
+        $jobsNode['image'].Value['if'].Value |
+            Should -Be "needs.detector.result == 'success' && needs.detector.outputs.relevance == 'true'"
+
+        # --- Pinning and checkout hygiene ---
+        # Counting checkout steps froze a number that says nothing; what matters is that *every*
+        # checkout in the file is credential-free and pinned, however many there turn out to be.
+        $uses = @([regex]::Matches($code, '(?m)^\s*uses:\s*(?<ref>\S+)') |
+                ForEach-Object { $_.Groups['ref'].Value })
+        $uses.Count | Should -BeGreaterThan 0
+        foreach ($ref in $uses) {
+            $ref | Should -Match '@[0-9a-f]{40}$' -Because "action '$ref' must be immutable"
+        }
+        $allSteps = foreach ($jobName in @($jobsNode.Keys)) {
+            foreach ($step in @($jobsNode[$jobName].Value['steps'].Value)) {
+                [pscustomobject]@{ Job = $jobName; Node = $step.Value }
+            }
+        }
+        $checkouts = @($allSteps | Where-Object {
+                $_.Node.Contains('uses') -and $_.Node['uses'].Value -match '^actions/checkout@'
+            })
+        $checkouts.Count | Should -BeGreaterOrEqual 3 -Because 'each job checks out the merged commit'
+        foreach ($checkout in $checkouts) {
+            $with = $checkout.Node['with'].Value
+            $with['persist-credentials'].Value |
+                Should -Be 'false' -Because "checkout in job '$($checkout.Job)' must not leave a token on disk"
+            # A full clone was minutes of transfer per job to obtain one commit; the base commit is
+            # imported from the sibling checkout instead. A reintroduced `fetch-depth: 0` would
+            # silently restore that cost, so the depth is asserted rather than assumed.
+            $with['fetch-depth'].Value | Should -Be '1'
+        }
+
+        # `continue-on-error` suppresses a real failure, so each use must be one whose degraded
+        # path the runner actually handles: a missing base checkout, or a base commit that could
+        # not be imported. Both close to `base-unreachable`, which forces a candidate-only
+        # measurement — strictly more work, never a silent pass.
+        $continued = @($allSteps | Where-Object {
+                $_.Node.Contains('continue-on-error') -and $_.Node['continue-on-error'].Value -eq 'true'
+            })
+        $continued.Count | Should -BeGreaterThan 0
+        foreach ($step in $continued) {
+            $step.Node['name'].Value |
+                Should -BeIn @('Checkout event base', 'Import base commit into candidate clone')
+        }
+
+        # --- Trusted execution path ---
+        # Every runner invocation must come from the merged checkout. The candidate's own scripts
+        # are Docker build and runtime input only; executing them on the host would hand the
+        # measured code the measurement.
+        $runnerSteps = @($allSteps | Where-Object {
+                $_.Node.Contains('run') -and $_.Node['run'].Value -match 'Invoke-ContainerToolchainGate\.ps1'
+            })
+        $runnerSteps.Count | Should -BeGreaterOrEqual 3
+        foreach ($step in $runnerSteps) {
+            $run = $step.Node['run'].Value
+            foreach ($invocation in [regex]::Matches($run, '&\s*"(?<path>[^"]*Invoke-ContainerToolchainGate\.ps1)"')) {
+                $invocation.Groups['path'].Value |
+                    Should -Be '$env:RUNNER_ROOT/scripts/skalary/Invoke-ContainerToolchainGate.ps1'
+            }
+        }
+        # RUNNER_ROOT must resolve to the merged commit's checkout in every job that runs it.
+        foreach ($jobName in @('detector', 'image', 'gate')) {
+            $jobEnv = $jobsNode[$jobName].Value
+            $runnerRoots = @($allSteps | Where-Object { $_.Job -eq $jobName } | ForEach-Object {
+                    if ($_.Node.Contains('env') -and $_.Node['env'].Value.Contains('RUNNER_ROOT')) {
+                        $_.Node['env'].Value['RUNNER_ROOT'].Value
+                    }
+                })
+            if ($jobEnv.Contains('env') -and $jobEnv['env'].Value.Contains('RUNNER_ROOT')) {
+                $runnerRoots += $jobEnv['env'].Value['RUNNER_ROOT'].Value
+            }
+            @($runnerRoots) | Should -Not -BeNullOrEmpty -Because "job '$jobName' must name a runner root"
+            foreach ($value in $runnerRoots) {
+                $value | Should -Be '${{ github.workspace }}/candidate'
+            }
+        }
+        $jobs.detector.Body | Should -Match '-Mode Detect'
+        $jobs.image.Body | Should -Match '-Mode Measure'
+        $jobs.gate.Body | Should -Match '-Mode VerifyResult'
+
+        # --- Identity assertions ---
+        $code | Should -Match 'Assert-CommitSha -Name CANDIDATE_SHA'
+        $code | Should -Match 'Assert-CommitSha -Name BASE_SHA'
+        $code | Should -Match 'Assert-Head -Name candidate'
+        $code | Should -Match 'Assert-Head -Name base'
+
+        # --- Result combination ---
+        $verify = @($allSteps | Where-Object {
+                $_.Job -eq 'gate' -and $_.Node.Contains('run') -and
+                $_.Node['run'].Value -match '-Mode VerifyResult'
+            })
+        $verify.Count | Should -Be 1
+        $verifyEnv = $verify[0].Node['env'].Value
+        $verifyEnv['DETECTOR_CONCLUSION'].Value | Should -Be '${{ needs.detector.result }}'
+        $verifyEnv['RELEVANCE'].Value | Should -Be '${{ needs.detector.outputs.relevance }}'
+        $verifyEnv['IMAGE_CONCLUSION'].Value | Should -Be '${{ needs.image.result }}'
+        # The terminal receipt is the only one that always exists. It must be able to name the
+        # commit it judged and the detector evidence behind that judgement, or a reader of a red
+        # main has a verdict attached to nothing.
+        $gateEnv = $jobsNode['gate'].Value['env'].Value
+        $gateEnv['RELEVANT_PATH_COUNT'].Value | Should -Be '${{ needs.detector.outputs.relevant_path_count }}'
+        $gateEnv['CANDIDATE_ONLY_REASON'].Value | Should -Be '${{ needs.detector.outputs.candidate_only_reason }}'
+        foreach ($argument in @(
+                '-BaseSha \$env:BASE_SHA',
+                '-CandidateSha \$env:CANDIDATE_SHA',
+                '-DetectionCandidateOnlyReason \$env:CANDIDATE_ONLY_REASON',
+                '-RelevantPathCount \$env:RELEVANT_PATH_COUNT'
+            )) {
+            $verify[0].Node['run'].Value |
+                Should -Match $argument -Because 'the final receipt names the commit and the evidence it rests on'
+        }
+
+        # --- Isolation ---
+        $code | Should -Not -Match '\$\{\{\s*secrets\.'
+        $code | Should -Not -Match '\bGITHUB_ENV\b'
+        $code | Should -Not -Match 'docker\.sock'
+        $combined = "$code`n$runnerCode"
+        foreach ($forbidden in @(
+                '(?i)--privileged\b',
+                '(?i)--device(?:=|\s)',
+                '(?i)--cap-add(?:=|\s)',
+                '(?i)--network(?:=|\s+)host\b',
+                '(?i)(?:^|[\s,''"])--mount(?:=|\s)',
+                '(?i)(?:^|[\s,''"])(?:-v|--volume)(?:=|\s)'
+            )) {
+            $combined | Should -Not -Match $forbidden
+        }
+        $runnerCode |
+            Should -Match "'run', '--rm', '--network', 'none'" -Because 'candidate smoke must have no network or inherited host channels'
+
+        # --- Measurement parameters ---
+        $jobs.image.Body | Should -Match "(?m)^\s*DOCKER_BUILDKIT: '1'\s*$"
+        $jobs.image.Body | Should -Not -Match '(?i)cache-(?:from|to)|type=gha|docker/setup-buildx' -Because 'the two builds share only the hosted daemon local cache'
+        $jobsNode['image'].Value['env'].Value['COPILOT_CLI_VERSION'].Value |
+            Should -Match '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$'
+        $jobs.image.Body | Should -Match '-CopilotVersion \$env:COPILOT_CLI_VERSION'
+        $jobs.image.Body | Should -Match '-CandidateBudgetSeconds 1500'
+        $jobs.image.Body | Should -Match '-BaseBudgetSeconds 600'
+        $jobs.image.Body | Should -Match '-RunnerBudgetSeconds 2100'
+        $jobs.image.Body | Should -Match '-AdvisoryGrowthMiB 250'
+        # The detector's two outputs are written by the runner, so the workflow only forwards them.
+        $detectorOutputs = $jobsNode['detector'].Value['outputs'].Value
+        $detectorOutputs['relevance'].Value | Should -Be '${{ steps.detect.outputs.relevance }}'
+        $detectorOutputs['candidate_only_reason'].Value |
+            Should -Be '${{ steps.detect.outputs.candidate_only_reason }}'
+        $jobs.detector.Body | Should -Match '-StepOutputPath \$env:GITHUB_OUTPUT'
+        $jobs.detector.Body |
+            Should -Not -Match 'candidate_only_reason=' -Because 'the closed reason set has one owner, the runner'
+        $jobsNode['image'].Value['env'].Value['DETECTION_CANDIDATE_ONLY_REASON'].Value |
+            Should -Be '${{ needs.detector.outputs.candidate_only_reason }}'
+        $jobs.image.Body |
+            Should -Match '-DetectionCandidateOnlyReason \$env:DETECTION_CANDIDATE_ONLY_REASON'
+        @([regex]::Matches($runnerCode, "'pull', '--platform', 'linux/amd64'")).Count |
+            Should -Be 1 -Because 'candidate and base must share one resolved base-image pull'
+        $runnerCode.IndexOf('$candidateTag') |
+            Should -BeLessThan $runnerCode.IndexOf('$baseTag') -Because 'candidate validation owns the first 25 minutes'
+
+        # --- Evidence ---
+        $uploads = @($allSteps | Where-Object {
+                $_.Node.Contains('uses') -and $_.Node['uses'].Value -match '^actions/upload-artifact@'
+            })
+        $uploads.Count | Should -BeGreaterOrEqual 1
+        foreach ($upload in $uploads) {
+            $upload.Node['if'].Value | Should -Be 'always()'
+            $upload.Node['with'].Value['retention-days'].Value | Should -Be '14'
+            $upload.Node['with'].Value['if-no-files-found'].Value | Should -Be 'error'
+        }
+        $imageUpload = @($uploads | Where-Object { $_.Job -eq 'image' })
+        $imageUpload.Count | Should -Be 1
+        $imageUpload[0].Node['with'].Value['path'].Value | Should -Match 'receipt\.json'
+        $imageUpload[0].Node['with'].Value['path'].Value | Should -Match 'provenance\.json'
+        # The relevant paths cannot travel as a step output — `$GITHUB_OUTPUT` is line-oriented and
+        # the runner's safe alphabet has no `/` — so the detector receipt is the only place their
+        # names survive. It used to be written to `runner.temp` and thrown away with the runner.
+        $detectUpload = @($uploads | Where-Object { $_.Job -eq 'detector' })
+        $detectUpload.Count | Should -Be 1
+        $detectUpload[0].Node['with'].Value['path'].Value | Should -Match 'receipt\.json'
+        $jobs.detector.Body | Should -Not -Match 'runner\.temp'
+        $detectorOutputs['relevant_path_count'].Value |
+            Should -Be '${{ steps.detect.outputs.relevant_path_count }}'
+
+        # Candidate-derived text reaches the step summary only through the runner's own escaped
+        # rendering. Echoing a raw receipt would let a crafted diagnostic emit workflow commands.
+        $summarySteps = @($allSteps | Where-Object {
+                $_.Node.Contains('run') -and $_.Node['run'].Value -match 'GITHUB_STEP_SUMMARY'
+            })
+        $summarySteps.Count | Should -BeGreaterThan 0
+        foreach ($step in $summarySteps) {
+            $step.Node['run'].Value |
+                Should -Not -Match 'receipt\.json|provenance\.json|diagnostics\.log' -Because 'raw candidate-derived fields never become workflow commands'
+            $step.Node['run'].Value | Should -Match 'summary\.md'
+        }
+
+        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'package.json') -Raw) |
+            Should -Not -Match 'Invoke-ContainerToolchainGate|docker' -Because 'ordinary npm test stays Docker-free'
+    }
+
+    It 'test:Ci.ContainerGateIsPostMerge reports on merged main and claims nothing about pull requests' {
+        # This replaces a test that asserted the shape of a "trusted control plane" bootstrapped on
+        # `pull_request`. That design could not work: on `pull_request` GitHub reads the workflow
+        # from the candidate's head, so every step of the boundary — including the one that checked
+        # out a trusted runner — was written by the author being measured. Deleting the job left a
+        # green required check. The gate is post-merge now, and this test pins that honestly:
+        # nothing in the repository may claim the gate blocks a pull request.
+        $parsed = ConvertFrom-CiWorkflowYaml -Text $script:containerWorkflowText
+        $root = $parsed.Document.Value
+        $code = Remove-CiComment -Text $script:containerWorkflowText
+
+        @($root['on'].Value.Keys) | Should -Be @('push')
+        $code | Should -Not -Match '(?m)^\s*pull_request(?:_target)?:'
+        # No residue of the removed design may remain: a stale control checkout or a bootstrap step
+        # would reintroduce a path whose trust argument does not hold.
+        $code | Should -Not -Match '(?i)CONTROL_SHA|CONTROL_ROOT|control_plane_present'
+        $code | Should -Not -Match '(?i)path: control'
+        $code | Should -Not -Match '(?i)bootstrap'
+
+        # There is no provider-enforced required-workflow mechanism configured here, so no other
+        # workflow may be relied upon to run this gate on a pull request either.
+        $workflowDir = Join-Path $script:repoRoot '.github/workflows'
+        $prTriggered = @(Get-ChildItem -LiteralPath $workflowDir -Filter '*.yml' | Where-Object {
+                $text = Remove-CiComment -Text (Get-Content -LiteralPath $_.FullName -Raw)
+                $text -match '(?m)^\s*pull_request(?:_target)?:' -and
+                $text -match 'Invoke-ContainerToolchainGate'
+            })
+        $prTriggered.Count |
+            Should -Be 0 -Because 'a pull-request-triggered invocation of the runner is candidate-controlled'
+
+        # Every job must be reachable on the one event the workflow declares. A job whose `if`
+        # names a pull-request context can never run, and a check that never runs is a check that
+        # silently reports nothing.
+        foreach ($jobName in @($root['jobs'].Value.Keys)) {
+            $job = $root['jobs'].Value[$jobName].Value
+            if ($job.Contains('if')) {
+                $job['if'].Value |
+                    Should -Not -Match '(?i)pull_request' -Because "job '$jobName' must be reachable on push"
+            }
+        }
+
+        # The design note must say the same thing the workflow does. A contract that still promised
+        # a pull-request gate would be the more authoritative-looking of the two.
+        $designPath = Join-Path $script:repoRoot 'docs/design-notes/architecture/autopilot-container-toolchain.design.md'
+        $design = Get-Content -LiteralPath $designPath -Raw
+        $design | Should -Match '(?i)post-merge'
+        $design |
+            Should -Not -Match '(?i)required (?:pull request |PR )?check (?:on|for) (?:a |every )?pull request'
+    }
+
+    It 'test:Ci.WorkflowYamlParserIsStrict refuses the shapes a text split silently accepts' {
+        # The step boundaries every workflow assertion rests on used to come from splitting on
+        # '- name:'. A run block that contains that text is a script, not a step, and a parser
+        # that cannot tell them apart lets a gate disappear while the tests stay green.
+        $decoy = @(
+            'jobs:',
+            '  probe:',
+            '    steps:',
+            '      - name: real step',
+            '        run: |',
+            '          echo "      - name: fake step"',
+            '          echo done'
+        ) -join "`n"
+        $steps = @(Get-CiWorkflowStep -Text $decoy)
+        $steps.Count | Should -Be 1
+        $steps[0].Name | Should -Be 'real step'
+        $steps[0].Body | Should -Match 'fake step'
+
+        foreach ($unsupported in @(
+                "jobs:`n  a: &anchor`n    b: c",
+                "jobs:`n  a: { b: c }",
+                "---`njobs:`n  a:`n    b: c",
+                "jobs:`n`tprobe:`n    steps: []",
+                "jobs:`n  probe:`n    name: one`n    name: two"
+            )) {
+            { Get-CiWorkflowJob -Text $unsupported } |
+                Should -Throw -Because 'an unreadable workflow must fail loudly, not parse into a convenient shape'
+        }
+
+        # The real workflows must remain inside the supported subset, or the assertions built on
+        # the parser stop describing them.
+        foreach ($workflow in @(Get-ChildItem -LiteralPath (Join-Path $script:repoRoot '.github/workflows') -Filter '*.yml')) {
+            $jobs = @(Get-CiWorkflowJob -Text (Get-Content -LiteralPath $workflow.FullName -Raw))
+            $jobs.Count | Should -BeGreaterThan 0 -Because "$($workflow.Name) must parse into jobs"
+            foreach ($job in $jobs) {
+                @($job.Steps).Count | Should -BeGreaterThan 0 -Because "$($workflow.Name)/$($job.Name) must parse into steps"
+                foreach ($step in $job.Steps) { $step.Name | Should -Not -BeNullOrEmpty }
+            }
+        }
+    }
+
     It 'test:Ci.InvokesRunUnitTests runs the suite through the runner that owns the budget, on both platforms' {
         $script:workflowText |
             Should -Not -BeNullOrEmpty -Because "REQ-9 rests on '.github/workflows/registry-ci.yml' existing"
@@ -224,6 +593,9 @@ Describe 'ci workflow' {
         $unitSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })
         $unitSteps.Count |
             Should -Be 1 -Because 'exactly one step runs the unit suite, through scripts/skalary/Run-UnitTests.ps1'
+        $slowSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['slow integration tests'] })
+        $slowSteps.Count |
+            Should -Be 1 -Because 'exactly one separate step runs the required Slow tier through the same runner'
 
         $validateSteps = @($steps | Where-Object { $_.Body -match $script:gatePatterns['repository validation'] })
         $validateSteps.Count |
@@ -231,6 +603,7 @@ Describe 'ci workflow' {
 
         $unitSteps[0].Name |
             Should -Not -Be $validateSteps[0].Name -Because 'REQ-9 requires the two gates in separate named steps'
+        $slowSteps[0].Name | Should -Not -Be $unitSteps[0].Name
 
         # D2: the budget and the cannot-test exit codes live in Run-UnitTests.ps1 and nowhere
         # else, so a direct Invoke-Pester here would be a second, unbudgeted way to run the suite
@@ -263,6 +636,9 @@ Describe 'ci workflow' {
             [array]::IndexOf($names, $legStep.Name) |
                 Should -BeGreaterThan $clockIndex -Because "the '$leg' leg is inside the budgeted command, so the clock must start before it"
         }
+        $retirementStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['plugin retirement history'] })[0]
+        [array]::IndexOf($names, $retirementStep.Name) |
+            Should -BeLessThan $clockIndex -Because 'plugin retirement is an independent CI gate, not a leg of npm test'
     }
 
     It 'test:Ci.GatesRunAsSeparateSteps gives every gate its own step so one failure cannot mask another' {
@@ -392,6 +768,11 @@ Describe 'ci workflow' {
 
         $budgetPath = Join-Path $script:repoRoot 'tools/suite-budget.psd1'
         $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+        $tierManifest = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/suite-tier.psd1')
+        foreach ($member in @('SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+            $tierManifest.Contains($member) | Should -BeTrue -Because "timeout sizing requires '$member'"
+            [double]$tierManifest[$member] | Should -BeGreaterThan 0
+        }
 
         $legs = @(Get-CiMatrixLeg -Text $script:workflowText)
         $legs.Count | Should -BeGreaterThan 1 -Because 'REQ-9 requires both platforms; an unparsed matrix would make this vacuous'
@@ -409,9 +790,12 @@ Describe 'ci workflow' {
             $leg.Properties.ContainsKey('timeoutMinutes') |
                 Should -BeTrue -Because "leg '$($leg.Os)' must state its own timeout"
 
-            $ceilingMinutes = [double]$budget.Platforms[$platform].HardCeilingSeconds / 60.0
+            $requiredSeconds = [double]$budget.Platforms[$platform].HardCeilingSeconds +
+            [double]$tierManifest.SlowHardCeilingSeconds +
+            [double]$tierManifest.CiSetupAllowanceSeconds
+            $requiredMinutes = $requiredSeconds / 60.0
             [double]$leg.Properties['timeoutMinutes'] |
-                Should -BeGreaterThan $ceilingMinutes -Because "a $($leg.Os) leg cut off at $($leg.Properties['timeoutMinutes'])m before its $([math]::Round($ceilingMinutes, 1))m ceiling reports a cancelled run instead of an over-budget one"
+                Should -BeGreaterThan $requiredMinutes -Because "a $($leg.Os) leg must contain the Fast ceiling plus the declared Slow and setup allowances ($([math]::Round($requiredMinutes, 1))m total)"
         }
     }
 
@@ -421,6 +805,7 @@ Describe 'ci workflow' {
 
         $steps = @(Get-CiWorkflowStep -Text $script:workflowText)
         $unitStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['unit tests and budget'] })[0]
+        $slowStep = @($steps | Where-Object { $_.Body -match $script:gatePatterns['slow integration tests'] })[0]
 
         # A default NUnit path is a fixed name in the working directory, so both legs write the
         # same file and the artifact upload of the second collides with the first. The platform
@@ -434,6 +819,10 @@ Describe 'ci workflow' {
         $resultPath = $Matches['path'].Trim()
         $resultPath |
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'a report that cannot be attributed to a platform is not a diagnosis on a suite that runs ~2x apart across them'
+        $resultPath | Should -Match 'nunit-fast-'
+        $slowStep.Body | Should -Match '-TestResultPath\s+[^\n]*nunit-slow-\$\{\{ matrix\.os \}\}\.xml'
+        $unitStep.Body | Should -Match '(?m)^\s*id:\s*fast-tests\s*$'
+        $slowStep.Body | Should -Match '(?m)^\s*id:\s*slow-tests\s*$'
 
         $uploadSteps = @($steps | Where-Object { $_.Body -match 'uses:\s*actions/upload-artifact@' })
         $uploadSteps.Count | Should -Be 1 -Because 'one upload, so one artifact name to keep unique'
@@ -443,9 +832,14 @@ Describe 'ci workflow' {
         $Matches['name'].Trim() |
             Should -Match '\$\{\{ matrix\.os \}\}' -Because 'two matrix legs uploading one artifact name is a hard failure, not a merge'
 
-        $upload.Body -match '(?m)^\s*path:\s*(?<path>[^\n]+)$' | Out-Null
-        $Matches['path'].Trim() |
-            Should -Be $resultPath -Because 'the uploaded path must be the path the runner was told to write, or the artifact is empty for a reason nothing reports'
+        $upload.Body | Should -Match 'artifacts/test-results/nunit-\*-\$\{\{ matrix\.os \}\}\.xml'
+        $upload.Body | Should -Match 'artifacts/test-results/review-consumer-\$\{\{ matrix\.os \}\}\.xml' -Because 'the dedicated blocking gate keeps its NUnit evidence too'
+
+        $summary = @($steps | Where-Object { $_.Name -eq 'Test result summary' })
+        $summary.Count | Should -Be 1
+        $summary[0].Body | Should -Match 'steps\.fast-tests\.outcome'
+        $summary[0].Body | Should -Match 'steps\.slow-tests\.outcome'
+        $summary[0].Body | Should -Match "Outcome -ne 'success'" -Because 'a post-Pester runner failure must not be summarized as passed from NUnit counts alone'
 
         # The run worth reading is the failed one. Without always() the report is uploaded
         # exactly when nobody needs it.

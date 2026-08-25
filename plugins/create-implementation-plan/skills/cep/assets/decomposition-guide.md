@@ -25,6 +25,24 @@ still leave the repo consistent. Typical seams: a subsystem boundary, a data con
 an install surface, a review surface. If no seam survives questioning, say so: the honest answer may be
 that the goal is one plan, not an epic.
 
+## Gate: `child-context`
+
+Scaffolding is blocked until every accepted child has a preliminary context package derived from the
+confirmed epic discussion. The package must be sufficient for an operator returning weeks later to
+understand why the child exists without reopening chat history.
+
+| Required context | Destination after `New-Plan.ps1` |
+|---|---|
+| Operator discussion points that motivated this child | `assets/references.md` under **Epic discussion provenance** |
+| Slice, desired outcome, success signals, boundaries, and done bar | `assets/intent.md` |
+| Dependency rationale and prior-plan relationship | `assets/references.md` |
+| Settled choices and why they were chosen | `assets/decisions.md` |
+| Rejected alternatives and unresolved uncertainty | `assets/decisions.md`; unresolved items are labelled, never silently converted into decisions |
+
+The package is preliminary and `/cip` must confirm and refine it, but that is not permission to leave the
+scaffold placeholders in place. If the epic discussion answered a field, preserve the answer. If it did not,
+record the unresolved question plus why it matters. Never invent operator intent to make the gate pass.
+
 ## Epic question bank
 
 1. **Scale check** — why can this not be one plan? Point at the phase count, the subsystem count, or the
@@ -77,6 +95,7 @@ its siblings land, and it hides its own defects until then.
 | Shared in-flight state | Children edit the same contract concurrently and conflict at merge. | Extract a first child that lands the contract. |
 | Epic as a backlog | Unrelated goals share an id and the rollup becomes meaningless. | One epic per goal. |
 | Hand-written child table | `New-Epic.ps1` regenerates it from markers; hand edits vanish on the next run. | Change membership through the script. |
+| Placeholder child handoff | The accepted rationale remains only in chat and the operator cannot resume later. | Pass `child-context` and populate intent, decisions, and provenance immediately after scaffolding. |
 
 ## Cut presentation
 

@@ -4,14 +4,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # REQ-10: a gate inventory written in prose is a list of gates somebody believed were running.
-# These cases read the inventory in `ci-gates.design.md` as data and check it against the two
-# hosts a gate can live in — the workflow and `validate.ps1` — in both directions, so a gate
+# These cases read the inventory in `ci-gates.design.md` as data and check it against the three
+# hosts a gate can live in — two workflows and `validate.ps1` — in both directions, so a gate
 # added to one side only is red rather than silently unrecorded.
 Describe 'ci gate inventory' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:notePath = Join-Path $script:repoRoot 'docs/design-notes/project/ci-gates.design.md'
-        $script:workflowPath = Join-Path $script:repoRoot '.github/workflows/registry-ci.yml'
+        $script:registryWorkflowPath = Join-Path $script:repoRoot '.github/workflows/registry-ci.yml'
+        $script:containerWorkflowPath = Join-Path $script:repoRoot '.github/workflows/autopilot-container-ci.yml'
         $script:validatePath = Join-Path $script:repoRoot 'scripts/validate.ps1'
         $script:explorationPath = Join-Path $script:repoRoot 'docs/design-notes/explorations/review-system-enforcement-gaps.design.md'
         $script:indexPath = Join-Path $script:repoRoot 'docs/design-notes/.design-notes.md'
@@ -104,12 +105,23 @@ Describe 'ci gate inventory' {
         @($rows | Group-Object Id | Where-Object { $_.Count -gt 1 }).Count |
             Should -Be 0 -Because 'two rows sharing an id means one of them is unreachable from a failure message'
 
-        $workflowText = Get-Content -LiteralPath $script:workflowPath -Raw
+        $workflowTextByHost = @{
+            '.github/workflows/registry-ci.yml' = Get-Content -LiteralPath $script:registryWorkflowPath -Raw
+            '.github/workflows/autopilot-container-ci.yml' = Get-Content -LiteralPath $script:containerWorkflowPath -Raw
+        }
+        $workflowStepsByHost = @{}
+        $workflowJobsByHost = @{}
+        foreach ($hostPath in $workflowTextByHost.Keys) {
+            $workflowStepsByHost[$hostPath] = @(Get-CiWorkflowStep -Text $workflowTextByHost[$hostPath])
+            $workflowJobsByHost[$hostPath] = @(Get-CiWorkflowJob -Text $workflowTextByHost[$hostPath])
+            $workflowStepsByHost[$hostPath].Count |
+                Should -BeGreaterThan 1 -Because "an unparsed '$hostPath' would make the mapping below vacuous"
+            $workflowJobsByHost[$hostPath].Count |
+                Should -BeGreaterThan 0 -Because "job-aware rules cannot inspect an unparsed '$hostPath'"
+        }
         $validateInvoked = @(Get-ValidateInvokedScript -Path $script:validatePath)
         $validateInvoked.Count |
             Should -BeGreaterThan 3 -Because 'an unparsed validate.ps1 would make the mapping below vacuous in both directions'
-        $steps = @(Get-CiWorkflowStep -Text $workflowText)
-        $steps.Count | Should -BeGreaterThan 1 -Because 'an unparsed workflow would make the mapping below vacuous'
 
         $declaredExclusions = @(Get-ExclusionId -Text $script:noteText)
 
@@ -128,13 +140,14 @@ Describe 'ci gate inventory' {
                 continue
             }
 
-            switch ($row.Host) {
-                '.github/workflows/registry-ci.yml' {
-                    $matching = @($steps | Where-Object { $_.Body -match $row.Invocation })
+            if ($workflowStepsByHost.ContainsKey($row.Host)) {
+                    $matching = @($workflowStepsByHost[$row.Host] | Where-Object { $_.Body -match $row.Invocation })
                     $matching.Count |
                         Should -Be 1 -Because "gate '$($row.Id)' claims to run as one workflow step matching '$($row.Invocation)', and $($matching.Count) step(s) do"
-                    [void]$claimedSteps.Add($matching[0].Name)
-                }
+                    [void]$claimedSteps.Add("$($row.Host)`0$($matching[0].Name)")
+            }
+            else {
+                switch ($row.Host) {
                 'scripts/validate.ps1' {
                     $name = [regex]::Match($row.Invocation, 'scripts/skalary/(?<name>[A-Za-z0-9-]+)\\?\.ps1')
                     $name.Success | Should -BeTrue -Because "gate '$($row.Id)' must name the script validate.ps1 invokes"
@@ -144,6 +157,7 @@ Describe 'ci gate inventory' {
                 }
                 default {
                     throw "gate '$($row.Id)' names an unknown host '$($row.Host)'; a host nothing reads cannot be checked."
+                }
                 }
             }
 
@@ -170,15 +184,24 @@ Describe 'ci gate inventory' {
             # last-statement rule still does the job it was written for: a trailing `exit 0` or a
             # reset of `$LASTEXITCODE` neuters every idiom above it, and claiming to block anyway
             # has to be red.
-            if ($row.Host -eq '.github/workflows/registry-ci.yml') {
-                $statements = @(Get-CiStepRunLine -Body ($steps | Where-Object { $_.Body -match $row.Invocation })[0].Body)
+            if ($workflowStepsByHost.ContainsKey($row.Host)) {
+                $statements = @(Get-CiStepRunLine -Body (
+                        $workflowStepsByHost[$row.Host] |
+                            Where-Object { $_.Body -match $row.Invocation }
+                    )[0].Body)
                 $statements.Count | Should -BeGreaterThan 0 -Because "gate '$($row.Id)' must run something"
 
                 $lastStatement = $statements[-1]
                 $swallowsVerdict = $lastStatement -match '^(exit +0\b|\$(global:)?LASTEXITCODE *=)'
-                $throwsOnFinding = @($statements | Where-Object { $_ -match '^throw\b' }).Count -gt 0
+                # A `throw` sets the step's verdict wherever it sits, including inside the
+                # `if ($LASTEXITCODE -ne 0) { throw ... }` idiom these steps use. Requiring the
+                # statement to *begin* with `throw` failed a step that does go red, which is the
+                # worse error: it pushes authors to restructure working code to satisfy a matcher.
+                # A `catch` is the one construct that can absorb it, so its presence disqualifies.
+                $body = ($statements -join "`n")
+                $throwsOnFinding = $body -match '(?m)(?:^|[\s{;])throw\b' -and $body -notmatch '(?m)(?:^|[\s}])catch\b'
                 $enforces = (-not $swallowsVerdict) -and
-                    ($lastStatement -match '^(pwsh|git)\b|-EnableExit\b' -or $throwsOnFinding)
+                    ($lastStatement -match '^(pwsh|git|npm)\b|-EnableExit\b' -or $throwsOnFinding)
 
                 if ($row.Enforcement -eq 'blocking') {
                     $enforces |
@@ -195,16 +218,57 @@ Describe 'ci gate inventory' {
         # The detector is what a gate looks like in each host rather than a list of the gates
         # this repo has today: a list would need updating by the same edit that adds a gate,
         # which is precisely the edit this case exists to catch.
-        foreach ($step in $steps) {
-            $code = Remove-CiComment -Text $step.Body
-            if ($code -notmatch '(scripts|tools)/[A-Za-z0-9/._-]+\.ps1|npm (run|test)\b|Invoke-ScriptAnalyzer|git diff') { continue }
-            $claimedSteps |
-                Should -Contain $step.Name -Because "workflow step '$($step.Name)' runs repository code that no row in the gate inventory claims"
+        $universalGatePattern = 'Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode (?:Detect|Measure|VerifyResult)'
+        $registryGatePattern = '(scripts|tools)/[A-Za-z0-9/._-]+\.ps1|npm (run|test)\b|Invoke-ScriptAnalyzer|git diff'
+        foreach ($hostPath in $workflowJobsByHost.Keys) {
+            foreach ($job in $workflowJobsByHost[$hostPath]) {
+                foreach ($step in $job.Steps) {
+                    $code = Remove-CiComment -Text $step.Body
+                    $isGate = $code -match $universalGatePattern
+                    if ($hostPath -eq '.github/workflows/registry-ci.yml') {
+                        $isGate = $isGate -or $code -match $registryGatePattern
+                    }
+                    if (-not $isGate) { continue }
+                    $claimedSteps |
+                        Should -Contain "$hostPath`0$($step.Name)" -Because "workflow job '$hostPath/$($job.Name)' step '$($step.Name)' runs a gate that no inventory row claims"
+                }
+            }
         }
 
         foreach ($name in $validateInvoked) {
             $claimedValidateScripts |
                 Should -Contain $name -Because "scripts/validate.ps1 runs '$name.ps1', which no row in the gate inventory claims"
+        }
+
+        # Container-specific placement is stricter than the universal invocation rule. Moving
+        # Measure into the detector would preserve all three strings while moving candidate
+        # execution into the five-minute detector job.
+        $containerJobs = @{}
+        foreach ($job in $workflowJobsByHost['.github/workflows/autopilot-container-ci.yml']) {
+            $containerJobs[$job.Name] = $job
+        }
+        $expectedModeByJob = [ordered]@{
+            detector = 'Detect'
+            image    = 'Measure'
+            gate     = 'VerifyResult'
+        }
+        # `notify` runs no gate mode at all — it reports one. It is listed so that a job appearing
+        # or disappearing is red, and it is held to zero mode steps by the loop below.
+        @($containerJobs.Keys | Sort-Object) | Should -Be @('detector', 'gate', 'image', 'notify')
+        foreach ($entry in $expectedModeByJob.GetEnumerator()) {
+            # `Initialize` is setup, not a gate: it writes a placeholder receipt and asserts
+            # nothing, so it is excluded from the ownership rule and appears in two jobs. Every
+            # gate mode is owned by exactly one step in exactly one job, and each job runs only
+            # its own — asserted in both directions so a mode moved between jobs is red either
+            # way rather than merely unclaimed in its new home.
+            foreach ($job in $containerJobs.GetEnumerator()) {
+                $modeSteps = @($job.Value.Steps | Where-Object {
+                        (Remove-CiComment -Text $_.Body) -match ('Invoke-ContainerToolchainGate\.ps1[^\r\n]*-Mode ' + $entry.Value + '\b')
+                    })
+                $expected = if ($job.Key -eq $entry.Key) { 1 } else { 0 }
+                $modeSteps.Count |
+                    Should -Be $expected -Because "container mode '$($entry.Value)' belongs to job '$($entry.Key)' and to no other, and job '$($job.Key)' has $($modeSteps.Count) step(s) running it"
+            }
         }
     }
 

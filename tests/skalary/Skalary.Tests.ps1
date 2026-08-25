@@ -494,4 +494,55 @@ Describe 'skalary plugin registry scripts' {
             (Get-FileHash -LiteralPath $localPath -Algorithm SHA256).Hash | Should -Be (Get-FileHash -LiteralPath $remotePath -Algorithm SHA256).Hash
         }
     }
+
+    It 'test:PluginRetirement.ReaderRemovalAndResultContract propagates direct retired and failed exits before active lookup' {
+        $source = New-RepoClone
+        $target = New-RepoClone
+
+        $initial = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Source', $source, '-Ref', 'HEAD')
+        $initial.ExitCode | Should -Be 0 -Because $initial.Output
+        $receiptPath = Join-Path $target '.github/.skalary/receipts/code-review.json'
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 100
+
+        $registryPath = Join-Path $source 'registry.json'
+        $registry = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json -Depth 100
+        $registry.plugins = @($registry.plugins | Where-Object { [string]$_.name -ne 'code-review' })
+        $canonicalSourcePath = [System.IO.Path]::GetFullPath($source)
+        $sourceDigest = [System.Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($canonicalSourcePath))
+        ).ToLowerInvariant()
+        $registry.retiredPlugins = @([pscustomobject][ordered]@{
+                name = 'code-review'
+                retiredAt = '2026-08-15T00:00:00Z'
+                reason = 'Synthetic process fixture.'
+                payloadSets = @([pscustomobject][ordered]@{
+                        sourceKind = 'local'
+                        sourceIdentity = "sha256:$sourceDigest"
+                        ref = [string]$receipt.ref
+                        version = [string]$receipt.version
+                        files = @($receipt.files | ForEach-Object {
+                                [pscustomobject][ordered]@{
+                                    dest = [string]$_.dest
+                                    sha256 = [string]$_.sha256
+                                }
+                            })
+                    })
+                manualResidue = @()
+            })
+        Set-Content -LiteralPath $registryPath -Value (($registry | ConvertTo-Json -Depth 100) + "`n") -Encoding utf8
+        git -C $source add registry.json
+        git -C $source commit -m 'test: publish synthetic code-review tombstone' | Out-Null
+
+        $preview = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Source', $source, '-Ref', 'HEAD')
+        $preview.ExitCode | Should -Be 20
+        ([regex]::Matches($preview.Output, '(?m)^RETIREMENT: ')).Count | Should -Be 1
+        $preview.Output | Should -Match '"outcome":"preview"'
+
+        $payloadPath = Join-Path $target '.github/prompts/cr.prompt.md'
+        Set-Content -LiteralPath $payloadPath -Value 'changed after preview' -NoNewline -Encoding utf8
+        $explicit = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Update-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Source', $source, '-Ref', 'HEAD', '-ApplyRetirements')
+        $explicit.ExitCode | Should -Be 21
+        ([regex]::Matches($explicit.Output, '(?m)^RETIREMENT: ')).Count | Should -Be 1
+        Test-Path -LiteralPath $payloadPath | Should -BeTrue
+    }
 }

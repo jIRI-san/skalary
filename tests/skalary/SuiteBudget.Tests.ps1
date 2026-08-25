@@ -120,6 +120,15 @@ Describe 'sandbox' {
 "@
             }
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-budget.psd1') -Encoding utf8 -Value $BudgetText
+            Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @()
+}
+'@
 
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'scripts/skalary') -Force)
             Copy-Item -LiteralPath $script:fingerprintScript `
@@ -270,11 +279,11 @@ $result = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
     -PlatformKey $platform -ExpectedNonce $nonce
 if ($result.Status -eq 'measurement-token-invalid') {
     Write-Host "MeasurementTokenInvalid: $($result.Reason)"
-    exit 9
+    exit 11
 }
 if ($result.Status -ne 'complete') {
     Write-Host "StaleMeasurement: $($result.Reason)"
-    exit 8
+    exit 10
 }
 '@
             Set-Content -LiteralPath (Join-Path $root 'start.ps1') -Encoding utf8NoBOM -Value @'
@@ -292,13 +301,13 @@ $authorization = Test-SuiteMeasurementAuthorization `
     -ExpectedFingerprint $fingerprint.Fingerprint
 if ($authorization.Status -ne 'complete') {
     Write-Host "MeasurementTokenInvalid: $($authorization.Reason)"
-    exit 9
+    exit 11
 }
 $claim = Use-SuiteMeasurementNonce -Nonce $authorization.Nonce `
     -ParentPid $authorization.ParentPid -ClaimRoot $RepoRoot
 if ($claim.Status -ne 'complete') {
     Write-Host "MeasurementTokenInvalid: $($claim.Reason)"
-    exit 9
+    exit 11
 }
 [System.IO.File]::WriteAllText(
     (Join-Path $RepoRoot '.measurement-nonce'),
@@ -551,6 +560,8 @@ if ($claim.Status -ne 'complete') {
             foreach ($field in @('os', 'psVersion', 'processorCount')) {
                 @($row.environment.PSObject.Properties.Name) |
                     Should -Contain $field -Because "'$platform' must record the '$field' its figure was measured under"
+                [string]$row.environment.$field |
+                    Should -Not -BeNullOrEmpty -Because "'$platform' must retain the measured '$field' value"
             }
         }
     }
@@ -670,7 +681,7 @@ if ($claim.Status -ne 'complete') {
             $LASTEXITCODE | Should -Be 0
             & pwsh -NoProfile -File $script:runner -RepoRoot $root `
                 -StartBudgetClock -BudgetClockPath $clockPath
-            $LASTEXITCODE | Should -Be 9
+            $LASTEXITCODE | Should -Be 11
             $defaultClaim = Use-SuiteMeasurementNonce `
                 -Nonce $authorization.Nonce -ParentPid $authorization.ParentPid
         }
@@ -763,7 +774,7 @@ if ($claim.Status -ne 'complete') {
             $result = @(
                 & pwsh -NoProfile -File (Join-Path $root 'gate.ps1') -RepoRoot $root 2>&1
             )
-            $LASTEXITCODE | Should -Be 8
+            $LASTEXITCODE | Should -Be 10
             ($result | ForEach-Object { "$_" }) -join "`n" |
                 Should -Match 'StaleMeasurement'
 
@@ -779,7 +790,7 @@ if ($claim.Status -ne 'complete') {
             $stale = @(
                 & pwsh -NoProfile -File (Join-Path $root 'gate.ps1') -RepoRoot $root 2>&1
             )
-            $LASTEXITCODE | Should -Be 8
+            $LASTEXITCODE | Should -Be 10
             ($stale | ForEach-Object { "$_" }) -join "`n" |
                 Should -Match 'StaleMeasurement'
         }

@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.4",
+  "version": "1.0.27",
   "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -35,6 +35,46 @@
     {
       "src": "skills/cr/scripts/Build-ReviewReport.ps1",
       "dest": "skills/cr/scripts/Build-ReviewReport.ps1"
+    },
+    {
+      "src": "skills/cr/scripts/Get-ReviewRun.ps1",
+      "dest": "skills/cr/scripts/Get-ReviewRun.ps1"
+    },
+    {
+      "src": "skills/cr/scripts/Remove-ReviewRun.ps1",
+      "dest": "skills/cr/scripts/Remove-ReviewRun.ps1"
+    },
+    {
+      "src": "skills/cr/scripts/PlanState.psm1",
+      "dest": "skills/cr/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/cr/scripts/ReviewRun.psm1",
+      "dest": "skills/cr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-admission.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-admission.schema.json"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-limits.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-limits.schema.json"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-manifest.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-manifest.schema.json"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-plan.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-plan.schema.json"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/review-run.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/review-run.schema.json"
+    },
+    {
+      "src": "skills/cr/scripts/schemas/review/terminal-status.schema.json",
+      "dest": "skills/cr/scripts/schemas/review/terminal-status.schema.json"
     },
     {
       "src": "skills/cr/assets/concern-ledger-map.md",

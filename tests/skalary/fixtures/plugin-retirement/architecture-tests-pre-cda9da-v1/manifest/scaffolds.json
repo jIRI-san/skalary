@@ -1,0 +1,21 @@
+[
+  {
+    "mode": "literal",
+    "owner": "/architecture-tests init",
+    "path": "docs/architecture-notes/arch-test-config.json",
+    "trigger": "runner init"
+  },
+  {
+    "mode": "literal",
+    "owner": "Invoke-ArchTests.ps1",
+    "path": "docs/architecture-notes/receipts",
+    "trigger": "first runner invocation"
+  },
+  {
+    "confine": "Resolve-ArchReceiptPath",
+    "mode": "parameterized",
+    "owner": "Invoke-ArchTests.ps1",
+    "path": "docs/architecture-notes/receipts/<contractId>.arch-receipt.json",
+    "trigger": "first runner invocation"
+  }
+]

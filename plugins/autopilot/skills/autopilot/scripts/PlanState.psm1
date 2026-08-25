@@ -63,6 +63,7 @@ $script:PlanAssetMap = [ordered]@{
     Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
     LearningOverflowRoot = [pscustomobject]@{ Asset = 'logs/learning-overflow'; Legacy = 'learning-overflow' }
     HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
+    ReviewRuns           = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
 }
 
 function Normalize-PhysicalPathRoot {
@@ -181,7 +182,7 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot')]
+        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]
@@ -1521,11 +1522,10 @@ function Get-TypedEvidenceMarkers {
     Extracts the closed-vocabulary typed evidence markers from an acceptance-criteria cell.
 
     .DESCRIPTION
-    The closed vocabulary is `test:<TestId>`, `file:<path>#<assertion>`, `review:cr|dr`, and
-    `arch:<ContractId>`. Pure string parsing (no execution). A `·`-separated segment that is marker-SHAPED
-    (`<prefix>:<value>`) but whose prefix is NOT in the closed set is surfaced VERBATIM so the evaluator
-    fails loud on it — a stale installed bundle that does not recognize `arch:` must BLOCK rather than
-    silently drop the marker and false-green (RISK-12).
+    The closed vocabulary is `test:<TestId>`, `file:<path>#<assertion>`, and `review:cr|dr`.
+    Pure string parsing (no execution). Every marker-shaped occurrence is tokenized independently;
+    an unknown prefix is surfaced verbatim even when known markers share its segment, so retired
+    markers cannot hide behind a recognized token and false-green.
     #>
     [CmdletBinding()]
     param(
@@ -1534,44 +1534,63 @@ function Get-TypedEvidenceMarkers {
     )
 
     $markers = [System.Collections.Generic.List[string]]::new()
+    $nonEvidencePrefixes = @(
+        'after', 'cip-stage', 'contains', 'depends-on', 'epic', 'evidence',
+        'execution-mode', 'expected-packages', 'phase-budget-points', 'plan-id',
+        'scope', 'sev', 'src', 'status', 'trigger'
+    )
     $segments = $AcceptanceCriteria.Split('·')
     foreach ($segment in $segments) {
-        $trimmed = $segment.Trim().Trim('`').Trim()
+        $trimmed = $segment.Trim()
         if ([string]::IsNullOrWhiteSpace($trimmed)) {
             continue
         }
 
-        $matched = $false
-
-        foreach ($testMatch in [regex]::Matches($trimmed, 'test:[^\s`|·]+')) {
-            $markers.Add($testMatch.Value.Trim())
-            $matched = $true
-        }
-
-        foreach ($reviewMatch in [regex]::Matches($trimmed, 'review:(?:cr|dr)')) {
-            $markers.Add($reviewMatch.Value.Trim())
-            $matched = $true
-        }
-
-        foreach ($archMatch in [regex]::Matches($trimmed, 'arch:[^\s`|·#]+')) {
-            $markers.Add($archMatch.Value.Trim())
-            $matched = $true
-        }
-
-        foreach ($fileMatch in [regex]::Matches($trimmed, 'file:[^#\s`|·]+#.+$')) {
-            $value = $fileMatch.Value.Trim().Trim('`').Trim()
-            if (-not [string]::IsNullOrWhiteSpace($value)) {
-                $markers.Add($value)
-                $matched = $true
+        $candidates = [System.Collections.Generic.List[object]]::new()
+        $quotedSpans = [System.Collections.Generic.List[object]]::new()
+        foreach ($quoted in [regex]::Matches($trimmed, '`(?<value>[^`]+)`')) {
+            $quotedSpans.Add([pscustomobject]@{ Index = $quoted.Index; End = $quoted.Index + $quoted.Length })
+            $value = $quoted.Groups['value'].Value.Trim()
+            if ($value.StartsWith('file:')) {
+                if ($value -eq 'file:') { continue }
+                $candidates.Add([pscustomobject]@{ Index = $quoted.Index; Value = $value })
+                continue
+            }
+            foreach ($inner in [regex]::Matches($value, '(?<![A-Za-z0-9_-])[a-z][a-z-]*:[^\s|·]+')) {
+                $candidates.Add([pscustomobject]@{
+                        Index = $quoted.Index + 1 + $inner.Index
+                        Value = $inner.Value
+                    })
             }
         }
 
-        # Fail-loud on an unrecognized typed-marker prefix: a marker-shaped token (`<prefix>:<value>`) that no
-        # known extractor matched is surfaced verbatim so the evaluator flags it as unknown. Unanchored (like the
-        # known extractors) so an unknown marker with surrounding text is still caught, never silently dropped.
-        if (-not $matched) {
-            foreach ($unknownMatch in [regex]::Matches($trimmed, '[a-z][a-z-]*:[^\s`|·]+')) {
-                $markers.Add($unknownMatch.Value.Trim())
+        foreach ($unquoted in [regex]::Matches($trimmed, '(?<![A-Za-z0-9_-])[a-z][a-z-]*:[^\s`|·]+')) {
+            $insideQuoted = $false
+            foreach ($span in $quotedSpans) {
+                if ($unquoted.Index -ge $span.Index -and $unquoted.Index -lt $span.End) {
+                    $insideQuoted = $true
+                    break
+                }
+            }
+            if (-not $insideQuoted) {
+                $candidates.Add([pscustomobject]@{ Index = $unquoted.Index; Value = $unquoted.Value })
+            }
+        }
+
+        $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($candidate in @($candidates | Sort-Object Index)) {
+            $value = [string]$candidate.Value
+            $prefix = $value.Substring(0, $value.IndexOf(':'))
+            if ($nonEvidencePrefixes -contains $prefix) {
+                continue
+            }
+            if ($value -match '^review:' -and $value -notmatch '^review:(?:cr|dr)$') {
+                [void]$seen.Add("$($candidate.Index)|$value")
+                $markers.Add($value)
+                continue
+            }
+            if ($seen.Add("$($candidate.Index)|$value")) {
+                $markers.Add($value)
             }
         }
     }

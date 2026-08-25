@@ -5,7 +5,7 @@
   "description": "Generated plugin catalog with file hashes.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["generatedAt", "plugins", "bootstrap"],
+  "required": ["generatedAt", "plugins", "retiredPlugins", "bootstrap"],
   "properties": {
     "bootstrap": {
       "type": "object",
@@ -175,6 +175,14 @@
             }
           }
         }
+      }
+    },
+    "retiredPlugins": {
+      "type": "array",
+      "description": "Generated copy of the closed, separately schema-validated registry-retirements.json records.",
+      "items": {
+        "type": "object",
+        "required": ["name", "retiredAt", "reason", "payloadSets", "manualResidue"]
       }
     }
   }
