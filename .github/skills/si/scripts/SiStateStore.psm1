@@ -462,8 +462,19 @@ function Get-SiArtifactDigest {
         [AllowEmptyCollection()][byte[]]$Bytes
     )
     if ($PSCmdlet.ParameterSetName -eq 'Bytes') {
+        $normalized = [System.Collections.Generic.List[byte]]::new($Bytes.Count)
+        for ($index = 0; $index -lt $Bytes.Count; $index++) {
+            if ($Bytes[$index] -eq 0x0D) {
+                $normalized.Add(0x0A)
+                if ($index + 1 -lt $Bytes.Count -and $Bytes[$index + 1] -eq 0x0A) {
+                    $index++
+                }
+                continue
+            }
+            $normalized.Add($Bytes[$index])
+        }
         return [Convert]::ToHexString(
-            [System.Security.Cryptography.SHA256]::HashData($Bytes)
+            [System.Security.Cryptography.SHA256]::HashData($normalized.ToArray())
         ).ToLowerInvariant()
     }
     if (Test-Path -LiteralPath $Path -PathType Leaf) {

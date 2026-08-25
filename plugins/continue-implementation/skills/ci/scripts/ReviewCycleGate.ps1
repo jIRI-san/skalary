@@ -36,14 +36,15 @@ if (-not (Test-Path -LiteralPath $planDirFull -PathType Container)) {
 $logPath = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind CrLog
 $raw = if (Test-Path -LiteralPath $logPath -PathType Leaf) { Get-Content -LiteralPath $logPath -Raw } else { '' }
 $stagePattern = [regex]::Escape($Stage)
-$cycleMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\] review-cycle stage=$stagePattern cycle=(?<cycle>[0-9]+) outcome=(?<outcome>clean|findings)(?: .*)?$")
+$provenancePattern = '(?: \[[^\]]+\])*'
+$cycleMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle stage=$stagePattern cycle=(?<cycle>[0-9]+) outcome=(?<outcome>clean|findings)(?: .*)?$")
 $cycles = @($cycleMatches | ForEach-Object { [int]$_.Groups['cycle'].Value } | Sort-Object)
 $count = $cycles.Count
 if ($count -gt 0 -and (($cycles -join ',') -ne ((1..$count) -join ','))) {
     throw "Review-cycle history for '$Stage' is not the closed sequence 1..$count."
 }
 
-$decisionMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\] review-cycle-decision stage=$stagePattern after=(?<after>[0-9]+) action=(?<decision>continue|wrap)$")
+$decisionMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-decision stage=$stagePattern after=(?<after>[0-9]+) action=(?<decision>continue|wrap)$")
 $latestDecision = $null
 if ($decisionMatches.Count -gt 0) {
     $match = $decisionMatches[$decisionMatches.Count - 1]
@@ -55,7 +56,9 @@ function Add-ReviewCycleNote {
     $writer = Join-Path $PSScriptRoot 'Add-WorkflowNote.ps1'
     if (-not (Test-Path -LiteralPath $writer -PathType Leaf)) { throw "Workflow-note writer not found: $writer" }
     $step = if ($Stage -match '^step-(?<step>.+)$') { $Matches.step } else { $null }
-    & $writer -Kind CrLog -PlanDir $planDirFull -Phase $Phase -Step $step -Src note -Sev Low -Message $Message | Out-Null
+    & $writer -Kind CrLog -PlanDir $planDirFull -Phase $Phase -Step $step `
+        -Src note -Sev Low -Concern maintainability-consistency -ReviewType cr `
+        -Message $Message | Out-Null
 }
 
 function Get-ReviewCycleState {

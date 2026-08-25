@@ -1,0 +1,85 @@
+{
+  "schema": "skalary/work-hierarchy-projection@1",
+  "epic": {
+    "localId": "a1b2c3",
+    "kind": "epic",
+    "title": "Fixture epic",
+    "managedBody": "<!-- skalary:work-hierarchy:epic:a1b2c3:start -->\n## Purpose\n\nShip the fixture hierarchy.\n\n## Child plans\n\n- `111aaa` - First child\n- `222bbb` - Second child\n<!-- skalary:work-hierarchy:epic:a1b2c3:end -->"
+  },
+  "children": [
+    {
+      "localId": "111aaa",
+      "kind": "plan",
+      "title": "First child",
+      "managedBody": "<!-- skalary:work-hierarchy:plan:111aaa:start -->\n## Purpose\n\nDeliver the first slice.\n\n## Desired outcome\n\nThe first slice works.\n\n## Success signals\n\n- First signal.\n\n## Non-goals\n\n- No extras.\n\n## Definition of done\n\n- First done.\n\n## Dependencies\n\n_None._\n\n## Phases\n\n### Phase 1: Establish behavior\n\n- [x] `1.1` Build the first slice (REQ-1)\n\n## Acceptance criteria\n\n### REQ-1\n\nFirst requirement.\n\n**Acceptance:** First acceptance. `test:first`\n<!-- skalary:work-hierarchy:plan:111aaa:end -->",
+      "dependencies": [],
+      "phases": [
+        {
+          "title": "Phase 1: Establish behavior",
+          "steps": [
+            {
+              "id": "1.1",
+              "title": "Build the first slice (REQ-1)",
+              "complete": true
+            }
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        {
+          "id": "REQ-1",
+          "requirement": "First requirement.",
+          "acceptance": "First acceptance. `test:first`"
+        }
+      ]
+    },
+    {
+      "localId": "222bbb",
+      "kind": "plan",
+      "title": "Second child",
+      "managedBody": "<!-- skalary:work-hierarchy:plan:222bbb:start -->\n## Purpose\n\nDeliver the second slice.\n\n## Desired outcome\n\nThe second slice works.\n\n## Success signals\n\n- Second signal.\n\n## Non-goals\n\n- No extras.\n\n## Definition of done\n\n- Second done.\n\n## Dependencies\n\n- `111aaa`\n\n## Phases\n\n### Phase 1: Extend behavior\n\n- [ ] `1.1` Build the second slice (REQ-1)\n\n## Acceptance criteria\n\n### REQ-1\n\nSecond requirement.\n\n**Acceptance:** Second acceptance. `test:second`\n<!-- skalary:work-hierarchy:plan:222bbb:end -->",
+      "dependencies": [
+        "111aaa"
+      ],
+      "phases": [
+        {
+          "title": "Phase 1: Extend behavior",
+          "steps": [
+            {
+              "id": "1.1",
+              "title": "Build the second slice (REQ-1)",
+              "complete": false
+            }
+          ]
+        }
+      ],
+      "acceptanceCriteria": [
+        {
+          "id": "REQ-1",
+          "requirement": "Second requirement.",
+          "acceptance": "Second acceptance. `test:second`"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "kind": "parent-child",
+      "sourceId": "a1b2c3",
+      "targetId": "111aaa",
+      "targetInEpic": true
+    },
+    {
+      "kind": "parent-child",
+      "sourceId": "a1b2c3",
+      "targetId": "222bbb",
+      "targetInEpic": true
+    },
+    {
+      "kind": "depends-on",
+      "sourceId": "222bbb",
+      "targetId": "111aaa",
+      "targetInEpic": true
+    }
+  ]
+}

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-25T12:28:21.1155154Z",
+  "generatedAt": "2026-08-25T13:48:13.4992981Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -553,7 +553,7 @@
         },
         {
           "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
-          "sha256": "96b96f9e43c74eef69cdf7625e68d8b11d3f8439a305beeb3af0a24c4c186ee9",
+          "sha256": "b8e472550196975a4aee92e024302ca1d993abc4a614b61aeb21bfb6336dcdb6",
           "src": "skills/ci/scripts/ReviewCycleGate.ps1"
         },
         {
@@ -643,7 +643,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.46"
+      "version": "1.0.47"
     },
     {
       "author": "jIRI-san",
@@ -1291,7 +1291,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "6df34f0f2c249f857f1ff874a7b0503ded5ea4ce20eed833a0fd9ebc0be24de2",
+          "sha256": "7aa23ece4d64feec1e0ae783571d060c09f146727a54898a66f2abc029556593",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1413,6 +1413,47 @@
         "skill"
       ],
       "version": "1.0.52"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/work-hierarchy-sync/SKILL.md",
+          "sha256": "7d5f9479481d431fc49d681889a552d789afb00ac6e51e7cbff7bba2ae591b7b",
+          "src": "skills/work-hierarchy-sync/SKILL.md"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/GitHubWorkHierarchy.psm1",
+          "sha256": "5f117e4d22f65f024f51d3cf4b1f2d7c48f104dd08d43c603d388621bdcf1461",
+          "src": "skills/work-hierarchy-sync/scripts/GitHubWorkHierarchy.psm1"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/PlanState.psm1",
+          "sha256": "9a3e5facb03ab377f2a3a29c75d06c362ff6ddff29648f60422b26ccd36f30c5",
+          "src": "skills/work-hierarchy-sync/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1",
+          "sha256": "2b39e2e9988475b23e692249319514474207e0b5752b2a1bf64cbfc5f561d8f3",
+          "src": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "work-hierarchy-sync",
+      "status": "stable",
+      "tags": [
+        "github",
+        "issues",
+        "planning",
+        "skill",
+        "sync"
+      ],
+      "version": "1.0.6"
     }
   ],
   "retiredPlugins": [

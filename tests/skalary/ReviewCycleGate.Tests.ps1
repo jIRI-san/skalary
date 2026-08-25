@@ -10,9 +10,10 @@ Describe 'review cycle gate' {
 
         function Script:New-CyclePlan {
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('review-cycle-' + [guid]::NewGuid().ToString('N'))
-            [void](New-Item -ItemType Directory -Path (Join-Path $root 'assets') -Force)
-            Set-Content -LiteralPath (Join-Path $root 'plan.md') -Value "# abc123: Review cycle`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
-            return $root
+            $planDir = Join-Path $root 'docs/implementation-plans/2026-08-25-abc123-review-cycle'
+            [void](New-Item -ItemType Directory -Path (Join-Path $planDir 'assets') -Force)
+            Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Value "# abc123: Review cycle`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
+            return $planDir
         }
 
         function Script:Invoke-CycleGate {

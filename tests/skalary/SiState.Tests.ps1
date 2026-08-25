@@ -62,6 +62,16 @@ Describe 'Durable self-improvement state' {
         }
     }
 
+    It 'test:SiState.ArtifactDigestNormalizesLineEndingsWithoutParsingCorruptJson' {
+        $utf8 = [System.Text.UTF8Encoding]::new($false)
+        $lf = $utf8.GetBytes("{`n`"broken`" : [`n")
+        $crlf = $utf8.GetBytes("{`r`n`"broken`" : [`r`n")
+        $changed = $utf8.GetBytes("{`n`"different`" : [`n")
+
+        (Get-SiArtifactDigest -Bytes $crlf) | Should -Be (Get-SiArtifactDigest -Bytes $lf)
+        (Get-SiArtifactDigest -Bytes $changed) | Should -Not -Be (Get-SiArtifactDigest -Bytes $lf)
+    }
+
     It 'test:SiState.SchemaManifestAndRuns validates every persisted manifest and run against the owned schemas' {
         $enqueued = & $script:enqueue -RepoRoot $script:stateRoot -RepoId 'owner/repo' `
             -PlanId '1936cb' -SourceCommit ('a' * 40)
@@ -390,7 +400,10 @@ Describe 'Durable self-improvement state' {
         $snapshot = Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Snapshot `
             -PinnedBaseOid ('a' * 40)
 
-        [System.IO.File]::WriteAllText($manifestPath, $legacyCrLf.Replace("`r`n", "`n"))
+        [System.IO.File]::WriteAllText(
+            $manifestPath,
+            $legacyCrLf.Replace('"generation":0', '"generation":1')
+        )
 
         {
             Invoke-SiRepair -RepoRoot $script:stateRoot -Mode Apply `
