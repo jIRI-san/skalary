@@ -13,6 +13,7 @@ Phase: 1
 - [1.2] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:c5d2f4f7f6513ed915ad77b5788df64d6160f192d6905dd10d1a5f9ae82cf298] review-cycle stage=step-1.2 cycle=2 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-1.2-round-2
 - [1.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:022db2945f53f893d08778a6d6111e7950ac446bdd409f7e35466925db963383] New-Plan -EpicId accepted an epic inventory directory with no epic.md; require the canonical epic file before any plan creation and cover no-mutation refusal.
 - [1.2] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:8d7c56cc29ffcedad9a470b5f73abeca32ff827a77497a31c2adb975e520bb58] review-cycle stage=step-1.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-1.2-round-3
+- [1.2] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:94c2c7cc2c33291328d7b2b49f5e1ca5fa6caa78c171932d4cb3bf172cddcd52] review-cycle-decision stage=step-1.2 after=3 action=wrap
 
 ## CR Capture
 Phase: 2
@@ -39,3 +40,4 @@ Phase: 2
 - [2.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:332a02b35a6a2c666ebf37286b742e718f6c62e0ede6fc584f05bc35e695b296] review-cycle stage=step-2.1 cycle=2 outcome=findings summary=critical=0 high=0 medium=2 low=5 run=step-2.1-round-2
 - [2.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-3] [review:cr] [source-record:bd73863e77e14fedf3a8059c4f6f9c5d3396d1959da2a5ae3546525ee5d785a2] Dangling symlinks occupying migration targets bypassed Test-Path collision checks; fixed by inspecting directory entries without dereferencing and covered by a fixture.
 - [2.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:a01e4423178fa9a15bae280df9d7ed202c5a84ec1a0bd1a405be0d5c3598c8bb] review-cycle stage=step-2.1 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-2.1-round-3
+- [2.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:0fc998669d77823ac24169406a382212e81bc8e5b5a02f82225fb715ab3f7af7] review-cycle-decision stage=step-2.1 after=3 action=wrap
