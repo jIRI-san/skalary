@@ -5344,6 +5344,16 @@
   ],
   "removals": [
     {
+      "test": "New-Plan scaffolding.test:new-plan-scaffold creates a date-hash-slug folder with a plan-id anchor",
+      "reason": "Plan 669ad3 step 1.2 renames the scaffold test to carry prefixed standalone creation evidence while retaining the plan-id anchor assertion.",
+      "step": "669ad3/1.2"
+    },
+    {
+      "test": "PlanState Get-PlanInventory.parses legacy and new-scheme folders",
+      "reason": "Plan 669ad3 step 1.1 renames and expands the inventory test to cover legacy, unprefixed hash, standalone-prefixed, and epic-prefixed folders.",
+      "step": "669ad3/1.1"
+    },
+    {
       "test": "Add-WorkflowNote.test:workflownote-cap folds the oldest learnings into one loud overflow-summary",
       "reason": "Plan 1936cb step 2.2 retires lossy summary generation in favor of lossless content-addressed overflow batches.",
       "step": "1936cb/2.2"
@@ -5600,4 +5610,3 @@
     }
   ]
 }
-

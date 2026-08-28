@@ -31,7 +31,7 @@ $script:ReadOnlyVerbs = @('Get', 'Find', 'Test', 'Validate')
 # surface a token into the session.
 $script:SensitiveNameFragments = @('credential', 'secret', 'token', 'password', 'passphrase')
 $script:SettingKey = 'chat.tools.terminal.autoApprove'
-$script:CanonicalPlanFolderPattern = '(?:(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{6})|[0-9]{3})-[a-z0-9]+(?:-[a-z0-9]+)*'
+$script:CanonicalPlanFolderPattern = '(?:(?:(?:standalone|[0-9a-f]{6})-)?[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{6}|[0-9]{3})-[a-z0-9]+(?:-[a-z0-9]+)*'
 $script:ReviewWriterRules = @{
     'skills/cr/scripts/Build-ReviewReport.ps1' = "/^\\.github\\/skills\\/cr\\/scripts\\/Build-ReviewReport\\.ps1 -Mode (?:Freeze|Publish) -RunId [0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}(?: -PlanDir docs\\/implementation-plans\\/$script:CanonicalPlanFolderPattern)?$/"
     'skills/dr/scripts/Build-ReviewReport.ps1' = "/^\\.github\\/skills\\/dr\\/scripts\\/Build-ReviewReport\\.ps1 -Mode (?:Freeze|Publish) -RunId [0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}(?: -PlanDir docs\\/implementation-plans\\/$script:CanonicalPlanFolderPattern)?$/"

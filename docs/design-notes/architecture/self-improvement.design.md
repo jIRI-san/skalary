@@ -211,7 +211,8 @@ format annotations alone are non-asserting; parse failures return fixed errors. 
 including an orphan, re-derives its due from provenance. Ranked states also re-run the shared JCS
 candidate-ID and ranked-set-digest algorithm before any outcome counts are surfaced.
 
-`Get-SiHarvest.ps1` is the bounded free-text scanner. It resolves one inventoried plan, enumerates
+`Get-SiHarvest.ps1` is the bounded free-text scanner. It uses `PlanState`'s shared folder parser
+to resolve one inventoried legacy, unprefixed-hash, or prefixed-hash plan, then enumerates
 the closed active set (manifest, seven ledger categories, three layout-resolved logs, learning
 overflow, phase receipts, recorded feedback, and active SI runs), and reads every present file once
 when creating a snapshot from the pinned commit's immutable blobs, never from a concurrently

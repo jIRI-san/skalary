@@ -49,3 +49,12 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:d0f71dc14dce6c896ae30eed1257c326077a04728317753b0543ca76c11a84d3] Inventory overwrite protection ignored apply mode while all statuses remained pending, allowing loss of move-before-record recovery state; treat every apply-mode mapping as non-replaceable.
 - [2.2] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:f659fbcda658f3b1800f0d505ff2ec86c55c9fe798e7b2623f7d368ca9f25563] review-cycle stage=step-2.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-2.2-round-3
 - [2.2] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:b450a5c538ce5d42e34d84e67de6a3dac52690500a374397a5e9fd15f1f940a0] review-cycle-decision stage=step-2.2 after=3 action=wrap
+
+## CR Capture
+Phase: 3
+
+- [3.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:7d1c4b98c0a12038d98462cb74684660fe049186c0cf7d3484ca60c065806f30] review-cycle stage=step-3.1 cycle=1 outcome=clean summary=clean=1 findings=0 run=step-3-1-review
+- [3.1] [src:code-review] [sev:High] [concern:testing-evidence] [req:REQ-5] [review:cr] [source-record:80b57586de8a17096ec2352996ffc37bd963c16bd18401297005b968dddfb8f6] Suite coverage baseline still references three tests renamed by this plan, so the validation gate fails until removals are recorded or names are preserved.
+- [3.1] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-1] [review:cr] [source-record:e311f8bdb756a88b5195fddc2dff00c7f64e5e2bd721f3c3ee48e1c236b2dda9] Pinned SI inventory duplicates the plan-folder grammar instead of consuming a shared PlanState parser, leaving future drift risk.
+- [3.1] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:1c6119cde473e58dd906e4f7f5e9e96f987452b0c0c03c04815c8ac14bef621f] Pinned SI inventory lacks a collision fixture proving duplicate current and prefixed copies fail closed.
+- [3.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:ec0257f65e6eaa86d9000a51efbfbacd96a4ce6d69ff2f45a00e8863103f227a] review-cycle stage=step-3.1 cycle=2 outcome=clean summary=clean=1 findings=0 run=step-3-1-rereview
