@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T22:16:31.7624968Z",
+  "generatedAt": "2026-08-28T23:02:20.5415211Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -458,7 +458,7 @@
         },
         {
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "bbc17398e9d31495b9a331d96d60ad8365aea8cdf91344fd8692f81da589a0b0",
+          "sha256": "dfbcd5bfc851ec25cda9a60b178a711d0965b7d9e0e38f4e240e1d0c086e5cfb",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1023,7 +1023,7 @@
         },
         {
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "bbc17398e9d31495b9a331d96d60ad8365aea8cdf91344fd8692f81da589a0b0",
+          "sha256": "dfbcd5bfc851ec25cda9a60b178a711d0965b7d9e0e38f4e240e1d0c086e5cfb",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
