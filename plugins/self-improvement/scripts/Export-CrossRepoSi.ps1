@@ -18,6 +18,7 @@ $atomicModule = Join-Path $PSScriptRoot 'AtomicStore.psm1'
 if (-not (Test-Path -LiteralPath $atomicModule -PathType Leaf)) {
     $atomicModule = Join-Path (Split-Path -Parent $PSScriptRoot) 'skills/si/scripts/AtomicStore.psm1'
 }
+Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module $atomicModule -Force
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
@@ -99,12 +100,13 @@ $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
 $runFull = [System.IO.Path]::GetFullPath(
     $(if ([System.IO.Path]::IsPathRooted($RunPath)) { $RunPath } else { Join-Path $repoRootFull $RunPath })
 )
-$outputFull = Join-Path $repoRootFull 'docs/self-improvement/cross-repo-export.json'
+$stateRootRelative = Get-SiStateRelativePath -Kind Root
+$outputFull = Join-Path $repoRootFull "$stateRootRelative/cross-repo-export.json"
 Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $runFull
 Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $outputFull
 $runRoots = @(
-    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/self-improvement/runs')),
-    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/self-improvement/archive'))
+    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull (Get-SiStateRelativePath -Kind ActiveRuns))),
+    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull (Get-SiStateRelativePath -Kind Archive)))
 )
 $runComparison = if ($IsWindows) {
     [System.StringComparison]::OrdinalIgnoreCase

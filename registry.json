@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T21:19:46.9129926Z",
+  "generatedAt": "2026-08-28T22:16:31.7624968Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -525,7 +525,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "5754eb9fa21699b11c62ed875ecac9720e346a120fbf651d7aa2ae7db958a7ef",
+          "sha256": "b5d6f8db9989ff4d19d9058edbf1f72133ff949c0e3848c677987c1833e3e11b",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -680,7 +680,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.52"
+      "version": "1.0.53"
     },
     {
       "author": "jIRI-san",
@@ -1318,7 +1318,7 @@
         },
         {
           "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
-          "sha256": "c503a10ffa2dbdfa42364dafb11177b4a836dafba49d897f2b7047ba42e95944",
+          "sha256": "6733b2ac1e35f95fe1b6179e029f9fe7fc9c80ec86504e6f7aa9de02fdb0a1ad",
           "src": "scripts/Export-CrossRepoSi.ps1"
         },
         {
@@ -1363,7 +1363,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "7aa23ece4d64feec1e0ae783571d060c09f146727a54898a66f2abc029556593",
+          "sha256": "3860e54598fb71c8f6f81c67bca31150e7c7ccc0cb3eb897bc0e99b108f7c3ac",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1390,12 +1390,6 @@
           "owner": "Update-FeedbackQueue.ps1",
           "path": "docs/feedback/queue.md",
           "trigger": "first queued /pfb marker"
-        },
-        {
-          "mode": "literal",
-          "owner": "Export-CrossRepoSi.ps1",
-          "path": "docs/self-improvement/archive",
-          "trigger": "eligible archived-run enumeration"
         },
         {
           "mode": "literal",
@@ -1476,12 +1470,6 @@
           "trigger": "resolver receipt issuance"
         },
         {
-          "mode": "literal",
-          "owner": "Export-CrossRepoSi.ps1",
-          "path": "docs/self-improvement/runs",
-          "trigger": "eligible active-run enumeration"
-        },
-        {
           "confine": "Resolve-SiStatePath",
           "mode": "parameterized",
           "owner": "SiStateStore.psm1",
@@ -1502,7 +1490,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.57"
+      "version": "1.0.58"
     },
     {
       "author": "jIRI-san",

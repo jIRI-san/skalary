@@ -92,3 +92,8 @@ Phase: 2
 - [-] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-5] [review:cr] [source-record:5d235587188e43b4b460a792e0fe7c5da3e8bbb579e09439a880e361ebcc8bf6] Review skills allegedly bypass direct script invocation convention; triage=not-actionable because both skills directly invoke their installed bundled script path with bound arguments.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:4456523704c7dd7d7a2236cadf994580ee7e46a8a7e23175a0029b1f58588135] review-cycle stage=phase-2 cycle=3 outcome=findings summary=fixed-dispatch-fence-json-and-discovery
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:085fc05c4f8b974fc3f4347414030f6093f8d23f809311c8d2b2ebc6d60f8dfb] review-cycle-decision stage=phase-2 after=3 action=wrap
+
+## CR Capture
+Phase: 3
+
+No entries for this phase.

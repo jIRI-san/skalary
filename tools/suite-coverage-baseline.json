@@ -5354,6 +5354,11 @@
   ],
   "removals": [
     {
+      "test": "Self-improvement harvest contract.test:si-offered-at-completion.test:si-offered-at-completion documents the consumer-repo flow as manual",
+      "reason": "Plan 2366ad step 3.1 replaces the manual-only consumer flow with the bounded typed export and clean upstream handoff while retaining installed-copy and never-merge controls.",
+      "step": "2366ad/3.1"
+    },
+    {
       "test": "New-Plan scaffolding.test:new-plan-scaffold creates a date-hash-slug folder with a plan-id anchor",
       "reason": "Plan 669ad3 step 1.2 renames the scaffold test to carry prefixed standalone creation evidence while retaining the plan-id anchor assertion.",
       "step": "669ad3/1.2"

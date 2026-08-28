@@ -2,8 +2,16 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Installed shared closure: .github/skills/si/scripts/AtomicStore.psm1
-Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+# Installed shared closure: .github/skills/si/scripts/AtomicStore.psm1. The source plugin keeps
+# the generated closure under skills/si/scripts, so resolve both layouts without duplicating state.
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'AtomicStore.psm1') -PathType Leaf) {
+    Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+}
+else {
+    Import-Module (
+        Join-Path (Split-Path -Parent $PSScriptRoot) 'skills/si/scripts/AtomicStore.psm1'
+    ) -Force
+}
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 $script:SiStateContract = [pscustomobject]@{

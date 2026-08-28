@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.52"
+      "version": "1.0.53"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -139,7 +139,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.57"
+      "version": "1.0.58"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
