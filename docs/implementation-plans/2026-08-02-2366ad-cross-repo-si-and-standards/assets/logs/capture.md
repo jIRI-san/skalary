@@ -1,5 +1,4 @@
-## Capture
-Phase: 0
+## Planning Capture (historical)
 
 - [-] [src:note] dr: Cross-repo transport must extend 1936cb's SI lifecycle and trusted sync; the interchange projection is derived state, never a second authority.
 - [-] [src:note] dr: Review standards must be content-addressed frozen review-run authority; policy-changing branches use trusted-base standards and generic authority changes route through cip.
