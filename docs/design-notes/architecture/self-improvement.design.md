@@ -72,8 +72,8 @@ commit has been pushed. The due ID is
 write is committed and pushed before the plan PR. Writer failure is surfaced as non-blocking
 degradation, never success, because opening a proposal with nobody present remains disallowed.
 
-The consumer-repo fork/upstream flow is documented as manual — `gh` fork entitlement is out of
-scope, and skalary is itself the registry, so the PR target is this repo.
+The consumer-repo flow is a local, explicit handoff — `gh` fork entitlement is out of scope, and
+skalary is itself the registry, so the expected upstream identity is supplied by the operator.
 
 ## Cross-repository candidate transport
 
@@ -87,9 +87,9 @@ artifact over 64 KiB before atomic replacement. Repeating the same export is byt
 reports a no-op.
 
 The artifact is transport, not a second SI history. In a clean upstream-rooted checkout,
-`Invoke-CrossRepoSiHandoff.ps1` validates its content address and closed schema, refuses dirty or
-nested roots, and loads a bounded digest inventory of upstream instruction files before returning
-the artifact inside a fresh untrusted-input fence. Small work resumes normal upstream `/si`;
+`Invoke-CrossRepoSiHandoff.ps1` validates its content address and closed schema, checks origin
+against an explicit expected host and repository, refuses dirty or nested roots, and loads a bounded digest
+inventory of upstream instruction files before returning the artifact inside a fresh untrusted-input fence. Small work resumes normal upstream `/si`;
 plan-sized work enters normal `/cip`. The existing write-scope guard, draft-only PR, and
 never-auto-merge controls remain authoritative, and every consumer claim is re-judged against
 current upstream code.

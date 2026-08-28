@@ -5,8 +5,7 @@ param(
     [Parameter(Mandatory)][string]$RunPath,
     [Parameter(Mandatory)]
     [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$')]
-    [string]$InstalledPluginVersion,
-    [string]$OutputPath = 'docs/self-improvement/cross-repo-export.json'
+    [string]$InstalledPluginVersion
 )
 
 Set-StrictMode -Version Latest
@@ -64,13 +63,63 @@ function ConvertTo-SafeMetadata {
     return ConvertTo-RedactedSiText -Text $safe
 }
 
+function Assert-CrossRepoPathHasNoLink {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path
+    )
+    $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [System.IO.Path]::GetFullPath($Path)
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not $pathFull.StartsWith($rootFull + [System.IO.Path]::DirectorySeparatorChar, $comparison)) {
+        throw "Path '$pathFull' escapes the consumer repository."
+    }
+    $relative = [System.IO.Path]::GetRelativePath($rootFull, $pathFull)
+    $current = $rootFull
+    foreach ($part in $relative.Split(
+            [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
+            [System.StringSplitOptions]::RemoveEmptyEntries
+        )) {
+        $current = Join-Path $current $part
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Path '$pathFull' traverses link or reparse point '$current'."
+            }
+        }
+    }
+}
+
 $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
 $runFull = [System.IO.Path]::GetFullPath(
     $(if ([System.IO.Path]::IsPathRooted($RunPath)) { $RunPath } else { Join-Path $repoRootFull $RunPath })
 )
-$outputFull = [System.IO.Path]::GetFullPath(
-    $(if ([System.IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path $repoRootFull $OutputPath })
+$outputFull = Join-Path $repoRootFull 'docs/self-improvement/cross-repo-export.json'
+Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $runFull
+Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $outputFull
+$runRoots = @(
+    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/self-improvement/runs')),
+    [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/self-improvement/archive'))
 )
+$runComparison = if ($IsWindows) {
+    [System.StringComparison]::OrdinalIgnoreCase
+}
+else {
+    [System.StringComparison]::Ordinal
+}
+if (@($runRoots | Where-Object {
+            $runFull.StartsWith(
+                $_.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar,
+                $runComparison
+            )
+        }).Count -eq 0) {
+    throw 'Cross-repository export accepts only a durable active or archived SI run.'
+}
 if (-not (Test-Path -LiteralPath $runFull -PathType Leaf)) {
     throw "SI run '$runFull' was not found."
 }
@@ -96,6 +145,24 @@ if (@($run.rankedSet.candidates).Count -gt 5 -or
     [int]$run.rankedSet.count -ne @($run.rankedSet.candidates).Count) {
     throw 'SI run candidate set exceeds the closed export bounds.'
 }
+$candidateInputs = @($run.rankedSet.candidates | ForEach-Object {
+        [pscustomobject][ordered]@{
+            title = [string]$_.title
+            rationale = [string]$_.rationale
+            sources = [string[]]$_.sources
+            targets = [string[]]$_.targets
+        }
+    })
+$verifiedRankedSet = New-SiRankedCandidates -Candidate $candidateInputs
+if (-not [string]::Equals(
+        [string]$run.rankedSet.digest,
+        [string]$verifiedRankedSet.RankedSetDigest,
+        [System.StringComparison]::Ordinal
+    ) -or
+    (@($run.rankedSet.candidates | ForEach-Object candidateId) -join "`n") -cne
+    ($verifiedRankedSet.CandidateIds -join "`n")) {
+    throw 'SI run candidate identities or ranked-set digest failed semantic validation.'
+}
 
 $choiceById = @{}
 foreach ($choice in @($run.choices)) {
@@ -103,6 +170,15 @@ foreach ($choice in @($run.choices)) {
         throw "SI run contains duplicate disposition for '$($choice.candidateId)'."
     }
     $choiceById[[string]$choice.candidateId] = $choice
+}
+$candidateIdSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@($run.rankedSet.candidates | ForEach-Object candidateId),
+    [System.StringComparer]::Ordinal
+)
+foreach ($choiceId in $choiceById.Keys) {
+    if (-not $candidateIdSet.Contains([string]$choiceId)) {
+        throw "SI run disposition references unknown candidate '$choiceId'."
+    }
 }
 
 $candidates = [System.Collections.Generic.List[object]]::new()
@@ -130,6 +206,19 @@ foreach ($candidate in @($run.rankedSet.candidates)) {
     if ($disposition -notin @('pending', 'accepted', 'declined', 'deferred')) {
         throw "SI run candidate '$candidateId' has invalid disposition '$disposition'."
     }
+    $proposalPr = $null
+    if ($null -ne $choice -and $null -ne $choice.proposalPr) {
+        $uri = [uri]$choice.proposalPr.url
+        $builder = [System.UriBuilder]::new($uri)
+        $builder.UserName = ''
+        $builder.Password = ''
+        $builder.Query = ''
+        $builder.Fragment = ''
+        $proposalPr = [ordered]@{
+            url = $builder.Uri.AbsoluteUri
+            headOid = [string]$choice.proposalPr.headOid
+        }
+    }
     $candidates.Add([ordered]@{
             candidateId = $candidateId
             rank = [int]$candidate.rank
@@ -137,7 +226,7 @@ foreach ($candidate in @($run.rankedSet.candidates)) {
             sources = [string[]]@($candidate.sources | ForEach-Object { ConvertTo-SafeMetadata -Value ([string]$_) })
             targets = [string[]]@($candidate.targets | ForEach-Object { ConvertTo-SafeMetadata -Value ([string]$_) })
             disposition = $disposition
-            proposalPr = if ($null -eq $choice) { $null } else { $choice.proposalPr }
+            proposalPr = $proposalPr
         })
 }
 
@@ -169,25 +258,28 @@ if (-not ($content | Test-Json -SchemaFile $artifactSchema -ErrorAction Silently
     throw 'Generated cross-repository SI export failed its closed schema validation.'
 }
 
-$written = $true
-$expectedGeneration = Get-AtomicStoreGeneration -Path $outputFull
-if ($expectedGeneration -ne 'absent') {
-    $current = [System.IO.File]::ReadAllText($outputFull)
-    if ([string]::Equals($current, $content, [System.StringComparison]::Ordinal)) {
-        $written = $false
+$writeState = Invoke-WithAtomicStoreLock -Scope $outputFull -Action {
+    $expectedGeneration = Get-AtomicStoreGeneration -Path $outputFull
+    if ($expectedGeneration -ne 'absent') {
+        if ((Get-Item -LiteralPath $outputFull).Length -gt $maxArtifactBytes) {
+            throw "capacity-blocked: existing cross-repository SI artifact exceeds $maxArtifactBytes bytes."
+        }
+        $current = [System.IO.File]::ReadAllText($outputFull)
+        if ([string]::Equals($current, $content, [System.StringComparison]::Ordinal)) {
+            return [pscustomobject]@{ Status = 'complete'; Written = $false }
+        }
     }
-}
-if ($written) {
     $result = Set-AtomicStoreContent -Path $outputFull -Content $content -ExpectedGeneration $expectedGeneration
     if ($result.Status -ne 'complete') {
         throw "Cross-repository SI export write failed with status '$($result.Status)'."
     }
+    return [pscustomobject]@{ Status = 'complete'; Written = $true }
 }
 
 [pscustomobject]@{
-    Status = 'complete'
+    Status = $writeState.Status
     ExportId = $exportId
     Path = $outputFull
-    Written = $written
+    Written = $writeState.Written
     Candidates = $candidates.Count
 }

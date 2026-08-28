@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T20:01:01.9895850Z",
+  "generatedAt": "2026-08-28T20:30:42.9746888Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1233,7 +1233,7 @@
         },
         {
           "dest": "skills/si/assets/cross-repo-guide.md",
-          "sha256": "114af49ddd983e2ca49d2497354a57d6f0dfeaa0b0d46d5b16bed70ad8b6f949",
+          "sha256": "798a5e137fdd24be10cbc2a154e3b057bb62a535df4e5bdc5e3b9d61237651d9",
           "src": "skills/si/assets/cross-repo-guide.md"
         },
         {
@@ -1298,7 +1298,7 @@
         },
         {
           "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
-          "sha256": "a78b3d59ae472d36cc747d871542f1e9e1792cd4bf03162d3e66f3dfcabe5dc8",
+          "sha256": "700f532ce20d76c36f12a50dd9af84a623b275ef3122ca9f210b45f64ebe9aa2",
           "src": "scripts/Export-CrossRepoSi.ps1"
         },
         {
@@ -1313,7 +1313,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
-          "sha256": "5221a4dab7b9f0a755deafa751a10065e6a484f0c5be3345934455a605b73573",
+          "sha256": "a1102e4545396f27a7c2d086a7921ac60fe548d2b659004c63e90b1ce9040027",
           "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {

@@ -3,6 +3,12 @@
 param(
     [Parameter(Mandatory)][string]$ArtifactPath,
     [Parameter(Mandatory)][string]$UpstreamRoot,
+    [Parameter(Mandatory)]
+    [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
+    [string]$ExpectedUpstreamRepository,
+    [Parameter(Mandatory)]
+    [ValidatePattern('^[A-Za-z0-9.-]+$')]
+    [string]$ExpectedUpstreamHost,
     [Parameter(Mandatory)][ValidateSet('Small', 'PlanSized')][string]$WorkSize
 )
 
@@ -21,6 +27,31 @@ function Get-CrossRepoExportId {
     return [Convert]::ToHexString(
         [System.Security.Cryptography.SHA256]::HashData($bytes)
     ).ToLowerInvariant()
+}
+
+function ConvertTo-RedactedSiText {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    $value = [regex]::Replace(
+        $Text,
+        '(?is)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----',
+        '[REDACTED_PRIVATE_KEY]'
+    )
+    $value = [regex]::Replace(
+        $value,
+        '(?i)\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9_]{20,})\b',
+        '[REDACTED_TOKEN]'
+    )
+    $value = [regex]::Replace(
+        $value,
+        '(?i)\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*',
+        'Bearer [REDACTED_TOKEN]'
+    )
+    $value = [regex]::Replace(
+        $value,
+        '(?i)\b(token|password|secret|api[_-]?key)\b(\s*[:=]\s*)(["'']?)[^\s,"'']{8,}\3',
+        '$1$2[REDACTED_SECRET]'
+    )
+    return [regex]::Replace($value, '(?i)UNTRUSTED_INPUT', 'UNTRUSTED-INPUT[neutralized]')
 }
 
 $artifactFull = [System.IO.Path]::GetFullPath($ArtifactPath)
@@ -50,6 +81,31 @@ $dirty = @(& git -C $upstreamFull status --porcelain=v1 --untracked-files=all)
 if ($LASTEXITCODE -ne 0 -or $dirty.Count -gt 0) {
     throw 'The upstream checkout must be clean before importing consumer context.'
 }
+$remote = (@(& git -C $upstreamFull config --get remote.origin.url) -join '').Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($remote)) {
+    throw 'The upstream checkout must have an origin remote.'
+}
+$remoteRepository = $null
+$remoteHost = $null
+if ($remote -match '^(?:https?://|ssh://git@)(?<host>[^/]+)/(?<repo>[^/]+/[^/]+?)(?:\.git)?$') {
+    $remoteHost = $Matches.host
+    $remoteRepository = $Matches.repo
+}
+elseif ($remote -match '^(?:[^@]+@)?(?<host>[^:]+):(?<repo>[^/]+/[^/]+?)(?:\.git)?$') {
+    $remoteHost = $Matches.host
+    $remoteRepository = $Matches.repo
+}
+if (-not [string]::Equals(
+        $remoteHost,
+        $ExpectedUpstreamHost,
+        [System.StringComparison]::OrdinalIgnoreCase
+    ) -or -not [string]::Equals(
+        $remoteRepository,
+        $ExpectedUpstreamRepository,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+    throw "The checkout origin does not match expected upstream '$ExpectedUpstreamRepository'."
+}
 
 $instructionRelativePaths = @(
     '.github/copilot-instructions.md',
@@ -61,11 +117,16 @@ $instructionBytes = 0L
 foreach ($relative in $instructionRelativePaths) {
     $path = Join-Path $upstreamFull $relative
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
-    $bytes = [System.IO.File]::ReadAllBytes($path)
-    $instructionBytes += $bytes.Length
-    if ($instructionBytes -gt $maxInstructionBytes) {
+    $item = Get-Item -LiteralPath $path -Force
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Upstream instruction file '$relative' must not be a link or reparse point."
+    }
+    $length = $item.Length
+    if (($instructionBytes + $length) -gt $maxInstructionBytes) {
         throw "capacity-blocked: upstream instruction files exceed $maxInstructionBytes bytes."
     }
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $instructionBytes += $bytes.Length
     $instructionDigests.Add([pscustomobject]@{
             path = $relative
             sha256 = [Convert]::ToHexString(
@@ -98,7 +159,7 @@ if (@($artifact.payload.candidates).Count -gt 5) {
 }
 
 $fenceId = [Guid]::NewGuid().ToString('N')
-$safeArtifact = [regex]::Replace($artifactText.TrimEnd(), '(?i)UNTRUSTED_INPUT', 'UNTRUSTED-INPUT[neutralized]')
+$safeArtifact = ConvertTo-RedactedSiText -Text ($artifactText.TrimEnd())
 $context = @(
     "<<<UNTRUSTED_INPUT_START id=$fenceId source=`"cross-repo-si:$($artifact.exportId)`">>>"
     '````json'
