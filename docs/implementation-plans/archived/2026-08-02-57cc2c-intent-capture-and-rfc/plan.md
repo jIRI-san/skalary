@@ -1,6 +1,6 @@
-# 57cc2c: Intent capture and design RFC
+# 57cc2c: Intent capture and design RFC [DONE]
 <!-- plan-id: 57cc2c -->
-<!-- cip-stage: dr-round-3 -->
+<!-- cip-stage: done -->
 <!-- planning-confirmed: sha256:e29fb7fc979b8180067ab4ef7adb3b59ccdc679a04dee9942dcbafa68f97f49a -->
 <!-- epic: bcece1 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
@@ -42,4 +42,4 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Integrate the confirmed Markdown context into `/ci`, `/dr`, and autopilot through existing layout readers and lifecycle checks; synchronize plugin copies with existing generators and update owning workflow notes (REQ-2, REQ-3, REQ-5, RISK-2, RISK-4) [after: 2.2] `M`
-- [ ] 3.2 Run focused interview, invalidation, vertical-plan, installed-consumer, and generated-drift tests; rebuild the existing evidence receipt and complete the final intent/requirement crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4) [after: 3.1] `M`
+- [x] 3.2 Run focused interview, invalidation, vertical-plan, installed-consumer, and generated-drift tests; rebuild the existing evidence receipt and complete the final intent/requirement crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4) [after: 3.1] `M`
