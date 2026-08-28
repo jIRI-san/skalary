@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-25T12:24:50.0243787+00:00",
-  "commit": "8af15da33076dfd217af1e4ecad90181a6591cb2",
+  "capturedAt": "2026-08-28T11:39:02.0861887+00:00",
+  "commit": "76ca7cf14de4ebaf8ff08f8a789658bf7c3391ab",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 1011,
-  "executionCount": 1016,
+  "uniqueTestCount": 1063,
+  "executionCount": 1068,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -1826,12 +1826,57 @@
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.keeps the documented bootstrap registry fallback outside source-script rejection",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects colon-bound named dynamic Join-Path arguments in Markdown payloads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects dynamic composition of a supported runtime root",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects named and interpolated dynamic Join-Path arguments in PowerShell payloads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects repository-root joins to authoring-only plugin paths",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.rejects source-tree paths that cannot exist in a foreign consumer",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.requires literal installed sidecars to be declared or bundled",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.scaffold declarations.does not exempt a repository-root Join-Path from scaffold declarations",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.scaffold declarations.does not let an outer sidecar join exempt a nested repository read",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
       "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files accepts a scaffold path and rejects an undeclared sibling",
       "count": 1
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
-      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
+      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files rejects an undeclared scaffold root",
       "count": 1
     },
     {
@@ -1927,6 +1972,11 @@
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
       "test": "Asset bootstrap scanner.test:scanner-grammar-ignores-fenced-examples scans references after a balanced fence",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.validates literal Join-Path targets against the installed inventory",
       "count": 1
     },
     {
@@ -2162,6 +2212,31 @@
     {
       "file": "tests/skalary/ConcernAgents.Tests.ps1",
       "test": "concern reviewer agents.test:legacy-model-agents-removed leaves the shipped agent set clean under the model allowlist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.ActivePluginSmokeMatrix exercises one installed-only behavior per active plugin",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.DistributionDrift keeps generated distribution surfaces converged without mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.ForeignFixtureInventory installs the manifest inventory with hashes, dependencies, and confinement intact",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.RuntimeReferenceClosure proves installed, bundled, scaffolded, missing, source, and dynamic references",
       "count": 1
     },
     {
@@ -4461,6 +4536,11 @@
     },
     {
       "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.ArtifactDigestNormalizesLineEndingsWithoutParsingCorruptJson",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
       "test": "Durable self-improvement state.test:SiState.BoundedManifestPagingAndRepair preserves manifest-referenced runs during archive",
       "count": 1
     },
@@ -5063,6 +5143,186 @@
       "file": "tests/skalary/ValidatePlan.Tests.ps1",
       "test": "Validate-Plan stage gate.test:ValidatePlan.UnknownStageFailsLoud refuses to resolve an unrecognised stage to a skip",
       "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.declines without writes and refuses a changed mapping before refresh",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.defers in-epic dependency links until newly created issues exist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.digests exact mapping bytes while accepting and canonicalizing a UTF-8 BOM",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.keeps mapping refusals in parent-then-child item order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.persists a successful prefix and resumes partial failure from a fresh dry run",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.reads mapped state without writes and renders ordered create, link, and no-op actions",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses a directory mapping path before any provider mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses a projection changed after display before confirmation or writes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses invalid and projection-mismatched mapping kinds before provider reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses marker-bound crash recovery and a concurrent apply instead of creating duplicates",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses non-integral and duplicate mapping identities before provider reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.renders a missing mapped target as a refusal without writing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.repairs a verified stale mapping baseline without another provider mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.requires one explicit marker-bound remote identity for adoption",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.revalidates mapping persistence after the remote update precondition read",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.revalidates the complete remote issue immediately before update",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.ConflictAndNoOp refreshes remote state after confirmation and refuses drift",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.DryRunAndConfirmation applies the confirmed action set and converges",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers persists canonical mappings and refuses stale overwrites",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers refuses ambiguous marker-bound adoption without writing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers refuses remote managed edits and malformed markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.updates only a clean baseline and preserves unmanaged body text",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.keeps directive-shaped remote text inert",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps hierarchy and dependency reads to bounded gh api requests",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps one blocked-by relation write to gh api",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps one provider-neutral create operation to gh api",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses malformed GitHub issue results with an adapter diagnostic",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses pull requests returned by the issues endpoint",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses relation results with more than 100 issues",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.returns a missing issue sentinel for GitHub HTTP 404 only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.scans authoritative repository issues for at most two marker-bound adoption candidates",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.uses the narrow read boundary and inert gh argument arrays",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.produces stable byte-identical ordered projection output",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.projects hierarchy, dependencies, phases, purpose, and acceptance content",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.refuses ambiguous canonical child identities before emission",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchyConsumerInstall.Tests.ps1",
+      "test": "installed work-hierarchy consumer.test:WorkHierarchy.ConsumerInstall runs projection and dry run from the isolated plugin payload",
+      "count": 1
     }
   ],
   "mustKeep": [
@@ -5332,6 +5592,11 @@
       "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled leaves the report layout to the script, never to prose",
       "reason": "Step 2.2 retains this invariant under the production renderer in review-run consumer distribution and callers.keeps report layout in the renderer, never in caller prose.",
       "step": "2.2"
+    },
+    {
+      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
+      "reason": "Plan 34088e step 1.2 renamed this case to test:asset-refs-declared-in-files rejects an undeclared scaffold root while retaining the same fail-closed assertion.",
+      "step": "34088e:1.2"
     }
   ]
 }

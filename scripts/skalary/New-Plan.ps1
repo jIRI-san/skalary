@@ -126,9 +126,6 @@ TBD
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $plansRoot = Join-Path $repoRootPath 'docs/implementation-plans'
-if (-not (Test-Path -LiteralPath $plansRoot)) {
-    New-Item -ItemType Directory -Path $plansRoot -Force | Out-Null
-}
 
 if ($Date -notmatch '^\d{4}-\d{2}-\d{2}$') {
     throw "Date '$Date' must be in yyyy-MM-dd format."
@@ -165,11 +162,10 @@ if ((Test-Path -LiteralPath $targetDir) -and -not $Force) {
 }
 
 if (-not $TemplatePath) {
-    # An installed copy has no `plugins/` tree — only `.github/skills/<skill>/…` — so probe the skill's
-    # own assets folder beside this script first and fall back to the source-repo layout.
+    # The generated script lives beside the skill assets in authored and installed layouts.
+    # A repo-root plugins/ fallback would work only while dogfooding and hide a broken bundle.
     $templateCandidates = @(
         (Join-Path $PSScriptRoot '..' 'assets' 'plan-template.md')
-        (Join-Path $repoRootPath 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md')
         (Join-Path $repoRootPath '.github/skills/cip/assets/plan-template.md')
     )
     foreach ($candidate in $templateCandidates) {
@@ -184,6 +180,10 @@ if (-not $TemplatePath) {
 }
 if (-not (Test-Path -LiteralPath $TemplatePath -PathType Leaf)) {
     throw "Plan template not found: $TemplatePath"
+}
+
+if (-not (Test-Path -LiteralPath $plansRoot)) {
+    New-Item -ItemType Directory -Path $plansRoot -Force | Out-Null
 }
 
 $templateRaw = Get-Content -LiteralPath $TemplatePath -Raw
@@ -241,14 +241,14 @@ foreach ($entry in (Get-PlanAssetScaffold).GetEnumerator()) {
 }
 
 $result = [pscustomobject]@{
-    PlanId = $PlanId
-    Slug = $slugClean
-    Date = $Date
+    PlanId     = $PlanId
+    Slug       = $slugClean
+    Date       = $Date
     FolderName = $folderName
-    Path = $targetDir
-    PlanFile = $planFile
-    Stage = $stamped.Stage
-    AssetsDir = $assetsDir
+    Path       = $targetDir
+    PlanFile   = $planFile
+    Stage      = $stamped.Stage
+    AssetsDir  = $assetsDir
     AssetFiles = $assetFiles.ToArray()
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -101,6 +101,12 @@
     },
     {
       "path": "docs/architecture-notes/.staging/adr",
+      "mode": "literal",
+      "owner": "Import-ArchAdr.ps1",
+      "trigger": "ADR harvest at plan finalization"
+    },
+    {
+      "path": "docs/architecture-notes/.staging/ADR-HARVEST.md",
       "mode": "literal",
       "owner": "Import-ArchAdr.ps1",
       "trigger": "ADR harvest at plan finalization"

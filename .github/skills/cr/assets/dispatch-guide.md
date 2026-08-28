@@ -52,7 +52,7 @@ Before dispatching anything, run the declared-model preflight:
 pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist.ps1
 ```
 
-It reads committed files — `tools/model-allowlist.psd1`, every `*.agent.md`, and every
+It reads the repository's committed model allowlist, every `*.agent.md`, and every
 `.autopilot.json` — so it is deterministic. A non-zero exit is **fail-loud: stop and report the
 violation. Never fall back to "review anyway with whatever model answers"**, and never downgrade the
 failure to a warning. If the script is not present (a consumer repo that installed only the review

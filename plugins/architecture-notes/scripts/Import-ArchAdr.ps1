@@ -62,7 +62,31 @@ $planId = Split-Path -Leaf $PlanDir
 if (-not $StagingRoot) {
     $StagingRoot = Join-Path $RepoRoot 'docs/architecture-notes/.staging'
 }
-$stagingAdr = Join-Path $StagingRoot 'adr'
+
+function Assert-ArchRepoPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $relative = [System.IO.Path]::GetRelativePath($RepoRoot, $fullPath)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith("../", [System.StringComparison]::Ordinal) -or
+        $relative.StartsWith("..\", [System.StringComparison]::Ordinal)) {
+        throw "Architecture staging path '$fullPath' escapes repository root '$RepoRoot'."
+    }
+
+    $current = $RepoRoot
+    foreach ($segment in ($relative -split '[\\/]')) {
+        if ([string]::IsNullOrWhiteSpace($segment) -or $segment -eq '.') { continue }
+        $current = Join-Path $current $segment
+        if ((Test-Path -LiteralPath $current) -and (Get-Item -LiteralPath $current -Force).LinkType) {
+            throw "Architecture staging path contains a linked segment: $current"
+        }
+    }
+    return $fullPath
+}
+$StagingRoot = Assert-ArchRepoPath -Path $StagingRoot
+$stagingAdr = Assert-ArchRepoPath -Path (Join-Path $StagingRoot 'adr')
 
 if (-not $AssetRoot) {
     # Dual-layout probe, matching the sibling scripts. Require adr-template.md so a stray
@@ -269,7 +293,7 @@ $rows
 4. Keep the tier lean: when an ADR is superseded, move/summarize it out of the active table.
 5. Flip ``reviewed: true`` here (or delete this staging directory) once promotion is complete.
 "@
-$manifestPath = Join-Path $StagingRoot 'ADR-HARVEST.md'
+$manifestPath = Assert-ArchRepoPath -Path (Join-Path $StagingRoot 'ADR-HARVEST.md')
 # The manifest is a DERIVED promotion checklist, not human-edited content: always regenerate it so
 # an incremental re-harvest never leaves the review table under-reporting freshly-staged ADRs.
 $manifestAction = 'whatif'
@@ -278,8 +302,20 @@ if ($PSCmdlet.ShouldProcess($manifestPath, 'Write ADR harvest manifest')) {
     if ($manifestDir -and -not (Test-Path -LiteralPath $manifestDir -PathType Container)) {
         [void][System.IO.Directory]::CreateDirectory($manifestDir)
     }
-    $manifestAction = if (Test-Path -LiteralPath $manifestPath -PathType Leaf) { 'updated' } else { 'created' }
-    Set-Content -LiteralPath $manifestPath -Value $manifest -NoNewline
+    $manifestAction = 'created'
+    if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+        $existingManifest = [System.IO.File]::ReadAllText($manifestPath)
+        $withoutTimestamp = { param([string]$Text) $Text -replace '(?m)^harvestedAt:\s*.+$', 'harvestedAt: <stable>' }
+        if ((& $withoutTimestamp $existingManifest) -ceq (& $withoutTimestamp $manifest)) {
+            $manifestAction = 'skipped'
+        }
+        else {
+            $manifestAction = 'updated'
+        }
+    }
+    if ($manifestAction -ne 'skipped') {
+        Set-Content -LiteralPath $manifestPath -Value $manifest -NoNewline
+    }
 }
 
 [pscustomobject]@{

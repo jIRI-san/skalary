@@ -19,6 +19,9 @@ The `pprc` plugin ships a single interactive skill (`process-pr-comments`) and a
 | API + git module | `plugins/process-pr-comments/skills/process-pr-comments/scripts/GitHubPr.psm1` | GitHub REST/GraphQL wrappers, branch safety, thread fetch/join, push, reply post/dedup. |
 | Dogfood install target | `.github/skills/process-pr-comments/**` | Installed copy used by this repository’s Copilot runtime. |
 
+The skill imports `GitHubPr.psm1` from `.github/skills/process-pr-comments/scripts/`; it never falls
+back to the authoring-only `plugins/` tree in a consumer repository.
+
 ## Key Patterns
 
 | Pattern | Contract |

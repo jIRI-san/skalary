@@ -34,19 +34,19 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Build one foreign-repository fixture from active plugin manifests by invoking the production installer and existing test helpers. Poison skalary source paths, derive expected installed files from manifests, and add `test:ConsumerInstall.ForeignFixtureInventory` for missing, extra, hash-mismatched, escaping, and stale mappings (REQ-1, REQ-5, RISK-1, RISK-4, RISK-5) `L`
-- [ ] 1.2 Extend the current runtime-reference scan to reject source-tree assumptions and undeclared runtime assets across the supported reference grammar. Pair static findings with the foreign fixture and add `test:ConsumerInstall.RuntimeReferenceClosure` for installed, bundled, scaffolded, missing, and dynamic-reference cases (REQ-2, REQ-5, RISK-1, RISK-2, RISK-5) [after: 1.1] `L`
+- [x] 1.1 Build one foreign-repository fixture from active plugin manifests by invoking the production installer and existing test helpers. Poison skalary source paths, derive expected installed files from manifests, and add `test:ConsumerInstall.ForeignFixtureInventory` for missing, extra, hash-mismatched, escaping, and stale mappings (REQ-1, REQ-5, RISK-1, RISK-4, RISK-5) `L`
+- [x] 1.2 Extend the current runtime-reference scan to reject source-tree assumptions and undeclared runtime assets across the supported reference grammar. Pair static findings with the foreign fixture and add `test:ConsumerInstall.RuntimeReferenceClosure` for installed, bundled, scaffolded, missing, and dynamic-reference cases (REQ-2, REQ-5, RISK-1, RISK-2, RISK-5) [after: 1.1] `L`
 
 ## Phase 2: Installed behavior and scaffold lifecycle
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add one representative installed smoke per active plugin, deriving attendance from active manifests and using existing Pester/process helpers. Each smoke must load installed payloads and either exercise deterministic behavior or reach its expected offline preflight without source, network, or credential fallback; add `test:ConsumerInstall.ActivePluginSmokeMatrix` (REQ-3, REQ-5, RISK-1, RISK-3, RISK-5) [after: 1.2] `L`
-- [ ] 2.2 Execute every declared first-use scaffold owner in the foreign fixture and verify starter content, idempotence, modified-target preservation, confinement, hostile input refusal, and retry using `test:ConsumerInstall.FirstUseScaffoldLifecycle` (REQ-4, REQ-5, RISK-3, RISK-4, RISK-5) [after: 2.1] `L`
+- [x] 2.1 Add one representative installed smoke per active plugin, deriving attendance from active manifests and using existing Pester/process helpers. Each smoke must load installed payloads and either exercise deterministic behavior or reach its expected offline preflight without source, network, or credential fallback; add `test:ConsumerInstall.ActivePluginSmokeMatrix` (REQ-3, REQ-5, RISK-1, RISK-3, RISK-5) [after: 1.2] `L`
+- [x] 2.2 Execute every declared first-use scaffold owner in the foreign fixture and verify starter content, idempotence, modified-target preservation, confinement, hostile input refusal, and retry using `test:ConsumerInstall.FirstUseScaffoldLifecycle` (REQ-4, REQ-5, RISK-3, RISK-4, RISK-5) [after: 2.1] `L`
 
 ## Phase 3: Distribution proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Use current plugin sync, version, registry, marketplace, dogfood, and test infrastructure to converge changed payloads. Add `test:ConsumerInstall.DistributionDrift` and run focused install tests, structural evals, and normal repository validation without introducing a separate probe schema or hosted proof protocol (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Use current plugin sync, version, registry, marketplace, dogfood, and test infrastructure to converge changed payloads. Add `test:ConsumerInstall.DistributionDrift` and run focused install tests, structural evals, and normal repository validation without introducing a separate probe schema or hosted proof protocol (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
 
 ## Finalization (conditional)
 

@@ -6,9 +6,9 @@ globs:
   - schemas/registry/registry.schema.json
 ---
 
-# Asset Scanner Root Bound
+# Asset Scanner Root Bound [RESOLVED]
 
-Operator decision 2026-08-01, from the `b0c0d3` `/pfb` round: **leave the bound, correct the wording.** The design note now states the limitation plainly instead of framing it as a property. This note holds the analysis for whoever picks it up.
+The bound was removed by plan `34088e` on 2026-08-23. This note retains the prior analysis and resolution.
 
 ## The bound
 
@@ -34,9 +34,13 @@ Widening was implemented during `b0c0d3` phase 10 and reverted in the same phase
 
 The operator's call was that a narrower gate with honest documentation beats a wider gate rushed in at the end of a plan.
 
-## If picked up
+## Resolution
 
-1. Root the closed set in the grammar, not the declared set.
-2. Enumerate what that surfaces before deciding — the count drives whether this is an afternoon or a phase.
-3. For each: a `scaffolds[]` entry with a real first-use writer, or an exclusion with a stated reason. An entry whose declared `owner` does not actually create the path is worse than no entry — that failure mode already occurred once, when `Add-LedgerEntry` declared a first-use write it did not perform.
-4. Keep the `owner`-truthfulness gap in mind: nothing currently asserts a declared `owner` performs the write it claims.
+`Sync-PluginScripts.ps1` now roots scaffold references directly in the closed `docs|schemas|tools`
+grammar. Every concrete reference must match a declaration even when no plugin previously declared
+that root. PowerShell comments are excluded by syntax; literal `Join-Path` targets are reconstructed,
+and relative `$PSScriptRoot` or `$AssetRoot` sidecars are excluded from scaffold matching only when
+their installed destination is declared or belongs to a verified bundle closure. The
+foreign-consumer closure evidence pairs this static result with the production-installed manifest
+inventory. Scaffold owner execution remains covered separately by
+`test:ConsumerInstall.FirstUseScaffoldLifecycle`.

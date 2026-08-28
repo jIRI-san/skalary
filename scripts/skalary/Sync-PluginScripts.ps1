@@ -32,9 +32,8 @@ $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 # --- Asset reference grammar (REQ-19) -------------------------------------------------
 # A payload that reads a file installation never materializes fails silently in a consumer
 # repo: the agent reads nothing and degrades instead of erroring. The grammar below is
-# deliberately *closed* — only these two forms are recognized, and anything else (a
-# dynamically composed path, a bare `assets/x.md` that could equally mean a plan folder)
-# is out of grammar and must not appear in a payload as a runtime read.
+# deliberately *closed*. Supported roots must use literal paths so the scanner can prove
+# where each runtime read resolves; dynamic composition of one of these roots fails closed.
 #
 #   1. Installed-path literal — `.github/` plus one of the three payload roots (`skills/`,
 #      `agents/`, `prompts/`), i.e. the path the payload would open in an installed repo.
@@ -49,12 +48,18 @@ $assetRelativeRegex = [regex]'\./assets/(?<rest>[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-
 #   3. Scaffold path — a repo-relative runtime path *outside* `.github/`. The installer is
 #      hard-confined to `.github/` (ARCH-Install-Confinement) and there is no post-install
 #      hook, so these are materialized on first use by their owning skill or script and are
-#      declared in `scaffolds[]` instead of `files[]`. Enforcement covers every root some
-#      plugin scaffolds; a root nobody scaffolds is out of grammar, because a repo-relative
-#      path in payload prose that nothing materializes is as likely to be a quoted example or
-#      a composed fragment as a runtime read. That bound is the price of a closed grammar and
-#      is why the declarations below are kept exhaustive for the roots that do get written.
+#      declared in `scaffolds[]` instead of `files[]`. Every docs/, schemas/, and tools/
+#      reference is checked; deriving the roots from existing declarations would make a wholly
+#      undeclared runtime tree invisible.
 $assetScaffoldRegex = [regex]'(?<![A-Za-z0-9._/-])(?<path>(?:docs|schemas|tools)/[A-Za-z0-9<][A-Za-z0-9._/<>-]*)'
+#   4. Source-tree path — authoring paths under plugins/ and canonical scripts/skalary/ never
+#      exist in a foreign consumer. Payloads must use their installed .github/ destination.
+$assetSourceRegex = [regex]'(?<![A-Za-z0-9._/-])(?<path>\./(?:plugins|scripts/skalary)/[A-Za-z0-9_][A-Za-z0-9._/-]*\.[A-Za-z0-9]+)'
+# A variable tail prevents the literal inventory from proving closure. This deliberately
+# targets the supported roots in the grammar rather than every Join-Path call in executable
+# scripts, where dynamic consumer-selected output paths are valid.
+$assetDynamicRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path(?:\s*:\s*|\s+))?[''"](?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?)[''"]\s+(?:-ChildPath(?:\s*:\s*|\s+))?(?<tail>\$[A-Za-z_][A-Za-z0-9_]*|[''"][^''"\r\n]*\$[A-Za-z_][^''"\r\n]*[''"])'
+$assetLiteralJoinRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path(?:\s*:\s*|\s+))?(?<q>[''"])(?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?|\./(?:plugins|scripts/skalary)(?:/[A-Za-z0-9._/-]*)?)\k<q>\s+(?:-ChildPath(?:\s*:\s*|\s+))?(?<cq>[''"])(?<child>[^''"\r\n$]+)\k<cq>'
 
 function Get-ScaffoldRoot {
     <#
@@ -184,9 +189,196 @@ function Remove-FencedBlocks {
     }
 
     return [pscustomobject]@{
-        Text         = ($result -join "`n")
+        Text = ($result -join "`n")
         Unterminated = $inFence
     }
+}
+
+function Get-PowerShellRuntimeFacts {
+    <#
+    .SYNOPSIS
+    Parses comment-free text, installed-sidecar joins, and dynamic supported-root joins.
+    .DESCRIPTION
+    Comment examples describe source layouts and hostile fixture paths but execute no reads.
+    The AST also distinguishes `$PSScriptRoot`/`$AssetRoot` sidecars from repo-root joins and
+    catches positional, named, and interpolated Join-Path arguments without regex ambiguity.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Content
+    )
+
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+        $Content,
+        [ref]$tokens,
+        [ref]$parseErrors
+    )
+    $chars = $Content.ToCharArray()
+    foreach ($token in @($tokens | Where-Object { $_.Kind -eq 'Comment' })) {
+        for ($index = $token.Extent.StartOffset; $index -lt $token.Extent.EndOffset; $index++) {
+            if ($chars[$index] -ne "`r" -and $chars[$index] -ne "`n") {
+                $chars[$index] = ' '
+            }
+        }
+    }
+
+    $sidecarRanges = [System.Collections.Generic.List[object]]::new()
+    $sidecarReferences = [System.Collections.Generic.List[object]]::new()
+    $dynamicJoins = [System.Collections.Generic.List[object]]::new()
+    $literalJoins = [System.Collections.Generic.List[object]]::new()
+    $sourceTreeJoins = [System.Collections.Generic.List[object]]::new()
+    $joinCommands = @($ast.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -eq 'Join-Path'
+            }, $true))
+    foreach ($command in $joinCommands) {
+        $named = @{}
+        $positional = [System.Collections.Generic.List[object]]::new()
+        $elements = @($command.CommandElements)
+        for ($index = 1; $index -lt $elements.Count; $index++) {
+            $element = $elements[$index]
+            if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+                $parameterName = $element.ParameterName.ToLowerInvariant()
+                if ($parameterName -in @('path', 'childpath', 'additionalchildpath') -and $element.Argument) {
+                    $named[$parameterName] = $element.Argument
+                }
+                elseif ($parameterName -in @('path', 'childpath', 'additionalchildpath') -and
+                    $index + 1 -lt $elements.Count -and
+                    $elements[$index + 1] -isnot [System.Management.Automation.Language.CommandParameterAst]) {
+                    $named[$parameterName] = $elements[$index + 1]
+                    $index++
+                }
+                continue
+            }
+            $positional.Add($element)
+        }
+
+        $pathArgument = if ($named.ContainsKey('path')) {
+            $named['path']
+        }
+        elseif ($positional.Count -gt 0) {
+            $positional[0]
+        }
+        else {
+            $null
+        }
+        if (-not $pathArgument) { continue }
+
+        $pathText = $null
+        $pathDynamic = $false
+        if ($pathArgument -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+            $pathText = [string]$pathArgument.Value
+        }
+        elseif ($pathArgument -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+            $pathText = [string]$pathArgument.Value
+            $pathDynamic = @($pathArgument.NestedExpressions).Count -gt 0
+        }
+        $childArguments = [System.Collections.Generic.List[object]]::new()
+        foreach ($parameterName in @('childpath', 'additionalchildpath')) {
+            if ($named.ContainsKey($parameterName)) {
+                $childArguments.Add($named[$parameterName])
+            }
+        }
+        $positionalStart = if ($named.ContainsKey('path')) { 0 } else { 1 }
+        for ($index = $positionalStart; $index -lt $positional.Count; $index++) {
+            $childArguments.Add($positional[$index])
+        }
+
+        $childTexts = [System.Collections.Generic.List[string]]::new()
+        $dynamicChild = $null
+        foreach ($childArgument in $childArguments) {
+            $childText = if ($childArgument -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                [string]$childArgument.Value
+            }
+            elseif ($childArgument -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -and
+                @($childArgument.NestedExpressions).Count -eq 0) {
+                [string]$childArgument.Value
+            }
+            else {
+                $null
+            }
+            if ($null -eq $childText) {
+                if (-not $dynamicChild) { $dynamicChild = $childArgument }
+            }
+            else {
+                $childTexts.Add($childText)
+            }
+        }
+
+        if ($pathArgument -is [System.Management.Automation.Language.VariableExpressionAst] -and
+            $pathArgument.VariablePath.UserPath -in @('PSScriptRoot', 'AssetRoot')) {
+            if (-not $dynamicChild -and $childTexts.Count -eq $childArguments.Count -and
+                $childTexts.Count -gt 0) {
+                foreach ($childArgument in $childArguments) {
+                    $sidecarRanges.Add([pscustomobject]@{
+                            Start = $childArgument.Extent.StartOffset
+                            End = $childArgument.Extent.EndOffset
+                        })
+                }
+                $sidecarPath = (($childTexts | ForEach-Object { $_.Trim('/', '\') }) -join '/')
+                if ($sidecarPath -notmatch '(^|/)\.\.(/|$)' -and
+                    $sidecarPath -match '\.[A-Za-z0-9]+$') {
+                    $sidecarReferences.Add([pscustomobject]@{
+                            Base = [string]$pathArgument.VariablePath.UserPath
+                            Path = $sidecarPath
+                        })
+                }
+            }
+        }
+
+        if ($pathArgument -is [System.Management.Automation.Language.VariableExpressionAst] -and
+            $pathArgument.VariablePath.UserPath -notin @('PSScriptRoot', 'AssetRoot')) {
+            foreach ($childText in $childTexts) {
+                if ($childText -match '^(?:\./)?(?:plugins/|scripts/skalary/(?!registry\.json$))') {
+                    $sourceTreeJoins.Add([pscustomobject]@{
+                            Path = $childText
+                            Base = [string]$pathArgument.Extent.Text
+                        })
+                }
+            }
+        }
+
+        if (-not $pathText -or $pathText -notmatch '^(?:\./assets(?:/|$)|\.github/(?:skills|agents|prompts)(?:/|$)|(?:docs|schemas|tools)(?:/|$)|\./(?:plugins|scripts/skalary)(?:/|$))') {
+            continue
+        }
+
+        if ($pathDynamic -or $dynamicChild) {
+            $dynamicJoins.Add([pscustomobject]@{
+                    Root = $pathText
+                    Tail = if ($dynamicChild) { [string]$dynamicChild.Extent.Text } else { [string]$pathArgument.Extent.Text }
+                })
+        }
+        elseif ($childTexts.Count -eq $childArguments.Count -and $childTexts.Count -gt 0) {
+            $literalJoins.Add([pscustomobject]@{
+                    Path = (($pathText.TrimEnd('/', '\')) + '/' +
+                        (($childTexts | ForEach-Object { $_.Trim('/', '\') }) -join '/')).Replace('\', '/')
+                })
+        }
+    }
+
+    return [pscustomobject]@{
+        Text = -join $chars
+        SidecarRanges = @($sidecarRanges)
+        SidecarReferences = @($sidecarReferences)
+        DynamicJoins = @($dynamicJoins)
+        LiteralJoins = @($literalJoins)
+        SourceTreeJoins = @($sourceTreeJoins)
+    }
+}
+
+function Test-IsInstalledSidecarReference {
+    param(
+        [Parameter(Mandatory)]$PowerShellFacts,
+        [Parameter(Mandatory)][int]$MatchIndex
+    )
+
+    return @(
+        $PowerShellFacts.SidecarRanges |
+            Where-Object { $MatchIndex -ge $_.Start -and $MatchIndex -lt $_.End }
+    ).Count -gt 0
 }
 
 
@@ -295,11 +487,34 @@ foreach ($manifestPath in $manifestPaths) {
         $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath $src
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
 
-        $content = [System.IO.File]::ReadAllText($sourcePath)
-
         $dest = ([string]$file.dest).Replace('\', '/')
+        $scanSourcePath = $sourcePath
+        $bundleClosureDests = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
+        $managedScript = [regex]::Match($dest, '^skills/[^/]+/scripts/(?<name>[^/]+\.psm?1)$')
+        if ($managedScript.Success) {
+            $canonicalScript = Join-Path $scriptsSource $managedScript.Groups['name'].Value
+            if (Test-Path -LiteralPath $canonicalScript -PathType Leaf) {
+                $scanSourcePath = $canonicalScript
+                $managedDirDest = $dest.Substring(0, $dest.LastIndexOf('/'))
+                $managedClosure = Get-BundleClosure -ScriptName $managedScript.Groups['name'].Value `
+                    -SourceDir $scriptsSource -ReviewSchemaDir $reviewSchemaSource
+                foreach ($relative in $managedClosure.Keys) {
+                    [void]$bundleClosureDests.Add("$managedDirDest/$relative")
+                }
+            }
+        }
+        $content = [System.IO.File]::ReadAllText($scanSourcePath)
+
         $stripped = Remove-FencedBlocks -Content $content
-        $prose = $stripped.Text
+        $powerShellFacts = if ($ext -in @('.ps1', '.psm1')) {
+            Get-PowerShellRuntimeFacts -Content $stripped.Text
+        }
+        else {
+            $null
+        }
+        $prose = if ($powerShellFacts) { $powerShellFacts.Text } else { $stripped.Text }
 
         if ($stripped.Unterminated) {
             $assetViolations.Add("plugin '$pluginName': '$dest' has an unterminated code fence. Everything after it is treated as an example, so a runtime asset reference there would slip past this gate — close the fence.")
@@ -334,9 +549,13 @@ foreach ($manifestPath in $manifestPaths) {
         }
 
         foreach ($match in $assetScaffoldRegex.Matches($prose)) {
+            if ($powerShellFacts -and
+                (Test-IsInstalledSidecarReference -PowerShellFacts $powerShellFacts -MatchIndex $match.Index)) {
+                continue
+            }
             $referenced = $match.Groups['path'].Value.TrimEnd('.', ',', ')').Trim('/')
             $root = Get-ScaffoldRoot -Path $referenced
-            if (-not $root -or -not $scaffoldRoots.Contains($root)) { continue }
+            if (-not $root) { continue }
             # A payload naming a scaffold's own root folder is naming the declaration.
             if ($scaffoldRoots.Contains($referenced)) { continue }
             # A path whose final segment is a bare placeholder names a shape, not a file —
@@ -352,6 +571,99 @@ foreach ($manifestPath in $manifestPaths) {
             if ($matched) { continue }
 
             $assetViolations.Add("plugin '$pluginName': '$dest' reads '$referenced', a runtime path under the scaffolded root '$root' that no scaffolds[] entry declares. Installation cannot write outside .github/, so declare who scaffolds it on first use (or correct the path).")
+        }
+
+        foreach ($sidecar in @($(if ($powerShellFacts) { $powerShellFacts.SidecarReferences } else { @() }))) {
+            $sidecarPath = ([string]$sidecar.Path).Trim('/')
+            $referenced = if ([string]$sidecar.Base -eq 'PSScriptRoot') {
+                $destParent = $dest.Substring(0, $dest.LastIndexOf('/'))
+                "$destParent/$sidecarPath"
+            }
+            elseif ($skillMatch.Success) {
+                "skills/$($skillMatch.Groups['skill'].Value)/assets/$sidecarPath"
+            }
+            else {
+                $null
+            }
+            if ($referenced -and
+                ($declaredDests.Contains($referenced) -or $bundleClosureDests.Contains($referenced))) {
+                continue
+            }
+            $assetViolations.Add("plugin '$pluginName': '$dest' reads sidecar '$([string]$sidecar.Base)/$sidecarPath', which does not resolve to a declared files[] destination or verified script bundle.")
+        }
+
+        $literalJoins = if ($powerShellFacts) {
+            @($powerShellFacts.LiteralJoins)
+        }
+        else {
+            @(
+                foreach ($match in $assetLiteralJoinRegex.Matches($prose)) {
+                    [pscustomobject]@{
+                        Path = "$($match.Groups['root'].Value.TrimEnd('/', '\'))/$($match.Groups['child'].Value.Trim('/', '\'))"
+                    }
+                }
+            )
+        }
+        foreach ($literalJoin in $literalJoins) {
+            $referenced = ([string]$literalJoin.Path).Replace('\', '/')
+            if ($referenced -match '^\.github/(?<installed>.+)$') {
+                $installed = $Matches['installed']
+                $scriptReference = [regex]::Match($installed, '^skills/[^/]+/scripts/(?<name>[^/]+\.psm?1)$')
+                if (($scriptReference.Success -and
+                        (Test-Path -LiteralPath (Join-Path $scriptsSource $scriptReference.Groups['name'].Value) -PathType Leaf)) -or
+                    $declaredDests.Contains($installed)) {
+                    continue
+                }
+                $assetViolations.Add("plugin '$pluginName': '$dest' joins installed path '$referenced', which no plugin declares in files[].")
+                continue
+            }
+            if ($referenced -match '^\./assets/(?<rest>.+)$') {
+                $rest = $Matches['rest']
+                $installed = if ($skillMatch.Success) {
+                    "skills/$($skillMatch.Groups['skill'].Value)/assets/$rest"
+                }
+                else {
+                    $null
+                }
+                if ($installed -and $declaredDests.Contains($installed)) { continue }
+                $assetViolations.Add("plugin '$pluginName': '$dest' joins skill-relative path '$referenced', which does not resolve to a declared files[] destination.")
+                continue
+            }
+            if ($referenced -match '^(?:docs|schemas|tools)/') {
+                if ($scaffoldRoots.Contains($referenced)) { continue }
+                $matched = $false
+                foreach ($scaffold in $declaredScaffolds) {
+                    if (Test-ScaffoldMatch -Path $referenced -Scaffold $scaffold) {
+                        $matched = $true
+                        break
+                    }
+                }
+                if ($matched) { continue }
+                $assetViolations.Add("plugin '$pluginName': '$dest' joins scaffold path '$referenced', which no scaffolds[] entry declares.")
+                continue
+            }
+            if ($referenced -match '^\./(?:plugins|scripts/skalary)/') {
+                $assetViolations.Add("plugin '$pluginName': '$dest' joins source-tree path '$($referenced.TrimStart('.', '/'))'. Foreign consumers have no skalary source tree.")
+            }
+        }
+
+        foreach ($match in $assetSourceRegex.Matches($prose)) {
+            $referenced = $match.Groups['path'].Value.TrimStart('.', '/')
+            $assetViolations.Add("plugin '$pluginName': '$dest' reads source-tree path '$referenced'. Foreign consumers have no skalary plugins/ or scripts/skalary/ tree; use the installed .github/ destination.")
+        }
+
+        if ($powerShellFacts) {
+            foreach ($sourceTreeJoin in @($powerShellFacts.SourceTreeJoins)) {
+                $assetViolations.Add("plugin '$pluginName': '$dest' joins source-tree path '$($sourceTreeJoin.Path)' to '$($sourceTreeJoin.Base)'. Foreign consumers have no skalary plugins/ tree; use the installed .github/ destination.")
+            }
+            foreach ($dynamicJoin in @($powerShellFacts.DynamicJoins)) {
+                $assetViolations.Add("plugin '$pluginName': '$dest' dynamically composes supported runtime root '$($dynamicJoin.Root)' with '$($dynamicJoin.Tail)'. Use a literal installed, skill-relative, or scaffold path so reference closure is checkable.")
+            }
+        }
+        else {
+            foreach ($match in $assetDynamicRegex.Matches($prose)) {
+                $assetViolations.Add("plugin '$pluginName': '$dest' dynamically composes supported runtime root '$($match.Groups['root'].Value)' with '$($match.Groups['tail'].Value)'. Use a literal installed, skill-relative, or scaffold path so reference closure is checkable.")
+            }
         }
 
         foreach ($match in $refRegex.Matches($content)) {

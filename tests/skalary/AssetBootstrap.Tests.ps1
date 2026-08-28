@@ -5,8 +5,8 @@ $ErrorActionPreference = 'Stop'
 
 # RISK-9: a payload that reads a file the installer never materializes fails *quietly* in a
 # consumer repo — the agent reads nothing and degrades instead of erroring. These tests pin the
-# scanner that closes that gap: the grammar it recognizes, the two false-positive sources it
-# must ignore (fenced examples, dynamically composed paths), and the drift gate that fails.
+# scanner that closes that gap: the grammar it recognizes, fenced examples it must ignore,
+# unsupported dynamic/source-tree references it rejects, and the drift gate that fails.
 
 Describe 'Asset bootstrap scanner' {
     BeforeAll {
@@ -39,15 +39,15 @@ Describe 'Asset bootstrap scanner' {
 
             if ($null -eq $Declared) { $Declared = @($Files.Keys) }
             $manifest = [ordered]@{
-                name         = $PluginName
-                version      = '1.0.0'
-                description  = 'Fixture plugin.'
-                author       = 'test'
-                license      = 'MIT'
-                tags         = @('skill')
+                name = $PluginName
+                version = '1.0.0'
+                description = 'Fixture plugin.'
+                author = 'test'
+                license = 'MIT'
+                tags = @('skill')
                 dependencies = @()
-                status       = 'partial'
-                files        = @($Declared | Sort-Object | ForEach-Object { [ordered]@{ src = $_; dest = $_ } })
+                status = 'partial'
+                files = @($Declared | Sort-Object | ForEach-Object { [ordered]@{ src = $_; dest = $_ } })
             }
             Set-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Value ($manifest | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
@@ -69,8 +69,8 @@ Describe 'Asset bootstrap scanner' {
 
     It 'test:asset-refs-declared-in-files fails on a skill-relative asset missing from files[]' {
         $root = & $script:newFixture -Files @{
-            'skills/demo/SKILL.md'              = "# Demo`n`nRead ./assets/missing-guide.md before acting.`n"
-            'skills/demo/assets/present.md'     = "# Present`n"
+            'skills/demo/SKILL.md' = "# Demo`n`nRead ./assets/missing-guide.md before acting.`n"
+            'skills/demo/assets/present.md' = "# Present`n"
         } -Declared @('skills/demo/SKILL.md', 'skills/demo/assets/present.md')
 
         try {
@@ -86,7 +86,7 @@ Describe 'Asset bootstrap scanner' {
 
     It 'test:asset-refs-declared-in-files accepts a skill-relative asset that is declared' {
         $root = & $script:newFixture -Files @{
-            'skills/demo/SKILL.md'          = "# Demo`n`nRead ./assets/present.md before acting.`n"
+            'skills/demo/SKILL.md' = "# Demo`n`nRead ./assets/present.md before acting.`n"
             'skills/demo/assets/present.md' = "# Present`n"
         }
 
@@ -102,8 +102,8 @@ Describe 'Asset bootstrap scanner' {
         # A guide that already lives under assets/ spells a sibling asset exactly as SKILL.md
         # does; resolving relative to the containing folder would look for assets/assets/.
         $root = & $script:newFixture -Files @{
-            'skills/demo/SKILL.md'          = "# Demo`n`nSee ./assets/guide.md.`n"
-            'skills/demo/assets/guide.md'   = "# Guide`n`nAlso see ./assets/sibling.md.`n"
+            'skills/demo/SKILL.md' = "# Demo`n`nSee ./assets/guide.md.`n"
+            'skills/demo/assets/guide.md' = "# Guide`n`nAlso see ./assets/sibling.md.`n"
             'skills/demo/assets/sibling.md' = "# Sibling`n"
         }
 
@@ -170,7 +170,7 @@ Describe 'Asset bootstrap scanner' {
         ) -join "`n"
 
         $root = & $script:newFixture -Files @{
-            'skills/demo/SKILL.md'          = $body
+            'skills/demo/SKILL.md' = $body
             'skills/demo/assets/present.md' = "# Present`n"
         }
 
@@ -315,14 +315,186 @@ Describe 'Asset bootstrap scanner' {
     It 'test:asset-refs-declared-in-files covers every payload extension the scanner claims to read' {
         # A bundled script that reads an asset is as much a runtime read as a SKILL.md that does.
         $root = & $script:newFixture -Files @{
-            'skills/demo/SKILL.md'            = "# Demo`n"
-            'skills/demo/scripts/Read-It.ps1' = "# Reads ./assets/missing-guide.md at runtime.`nparam()`n"
+            'skills/demo/SKILL.md' = "# Demo`n"
+            'skills/demo/scripts/Read-It.ps1' = "param()`nGet-Content './assets/missing-guide.md' -Raw`n"
         }
 
         try {
             $result = & $script:invoke -Root $root
             $result.Threw | Should -BeTrue
             $result.Message | Should -Match 'missing-guide\.md'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects source-tree paths that cannot exist in a foreign consumer' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nImport-Module ./plugins/demo/skills/demo/scripts/Read-It.psm1.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'source-tree path'
+            $result.Message | Should -Match 'plugins/demo/skills/demo/scripts/Read-It\.psm1'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects repository-root joins to authoring-only plugin paths' {
+        foreach ($sourcePath in @(
+                'plugins/fixture/skills/demo/scripts/Read-It.psm1',
+                'scripts/skalary/Read-It.psm1'
+            )) {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md' = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = (@'
+param([string]$RepoRoot)
+$module = Join-Path $RepoRoot '__SOURCE_PATH__'
+'@).Replace('__SOURCE_PATH__', $sourcePath)
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'joins source-tree path'
+                $result.Message | Should -Match ([regex]::Escape($sourcePath))
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    It 'keeps the documented bootstrap registry fallback outside source-script rejection' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n"
+            'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$registry = Join-Path $RepoRoot 'scripts/skalary/registry.json'
+'@
+        }
+
+        try {
+            (& $script:invoke -Root $root).Threw | Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects dynamic composition of a supported runtime root' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nUse ``Join-Path './assets' `$name`` to load the guide.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'dynamically composes supported runtime root'
+            $result.Message | Should -Match '\./assets'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects named and interpolated dynamic Join-Path arguments in PowerShell payloads' {
+        foreach ($expression in @(
+                'Join-Path -Path ''./assets'' -ChildPath $name',
+                'Join-Path ''./assets'' "$name.md"',
+                'Join-Path -Path:''./assets'' -ChildPath:$name'
+            )) {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md' = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = "param([string]`$name)`n`$path = $expression`n"
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'dynamically composes supported runtime root'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    It 'validates literal Join-Path targets against the installed inventory' {
+        foreach ($case in @(
+                [pscustomobject]@{
+                    Path = 'skills/demo/scripts/Read-It.ps1'
+                    Content = "param()`n`$path = Join-Path './assets' 'missing-guide.md'`n"
+                },
+                [pscustomobject]@{
+                    Path = 'skills/demo/SKILL.md'
+                    Content = "# Demo`n`nLoad ``Join-Path './assets' 'missing-guide.md'`` at runtime.`n"
+                }
+            )) {
+            $files = @{ 'skills/demo/SKILL.md' = "# Demo`n" }
+            $files[[string]$case.Path] = [string]$case.Content
+            $root = & $script:newFixture -Files $files
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'skill-relative path'
+                $result.Message | Should -Match 'missing-guide\.md'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    It 'requires literal installed sidecars to be declared or bundled' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n"
+            'skills/demo/scripts/Read-It.ps1' = "param()`n`$schema = Join-Path `$PSScriptRoot 'schemas/missing.json'`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'reads sidecar'
+            $result.Message | Should -Match 'schemas/missing\.json'
+
+            $sidecarPath = Join-Path $root 'plugins/fixture/skills/demo/scripts/schemas/missing.json'
+            New-Item -ItemType Directory -Path (Split-Path -Parent $sidecarPath) -Force | Out-Null
+            Set-Content -LiteralPath $sidecarPath -Value "{}" -Encoding utf8NoBOM
+            $manifestPath = Join-Path $root 'plugins/fixture/plugin.json'
+            $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 10
+            $manifest.files = @($manifest.files) + @(
+                [pscustomobject]@{
+                    src = 'skills/demo/scripts/schemas/missing.json'
+                    dest = 'skills/demo/scripts/schemas/missing.json'
+                }
+            )
+            Set-Content -LiteralPath $manifestPath -Value (
+                $manifest | ConvertTo-Json -Depth 10
+            ) -Encoding utf8NoBOM
+
+            (& $script:invoke -Root $root).Threw | Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+
+    It 'rejects colon-bound named dynamic Join-Path arguments in Markdown payloads' {
+        $root = & $script:newFixture -Files @{
+            'skills/demo/SKILL.md' = "# Demo`n`nLoad ``Join-Path -Path:'./assets' -ChildPath:`$name`` at runtime.`n"
+        }
+
+        try {
+            $result = & $script:invoke -Root $root
+            $result.Threw | Should -BeTrue
+            $result.Message | Should -Match 'dynamically composes supported runtime root'
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force
@@ -338,15 +510,15 @@ Describe 'Asset bootstrap scanner' {
                 param([object[]]$Scaffolds)
 
                 $manifest = [ordered]@{
-                    name         = 'fixture'
-                    version      = '1.0.0'
-                    description  = 'Fixture plugin.'
-                    author       = 'test'
-                    license      = 'MIT'
-                    tags         = @('skill')
+                    name = 'fixture'
+                    version = '1.0.0'
+                    description = 'Fixture plugin.'
+                    author = 'test'
+                    license = 'MIT'
+                    tags = @('skill')
                     dependencies = @()
-                    files        = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
-                    scaffolds    = $Scaffolds
+                    files = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
+                    scaffolds = $Scaffolds
                 }
                 return ($manifest | ConvertTo-Json -Depth 10)
             }
@@ -488,15 +660,56 @@ Describe 'Asset bootstrap scanner' {
             }
         }
 
-        It 'test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar' {
-            # The closed set is the declared set: a root nobody declares is a path this
-            # contract says nothing about, not an implicit violation.
+        It 'does not exempt a repository-root Join-Path from scaffold declarations' {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md' = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$path = Join-Path $RepoRoot 'docs/undeclared/file.md'
+'@
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/undeclared/file\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+
+        It 'does not let an outer sidecar join exempt a nested repository read' {
+            $root = & $script:newFixture -Files @{
+                'skills/demo/SKILL.md' = "# Demo`n"
+                'skills/demo/scripts/Read-It.ps1' = @'
+param([string]$RepoRoot)
+$path = Join-Path $PSScriptRoot (Get-Content (Join-Path $RepoRoot 'docs/undeclared/file.md'))
+'@
+            }
+
+            try {
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/undeclared/file\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+
+        It 'test:asset-refs-declared-in-files rejects an undeclared scaffold root' {
             $root = & $script:newFixture -Files @{
                 'skills/demo/SKILL.md' = "# Demo`n`nRead docs/some-other-tier/index.md.`n"
             }
 
             try {
-                (& $script:invoke -Root $root).Threw | Should -BeFalse
+                $result = & $script:invoke -Root $root
+                $result.Threw | Should -BeTrue
+                $result.Message | Should -Match 'docs/some-other-tier/index\.md'
+                $result.Message | Should -Match 'no scaffolds\[\] entry declares'
             }
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force

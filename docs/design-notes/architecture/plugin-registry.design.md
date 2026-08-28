@@ -8,6 +8,8 @@ globs:
   - schemas/registry/registry.schema.json
   - schemas/receipt/receipt.schema.json
   - .github/.skalary/**
+  - tests/ConsumerInstallFixture.psm1
+  - tests/skalary/ConsumerInstall.Tests.ps1
 ---
 
 # Plugin Registry
@@ -238,32 +240,59 @@ the installed SI scripts materialize these paths on first use through `Resolve-S
 
 1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.
 2. **Skill-relative** — `./assets/<file>`, resolved against the payload's **skill root**, so a guide living under `assets/` spells a sibling exactly as its `SKILL.md` does. The leading `./` is load-bearing: a bare `assets/intent.md` names a *plan folder* asset, which is not a payload file at all.
-3. **Scaffold path** — a `docs/`, `schemas/`, or `tools/` runtime path under a root some plugin scaffolds; it must match a `scaffolds[]` entry.
+3. **Scaffold path** — every `docs/`, `schemas/`, or `tools/` runtime path must match a `scaffolds[]` entry. The grammar roots are fixed rather than derived from existing declarations, so a wholly undeclared runtime tree fails instead of becoming invisible. Direct literal child arguments to `Join-Path $PSScriptRoot ...` / asset-root calls are installed sidecars, not repo-level scaffolds; the exemption never covers nested commands or their repo-root reads.
+4. **Source-tree path** — explicit `./plugins/...` / `./scripts/skalary/...` reads and PowerShell `Join-Path` calls that attach either authoring tree to a repo-root variable are rejected because those trees do not exist after plugin installation; payloads use their installed `.github/` destinations. The documented bootstrapped-repository fallback at `scripts/skalary/registry.json` remains valid because bootstrap, rather than plugin installation, owns that runtime file.
 
 Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
-fence is an error, because blanking the remainder of a file would silently narrow the gate),
-dynamically composed reads (`Join-Path './assets' $name` — unsupported, must not appear in a
-payload), and a path whose final segment is a bare `<placeholder>` (prose describing a shape).
-
-**Known bound — enforcement is self-referential.** Arm 3 only inspects a reference whose root some
-plugin *already* declares in `scaffolds[]`, because the root set is derived from the declarations
-themselves. A root nobody has declared is not a violation; it is skipped, so the gate cannot see it.
-`docs/review-ledger/` is declared and therefore checked; `docs/design-notes/` is not, so
-`design-notes/SKILL.md` reading `docs/design-notes/.design-notes.md` at runtime — outside `.github/`,
-absent from `files[]` and from every `scaffolds[]` — passes silently, and would degrade in a consumer
-repo that lacks the file. Two paths of the same class, opposite enforcement, decided by which plugin
-happened to declare first.
-
-So the guarantee is narrower than "every runtime path is declared": it is *"declarations are
-exhaustive for roots that already have at least one declaration."* Widening it means rooting the
-closed set in the grammar (`docs`, `schemas`, `tools`) rather than in the declared set, which turns
-every currently-invisible reference into a violation that must be declared or excluded. That is
-tracked, not done — see
-[explorations/asset-scanner-root-bound.design.md](../explorations/asset-scanner-root-bound.design.md).
+fence is an error, because blanking the remainder of the file would silently narrow the gate), and a
+path whose final segment is a bare `<placeholder>` (prose describing a shape). PowerShell comment
+tokens are blanked before matching so fixture examples and documentation are not runtime reads.
+Dynamic composition of a supported root such as `Join-Path './assets' $name` is not out of grammar:
+it fails closed because no finite manifest inventory can prove its target. Static `Join-Path` calls
+are reconstructed and checked through the same installed, skill-relative, scaffold, and source-tree
+rules as direct literals. PowerShell AST binding covers positional, named, inline (`-Path:value`),
+and interpolated arguments; the prose grammar applies the same literal and inline-name rules to
+Markdown payloads. Direct `$PSScriptRoot` and `$AssetRoot` sidecars are exempt from repo-scaffold
+matching only after their resolved destination is found in `files[]` or the verified script bundle.
 
 Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
 script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
 and stays subject to the `files[]` check.
+
+## Foreign Consumer Inventory
+
+`tests/ConsumerInstallFixture.psm1` creates one empty foreign Git repository, poisons the skalary
+source-root shapes, and invokes the production `Install-Plugin.ps1` once for every active
+`plugins/*/plugin.json`. Active attendance is manifest-derived: both `stable` and `partial` bundles
+are installed, while retired plugins have no active manifest and therefore do not enter the set.
+
+The inventory oracle is independent of `registry.json`: it hashes each manifest source, excludes
+the installer's non-runtime `evals/` mappings, and compares that expected set with installed files,
+per-plugin receipts, dependency closure, and `.github/` confinement. It separately compares every
+manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
+make the production installer and its test agree on the same wrong payload. The process-heavy
+evidence lives in the existing Slow suite tier.
+
+`Test-ConsumerRuntimeReferenceClosure` composes that installed inventory with the production
+`Sync-PluginScripts.ps1 -WhatIf` scan. The named evidence proves literal installed references and
+canonical script bundles exist with manifest hashes, declared scaffolds remain first-use paths, and
+missing installed files, source-relative reads, or dynamic supported-root reads fail closed.
+
+`Invoke-ConsumerInstalledSmokeMatrix` derives attendance from the same active manifest catalog and
+loads one manifest-hashed installed payload per plugin. Each plugin then runs one bounded,
+deterministic behavior through the installed path (or an exact local refusal preflight); the matrix
+does not use source payloads, network access, provider credentials, or skipped-success results.
+
+`Invoke-ConsumerFirstUseScaffoldLifecycle` derives distinct first-use owners from active
+`scaffolds[]` declarations and runs each installed owner in an isolated copy of the foreign fixture.
+The lifecycle proves non-empty starter content, safe reruns and modified-target preservation where
+applicable, declaration-bound output paths, mutation-free hostile refusal, and successful retry.
+
+`Test-ConsumerDistributionDrift` composes the existing detect-only plugin-script bundle, registry,
+marketplace, and dogfood gates in isolated processes and compares content snapshots of every
+distribution-owned surface across the run. Those production gates remain authoritative for payload
+hashes and plugin versions; the consumer suite adds no parallel distribution schema or hosted proof
+protocol.
 
 ## Skill Size Cap
 
