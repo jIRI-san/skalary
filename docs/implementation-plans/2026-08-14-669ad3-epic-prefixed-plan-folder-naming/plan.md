@@ -23,7 +23,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 1.1 Extend existing inventory and resolution parsing to accept current and prefixed hash-plan folders while preserving canonical `plan-id`, stable dependency/ledger references, and legacy numbered-plan behavior (REQ-1, RISK-1, RISK-3) `M`
-- [~] 1.2 Update existing plan/epic scaffolding so newly created hash plans use the epic ID or `standalone` prefix directly, without an intermediate rename; synchronize affected plugin copies (REQ-1, REQ-5, RISK-3, RISK-5) [after: 1.1] `M`
+- [x] 1.2 Update existing plan/epic scaffolding so newly created hash plans use the epic ID or `standalone` prefix directly, without an intermediate rename; synchronize affected plugin copies (REQ-1, REQ-5, RISK-3, RISK-5) [after: 1.1] `M`
 
 ## Phase 2: Optional script-owned migration
 <!-- worktree: (recorded by /ci when worktree is created) -->
