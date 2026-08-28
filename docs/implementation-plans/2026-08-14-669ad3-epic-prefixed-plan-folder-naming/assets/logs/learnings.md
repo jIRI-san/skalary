@@ -14,3 +14,4 @@ Phase: 2
 Phase: 3
 
 - [3.1] [trigger:reusable-pattern] [concern:architecture-patterns] [req:REQ-1] [review:cr] [source-record:fb787b17e3fac542726723cb685fec1ae7bfc3a0261295bf19b69106485a1c23] Keep folder-name parsing pure and shared so worktree and pinned-tree inventories cannot drift across naming migrations.
+- [3.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:cd48815cf5d9f0f4f6896e85e3b97c0876c5ace37281e6cd358d69e262e443d8] Prefix-target collision checks must inspect directory entries without dereferencing; when membership is written before a folder move, restore the original header if the move fails.

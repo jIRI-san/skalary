@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T16:39:04.2711822Z",
+  "generatedAt": "2026-08-28T17:16:38.3479808Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -698,7 +698,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "f8b11d1784529dc7c4628652e48949acc0d87da9385e3d47d9d48d2fd9e58541",
+          "sha256": "95a8768789b63448cedb1b9aee26fb9a46db05c43b5276f71903e8fbc678d100",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
@@ -825,7 +825,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.44"
+      "version": "1.0.45"
     },
     {
       "author": "jIRI-san",

@@ -198,17 +198,17 @@ Describe 'New-Epic' {
                 New-Item -ItemType Directory -Path $dir -Force | Out-Null
                 # A plan that merely documents the marker in a fenced example must not be enrolled.
                 Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Encoding utf8NoBOM -Value (@(
-                    '# 999fff: Documents the marker'
-                    '<!-- plan-id: 999fff -->'
-                    ''
-                    '## Phase 1: Fixture'
-                    ''
-                    '- [ ] 1.1 Explain the marker `S`'
-                    ''
-                    '```markdown'
-                    '<!-- epic: cc33dd -->'
-                    '```'
-                ) -join "`n")
+                        '# 999fff: Documents the marker'
+                        '<!-- plan-id: 999fff -->'
+                        ''
+                        '## Phase 1: Fixture'
+                        ''
+                        '- [ ] 1.1 Explain the marker `S`'
+                        ''
+                        '```markdown'
+                        '<!-- epic: cc33dd -->'
+                        '```'
+                    ) -join "`n")
 
                 (Get-PlanInventory -RepoRoot $tmp | Where-Object { $_.Id -eq '999fff' }).EpicId | Should -BeNullOrEmpty
 
@@ -277,6 +277,36 @@ Describe 'New-Epic' {
                     Should -Throw '*Ambiguous plan reference*'
 
                 Test-Path -LiteralPath $created.Path | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'rejects a dangling prefix target before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $collision = Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later'
+                try {
+                    [void][System.IO.Directory]::CreateSymbolicLink(
+                        $collision,
+                        (Join-Path $tmp 'missing-target')
+                    )
+                }
+                catch {
+                    Set-ItResult -Skipped -Because "this host cannot create a symbolic link unprivileged: $($_.Exception.Message)"
+                    return
+                }
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*target folder*already exists*'
+
+                Test-Path -LiteralPath $created.Path -PathType Container | Should -BeTrue
                 (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
             }
             finally {

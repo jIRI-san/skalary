@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.44"
+      "version": "1.0.45"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",

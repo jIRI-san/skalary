@@ -71,7 +71,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `autopilot` | 1.2.25 | partial | self-improvement | 30 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.30 | stable | — | 26 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.50 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.44 | stable | design-review | 25 | Implementation plan generation skill for coding workflows. |
+| `create-implementation-plan` | 1.0.45 | stable | design-review | 25 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.29 | stable | — | 25 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.18 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
