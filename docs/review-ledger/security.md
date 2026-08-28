@@ -10,6 +10,7 @@
 - [2026-08-09] Consumer hostile fixture contained only the marker token and did not exercise a forged boundary marker plus inner fence delimiter. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-6 #security
 - [2026-08-10] Content-addressed repair artifacts are not authority; merge gates must replay the transition from pinned authoritative state and compare the complete result. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
 - [2026-08-28] dr legacy step 3.2 : dry-run and apply require persisted candidate fingerprints set-digest equality and candidate-to-record bijection (plan-669ad3, src:autopilot, sev:High) #phase-1 #security
+- [2026-08-28] dr legacy step 5.1 : terminal apply must be invoked by the updated host through the cip-owned command and authorized by a single-use operation-bound capability (plan-669ad3, src:autopilot, sev:Critical) #phase-3 #security
 - [2026-08-09] Enumerated overflow and receipt child files were read without rechecking physical descent from their confined roots. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-09] Explicit archive source paths were interpolated into wrapper metadata without fully neutralizing marker tokens or line breaks. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-1 #req-7 #security
 - [2026-08-10] Final CR: repair follows descendant symlinks and may copy host files into repository backups; each source needs physical confinement recheck. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
