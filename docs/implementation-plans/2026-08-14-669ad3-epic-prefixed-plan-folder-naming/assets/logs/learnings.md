@@ -7,3 +7,4 @@ Phase: 1
 Phase: 2
 
 - [2.1] [trigger:reusable-pattern] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:7e76d42abc2c4e155282df17a7c8ef18f98c121744193314e6e0193b576630d1] PowerShell WhatIf preference propagates into nested writers; preview artifacts need an explicit ShouldProcess boundary and durable state should use AtomicStore.
+- [2.2] [trigger:rework>1] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:8341cc3d16c52b48a4907e3d7e729c5b19b87e46e3f81eb2d05be2d9d9529ac6] ConvertFrom-Json can surface a single nested array element as a scalar in this PowerShell path; normalize entries with array wrapping and validate each element instead of requiring System.Array.

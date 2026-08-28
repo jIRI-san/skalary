@@ -215,4 +215,155 @@ Describe 'Migrate-PlanFolderPrefixes' {
             }
         }
     }
+
+    It 'test:PlanFolderPrefix.MigrationResume applies and resumes the reviewed mapping idempotently' {
+        $repo = New-MigrationRepo
+        try {
+            New-TestEpic -Repo $repo -EpicId 'abcdef'
+            $firstSource = New-TestPlan -Repo $repo -Folder '2026-01-02-a1b2c3-first' `
+                -PlanId 'a1b2c3' -EpicId 'abcdef'
+            $secondSource = New-TestPlan -Repo $repo -Folder '2026-01-03-d4e5f6-second' `
+                -PlanId 'd4e5f6'
+            $mappingPath = Join-Path $repo 'migration.json'
+            & $script:migrationScriptPath -RepoRoot $repo -MappingPath $mappingPath | Out-Null
+            $mapping = Get-Content -LiteralPath $mappingPath -Raw | ConvertFrom-Json
+            $firstTarget = Join-Path $repo $mapping.entries[0].target
+            $secondTarget = Join-Path $repo $mapping.entries[1].target
+
+            Move-Item -LiteralPath $firstSource -Destination $firstTarget
+            $mapping.mode = 'apply'
+            Set-Content -LiteralPath $mappingPath `
+                -Value ($mapping | ConvertTo-Json -Depth 8) -Encoding utf8NoBOM
+            $interruptedBytes = [System.IO.File]::ReadAllBytes($mappingPath)
+            { & $script:migrationScriptPath -RepoRoot $repo -MappingPath $mappingPath } |
+                Should -Throw '*refusing to overwrite resumable state*'
+            [System.IO.File]::ReadAllBytes($mappingPath) | Should -Be $interruptedBytes
+
+            $previewBytes = [System.IO.File]::ReadAllBytes($mappingPath)
+            $preview = & $script:migrationScriptPath -RepoRoot $repo `
+                -MappingPath $mappingPath -Apply -WhatIf
+            $preview.MappingWritten | Should -BeFalse
+            $preview.Moved | Should -Be 0
+            Test-Path -LiteralPath $secondSource -PathType Container | Should -BeTrue
+            [System.IO.File]::ReadAllBytes($mappingPath) | Should -Be $previewBytes
+
+            $result = & $script:migrationScriptPath -RepoRoot $repo `
+                -MappingPath $mappingPath -Apply
+            $result.Mode | Should -Be 'Apply'
+            $result.Moved | Should -Be 1
+            $result.Recovered | Should -Be 1
+            $result.Completed | Should -Be 2
+            Test-Path -LiteralPath $firstSource | Should -BeFalse
+            Test-Path -LiteralPath $secondSource | Should -BeFalse
+            Test-Path -LiteralPath $firstTarget -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $secondTarget -PathType Container | Should -BeTrue
+
+            $completed = Get-Content -LiteralPath $mappingPath -Raw | ConvertFrom-Json
+            $completed.mode | Should -Be 'apply'
+            @($completed.entries.status) | Should -Be @('complete', 'complete')
+            $completedBytes = [System.IO.File]::ReadAllBytes($mappingPath)
+
+            $again = & $script:migrationScriptPath -RepoRoot $repo `
+                -MappingPath $mappingPath -Apply
+            $again.Moved | Should -Be 0
+            $again.Recovered | Should -Be 0
+            $again.Completed | Should -Be 2
+            $again.MappingWritten | Should -BeFalse
+            [System.IO.File]::ReadAllBytes($mappingPath) | Should -Be $completedBytes
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects a tampered apply mapping before moving any folder' {
+        $repo = New-MigrationRepo
+        try {
+            $firstSource = New-TestPlan -Repo $repo -Folder '2026-01-02-a1b2c3-first' `
+                -PlanId 'a1b2c3'
+            $secondSource = New-TestPlan -Repo $repo -Folder '2026-01-03-d4e5f6-second' `
+                -PlanId 'd4e5f6'
+            $mappingPath = Join-Path $repo 'migration.json'
+            & $script:migrationScriptPath -RepoRoot $repo -MappingPath $mappingPath | Out-Null
+            $mapping = Get-Content -LiteralPath $mappingPath -Raw | ConvertFrom-Json
+            $firstTarget = Join-Path $repo $mapping.entries[0].target
+            $mapping.entries[1].target = 'docs/implementation-plans/standalone-2026-01-03-ffffff-second'
+            Set-Content -LiteralPath $mappingPath `
+                -Value ($mapping | ConvertTo-Json -Depth 8) -Encoding utf8NoBOM
+
+            { & $script:migrationScriptPath -RepoRoot $repo -MappingPath $mappingPath -Apply } |
+                Should -Throw '*source, target, and canonical plan identity do not match*'
+            Test-Path -LiteralPath $firstSource -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $secondSource -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $firstTarget | Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects incomplete or self-moving mappings before moving any folder' {
+        $repos = [System.Collections.Generic.List[string]]::new()
+        try {
+            $incompleteRepo = New-MigrationRepo
+            $repos.Add($incompleteRepo)
+            $firstSource = New-TestPlan -Repo $incompleteRepo `
+                -Folder '2026-01-02-a1b2c3-first' -PlanId 'a1b2c3'
+            $secondSource = New-TestPlan -Repo $incompleteRepo `
+                -Folder '2026-01-03-d4e5f6-second' -PlanId 'd4e5f6'
+            $thirdSource = New-TestPlan -Repo $incompleteRepo `
+                -Folder '2026-01-04-778899-third' -PlanId '778899'
+            $mappingPath = Join-Path $incompleteRepo 'migration.json'
+            & $script:migrationScriptPath -RepoRoot $incompleteRepo `
+                -MappingPath $mappingPath | Out-Null
+            $mapping = Get-Content -LiteralPath $mappingPath -Raw | ConvertFrom-Json
+            $firstTarget = Join-Path $incompleteRepo $mapping.entries[0].target
+            $mapping.entries = @($mapping.entries[0], $mapping.entries[1])
+            Set-Content -LiteralPath $mappingPath `
+                -Value ($mapping | ConvertTo-Json -Depth 8) -Encoding utf8NoBOM
+
+            { & $script:migrationScriptPath -RepoRoot $incompleteRepo `
+                    -MappingPath $mappingPath -Apply } |
+                Should -Throw '*does not cover eligible unprefixed plan folder*'
+            Test-Path -LiteralPath $firstSource -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $secondSource -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $thirdSource -PathType Container | Should -BeTrue
+            Test-Path -LiteralPath $firstTarget | Should -BeFalse
+
+            $nestedRepo = New-MigrationRepo
+            $repos.Add($nestedRepo)
+            $nestedSource = New-TestPlan -Repo $nestedRepo `
+                -Folder '2026-01-02-112233-nested' -PlanId '112233'
+            $nestedMappingPath = Join-Path $nestedSource 'migration.json'
+            & $script:migrationScriptPath -RepoRoot $nestedRepo `
+                -MappingPath $nestedMappingPath | Out-Null
+
+            { & $script:migrationScriptPath -RepoRoot $nestedRepo `
+                    -MappingPath $nestedMappingPath -Apply } |
+                Should -Throw '*contains the migration mapping beneath a folder*'
+            Test-Path -LiteralPath $nestedSource -PathType Container | Should -BeTrue
+
+            if (-not $IsWindows) {
+                $linkedRepo = New-MigrationRepo
+                $repos.Add($linkedRepo)
+                $linkedSource = New-TestPlan -Repo $linkedRepo `
+                    -Folder '2026-01-02-445566-linked' -PlanId '445566'
+                $mappingLink = Join-Path $linkedRepo 'mapping-link'
+                [void][System.IO.Directory]::CreateSymbolicLink($mappingLink, $linkedSource)
+                $linkedMappingPath = Join-Path $mappingLink 'migration.json'
+                & $script:migrationScriptPath -RepoRoot $linkedRepo `
+                    -MappingPath $linkedMappingPath | Out-Null
+
+                { & $script:migrationScriptPath -RepoRoot $linkedRepo `
+                        -MappingPath $linkedMappingPath -Apply } |
+                    Should -Throw '*contains the migration mapping beneath a folder*'
+                Test-Path -LiteralPath $linkedSource -PathType Container | Should -BeTrue
+            }
+        }
+        finally {
+            foreach ($repo in $repos) {
+                Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 }
