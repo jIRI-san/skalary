@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T11:39:04.6895049Z",
+  "generatedAt": "2026-08-28T14:08:54.1124000Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -504,7 +504,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "6e1984605688debe136d94bf0643fd21b79e0e680da1677799ae0c8da6261306",
+          "sha256": "d3ad93d43330271fe72a4e1131949ccaa73cd8f498ca52429cec12c38712f73c",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -664,7 +664,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.47"
+      "version": "1.0.48"
     },
     {
       "author": "jIRI-san",
@@ -728,7 +728,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "cd95634e5ed8ed00f30d98fd4b92f7b6b3380ff652dd214816ccfae4cfee3feb",
+          "sha256": "36af7ab50f1d6e20524f10826fcc45f933f5c2090a90b5db4a50e0b5e654539c",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -825,7 +825,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.38"
+      "version": "1.0.39"
     },
     {
       "author": "jIRI-san",

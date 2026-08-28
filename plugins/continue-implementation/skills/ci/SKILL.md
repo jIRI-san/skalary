@@ -13,6 +13,8 @@ context: fork
 
 > **Interaction rule:** every multiple-choice prompt uses `vscode_askQuestions` with `options`.
 
+> **Reference display rule:** in every user-facing question, summary, table, status, recommendation, or handoff, identify plans as `<canonical-id> <slug>` (for example, `863d97 evidence-receipt-truth`), never by id alone. Commands may remain id-only (for example, `/ci 863d97`). Apply the same `<epic-id> <slug>` form to epics.
+
 ## Step 1: Select plan and load context
 
 1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` — in the current layout it carries only the header markers, the asset index, and the phases/steps.

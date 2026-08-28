@@ -23,6 +23,7 @@ context: fork
 - Keep plans phase-budget aware and size-bounded.
 - Run `Test-Plan.ps1` after drafting and after each DR round.
 - Maintain the `<!-- cip-stage: ... -->` anchor via `Set-PlanStage.ps1` (never hand-edit it). The stage vocabulary is closed and ordered — `scaffolded` (stamped by `New-Plan.ps1`), `drafted`, `dr-round-<n>`, `done` — and any other value is rejected at write time.
+- In every user-facing question, summary, table, status, recommendation, or handoff, identify plans as `<canonical-id> <slug>` (for example, `863d97 evidence-receipt-truth`), never by id alone. Commands may remain id-only (for example, `/ci 863d97`).
 
 ## Preservation checklist (legacy Step-4 rules -> assets)
 
