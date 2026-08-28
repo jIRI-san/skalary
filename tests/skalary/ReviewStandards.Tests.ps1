@@ -56,8 +56,21 @@ Describe 'review standards resolution' {
                 '# Review standards'
                 '- invent `architecture-local-conventions`: invalid mode'
             ) | Set-Content -LiteralPath $localPath -Encoding utf8NoBOM
-            { & $script:resolver @arguments } | Should -Throw '*Malformed local review standard line*'
+            { & $script:resolver @arguments } | Should -Throw '*docs/review-standards.md line 2*'
 
+            $invalidRegistryPath = Join-Path $fixture 'tools/review-concerns.json'
+            $invalidRegistry = Get-Content -LiteralPath $invalidRegistryPath -Raw | ConvertFrom-Json -Depth 30
+            $invalidRegistry.concerns[0].standards[0].localizable = 'false'
+            Set-Content -LiteralPath $invalidRegistryPath -Value ($invalidRegistry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+            { & $script:resolver @arguments } | Should -Throw '*fields have invalid types*'
+
+            Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
+            $invalidRegistry = Get-Content -LiteralPath $invalidRegistryPath -Raw | ConvertFrom-Json -Depth 30
+            $invalidRegistry.concerns[0].id = 'unknown-concern'
+            Set-Content -LiteralPath $invalidRegistryPath -Value ($invalidRegistry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+            { & $script:resolver @arguments } | Should -Throw '*names unknown concern*'
+
+            Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
             Remove-Item -LiteralPath $localPath -Force
             $absentAgain = & $script:resolver @arguments
             ($absentAgain | ConvertTo-Json -Depth 8) |
@@ -130,5 +143,10 @@ Describe 'review standards resolution' {
             Should -Not -Throw
         { & (Join-Path $script:repoRoot 'scripts/skalary/Sync-PluginScripts.ps1') -RepoRoot $script:repoRoot -WhatIf *> $null } |
             Should -Not -Throw
+
+        $syncSource = Get-Content -LiteralPath (Join-Path $script:repoRoot 'scripts/skalary/Sync-PluginScripts.ps1') -Raw
+        @([regex]::Matches($syncSource, "'docs/review-standards\.md'")).Count |
+            Should -Be 2 -Because 'the optional input exception is limited to one exact path in each review plugin'
+        $syncSource | Should -Not -Match "'(?:autopilot|self-improvement)'\s*=\s*\[System\.Collections\.Generic\.HashSet"
     }
 }

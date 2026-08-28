@@ -22,6 +22,18 @@ $script:LocalByteLimit = 16384
 $script:GenericEntryLimit = 64
 $script:LocalEntryLimit = 32
 $script:GuidanceLengthLimit = 512
+$script:ConcernIds = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(
+        'security'
+        'correctness-reliability'
+        'architecture-patterns'
+        'performance'
+        'testing-evidence'
+        'maintainability-consistency'
+        'operability-observability'
+    ),
+    [System.StringComparer]::Ordinal
+)
 
 function Resolve-RegularFile {
     param(
@@ -160,6 +172,16 @@ else {
 }
 
 foreach ($standard in $genericRecords) {
+    $propertyNames = @($standard.PSObject.Properties.Name | Sort-Object)
+    if (($propertyNames -join ',') -cne 'concern,guidance,id,localizable') {
+        throw 'Generic review standard entries must contain only concern, guidance, id, and localizable.'
+    }
+    if ($standard.id -isnot [string] -or
+        $standard.concern -isnot [string] -or
+        $standard.guidance -isnot [string] -or
+        $standard.localizable -isnot [bool]) {
+        throw 'Generic review standard entry fields have invalid types.'
+    }
     $id = [string]$standard.id
     $guidance = [string]$standard.guidance
     if ($id -notmatch '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$' -or $id.Length -gt 64) {
@@ -168,6 +190,9 @@ foreach ($standard in $genericRecords) {
     Assert-Guidance -Guidance $guidance -Source $id
     if ($byId.ContainsKey($id)) {
         throw "Generic review standard id '$id' is duplicated."
+    }
+    if (-not $script:ConcernIds.Contains([string]$standard.concern)) {
+        throw "Generic review standard '$id' names unknown concern '$($standard.concern)'."
     }
     $entry = [pscustomobject][ordered]@{
         id = $id
@@ -194,18 +219,19 @@ if ($null -ne $localPath) {
         throw "Local review standards must start with '# Review standards'."
     }
     $seenLocal = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($line in $lines | Select-Object -Skip 1) {
+    for ($lineIndex = 1; $lineIndex -lt $lines.Count; $lineIndex++) {
+        $line = $lines[$lineIndex]
         if ([string]::IsNullOrWhiteSpace($line)) {
             continue
         }
         $match = [regex]::Match($line, '^- (?<mode>extend|replace) `(?<id>[a-z][a-z0-9]*(?:-[a-z0-9]+)*)`: (?<guidance>.+)$')
         if (-not $match.Success) {
-            throw "Malformed local review standard line: '$line'."
+            throw "Malformed local review standard at $localDisplayPath line $($lineIndex + 1): '$line'."
         }
         $id = $match.Groups['id'].Value
         $mode = $match.Groups['mode'].Value
         $localGuidance = $match.Groups['guidance'].Value
-        Assert-Guidance -Guidance $localGuidance -Source $localDisplayPath
+        Assert-Guidance -Guidance $localGuidance -Source "$localDisplayPath line $($lineIndex + 1), id '$id'"
         if (-not $seenLocal.Add($id)) {
             throw "Local review standard id '$id' is duplicated."
         }

@@ -428,6 +428,14 @@ Describe 'review concern generation' {
             { & $script:syncScript -RepoRoot $fixture *> $null } | Should -Throw
             (Get-FileHash -LiteralPath $agentPath -Algorithm SHA256).Hash |
                 Should -Be $originalHash -Because 'an invalid late registry value must be rejected before any output is written'
+
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot 'tools/review-concerns.json') -Destination $registryPath -Force
+            $registry = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json -Depth 30
+            $duplicate = $registry.concerns[0].standards[0] | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+            $registry.concerns[2].standards[0].id = $duplicate.id
+            Set-Content -LiteralPath $registryPath -Value ($registry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+            { & $script:syncScript -RepoRoot $fixture *> $null } |
+                Should -Throw '*duplicated across concerns*'
         }
         finally {
             Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue

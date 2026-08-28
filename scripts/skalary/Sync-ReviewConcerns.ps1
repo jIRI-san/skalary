@@ -391,6 +391,18 @@ foreach ($concern in $registry.concerns) {
     }
 }
 
+$standardIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($concern in $registry.concerns) {
+    if ($concern.PSObject.Properties.Name -notcontains 'standards') {
+        continue
+    }
+    foreach ($standard in @($concern.standards)) {
+        if (-not $standardIds.Add([string]$standard.id)) {
+            throw "Review standard id '$($standard.id)' is duplicated across concerns."
+        }
+    }
+}
+
 $template = [System.IO.File]::ReadAllText($templatePath)
 $outputs = [System.Collections.Generic.List[object]]::new()
 $expectedAgentPaths = [System.Collections.Generic.HashSet[string]]::new(

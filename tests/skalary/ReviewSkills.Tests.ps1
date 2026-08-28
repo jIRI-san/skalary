@@ -63,6 +63,9 @@ Describe 'Review skills, shims, and prompts' {
             (Get-Body -Text $skill) | Should -Match "\./assets/collation-guide\.md"
             (Get-Body -Text $skill) | Should -Match 'Freeze exactly once'
             (Get-Body -Text $skill) | Should -Match 'Publish once'
+            (Get-Body -Text $skill) | Should -Match ([regex]::Escape(".github/skills/$id/scripts/Resolve-ReviewStandards.ps1"))
+            (Get-Body -Text $skill) | Should -Match 'resolved review standards'
+            (Get-Body -Text $skill) | Should -Match 'do not\s+add the resolved criteria to review-run v1 inputs'
             (Get-Body -Text $skill) | Should -Match '(?m)^##\s+Step\s+\d'
 
             # Installation must materialize it: declared in the manifest and present in the dogfood tree.

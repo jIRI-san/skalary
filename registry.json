@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T20:43:24.1199635Z",
+  "generatedAt": "2026-08-28T20:58:15.2724688Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -458,7 +458,7 @@
         },
         {
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "64ea0709012fff0e56703d1bd8635850d48a3d92d51d10ebd5b14509087e80ec",
+          "sha256": "c4db5370d53ac83bc5179378fac729c256222db59e3ffc0d9ca7d7f1e4edff09",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -505,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.32"
+      "version": "1.0.33"
     },
     {
       "author": "jIRI-san",
@@ -921,7 +921,7 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Design review orchestrator with specialist model agents.",
+      "description": "Design review orchestrator with model-agnostic concern reviewers.",
       "evals": {
         "status": "none"
       },
@@ -1023,7 +1023,7 @@
         },
         {
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "64ea0709012fff0e56703d1bd8635850d48a3d92d51d10ebd5b14509087e80ec",
+          "sha256": "c4db5370d53ac83bc5179378fac729c256222db59e3ffc0d9ca7d7f1e4edff09",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1070,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.31"
+      "version": "1.0.32"
     },
     {
       "author": "jIRI-san",
