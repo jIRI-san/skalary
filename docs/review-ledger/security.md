@@ -5,6 +5,7 @@
 - [2026-08-01] A machine-readable declaration is only worth its truth: assert the declared confine helper is shipped and called by the declaring unit or the manifest passes the gate while the gap stays open. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
 - [2026-08-10] Adjacent SI modules execute before the trusted checkout identity and cleanliness checks. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
 - [2026-08-09] Candidate JSON types were cast before validation allowing objects numbers and scalar path fields to receive lossy content IDs. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-6 #req-7 #security
+- [2026-08-28] Case-insensitive path confinement allowed case-variant escapes on Linux; fixed with platform-aware ordinal comparison. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Closure review found manifest backup reread bypassed verified observation bytes; make the verified buffer the sole rollback-manifest source. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-09] Consumer hostile fixture contained only the marker token and did not exercise a forged boundary marker plus inner fence delimiter. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-6 #security
 - [2026-08-10] Content-addressed repair artifacts are not authority; merge gates must replay the transition from pinned authoritative state and compare the complete result. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
@@ -27,6 +28,7 @@
 - [2026-08-10] Installed Invoke-SiProposalSync lacks the latest trusted-checkout immutable-main and cleanup fixes. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-8 #security
 - [2026-08-09] Ledger path confinement was lexical only so a symlinked review-ledger directory could redirect writes outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes. (plan-1936cb, src:autopilot, sev:Med) #phase-2 #req-8 #security
+- [2026-08-28] Nested mapping confinement checked only lexical paths allowing an in-repository symlink alias into a moved source; compare physical mapping and folder paths before any move. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-4 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] PlanState physical confinement used case-insensitive prefix comparison on Unix and could accept case-distinct escape targets. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-23] Registry prose rendered into instruction-position Markdown must reject every CommonMark block opener; single-line validation alone does not preserve template-owned structure. (plan-79cfe1, src:ci, sev:Med) #markdown #phase-3 #req-4 #security
@@ -38,10 +40,13 @@
 - [2026-08-10] Replay coverage used a never-valid token and the nonce was not consumed across a measured run. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
+- [2026-08-28] Rubber-duck: mapping output could target arbitrary repository files and used a truncate write; fixed with JSON-only validated replacement and AtomicStore publication. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Second-opinion review found case-insensitive state-path admission; canonical Git paths now require ordinal-exact matches. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
 - [2026-08-10] Second-opinion review found record-only PRs admitted customization edits; zero-accepted outcomes now allow only exact lifecycle state paths. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
 - [2026-08-10] Sole-resolver proof scanned ps1 scripts but omitted executable psm1 modules. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Standalone resolver receipt verification could follow a symlinked receipt directory outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-7 #security
+- [2026-08-28] Symlinked plan.md and epic.md identity files bypassed folder-only physical checks; fixed with direct-child physical confinement. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
+- [2026-08-28] Trusted plans archived and epics roots could escape the repository together through symlinks; fixed by physically confining every inventory root to the repository. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Trusted proposal sync accepts any external checkout without pinning its HEAD or cleanliness to fetched origin/main. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
 - [2026-08-10] Unvalidated overflow markers could delete active records; verify schema plan filename digest count and records before repair. (plan-1936cb, src:autopilot, sev:High) #phase-2 #req-7 #security
