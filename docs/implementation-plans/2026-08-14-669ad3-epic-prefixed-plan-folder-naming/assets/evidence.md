@@ -5,9 +5,9 @@ Phase 1 Crosscheck:
 ✓ REQ-5 — test:dogfood-no-drift — passed — 1086b5f30ae9b3dbb1b2a4b2ae6d29fef77b0e2e
 
 Phase 2 Crosscheck:
-✓ REQ-2 — test:PlanFolderPrefix.MigrationWhatIf — passed: named migration case passed — ba8df2a4a6b36f0bd73af32cbce66d6329e6db7a
-✓ REQ-3 — test:PlanFolderPrefix.MigrationPreflight — passed: named migration case passed — ba8df2a4a6b36f0bd73af32cbce66d6329e6db7a
-✓ REQ-4 — test:PlanFolderPrefix.MigrationResume — passed: named migration case passed — ba8df2a4a6b36f0bd73af32cbce66d6329e6db7a
+✓ REQ-2 — test:PlanFolderPrefix.MigrationWhatIf — passed: named migration case passed — 80e40790e816f45ef1b6dfe334a9f8e13d6c5218
+✓ REQ-3 — test:PlanFolderPrefix.MigrationPreflight — passed: named migration case passed — 80e40790e816f45ef1b6dfe334a9f8e13d6c5218
+✓ REQ-4 — test:PlanFolderPrefix.MigrationResume — passed: named migration case passed — 80e40790e816f45ef1b6dfe334a9f8e13d6c5218
 
 Phase 3 Crosscheck:
 ✓ REQ-1 — test:PlanFolderPrefix.NewCreationAndCompatibility — passed: 3 named parser and scaffold cases passed — df06d7cc5de54b01906f6bc7e8156d052f999580
