@@ -43,6 +43,11 @@ Entries are content-addressed, so re-running the same plan re-queues nothing: th
 `Written = $false` with `already pending` or `already recorded`. Commit `docs/feedback/queue.md` by
 explicit path with the run's other changes — an uncommitted marker dies with the container.
 
+The writer preserves existing 8-hex IDs and issues 16-hex IDs for new sanitized content. It rejects
+entries over 16 KiB, a 129th pending entry, a 2,049th recorded entry, or a queue over 4 MiB with
+`capacity-blocked` (exit 4) before mutation. Queueing remains non-blocking for the enclosing
+workflow, but callers must report that persistence degradation rather than claim the marker landed.
+
 Do **not** guess the operator's verdict to fill the gap. A queued question is an honest absence of
 feedback; an invented verdict is false feedback, and `/si` cannot tell the two apart later.
 

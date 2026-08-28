@@ -604,6 +604,18 @@ Focused suites, one evidence id each, all in-process except the budget child:
 the corpus projection, while the object API and its direct tests were retired in the atomic phase 2
 caller migration (REQ-13).
 
+## Concern reviewer authorship
+
+The seven CR and seven DR concern reviewers are build-time generated payloads. Their policy source is
+`tools/review-concerns.json`; their read-only stance, no-model declaration, injection guard, context
+order, and output structure come from `tools/review-concern-agent.template.md`.
+`Sync-ReviewConcerns.ps1` renders the surface-specific agents and both concern-to-ledger maps. See
+[review-concern-authoring.design.md](./review-concern-authoring.design.md) for authoring and drift rules.
+
+This generation boundary does not enter review-run v1. Concern agents still return findings only; they
+do not freeze, publish, read, retain, or clean run artifacts. The CR/DR orchestrators remain the sole
+callers of the review engine and the sole explicit model-binding authority.
+
 ## CR/DR caller adoption (step 2.2)
 
 The legacy `-Finding`/`-Model` parameter set and its generated `[pscustomobject]` examples are gone.

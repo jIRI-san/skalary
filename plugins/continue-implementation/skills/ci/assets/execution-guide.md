@@ -26,13 +26,13 @@
    - `wrap` — end the review loop with the logged findings; no further CR dispatch.
 
 8. Run `@cr` on step scope and apply clear, non-ambiguous fixes.
-9. Persist every `@cr` finding + triage with `Add-WorkflowNote -Kind CrLog` (it emits the `[src:…] [sev:…]` schema from typed `-Src`/`-Sev`/`-Step`/`-Message` params — never hand-write schema tokens):
+9. Persist every `@cr` finding + triage with `Add-WorkflowNote -Kind CrLog` (it emits source, severity, concern, sorted requirement, review-type, and source-record tokens from typed params — never hand-write schema tokens):
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N> -Step <A.B> -Sev <Critical|High|Med|Low> -Message "<one-line finding or triage note>"
+   pwsh -NoProfile -File .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N> -Step <A.B> -Sev <Critical|High|Med|Low> -Concern <concern> -Requirement <REQ-N...> -ReviewType cr -Message "<one-line finding or triage note>"
    ```
 10. Record the completed round through bound parameters, after all findings are logged: `.github/skills/ci/scripts/ReviewCycleGate.ps1 -Action Record ... -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. Never put finding text in `-Summary`. If the result is `operator-decision`, return to step 7 before another dispatch.
-11. Append to `learnings.md` only on triggers (`rework>1`, `plan-contradiction`, `reusable-pattern`) with `Add-WorkflowNote -Kind Learnings -Trigger <trigger>`; it replaces the phase placeholder on the first real entry and enforces the 10-entry-per-plan cap, folding overflow into one `trigger:overflow-summary` line.
+11. Append to `learnings.md` only on triggers (`rework>1`, `plan-contradiction`, `reusable-pattern`) with typed concern/REQ/review provenance. The writer replaces the phase placeholder, keeps 10 active entries, and persists older records losslessly in content-addressed overflow-first batches. A `legacy-loss` result surfaces old `overflow-summary` data loss.
 12. Re-run the same focused build/test checks when changes are made. Do not widen to complete project validation during the step loop.
 13. Mark step `[x]` and commit atomically with the plan update.
 

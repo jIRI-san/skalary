@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.12",
+  "version": "1.2.21",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -10,7 +10,9 @@
     "autopilot",
     "automation"
   ],
-  "dependencies": [],
+  "dependencies": [
+    "self-improvement"
+  ],
   "status": "partial",
   "files": [
     {
@@ -20,6 +22,22 @@
     {
       "src": "skills/autopilot/SKILL.md",
       "dest": "skills/autopilot/SKILL.md"
+    },
+    {
+      "src": "skills/autopilot/scripts/AtomicStore.psm1",
+      "dest": "skills/autopilot/scripts/AtomicStore.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
+      "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
+    },
+    {
+      "src": "skills/autopilot/scripts/LedgerStore.psm1",
+      "dest": "skills/autopilot/scripts/LedgerStore.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/PlanState.psm1",
+      "dest": "skills/autopilot/scripts/PlanState.psm1"
     },
     {
       "src": "scripts/clean-sandbox-cache.ps1",
@@ -36,6 +54,10 @@
     {
       "src": "scripts/host-command.ps1",
       "dest": "skills/autopilot/scripts/host-command.ps1"
+    },
+    {
+      "src": "scripts/Invoke-SiDueEnqueue.ps1",
+      "dest": "skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1"
     },
     {
       "src": "scripts/launch-container.ps1",
@@ -72,10 +94,6 @@
     {
       "src": "skills/autopilot/scripts/PlanEvidence.psm1",
       "dest": "skills/autopilot/scripts/PlanEvidence.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/PlanState.psm1",
-      "dest": "skills/autopilot/scripts/PlanState.psm1"
     },
     {
       "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
@@ -116,6 +134,22 @@
     {
       "src": ".autopilot.host.json.example",
       "dest": "skills/autopilot/.autopilot.host.json.example"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first assets-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
+    },
+    {
+      "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
+      "mode": "parameterized",
+      "owner": "Invoke-PhaseHarvest.ps1",
+      "trigger": "first legacy-layout phase harvest",
+      "confine": "Resolve-PlanAssetPath"
     }
   ],
   "evals": {

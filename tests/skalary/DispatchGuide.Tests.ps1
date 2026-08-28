@@ -133,24 +133,20 @@ Body.
     }
 
     It 'test:concern-ledger-map-total routes both harvest mirrors through the map, not a keyword rubric' {
-        # The map only removes the judgment call if the writers actually consult it. /ci harvest and
-        # its canonical autopilot mirror must both name it, in the plugin source and the installed
-        # copy — a rule that reaches only one of the two is a split-brain harvest.
-        foreach ($path in @('plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md',
-                '.github/skills/ci/assets/crosscheck-guide.md',
-                'plugins/autopilot/agents/autopilot.agent.md',
-                '.github/agents/autopilot.agent.md')) {
+        # The installed harvester owns the closed map and source-record validation. Both workflow
+        # mirrors must invoke that one engine rather than independently interpreting the map.
+        $workflows = [ordered]@{
+            'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' = '\.github/skills/ci/scripts/Invoke-PhaseHarvest\.ps1'
+            '.github/skills/ci/assets/crosscheck-guide.md' = '\.github/skills/ci/scripts/Invoke-PhaseHarvest\.ps1'
+            'plugins/autopilot/agents/autopilot.agent.md' = '\.github/skills/autopilot/scripts/Invoke-PhaseHarvest\.ps1'
+            '.github/agents/autopilot.agent.md' = '\.github/skills/autopilot/scripts/Invoke-PhaseHarvest\.ps1'
+        }
+        foreach ($path in $workflows.Keys) {
             $full = Join-Path $script:repoRoot ($path -replace '/', [System.IO.Path]::DirectorySeparatorChar)
             Test-Path -LiteralPath $full -PathType Leaf | Should -BeTrue -Because "$path must exist"
             $flat = [regex]::Replace((Get-Content -LiteralPath $full -Raw), '\s+', ' ')
 
-            $flat | Should -Match '\.github/skills/cr/assets/concern-ledger-map\.md' -Because "$path must name the installed map path"
-            $flat | Should -Match '\.github/skills/dr/assets/concern-ledger-map\.md' -Because "$path must probe the dr copy too: either review plugin ships the map"
-            $flat | Should -Match '(?i)unmapped concern is a bug in that table' -Because "$path must forbid improvising a category"
-
-            # The rubric the map replaces on the write side. The guard matches the concept, not one
-            # mirror's punctuation: keyed to a single phrasing it went vacuous on the other file and
-            # a restored taxonomy bullet would pass.
+            $flat | Should -Match $workflows[$path] -Because "$path must invoke its installed shared harvester"
             $flat | Should -Not -Match '(?i)7-category (rubric|taxonomy)' -Because "$path must not keep the ad-hoc write-side rubric"
         }
     }

@@ -1,11 +1,13 @@
 ---
-description: The repository's gate inventory — every gate CI runs, the three hosts a gate can live in, what each does when it fails, and the typed exclusions for the gates that deliberately do not run. Also the per-platform runtime budget contract. Load before editing CI workflows, scripts/validate.ps1, scripts/skalary/Run-UnitTests.ps1 or tools/suite-budget.psd1.
+description: The repository's gate inventory — every gate CI runs, the three hosts a gate can live in, failure behavior, typed exclusions, tiered per-platform runtime budgets, and tracked-input fingerprint authorization. Load before editing CI workflows or suite gate scripts and metadata.
 globs:
   - .github/workflows/**
   - scripts/validate.ps1
   - scripts/skalary/Run-UnitTests.ps1
+  - scripts/skalary/{Get-SuiteInputFingerprint,Measure-SuiteRuntime}.ps1
   - scripts/skalary/Test-ReviewConsumerInstall.ps1
   - tools/suite-budget.psd1
+  - tools/suite-runtime.json
   - tools/suite-tier.psd1
 ---
 
@@ -91,13 +93,14 @@ step in both matrix legs with its own NUnit report and manifest-owned runtime ce
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
 | Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
 | Job timeout | per matrix leg, above the Fast ceiling plus the manifest-declared Slow/setup scheduling allowances — a job killed before every gate speaks reports cancellation instead of verdicts |
-| Measurement receipt | `Measure-SuiteRuntime.ps1` records non-empty OS/PowerShell/Pester/processor identity plus both HEAD commit and the pre-measurement staged git tree hash. The tree binds a measurement taken before the step commit to the exact staged inputs the suite read; the receipt rewrite itself necessarily lands afterward. Callers stage every tracked implementation/input change before measuring and leave only the output receipt unstaged. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. Failed runs are emitted but never recorded. |
+| Input identity | `Get-SuiteInputFingerprint.ps1` hashes the protocol tag plus each ordinal tracked regular path and its exact bytes with unsigned 64-bit big-endian length frames. The producer is included. Only `tools/suite-{profile,runtime}.json` and `testResults.xml` are excluded generated outputs. |
+| Ordinary freshness | The current platform's runtime row must carry the current fingerprint and protocol. A stale/missing row exits `10`; another platform is checked by its own runner and refreshed before final approval. |
+| Measurement freshness | `Measure-SuiteRuntime.ps1` computes the fingerprint before launching the selected Fast or Slow command, gives that child tree a process-only token containing the protocol, fingerprint, random nonce, measurement parent PID, and HMAC under a process-local random key, and recomputes after success. Fast `pretest` validates the token, atomically claims its nonce once, and binds that nonce into the repo-scoped budget clock; the final Fast runner consumes that clock and requires the same nonce. Re-running `pretest` with the token hits the claim tombstone and fails, so clock recreation cannot replay it. The gate also validates closed fields, HMAC, fingerprint, and live ancestry; invalid authorization exits `11`. A valid token permits stale or absent rows only for that measured run and never bypasses the elapsed-time ceiling. |
+| Row publication | Successful measurement emits/writes a `suite-runtime-row@2` candidate carrying the fingerprint. Publication retires rows for older fingerprints, so they cannot masquerade as cross-platform evidence; later same-fingerprint imports compose the platform set. Import rejects failed, wrong-command, wrong-schema, or wrong-fingerprint rows. Generated row writes do not change the fingerprint. |
+| Measurement receipt | Rows record non-empty OS/PowerShell/Pester/processor identity, HEAD commit, source, exact tracked-input fingerprint, and protocol. Failed runs are emitted but never recorded. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. |
 
-`platforms.Linux` and `platforms.Windows` are authoritative only when their source is the matching
-`ci:ubuntu-latest` / `ci:windows-latest` leg and `environment.ci` is true. A local container run may
-be retained under `supplementalMeasurements`, but it is never compared with the CI ceiling and never
-replaces a platform row. The historical Linux row predates tree attribution; its measured commit's
-tree was added during migration without changing its timing or claiming a new CI run.
+`MeasurementRecord` is mandatory. Omitting or emptying it exits `6`; a budget cannot disable
+tracked-input freshness while retaining the runtime ceiling.
 
 The isolated review-consumer matrix is a separate blocking gate rather than part of the ordinary
 suite: it starts many child PowerShell processes to prove installed CLI exits and would consume about
@@ -107,7 +110,7 @@ The gate host's `-TestPath` parameter is fixture-only executable evidence for it
 contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
 `ReviewConsumerInstall.Tests.ps1` matrix.
 
-Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform, `7` leaked environment, `8` skipped required evidence, and `9` invalid tier manifest. `2`–`4`, `7`, and `8` are the fail-closed evidence contract; `9` keeps an unreadable partition from becoming an empty pass.
+Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform, `7` leaked environment, `8` skipped required evidence, `9` invalid tier manifest, `10` stale measurement, and `11` invalid measurement authorization. `2`–`4`, `7`, and `8` are the fail-closed evidence contract; `9` keeps an unreadable partition from becoming an empty pass, and `10`–`11` enforce measured-input provenance.
 
 ## Constraints
 
@@ -117,3 +120,9 @@ Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Peste
 - **Actions pinned by SHA, modules by exact NuGet range, with `-AuthenticodeCheck` where the platform honours it.** Dropping `-SkipPublisherCheck` restores a check only if one still runs; PSResourceGet verifies nothing unless asked (RISK-8).
 - **Ordering in generated catalogs is ordinal, never culture-aware.** `cs-CZ` sorts `ch` after `c`, so a culture-aware sort makes `gate:generated-output-drift` fail for everyone whose locale differs from the last person to run the generator.
 - **`validate.ps1` enumerates payload roots by allowlist, canonicalised, refusing reparse points.** `-Recurse` without `-Force` hides dot-prefixed entries on Linux only, so the two legs passed over different file sets; `-Force` alone reaches `.git` and `node_modules` (REQ-8, RISK-5).
+- **Cross-surface proofs compose existing gates.** `test:LearningLoop.PayloadOwnershipAndDrift`
+  runs in the existing unit suite and cross-checks SI ownership, generated bundles, dogfood,
+  manifests, versions, scaffolds, marketplace, and registry. Its companion plugin structural eval
+  runs through `npm run eval`. Neither introduces a new workflow or `validate.ps1` gate; when a plan
+  names the structural eval as `test:` evidence, that plan crosscheck executes the named Pester case
+  and treats its result as blocking evidence.

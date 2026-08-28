@@ -751,6 +751,18 @@ function Invoke-ConsumerInstalledSmokeMatrix {
                         "'__consumer_smoke_missing_base__' in '$($Fixture.Root)'."
                     )
                 }
+                'work-hierarchy-sync' {
+                    $probe = 'provider-contract'
+                    $modulePath = Get-InstalledPath -Destination (
+                        'skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1'
+                    )
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        'Import-Module $args[0] -Force; $provider = New-WorkHierarchyProvider -Name fixture -Read { param($request) $request } -Write { param($operation) $operation }; Assert-WorkHierarchyProvider -Provider $provider; $provider.name',
+                        $modulePath
+                    )
+                    $expectedOutput = 'fixture'
+                }
                 default {
                     $process = [pscustomobject]@{
                         ExitCode = -1
@@ -950,6 +962,24 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     '-RepoRoot', $Root
                 )
             }
+            'Add-WorkflowNote.ps1' {
+                $scriptPath = Get-InstalledPath -Root $Root -Destination (
+                    'skills/ci/scripts/Add-WorkflowNote.ps1'
+                )
+                $planDir = if ($Hostile) {
+                    Join-Path (Split-Path -Parent $Root) (
+                        "$(Split-Path -Leaf $Root)-escaped-workflow-note"
+                    )
+                }
+                else {
+                    Join-Path $Root 'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold'
+                }
+                @(
+                    '-NoProfile', '-CommandWithArgs',
+                    '$ErrorActionPreference = ''Stop''; $scriptPath, $planDir, $repoRoot = $args; $requirements = Join-Path $planDir ''assets/requirements.md''; $hold = "$requirements.hold"; if (-not (Test-Path -LiteralPath $requirements -PathType Leaf)) { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1; exit $LASTEXITCODE }; Move-Item -LiteralPath $requirements -Destination $hold; try { 1..2 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "legacy learning $_" -MaxLearnings 1 | Out-Null } } finally { Move-Item -LiteralPath $hold -Destination $requirements }; 3..4 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "assets learning $_" -MaxLearnings 1 | Out-Null }; ''workflow-note:dual-layout''',
+                    $scriptPath, $planDir, $Root
+                )
+            }
             'Remove-LedgerEntry.ps1' {
                 $scriptPath = Get-InstalledPath -Root $Root -Destination (
                     'skills/ci/scripts/Remove-LedgerEntry.ps1'
@@ -1058,6 +1088,25 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     -Value "- [2026-01-01] retired consumer lesson (plan-006, src:ci, sev:Med)`n" `
                     -NoNewline -Encoding utf8NoBOM
             }
+            elseif ($owner -eq 'Add-WorkflowNote.ps1') {
+                $newPlanPath = Get-InstalledPath -Root $root -Destination (
+                    'skills/cip/scripts/New-Plan.ps1'
+                )
+                $templatePath = Get-InstalledPath -Root $root -Destination (
+                    'skills/cip/assets/plan-template.md'
+                )
+                $setup = Invoke-SuiteFixtureProcess -WorkingDirectory $root -TimeoutSeconds 30 `
+                    -ArgumentList @(
+                        '-NoProfile', '-File', $newPlanPath,
+                        '-Title', 'Consumer scaffold',
+                        '-Slug', 'consumer-scaffold',
+                        '-Date', '2026-01-02',
+                        '-PlanId', 'a1b2c3',
+                        '-TemplatePath', $templatePath,
+                        '-RepoRoot', $root
+                    )
+                if ($setup.ExitCode -ne 0) { throw "Workflow-note prerequisite failed: $($setup.Output)" }
+            }
             elseif ($owner -eq 'Initialize-DesignNotes.ps1') {
                 Set-Content -LiteralPath (Join-Path $root '.github/.skalary/not-a-directory') `
                     -Value 'not a directory' -NoNewline -Encoding utf8NoBOM
@@ -1088,7 +1137,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     Where-Object {
                         (-not $afterFirst.ContainsKey($_) -or $baseline[$_] -cne $afterFirst[$_]) -and
                         -not (Test-OwnerDeclaredEntry `
-                                -Owner $owner `
                                 -RelativePath $_ `
                                 -EntryKind $baseline[$_]) -and
                         -not ($owner -ceq 'Remove-LedgerEntry.ps1' -and
@@ -1099,7 +1147,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 $created |
                     Where-Object {
                         -not (Test-OwnerDeclaredEntry `
-                                -Owner $owner `
                                 -RelativePath $_ `
                                 -EntryKind $afterFirst[$_])
                     }
@@ -1177,6 +1224,9 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 'Import-ArchAdr.ps1' { 'docs/architecture-notes/.staging/adr/ADR-consumer-choice.md' }
                 'New-ArchHumanDoc.ps1' { 'docs/architecture-notes/architecture.human.md' }
                 'Add-LedgerEntry.ps1' { 'docs/review-ledger/testing.md' }
+                'Add-WorkflowNote.ps1' {
+                    'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold/assets/logs/learnings.md'
+                }
                 'New-Plan.ps1' {
                     'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold/assets/intent.md'
                 }

@@ -1,43 +1,26 @@
 {
-  "schema": "skalary/suite-runtime@1",
+  "schema": "skalary/suite-runtime@2",
   "measuredCommand": "npm test",
   "platforms": {
     "Linux": {
-      "schema": "skalary/suite-runtime-row@1",
+      "schema": "skalary/suite-runtime-row@2",
       "platform": "Linux",
       "measuredCommand": "npm test",
-      "seconds": 179.695,
+      "fingerprintProtocol": "skalary/suite-input-fingerprint@1",
+      "inputFingerprint": "b82173a0993d70808cbdb29f185854bb0d69bf9bc4aa35d2d7b995c7ee24b430",
+      "seconds": 320.367,
       "succeeded": true,
-      "measuredAt": "2026-08-15T18:28:04.1372066+00:00",
-      "commit": "645daa942a8c2c193f4fb74ce010472d7a69598a",
+      "measuredAt": "2026-08-10T13:59:38.1186595+00:00",
+      "commit": "2e56d6825dff51383d0e85d5338bc0f31e873802",
       "source": "container:autopilot",
-      "note": "Architecture-test retirement final current-tree measurement.",
+      "note": "phase 1 reopened-review baseline",
       "environment": {
         "os": "Ubuntu 24.04.4 LTS",
-        "psVersion": "7.6.5",
+        "psVersion": "7.6.4",
         "pesterVersion": "5.6.1",
         "processorCount": 16,
         "ci": false,
-        "runner": "4758162d0ec0"
-      }
-    },
-    "Windows": {
-      "schema": "skalary/suite-runtime-row@1",
-      "platform": "Windows",
-      "measuredCommand": "npm test",
-      "seconds": 223.142,
-      "succeeded": true,
-      "measuredAt": "2026-08-05T20:08:01.767152+00:00",
-      "commit": "c99d5d10421839eb4cda26c6d2616a792db89b83",
-      "source": "ci:windows-latest",
-      "note": "",
-      "environment": {
-        "os": "Microsoft Windows 10.0.26100",
-        "psVersion": "7.6.4",
-        "pesterVersion": "5.9.0",
-        "processorCount": 4,
-        "ci": true,
-        "runner": "GitHub Actions 1000000127"
+        "runner": "e29240452529"
       }
     }
   }

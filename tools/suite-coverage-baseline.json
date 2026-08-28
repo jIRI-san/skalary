@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-23T14:28:46.0399603+00:00",
-  "commit": "f8e6d4dbdf776852f0c2bd46fd852f0326d28acc",
+  "capturedAt": "2026-08-28T11:39:02.0861887+00:00",
+  "commit": "76ca7cf14de4ebaf8ff08f8a789658bf7c3391ab",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 921,
-  "executionCount": 926,
+  "uniqueTestCount": 1063,
+  "executionCount": 1068,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -1596,6 +1596,11 @@
     },
     {
       "file": "tests/skalary/Add-LedgerEntry.Tests.ps1",
+      "test": "Add-LedgerEntry script.rejects a ledger path redirected outside the repository by a symbolic link",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-LedgerEntry.Tests.ps1",
       "test": "Add-LedgerEntry script.test:ledger-dedup-nofork folds different reference schemes to one canonical id",
       "count": 1
     },
@@ -1621,22 +1626,62 @@
     },
     {
       "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.rejects kind-specific fields that are not represented in the record grammar",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix accepts exact byte and count ceilings then rejects plus-one",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix does not double-count legacy loss after overflow-first crash",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix exposes shared lock-timeout and three-conflict exhaustion statuses",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix keeps legacy roots and refuses non-inventory escape targets",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix preserves identical legacy-loss occurrences",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix recovers every overflow-first and active-replace crash point",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix repairs duplicate ids, orphan batches, summaries, and stale temps",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix returns capacity-blocked before record or batch plus-one mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:Capture.AtomicBoundaryMigrationMatrix.test:Capture.AtomicBoundaryMigrationMatrix serializes concurrent writers and neutralizes hostile markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
       "test": "Add-WorkflowNote.test:workflownote-append appends additional entries after the first",
       "count": 1
     },
     {
       "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
       "test": "Add-WorkflowNote.test:workflownote-append replaces the placeholder with a typed-token entry",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
-      "test": "Add-WorkflowNote.test:workflownote-cap accumulates the folded count across repeated overflow",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
-      "test": "Add-WorkflowNote.test:workflownote-cap folds the oldest learnings into one loud overflow-summary",
       "count": 1
     },
     {
@@ -1651,7 +1696,32 @@
     },
     {
       "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
-      "test": "Add-WorkflowNote.test:workflownote-sanitize neutralizes brackets, backticks, pipes, middots and newlines in the body",
+      "test": "Add-WorkflowNote.test:workflownote-sanitize neutralizes grammar and control characters in the body",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:WorkflowNote.LosslessOverflowCrashRecovery.test:WorkflowNote.LosslessOverflowCrashRecovery replays an overflow-first crash state without loss or duplicate batches",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:WorkflowNote.LosslessOverflowCrashRecovery.test:WorkflowNote.LosslessOverflowCrashRecovery surfaces old overflow summaries as legacy loss",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:WorkflowNote.LosslessOverflowCrashRecovery.test:WorkflowNote.LosslessOverflowCrashRecovery writes overflow before retaining the newest active set",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:WorkflowNote.TypedProvenanceRoundTrip.test:WorkflowNote.TypedProvenanceRoundTrip refuses unknown plan requirements and enum values",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/Add-WorkflowNote.Tests.ps1",
+      "test": "Add-WorkflowNote.test:WorkflowNote.TypedProvenanceRoundTrip.test:WorkflowNote.TypedProvenanceRoundTrip sorts requirements and domain-separates source records",
       "count": 1
     },
     {
@@ -1856,11 +1926,6 @@
     },
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
-      "test": "Asset bootstrap scanner.test:asset-refs-declared-in-files checks a plugin-local script reference the bundler never manages",
-      "count": 1
-    },
-    {
-      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
       "test": "Asset bootstrap scanner.test:asset-refs-declared-in-files covers every payload extension the scanner claims to read",
       "count": 1
     },
@@ -1872,6 +1937,11 @@
     {
       "file": "tests/skalary/AssetBootstrap.Tests.ps1",
       "test": "Asset bootstrap scanner.test:asset-refs-declared-in-files fails on an undeclared installed-path literal",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/AssetBootstrap.Tests.ps1",
+      "test": "Asset bootstrap scanner.test:asset-refs-declared-in-files checks a plugin-local script reference the bundler never manages",
       "count": 1
     },
     {
@@ -1971,12 +2041,12 @@
     },
     {
       "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
-      "test": "Autopilot container gate runner.reaches every terminal Measure outcome without a Docker daemon",
+      "test": "Autopilot container gate runner.reads image attestation from the host without granting the candidate trust",
       "count": 1
     },
     {
       "file": "tests/skalary/AutopilotContainerGate.Tests.ps1",
-      "test": "Autopilot container gate runner.reads image attestation from the host without granting the candidate trust",
+      "test": "Autopilot container gate runner.reaches every terminal Measure outcome without a Docker daemon",
       "count": 1
     },
     {
@@ -2142,6 +2212,21 @@
     {
       "file": "tests/skalary/ConcernAgents.Tests.ps1",
       "test": "concern reviewer agents.test:legacy-model-agents-removed leaves the shipped agent set clean under the model allowlist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.ActivePluginSmokeMatrix exercises one installed-only behavior per active plugin",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.DistributionDrift keeps generated distribution surfaces converged without mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ConsumerInstall.Tests.ps1",
+      "test": "foreign consumer plugin installation.test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo",
       "count": 1
     },
     {
@@ -2396,6 +2481,36 @@
     },
     {
       "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash enforces pending and recorded count plus-one limits",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash enforces the 4 MiB file ceiling before mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash preserves legacy ids and issues 16-hex ids",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash recovers after the atomic temp-before-replace boundary faults",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash rejects a 16 KiB plus-one entry before mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
+      "test": "Post-plan feedback queue.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash.test:FeedbackQueue.BoundedRoundTripMigrationAndCrash round-trips the exact 16 KiB entry ceiling",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/FeedbackQueue.Tests.ps1",
       "test": "Post-plan feedback queue.test:pfb-consumes-queued-marker.test:pfb-consumes-queued-marker asks each marker once but keeps taking corrections",
       "count": 1
     },
@@ -2572,6 +2687,46 @@
     {
       "file": "tests/skalary/HumanStepDetail.Tests.ps1",
       "test": "human-step-detail gate.validator.test:human-step-detail-gate-passes warns instead of failing for archived plans",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningHarvest.Tests.ps1",
+      "test": "Installed learning harvest workflow.declares both scripts, modules, and receipt scaffolds in standalone plugin manifests",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningHarvest.Tests.ps1",
+      "test": "Installed learning harvest workflow.test:LearningHarvest.ActiveReceiptCapacityBoundary accepts receipt 64, blocks 65 before mutation, and excludes archives",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningHarvest.Tests.ps1",
+      "test": "Installed learning harvest workflow.test:LearningHarvest.FinalSweepReceiptReplay replays immutable receipts without redistilling changed logs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningHarvest.Tests.ps1",
+      "test": "Installed learning harvest workflow.test:LearningHarvest.InstalledInvocationAndAutopilotAllowlist invokes both installed copies and surfaces malformed or missing sections as degraded",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningHarvest.Tests.ps1",
+      "test": "Installed learning harvest workflow.test:LearningHarvest.MultiPhaseBatchAndProvenance preserves source classes, phase and REQ provenance, refuses forgery, collisions, ceilings, and concurrent category writes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningLoop.Tests.ps1",
+      "test": "Learning loop distribution contract.test:LearningLoop.MaximumBoundRuntime reaches the ledger record ceiling inside the focused runtime bound",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningLoop.Tests.ps1",
+      "test": "Learning loop distribution contract.test:LearningLoop.PayloadOwnershipAndDrift keeps ownership, bundles, installs, and catalogs synchronized",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/LearningLoop.Tests.ps1",
+      "test": "Learning loop distribution contract.test:LedgerStore.ScalarBatchParity keeps scalar and batch results byte-identical",
       "count": 1
     },
     {
@@ -2757,6 +2912,31 @@
     {
       "file": "tests/skalary/PlanAssets.Tests.ps1",
       "test": "Plan assets layout.layout-aware writers.test:evidence-receipt-dual-layout resolves the receipt path for both layouts",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanAssets.Tests.ps1",
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots confines overflow and receipt roots to an inventoried plan",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanAssets.Tests.ps1",
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots preserves a symlink-mounted repository path",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanAssets.Tests.ps1",
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots refuses a case-distinct non-inventory plan directory",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanAssets.Tests.ps1",
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots refuses a symlinked overflow escape",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/PlanAssets.Tests.ps1",
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots returns an immutable physical path through a plan alias",
       "count": 1
     },
     {
@@ -3352,6 +3532,56 @@
     {
       "file": "tests/skalary/Repair-Plans.Tests.ps1",
       "test": "Repair-Plans.test:repair-plans-preserve-id reports but does not move under -WhatIf",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern authoring source.test:ReviewConcerns.RegistryAndTemplate keeps safety, context order, and output structure template-owned",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern authoring source.test:ReviewConcerns.RegistryAndTemplate validates one closed registry for the settled taxonomy and both review variants",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.generated review concern behavior and distribution.test:ReviewConcerns.GeneratedBehaviorAndDistribution declares every generated output exactly once in its owning manifest",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.generated review concern behavior and distribution.test:ReviewConcerns.GeneratedBehaviorAndDistribution preserves generated safety, variants, and review-run ownership",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.generated review concern behavior and distribution.test:ReviewConcerns.GeneratedBehaviorAndDistribution synchronizes dogfood, marketplace versions, and registry hashes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.test:ReviewConcerns.DeterministicGeneration refuses a directory at an expected output path",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.test:ReviewConcerns.DeterministicGeneration refuses a managed output symlink that escapes the repository",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.test:ReviewConcerns.DeterministicGeneration renders all outputs, preserves surface variants, and converges",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.test:ReviewConcerns.DeterministicGeneration validates every render before writing and detects changed or extra outputs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/ReviewConcerns.Tests.ps1",
+      "test": "review concern generation.test:ReviewConcerns.GenerationDrift detects every drift shape without writing and converges deterministically after a registry mutation",
       "count": 1
     },
     {
@@ -4145,6 +4375,291 @@
       "count": 1
     },
     {
+      "file": "tests/skalary/SiDue.Tests.ps1",
+      "test": "Headless SI due handoff.test:SiDue.HeadlessDependencyInvocationAllowlistAndDedup installs independently versioned SI, invokes its writer after source persistence, and deduplicates the exact due",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiDue.Tests.ps1",
+      "test": "Headless SI due handoff.test:SiDue.InteractiveInstalledSurfaceTransitionMatrix pins main, classifies fixed branches and outcomes, and exposes metadata only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiDue.Tests.ps1",
+      "test": "Headless SI due handoff.test:SiState.ResolverReceiptCandidateRefusalMatrix binds fresh receipts, exact candidates and complete choices with replay refusal",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.blocks receipt plus-one before index mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.bounds every Git child process by the shared scan deadline",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.rejects a continuation when persisted ranking metadata is mutated",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.rejects split-brain plan logs in the pinned tree",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.resolves plan identity and layout only from the pinned tree",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.test:SiHarvest.ConsumerInstallExecution runs the complete matrix from declared payloads in a foreign repo",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.test:SiHarvest.FullScanSelectedWindowCompleteness pages every selected record exactly once",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.test:SiHarvest.HostileStoredContentIsFenced neutralizes forged markers inside fresh wrappers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.test:SiHarvest.ResolverReceiptIssuanceAndMutation issues JCS-bound receipts and rejects mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiHarvest.Tests.ps1",
+      "test": "Bounded SI harvest scanner.test:SiHarvest.SoleFreeTextReadPath routes SI workflow text through the installed resolver only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiScope.ExpectedHeadMergeEnforced passes the freshly validated live OID to the provider merge",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiState.AllDeclinedRecordPr persists a completed state-only record with null candidate proposal links",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiState.AuthoritativeFixedBranchLifecycleMatrix keeps main pending until merge and completes after authoritative integration",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiState.CorruptionIndependentRepairLifecycle keeps corrupt main authoritative until the fixed repair branch is integrated",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiState.PrFailureReconciliation resumes completed branch state after a provider failure without a duplicate commit",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Authoritative SI proposal completion.test:SiState.RepairReceiptGatesAuthoritativeMerge refuses a mutated final repair receipt before provider invocation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalCompletion.Tests.ps1",
+      "test": "Crash-safe SI repair journal.test:SiState.RepairCrashJournalRollback rolls back by observation before a final receipt exists",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalSync.Tests.ps1",
+      "test": "Trusted SI proposal synchronization.test:SiScope.ProtectedTrustAnchorsAllRefused rejects every closed-set family and an integrated guard edit",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalSync.Tests.ps1",
+      "test": "Trusted SI proposal synchronization.test:SiScope.StaleRemoteHeadRefused stops before merge or push when the fixed branch advances",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiProposalSync.Tests.ps1",
+      "test": "Trusted SI proposal synchronization.test:SiScope.TrustedBasePassesAllowedProposal merges main, re-derives state, and confirms the pushed OID",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.allows a matching partial Begin retry when all in-flight slots are occupied",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.canonicalizes duplicate pending dues and rebuilds in-flight provenance",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.classifies a schema-valid run at a noncanonical path as repairable",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.keeps state limits, statuses, topology, and prepared retries module-owned",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.quarantines duplicate run ownership and leaves one pending due",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.quarantines parseable schema-invalid runs without projecting their fields",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.rejects lifecycle replay when the active due is bound to another run",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.rejects non-Begin transitions while the due is still pending",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.repairs run-first graph divergence and requeues a due whose run is corrupt",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.ArtifactDigestNormalizesLineEndingsWithoutParsingCorruptJson",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.BoundedManifestPagingAndRepair preserves manifest-referenced runs during archive",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.BoundedManifestPagingAndRepair recovers an interrupted archive before continuing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.BoundedManifestPagingAndRepair rejects the active run plus-one during discovery",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.ConcurrentCrashCasExhaustion blocks the seventeenth active run before mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.ConcurrentCrashCasExhaustion returns the closed status after three generation conflicts",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.ConcurrentCrashCasExhaustion reuses prepared side effects after a manifest conflict",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix blocks Apply while another observation journal exists",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix classifies absent, valid, orphan, corrupt, forward, and incomplete stores",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix rebuilds a parseable manifest without schemaVersion",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix refuses Apply for valid and forward stores",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix rejects a linked backup descendant",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.InspectionRepairStateMatrix rejects repair backup sources that escape through a descendant link",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.RankedSetCompleteness rejects count, rank, choice, and duplicate-id gaps",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.SchemaManifestAndRuns validates every persisted manifest and run against the owned schemas",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback authenticates the exact rollback backup set",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback binds observations to exact artifact bytes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback inspects empty artifacts and restores corrupt bytes exactly",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback preserves current manifest state while repairing runs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback reconstructs a corrupt manifest while migrating legacy runs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback rejects a mutated repair receipt before rollback",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Durable self-improvement state.test:SiState.VersionMigrationRepairRollback snapshots exact observations and restores the pre-repair version",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Installed SI state paging and repair.test:SiState.BoundedManifestPagingAndRepair pages metadata and rebuilds an orphan manifest from the self-improvement payload alone",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Installed SI state paging and repair.test:SiState.RepairReceiptGatesApplyRollback rejects stale observations and requires the exact apply receipt",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SiState.Tests.ps1",
+      "test": "Shared atomic writer closure.test:AtomicStore.AllWritersUseSharedPrimitive covers every canonical writer and fails its direct-writer negative fixture",
+      "count": 1
+    },
+    {
       "file": "tests/skalary/SiWriteScope.Tests.ps1",
       "test": "si write-scope guard.test:si-proposes-never-merges.test:si-proposes-never-merges keeps the PR draft and forbids merging in both skill copies",
       "count": 1
@@ -4396,7 +4911,22 @@
     },
     {
       "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.MeasurementModeRefreshesStaleRows authorizes one stale run and records its exact tracked inputs",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.MeasurementModeRejectsMismatchedOrReplayedToken validates every authorization field and ancestry",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
       "test": "suite budget.test:SuiteBudget.MeasuresFullNpmTest budgets the whole npm test command, not the Pester leg alone",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SuiteBudget.Tests.ps1",
+      "test": "suite budget.test:SuiteBudget.OrdinaryModeRejectsStaleRows refuses an unmeasured tracked-input change",
       "count": 1
     },
     {
@@ -4613,6 +5143,186 @@
       "file": "tests/skalary/ValidatePlan.Tests.ps1",
       "test": "Validate-Plan stage gate.test:ValidatePlan.UnknownStageFailsLoud refuses to resolve an unrecognised stage to a skip",
       "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.declines without writes and refuses a changed mapping before refresh",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.defers in-epic dependency links until newly created issues exist",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.digests exact mapping bytes while accepting and canonicalizing a UTF-8 BOM",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.keeps mapping refusals in parent-then-child item order",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.persists a successful prefix and resumes partial failure from a fresh dry run",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.reads mapped state without writes and renders ordered create, link, and no-op actions",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses a directory mapping path before any provider mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses a projection changed after display before confirmation or writes",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses invalid and projection-mismatched mapping kinds before provider reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses marker-bound crash recovery and a concurrent apply instead of creating duplicates",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.refuses non-integral and duplicate mapping identities before provider reads",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.renders a missing mapped target as a refusal without writing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.repairs a verified stale mapping baseline without another provider mutation",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.requires one explicit marker-bound remote identity for adoption",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.revalidates mapping persistence after the remote update precondition read",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.revalidates the complete remote issue immediately before update",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.ConflictAndNoOp refreshes remote state after confirmation and refuses drift",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.DryRunAndConfirmation applies the confirmed action set and converges",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers persists canonical mappings and refuses stale overwrites",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers refuses ambiguous marker-bound adoption without writing",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.test:WorkHierarchy.MappingAndMarkers refuses remote managed edits and malformed markers",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.DryRunAndConfirmation.updates only a clean baseline and preserves unmanaged body text",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.keeps directive-shaped remote text inert",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps hierarchy and dependency reads to bounded gh api requests",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps one blocked-by relation write to gh api",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.maps one provider-neutral create operation to gh api",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses malformed GitHub issue results with an adapter diagnostic",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses pull requests returned by the issues endpoint",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.refuses relation results with more than 100 issues",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.returns a missing issue sentinel for GitHub HTTP 404 only",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.scans authoritative repository issues for at most two marker-bound adoption candidates",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.GitHubAdapter.uses the narrow read boundary and inert gh argument arrays",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.produces stable byte-identical ordered projection output",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.projects hierarchy, dependencies, phases, purpose, and acceptance content",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchy.Tests.ps1",
+      "test": "Work hierarchy synchronization.test:WorkHierarchy.Projection.refuses ambiguous canonical child identities before emission",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/WorkHierarchyConsumerInstall.Tests.ps1",
+      "test": "installed work-hierarchy consumer.test:WorkHierarchy.ConsumerInstall runs projection and dry run from the isolated plugin payload",
+      "count": 1
     }
   ],
   "mustKeep": [
@@ -4634,9 +5344,19 @@
   ],
   "removals": [
     {
-      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
-      "reason": "Superseded by the inverse closure test that rejects an undeclared scaffold root after the scanner grammar stopped deriving roots from existing declarations.",
-      "step": "34088e:1.2"
+      "test": "Add-WorkflowNote.test:workflownote-cap folds the oldest learnings into one loud overflow-summary",
+      "reason": "Plan 1936cb step 2.2 retires lossy summary generation in favor of lossless content-addressed overflow batches.",
+      "step": "1936cb/2.2"
+    },
+    {
+      "test": "Add-WorkflowNote.test:workflownote-cap accumulates the folded count across repeated overflow",
+      "reason": "Plan 1936cb step 2.2 replaces folded-count accumulation with idempotent overflow-first crash recovery evidence.",
+      "step": "1936cb/2.2"
+    },
+    {
+      "test": "Add-WorkflowNote.test:workflownote-sanitize neutralizes brackets, backticks, pipes, middots and newlines in the body",
+      "reason": "Plan 1936cb step 2.2 broadens sanitization to all control characters and retains the invariant under the renamed test.",
+      "step": "1936cb/2.2"
     },
     {
       "test": "cep skill.scaffolds and wires only, delegating child plan content to /cip",
@@ -4872,6 +5592,12 @@
       "test": "Build-ReviewReport bundling and callers.test:build-reviewreport-bundled leaves the report layout to the script, never to prose",
       "reason": "Step 2.2 retains this invariant under the production renderer in review-run consumer distribution and callers.keeps report layout in the renderer, never in caller prose.",
       "step": "2.2"
+    },
+    {
+      "test": "Asset bootstrap scanner.scaffold declarations.test:asset-refs-declared-in-files leaves an undeclared scaffold root out of grammar",
+      "reason": "Plan 34088e step 1.2 renamed this case to test:asset-refs-declared-in-files rejects an undeclared scaffold root while retaining the same fail-closed assertion.",
+      "step": "34088e:1.2"
     }
   ]
 }
+
