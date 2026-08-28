@@ -87,7 +87,7 @@ Describe 'PlanState Get-PlanInventory' {
         Remove-Module PlanState -Force -ErrorAction SilentlyContinue
     }
 
-    It 'parses legacy and new-scheme folders' {
+    It 'test:PlanFolderPrefix.NewCreationAndCompatibility parses legacy, current hash, and prefixed hash folders' {
         $root = Join-Path ([System.IO.Path]::GetTempPath()) ("inv-" + [guid]::NewGuid().ToString('N'))
         $plans = Join-Path $root 'docs/implementation-plans'
         $archived = Join-Path $plans 'archived'
@@ -101,15 +101,39 @@ Describe 'PlanState Get-PlanInventory' {
         New-Item -ItemType Directory -Path $new -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $new 'plan.md') -Value "# new`n<!-- plan-id: abc123 -->`n" -Encoding utf8NoBOM
 
+        $standalone = Join-Path $plans 'standalone-2026-06-28-def456-solo'
+        New-Item -ItemType Directory -Path $standalone -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $standalone 'plan.md') -Value "# standalone`n<!-- plan-id: def456 -->`n" -Encoding utf8NoBOM
+
+        $epicChild = Join-Path $archived 'fedcba-2026-06-29-789abc-child'
+        New-Item -ItemType Directory -Path $epicChild -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $epicChild 'plan.md') -Value "# child`n<!-- plan-id: 789abc -->`n<!-- epic: fedcba -->`n" -Encoding utf8NoBOM
+
         try {
             $inv = @(Get-PlanInventory -RepoRoot $root)
             ($inv | Where-Object Scheme -eq 'legacy').Id | Should -Be '003'
             ($inv | Where-Object Scheme -eq 'legacy').IsArchived | Should -BeTrue
-            $newEntry = $inv | Where-Object Scheme -eq 'new'
+            $newEntry = $inv | Where-Object FolderName -eq '2026-06-27-abc123-shiny'
             $newEntry.Id | Should -Be 'abc123'
             $newEntry.Slug | Should -Be 'shiny'
             $newEntry.Date | Should -Be '2026-06-27'
+            $newEntry.FolderPrefix | Should -BeNullOrEmpty
             $newEntry.IsArchived | Should -BeFalse
+
+            $standaloneEntry = $inv | Where-Object Id -eq 'def456'
+            $standaloneEntry.Scheme | Should -Be 'new'
+            $standaloneEntry.FolderPrefix | Should -Be 'standalone'
+            $standaloneEntry.Slug | Should -Be 'solo'
+
+            $childEntry = $inv | Where-Object Id -eq '789abc'
+            $childEntry.Scheme | Should -Be 'new'
+            $childEntry.FolderPrefix | Should -Be 'fedcba'
+            $childEntry.EpicId | Should -Be 'fedcba'
+            $childEntry.IsArchived | Should -BeTrue
+
+            (Resolve-Plan -Reference 'def456' -RepoRoot $root -Inventory $inv).Path | Should -Be $standalone
+            (Resolve-Plan -Reference '789abc' -RepoRoot $root -Inventory $inv).Path | Should -Be $epicChild
+            (Resolve-Plan -Reference '003' -RepoRoot $root -Inventory $inv).Path | Should -Be $legacy
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -119,7 +143,7 @@ Describe 'PlanState Get-PlanInventory' {
     It 'prefers the plan-id anchor over the folder-derived id' {
         $root = Join-Path ([System.IO.Path]::GetTempPath()) ("inv-" + [guid]::NewGuid().ToString('N'))
         $plans = Join-Path $root 'docs/implementation-plans'
-        $dir = Join-Path $plans '2026-06-27-ffffff-anchored'
+        $dir = Join-Path $plans 'standalone-2026-06-27-ffffff-anchored'
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Value "# x`n<!-- plan-id: 9f9f9f -->`n" -Encoding utf8NoBOM
         try {
@@ -127,6 +151,42 @@ Describe 'PlanState Get-PlanInventory' {
             $inv.Count | Should -Be 1
             $inv[0].Id | Should -Be '9f9f9f'
             $inv[0].FolderId | Should -Be 'ffffff'
+            $inv[0].FolderPrefix | Should -Be 'standalone'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'ignores folders whose prefix is outside the closed grammar' -ForEach @(
+        @{ Prefix = 'fedcb' }
+        @{ Prefix = 'fedcbaa' }
+        @{ Prefix = 'standalone-standalone' }
+    ) {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("inv-" + [guid]::NewGuid().ToString('N'))
+        $plans = Join-Path $root 'docs/implementation-plans'
+        $dir = Join-Path $plans "$Prefix-2026-06-27-ffffff-invalid"
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Value "# x`n<!-- plan-id: ffffff -->`n" -Encoding utf8NoBOM
+        try {
+            @(Get-PlanInventory -RepoRoot $root) | Should -HaveCount 0
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'normalizes a case-insensitive folder prefix without changing canonical identity' {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("inv-" + [guid]::NewGuid().ToString('N'))
+        $plans = Join-Path $root 'docs/implementation-plans'
+        $dir = Join-Path $plans 'FEDCBA-2026-06-27-ffffff-child'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Value "# x`n<!-- plan-id: FFFFFF -->`n<!-- epic: FEDCBA -->`n" -Encoding utf8NoBOM
+        try {
+            $entry = Get-PlanInventory -RepoRoot $root
+            $entry.Id | Should -Be 'ffffff'
+            $entry.FolderPrefix | Should -Be 'fedcba'
+            $entry.EpicId | Should -Be 'fedcba'
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -152,7 +212,7 @@ Describe 'PlanState Resolve-Plan' {
         $inv = @(
             New-InvEntry -Id '7645b1' -Scheme 'new' -Slug 'optimize-ci-cip-plugins' -Date '2026-06-27' -FolderName '2026-06-27-7645b1-optimize-ci-cip-plugins'
             New-InvEntry -Id '7645c2' -Scheme 'new' -Slug 'colliding-prefix' -Date '2026-06-28' -FolderName '2026-06-28-7645c2-colliding-prefix'
-            New-InvEntry -Id '88ab00' -Scheme 'new' -Slug 'another-thing' -Date '2026-06-30' -FolderName '2026-06-30-88ab00-another-thing'
+            New-InvEntry -Id '88ab00' -Scheme 'new' -Slug 'another-thing' -Date '2026-06-30' -FolderName 'standalone-2026-06-30-88ab00-another-thing'
             New-InvEntry -Id '012345' -Scheme 'new' -Slug 'numeric-hash' -Date '2026-06-29' -FolderName '2026-06-29-012345-numeric-hash'
             New-InvEntry -Id '007' -Scheme 'legacy' -Slug 'workflow-memory-ledger' -Date $null -FolderName '007-workflow-memory-ledger'
         )
@@ -168,6 +228,12 @@ Describe 'PlanState Resolve-Plan' {
 
     It 'test:resolve-plan-hash-prefix resolves a full hash id' {
         (Resolve-Plan -Reference '7645b1' -RepoRoot 'x' -Inventory $inv).Id | Should -Be '7645b1'
+    }
+
+    It 'test:resolve-plan-hash-prefix resolves a prefixed folder to the canonical id' {
+        $resolved = Resolve-Plan -Reference 'another-thing' -RepoRoot 'x' -Inventory $inv
+        $resolved.Id | Should -Be '88ab00'
+        $resolved.FolderName | Should -Be 'standalone-2026-06-30-88ab00-another-thing'
     }
 
     It 'test:resolve-plan-hash-prefix is case-insensitive' {

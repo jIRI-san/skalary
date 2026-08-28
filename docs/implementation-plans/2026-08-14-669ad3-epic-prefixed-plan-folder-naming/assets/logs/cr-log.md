@@ -1,0 +1,9 @@
+## CR Capture
+Phase: 1
+
+- [1.1] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:93daa79d3a4837f3bdd94463b49f91439c994f830c295ef1e9fb1b6f47013b8e] review-cycle stage=step-1.1 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=step-1.1-round-1
+- [1.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:390eec62ce3d108bea36bde4e60879f0871c786f6f96fe1fb902cc1584117afc] Rubber-duck: normalize case-insensitive folder prefixes before comparison; fixed in inventory parser and covered by regression test.
+- [1.1] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-1] [review:cr] [source-record:7d2b8184fc9470998b065445da244d019879f628c1adde0bc4c8426c14ad7db0] Rubber-duck: document prefix-to-epic consistency and unprefixed epic-index folders; fixed in plan workflow contract.
+- [1.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:3d8fa59ed0fa6226fc92ec0360e0fae9d7da89c4ddd41c66961df72098cde1a8] Rubber-duck triage: New-Plan re-entry must compare final prefixed names; deferred to dependent step 1.2 where scaffolding changes.
+- [1.1] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:4e5b4f0e396821fdba6a9d5caa28d44329b852b598ae374b5ad57442a45db9e3] Rubber-duck triage: direct consumers with old folder regexes require inventory in step 3.1; shared resolution remains the target contract.
+- [1.1] [src:code-review] [sev:Low] [concern:testing-evidence] [req:REQ-1] [review:cr] [source-record:a38f80b845cf47b37ad0454820f96ae64b2c5045e00cc4f906ecac724de27da5] Rubber-duck: bind parser coverage to PlanFolderPrefix.NewCreationAndCompatibility and add closed-prefix boundary cases; fixed.

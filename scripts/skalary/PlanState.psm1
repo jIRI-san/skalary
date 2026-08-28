@@ -714,12 +714,14 @@ function Get-PlanInventory {
         $name = $entry.Dir.Name
         $scheme = $null
         $folderId = $null
+        $folderPrefix = $null
         $slug = $null
         $date = $null
 
-        if ($name -match '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
+        if ($name -match '^(?:(?<prefix>standalone|[0-9a-f]{6})-)?(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
             $scheme = 'new'
             $folderId = $Matches.hash
+            $folderPrefix = if ($Matches.ContainsKey('prefix')) { $Matches.prefix.ToLowerInvariant() } else { $null }
             $slug = $Matches.slug
             $date = $Matches.date
         }
@@ -755,6 +757,7 @@ function Get-PlanInventory {
         $inventory.Add([pscustomobject]@{
             Id = $canonicalId
             FolderId = $folderId
+            FolderPrefix = $folderPrefix
             AnchorId = $anchorId
             EpicId = $epicId
             Scheme = $scheme
@@ -901,8 +904,9 @@ function Get-EpicInventory {
 
     .DESCRIPTION
     An epic is an index, not a plan: it holds `epic.md` and no `plan.md`, and its children stay ordinary
-    sibling plan folders so every existing consumer keeps resolving them unchanged. The folder name
-    follows the plan scheme (`<yyyy-mm-dd>-<6hex>-<slug>`); the `<!-- epic-id: ... -->` anchor in
+    sibling plan folders so every existing consumer keeps resolving them unchanged. Epic folders never
+    carry the navigational plan prefix: their name remains `<yyyy-mm-dd>-<6hex>-<slug>`. The
+    `<!-- epic-id: ... -->` anchor in
     `epic.md` is canonical when present, exactly as `plan-id` is for plans.
     #>
     [CmdletBinding()]

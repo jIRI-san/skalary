@@ -68,14 +68,14 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.7 | partial | — | 18 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.2.21 | partial | self-improvement | 30 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
-| `code-review` | 1.0.27 | stable | — | 26 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
-| `continue-implementation` | 1.0.47 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.38 | stable | design-review | 25 | Implementation plan generation skill for coding workflows. |
+| `autopilot` | 1.2.23 | partial | self-improvement | 30 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
+| `code-review` | 1.0.29 | stable | — | 26 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
+| `continue-implementation` | 1.0.49 | stable | autopilot, code-review | 17 | Code implementation workflow skill with autonomous execution guidance. |
+| `create-implementation-plan` | 1.0.40 | stable | design-review | 25 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
-| `design-review` | 1.0.26 | stable | — | 25 | Design review orchestrator with specialist model agents. |
+| `design-review` | 1.0.28 | stable | — | 25 | Design review orchestrator with specialist model agents. |
 | `plugin-manager` | 1.0.17 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.1 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
-| `self-improvement` | 1.0.52 | stable | create-implementation-plan | 31 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
-| `work-hierarchy-sync` | 1.0.6 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
+| `self-improvement` | 1.0.54 | stable | create-implementation-plan | 31 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
+| `work-hierarchy-sync` | 1.0.8 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
 <!-- END SKALARY PLUGIN CATALOG -->
