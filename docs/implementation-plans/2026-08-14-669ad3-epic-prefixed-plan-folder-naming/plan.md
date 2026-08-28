@@ -35,4 +35,4 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Update only path consumers that require dual current/prefixed grammar through existing shared resolution; add focused new-plan, legacy, collision, `-WhatIf`, apply, and resume fixtures (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 1.2, 2.2] `M`
-- [~] 3.2 Run focused inventory/resolution/migration, installed-consumer, generated-drift, and validation checks; rebuild the existing evidence receipt and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `M`
+- [x] 3.2 Run focused inventory/resolution/migration, installed-consumer, generated-drift, and validation checks; rebuild the existing evidence receipt and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `M`
