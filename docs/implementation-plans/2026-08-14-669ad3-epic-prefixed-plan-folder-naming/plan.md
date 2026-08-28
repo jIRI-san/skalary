@@ -28,7 +28,7 @@
 ## Phase 2: Optional script-owned migration
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add one migration script whose default `-WhatIf` path inventories eligible current hash-plan folders, rejects collisions or identity mismatches, and writes a deterministic old/new mapping without moving files (REQ-2, REQ-3, RISK-1, RISK-4) [after: 1.1] `M`
+- [~] 2.1 Add one migration script whose default `-WhatIf` path inventories eligible current hash-plan folders, rejects collisions or identity mismatches, and writes a deterministic old/new mapping without moving files (REQ-2, REQ-3, RISK-1, RISK-4) [after: 1.1] `M`
 - [ ] 2.2 Add explicit apply/resume that consumes the mapping, moves one folder at a time under one existing repository lock or safe sequential operation, records completion in the mapping, and converges idempotently after interruption; do not invoke bulk migration automatically (REQ-3, REQ-4, RISK-1, RISK-2, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Consumer compatibility and proof
