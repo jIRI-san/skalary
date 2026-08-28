@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T20:58:15.2724688Z",
+  "generatedAt": "2026-08-28T21:09:59.0447881Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -458,7 +458,7 @@
         },
         {
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "c4db5370d53ac83bc5179378fac729c256222db59e3ffc0d9ca7d7f1e4edff09",
+          "sha256": "bbc17398e9d31495b9a331d96d60ad8365aea8cdf91344fd8692f81da589a0b0",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -505,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.33"
+      "version": "1.0.34"
     },
     {
       "author": "jIRI-san",
@@ -1023,7 +1023,7 @@
         },
         {
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "c4db5370d53ac83bc5179378fac729c256222db59e3ffc0d9ca7d7f1e4edff09",
+          "sha256": "bbc17398e9d31495b9a331d96d60ad8365aea8cdf91344fd8692f81da589a0b0",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1070,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.32"
+      "version": "1.0.33"
     },
     {
       "author": "jIRI-san",

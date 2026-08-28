@@ -114,6 +114,15 @@ function Assert-Guidance {
     }
 }
 
+function Test-SuspectedCredential {
+    param([Parameter(Mandatory)][string]$Text)
+
+    return $Text -match '(?is)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----' -or
+    $Text -match '(?i)\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9_]{20,})\b' -or
+    $Text -match '(?i)\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*' -or
+    $Text -match '(?i)\b(?:token|password|secret|api[_-]?key)\b\s*[:=]\s*["'']?[^\s,"'']{8,}'
+}
+
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 if (-not (Test-Path -LiteralPath $repoRootPath -PathType Container)) {
     throw "Repository root not found: '$RepoRoot'."
@@ -184,7 +193,7 @@ foreach ($standard in $genericRecords) {
     }
     $id = [string]$standard.id
     $guidance = [string]$standard.guidance
-    if ($id -notmatch '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$' -or $id.Length -gt 64) {
+    if ($id -cnotmatch '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$' -or $id.Length -gt 64) {
         throw "Generic review standard id '$id' is malformed."
     }
     Assert-Guidance -Guidance $guidance -Source $id
@@ -226,21 +235,24 @@ if ($null -ne $localPath) {
         }
         $match = [regex]::Match($line, '^- (?<mode>extend|replace) `(?<id>[a-z][a-z0-9]*(?:-[a-z0-9]+)*)`: (?<guidance>.+)$')
         if (-not $match.Success) {
-            throw "Malformed local review standard at $localDisplayPath line $($lineIndex + 1): '$line'."
+            throw "Malformed local review standard at $localDisplayPath line $($lineIndex + 1)."
         }
         $id = $match.Groups['id'].Value
         $mode = $match.Groups['mode'].Value
         $localGuidance = $match.Groups['guidance'].Value
         Assert-Guidance -Guidance $localGuidance -Source "$localDisplayPath line $($lineIndex + 1), id '$id'"
+        if (Test-SuspectedCredential -Text $localGuidance) {
+            throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' contains a suspected credential."
+        }
         if (-not $seenLocal.Add($id)) {
-            throw "Local review standard id '$id' is duplicated."
+            throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' is duplicated."
         }
         if (-not $byId.ContainsKey($id)) {
-            throw "Local review standard '$id' does not match generic guidance."
+            throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' does not match generic guidance."
         }
         $current = $byId[$id]
         if (-not [bool]$current.localizable) {
-            throw "Generic review standard '$id' is not localizable."
+            throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' targets generic guidance that is not localizable."
         }
         $resolvedGuidance = if ($mode -ceq 'extend') {
             "$($current.guidance) $localGuidance"
