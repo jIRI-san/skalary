@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T20:30:42.9746888Z",
+  "generatedAt": "2026-08-28T20:43:24.1199635Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -403,7 +403,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "03f521e5b3abba97147f0d827ef452756bdbe7e1303e5ae93a02dcd91fd278af",
+          "sha256": "4d5e3465a1be69480c6fc12b716f02984dea7a6f046c83d3f4678d0959de0363",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -418,13 +418,18 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "c1bbe8e0df0c86e639707e770ced9a5ab5336a4c72e176d0e7e4249752ec77f3",
+          "sha256": "2cf2b58affd9aa4aaaf695af8cde53fa3321681b5e11ab00ebb8617e7fe34046",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
           "dest": "skills/cr/assets/model-preferences.md",
           "sha256": "ba5110c68ed62ebed2f9d7ea5415306db9529cef49a3fee02ae5849efc7f3b43",
           "src": "skills/cr/assets/model-preferences.md"
+        },
+        {
+          "dest": "skills/cr/assets/review-standards.json",
+          "sha256": "bbcd515d08c51797185ef2389446982bc8e1b504157429f6c46636cc89a5365c",
+          "src": "skills/cr/assets/review-standards.json"
         },
         {
           "dest": "skills/cr/assets/scope-guide.md",
@@ -450,6 +455,11 @@
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
           "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
+          "sha256": "64ea0709012fff0e56703d1bd8635850d48a3d92d51d10ebd5b14509087e80ec",
+          "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
@@ -495,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.30"
+      "version": "1.0.32"
     },
     {
       "author": "jIRI-san",
@@ -963,7 +973,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3a27597e06d844078f94452b3ca2fa6eaf9e61182ac49367ab092eca4f57fff9",
+          "sha256": "d9fb205f335e5a9df4c8756dd52151157e9cec1588fd2ce191f18f624c608481",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -978,13 +988,18 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "c1bbe8e0df0c86e639707e770ced9a5ab5336a4c72e176d0e7e4249752ec77f3",
+          "sha256": "2cf2b58affd9aa4aaaf695af8cde53fa3321681b5e11ab00ebb8617e7fe34046",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
           "dest": "skills/dr/assets/plan-scope-guide.md",
           "sha256": "03e7570ac56ec86fca140482c0592306bc5187c30ee81696573ad340ff27e411",
           "src": "skills/dr/assets/plan-scope-guide.md"
+        },
+        {
+          "dest": "skills/dr/assets/review-standards.json",
+          "sha256": "bbcd515d08c51797185ef2389446982bc8e1b504157429f6c46636cc89a5365c",
+          "src": "skills/dr/assets/review-standards.json"
         },
         {
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
@@ -1005,6 +1020,11 @@
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
           "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
+          "sha256": "64ea0709012fff0e56703d1bd8635850d48a3d92d51d10ebd5b14509087e80ec",
+          "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
@@ -1050,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.29"
+      "version": "1.0.31"
     },
     {
       "author": "jIRI-san",
@@ -1298,7 +1318,7 @@
         },
         {
           "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
-          "sha256": "700f532ce20d76c36f12a50dd9af84a623b275ef3122ca9f210b45f64ebe9aa2",
+          "sha256": "c503a10ffa2dbdfa42364dafb11177b4a836dafba49d897f2b7047ba42e95944",
           "src": "scripts/Export-CrossRepoSi.ps1"
         },
         {
@@ -1313,7 +1333,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
-          "sha256": "a1102e4545396f27a7c2d086a7921ac60fe548d2b659004c63e90b1ce9040027",
+          "sha256": "b4a58f0e60b49a3d879441cde13a1230ffb293d85e6151db707ab20771c294e2",
           "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {
@@ -1370,6 +1390,12 @@
           "owner": "Update-FeedbackQueue.ps1",
           "path": "docs/feedback/queue.md",
           "trigger": "first queued /pfb marker"
+        },
+        {
+          "mode": "literal",
+          "owner": "Export-CrossRepoSi.ps1",
+          "path": "docs/self-improvement/archive",
+          "trigger": "eligible archived-run enumeration"
         },
         {
           "mode": "literal",
@@ -1450,6 +1476,12 @@
           "trigger": "resolver receipt issuance"
         },
         {
+          "mode": "literal",
+          "owner": "Export-CrossRepoSi.ps1",
+          "path": "docs/self-improvement/runs",
+          "trigger": "eligible active-run enumeration"
+        },
+        {
           "confine": "Resolve-SiStatePath",
           "mode": "parameterized",
           "owner": "SiStateStore.psm1",
@@ -1470,7 +1502,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.56"
+      "version": "1.0.57"
     },
     {
       "author": "jIRI-san",

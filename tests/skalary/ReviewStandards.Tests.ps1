@@ -67,4 +67,68 @@ Describe 'review standards resolution' {
             Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'test:ReviewStandards.InstalledConsumptionAndDrift consumes installed assets and preserves distribution ownership' {
+        foreach ($review in @(
+                @{ Plugin = 'code-review'; Skill = 'cr' }
+                @{ Plugin = 'design-review'; Skill = 'dr' }
+            )) {
+            $pluginRoot = Join-Path $script:repoRoot "plugins/$($review.Plugin)"
+            $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw |
+                ConvertFrom-Json -Depth 50
+            $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
+                ConvertFrom-Json -Depth 100
+            $registryPlugin = @($registry.plugins | Where-Object name -CEQ $review.Plugin)
+            $registryPlugin.Count | Should -Be 1
+            [string]$registryPlugin[0].version | Should -Be ([string]$manifest.version)
+
+            foreach ($relative in @(
+                    "skills/$($review.Skill)/assets/review-standards.json"
+                    "skills/$($review.Skill)/scripts/Resolve-ReviewStandards.ps1"
+                )) {
+                $mapping = @($manifest.files | Where-Object {
+                        [string]$_.src -ceq $relative -and [string]$_.dest -ceq $relative
+                    })
+                $mapping.Count | Should -Be 1
+                $source = Join-Path $pluginRoot $relative
+                $dogfood = Join-Path $script:repoRoot ".github/$relative"
+                Test-Path -LiteralPath $source -PathType Leaf | Should -BeTrue
+                Test-Path -LiteralPath $dogfood -PathType Leaf | Should -BeTrue
+                $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+                (Get-FileHash -LiteralPath $dogfood -Algorithm SHA256).Hash | Should -Be $sourceHash
+                $registryFile = @($registryPlugin[0].files | Where-Object {
+                        [string]$_.src -ceq $relative -and [string]$_.dest -ceq $relative
+                    })
+                $registryFile.Count | Should -Be 1
+                [string]$registryFile[0].sha256 | Should -Be $sourceHash.ToLowerInvariant()
+            }
+        }
+
+        $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('review-standards-installed-' + [guid]::NewGuid().ToString('N'))
+        try {
+            $installedSkill = Join-Path $fixture '.github/skills/cr'
+            New-Item -ItemType Directory -Path (Join-Path $installedSkill 'assets'), (Join-Path $installedSkill 'scripts'), (Join-Path $fixture 'docs') -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot 'plugins/code-review/skills/cr/assets/review-standards.json') `
+                -Destination (Join-Path $installedSkill 'assets/review-standards.json')
+            Copy-Item -LiteralPath (Join-Path $script:repoRoot 'plugins/code-review/skills/cr/scripts/Resolve-ReviewStandards.ps1') `
+                -Destination (Join-Path $installedSkill 'scripts/Resolve-ReviewStandards.ps1')
+            @(
+                '# Review standards'
+                '- extend `architecture-local-conventions`: Prefer dependency inversion at repository boundaries.'
+            ) | Set-Content -LiteralPath (Join-Path $fixture 'docs/review-standards.md') -Encoding utf8NoBOM
+
+            $installedResult = & (Join-Path $installedSkill 'scripts/Resolve-ReviewStandards.ps1') -RepoRoot $fixture
+            $installedResult.schema | Should -Be 'skalary/resolved-review-standards@1'
+            @($installedResult.standards | Where-Object source -CEQ 'local-extend').Count | Should -Be 1
+            Test-Path -LiteralPath (Join-Path $fixture 'tools/review-concerns.json') | Should -BeFalse -Because 'installed consumption must not depend on skalary source paths'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        { & (Join-Path $script:repoRoot 'scripts/skalary/Sync-ReviewConcerns.ps1') -RepoRoot $script:repoRoot -WhatIf *> $null } |
+            Should -Not -Throw
+        { & (Join-Path $script:repoRoot 'scripts/skalary/Sync-PluginScripts.ps1') -RepoRoot $script:repoRoot -WhatIf *> $null } |
+            Should -Not -Throw
+    }
 }

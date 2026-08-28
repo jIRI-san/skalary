@@ -141,7 +141,7 @@ Describe 'Review skills, shims, and prompts' {
     It 'test:cr-dr-skill-shim-parity shares one dispatch and collation definition across both skills' {
         # Dispatch policy and report collation are shared contracts; two copies that can drift are
         # how one review type ends up on a different roster or budget than the other.
-        foreach ($asset in @('dispatch-guide.md', 'collation-guide.md', 'concern-ledger-map.md')) {
+        foreach ($asset in @('dispatch-guide.md', 'collation-guide.md', 'concern-ledger-map.md', 'review-standards.json')) {
             $cr = Get-RepoText -Relative "plugins/code-review/skills/cr/assets/$asset"
             $dr = Get-RepoText -Relative "plugins/design-review/skills/dr/assets/$asset"
             $dr | Should -Be $cr -Because "$asset must be byte-identical across the two review skills"

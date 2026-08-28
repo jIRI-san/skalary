@@ -139,7 +139,7 @@ if ($instructionDigests.Count -eq 0) {
 }
 
 $artifactText = [System.IO.File]::ReadAllText($artifactFull)
-$artifactSchema = Join-Path (Split-Path -Parent $PSScriptRoot) 'schemas/cross-repo-export.schema.json'
+$artifactSchema = Join-Path $PSScriptRoot '../schemas/cross-repo-export.schema.json'
 if (-not ($artifactText | Test-Json -SchemaFile $artifactSchema -ErrorAction SilentlyContinue)) {
     throw 'Cross-repository SI artifact failed its closed schema validation.'
 }

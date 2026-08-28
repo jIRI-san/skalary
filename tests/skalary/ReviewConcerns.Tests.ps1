@@ -178,6 +178,7 @@ Describe 'review concern generation' {
                     $paths.Add((Join-Path $Root "plugins/$($reviewType.Plugin)/agents/$($reviewType.Prefix)-$concernId.agent.md"))
                 }
                 $paths.Add((Join-Path $Root "plugins/$($reviewType.Plugin)/skills/$($reviewType.Skill)/assets/concern-ledger-map.md"))
+                $paths.Add((Join-Path $Root "plugins/$($reviewType.Plugin)/skills/$($reviewType.Skill)/assets/review-standards.json"))
             }
             return @($paths)
         }
@@ -288,6 +289,11 @@ Describe 'review concern generation' {
                         [string]$_.src -ceq $mapRelative -and [string]$_.dest -ceq $mapRelative
                     }).Count | Should -Be 1
 
+                $standardsRelative = "skills/$($reviewType.Skill)/assets/review-standards.json"
+                @($manifest.files | Where-Object {
+                        [string]$_.src -ceq $standardsRelative -and [string]$_.dest -ceq $standardsRelative
+                    }).Count | Should -Be 1
+
                 foreach ($runtimeScript in @(
                         'Build-ReviewReport.ps1'
                         'Get-ReviewRun.ps1'
@@ -321,7 +327,10 @@ Describe 'review concern generation' {
                 $generatedFiles = @(
                     $script:registry.concerns |
                         ForEach-Object { "agents/$($reviewType.Prefix)-$($_.id).agent.md" }
-                ) + @("skills/$($reviewType.Skill)/assets/concern-ledger-map.md")
+                ) + @(
+                    "skills/$($reviewType.Skill)/assets/concern-ledger-map.md"
+                    "skills/$($reviewType.Skill)/assets/review-standards.json"
+                )
 
                 foreach ($relative in $generatedFiles) {
                     $sourcePath = Join-Path $script:repoRoot "plugins/$($reviewType.Plugin)/$relative"
@@ -432,7 +441,7 @@ Describe 'review concern generation' {
         try {
             & $script:syncScript -RepoRoot $fixture *> $null
             $expectedPaths = Get-ExpectedReviewConcernOutputs -Root $fixture
-            $expectedPaths.Count | Should -Be 16
+            $expectedPaths.Count | Should -Be 18
             $baselineHashes = Get-ReviewConcernOutputHashes -Paths $expectedPaths
 
             $agentPath = Join-Path $fixture 'plugins/code-review/agents/cr-security.agent.md'
@@ -495,11 +504,16 @@ Describe 'review concern generation' {
                 $registry.concerns[$index].sharedGuidance = "$($registry.concerns[$index].sharedGuidance) Mutation sentinel $index"
                 $registry.concerns[$index].ledger.cr = $existingLedger
                 $registry.concerns[$index].ledger.dr = $existingLedger
+                if ($registry.concerns[$index].PSObject.Properties.Name -contains 'standards') {
+                    foreach ($standard in @($registry.concerns[$index].standards)) {
+                        $standard.guidance = "$($standard.guidance) Mutation sentinel $index"
+                    }
+                }
             }
             Set-Content -LiteralPath $registryPath -Value ($registry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
 
             { & $script:syncScript -RepoRoot $fixture -WhatIf *> $null } |
-                Should -Throw '*16 changed or missing output(s), 0 extra agent(s)*'
+                Should -Throw '*18 changed or missing output(s), 0 extra agent(s)*'
             (Get-ReviewConcernOutputHashes -Paths $expectedPaths) |
                 Should -Be $baselineHashes -Because 'detect-only validation must leave every expected output unchanged'
 

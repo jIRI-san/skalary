@@ -128,7 +128,7 @@ if ((Get-Item -LiteralPath $runFull).Length -gt $maxRunBytes) {
 }
 
 $runText = [System.IO.File]::ReadAllText($runFull)
-$runSchema = Join-Path (Split-Path -Parent $PSScriptRoot) 'schemas/run.schema.json'
+$runSchema = Join-Path $PSScriptRoot '../schemas/run.schema.json'
 if (-not ($runText | Test-Json -SchemaFile $runSchema -ErrorAction SilentlyContinue)) {
     throw 'SI run failed its closed schema validation.'
 }
@@ -253,7 +253,7 @@ $content = (ConvertTo-SiJcsJson -Value $artifact) + "`n"
 if ([System.Text.Encoding]::UTF8.GetByteCount($content) -gt $maxArtifactBytes) {
     throw "capacity-blocked: cross-repository SI export exceeds the $maxArtifactBytes-byte artifact ceiling."
 }
-$artifactSchema = Join-Path (Split-Path -Parent $PSScriptRoot) 'schemas/cross-repo-export.schema.json'
+$artifactSchema = Join-Path $PSScriptRoot '../schemas/cross-repo-export.schema.json'
 if (-not ($content | Test-Json -SchemaFile $artifactSchema -ErrorAction SilentlyContinue)) {
     throw 'Generated cross-repository SI export failed its closed schema validation.'
 }

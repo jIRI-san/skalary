@@ -616,6 +616,13 @@ This generation boundary does not enter review-run v1. Concern agents still retu
 do not freeze, publish, read, retain, or clean run artifacts. The CR/DR orchestrators remain the sole
 callers of the review engine and the sole explicit model-binding authority.
 
+The same generator emits each review skill's bounded generic `review-standards.json`. Before Freeze,
+the orchestrator invokes its installed `Resolve-ReviewStandards.ps1` once and passes each concern only
+its resolved criteria. The fixed optional `docs/review-standards.md` consumer file may extend or replace
+only entries marked localizable. It remains repo-owned and absent by default. Resolved criteria are
+dispatch-only data: they never enter the review-plan/result handshake, publication manifest, or retained
+review-run v1 evidence.
+
 ## CR/DR caller adoption (step 2.2)
 
 The legacy `-Finding`/`-Model` parameter set and its generated `[pscustomobject]` examples are gone.

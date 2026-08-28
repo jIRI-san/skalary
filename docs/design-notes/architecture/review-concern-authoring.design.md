@@ -19,8 +19,8 @@ globs:
 | Concern policy | `tools/review-concerns.json` | Defines the closed seven-concern roster in canonical order, shared guidance, optional generic standards, explicit CR/DR variants, and total ledger mappings. |
 | Agent structure and safety | `tools/review-concern-agent.template.md` | Owns read-only tools, no-model binding, untrusted-content handling, architecture-before-design context loading, and finding output shape. Registry prose cannot alter these controls. |
 | Registry shape | `schemas/review/review-concerns.schema.json` | Rejects missing variants, mappings, or malformed fields before rendering. |
-| Generation | `scripts/skalary/Sync-ReviewConcerns.ps1` | Renders all 14 agents and both mapping views, validates the complete candidate set before writing, and removes only extra `cr-*.agent.md`/`dr-*.agent.md` files in its confined managed directories. |
-| Generated plugin payloads | `plugins/code-review/agents/cr-*.agent.md`, `plugins/design-review/agents/dr-*.agent.md`, and the two `concern-ledger-map.md` files | Never hand-edit. Regenerate with `Sync-ReviewConcerns.ps1`; the template applies only to agents, while `Render-LedgerMap` owns map structure. |
+| Generation | `scripts/skalary/Sync-ReviewConcerns.ps1` | Renders all 14 agents, both mapping views, and both generic-standards assets; validates the complete candidate set before writing; and removes only extra `cr-*.agent.md`/`dr-*.agent.md` files in its confined managed directories. |
+| Generated plugin payloads | `plugins/code-review/agents/cr-*.agent.md`, `plugins/design-review/agents/dr-*.agent.md`, and each review skill's `concern-ledger-map.md` and `review-standards.json` | Never hand-edit. Regenerate with `Sync-ReviewConcerns.ps1`; the template applies only to agents, while dedicated renderers own map and standards structure. |
 
 The taxonomy is settled policy, not an extension point. Adding, removing, reordering, or redefining a
 concern requires a separately reviewed policy change; ordinary guidance changes preserve all seven ids.
@@ -50,7 +50,7 @@ cannot create template structure or tokens.
 
 ## Distribution boundary
 
-Generation stops at plugin sources. Each generated file must be declared exactly once by its owning
+Generation stops at plugin sources. Generated agents, maps, and standards assets must each be declared exactly once by their owning
 plugin manifest. A payload-byte change requires the owning plugin version to move, followed by the
 existing dogfood, marketplace, and registry writers. Those writers retain their own authority:
 `Sync-Dogfood.ps1` mirrors installed `.github/` payloads, `Build-Marketplace.ps1` publishes manifest
