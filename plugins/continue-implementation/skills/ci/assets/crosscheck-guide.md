@@ -40,18 +40,21 @@ engine and is not a second harvest implementation.
 1. Re-anchor against the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`). Re-read the goal, desired outcome, success signals, non-goals, and definition of done, and state for the phase just finished whether the delivered work still serves them. Typed evidence proves the requirements were met; only intent tells you the phase met the point. Record any drift as a finding (`Add-WorkflowNote -Kind Learnings -Trigger plan-contradiction -Concern architecture-patterns -Requirement <REQ-N...> -ReviewType none`) before declaring the phase complete.
 2. Collect REQ IDs referenced by steps in the current phase.
 3. Validate each acceptance criterion against implementation + typed evidence checks (`test:`/`file:`/`review:`). Keep execution focused on the phase's affected surface and named evidence; do not run complete project validation here.
-4. Invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
-5. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
-6. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
-7. Fail phase completion if blocking criteria are unsatisfied.
+4. Build the review scope as the union of repo-relative implementation, test, and directly related documentation paths changed by this phase's completed step commits. Exclude plan progress and ephemeral log-only paths. If the exact phase union cannot be recovered, use `branch` scope rather than silently omitting files.
+5. Run the review loop below with stage `phase-<N>` and invoke `@cr post-phase <phase-paths-or-branch>`. The profile is primary-model only; apply clear findings and re-run the focused phase checks before the next round.
+6. Invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
+7. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
+8. Rebuild the receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
+9. Fail phase completion if blocking criteria are unsatisfied.
 
 ## Plan crosscheck
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
 2. Run complete project validation once: the project's full build and test commands. This is the integration gate for interactions outside the affected surfaces checked during step and phase loops.
-3. Validate all REQ and RISK rows before completion.
-4. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
-5. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
+3. After every implementation phase is complete, run the review loop below with stage `plan-finalization` and invoke `@cr plan-finalization branch`. This is the only primary + secondary execution review and must cover the whole implementation. Apply clear findings and re-run complete project validation before the next round.
+4. Validate all REQ and RISK rows before completion.
+5. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
+6. Re-run typed evidence checks at plan scope (`PlanCrosscheck` stage) at true finalization.
 
 ## archival-gate
 
@@ -151,10 +154,16 @@ Fail-loud behavior: error only when expected log sections/placeholders are missi
 
 Before launching a CR round (`@cr`, `code-review`, or `rubber-duck`), consult only the relevant category files from `docs/review-ledger/`:
 
-Every `/ci`-launched CR round at crosscheck is also gated by
-`.github/skills/ci/scripts/ReviewCycleGate.ps1`: use stage `phase-<N>` for phase crosscheck and
-`plan-finalization` for plan crosscheck. The same three-cycle cap and operator Continue/Wrap decision
-from `execution-guide.md` applies; crosscheck is not a fresh counter.
+Every `/ci`-launched CR round is gated by
+`.github/skills/ci/scripts/ReviewCycleGate.ps1`: use stage `phase-<N>` for the primary-only
+post-phase review and `plan-finalization` for the primary + secondary whole-implementation review.
+Before dispatch, run `-Action Check`. On `allow`, dispatch the selected profile. Persist every finding
+and triage through `Add-WorkflowNote -Kind CrLog`, then run
+`-Action Record -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. On
+`operator-decision`, do not run a fourth review
+automatically: use `vscode_askQuestions` with exactly **Continue looping** and **Wrap up**. Continue
+authorizes one additional round; Wrap retains residual findings and never produces clean evidence.
+The automatic cap is three rounds independently for each stage.
 
 - `security.md` — auth/trust-boundary/injection/secret/ACL
 - `performance.md` — latency/throughput/allocation/N+1
@@ -164,7 +173,8 @@ from `execution-guide.md` applies; crosscheck is not a fresh counter.
 - `testing.md` — flaky/missing/weak evidence coverage
 - `observability.md` — logs/metrics/tracing/audit
 
-Rules: exclude `docs/review-ledger/.archive/`; read only categories implied by the current step's REQ/RISK scope; optionally filter by `#tag`; never auto-load all ledger files by default.
+Rules: exclude `docs/review-ledger/.archive/`; read only categories implied by the active phase or
+plan-finalization REQ/RISK scope; optionally filter by `#tag`; never auto-load all ledger files by default.
 
 ## Ephemeral capture (`cr-log.md` / `learnings.md`, mid-run only)
 

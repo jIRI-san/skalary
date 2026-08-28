@@ -240,7 +240,7 @@ Key fields:
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
 - `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
-- `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle per-stage gate.
+- `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle phase/finalization gates.
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
 
 **No plan path in config.** `launch.ps1` takes `-PlanSlug` and derives `docs/implementation-plans/<PlanSlug>/plan.md`; the config never carries a plan path.
@@ -279,12 +279,15 @@ Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 1. Read plan → find next `[ ]` step → mark `[~]`
 2. Implement → focused build/test of the affected surface → format
 3. `git add <specific-files>` → commit (atomic with plan mark)
-4. Loop until phase complete → push
+4. Loop until phase complete → primary-only `/cr post-phase` review → push
+5. After all phases → primary + secondary `/cr plan-finalization` review over the whole branch
 
 The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step and phase loops run named evidence and focused targets; the complete configured build/test pair runs once at plan completion as the integration gate.
 
-CR dispatch is capped independently for each `step-*`, `phase-*`, and `plan-finalization` stage by
-`scripts/skalary/ReviewCycleGate.ps1`. The CR log is the durable counter. Three cycles run
+CR is not dispatched after individual implementation steps. Post-phase dispatch uses only the
+primary role from `.github/skills/cr/assets/model-preferences.md`; finalization dispatch uses primary
++ secondary and reviews the whole implementation. Dispatch is capped independently for each
+`phase-*` and `plan-finalization` stage by `scripts/skalary/ReviewCycleGate.ps1`. The CR log is the durable counter. Three cycles run
 automatically; a persisted operator Continue decision grants one additional cycle, then the gate asks
 again if findings remain. In a headless run autopilot logs all remaining findings, commits the
 in-progress state, reports Continue/Wrap as the required operator choice, and exits `42`. It never

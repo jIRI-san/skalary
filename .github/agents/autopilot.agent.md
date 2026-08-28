@@ -58,34 +58,10 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
    - Durable writers use the shared modules installed at `.github/skills/autopilot/scripts/{AtomicStore,LedgerStore}.psm1`; the root-canonical phase engine is distributed as `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` with the same closure.
-17. **Code review, capped per stage** — before dispatch, run `scripts/skalary/ReviewCycleGate.ps1 -Action Check -PlanDir <plan-folder> -Phase <N> -Stage step-<source-step> -Json`. The same helper gates phase reviews as `phase-<N>` and final reviews as `plan-finalization`.
-   - `allow`: invoke the built-in `code-review` subagent.
-   - `operator-decision`: do not dispatch a fourth review. Ensure every remaining finding from the third round is in `cr-log.md`, commit the in-progress step and logs by explicit path, report the findings plus the operator choices **Continue looping** / **Wrap up**, and exit `42`. Autopilot cannot grant itself continuation. Interactive `/ci` records `-Action Continue` (one extra cycle only) or `-Action Wrap`; a resumed autopilot run obeys that durable decision.
-   - `wrap`: stop reviewing and continue with the operator-accepted residual findings logged; never claim clean review evidence.
-
-   Persist `code-review`/`rubber-duck` findings to `cr-log.md` **only** through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review` (the script emits the entry shape and replaces the phase placeholder):
-
-   ```powershell
-   pwsh -NoProfile -File scripts/skalary/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src code-review -Sev <Critical|High|Med|Low> -Concern <concern> -Requirement <REQ-N...> -ReviewType cr -Message "<one-line finding or triage note>"
-   ```
-
-   It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. After every round, once findings are logged, call `ReviewCycleGate.ps1 -Action Record -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. Never put finding text in `-Summary`. For any findings it reports, fix them and re-run the same focused build/test checks, subject to the gate above.
-18. **Emit review hints for Rubber Duck** — output the following block verbatim so the `rubber-duck` subagent has project-specific context for its second opinion:
-
-    ```
-    @rubber-duck review-hints:
-    - Security: OWASP Top 10 (injection, broken auth, insecure deserialization, sensitive data exposure, security misconfiguration, missing access control), hardcoded secrets, input validation absent at trust boundaries
-    - Correctness: null dereferences, missing error handling, unhandled switch/state cases, incorrect operation sequencing, off-by-one errors, boundary conditions, async/await misuse (fire-and-forget, missing CancellationToken, .Result/.Wait() deadlocks)
-    - Concurrency: shared mutable state without synchronization, thread-unsafe collections, lock inversion, race conditions
-    - Architecture: deviations from design notes in docs/design-notes/ (state machine API, feature management lifecycle, message-driven conventions, DI registration), new abstractions duplicating existing ones, inheritance where composition fits, reflection where strongly-typed approaches exist, missing feature flags for new behaviors
-    - Performance: resource leaks (undisposed IDisposable, unclosed streams), N+1 queries, synchronous I/O on hot paths, unbounded collection growth, unnecessary allocations/serialization
-    - Style: naming/file-organization inconsistencies vs surrounding code, dead code, commented-out code, duplication (>3 occurrences → extract)
-    ```
-
-19. **Fix loop** — if focused build/test or acceptance fails, fix and retry the same affected surface up to the configured maximum. Code-review retries are governed separately by the durable three-cycle per-stage cap; `maxIterationsPerStep` never overrides it.
-20. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
-21. **Push** — `git push origin <current-branch>` immediately after the step commit (regular push, never force-push). A run killed by a timeout or crash keeps everything already pushed, so pushing per step bounds the loss to the step in flight rather than the whole phase. A rejected or failed push is not fatal to the step: report it and continue — the phase-end push and the entrypoint's termination handler retry.
-22. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
+17. **Fix loop** — if focused build/test or acceptance fails, fix and retry the same affected surface up to the configured maximum. Code review is not dispatched per implementation step.
+18. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
+19. **Push** — `git push origin <current-branch>` immediately after the step commit (regular push, never force-push). A run killed by a timeout or crash keeps everything already pushed, so pushing per step bounds the loss to the step in flight rather than the whole phase. A rejected or failed push is not fatal to the step: report it and continue — the phase-end push and the entrypoint's termination handler retry.
+20. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
 
 ## On Phase Completion
 
@@ -107,15 +83,34 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - If the receipt changed during crosscheck, stage and commit it before phase push so receipt state is durable across invocations.
    If any criterion fails, fix, re-run build/test, and commit the fix before proceeding.
 
-2. **Push** — `git push origin <current-branch>` (regular push, never force-push).
+2. **Primary-only post-phase code review** — build the review scope as the union of implementation,
+   test, and directly related documentation paths changed by this phase's completed step commits.
+   Exclude plan progress and ephemeral log-only paths. If the exact phase union cannot be recovered,
+   use `branch` scope rather than omitting files. Gate each round with
+   `scripts/skalary/ReviewCycleGate.ps1` stage `phase-<N>`, then invoke the `cr` subagent as
+   `post-phase <phase-paths-or-branch>`. The profile comes from
+   `.github/skills/cr/assets/model-preferences.md` and dispatches only its primary model.
+   Persist every finding and triage through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review`, fix
+   clear findings, and re-run the focused phase checks before recording the round. Three rounds run
+   automatically. On `operator-decision`, commit the logs, report **Continue looping** / **Wrap up**,
+   and exit `42`; autopilot cannot grant itself continuation. Never represent Wrap as clean evidence.
 
-3. **Final phase check** — if this is the final phase and all steps across all phases are `[x]`, proceed to Plan Completion.
+3. **Push** — `git push origin <current-branch>` (regular push, never force-push).
+
+4. **Final phase check** — if this is the final phase and all steps across all phases are `[x]`, proceed to Plan Completion.
 
 ## On Plan Completion
 
 1. **Complete project validation** — run the full `build` and `test` commands from `.autopilot.json` once at plan completion, before final evidence is recorded. This is the only default complete-suite gate. If it fails, fix the defect and rerun this gate before continuing.
 
-2. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to the layout-resolved receipt via `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir`, write to `.ReceiptPath`) (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
+2. **Primary + secondary final code review** — only after every phase is complete, gate rounds with
+   `ReviewCycleGate.ps1` stage `plan-finalization` and invoke the `cr` subagent as
+   `plan-finalization branch`. This reviews the whole implementation using the primary + secondary
+   roles from `.github/skills/cr/assets/model-preferences.md`. Persist findings through
+   `Add-WorkflowNote`, fix clear findings, and re-run complete project validation before recording
+   the next round. The same automatic three-round cap and headless operator-decision behavior applies.
+
+3. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to the layout-resolved receipt via `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir`, write to `.ReceiptPath`) (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
    ```
    Plan <plan-id> Final Crosscheck:
    Requirements: X/Y satisfied
@@ -132,9 +127,9 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    `PlanCrosscheck` stage (blocking target resolution) runs only at true finalization.
    If any requirement or risk is unresolved, attempt to fix. If unfixable autonomously, note it in the PR body.
 
-3. **archival-gate** — read the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root `evidence.md` for legacy plans — resolve it, never hard-code it) and refuse archival/PR on any `✗` or `unrun` REQ marker unless explicitly deferred in Decisions (REQ ID + rationale). If the gate is not satisfied, do not archive.
+4. **archival-gate** — read the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root `evidence.md` for legacy plans — resolve it, never hard-code it) and refuse archival/PR on any `✗` or `unrun` REQ marker unless explicitly deferred in Decisions (REQ ID + rationale). If the gate is not satisfied, do not archive.
 
-3. **Harvest finalization (canonical)**:
+5. **Harvest finalization (canonical)**:
    - Run append-harvest when append infra exists:
      - `if (Test-Path .github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1)`.
      - If append infra is missing, skip append harvest and follow existing branch policy without infra scripts: autonomous completion may continue standard archive/push/PR; `@human` completion must still use draft-PR + marker + exit 42 (no archive).

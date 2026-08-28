@@ -64,17 +64,22 @@ Describe 'Skill contract token guards' {
         $execution = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
         $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
 
-        foreach ($text in @($autopilot, $execution, $crosscheck)) {
+        foreach ($text in @($autopilot, $crosscheck)) {
             $text | Should -Match 'ReviewCycleGate\.ps1'
-            $text | Should -Match '(?i)three-cycle|three review cycles'
+            $text | Should -Match '(?i)three-cycle|three review cycles|three rounds'
             $text | Should -Match 'plan-finalization'
         }
-        $execution | Should -Match 'vscode_askQuestions'
-        $execution | Should -Match 'Continue looping'
-        $execution | Should -Match 'Wrap up'
+        $execution | Should -Match 'not dispatched per implementation step'
+        $execution | Should -Match '/cr post-phase'
+        $crosscheck | Should -Match 'vscode_askQuestions'
+        $crosscheck | Should -Match 'Continue looping'
+        $crosscheck | Should -Match 'Wrap up'
+        $crosscheck | Should -Match '@cr post-phase'
+        $crosscheck | Should -Match '@cr plan-finalization branch'
+        $autopilot | Should -Match 'primary-only post-phase code review'
+        $autopilot | Should -Match 'Primary \+ secondary final code review'
         $autopilot | Should -Match 'exit `42`'
         $autopilot | Should -Match 'cannot grant itself continuation'
-        $autopilot | Should -Match 'one extra cycle only'
     }
 
     It 'test:focused-validation keeps step checks local and the complete gate at plan completion' {

@@ -3,15 +3,15 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The dispatch guide is the only place the fan-out rules exist: how many concerns run, against
-# which models, how batching works, and what the invocation budget is. Prose drifts silently, so
-# each rule that costs credits or claims a control is pinned here.
+# The dispatch guide owns shared fan-out mechanics; CR role bindings live in model-preferences.md.
+# Prose drifts silently, so each rule that costs credits or claims a control is pinned here.
 
 Describe 'reviewer dispatch guide' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:crGuidePath = Join-Path $script:repoRoot 'plugins/code-review/skills/cr/assets/dispatch-guide.md'
         $script:drGuidePath = Join-Path $script:repoRoot 'plugins/design-review/skills/dr/assets/dispatch-guide.md'
+        $script:crPreferencesPath = Join-Path $script:repoRoot 'plugins/code-review/skills/cr/assets/model-preferences.md'
         $script:crMapPath = Join-Path $script:repoRoot 'plugins/code-review/skills/cr/assets/concern-ledger-map.md'
         $script:drMapPath = Join-Path $script:repoRoot 'plugins/design-review/skills/dr/assets/concern-ledger-map.md'
         $script:guide = Get-Content -LiteralPath $script:crGuidePath -Raw
@@ -56,9 +56,26 @@ Describe 'reviewer dispatch guide' {
         $script:flat | Should -Match '≤ 3 files / ≤ 150 lines'
         $script:flat | Should -Match '4–15 files / 151–400 lines'
         $script:flat | Should -Match '> 15 files / > 400 lines'
-        $script:flat | Should -Match '3 × 2 = 6'
-        $script:flat | Should -Match '7 × 2 = 14'
+        $script:flat | Should -Match '3 × selected models'
+        $script:flat | Should -Match '7 × selected models'
         $script:flat | Should -Match 'concern filter'
+    }
+
+    It 'test:cr-model-profiles pin primary-only phase and dual-model final review' {
+        $preferences = Get-Content -LiteralPath $script:crPreferencesPath -Raw
+        $flatPreferences = [regex]::Replace($preferences, '\s+', ' ')
+        $flatPreferences | Should -Match 'Primary \| `GPT-5\.6 Sol \(copilot\)` \| `high` \| `default`'
+        $flatPreferences | Should -Match 'Secondary \| `Claude Opus 5 \(copilot\)` \| `high` \| `default`'
+        $flatPreferences | Should -Match 'Backup \| `Claude Sonnet 4\.6 \(copilot\)` \| `high` \| `default`'
+        $flatPreferences | Should -Match '`post-phase` \| Primary only \| 3'
+        $flatPreferences | Should -Match '`plan-finalization` \| Primary \+ Secondary \| 3'
+        $flatPreferences | Should -Match 'primary \+ secondary review may run up to three rounds'
+
+        $manifest = Get-Content -LiteralPath (Join-Path $script:repoRoot 'plugins/code-review/plugin.json') -Raw |
+            ConvertFrom-Json -Depth 50
+        @($manifest.files.src) | Should -Contain 'skills/cr/assets/model-preferences.md'
+        (Get-FileHash -LiteralPath $script:crPreferencesPath -Algorithm SHA256).Hash |
+            Should -Be (Get-FileHash -LiteralPath (Join-Path $script:repoRoot '.github/skills/cr/assets/model-preferences.md') -Algorithm SHA256).Hash
     }
 
     It 'test:dispatch-guide-scaling-thresholds keeps concerns running once over the union of files' {

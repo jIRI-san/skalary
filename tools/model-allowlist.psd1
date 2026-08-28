@@ -52,8 +52,8 @@
         'dr-operability-observability'     = 'VSCode'
     }
 
-    # GA model passed as the EXPLICIT dispatch parameter when the orchestrator detects a
-    # Copilot Pro tier, where the two reviewer models are unavailable. A frontmatter
+    # GA model passed as the EXPLICIT dispatch parameter when a selected reviewer model is
+    # unavailable on the operator's tier. A frontmatter
     # fallback array does not help: explicit-param dispatch outranks frontmatter, so the
     # array is never consulted (RISK-2). Each value must be a member of its own list.
     Fallback = @{
