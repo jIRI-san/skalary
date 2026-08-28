@@ -34,19 +34,19 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Extend the current evidence result objects, `Test-Plan` verification path, and format-only `Build-EvidenceReceipt.ps1` input handling so each marker retains one explicit outcome: `passed`, `failed`, `skipped`, `unrun`, `stale`, `degraded`, or `waived`. Preserve marker detail in the rendered receipt and add `test:EvidenceTruth.OutcomeAggregationAndRendering` (REQ-1, REQ-4, RISK-1, RISK-3, RISK-4) `L`
-- [ ] 1.2 Add a small optional plan-local `assets/evidence-waivers.json` reader. Validate exact plan, requirement, marker, reason, and optional platform at read time; permit a waiver only for an exact skipped/degraded case, keep the visible outcome `waived`, and reject wildcard, stale, malformed, failed, or unrun waivers with `test:EvidenceTruth.PlanLocalWaivers` (REQ-2, REQ-4, RISK-2, RISK-3, RISK-4) [after: 1.1] `M`
+- [x] 1.1 Extend the current evidence result objects, `Test-Plan` verification path, and format-only `Build-EvidenceReceipt.ps1` input handling so each marker retains one explicit outcome: `passed`, `failed`, `skipped`, `unrun`, `stale`, `degraded`, or `waived`. Preserve marker detail in the rendered receipt and add `test:EvidenceTruth.OutcomeAggregationAndRendering` (REQ-1, REQ-4, RISK-1, RISK-3, RISK-4) `L`
+- [x] 1.2 Add a small optional plan-local `assets/evidence-waivers.json` reader. Validate exact plan, requirement, marker, reason, and optional platform at read time; permit a waiver only for an exact skipped/degraded case, keep the visible outcome `waived`, and reject wildcard, stale, malformed, failed, or unrun waivers with `test:EvidenceTruth.PlanLocalWaivers` (REQ-2, REQ-4, RISK-2, RISK-3, RISK-4) [after: 1.1] `M`
 
 ## Phase 2: Structured focused execution and finalization gate
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Extend the current `Run-UnitTests.ps1` test runner with focused selection and structured per-test output using its existing discovery, process, environment, timeout, and exit behavior. Preserve selected/executed counts and map Pester pass, fail, skip, not-run, discovery error, and interruption into the shared outcomes; add `test:EvidenceTruth.FocusedStructuredResults` (REQ-3, REQ-4, RISK-1, RISK-3, RISK-5) [after: 1.1] `L`
-- [ ] 2.2 Feed structured test results plus current file/review verifier results into the existing receipt formatter. Update CI/autopilot crosschecks and `Test-Plan -Stage PlanCrosscheck` so finalization blocks on `failed`, `skipped`, `unrun`, `stale`, or `degraded` unless the exact result is validly waived; add `test:EvidenceTruth.FinalizationBlocksNonPassingResults` (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 1.2, 2.1] `L`
+- [x] 2.1 Extend the current `Run-UnitTests.ps1` test runner with focused selection and structured per-test output using its existing discovery, process, environment, timeout, and exit behavior. Preserve selected/executed counts and map Pester pass, fail, skip, not-run, discovery error, and interruption into the shared outcomes; add `test:EvidenceTruth.FocusedStructuredResults` (REQ-3, REQ-4, RISK-1, RISK-3, RISK-5) [after: 1.1] `L`
+- [x] 2.2 Feed structured test results plus current file/review verifier results into the existing receipt formatter. Update CI/autopilot crosschecks and `Test-Plan -Stage PlanCrosscheck` so finalization blocks on `failed`, `skipped`, `unrun`, `stale`, or `degraded` unless the exact result is validly waived; add `test:EvidenceTruth.FinalizationBlocksNonPassingResults` (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 1.2, 2.1] `L`
 
 ## Phase 3: Distribution and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Synchronize affected CI/CIP/autopilot bundles and dogfood through existing writers, update the plan-workflow and CI-gates notes, and run focused outcome/waiver/finalization tests plus existing structural eval and repository validation paths. Add `test:EvidenceTruth.InstalledParityAndDrift` (REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Synchronize affected CI/CIP/autopilot bundles and dogfood through existing writers, update the plan-workflow and CI-gates notes, and run focused outcome/waiver/finalization tests plus existing structural eval and repository validation paths. Add `test:EvidenceTruth.InstalledParityAndDrift` (REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.2] `M`
 
 ## Finalization (conditional)
 
