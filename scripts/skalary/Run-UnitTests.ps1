@@ -526,13 +526,13 @@ try {
     if ($freshness.Status -ne 'complete') {
         Write-Warning "StaleMeasurement: $($freshness.Reason). Runtime rows are advisory; refresh them later with scripts/skalary/Measure-SuiteRuntime.ps1."
     }
-    if ($freshness.MeasurementMode) {
+    if ($freshness.PSObject.Properties.Name -contains 'MeasurementMode' -and
+        $freshness.MeasurementMode) {
         Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
     }
 }
 catch {
     Write-Warning "StaleMeasurement: advisory runtime freshness could not be evaluated: $($_.Exception.Message)"
-    exit 0
 }
 
 # The budget measures the whole `npm test` command (D2). This leg can only see the rest of it
