@@ -8,6 +8,7 @@
 - [2026-08-10] Closure review found manifest backup reread bypassed verified observation bytes; make the verified buffer the sole rollback-manifest source. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-09] Consumer hostile fixture contained only the marker token and did not exercise a forged boundary marker plus inner fence delimiter. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-6 #security
 - [2026-08-10] Content-addressed repair artifacts are not authority; merge gates must replay the transition from pinned authoritative state and compare the complete result. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
+- [2026-08-28] dr legacy step 3.2 : dry-run and apply require persisted candidate fingerprints set-digest equality and candidate-to-record bijection (plan-669ad3, src:autopilot, sev:High) #phase-1 #security
 - [2026-08-09] Enumerated overflow and receipt child files were read without rechecking physical descent from their confined roots. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-09] Explicit archive source paths were interpolated into wrapper metadata without fully neutralizing marker tokens or line breaks. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-1 #req-7 #security
 - [2026-08-10] Final CR: repair follows descendant symlinks and may copy host files into repository backups; each source needs physical confinement recheck. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
@@ -22,14 +23,14 @@
 - [2026-08-09] Fixed SI state path confinement following a docs/self-improvement link outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
 - [2026-08-09] Harvest index output was lexically confined but could follow a symlinked SI state directory outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-4 #req-7 #security
 - [2026-08-10] HEAD is captured after final validation allowing a concurrent commit to become the pushed unvalidated OID. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
+- [2026-08-15] Include-rooted absence scans must enumerate hidden paths and reject reparse ancestors before trusting a clean result. (plan-cda9da, src:autopilot, sev:Med) #phase-4
 - [2026-08-10] Installed Invoke-SiProposalSync lacks the latest trusted-checkout immutable-main and cleanup fixes. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-8 #security
 - [2026-08-09] Ledger path confinement was lexical only so a symlinked review-ledger directory could redirect writes outside the repository. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes. (plan-1936cb, src:autopilot, sev:Med) #phase-2 #req-8 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-09] PlanState physical confinement used case-insensitive prefix comparison on Unix and could accept case-distinct escape targets. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
-- [2026-08-10] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
-- [2026-08-15] Include-rooted absence scans must enumerate hidden paths and reject reparse ancestors before trusting a clean result. (plan-cda9da, src:autopilot, sev:Med) #phase-4
 - [2026-08-23] Registry prose rendered into instruction-position Markdown must reject every CommonMark block opener; single-line validation alone does not preserve template-owned structure. (plan-79cfe1, src:ci, sev:Med) #markdown #phase-3 #req-4 #security
+- [2026-08-10] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
 - [2026-08-05] Removing -SkipPublisherCheck restores a check only if one still runs: Install-PSResource verifies nothing unless -AuthenticodeCheck is passed so the removal alone is a rename rather than a control. (plan-768d7b, src:autopilot, sev:High) #phase-8 #req-9
 - [2026-08-10] Repair backup paths relied on observation text; Apply now rejects rooted or state-root-escaping observed paths before file access. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-10] Repair receipt rollback lacked content-address verification; rollback now validates schema and exact payload digest. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-1 #req-7 #security

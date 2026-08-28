@@ -1,7 +1,7 @@
 ## Learnings Capture
 Phase: 1
 
-No entries for this phase.
+- [1.2] [trigger:reusable-pattern] [concern:operability-observability] [req:REQ-5] [review:none] [source-record:8d59e0d33c725ca6334cf41cd40d2dbb633b150dde533a5e63057e77899c572e] Legacy design-review captures must be converted through Add-WorkflowNote before the typed phase harvest can publish a receipt.
 
 ## Learnings Capture
 Phase: 2

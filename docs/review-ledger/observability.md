@@ -7,3 +7,4 @@
 - [2026-08-10] Final CR: Add-WorkflowNote returns lock-timeout with exit code 0 silently dropping requested capture for callers that do not inspect the object. (plan-1936cb, src:autopilot, sev:Critical) #operability-observability #phase-2 #req-5 #req-7
 - [2026-08-10] Final CR: apply-incomplete inspection omits observationId stage and journal path so rollback cannot be invoked after a crash. (plan-1936cb, src:autopilot, sev:Critical) #operability-observability #phase-1 #req-1 #req-7
 - [2026-08-10] Final review found undeclared receipt directory reads; literal receipt-root scaffolds now cover installed enumeration and validation. (plan-1936cb, src:autopilot, sev:High) #operability-observability #phase-7 #req-8
+- [2026-08-28] Legacy design-review captures must be converted through Add-WorkflowNote before the typed phase harvest can publish a receipt. (plan-669ad3, src:autopilot, sev:Med) #operability-observability #phase-1 #req-5
