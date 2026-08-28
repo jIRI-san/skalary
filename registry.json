@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T21:09:59.0447881Z",
+  "generatedAt": "2026-08-28T21:19:46.9129926Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -418,7 +418,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "2cf2b58affd9aa4aaaf695af8cde53fa3321681b5e11ab00ebb8617e7fe34046",
+          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -505,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.34"
+      "version": "1.0.35"
     },
     {
       "author": "jIRI-san",
@@ -988,7 +988,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "2cf2b58affd9aa4aaaf695af8cde53fa3321681b5e11ab00ebb8617e7fe34046",
+          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -1070,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.33"
+      "version": "1.0.34"
     },
     {
       "author": "jIRI-san",

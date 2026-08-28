@@ -94,6 +94,8 @@ Describe 'review standards resolution' {
             (' ' * 16385)
             Set-Content -LiteralPath $localPath -Value $oversized -NoNewline -Encoding utf8NoBOM
             { & $script:resolver @arguments } | Should -Throw '*exceeds the 16384-byte limit*'
+            [System.IO.File]::WriteAllBytes($localPath, [byte[]]@(0x23, 0x20, 0xFF))
+            { & $script:resolver @arguments } | Should -Throw '*is not valid UTF-8*'
             { & $script:resolver -RepoRoot $fixture -GenericStandardsPath '../outside.json' } |
                 Should -Throw '*escapes the repository*'
 
@@ -156,7 +158,8 @@ Describe 'review standards resolution' {
                 '- extend `architecture-local-conventions`: Prefer dependency inversion at repository boundaries.'
             ) | Set-Content -LiteralPath (Join-Path $fixture 'docs/review-standards.md') -Encoding utf8NoBOM
 
-            $installedResult = & (Join-Path $installedSkill 'scripts/Resolve-ReviewStandards.ps1') -RepoRoot $fixture
+            $installedJson = & (Join-Path $installedSkill 'scripts/Resolve-ReviewStandards.ps1') -RepoRoot $fixture -Json
+            $installedResult = $installedJson | ConvertFrom-Json -Depth 8
             $installedResult.schema | Should -Be 'skalary/resolved-review-standards@1'
             @($installedResult.standards | Where-Object source -CEQ 'local-extend').Count | Should -Be 1
             Test-Path -LiteralPath (Join-Path $fixture 'tools/review-concerns.json') | Should -BeFalse -Because 'installed consumption must not depend on skalary source paths'
@@ -182,6 +185,8 @@ Describe 'review standards resolution' {
             $guide = Get-Content -LiteralPath (Join-Path $script:repoRoot $relative) -Raw
             $guide | Should -Match 'Pass each concern only the resolved entries whose\s+`concern` matches that reviewer'
             $guide | Should -Match 'does not enter review-plan or review-result\s+inputs'
+            $guide | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
+            $guide | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
         }
     }
 }

@@ -5,8 +5,12 @@ globs:
   - tools/review-concern-agent.template.md
   - schemas/review/review-concerns.schema.json
   - scripts/skalary/Sync-ReviewConcerns.ps1
+  - scripts/skalary/Resolve-ReviewStandards.ps1
+  - tests/skalary/ReviewStandards.Tests.ps1
+  - docs/review-standards.md
   - plugins/{code-review,design-review}/agents/{cr,dr}-*.agent.md
   - plugins/{code-review,design-review}/skills/{cr,dr}/assets/concern-ledger-map.md
+  - plugins/{code-review,design-review}/skills/{cr,dr}/assets/review-standards.json
   - tests/skalary/ReviewConcerns.Tests.ps1
 ---
 

@@ -7,6 +7,8 @@ globs:
   - scripts/skalary/ReviewRun.psm1
   - scripts/skalary/Get-ReviewRun.ps1
   - scripts/skalary/Remove-ReviewRun.ps1
+  - scripts/skalary/Resolve-ReviewStandards.ps1
+  - tests/skalary/ReviewStandards.Tests.ps1
   - tests/skalary/fixtures/review-run/**
   - tests/skalary/ReviewReport*.Tests.ps1
   - tests/skalary/ReviewRun*.Tests.ps1
