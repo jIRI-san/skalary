@@ -15,6 +15,8 @@
 `plan.md` holds only the markers above, this index, and the phases/steps below. Everything else lives under `assets/` and is loaded on demand — never wholesale.
 
 - Intent — [assets/intent.md](assets/intent.md)
+- Domain model — [assets/domain.md](assets/domain.md)
+- Approved design — [assets/design.md](assets/design.md)
 - Requirements — [assets/requirements.md](assets/requirements.md)
 - Risks — [assets/risks.md](assets/risks.md)
 - Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)

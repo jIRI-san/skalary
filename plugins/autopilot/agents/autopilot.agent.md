@@ -16,6 +16,10 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Then load only the assets the phase needs (`assets/intent.md` before implementing, plus requirements/risks/decisions/references as referenced); legacy plans keep these at the plan-folder root. Never read the whole `assets/` tree.
    - **Resolve the canonical plan id** from the `<!-- plan-id: ... -->` anchor via `scripts/skalary/PlanState.psm1` (`Resolve-Plan`). This id is dual-format (`<6hex>` for new plans, legacy `NNN` for old ones). Use this resolved id — never a raw `NNN` parsed from the folder name — everywhere a plan id is referenced: harvest `-Plan`, archive movement, and commit/PR body text.
+   - **Require confirmed planning context before mutation.** Call `Get-PlanningContextState` from the same
+     module for the resolved plan folder. An enrolled plan must report `confirmed`; on `pending`, `stale`,
+     `missing`, or `invalid`, report that operator confirmation is needed and exit `42` before marking a step,
+     writing logs, or running repository code. Marker-less legacy plans retain existing behavior.
 2. **Read config** — open `.autopilot.json` in the repo root. Extract `build`, `test`, and `maxIterationsPerStep`. The configured complete commands are finalization-only; phase validation is selected from changed surfaces.
 3. **Identify phase** — find the phase number from the prompt (e.g. "phase 3"). Only work on steps in that phase.
 4. **Find next step** — scan for the first `- [ ]` or `- [~]` step in the target phase.

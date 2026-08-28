@@ -115,10 +115,10 @@ Critical injection finding.
 `cip` and `ci` are workspace **skills** (`SKILL.md` under `.github/skills/`) — multi-step workflows invocable via `/cip` and `/ci`. Both have `disable-model-invocation: true` so they only load when explicitly called. Both are deliberately slim: deterministic mechanics live in the PowerShell **state-script layer** (below), and the `SKILL.md` files keep only the judgment the agent must own. Each `SKILL.md` carries an **anti-drift contract** naming the `/ci` Step-5 `validate-plan` reconcile gate as the single source of truth for plan state.
 
 **Deterministic state-script layer** (`scripts/skalary/`, dogfood-mirrored, npm-aliased):
-- `PlanState.psm1` — shared module: `Get-PlanMetadata` (explicit `-RepoRoot`), `Resolve-Plan` (resolves a plan by 6-hex id / ≥4-char hash prefix / legacy number / slug / date → canonical id), `New-PlanId` (6 crypto-random hex with active+archived collision scan), `Get-PlanProgress`, `Get-NextStep`, `Get-PlanHeaderMarkers`.
-- `Get-PlanState.ps1` (`npm run plan-state`) — text/`-Json` snapshot composing resolve + progress + next-step + flags (`@human`/`[discovery]`/blocked/uncommitted). Replaces the hand-walked "find next step" prose in `ci`.
-- `New-Plan.ps1` (`npm run new-plan`) — scaffolds `<epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug>/plan.md` from `plan-template.md`, injecting the `<!-- plan-id: <6hex> -->` anchor and optional validated epic membership (idempotently) with slug sanitization + path confinement.
-- `Set-PlanStage.ps1` — idempotent `<!-- cip-stage: ... -->` writer (DR rounds, etc.).
+- `PlanState.psm1` — shared resolution/parser module plus layout-resolved planning-context digest/state (`legacy|pending|confirmed|stale|missing|invalid`).
+- `Get-PlanState.ps1` (`npm run plan-state`) — text/`-Json` snapshot composing resolve + progress + next-step + planning confirmation and execution flags.
+- `New-Plan.ps1` (`npm run new-plan`) — scaffolds the prefixed plan folder, id/membership markers, and non-empty intent/domain/design/requirements/risks/decisions/references assets; new plans start with `planning-confirmed: pending`.
+- `Set-PlanStage.ps1` — sole lifecycle and planning-confirmation marker writer. `-ConfirmPlanningContext` binds current intent/design with SHA-256; enrolled stale/pending context cannot advance to drafted or later.
 - `Add-WorkflowNote.ps1` — typed capture writer (`-Kind` CrLog/Learnings/Capture) with concern/sorted-REQ/review provenance and domain-separated source-record IDs. It inventory-confines the selected plan, owns placeholders, and keeps ten active learnings by writing exact older records to layout-resolved content-addressed overflow batches before replacing the active file. `CrLog`/`Capture` remain uncapped; legacy summaries surface explicit loss.
 - `Build-EvidenceReceipt.ps1` — formats verifier output into the shared golden `✓/✗ REQ-N — evidence — result — commit` grammar (full HEAD SHA, `✗`/unrun preserved).
 - `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
@@ -130,14 +130,15 @@ Critical injection finding.
 **`cip` flow:**
 1. Load all relevant design notes.
 2. `New-Plan.ps1` scaffolds the plan folder + `plan-id` anchor and writes `plan.md` to the repo immediately (as soon as the slug is known) so all later passes operate on the in-repo file — avoids VS Code access-control approvals for temporary files.
-3. Thorough requirements interview across all dimensions (goals, API surface, error handling, testing, observability, security, performance, migration), refining the repo `plan.md` in place.
-4. Draft plan: Decisions log + Requirements table + Risks table + Phases with `[ ]`/`[x]`/`[~]` step markers.
-5. Keep the in-repo `plan.md` updated each iteration; plan mode hands off to agent mode early to persist (never plan-only-in-session-memory). `Set-PlanStage.ps1` records the stage anchor.
-6. Iterative `@dr` review (max 3 rounds) against the in-repo plan file; notable/recurring findings captured via `Add-WorkflowNote -Kind Capture` → `capture.md`.
+3. Rephrase and confirm three checkpoints: five-section intent; domain plus concise Mermaid-backed design; final pre-draft summary with decisions, uncertainty, rejected alternatives, and a provisional MVP-first vertical outline.
+4. Persist one digest-bearing planning confirmation through `Set-PlanStage`; later intent/design edits make state stale.
+5. Draft the complete plan from the confirmed outline: phase 1 is a usable end-to-end MVP and later phases are vertical increments through the full outcome.
+6. Keep the in-repo assets and `plan.md` updated each iteration; `Set-PlanStage.ps1` records lifecycle state.
+7. Iterative `@dr` review (max 3 rounds) against the confirmed in-repo plan; notable/recurring findings land in capture.
 
 **`ci` flow:**
 1. Resolve plan via `Resolve-Plan` (date/slug/hash); load relevant design notes.
-2. `Get-PlanState.ps1` yields the progress snapshot **and** the next incomplete candidate step with `@human`/`[discovery]`/blocked-by-after/uncommitted flags — collapsing the former hand-walked "read plan / find next step" steps. It returns the first non-`[x]` step in order (flagged if its `[after:]` deps are unmet); it does not skip ahead to later unblocked work. The agent still owns resume/reset of `[~]`, `@human` stops, `[discovery]` judgment, and resolving a blocked-by-after candidate.
+2. `Get-PlanState.ps1` yields planning confirmation, progress, and the next incomplete candidate. Enrolled pending/stale/invalid context returns to `/cip` before mutation; marker-less legacy plans retain existing behavior.
 3. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
 4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
 5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate.
