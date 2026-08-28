@@ -84,11 +84,31 @@ Describe 'Skill contract token guards' {
         $drafting = Get-SkillText -RelativePath 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
 
         $autopilot | Should -Match '(?i)affected surface'
-        $autopilot | Should -Match '(?i)complete project validation.*once.*plan completion'
+        $autopilot | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
         $execution | Should -Match '(?i)affected surface'
         $execution | Should -Match '(?i)direct consumers'
-        $crosscheck | Should -Match '(?i)complete project validation'
+        $crosscheck | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
         $drafting | Should -Match '(?i)focused validation'
+    }
+
+    It 'test:validation-cadence bounds focused Fast and reserves full and Slow for plan finalization' {
+        $autopilot = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
+        $execution = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
+        $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+
+        foreach ($text in @($autopilot, $execution, $crosscheck)) {
+            $text | Should -Match '(?i)Fast'
+            $text | Should -Match '(?i)Slow'
+        }
+        $autopilot | Should -Match '(?i)Fast.*under 60 seconds'
+        $autopilot | Should -Match '(?i)Slow.*exactly once'
+        $autopilot | Should -Match 'AUTOPILOT_CONTAINER=true'
+        $autopilot | Should -Match '(?i)-FullRepository'
+        $execution | Should -Match '(?i)Do not run repository-wide validation.*during a step'
+        $crosscheck | Should -Match '(?i)Fast.*under 60 seconds'
+        $crosscheck | Should -Match '(?i)-TestPath'
+        $crosscheck | Should -Match '(?i)-FullRepository'
+        $crosscheck | Should -Match '(?i)Slow suite exactly once'
     }
 
     It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {

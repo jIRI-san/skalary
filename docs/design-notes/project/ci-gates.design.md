@@ -26,9 +26,9 @@ globs:
 | `gate:structural-evals` | deterministic Tier-1 plugin evals pass, including exact once-only execution of every id in `tools/structural-eval-required.json` | `.github/workflows/registry-ci.yml` | `npm run eval` | blocking |
 | `support:suite-budget-clock` | the budget spans the whole `npm test` command rather than the Pester leg | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-StartBudgetClock` | support |
 | `gate:plan-validation` | every plan at or above `drafted` satisfies its own contract | `.github/workflows/registry-ci.yml` | `scripts/skalary/Validate-Plan\.ps1` | blocking |
-| `gate:repository-validation` | every payload file parses, and the gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1` | blocking |
+| `gate:repository-validation` | every payload file parses, and the gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1[^\r\n]*-FullRepository` | blocking |
 | `gate:plugin-retirement-history` | published plugin retirement records are never changed or removed; the event supplies one explicit Git baseline | `.github/workflows/registry-ci.yml` | `scripts/skalary/Invoke-PluginRetirementHistoryGate\.ps1` | blocking |
-| `gate:unit-suite` | the Fast Pester tier passes and the whole `npm test` command is inside its platform's ceiling | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Fast` | blocking |
+| `gate:unit-suite` | the complete Fast Pester tier passes and the whole `npm test` command is inside its platform's ceiling | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Fast[^\r\n]*-FullRepository` | blocking |
 | `gate:slow-suite` | every process-heavy deterministic integration test in the manifest-owned Slow tier passes through the same cannot-test, required-evidence, and environment-leak checks | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Slow` | blocking |
 | `gate:review-consumer-install` | isolated CR and DR installs execute the complete review-run CLI exit and artifact matrix without repository fallbacks | `.github/workflows/registry-ci.yml` | `Test-ReviewConsumerInstall\.ps1` | blocking |
 | `gate:registry-validation` | `registry.json` matches the plugin sources it claims to describe | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-Registry\.ps1` | blocking |
@@ -77,17 +77,25 @@ Two consequences are recorded rather than hidden. Merged code is measured after 
 
 `Run-UnitTests.ps1` is the only place the runtime ceiling is checked, which is why CI invokes it rather than `Invoke-Pester` (D2). The budget in `tools/suite-budget.psd1` is stated per platform, because the same suite measured 108.998s on `ubuntu-latest` and 223.142s on `windows-latest` (D13, D15).
 
+`scripts/validate.ps1` is deliberately full-scope only and refuses an omitted
+`-FullRepository` switch. Package scripts and CI carry that switch explicitly; phase Fast guidance
+forbids the command. This keeps "run validation" from silently expanding a focused phase check into
+the repository-wide parser, integrity, drift, model, plan, and architecture sweep.
+
 Plan `31a3ef` activates D13's reserved split after merged review-run coverage pushed Windows past the
-ceiling. `tools/suite-tier.psd1` is the sole Slow membership owner; Fast is its derived complement,
-so new test files cannot disappear and start in Fast by default. The dedicated review-consumer matrix
-remains outside both tiers because it already has its own blocking runner. Both tiers use
-`Run-UnitTests.ps1`; only Fast consumes the `npm test` budget clock, while Slow is a separate blocking
-step in both matrix legs with its own NUnit report and manifest-owned runtime ceiling. `All` is diagnostic and unbudgeted.
+ceiling. `tools/suite-tier.psd1` is the sole Slow membership owner; complete Fast is its derived
+complement, so new test files cannot disappear and start in Fast by default. Ordinary phase feedback
+is a caller-selected subset of that complement and has a hard 60-second ceiling. Omitting scope fails;
+the complete complement requires `-FullRepository`. The dedicated review-consumer matrix remains
+outside both tiers because it already has its own blocking runner. Both tiers use `Run-UnitTests.ps1`;
+only complete Fast consumes the `npm test` budget clock, while Slow is a separate blocking step in both
+matrix legs with its own NUnit report and manifest-owned runtime ceiling. `All` is diagnostic and unbudgeted.
 
 | Property | Contract |
 |---|---|
 | Measured quantity | the whole `npm test` command, not the `test:unit` leg — the `pretest` hook starts a clock file, and this script is last in the chain and reads it |
-| Tier ownership | `tools/suite-tier.psd1` owns Slow and dedicated files; Fast is every other discovered `*.Tests.ps1` file |
+| Tier ownership | `tools/suite-tier.psd1` owns Slow and dedicated files; complete Fast is every other discovered `*.Tests.ps1` file. Focused Fast accepts explicit `-TestPath` values; a Slow-owned file additionally requires `-TestName` so its complete process-heavy file never runs accidentally |
+| Focused feedback | focused Fast is the default mode, requires explicit test paths, and fails above `FastFocusedHardCeilingSeconds` (60s). Optional Pester full-name filters narrow within a file. Full Fast requires `-FullRepository` |
 | Slow enforcement | a separate blocking step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error`, separate NUnit evidence, `SlowHardCeilingSeconds` enforced by the runner, and typed figures in `SlowMeasurementRecord` |
 | Unclocked run | reports a *lower bound* and says so; over budget on a subset is still over budget, under budget is not a verdict |
 | Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |

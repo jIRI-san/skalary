@@ -1,7 +1,7 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Repository validation gate for the skalary customizations repo.
+    Full-repository validation gate for the skalary customizations repo.
 .DESCRIPTION
     Dependency-free verification used as both the autopilot `build` and `test`
     command (wired through package.json so it satisfies the autopilot config
@@ -11,14 +11,23 @@
       * validates every JSON file (*.json) parses.
     The file set comes from PayloadScope.psm1, which enumerates an allowlist of
     payload roots so both platforms see the same files (REQ-8).
+    Full scope is opt-in through -FullRepository so a phase Fast check cannot
+    accidentally expand into this repository-wide scan.
     No external modules are required, so it runs identically on the Windows host
     and inside the Linux autopilot container (which ships pwsh).
 #>
 [CmdletBinding()]
-param()
+param(
+    [switch]$FullRepository
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if (-not $FullRepository) {
+    Write-Host 'FullRepositoryRequired: scripts/validate.ps1 scans the entire repository. Pass -FullRepository only at finalization or an explicit operator-requested full run.' -ForegroundColor Red
+    exit 2
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $errors = [System.Collections.Generic.List[string]]::new()

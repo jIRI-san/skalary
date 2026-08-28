@@ -12,6 +12,7 @@ Describe 'suite tiers' {
 
     It 'test:SuiteTier.PartitionContract keeps the manifest valid, disjoint, and complete by complement' {
         [string]$script:manifest.Schema | Should -Be 'skalary/suite-tier@1'
+        [double]$script:manifest.FastFocusedHardCeilingSeconds | Should -Be 60
         [double]$script:manifest.SlowHardCeilingSeconds | Should -BeGreaterThan 0
         [double]$script:manifest.CiSetupAllowanceSeconds | Should -BeGreaterThan 0
         [string]$script:manifest.SlowMeasurementRecord | Should -Be 'tools/suite-slow-runtime.json'

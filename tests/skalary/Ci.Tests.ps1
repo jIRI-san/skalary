@@ -32,8 +32,8 @@ Describe 'ci workflow' {
         $script:gatePatterns = [ordered]@{
             'PSScriptAnalyzer'       = 'Invoke-ScriptAnalyzer'
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
-            'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'repository validation'  = 'scripts/validate\.ps1[^\r\n]*-FullRepository'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast[^\r\n]*-FullRepository'
             'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1'
@@ -50,8 +50,8 @@ Describe 'ci workflow' {
         # tier, which is the part that really is unenforced.
         $script:gateEnforcingPatterns = [ordered]@{
             'plan validation'        = 'scripts/skalary/Validate-Plan\.ps1'
-            'repository validation'  = 'scripts/validate\.ps1'
-            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast'
+            'repository validation'  = 'scripts/validate\.ps1[^\r\n]*-FullRepository'
+            'unit tests and budget'  = 'Run-UnitTests\.ps1[^\r\n]*-Tier Fast[^\r\n]*-FullRepository'
             'slow integration tests' = 'Run-UnitTests\.ps1[^\r\n]*-Tier Slow'
             'registry validation'    = 'Test-Registry\.ps1'
             'dogfood drift'          = 'Sync-Dogfood\.ps1[^\r\n]*-WhatIf'
@@ -133,6 +133,7 @@ Describe 'ci workflow' {
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 600
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()

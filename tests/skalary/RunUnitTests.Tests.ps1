@@ -54,6 +54,7 @@ Describe 'run unit tests' {
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 600
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()
@@ -107,7 +108,9 @@ Describe 'run unit tests' {
 
                 [string]$ModulePath,
 
-                [string[]]$ExtraArguments = @()
+                [string[]]$ExtraArguments = @(),
+
+                [switch]$ExactArguments
             )
 
             $lines = [System.Collections.Generic.List[string]]::new()
@@ -117,6 +120,12 @@ Describe 'run unit tests' {
             $lines.Add('$PSStyle.OutputRendering = ''PlainText''')
             $lines.Add('Remove-Item Env:SKALARY_SUITE_MEASUREMENT_TOKEN, Env:SKALARY_SUITE_MEASUREMENT_KEY -ErrorAction SilentlyContinue')
             if ($ModulePath) { $lines.Add("`$env:PSModulePath = '$ModulePath'") }
+            $argumentText = $ExtraArguments -join ' '
+            if (-not $ExactArguments -and
+                $argumentText -notmatch '(?i)-(FullRepository|TestPath|StartBudgetClock)\b' -and
+                $argumentText -notmatch '(?i)-Tier\s+(Slow|All)\b') {
+                $ExtraArguments += '-FullRepository'
+            }
             $extra = if ($ExtraArguments.Count -gt 0) { ' ' + ($ExtraArguments -join ' ') } else { '' }
             $lines.Add("& '$script:runner' -RepoRoot '$SandboxRoot'$extra")
             $lines.Add('exit $LASTEXITCODE')
@@ -161,6 +170,7 @@ Describe 'run unit tests' {
                 @"
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 600
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()
@@ -367,6 +377,7 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
         Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 600
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()
@@ -397,6 +408,44 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
         $slowWithClock.ExitCode | Should -Be 1 -Because $slowWithClock.Output
         Test-Path -LiteralPath $clockPath -PathType Leaf |
             Should -BeTrue -Because 'Slow is unbudgeted and cannot consume Fast measurement state'
+    }
+
+    It 'test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and enforces sixty seconds' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Focused.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
+
+        $missingScope = Invoke-Runner -SandboxRoot $sandbox -ExactArguments
+        $missingScope.ExitCode | Should -Be 12 -Because $missingScope.Output
+        $missingScope.Output | Should -Match 'FocusedScopeRequired'
+        $missingScope.Output | Should -Match 'FullRepository'
+
+        $focused = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestPath 'tests/Focused.Tests.ps1'")
+        $focused.ExitCode | Should -Be 0 -Because $focused.Output
+        $focused.Output | Should -Match 'Suite tier: Fast focused \(1 file\(s\)\)'
+        $focused.Output | Should -Match 'Focused Fast runtime:'
+        $focused.Output | Should -Match 'ceiling of 60s'
+
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'focused slow file' {
+    It 'selected case passes' { $true | Should -BeTrue }
+    It 'unselected case fails' { $true | Should -BeFalse }
+}
+'@
+        Set-SandboxTier -SandboxRoot $sandbox -Tier Slow -SlowFiles @('tests/Slow.Tests.ps1') | Out-Null
+        $named = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Slow.Tests.ps1'",
+            "-TestName '*selected case passes'"
+        )
+        $named.ExitCode | Should -Be 0 -Because $named.Output
+        $named.Output | Should -Match 'Tests Passed: 1'
+
+        $manifestPath = Join-Path $sandbox 'tools/suite-tier.psd1'
+        $manifestText = Get-Content -LiteralPath $manifestPath -Raw
+        $manifestText.Replace('FastFocusedHardCeilingSeconds = 60', 'FastFocusedHardCeilingSeconds = 0.001') |
+            Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
+        $overBudget = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestPath 'tests/Focused.Tests.ps1'")
+        $overBudget.ExitCode | Should -Be 5 -Because $overBudget.Output
+        $overBudget.Output | Should -Match 'Reduce -TestPath scope'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
@@ -506,6 +555,7 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
         @'
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 0.001
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()

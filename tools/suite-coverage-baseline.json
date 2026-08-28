@@ -1,13 +1,13 @@
 {
   "schema": "skalary/suite-coverage@1",
-  "capturedAt": "2026-08-28T11:39:02.0861887+00:00",
-  "commit": "76ca7cf14de4ebaf8ff08f8a789658bf7c3391ab",
+  "capturedAt": "2026-08-28T17:09:37.9532078+00:00",
+  "commit": "57df7883b35a73599f73de6b0808965a5d61cf97",
   "scope": {
     "root": "tests",
     "pattern": "*.Tests.ps1"
   },
-  "uniqueTestCount": 1063,
-  "executionCount": 1068,
+  "uniqueTestCount": 1065,
+  "executionCount": 1070,
   "tests": [
     {
       "file": "tests/autopilot/ContainerOffline.Tests.ps1",
@@ -4231,6 +4231,11 @@
     },
     {
       "file": "tests/skalary/RunUnitTests.Tests.ps1",
+      "test": "run unit tests.test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and enforces sixty seconds",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/RunUnitTests.Tests.ps1",
       "test": "run unit tests.test:RunUnitTests.InvalidTierManifestExitsNine fails malformed and incomplete manifests diagnostically",
       "count": 1
     },
@@ -4862,6 +4867,11 @@
     {
       "file": "tests/skalary/SkillContracts.Tests.ps1",
       "test": "Skill contract token guards.test:review-cycle-cap binds ci and autopilot to three cycles plus an operator decision",
+      "count": 1
+    },
+    {
+      "file": "tests/skalary/SkillContracts.Tests.ps1",
+      "test": "Skill contract token guards.test:validation-cadence bounds focused Fast and reserves full and Slow for plan finalization",
       "count": 1
     },
     {

@@ -26,12 +26,15 @@
       5  OverBudget — the run is slower than this platform's hard ceiling
       6  BudgetNotDefined — no budget file, or no entry for this platform
       7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
-    8  RequiredEvidenceSkipped — mandatory review evidence did not execute
-    9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
-    10 StaleMeasurement — this platform's runtime row does not match the tracked inputs
-    11 MeasurementTokenInvalid — a measurement-mode token failed closed validation
+      8  RequiredEvidenceSkipped — mandatory review evidence did not execute
+      9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
+     10  StaleMeasurement — this platform's runtime row does not match the tracked inputs
+     11  MeasurementTokenInvalid — a measurement-mode token failed closed validation
+     12  FocusedScopeRequired — Fast did not receive focused test paths or -FullRepository
 .EXAMPLE
-    pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1
+    pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestPath tests/skalary/SkillContracts.Tests.ps1
+.EXAMPLE
+    pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -FullRepository
 #>
 [CmdletBinding()]
 param(
@@ -39,6 +42,16 @@ param(
 
     [ValidateSet('Fast', 'Slow', 'All')]
     [string]$Tier = 'Fast',
+
+    # Fast is focused by default. Callers must name the directly relevant test files;
+    # the old complete Fast complement is available only through -FullRepository.
+    [string[]]$TestPath = @(),
+
+    # Optional Pester full-name filters. Required when focused Fast selects a file
+    # assigned to Slow, so only the relevant sub-minute case executes.
+    [string[]]$TestName = @(),
+
+    [switch]$FullRepository,
 
     # Writes the budget clock and returns. The `pretest` hook calls this before the first leg
     # of `npm test`, which is the only way a leg can measure a command that spans three of them.
@@ -122,11 +135,11 @@ if ($StartBudgetClock) {
 # carry the way out of that state rather than only the diagnosis.
 $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
 
-# Read and clear the clock before anything that can exit from a Fast run. Slow is a separate,
-# unbudgeted gate and must not consume authorization that belongs to a concurrent or later Fast run.
+# Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
+# consume authorization that belongs to a concurrent or later complete run.
 $clockStartedAt = $null
 $clockMeasurementNonce = $null
-if ($Tier -eq 'Fast' -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
+if ($Tier -eq 'Fast' -and $FullRepository -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
     $clockText = Get-Content -LiteralPath $BudgetClockPath -Raw
     Remove-Item -LiteralPath $BudgetClockPath -Force -ErrorAction SilentlyContinue
 
@@ -164,12 +177,12 @@ if ($null -eq $pesterModule) {
     exit 2
 }
 
-$testPath = Join-Path $RepoRoot 'tests'
-if (-not (Test-Path -LiteralPath $testPath -PathType Container)) {
-    throw "Unit test path not found: $testPath"
+$testRootPath = Join-Path $RepoRoot 'tests'
+if (-not (Test-Path -LiteralPath $testRootPath -PathType Container)) {
+    throw "Unit test path not found: $testRootPath"
 }
 
-$allTestFiles = @(Get-ChildItem -LiteralPath $testPath -Recurse -File -Filter '*.Tests.ps1')
+$allTestFiles = @(Get-ChildItem -LiteralPath $testRootPath -Recurse -File -Filter '*.Tests.ps1')
 $tierManifestPath = Join-Path $RepoRoot 'tools/suite-tier.psd1'
 $slowPaths = @()
 $dedicatedPaths = @()
@@ -183,7 +196,7 @@ if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
         exit 9
     }
 
-    $requiredTierMembers = @('Schema', 'SlowFiles', 'DedicatedFiles', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')
+    $requiredTierMembers = @('Schema', 'SlowFiles', 'DedicatedFiles', 'FastFocusedHardCeilingSeconds', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')
     $missingMembers = @($requiredTierMembers | Where-Object { -not $tierManifest.Contains($_) })
     if ($missingMembers.Count -gt 0) {
         Write-Host "SuiteTierInvalid: '$tierManifestPath' is missing required member(s): $($missingMembers -join ', ')." -ForegroundColor Red
@@ -193,7 +206,7 @@ if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
         Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest['Schema'])'." -ForegroundColor Red
         exit 9
     }
-    foreach ($numericMember in @('SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+    foreach ($numericMember in @('FastFocusedHardCeilingSeconds', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
         $numericValue = 0.0
         if (-not [double]::TryParse(
                 [string]$tierManifest[$numericMember],
@@ -248,19 +261,82 @@ else {
 $pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
 $slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
 $dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
+
+if ($Tier -ne 'Fast' -and ($FullRepository -or $TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
+    Write-Host "FocusedScopeRequired: -TestPath, -TestName, and -FullRepository are valid only with -Tier Fast." -ForegroundColor Red
+    exit 12
+}
+if ($Tier -eq 'Fast' -and $FullRepository -and ($TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
+    Write-Host "FocusedScopeRequired: choose focused -TestPath/-TestName values or -FullRepository, not both." -ForegroundColor Red
+    exit 12
+}
+if ($Tier -eq 'Fast' -and -not $FullRepository -and $TestPath.Count -eq 0) {
+    Write-Host "FocusedScopeRequired: Fast requires one or more repository-relative -TestPath values. Use -FullRepository only for an explicit complete Fast run." -ForegroundColor Red
+    exit 12
+}
+if ($Tier -eq 'Fast' -and -not $FullRepository -and
+    @($TestName | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
+    Write-Host "FocusedScopeRequired: -TestName values must be non-empty Pester full-name filters." -ForegroundColor Red
+    exit 12
+}
+
+$focusedPaths = @()
+if ($Tier -eq 'Fast' -and -not $FullRepository) {
+    $testsRootFull = [System.IO.Path]::GetFullPath($testRootPath)
+    $testsRootPrefix = $testsRootFull.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    ) + [System.IO.Path]::DirectorySeparatorChar
+    try {
+        $focusedPaths = @($TestPath | ForEach-Object {
+                $relativePath = [string]$_
+                if ([string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath)) {
+                    throw "Focused test path must be a non-empty repository-relative path: '$relativePath'."
+                }
+                $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $relativePath))
+                if (-not $fullPath.StartsWith($testsRootPrefix, $pathComparison) -or
+                    -not $fullPath.EndsWith('.Tests.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "Focused test path must name a *.Tests.ps1 file under tests/: '$relativePath'."
+                }
+                if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                    throw "Focused test path does not exist: '$relativePath'."
+                }
+                if ($dedicatedSet.Contains($fullPath)) {
+                    throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
+                }
+                if ($slowSet.Contains($fullPath) -and $TestName.Count -eq 0) {
+                    throw "Focused Fast requires -TestName when selecting a Slow-tier file: '$relativePath'."
+                }
+                $fullPath
+            } | Sort-Object -Unique)
+    }
+    catch {
+        Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+        exit 12
+    }
+}
+
 $testFiles = @(switch ($Tier) {
         'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
         'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
-        default { @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) }) }
+        default {
+            if ($FullRepository) {
+                @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) })
+            }
+            else {
+                @($allTestFiles | Where-Object { $focusedPaths -contains $_.FullName })
+            }
+        }
     })
 
 # Pester throws rather than returning a result when the selected tier holds no test file.
 if ($testFiles.Count -eq 0) {
-    Write-Host "NoTestsDiscovered: tier '$Tier' selected no *.Tests.ps1 file under '$testPath'." -ForegroundColor Red
+    Write-Host "NoTestsDiscovered: tier '$Tier' selected no *.Tests.ps1 file under '$testRootPath'." -ForegroundColor Red
     exit 3
 }
 
-Write-Host "Suite tier: $Tier ($($testFiles.Count) file(s))."
+$scopeLabel = if ($Tier -eq 'Fast' -and -not $FullRepository) { 'focused' } elseif ($Tier -eq 'Fast') { 'full repository' } else { 'complete tier' }
+Write-Host "Suite tier: $Tier $scopeLabel ($($testFiles.Count) file(s))."
 
 Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 
@@ -273,6 +349,9 @@ $configuration.Run.Path = @($testFiles.FullName)
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
+if ($TestName.Count -gt 0) {
+    $configuration.Filter.FullName = @($TestName)
+}
 
 if ($TestResultPath) {
     $resultDirectory = Split-Path -Parent $TestResultPath
@@ -296,7 +375,7 @@ $result = Invoke-Pester -Configuration $configuration
 # clean zero-failure result, so the run would otherwise be reported as a pass having asserted
 # nothing (REQ-5).
 if ($null -eq $result -or [int]$result.TotalCount -le 0) {
-    Write-Host "NoTestsDiscovered: Pester $($pesterModule.Version) discovered 0 tests in $($testFiles.Count) file(s) under '$testPath'. A run that asserts nothing is not a pass." -ForegroundColor Red
+    Write-Host "NoTestsDiscovered: Pester $($pesterModule.Version) discovered 0 tests in $($testFiles.Count) file(s) under '$testRootPath'. A run that asserts nothing is not a pass." -ForegroundColor Red
     exit 3
 }
 
@@ -364,6 +443,16 @@ if ($Tier -eq 'Slow') {
 }
 if ($Tier -eq 'All') {
     Write-Host "Suite budget: not applied to diagnostic tier 'All'."
+    exit 0
+}
+if (-not $FullRepository) {
+    $focusedSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
+    $focusedCeiling = [double]$tierManifest['FastFocusedHardCeilingSeconds']
+    Write-Host "Focused Fast runtime: $([math]::Round($focusedSeconds, 3))s against a ceiling of ${focusedCeiling}s."
+    if ($focusedSeconds -gt $focusedCeiling) {
+        Write-Host "OverBudget: Focused Fast runtime $([math]::Round($focusedSeconds, 3))s exceeded its ${focusedCeiling}s ceiling. Reduce -TestPath scope." -ForegroundColor Red
+        exit 5
+    }
     exit 0
 }
 

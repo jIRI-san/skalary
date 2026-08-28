@@ -123,6 +123,7 @@ Describe 'sandbox' {
             Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
 @{
     Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
     SlowHardCeilingSeconds = 600
     CiSetupAllowanceSeconds = 60
     DedicatedFiles = @()

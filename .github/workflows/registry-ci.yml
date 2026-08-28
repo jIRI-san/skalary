@@ -135,7 +135,7 @@ jobs:
 
       - name: Repository validation
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/validate.ps1
+        run: pwsh -NoProfile -File scripts/validate.ps1 -FullRepository
 
       # REQ-9/D2: the runner is invoked rather than Invoke-Pester, because the runtime budget
       # and the cannot-test failures live in this script and nowhere else. Calling Pester
@@ -147,7 +147,7 @@ jobs:
       - name: Unit tests and runtime budget
         id: fast-tests
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -Tier Fast -TestResultPath artifacts/test-results/nunit-fast-${{ matrix.os }}.xml
+        run: pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -Tier Fast -FullRepository -TestResultPath artifacts/test-results/nunit-fast-${{ matrix.os }}.xml
 
       # D13: deterministic process-heavy integration coverage stays mandatory, but it no longer
       # defines the local feedback/runtime-budget command. The same runner retains cannot-test,

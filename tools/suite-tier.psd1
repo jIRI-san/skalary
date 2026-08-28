@@ -1,6 +1,10 @@
 @{
     Schema = 'skalary/suite-tier@1'
 
+    # Phase feedback must remain interactive. If a focused selection cannot finish
+    # inside this ceiling, split it and defer broader coverage to -FullRepository.
+    FastFocusedHardCeilingSeconds = 60
+
     # Slow has its own wall-clock ceiling. It is separate from the Fast/npm-test budget,
     # but still bounded so moving work out of Fast cannot create an unlimited gate.
     SlowHardCeilingSeconds = 1800
