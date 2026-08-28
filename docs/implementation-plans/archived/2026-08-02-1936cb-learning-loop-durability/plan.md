@@ -1,6 +1,6 @@
 # 1936cb: Learning loop durability
 <!-- plan-id: 1936cb -->
-<!-- cip-stage: dr-round-10 -->
+<!-- cip-stage: done -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: SI due and outcome record
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [~] 2.1 Update `Update-FeedbackQueue.ps1` to preserve existing 8-hex IDs, issue 16-hex IDs for new post-sanitization content, and enforce the exact ceilings in `operational-limits.md`; plus-one returns `capacity-blocked` before mutation, all mutations use Phase 1's installed `AtomicStore.psm1`, and migration never recomputes an old ID; globally sync every bundle/dogfood/manifest/version/marketplace/registry copy and add `test:FeedbackQueue.BoundedRoundTripMigrationAndCrash` (REQ-5, REQ-8, RISK-1, RISK-3, RISK-6, RISK-7) [after: 1.2] `L`
+- [x] 2.1 Update `Update-FeedbackQueue.ps1` to preserve existing 8-hex IDs, issue 16-hex IDs for new post-sanitization content, and enforce the exact ceilings in `operational-limits.md`; plus-one returns `capacity-blocked` before mutation, all mutations use Phase 1's installed `AtomicStore.psm1`, and migration never recomputes an old ID; globally sync every bundle/dogfood/manifest/version/marketplace/registry copy and add `test:FeedbackQueue.BoundedRoundTripMigrationAndCrash` (REQ-5, REQ-8, RISK-1, RISK-3, RISK-6, RISK-7) [after: 1.2] `L`
 - [x] 2.2 Add logical `LearningOverflowRoot` and `HarvestReceiptRoot` kinds to `PlanState`, with assets-layout and permanent legacy-layout paths plus repo/inventory confinement for `-PlanDir`; extend `Add-WorkflowNote.ps1` entries with typed `-Concern`, sorted `-Requirement`, and `-ReviewType` fields from closed enums and include them in each domain-separated source-record ID; make it the sole locked writer of active learnings/append-only overflow, retire new `overflow-summary` generation, treat old summaries as explicit legacy-loss degradation, declare scaffolds, globally sync bundles/dogfood/manifests/versions/marketplace/registry, and add `test:WorkflowNote.LosslessOverflowCrashRecovery` plus `test:WorkflowNote.TypedProvenanceRoundTrip` (REQ-4, REQ-5, REQ-8, RISK-3, RISK-5, RISK-6, RISK-7, RISK-8) [after: 2.1] `L`
 - [x] 2.3 Add deterministic repair/dedup for orphan overflow batches, stale temps, duplicate source-record IDs, old summaries, every crash point, and the shared CAS status enum; enforce exact ceilings and prove plus-one, `lock-timeout`, three-conflict exhaustion, hostile marker, concurrent writer, legacy path, escape, and rollback cases with `test:Capture.AtomicBoundaryMigrationMatrix`; sync every affected bundle/dogfood/manifest/version/marketplace/registry in this step (REQ-5, REQ-7, REQ-8, RISK-1, RISK-3, RISK-6, RISK-7) [after: 2.2] `L`
 
@@ -79,14 +79,14 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 8.1 Create `test:LearningLoop.PayloadOwnershipAndDrift` and `test:LearningLoop.StructuralEvals`; update self-improvement, plan-workflow, autopilot, plugin-registry, ci-gates, and dev-rules design notes; prove dependencies, plugin-canonical SI schemas/scripts, shared CI/autopilot bundles, installed invocations/allowlists, sole free-text resolver, scaffolds, per-step versions, marketplace, and registry are synchronized without adding a new validate gate (REQ-8, RISK-8) [after: 3.3, 4.3, 7.1] `L`
-- [~] 8.2 Add tracked `scripts/skalary/Get-SuiteInputFingerprint.ps1`, `test:LearningLoop.MaximumBoundRuntime`, and `test:LedgerStore.ScalarBatchParity`. Fingerprint every regular `git ls-files` path, including the producer; exclude only generated profile/runtime/XML. Use the canonical framing already specified. Measurement mode computes the current fingerprint and sets a process-only token containing protocol tag, fingerprint, random nonce, parent PID, and HMAC from a process-local random key; the gate verifies every field and still enforces ceilings while permitting stale rows only for that run. Successful measurement emits/imports a candidate row afterward; ordinary mode rejects stale rows. Add `test:SuiteBudget.MeasurementModeRefreshesStaleRows`, `test:SuiteBudget.MeasurementModeRejectsMismatchedOrReplayedToken`, and `test:SuiteBudget.OrdinaryModeRejectsStaleRows` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8) [after: 8.1] `L`
+- [x] 8.2 Add tracked `scripts/skalary/Get-SuiteInputFingerprint.ps1`, `test:LearningLoop.MaximumBoundRuntime`, and `test:LedgerStore.ScalarBatchParity`. Fingerprint every regular `git ls-files` path, including the producer; exclude only generated profile/runtime/XML. Use the canonical framing already specified. Measurement mode computes the current fingerprint and sets a process-only token containing protocol tag, fingerprint, random nonce, parent PID, and HMAC from a process-local random key; the gate verifies every field and still enforces ceilings while permitting stale rows only for that run. Successful measurement emits/imports a candidate row afterward; ordinary mode rejects stale rows. Add `test:SuiteBudget.MeasurementModeRefreshesStaleRows`, `test:SuiteBudget.MeasurementModeRejectsMismatchedOrReplayedToken`, and `test:SuiteBudget.OrdinaryModeRejectsStaleRows` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8) [after: 8.1] `L`
 
 ## Phase 9: Finalization (conditional)
 
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 9.1 Review the durable-state, trusted-base, merge-authority, and untrusted-input boundaries, record `review:cr`, and approve or return the plan before archival (REQ-2, REQ-7, REQ-8, RISK-1, RISK-4, RISK-9) @human [after: 8.2] `S`
+- [x] 9.1 Review the durable-state, trusted-base, merge-authority, and untrusted-input boundaries, record `review:cr`, and approve or return the plan before archival (REQ-2, REQ-7, REQ-8, RISK-1, RISK-4, RISK-9) @human [after: 8.2] `S`
   <details><summary>Details</summary>
 
   **Steps:**
