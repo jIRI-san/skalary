@@ -16,7 +16,7 @@ globs:
 
 | Surface | Authority | Rule |
 |---|---|---|
-| Concern policy | `tools/review-concerns.json` | Defines the closed seven-concern roster in canonical order, shared guidance, explicit CR/DR variants, and total ledger mappings. |
+| Concern policy | `tools/review-concerns.json` | Defines the closed seven-concern roster in canonical order, shared guidance, optional generic standards, explicit CR/DR variants, and total ledger mappings. |
 | Agent structure and safety | `tools/review-concern-agent.template.md` | Owns read-only tools, no-model binding, untrusted-content handling, architecture-before-design context loading, and finding output shape. Registry prose cannot alter these controls. |
 | Registry shape | `schemas/review/review-concerns.schema.json` | Rejects missing variants, mappings, or malformed fields before rendering. |
 | Generation | `scripts/skalary/Sync-ReviewConcerns.ps1` | Renders all 14 agents and both mapping views, validates the complete candidate set before writing, and removes only extra `cr-*.agent.md`/`dr-*.agent.md` files in its confined managed directories. |
@@ -26,6 +26,13 @@ The taxonomy is settled policy, not an extension point. Adding, removing, reorde
 concern requires a separately reviewed policy change; ordinary guidance changes preserve all seven ids.
 Model selection also stays outside this source: generated agents declare no `model`, and the CR/DR
 orchestrators remain the explicit model-binding authority.
+
+Optional `standards[]` entries attach bounded generic guidance to a concern. Each stable id declares
+whether repository-local guidance may refine it. `Resolve-ReviewStandards.ps1` reads the fixed optional
+`docs/review-standards.md` file and accepts only `extend` or `replace` lines for ids marked
+`localizable`; unknown, duplicate, non-localizable, malformed, oversized, non-UTF-8, or link-routed
+input fails closed. The local file remains repository-owned and absence returns the generic set
+unchanged.
 
 ## Generation contract
 
@@ -61,3 +68,4 @@ responsibilities would duplicate the repository's packaging transaction model.
 | `test:ReviewConcerns.DeterministicGeneration` | Confined all-before-write rendering, explicit surface differences, convergence, and refusal of unsafe outputs. |
 | `test:ReviewConcerns.GeneratedBehaviorAndDistribution` | Generated behavior, manifest declarations, dogfood bytes, versions, and registry hashes stay aligned. |
 | `test:ReviewConcerns.GenerationDrift` | Detect-only failure for changed, missing, extra, hand-edited, and encoding-drifted outputs; a registry mutation changes every expected output and a second pass is byte-stable. |
+| `test:ReviewStandards.GenericLocalResolution` | Generic-only and absent-local behavior are stable; bounded local extension/replacement is explicit and malformed or non-localizable input fails closed. |

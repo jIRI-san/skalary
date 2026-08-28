@@ -58,3 +58,8 @@ Phase: 1
 - [-] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-1] [review:cr] [source-record:deea91380c78668d1bd382e2e8946433265a21b292c19daf4fb215d591e2e843] Export eligibility docs were inconsistent; triage=fixed to active or archived durable runs.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:0305e853ffb19530fe41d61ec925fec04609dc4cb1f79e8270354ec9e1d601a2] review-cycle stage=phase-1 cycle=3 outcome=findings summary=remaining-lifecycle-deferred-under-approved-scope
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:ca34b0f5b4dcf406aeeb6265e0e8120cb9195af2ea1964448286a994965ae21e] review-cycle-decision stage=phase-1 after=3 action=wrap
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.

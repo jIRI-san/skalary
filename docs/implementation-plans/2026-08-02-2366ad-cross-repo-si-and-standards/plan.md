@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Generic and repository-local review standards
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Extend the `79cfe1` concern source model with optional generic review-standard entries and add a bounded resolver for an optional repo-owned `docs/review-standards.md`. Local entries may extend or replace only explicitly localizable generic guidance; absence leaves generated CR/DR behavior unchanged. Add `test:ReviewStandards.GenericLocalResolution` (REQ-3, REQ-5, RISK-4, RISK-5) `L`
+- [x] 2.1 Extend the `79cfe1` concern source model with optional generic review-standard entries and add a bounded resolver for an optional repo-owned `docs/review-standards.md`. Local entries may extend or replace only explicitly localizable generic guidance; absence leaves generated CR/DR behavior unchanged. Add `test:ReviewStandards.GenericLocalResolution` (REQ-3, REQ-5, RISK-4, RISK-5) `L`
 - [ ] 2.2 Feed the resolved standards into existing CR/DR dispatch inputs without changing review-run v1 publication or authority. Use existing generator, plugin sync, version, registry, marketplace, and dogfood writers; prove generic-only, local-extension, malformed-local, and installed-consumer cases with `test:ReviewStandards.InstalledConsumptionAndDrift` (REQ-3, REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.1] `L`
 
 ## Phase 3: Integrated proof
