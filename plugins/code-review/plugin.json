@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.27",
+  "version": "1.0.28",
   "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -27,6 +27,10 @@
     {
       "src": "skills/cr/assets/dispatch-guide.md",
       "dest": "skills/cr/assets/dispatch-guide.md"
+    },
+    {
+      "src": "skills/cr/assets/model-preferences.md",
+      "dest": "skills/cr/assets/model-preferences.md"
     },
     {
       "src": "skills/cr/assets/collation-guide.md",

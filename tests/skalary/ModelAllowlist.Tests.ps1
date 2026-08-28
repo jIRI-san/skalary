@@ -315,6 +315,33 @@ $heading
         }
     }
 
+    Context 'code-review model preferences' {
+        It 'rejects an unknown configured CR role model' {
+            $root = & $script:newFixtureRoot
+            try {
+                $assets = Join-Path $root 'plugins/code-review/skills/cr/assets'
+                New-Item -ItemType Directory -Path $assets -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $assets 'model-preferences.md') -Encoding utf8NoBOM -Value @'
+# Code-review model preferences
+
+## Models
+
+| Role | Model | Reasoning effort | Context tier |
+|---|---|---|---|
+| Primary | `Unknown Expensive Model (copilot)` | `high` | `default` |
+| Secondary | `Claude Opus 5 (copilot)` | `high` | `default` |
+| Backup | `Claude Sonnet 4.6 (copilot)` | `high` | `default` |
+'@
+                $result = & $script:invoke -Root $root
+                $result.ExitCode | Should -Be 1
+                $result.Output | Should -Match "role 'Primary'.*not in the VSCode allowlist"
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     Context 'hidden dogfood copies' {
         It 'scans .github/agents/ too, where the dogfood copies actually load from' {
             $root = & $script:newFixtureRoot

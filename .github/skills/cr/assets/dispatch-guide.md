@@ -1,7 +1,8 @@
-# Reviewer dispatch guide (shared by `/cr` and `/dr`)
+# Reviewer dispatch guide (shared mechanics for `/cr` and `/dr`)
 
-This guide owns everything about **how reviewers are dispatched**: the model roster, the preflight,
-concern selection, batching, and the invocation budget. Both review orchestrators read it, and the
+This guide owns the shared mechanics of **how reviewers are dispatched**: the preflight, concern
+selection, batching, and invocation budget. `/cr` model roles and execution profiles live in its
+`model-preferences.md`; `/dr` keeps the two-model roster below. Both review orchestrators read this guide, and the
 two installed copies (`.github/skills/cr/assets/dispatch-guide.md` and
 `.github/skills/dr/assets/dispatch-guide.md`) are byte-identical by construction — edit one and the
 drift gate fails until both match.
@@ -24,14 +25,25 @@ Agent ids are `cr-<concern>` for code review and `dr-<concern>` for design revie
 
 ## 2. Model roster and per-invocation override
 
+### Design review defaults
+
+`/dr` dispatches both reviewer roles on every round. Iterative design-review callers run no more than
+three rounds by default.
+
 | Role | Model | Notes |
 |---|---|---|
 | Reviewer A | `Claude Opus 5 (copilot)` | GA |
 | Reviewer B | `GPT-5.6 Sol (copilot)` | GA |
 | Pro-tier fallback | `Claude Sonnet 4.6 (copilot)` | GA, available on Copilot Pro |
 
-Dispatch each selected concern **once per model**, passing the model as the **explicit model
-parameter** of the subagent invocation. VS Code resolves a subagent's model as:
+### Code review profiles
+
+`/cr` reads `model-preferences.md` and dispatches only the roles selected by the active profile:
+primary only for `post-phase`, primary + secondary for `plan-finalization` and `standalone`. The
+backup replaces an unavailable selected role and never adds a pass.
+
+Dispatch each selected concern **once per selected model role**, passing the **explicit model
+parameter** plus explicit reasoning-effort and context-tier parameters. VS Code resolves a subagent's model as:
 
 1. explicit parameter supplied at invocation → 2. `model:` in the agent frontmatter → 3. the parent
    conversation's model.
@@ -40,7 +52,7 @@ Because the concern agents deliberately declare no `model:`, the explicit parame
 binding that matters. That is what keeps the agent count at 7 per review type instead of 14 and lets
 the roster change without touching agent files.
 
-The operator may override the roster for a single run. Honour the override and persist each requested
+The operator may override the selected roles for a single run. Honour the override and persist each requested
 and declared label in the frozen plan's `modelSelection`; no rendered label is evidence of served
 identity.
 
@@ -77,23 +89,28 @@ control here claims to close this gap.
 
 ### Pro-tier degradation
 
+When a selected model is unavailable on the operator's Copilot plan, use that review type's declared
+backup. The shipped backup is `Claude Sonnet 4.6 (copilot)`. A frontmatter fallback array does not
+help: explicit-param dispatch outranks frontmatter, so the array is never consulted and the subagent
+silently falls back to the *parent* model. Pass the backup **as the explicit parameter** and persist
+the original label as
+`requested`, the backup as both `declared` and `fallback`, `preflight: unavailable`,
+`degradation: fallback`, and `servedIdentity: unverified`.
+
 `Claude Opus 5` and `GPT-5.6 Sol` are unavailable on the Copilot **Pro** plan (Pro+, Max, Business,
 Enterprise only). A frontmatter fallback array does not help: explicit-param dispatch outranks
-frontmatter, so the array is never consulted and the subagent silently falls back to the *parent*
-model. When the tier does not carry the roster models, pass the GA fallback
-`Claude Sonnet 4.6 (copilot)` **as the explicit parameter**. Persist the original label as
-`requested`, the fallback as both `declared` and `fallback`, `preflight: unavailable`,
-`degradation: fallback`, and `servedIdentity: unverified`.
+frontmatter. The explicit backup rule above prevents an untracked parent-model fallback.
 
 ## 4. Concern selection scales with change size
 
-Seven concerns × two models is disproportionate for a one-file change, so the concern set scales:
+Seven concerns across every selected model is disproportionate for a one-file change, so the concern
+set scales:
 
 | Scope size (`cr`: changed files · `dr`: plan lines) | Concerns dispatched | Invocations |
 |---|---|---|
-| ≤ 3 files / ≤ 150 lines | `security`, `correctness-reliability`, `architecture-patterns` | 3 × 2 = 6 |
-| 4–15 files / 151–400 lines | all 7 | 7 × 2 = 14 |
-| > 15 files / > 400 lines | all 7, with **reading** batched by matched subsystem | 14 |
+| ≤ 3 files / ≤ 150 lines | `security`, `correctness-reliability`, `architecture-patterns` | 3 × selected models |
+| 4–15 files / 151–400 lines | all 7 | 7 × selected models |
+| > 15 files / > 400 lines | all 7, with **reading** batched by matched subsystem | 7 × selected models |
 
 An explicit concern filter from the operator overrides this selection in both directions — it can
 narrow the set below the threshold or widen it above it.
@@ -101,8 +118,8 @@ narrow the set below the threshold or widen it above it.
 ## 5. Batching splits reading, never concern passes
 
 Concerns run **once over the union of the files (or plan sections) under review**, never once per
-batch. Running a concern per batch would cost `7 × 2 × batches` — a 40-file change across 4
-subsystems would be 56 invocations and re-trigger exactly the cost problem the scaling tier exists
+batch. Running a concern per batch would cost `7 × selected models × batches` and re-trigger exactly
+the cost problem the scaling tier exists
 to tame. Batching tells a reviewer how to *read*, not how many times to *run*.
 
 - **Batch size bound:** at most **15 files per batch**; split a larger subsystem into several
@@ -122,7 +139,7 @@ exceed the persisted invocation budget. The engine renders the count from those 
 callers do not author a review header. The resulting data means:
 
 ```
-Dispatched 14 of 28 budgeted invocations (7 concerns × 2 models).
+Dispatched 7 of 28 budgeted invocations (7 concerns × 1 selected model).
 ```
 
 If the plan of record for a run would exceed 28, narrow the concern set or scope before Freeze and

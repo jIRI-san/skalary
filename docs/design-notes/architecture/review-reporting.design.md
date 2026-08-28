@@ -624,6 +624,12 @@ matrix before dispatch, dispatch independently with no prior-result priming or s
 results in memory, Publish once, then read through the digest-verifying reader. Plan runs preserve
 their manifest and generations; generic runs use the cleanup helper only after summary delivery.
 
+The lifecycle remains shared while model policy differs by review type. DR dispatches its two-model
+roster on every round; iterative DR callers stop after three rounds by default. CR reads its role
+bindings from `skills/cr/assets/model-preferences.md`: post-phase runs freeze primary-only tasks,
+while standalone and plan-finalization runs freeze primary + secondary tasks. The backup replaces an
+unavailable selected role and never creates an extra task.
+
 The orchestrator agents add `edit`, but their absolute rule permits only
 `.review-plan.input.tmp` and `.review-result.input.tmp` under their computed UUID root. Fixed inputs
 appear only through the local atomic rename. Terminal text contains paths/UUIDs, never reviewer data.

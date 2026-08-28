@@ -1,7 +1,7 @@
 ---
-description: "Code review agent — reviews uncommitted changes, unpushed commits, last N commits, or specific files/folders using seven model-agnostic concern reviewers dispatched across two models. Usage: 'cr' (smart default), 'cr uncommitted', 'cr branch', 'cr <N>' (last N commits), 'cr <N> batch' (force batch mode), 'cr src/Foo/' or 'cr src/Bar.cs' (review local files/folders)."
+description: "Code review agent — reviews uncommitted changes, branches, commits, or paths with configurable post-phase (primary-only) and final/standalone (primary + secondary) model profiles."
 name: "cr"
-argument-hint: "Optional: 'uncommitted' | 'branch' | N (number of commits) | 'N batch' | file/folder path(s). Default: branch-aware (feature branch → diff vs main; on main → uncommitted + unpushed)."
+argument-hint: "Optional profile: 'post-phase' | 'plan-finalization'; then scope: 'uncommitted' | 'branch' | N | 'N batch' | paths."
 tools: [read, search, execute, edit, agent, todo]
 agents: ["cr-security", "cr-correctness-reliability", "cr-architecture-patterns", "cr-performance", "cr-testing-evidence", "cr-maintainability-consistency", "cr-operability-observability"]
 handoffs:
