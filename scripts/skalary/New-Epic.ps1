@@ -208,6 +208,30 @@ function Get-EpicMember {
         Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
 }
 
+function Get-PrefixedChildTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Child,
+
+        [Parameter(Mandatory)]
+        [string]$TargetEpicId
+    )
+
+    # Legacy and rollout-era unprefixed hash plans keep their existing paths. Only a folder that
+    # already participates in the prefix grammar must track later attachment or re-parenting.
+    if ($Child.Scheme -ne 'new' -or [string]::IsNullOrWhiteSpace([string]$Child.FolderPrefix)) {
+        return $null
+    }
+
+    $parent = Split-Path -Parent $Child.Path
+    $folderName = "$TargetEpicId-$($Child.Date)-$($Child.Id)-$($Child.Slug)"
+    return [pscustomobject]@{
+        FolderName = $folderName
+        Path       = Resolve-ConfinedFolder -Root $parent -FolderName $folderName
+    }
+}
+
 function Update-EpicChildTable {
     <#
     .SYNOPSIS
@@ -326,8 +350,8 @@ else {
     }
 }
 
-$stamped = [System.Collections.Generic.List[object]]::new()
-$reparentedFrom = [System.Collections.Generic.List[string]]::new()
+$attachments = [System.Collections.Generic.List[object]]::new()
+$targetPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 foreach ($reference in $ChildPlan) {
     $child = Resolve-Plan -Reference $reference -RepoRoot $repoRootPath -Inventory $planInventory
     $childPlanFile = Join-Path $child.Path 'plan.md'
@@ -346,10 +370,7 @@ foreach ($reference in $ChildPlan) {
         if (-not $Force) {
             throw "Child plan '$($child.Id)' already belongs to epic '$($markers.EpicId)'. Re-parenting is a deliberate call — re-run with -Force."
         }
-        $reparentedFrom.Add($markers.EpicId.ToLowerInvariant())
     }
-
-    $lines = Set-PlanHeaderMarker -Lines $lines -Key 'epic' -Value $EpicId
 
     $mergedDeps = [System.Collections.Generic.List[string]]::new()
     foreach ($existingDep in @($markers.DependsOn)) {
@@ -364,15 +385,52 @@ foreach ($reference in $ChildPlan) {
         $token = $resolvedDep.Id.ToLowerInvariant()
         if (-not $mergedDeps.Contains($token)) { $mergedDeps.Add($token) }
     }
+
+    $target = Get-PrefixedChildTarget -Child $child -TargetEpicId $EpicId
+    if ($target -and -not [string]::Equals($target.Path, $child.Path, [System.StringComparison]::Ordinal)) {
+        if ((Test-Path -LiteralPath $target.Path) -or -not $targetPaths.Add($target.Path)) {
+            throw "Cannot attach child plan '$($child.Id)': target folder '$($target.Path)' already exists or is selected by another child."
+        }
+    }
+
+    $attachments.Add([pscustomobject]@{
+        Child       = $child
+        PlanFile    = $childPlanFile
+        Lines       = $lines
+        Markers     = $markers
+        DependsOn   = $mergedDeps
+        Target      = $target
+    })
+}
+
+$stamped = [System.Collections.Generic.List[object]]::new()
+$reparentedFrom = [System.Collections.Generic.List[string]]::new()
+foreach ($attachment in $attachments) {
+    $child = $attachment.Child
+    $lines = Set-PlanHeaderMarker -Lines $attachment.Lines -Key 'epic' -Value $EpicId
+    if ($attachment.Markers.EpicId -and $attachment.Markers.EpicId.ToLowerInvariant() -ne $EpicId) {
+        $reparentedFrom.Add($attachment.Markers.EpicId.ToLowerInvariant())
+    }
+
+    $mergedDeps = $attachment.DependsOn
     if ($mergedDeps.Count -gt 0) {
         $lines = Set-PlanHeaderMarker -Lines $lines -Key 'depends-on' -Value ($mergedDeps -join ', ')
     }
 
-    Write-PlanText -Path $childPlanFile -Lines $lines
+    Write-PlanText -Path $attachment.PlanFile -Lines $lines
+    $childPath = $child.Path
+    $childPlanFile = $attachment.PlanFile
+    if ($attachment.Target -and
+        -not [string]::Equals($attachment.Target.Path, $child.Path, [System.StringComparison]::Ordinal)) {
+        Move-Item -LiteralPath $child.Path -Destination $attachment.Target.Path
+        $childPath = $attachment.Target.Path
+        $childPlanFile = Join-Path $childPath 'plan.md'
+    }
+
     $stamped.Add([pscustomobject]@{
         Id         = $child.Id
         Slug       = $child.Slug
-        Path       = $child.Path
+        Path       = $childPath
         PlanFile   = $childPlanFile
         DependsOn  = $mergedDeps.ToArray()
     })

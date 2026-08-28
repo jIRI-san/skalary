@@ -13,6 +13,8 @@ param(
 
     [string]$PlanId,
 
+    [string]$EpicId,
+
     [string]$TemplatePath,
 
     [switch]$Force
@@ -135,7 +137,23 @@ $slugClean = Get-SanitizedSlug -Value $Slug
 
 # Plans and epics share one id space — `/ci` accepts either handle — so both inventories reserve ids,
 # in both directions, and an explicitly supplied id is collision-checked rather than trusted.
-$takenIds = @(Get-PlanInventory -RepoRoot $repoRootPath) + @(Get-EpicInventory -RepoRoot $repoRootPath)
+$planInventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
+$epicInventory = @(Get-EpicInventory -RepoRoot $repoRootPath)
+$takenIds = $planInventory + $epicInventory
+
+if ($EpicId) {
+    $EpicId = $EpicId.Trim().ToLowerInvariant()
+    if ($EpicId -notmatch '^[0-9a-f]{6}$') {
+        throw "EpicId '$EpicId' must be exactly 6 hex chars."
+    }
+    $matchingEpic = @($epicInventory | Where-Object { $_.Id -and $_.Id.ToLowerInvariant() -eq $EpicId })
+    if ($matchingEpic.Count -ne 1) {
+        throw "EpicId '$EpicId' does not identify an existing epic."
+    }
+    if (-not (Test-Path -LiteralPath $matchingEpic[0].EpicFile -PathType Leaf)) {
+        throw "EpicId '$EpicId' has no epic.md at $($matchingEpic[0].EpicFile)."
+    }
+}
 
 if ($PlanId) {
     $PlanId = $PlanId.Trim().ToLowerInvariant()
@@ -147,13 +165,15 @@ else {
     $PlanId = New-PlanId -ExistingId @($takenIds | ForEach-Object { $_.Id })
 }
 
+$folderPrefix = if ($EpicId) { $EpicId } else { 'standalone' }
+$folderName = "$folderPrefix-$Date-$PlanId-$slugClean"
+
 foreach ($existing in $takenIds) {
-    if ($existing.Id -and $existing.Id.ToLowerInvariant() -eq $PlanId -and $existing.FolderName -ne "$Date-$PlanId-$slugClean") {
+    if ($existing.Id -and $existing.Id.ToLowerInvariant() -eq $PlanId -and $existing.FolderName -ne $folderName) {
         throw "Plan id '$PlanId' is already taken by '$($existing.FolderName)'."
     }
 }
 
-$folderName = "$Date-$PlanId-$slugClean"
 $targetDir = Resolve-ConfinedFolder -Root $plansRoot -FolderName $folderName
 $planFile = Join-Path $targetDir 'plan.md'
 
@@ -211,6 +231,26 @@ if (-not $titleReplaced) {
     $lines.Insert(0, "# ${PlanId}: $Title")
 }
 
+if ($EpicId) {
+    $epicMarker = "<!-- epic: $EpicId -->"
+    $epicMarkerIndex = -1
+    $planIdIndex = -1
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^##\s') { break }
+        if ($lines[$i] -match '^\s*<!--\s*plan-id\s*:') { $planIdIndex = $i }
+        if ($lines[$i] -match '^\s*<!--\s*epic\s*:') {
+            $epicMarkerIndex = $i
+            break
+        }
+    }
+    if ($epicMarkerIndex -ge 0) {
+        $lines[$epicMarkerIndex] = $epicMarker
+    }
+    else {
+        $lines.Insert($planIdIndex + 1, $epicMarker)
+    }
+}
+
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 $content = ($lines -join "`n")
 Set-Content -LiteralPath $planFile -Value $content -Encoding utf8NoBOM
@@ -244,6 +284,8 @@ $result = [pscustomobject]@{
     PlanId     = $PlanId
     Slug       = $slugClean
     Date       = $Date
+    FolderPrefix = $folderPrefix
+    EpicId     = $EpicId
     FolderName = $folderName
     Path       = $targetDir
     PlanFile   = $planFile

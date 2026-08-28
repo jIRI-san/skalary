@@ -42,7 +42,7 @@ context: fork
    ```
 
    It covers active **and** archived plans in both layouts, and is deterministic (no timestamps, repo-relative paths). Drop `-Filter` for the whole corpus, add `-Format Json` when you need the records structured. Feed what it returns into the `prior-art` gate in `./assets/interview-guide.md`.
-3. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
+3. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `standalone-<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cip/scripts/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .

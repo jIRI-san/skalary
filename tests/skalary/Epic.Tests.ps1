@@ -236,6 +236,54 @@ Describe 'New-Epic' {
             }
         }
 
+        It 'reconciles a prefixed folder during attachment and forced re-parenting' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'First epic' -Slug 'first-epic' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                & $newEpic -Title 'Second epic' -Slug 'second-epic' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'ee55ff' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $created.FolderName | Should -Be 'standalone-2026-08-01-111aaa-attach-later'
+
+                $attached = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $attached.Stamped[0].Path | Should -Be (Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later')
+                Test-Path -LiteralPath $created.Path | Should -BeFalse
+                (Resolve-Plan -Reference '111aaa' -RepoRoot $tmp).EpicId | Should -Be 'cc33dd'
+
+                $reparented = & $newEpic -Epic 'ee55ff' -RepoRoot $tmp -ChildPlan '111aaa' -Force
+                $reparented.Stamped[0].Path | Should -Be (Join-Path $tmp 'docs/implementation-plans/ee55ff-2026-08-01-111aaa-attach-later')
+                Test-Path -LiteralPath $attached.Stamped[0].Path | Should -BeFalse
+                $resolved = Resolve-Plan -Reference '111aaa' -RepoRoot $tmp
+                $resolved.EpicId | Should -Be 'ee55ff'
+                $resolved.FolderPrefix | Should -Be 'ee55ff'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'rejects a prefix target collision before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $collision = Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later'
+                New-Item -ItemType Directory -Path $collision -Force | Out-Null
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*Ambiguous plan reference*'
+
+                Test-Path -LiteralPath $created.Path | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'test:epic-scaffold-links-children confines the epic folder to the epics root' {
             $tmp = & $newTempRoot
             try {

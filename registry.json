@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T13:11:06.5917472Z",
+  "generatedAt": "2026-08-28T13:47:01.7825807Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -678,7 +678,7 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "62e923947922cbd3ae56f1b52fcd78b769e8f6ca71a8337b52032aa703ab458b",
+          "sha256": "4b1859a5a3b0227dfac70610bf8be5c1cdf54c6c6ec9c7cd966e3919f7ae6d14",
           "src": "skills/cep/SKILL.md"
         },
         {
@@ -688,7 +688,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
+          "sha256": "2f001fd2d044ffd27df87e16463fa3f4638ac3228b9998c1652b6d30b90c3f5d",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -698,12 +698,12 @@
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "d5b5959baa7253ca6cef26624c0c1271d9e03d076d3c45a4cf0c2e72eaa0f456",
+          "sha256": "f8b11d1784529dc7c4628652e48949acc0d87da9385e3d47d9d48d2fd9e58541",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "773d3d46396db0af4f4420cf7db2c1e61f787ad199415d38181e2a556b946b1f",
+          "sha256": "e4b52241d2e2ea8a43174e23df5db22eb1818b901a78dc368492233261a2a4c2",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -728,7 +728,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "cd95634e5ed8ed00f30d98fd4b92f7b6b3380ff652dd214816ccfae4cfee3feb",
+          "sha256": "e959bee1b9cc3cbabed8570f28b4901848538da70e876672988389ab5a8ebc7f",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -753,7 +753,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "5b98fd66f25cd8395f6bdc7d49431a95857a11d3589681e114f8e05a464fa7c4",
+          "sha256": "2f001fd2d044ffd27df87e16463fa3f4638ac3228b9998c1652b6d30b90c3f5d",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -773,7 +773,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "773d3d46396db0af4f4420cf7db2c1e61f787ad199415d38181e2a556b946b1f",
+          "sha256": "e4b52241d2e2ea8a43174e23df5db22eb1818b901a78dc368492233261a2a4c2",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -825,7 +825,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.40"
+      "version": "1.0.43"
     },
     {
       "author": "jIRI-san",
