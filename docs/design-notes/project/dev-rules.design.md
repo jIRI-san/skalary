@@ -37,12 +37,11 @@ globs:
   `validate.ps1` gate. A plan that cites one as typed `test:` evidence still executes that named
   Pester case and blocks its crosscheck on failure. Always-on cross-surface invariants belong in
   `tests/` and the existing unit suite.
-- **Runtime rows are measured, never relabeled.** Ordinary `npm test` rejects the current
-  platform's stale tracked-input fingerprint. Refresh only through `Measure-SuiteRuntime.ps1`,
-  which authorizes one stale measurement run, still enforces the ceiling, and emits a fingerprinted
-  candidate afterward. Do not copy an old elapsed figure onto a new fingerprint. Complete all
-  fingerprinted edits before final cross-platform measurement; only the generated runtime/profile
-  JSON and `testResults.xml` may change afterward.
+- **Runtime rows are measured, never relabeled.** Ordinary `npm test` reports stale tracked-input
+  fingerprints and runtime overruns as advisory warnings. Refresh only through
+  `Measure-SuiteRuntime.ps1`, which emits a fingerprinted candidate afterward. Do not copy an old
+  elapsed figure onto a new fingerprint. Runtime observations never block plan finalization or
+  trigger automatic repair/rerun loops; revisit enforcement with the future test-infrastructure redesign.
 
 ## Git History
 

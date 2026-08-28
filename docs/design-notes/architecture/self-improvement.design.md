@@ -104,7 +104,7 @@ stale, forward-version, or exhausted state rather than exposing partial behavior
 The shared workflow-memory side is proven at its exact 10,000-record ledger ceiling by
 `test:LearningLoop.MaximumBoundRuntime`: the focused operation must finish within 60 seconds,
 reach the boundary, and reject record 10,001 without changing bytes. The full suite remains subject
-to its tighter platform runtime row and tracked-input freshness gate.
+to advisory platform runtime and tracked-input freshness reporting.
 
 `scripts/skalary/AtomicStore.psm1` is the root-canonical persistence primitive. It provides the
 30-second repo-scoped lock, random same-directory text or byte-preserving temp writes, validation before replace,

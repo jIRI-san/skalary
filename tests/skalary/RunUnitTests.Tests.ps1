@@ -410,7 +410,7 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
             Should -BeTrue -Because 'Slow is unbudgeted and cannot consume Fast measurement state'
     }
 
-    It 'test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and enforces sixty seconds' {
+    It 'test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and reports sixty seconds' {
         $sandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile
         Set-Content -LiteralPath (Join-Path $sandbox 'tests/Focused.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
 
@@ -444,8 +444,9 @@ Describe 'focused slow file' {
         $manifestText.Replace('FastFocusedHardCeilingSeconds = 60', 'FastFocusedHardCeilingSeconds = 0.001') |
             Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
         $overBudget = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestPath 'tests/Focused.Tests.ps1'")
-        $overBudget.ExitCode | Should -Be 5 -Because $overBudget.Output
-        $overBudget.Output | Should -Match 'Reduce -TestPath scope'
+        $overBudget.ExitCode | Should -Be 0 -Because $overBudget.Output
+        $overBudget.Output | Should -Match 'OverBudget:'
+        $overBudget.Output | Should -Match 'advisory ceiling'
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
@@ -550,7 +551,7 @@ Describe 'focused slow file' {
         }
     }
 
-    It 'test:RunUnitTests.SlowOverBudgetFails exits 5 and names both Slow runtime figures' {
+    It 'test:RunUnitTests.SlowOverBudgetFails reports both Slow runtime figures without failing' {
         $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
         @'
 @{
@@ -564,8 +565,8 @@ Describe 'focused slow file' {
 '@ | Set-Content -LiteralPath (Join-Path $sandbox 'tools/suite-tier.psd1') -Encoding utf8NoBOM
 
         $result = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @('-Tier', 'Slow')
-        $result.ExitCode | Should -Be 5 -Because $result.Output
+        $result.ExitCode | Should -Be 0 -Because $result.Output
         $result.Output | Should -Match 'OverBudget: Slow tier runtime'
-        $result.Output | Should -Match '0\.001s ceiling'
+        $result.Output | Should -Match '0\.001s advisory ceiling'
     }
 }

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T17:19:53.7201420Z",
+  "generatedAt": "2026-08-28T19:22:19.1589253Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "16bb2530496243f7b55fbf464822744b4bf6ce71f5a3d365d547face6b760f07",
+          "sha256": "6424edc9e3d230259ce21c498cbf53de5e0a618def48dbbec8e0fe2cde473208",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -341,7 +341,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.23"
+      "version": "1.2.25"
     },
     {
       "author": "jIRI-san",
@@ -495,7 +495,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.28"
+      "version": "1.0.30"
     },
     {
       "author": "jIRI-san",
@@ -515,7 +515,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "531f0175ecc85e65422c5f34867da3d53a14ab52dcae5229eec2e6577840f8d3",
+          "sha256": "5754eb9fa21699b11c62ed875ecac9720e346a120fbf651d7aa2ae7db958a7ef",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -670,7 +670,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.50"
+      "version": "1.0.52"
     },
     {
       "author": "jIRI-san",
@@ -831,7 +831,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.39"
+      "version": "1.0.41"
     },
     {
       "author": "jIRI-san",
@@ -1050,7 +1050,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.27"
+      "version": "1.0.29"
     },
     {
       "author": "jIRI-san",
@@ -1144,7 +1144,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.17"
+      "version": "1.0.19"
     },
     {
       "author": "jIRI-san",
@@ -1444,7 +1444,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.52"
+      "version": "1.0.54"
     },
     {
       "author": "jIRI-san",
@@ -1485,7 +1485,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.6"
+      "version": "1.0.8"
     }
   ],
   "retiredPlugins": [

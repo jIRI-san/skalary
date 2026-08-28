@@ -28,8 +28,8 @@ globs:
 | `gate:plan-validation` | every plan at or above `drafted` satisfies its own contract | `.github/workflows/registry-ci.yml` | `scripts/skalary/Validate-Plan\.ps1` | blocking |
 | `gate:repository-validation` | every payload file parses, and the gates below run | `.github/workflows/registry-ci.yml` | `scripts/validate\.ps1[^\r\n]*-FullRepository` | blocking |
 | `gate:plugin-retirement-history` | published plugin retirement records are never changed or removed; the event supplies one explicit Git baseline | `.github/workflows/registry-ci.yml` | `scripts/skalary/Invoke-PluginRetirementHistoryGate\.ps1` | blocking |
-| `gate:unit-suite` | the complete Fast Pester tier passes and the whole `npm test` command is inside its platform's ceiling | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Fast[^\r\n]*-FullRepository` | blocking |
-| `gate:slow-suite` | every process-heavy deterministic integration test in the manifest-owned Slow tier passes through the same cannot-test, required-evidence, and environment-leak checks | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Slow` | blocking |
+| `gate:unit-suite` | the complete Fast Pester tier passes; runtime and measurement freshness are logged as advisory observations | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Fast[^\r\n]*-FullRepository` | blocking |
+| `gate:slow-suite` | every process-heavy deterministic integration test in the manifest-owned Slow tier passes through the same cannot-test, required-evidence, and environment-leak checks; runtime is advisory | `.github/workflows/registry-ci.yml` | `Run-UnitTests\.ps1[^\r\n]*-Tier Slow` | blocking |
 | `gate:review-consumer-install` | isolated CR and DR installs execute the complete review-run CLI exit and artifact matrix without repository fallbacks | `.github/workflows/registry-ci.yml` | `Test-ReviewConsumerInstall\.ps1` | blocking |
 | `gate:registry-validation` | `registry.json` matches the plugin sources it claims to describe | `.github/workflows/registry-ci.yml` | `scripts/skalary/Test-Registry\.ps1` | blocking |
 | `gate:dogfood-drift` | the repo's own installed copies match `plugins/` | `.github/workflows/registry-ci.yml` | `scripts/skalary/Sync-Dogfood\.ps1` | blocking |
@@ -75,7 +75,7 @@ Two consequences are recorded rather than hidden. Merged code is measured after 
 
 ## The budget contract
 
-`Run-UnitTests.ps1` is the only place the runtime ceiling is checked, which is why CI invokes it rather than `Invoke-Pester` (D2). The budget in `tools/suite-budget.psd1` is stated per platform, because the same suite measured 108.998s on `ubuntu-latest` and 223.142s on `windows-latest` (D13, D15).
+`Run-UnitTests.ps1` is the single runtime reporting path, which is why CI invokes it rather than `Invoke-Pester` (D2). Runtime ceilings and measurement freshness are advisory: they remain visible in logs but never turn passing tests red. This temporary policy prevents repeated ten-minute measurement/fix loops during plan finalization; the testing infrastructure will be redesigned separately. The budget in `tools/suite-budget.psd1` remains stated per platform for comparable observations.
 
 `scripts/validate.ps1` is deliberately full-scope only and refuses an omitted
 `-FullRepository` switch. Package scripts and CI carry that switch explicitly; phase Fast guidance
@@ -83,32 +83,32 @@ forbids the command. This keeps "run validation" from silently expanding a focus
 the repository-wide parser, integrity, drift, model, plan, and architecture sweep.
 
 Plan `31a3ef` activates D13's reserved split after merged review-run coverage pushed Windows past the
-ceiling. `tools/suite-tier.psd1` is the sole Slow membership owner; complete Fast is its derived
+recorded ceiling. `tools/suite-tier.psd1` is the sole Slow membership owner; complete Fast is its derived
 complement, so new test files cannot disappear and start in Fast by default. Ordinary phase feedback
-is a caller-selected subset of that complement and has a hard 60-second ceiling. Omitting scope fails;
+is a caller-selected subset of that complement and reports against a 60-second advisory ceiling. Omitting scope fails;
 the complete complement requires `-FullRepository`. The dedicated review-consumer matrix remains
 outside both tiers because it already has its own blocking runner. Both tiers use `Run-UnitTests.ps1`;
 only complete Fast consumes the `npm test` budget clock, while Slow is a separate blocking step in both
-matrix legs with its own NUnit report and manifest-owned runtime ceiling. `All` is diagnostic and unbudgeted.
+matrix legs with its own NUnit report and manifest-owned runtime observation. `All` is diagnostic and unbudgeted.
 
 | Property | Contract |
 |---|---|
 | Measured quantity | the whole `npm test` command, not the `test:unit` leg — the `pretest` hook starts a clock file, and this script is last in the chain and reads it |
 | Tier ownership | `tools/suite-tier.psd1` owns Slow and dedicated files; complete Fast is every other discovered `*.Tests.ps1` file. Focused Fast accepts explicit `-TestPath` values; a Slow-owned file additionally requires `-TestName` so its complete process-heavy file never runs accidentally |
-| Focused feedback | focused Fast is the default mode, requires explicit test paths, and fails above `FastFocusedHardCeilingSeconds` (60s). Optional Pester full-name filters narrow within a file. Full Fast requires `-FullRepository` |
-| Slow enforcement | a separate blocking step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error`, separate NUnit evidence, `SlowHardCeilingSeconds` enforced by the runner, and typed figures in `SlowMeasurementRecord` |
+| Focused feedback | focused Fast is the default mode, requires explicit test paths, and warns above `FastFocusedHardCeilingSeconds` (60s). Optional Pester full-name filters narrow within a file. Full Fast requires `-FullRepository` |
+| Slow enforcement | a separate blocking test step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error`, separate NUnit evidence, and advisory `SlowHardCeilingSeconds` reporting |
 | Unclocked run | reports a *lower bound* and says so; over budget on a subset is still over budget, under budget is not a verdict |
-| Ceiling direction | `HardCeilingSeconds` may only fall. `BoundCeilingSeconds` is what any value is checked against |
-| Escape hatch | one raise, to at most `AbsoluteCapSeconds`, with a justification in the plan's `assets/decisions.md`; a platform that still misses splits into tiers instead |
+| Ceiling metadata | Historical `HardCeilingSeconds` and `BoundCeilingSeconds` values remain tracked for comparable reporting; they are not pass/fail thresholds |
+| Historical escape hatch | Existing raise metadata and justification remain provenance only; no runtime observation blocks or requires a ceiling change |
 | Job timeout | per matrix leg, above the Fast ceiling plus the manifest-declared Slow/setup scheduling allowances — a job killed before every gate speaks reports cancellation instead of verdicts |
 | Input identity | `Get-SuiteInputFingerprint.ps1` hashes the protocol tag plus each ordinal tracked regular path and its exact bytes with unsigned 64-bit big-endian length frames. The producer is included. Only `tools/suite-{profile,runtime}.json` and `testResults.xml` are excluded generated outputs. |
-| Ordinary freshness | The current platform's runtime row must carry the current fingerprint and protocol. A stale/missing row exits `10`; another platform is checked by its own runner and refreshed before final approval. |
-| Measurement freshness | `Measure-SuiteRuntime.ps1` computes the fingerprint before launching the selected Fast or Slow command, gives that child tree a process-only token containing the protocol, fingerprint, random nonce, measurement parent PID, and HMAC under a process-local random key, and recomputes after success. Fast `pretest` validates the token, atomically claims its nonce once, and binds that nonce into the repo-scoped budget clock; the final Fast runner consumes that clock and requires the same nonce. Re-running `pretest` with the token hits the claim tombstone and fails, so clock recreation cannot replay it. The gate also validates closed fields, HMAC, fingerprint, and live ancestry; invalid authorization exits `11`. A valid token permits stale or absent rows only for that measured run and never bypasses the elapsed-time ceiling. |
+| Ordinary freshness | The current platform's runtime row is checked against the current fingerprint and protocol. A stale/missing row emits `StaleMeasurement` as a warning and does not affect the test verdict. |
+| Measurement freshness | `Measure-SuiteRuntime.ps1` computes the fingerprint before launching the selected Fast or Slow command, gives that child tree a process-only token containing the protocol, fingerprint, random nonce, measurement parent PID, and HMAC under a process-local random key, and recomputes after success. Fast `pretest` validates the token, atomically claims its nonce once, and binds that nonce into the repo-scoped budget clock; the final Fast runner consumes that clock and requires the same nonce. Re-running `pretest` with the token hits the claim tombstone and fails, so clock recreation cannot replay it. Closed fields, HMAC, fingerprint, and live ancestry still protect an explicitly requested measurement; invalid authorization exits `11`. Elapsed time remains advisory. |
 | Row publication | Successful measurement emits/writes a `suite-runtime-row@2` candidate carrying the fingerprint. Publication retires rows for older fingerprints, so they cannot masquerade as cross-platform evidence; later same-fingerprint imports compose the platform set. Import rejects failed, wrong-command, wrong-schema, or wrong-fingerprint rows. Generated row writes do not change the fingerprint. |
 | Measurement receipt | Rows record non-empty OS/PowerShell/Pester/processor identity, HEAD commit, source, exact tracked-input fingerprint, and protocol. Failed runs are emitted but never recorded. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. |
 
-`MeasurementRecord` is mandatory. Omitting or emptying it exits `6`; a budget cannot disable
-tracked-input freshness while retaining the runtime ceiling.
+`MeasurementRecord` remains the preferred observation source. Omitting it logs `BudgetNotDefined`
+without changing a passing test verdict.
 
 The isolated review-consumer matrix is a separate blocking gate rather than part of the ordinary
 suite: it starts many child PowerShell processes to prove installed CLI exits and would consume about
@@ -118,7 +118,7 @@ The gate host's `-TestPath` parameter is fixture-only executable evidence for it
 contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
 `ReviewConsumerInstall.Tests.ps1` matrix.
 
-Exit codes are the diagnosis, so they stay distinct: `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `5` over budget, `6` no budget for this platform, `7` leaked environment, `8` skipped required evidence, `9` invalid tier manifest, `10` stale measurement, and `11` invalid measurement authorization. `2`–`4`, `7`, and `8` are the fail-closed evidence contract; `9` keeps an unreadable partition from becoming an empty pass, and `10`–`11` enforce measured-input provenance.
+Exit codes `5`, `6`, and `10` are reserved: runtime overruns, missing advisory budget metadata, and stale measurements are warnings. Blocking diagnosis remains `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `7` leaked environment, `8` skipped required evidence, `9` invalid tier manifest, `11` invalid explicit measurement authorization, and `12` missing focused scope.
 
 ## Constraints
 

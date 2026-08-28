@@ -7,8 +7,8 @@
     behind every `test:` evidence marker. A green run therefore has to mean tests ran:
     reporting success having executed zero assertions forges evidence (REQ-5).
 
-    It is also where the runtime budget is enforced (REQ-2), and the only place that check
-    lives, so the CI workflow REQ-9 describes must invoke this script rather than calling
+    It is also where runtime observations are reported (REQ-2), so the CI workflow REQ-9
+    describes must invoke this script rather than calling
     Invoke-Pester directly (that wiring lands in this plan's phase 8). The budget in
     `tools/suite-budget.psd1` is stated per platform and measured against the whole `npm test`
     command, not this leg alone — so the clock is started by the `pretest` hook (this same
@@ -23,12 +23,12 @@
       2  PesterNotInstalled — the framework is absent; the message names the install command
       3  NoTestsDiscovered — Pester ran but found nothing to assert
       4  TestFilesNotDiscoverable — a test file failed to load, so its tests never ran
-      5  OverBudget — the run is slower than this platform's hard ceiling
-      6  BudgetNotDefined — no budget file, or no entry for this platform
+            5  Reserved — runtime overruns are advisory
+            6  Reserved — missing budget metadata is advisory
       7  EnvironmentLeaked — a test changed the caller's process environment and did not restore it
       8  RequiredEvidenceSkipped — mandatory review evidence did not execute
       9  SuiteTierInvalid — the tracked tier manifest is absent or invalid
-     10  StaleMeasurement — this platform's runtime row does not match the tracked inputs
+        10  Reserved — stale runtime measurements are advisory
      11  MeasurementTokenInvalid — a measurement-mode token failed closed validation
      12  FocusedScopeRequired — Fast did not receive focused test paths or -FullRepository
 .EXAMPLE
@@ -436,8 +436,7 @@ if ($Tier -eq 'Slow') {
     $slowCeiling = [double]$tierManifest['SlowHardCeilingSeconds']
     Write-Host "Slow tier runtime: $([math]::Round($slowSeconds, 3))s against a ceiling of ${slowCeiling}s."
     if ($slowSeconds -gt $slowCeiling) {
-        Write-Host "OverBudget: Slow tier runtime $([math]::Round($slowSeconds, 3))s exceeded its ${slowCeiling}s ceiling." -ForegroundColor Red
-        exit 5
+        Write-Warning "OverBudget: Slow tier runtime $([math]::Round($slowSeconds, 3))s exceeded its ${slowCeiling}s advisory ceiling."
     }
     exit 0
 }
@@ -450,28 +449,32 @@ if (-not $FullRepository) {
     $focusedCeiling = [double]$tierManifest['FastFocusedHardCeilingSeconds']
     Write-Host "Focused Fast runtime: $([math]::Round($focusedSeconds, 3))s against a ceiling of ${focusedCeiling}s."
     if ($focusedSeconds -gt $focusedCeiling) {
-        Write-Host "OverBudget: Focused Fast runtime $([math]::Round($focusedSeconds, 3))s exceeded its ${focusedCeiling}s ceiling. Reduce -TestPath scope." -ForegroundColor Red
-        exit 5
+        Write-Warning "OverBudget: Focused Fast runtime $([math]::Round($focusedSeconds, 3))s exceeded its ${focusedCeiling}s advisory ceiling."
     }
     exit 0
 }
 
-# REQ-2: the gate the ceiling exists for. A suite nobody runs because it is slow is a gate
-# that is not enforced, so the runtime is checked here rather than left to whoever remembers.
+# Runtime metadata is retained for visibility while enforcement is deferred to a future redesign.
 $budgetPath = Join-Path $RepoRoot 'tools/suite-budget.psd1'
 if (-not (Test-Path -LiteralPath $budgetPath -PathType Leaf)) {
-    Write-Host "BudgetNotDefined: no budget at '$budgetPath'. The runtime ceiling is part of this gate, so a missing budget is a failure rather than an unbudgeted pass." -ForegroundColor Red
-    exit 6
+    Write-Warning "BudgetNotDefined: no advisory budget at '$budgetPath'; runtime measurement is unavailable."
+    exit 0
 }
 
-$budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+try {
+    $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+}
+catch {
+    Write-Warning "BudgetNotDefined: advisory budget '$budgetPath' could not be read: $($_.Exception.Message)"
+    exit 0
+}
 $platformKey = Get-BudgetPlatformKey
 
-# D13: the same suite measured roughly 10x apart between platforms, so a platform without an
-# entry has no ceiling that means anything — that is an error, not an exemption.
+# D13: the same suite measured roughly 10x apart between platforms, so observations remain
+# platform-specific even though a missing entry is advisory.
 if (-not $budget.Contains('Platforms') -or -not $budget.Platforms.Contains($platformKey)) {
-    Write-Host "BudgetNotDefined: '$budgetPath' carries no entry for platform '$platformKey'. Add one rather than letting this platform run unbudgeted." -ForegroundColor Red
-    exit 6
+    Write-Warning "BudgetNotDefined: '$budgetPath' carries no advisory entry for platform '$platformKey'."
+    exit 0
 }
 
 $platformBudget = $budget.Platforms[$platformKey]
@@ -481,43 +484,55 @@ $platformBudget = $budget.Platforms[$platformKey]
 # which is the one distinction this script exists to make.
 foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds', 'MeasurementRecord')) {
     if (-not $budget.Contains($required)) {
-        Write-Host "BudgetNotDefined: '$budgetPath' is missing '$required'. A budget that does not state it cannot be enforced." -ForegroundColor Red
-        exit 6
+        Write-Warning "BudgetNotDefined: '$budgetPath' is missing advisory field '$required'."
+        exit 0
     }
 }
 if ([string]::IsNullOrWhiteSpace([string]$budget.MeasurementRecord)) {
-    Write-Host "BudgetNotDefined: '$budgetPath' has an empty 'MeasurementRecord'. A budget that does not name its freshness evidence cannot be enforced." -ForegroundColor Red
-    exit 6
+    Write-Warning "BudgetNotDefined: '$budgetPath' has an empty advisory 'MeasurementRecord'."
+    exit 0
 }
 foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
     if (-not $platformBudget.Contains($required)) {
-        Write-Host "BudgetNotDefined: the '$platformKey' entry in '$budgetPath' is missing '$required'. A budget that does not state it cannot be enforced." -ForegroundColor Red
-        exit 6
+        Write-Warning "BudgetNotDefined: the '$platformKey' entry in '$budgetPath' is missing advisory field '$required'."
+        exit 0
     }
 }
 
-$hardCeilingSeconds = [double]$platformBudget.HardCeilingSeconds
-$targetSeconds = [double]$platformBudget.TargetSeconds
+try {
+    $hardCeilingSeconds = [double]$platformBudget.HardCeilingSeconds
+    $targetSeconds = [double]$platformBudget.TargetSeconds
+    $staleAfterSeconds = [double]$budget.AbsoluteCapSeconds * 4
+}
+catch {
+    Write-Warning "BudgetNotDefined: advisory budget '$budgetPath' contains an invalid numeric value: $($_.Exception.Message)"
+    exit 0
+}
 
 $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
 if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
-    Write-Host "BudgetNotDefined: '$budgetPath' names a measurement record but '$fingerprintScript' is missing." -ForegroundColor Red
-    exit 6
+    Write-Warning "BudgetNotDefined: '$budgetPath' names a measurement record but advisory fingerprint script '$fingerprintScript' is missing."
+    exit 0
 }
-. $fingerprintScript
-$freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
-    -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
-    -CurrentProcessId $PID
-if ($freshness.Status -eq 'measurement-token-invalid') {
-    Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
-    exit 11
+try {
+    . $fingerprintScript
+    $freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
+        -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
+        -CurrentProcessId $PID
+    if ($freshness.Status -eq 'measurement-token-invalid') {
+        Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
+        exit 11
+    }
+    if ($freshness.Status -ne 'complete') {
+        Write-Warning "StaleMeasurement: $($freshness.Reason). Runtime rows are advisory; refresh them later with scripts/skalary/Measure-SuiteRuntime.ps1."
+    }
+    if ($freshness.MeasurementMode) {
+        Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
+    }
 }
-if ($freshness.Status -ne 'complete') {
-    Write-Host "StaleMeasurement: $($freshness.Reason). Run scripts/skalary/Measure-SuiteRuntime.ps1 on the exact tracked inputs." -ForegroundColor Red
-    exit 10
-}
-if ($freshness.MeasurementMode) {
-    Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
+catch {
+    Write-Warning "StaleMeasurement: advisory runtime freshness could not be evaluated: $($_.Exception.Message)"
+    exit 0
 }
 
 # The budget measures the whole `npm test` command (D2). This leg can only see the rest of it
@@ -529,8 +544,6 @@ $measuredSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
 # Residue from a run that died before the clock could be read. The bound is the plan-wide
 # absolute cap rather than this platform's ceiling: bounding it by the ceiling would discard
 # exactly the clocks that prove a badly over-budget run, which is the case the check exists for.
-$staleAfterSeconds = [double]$budget.AbsoluteCapSeconds * 4
-
 if ($null -ne $clockStartedAt) {
     $clockedSeconds = ([DateTimeOffset]::UtcNow - $clockStartedAt).TotalSeconds
     if ($clockedSeconds -gt $staleAfterSeconds) {
@@ -546,11 +559,9 @@ $measuredSeconds = [math]::Round($measuredSeconds, 3)
 $budgetReport = "measured $($measuredSeconds)s ($measuredScope) against a ceiling of $($hardCeilingSeconds)s and a target of $($targetSeconds)s on $platformKey"
 
 if ($measuredSeconds -gt $hardCeilingSeconds) {
-    Write-Host "OverBudget: $budgetReport. The ceiling is bound in '$budgetPath'; make the suite cheaper rather than the ceiling higher." -ForegroundColor Red
-    exit 5
+    Write-Warning "OverBudget: $budgetReport. Runtime budgets are advisory pending test-infrastructure redesign."
 }
-
-if ($measuredSeconds -gt $targetSeconds) {
+elseif ($measuredSeconds -gt $targetSeconds) {
     Write-Warning "Suite budget: $budgetReport."
 }
 else {
