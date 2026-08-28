@@ -23,14 +23,13 @@ Describe 'retired arch evidence marker' {
                     $skill = [regex]::Match($dest, '^skills/(?<name>[^/]+)/scripts/').Groups['name'].Value
                     $bundles.Add([pscustomobject]@{
                             Plugin = [string]$manifest.name
-                            Skill = $skill
-                            Path = Join-Path $pluginRoot ([string]$entry.src)
+                            Skill  = $skill
+                            Path   = Join-Path $pluginRoot ([string]$entry.src)
                         })
                 }
             }
             return @($bundles | Sort-Object Skill, Plugin)
         }
-
         function New-MarkerPlanFixture {
             param([switch]$SeedFile)
 
@@ -91,8 +90,8 @@ Describe 'retired arch evidence marker' {
     It 'test:PlanEvidence.MarkerTokenizationAndRetiredArch synchronizes the manifest-derived parser closure' {
         @($script:stateBundles.Skill) |
             Should -Be @('autopilot', 'cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si', 'work-hierarchy-sync')
-        @($script:validatorBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
-        @($script:evidenceBundles.Skill) | Should -Be @('cep', 'ci', 'cip')
+        @($script:validatorBundles.Skill) | Should -Be @('autopilot', 'cep', 'ci', 'cip')
+        @($script:evidenceBundles.Skill) | Should -Be @('autopilot', 'cep', 'ci', 'cip')
 
         $canonicalStateHash = (Get-FileHash -LiteralPath $script:canonicalState -Algorithm SHA256).Hash
         foreach ($bundle in $script:stateBundles) {

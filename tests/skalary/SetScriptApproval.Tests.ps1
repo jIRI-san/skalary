@@ -131,6 +131,8 @@ Describe 'Set-ScriptApproval' {
                         $generic,
                         "$prefix -Mode Publish -RunId $runId",
                         "$prefix -Mode Freeze -RunId $runId -PlanDir docs/implementation-plans/001-legacy-plan",
+                        "$prefix -Mode Freeze -RunId $runId -PlanDir docs/implementation-plans/standalone-2026-08-02-c21cdc-review-report-as-data",
+                        "$prefix -Mode Freeze -RunId $runId -PlanDir docs/implementation-plans/bcece1-2026-08-02-c21cdc-review-report-as-data",
                         $plan
                     )) {
                     [regex]::IsMatch($valid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
@@ -142,6 +144,8 @@ Describe 'Set-ScriptApproval' {
                         "$generic -PlanDir docs/implementation-plans/..",
                         "$generic -PlanDir docs/implementation-plans/../outside",
                         "$generic -PlanDir docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data/../outside",
+                        "$generic -PlanDir docs/implementation-plans/standalone-standalone-2026-08-02-c21cdc-review-report-as-data",
+                        "$generic -PlanDir docs/implementation-plans/bcece-2026-08-02-c21cdc-review-report-as-data",
                         "$generic -PlanDir docs\implementation-plans\2026-08-02-c21cdc-review-report-as-data",
                         "$generic -PlanDir C:/repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",
                         "$generic -PlanDir /repo/docs/implementation-plans/2026-08-02-c21cdc-review-report-as-data",

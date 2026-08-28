@@ -686,6 +686,39 @@ function Get-PlanMetadata {
     }
 }
 
+function ConvertFrom-PlanFolderName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FolderName
+    )
+
+    if ($FolderName -match '^(?:(?<prefix>standalone|[0-9a-f]{6})-)?(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
+        return [pscustomobject]@{
+            Scheme       = 'new'
+            FolderId     = $Matches.hash
+            FolderPrefix = if ($Matches.ContainsKey('prefix')) {
+                $Matches.prefix.ToLowerInvariant()
+            }
+            else {
+                $null
+            }
+            Slug         = $Matches.slug
+            Date         = $Matches.date
+        }
+    }
+    if ($FolderName -match '^(?<num>\d{3})-(?<slug>.+)$') {
+        return [pscustomobject]@{
+            Scheme       = 'legacy'
+            FolderId     = $Matches.num
+            FolderPrefix = $null
+            Slug         = $Matches.slug
+            Date         = $null
+        }
+    }
+    return $null
+}
+
 function Get-PlanInventory {
     [CmdletBinding()]
     param(
@@ -712,23 +745,8 @@ function Get-PlanInventory {
 
     foreach ($entry in $folders) {
         $name = $entry.Dir.Name
-        $scheme = $null
-        $folderId = $null
-        $slug = $null
-        $date = $null
-
-        if ($name -match '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
-            $scheme = 'new'
-            $folderId = $Matches.hash
-            $slug = $Matches.slug
-            $date = $Matches.date
-        }
-        elseif ($name -match '^(?<num>\d{3})-(?<slug>.+)$') {
-            $scheme = 'legacy'
-            $folderId = $Matches.num
-            $slug = $Matches.slug
-        }
-        else {
+        $parsedFolder = ConvertFrom-PlanFolderName -FolderName $name
+        if ($null -eq $parsedFolder) {
             continue
         }
 
@@ -750,16 +768,17 @@ function Get-PlanInventory {
             }
         }
 
-        $canonicalId = if ($anchorId) { $anchorId } else { $folderId }
+        $canonicalId = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
 
         $inventory.Add([pscustomobject]@{
             Id = $canonicalId
-            FolderId = $folderId
+            FolderId = $parsedFolder.FolderId
+            FolderPrefix = $parsedFolder.FolderPrefix
             AnchorId = $anchorId
             EpicId = $epicId
-            Scheme = $scheme
-            Slug = $slug
-            Date = $date
+            Scheme = $parsedFolder.Scheme
+            Slug = $parsedFolder.Slug
+            Date = $parsedFolder.Date
             FolderName = $name
             Path = $entry.Dir.FullName
             IsArchived = $entry.IsArchived
@@ -901,8 +920,9 @@ function Get-EpicInventory {
 
     .DESCRIPTION
     An epic is an index, not a plan: it holds `epic.md` and no `plan.md`, and its children stay ordinary
-    sibling plan folders so every existing consumer keeps resolving them unchanged. The folder name
-    follows the plan scheme (`<yyyy-mm-dd>-<6hex>-<slug>`); the `<!-- epic-id: ... -->` anchor in
+    sibling plan folders so every existing consumer keeps resolving them unchanged. Epic folders never
+    carry the navigational plan prefix: their name remains `<yyyy-mm-dd>-<6hex>-<slug>`. The
+    `<!-- epic-id: ... -->` anchor in
     `epic.md` is canonical when present, exactly as `plan-id` is for plans.
     #>
     [CmdletBinding()]
@@ -1598,4 +1618,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision

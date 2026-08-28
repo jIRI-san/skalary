@@ -198,17 +198,17 @@ Describe 'New-Epic' {
                 New-Item -ItemType Directory -Path $dir -Force | Out-Null
                 # A plan that merely documents the marker in a fenced example must not be enrolled.
                 Set-Content -LiteralPath (Join-Path $dir 'plan.md') -Encoding utf8NoBOM -Value (@(
-                    '# 999fff: Documents the marker'
-                    '<!-- plan-id: 999fff -->'
-                    ''
-                    '## Phase 1: Fixture'
-                    ''
-                    '- [ ] 1.1 Explain the marker `S`'
-                    ''
-                    '```markdown'
-                    '<!-- epic: cc33dd -->'
-                    '```'
-                ) -join "`n")
+                        '# 999fff: Documents the marker'
+                        '<!-- plan-id: 999fff -->'
+                        ''
+                        '## Phase 1: Fixture'
+                        ''
+                        '- [ ] 1.1 Explain the marker `S`'
+                        ''
+                        '```markdown'
+                        '<!-- epic: cc33dd -->'
+                        '```'
+                    ) -join "`n")
 
                 (Get-PlanInventory -RepoRoot $tmp | Where-Object { $_.Id -eq '999fff' }).EpicId | Should -BeNullOrEmpty
 
@@ -230,6 +230,161 @@ Describe 'New-Epic' {
 
                 { & $newPlan -Title 'Colliding plan' -Slug 'colliding' -RepoRoot $tmp -PlanId 'cc33dd' -TemplatePath $template } |
                     Should -Throw '*already taken*'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'reconciles a prefixed folder during attachment and forced re-parenting' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'First epic' -Slug 'first-epic' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                & $newEpic -Title 'Second epic' -Slug 'second-epic' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'ee55ff' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $created.FolderName | Should -Be 'standalone-2026-08-01-111aaa-attach-later'
+
+                $attached = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $attached.Stamped[0].Path | Should -Be (Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later')
+                Test-Path -LiteralPath $created.Path | Should -BeFalse
+                (Resolve-Plan -Reference '111aaa' -RepoRoot $tmp).EpicId | Should -Be 'cc33dd'
+
+                $reparented = & $newEpic -Epic 'ee55ff' -RepoRoot $tmp -ChildPlan '111aaa' -Force
+                $reparented.Stamped[0].Path | Should -Be (Join-Path $tmp 'docs/implementation-plans/ee55ff-2026-08-01-111aaa-attach-later')
+                Test-Path -LiteralPath $attached.Stamped[0].Path | Should -BeFalse
+                $resolved = Resolve-Plan -Reference '111aaa' -RepoRoot $tmp
+                $resolved.EpicId | Should -Be 'ee55ff'
+                $resolved.FolderPrefix | Should -Be 'ee55ff'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'rejects a prefix target collision before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $collision = Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later'
+                New-Item -ItemType Directory -Path $collision -Force | Out-Null
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*Ambiguous plan reference*'
+
+                Test-Path -LiteralPath $created.Path | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'rejects a dangling prefix target before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $collision = Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-attach-later'
+                try {
+                    [void][System.IO.Directory]::CreateSymbolicLink(
+                        $collision,
+                        (Join-Path $tmp 'missing-target')
+                    )
+                }
+                catch {
+                    Set-ItResult -Skipped -Because "this host cannot create a symbolic link unprivileged: $($_.Exception.Message)"
+                    return
+                }
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*target folder*already exists*'
+
+                Test-Path -LiteralPath $created.Path -PathType Container | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'validates the target epic child table before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                $epic = & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd'
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $invalid = (Get-Content -LiteralPath $epic.EpicFile -Raw) -replace '<!-- child-plans:end -->', ''
+                Set-Content -LiteralPath $epic.EpicFile -Value $invalid -Encoding utf8NoBOM
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*must contain exactly one ordered*'
+
+                Test-Path -LiteralPath $created.Path -PathType Container | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'validates the losing epic child table before forced re-parenting' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                $firstEpic = & $newEpic -Title 'First' -Slug 'first' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd'
+                & $newEpic -Title 'Second' -Slug 'second' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'ee55ff' | Out-Null
+                & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template | Out-Null
+                $attached = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $invalid = (Get-Content -LiteralPath $firstEpic.EpicFile -Raw) -replace '<!-- child-plans:end -->', ''
+                Set-Content -LiteralPath $firstEpic.EpicFile -Value $invalid -Encoding utf8NoBOM
+
+                { & $newEpic -Epic 'ee55ff' -RepoRoot $tmp -ChildPlan '111aaa' -Force } |
+                    Should -Throw '*must contain exactly one ordered*'
+
+                Test-Path -LiteralPath $attached.Stamped[0].Path -PathType Container | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $attached.Stamped[0].PlanFile).EpicId | Should -Be 'cc33dd'
+                Test-Path -LiteralPath (
+                    Join-Path $tmp 'docs/implementation-plans/ee55ff-2026-08-01-111aaa-attach-later'
+                ) | Should -BeFalse
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:epic-scaffold-links-children handles case-equivalent prefix paths by platform' {
+            $tmp = & $newTempRoot
+            try {
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $childDir = & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'case-prefix'
+                $planFile = Join-Path $childDir 'plan.md'
+                $lines = [System.Collections.Generic.List[string]]::new()
+                $lines.AddRange([string[]](Get-Content -LiteralPath $planFile))
+                $planIdIndex = $lines.FindIndex({ param($line) $line -match '<!-- plan-id:' })
+                $lines.Insert($planIdIndex + 1, '<!-- epic: cc33dd -->')
+                Set-Content -LiteralPath $planFile -Value $lines.ToArray() -Encoding utf8NoBOM
+
+                $upperPath = Join-Path $tmp 'docs/implementation-plans/CC33DD-2026-08-01-111aaa-case-prefix'
+                Move-Item -LiteralPath $childDir -Destination $upperPath
+
+                $result = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $expectedPath = if ($IsWindows) {
+                    $upperPath
+                }
+                else {
+                    Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-case-prefix'
+                }
+                $result.Stamped[0].Path | Should -BeExactly $expectedPath
+                Test-Path -LiteralPath $expectedPath -PathType Container | Should -BeTrue
             }
             finally {
                 Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue

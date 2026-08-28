@@ -159,7 +159,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Prune only prior-plan entries flagged obsolete/superseded by `/udn`; retention guards remain enforced by script.
      - Candidate selection must pass full-line matches from active ledger files into `Remove` (`-Match` or `-MatchBase64`), never substring or regex targeting.
 
-4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; the slug dir is `<date>-<hash>-<slug>` for new plans or legacy `NNN-<slug>`):
+4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; never reconstruct a legacy, unprefixed-hash, or prefixed-hash folder name):
    - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`
    - Move folder: `Move-Item docs/implementation-plans/<plan-dir> docs/implementation-plans/archived/<plan-dir>`
    - Stage and commit: `git commit -m "chore: archive completed plan <plan-id>"`

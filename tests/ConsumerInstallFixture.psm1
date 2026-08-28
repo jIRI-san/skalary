@@ -856,22 +856,30 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 }
         )
         foreach ($declaration in $declarations) {
-            $expanded = [string]$declaration.path
-            $expanded = $expanded.Replace('<category>', 'testing')
-            $expanded = $expanded.Replace('<plan>', '2026-01-02-a1b2c3-consumer-scaffold')
-            $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
-            $subtree = $expanded.EndsWith('/**', [System.StringComparison]::Ordinal)
-            if ($subtree) { $expanded = $expanded.Substring(0, $expanded.Length - 3) }
-            $literalDirectory = $expanded -notmatch '\.(?:json|md|ps1|psm1|txt|ya?ml)$'
-
-            if ($RelativePath -ceq $expanded) { return $true }
-            if (($subtree -or $literalDirectory) -and
-                $RelativePath.StartsWith("$expanded/", [System.StringComparison]::Ordinal)) {
-                return $true
+            $template = [string]$declaration.path
+            $planFolders = if ($template.Contains('<plan>')) {
+                @('standalone-2026-01-02-a1b2c3-consumer-scaffold', '007-consumer-scaffold')
             }
-            if ($EntryKind -ceq 'D' -and
-                $expanded.StartsWith("$RelativePath/", [System.StringComparison]::Ordinal)) {
-                return $true
+            else {
+                @('')
+            }
+            foreach ($planFolder in $planFolders) {
+                $expanded = $template.Replace('<category>', 'testing')
+                $expanded = $expanded.Replace('<plan>', $planFolder)
+                $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
+                $subtree = $expanded.EndsWith('/**', [System.StringComparison]::Ordinal)
+                if ($subtree) { $expanded = $expanded.Substring(0, $expanded.Length - 3) }
+                $literalDirectory = $expanded -notmatch '\.(?:json|md|ps1|psm1|txt|ya?ml)$'
+
+                if ($RelativePath -ceq $expanded) { return $true }
+                if (($subtree -or $literalDirectory) -and
+                    $RelativePath.StartsWith("$expanded/", [System.StringComparison]::Ordinal)) {
+                    return $true
+                }
+                if ($EntryKind -ceq 'D' -and
+                    $expanded.StartsWith("$RelativePath/", [System.StringComparison]::Ordinal)) {
+                    return $true
+                }
             }
         }
         return $false
@@ -972,12 +980,18 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     )
                 }
                 else {
-                    Join-Path $Root 'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold'
+                    Join-Path $Root 'docs/implementation-plans/standalone-2026-01-02-a1b2c3-consumer-scaffold'
+                }
+                $legacyPlanDir = if ($Hostile) {
+                    $planDir
+                }
+                else {
+                    Join-Path $Root 'docs/implementation-plans/007-consumer-scaffold'
                 }
                 @(
                     '-NoProfile', '-CommandWithArgs',
-                    '$ErrorActionPreference = ''Stop''; $scriptPath, $planDir, $repoRoot = $args; $requirements = Join-Path $planDir ''assets/requirements.md''; $hold = "$requirements.hold"; if (-not (Test-Path -LiteralPath $requirements -PathType Leaf)) { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1; exit $LASTEXITCODE }; Move-Item -LiteralPath $requirements -Destination $hold; try { 1..2 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "legacy learning $_" -MaxLearnings 1 | Out-Null } } finally { Move-Item -LiteralPath $hold -Destination $requirements }; 3..4 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "assets learning $_" -MaxLearnings 1 | Out-Null }; ''workflow-note:dual-layout''',
-                    $scriptPath, $planDir, $Root
+                    '$ErrorActionPreference = ''Stop''; $scriptPath, $planDir, $legacyPlanDir, $repoRoot = $args; 1..2 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $legacyPlanDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "legacy learning $_" -MaxLearnings 1 | Out-Null }; 3..4 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "assets learning $_" -MaxLearnings 1 | Out-Null }; ''workflow-note:dual-layout''',
+                    $scriptPath, $planDir, $legacyPlanDir, $Root
                 )
             }
             'Remove-LedgerEntry.ps1' {
@@ -1106,6 +1120,15 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                         '-RepoRoot', $root
                     )
                 if ($setup.ExitCode -ne 0) { throw "Workflow-note prerequisite failed: $($setup.Output)" }
+                $legacyPlanDir = Join-Path $root 'docs/implementation-plans/007-consumer-scaffold'
+                [void](New-Item -ItemType Directory -Path $legacyPlanDir -Force)
+                Set-Content -LiteralPath (Join-Path $legacyPlanDir 'plan.md') -Encoding utf8NoBOM -Value @(
+                    '# 007: Consumer legacy scaffold'
+                    ''
+                    '## Phase 1: Fixture'
+                    ''
+                    '- [ ] 1.1 Consumer lifecycle `S`'
+                )
             }
             elseif ($owner -eq 'Initialize-DesignNotes.ps1') {
                 Set-Content -LiteralPath (Join-Path $root '.github/.skalary/not-a-directory') `
@@ -1166,7 +1189,13 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     ForEach-Object {
                         $expanded = [string]$_.path
                         $expanded = $expanded.Replace('<category>', 'testing')
-                        $expanded = $expanded.Replace('<plan>', '2026-01-02-a1b2c3-consumer-scaffold')
+                        $planFolder = if ($expanded -ceq 'docs/implementation-plans/<plan>/learning-overflow/**') {
+                            '007-consumer-scaffold'
+                        }
+                        else {
+                            'standalone-2026-01-02-a1b2c3-consumer-scaffold'
+                        }
+                        $expanded = $expanded.Replace('<plan>', $planFolder)
                         $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
                         if ($expanded.EndsWith('/**', [System.StringComparison]::Ordinal)) {
                             $expanded = $expanded.Substring(0, $expanded.Length - 3)
@@ -1225,10 +1254,10 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 'New-ArchHumanDoc.ps1' { 'docs/architecture-notes/architecture.human.md' }
                 'Add-LedgerEntry.ps1' { 'docs/review-ledger/testing.md' }
                 'Add-WorkflowNote.ps1' {
-                    'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold/assets/logs/learnings.md'
+                    'docs/implementation-plans/standalone-2026-01-02-a1b2c3-consumer-scaffold/assets/logs/learnings.md'
                 }
                 'New-Plan.ps1' {
-                    'docs/implementation-plans/2026-01-02-a1b2c3-consumer-scaffold/assets/intent.md'
+                    'docs/implementation-plans/standalone-2026-01-02-a1b2c3-consumer-scaffold/assets/intent.md'
                 }
                 'New-Epic.ps1' {
                     'docs/implementation-plans/epics/2026-01-02-d4e5f6-consumer-epic/epic.md'

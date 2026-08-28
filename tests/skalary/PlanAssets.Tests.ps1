@@ -164,7 +164,7 @@ Describe 'Plan assets layout' {
                 $result = & pwsh -NoProfile -File $newPlanScript -Title 'Scaffold fixture' -Slug 'scaffold-fixture' -RepoRoot $tempRoot -PlanId 'abcdef' -Date '2026-01-02' -TemplatePath $templatePath
                 $LASTEXITCODE | Should -Be 0
 
-                $planDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-02-abcdef-scaffold-fixture'
+                $planDir = Join-Path $tempRoot 'docs/implementation-plans/standalone-2026-01-02-abcdef-scaffold-fixture'
                 Test-Path -LiteralPath (Join-Path $planDir 'plan.md') | Should -BeTrue
 
                 $assetsDir = Join-Path $planDir 'assets'
@@ -197,7 +197,7 @@ Describe 'Plan assets layout' {
                 & pwsh -NoProfile -File $newPlanScript -Title 'Force fixture' -Slug 'force-fixture' -RepoRoot $tempRoot -PlanId 'abcdef' -Date '2026-01-02' -TemplatePath $templatePath | Out-Null
                 $LASTEXITCODE | Should -Be 0
 
-                $planDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-02-abcdef-force-fixture'
+                $planDir = Join-Path $tempRoot 'docs/implementation-plans/standalone-2026-01-02-abcdef-force-fixture'
                 $authored = Join-Path $planDir 'assets/requirements.md'
                 $authoredText = "# Requirements`n`n| ID | Requirement | Acceptance Criteria | Phases/Steps |`n|----|----|----|----|`n| REQ-1 | Authored by the operator | ``test:authored`` | 1.1 |`n"
                 Set-Content -LiteralPath $authored -Value $authoredText -Encoding utf8NoBOM

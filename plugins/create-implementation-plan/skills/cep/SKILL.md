@@ -16,7 +16,7 @@ context: fork
 ## non-negotiable epic summary
 
 - An epic is an **index**, never a container: child plans stay ordinary sibling folders under `docs/implementation-plans/` so every existing consumer resolves them unchanged.
-- Membership is the `<!-- epic: <id> -->` marker in the child's `plan.md`; ordering is the existing `<!-- depends-on: ... -->` marker. Both are written by `New-Epic.ps1` — never hand-edited.
+- Membership is the `<!-- epic: <id> -->` marker in the child's `plan.md`; `New-Plan.ps1 -EpicId` writes it at creation and `New-Epic.ps1` maintains it for later attachment or re-parenting. Ordering is the existing `<!-- depends-on: ... -->` marker. Never hand-edit either marker.
 - Every child must be **independently executable**: it can be implemented, validated, reviewed, and merged on its own once its declared dependencies are done.
 - `/cep` scaffolds, wires, and preserves the accepted decomposition context; it does **not** draft requirements, risks, evidence, or steps. Each child goes through `/cip` to confirm and refine its preliminary intent and decisions, then complete the draft.
 - The epic carries goal-level intent only. A child with no intent of its own is not a plan, it is a phase in disguise.
@@ -54,11 +54,11 @@ pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Title "<epic titl
 Then, for each accepted child, in dependency order:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cep/scripts/New-Plan.ps1 -Title "<child title>" -Slug "<child slug>" -RepoRoot .
+pwsh -NoProfile -File .github/skills/cep/scripts/New-Plan.ps1 -Title "<child title>" -Slug "<child slug>" -EpicId <epic-id> -RepoRoot .
 pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -ChildPlan <child-ref> -DependsOn <dep-ref> -RepoRoot .
 ```
 
-`-DependsOn` takes one child per invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk.
+`New-Plan.ps1 -EpicId` creates each child directly under its final `<epic-id>-<date>-<plan-id>-<slug>` name and writes membership in the same operation; there is no temporary standalone folder or rename. `-DependsOn` takes one child per `New-Epic.ps1` invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk.
 
 Immediately after `New-Plan.ps1` creates each child, replace the scaffold-only content in these assets before moving to the next child:
 

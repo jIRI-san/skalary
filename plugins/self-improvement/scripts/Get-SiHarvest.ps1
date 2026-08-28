@@ -374,33 +374,20 @@ function Get-PinnedPlanInventory {
             }
             $relativePath = $Matches.path
             $name = [System.IO.Path]::GetFileName($relativePath)
-            $scheme = $null
-            $folderId = $null
-            $slug = $null
-            $date = $null
-            if ($name -match '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
-                $scheme = 'new'
-                $folderId = $Matches.hash
-                $slug = $Matches.slug
-                $date = $Matches.date
-            }
-            elseif ($name -match '^(?<num>\d{3})-(?<slug>.+)$') {
-                $scheme = 'legacy'
-                $folderId = $Matches.num
-                $slug = $Matches.slug
-            }
-            else {
+            $parsedFolder = ConvertFrom-PlanFolderName -FolderName $name
+            if ($null -eq $parsedFolder) {
                 continue
             }
             $planPath = "$relativePath/plan.md"
             $anchorId = if ($anchors.ContainsKey($planPath)) { $anchors[$planPath] } else { $null }
             $inventory.Add([pscustomobject]@{
-                    Id           = if ($anchorId) { $anchorId } else { $folderId }
-                    FolderId     = $folderId
+                    Id           = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
+                    FolderId     = $parsedFolder.FolderId
+                    FolderPrefix = $parsedFolder.FolderPrefix
                     AnchorId     = $anchorId
-                    Scheme       = $scheme
-                    Slug         = $slug
-                    Date         = $date
+                    Scheme       = $parsedFolder.Scheme
+                    Slug         = $parsedFolder.Slug
+                    Date         = $parsedFolder.Date
                     FolderName   = $name
                     Path         = [System.IO.Path]::GetFullPath((Join-Path $Root $relativePath))
                     RelativePath = $relativePath

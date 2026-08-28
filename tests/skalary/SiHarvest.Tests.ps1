@@ -268,6 +268,48 @@ No queued feedback.
         ($result.Items.wrappedContent -join "`n") | Should -Not -Match 'Mutable worktree evidence'
     }
 
+    It 'test:PlanFolderPrefix.ConsumerCompatibility resolves a prefixed plan from the pinned tree' {
+        $prefixedPlanDir = Join-Path $script:fixture.Root (
+            'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'
+        )
+        Move-Item -LiteralPath $script:fixture.PlanDir -Destination $prefixedPlanDir
+        & git -C $script:fixture.Root add -- (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture'
+        ) $(
+            'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'
+        )
+        & git -C $script:fixture.Root commit --quiet -m 'prefix harvest plan'
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        $result = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $oid
+
+        $result.Status | Should -Be complete
+        $index = Get-Content -LiteralPath $result.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        $index.planId | Should -Be 'a1b2c3'
+        @($index.sources.path) | Should -Contain (
+            'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture/' +
+            'assets/logs/cr-log.md'
+        )
+    }
+
+    It 'test:PlanFolderPrefix.ConsumerCompatibility rejects duplicate current and prefixed pinned plans' {
+        $prefixedPlanDir = Join-Path $script:fixture.Root (
+            'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'
+        )
+        Copy-Item -LiteralPath $script:fixture.PlanDir -Destination $prefixedPlanDir -Recurse
+        & git -C $script:fixture.Root add -- (
+            'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'
+        )
+        & git -C $script:fixture.Root commit --quiet -m 'duplicate prefixed harvest plan'
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        {
+            & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $oid
+        } | Should -Throw '*Ambiguous plan reference*'
+    }
+
     It 'rejects split-brain plan logs in the pinned tree' {
         Write-Utf8 -Path (Join-Path $script:fixture.PlanDir 'cr-log.md') `
             -Content "- [1.1] Duplicate legacy evidence.`n"

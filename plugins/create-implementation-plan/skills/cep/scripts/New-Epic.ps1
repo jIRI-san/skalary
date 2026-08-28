@@ -69,6 +69,27 @@ function Write-PlanText {
     Set-Content -LiteralPath $Path -Value (($Lines -join "`n").TrimEnd("`n")) -Encoding utf8NoBOM
 }
 
+function Test-DirectoryEntryExists {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $parent = Split-Path -Parent $Path
+    $name = Split-Path -Leaf $Path
+    return @(
+        Get-ChildItem -LiteralPath $parent -Force -ErrorAction Stop |
+            Where-Object { [string]::Equals($_.Name, $name, $comparison) }
+    ).Count -gt 0
+}
+
 function Get-SanitizedSlug {
     [CmdletBinding()]
     param(
@@ -204,8 +225,59 @@ function Get-EpicMember {
     )
 
     return @($Inventory |
-        Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $EpicId.ToLowerInvariant() } |
-        Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
+            Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $EpicId.ToLowerInvariant() } |
+            Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
+}
+
+function Get-PrefixedChildTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Child,
+
+        [Parameter(Mandatory)]
+        [string]$TargetEpicId
+    )
+
+    # Legacy and rollout-era unprefixed hash plans keep their existing paths. Only a folder that
+    # already participates in the prefix grammar must track later attachment or re-parenting.
+    if ($Child.Scheme -ne 'new' -or [string]::IsNullOrWhiteSpace([string]$Child.FolderPrefix)) {
+        return $null
+    }
+
+    $parent = Split-Path -Parent $Child.Path
+    $folderName = "$TargetEpicId-$($Child.Date)-$($Child.Id)-$($Child.Slug)"
+    return [pscustomobject]@{
+        FolderName = $folderName
+        Path       = Resolve-ConfinedFolder -Root $parent -FolderName $folderName
+    }
+}
+
+function Get-EpicChildBlock {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$EpicFile
+    )
+
+    $epicRaw = Get-Content -LiteralPath $EpicFile -Raw
+    $epicLines = ($epicRaw -replace "`r`n", "`n").Split("`n")
+    $startIndexes = @()
+    $endIndexes = @()
+    for ($i = 0; $i -lt $epicLines.Count; $i++) {
+        $trimmedLine = $epicLines[$i].Trim()
+        if ($trimmedLine -eq $script:ChildBlockStart) { $startIndexes += $i }
+        if ($trimmedLine -eq $script:ChildBlockEnd) { $endIndexes += $i }
+    }
+    if ($startIndexes.Count -ne 1 -or $endIndexes.Count -ne 1 -or $endIndexes[0] -le $startIndexes[0]) {
+        throw "Epic file '$EpicFile' must contain exactly one ordered '$script:ChildBlockStart' / '$script:ChildBlockEnd' block."
+    }
+
+    return [pscustomobject]@{
+        Lines      = $epicLines
+        StartIndex = $startIndexes[0]
+        EndIndex   = $endIndexes[0]
+    }
 }
 
 function Update-EpicChildTable {
@@ -239,18 +311,10 @@ function Update-EpicChildTable {
         }
     }
 
-    $epicRaw = Get-Content -LiteralPath $EpicFile -Raw
-    $epicLines = ($epicRaw -replace "`r`n", "`n").Split("`n")
-    $startIndex = -1
-    $endIndex = -1
-    for ($i = 0; $i -lt $epicLines.Count; $i++) {
-        $trimmedLine = $epicLines[$i].Trim()
-        if ($startIndex -lt 0 -and $trimmedLine -eq $script:ChildBlockStart) { $startIndex = $i; continue }
-        if ($startIndex -ge 0 -and $trimmedLine -eq $script:ChildBlockEnd) { $endIndex = $i; break }
-    }
-    if ($startIndex -lt 0 -or $endIndex -lt $startIndex) {
-        throw "Epic file '$EpicFile' has no '$script:ChildBlockStart' / '$script:ChildBlockEnd' block to rewrite."
-    }
+    $block = Get-EpicChildBlock -EpicFile $EpicFile
+    $epicLines = $block.Lines
+    $startIndex = $block.StartIndex
+    $endIndex = $block.EndIndex
 
     $rebuilt = [System.Collections.Generic.List[string]]::new()
     $rebuilt.AddRange([string[]]($epicLines[0..$startIndex]))
@@ -326,8 +390,20 @@ else {
     }
 }
 
-$stamped = [System.Collections.Generic.List[object]]::new()
-$reparentedFrom = [System.Collections.Generic.List[string]]::new()
+$pathComparer = if ($IsWindows) {
+    [System.StringComparer]::OrdinalIgnoreCase
+}
+else {
+    [System.StringComparer]::Ordinal
+}
+$validatedEpicFiles = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
+$resolvedEpicFile = [System.IO.Path]::GetFullPath($epicFile)
+if ($validatedEpicFiles.Add($resolvedEpicFile)) {
+    Get-EpicChildBlock -EpicFile $resolvedEpicFile | Out-Null
+}
+
+$attachments = [System.Collections.Generic.List[object]]::new()
+$targetPaths = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
 foreach ($reference in $ChildPlan) {
     $child = Resolve-Plan -Reference $reference -RepoRoot $repoRootPath -Inventory $planInventory
     $childPlanFile = Join-Path $child.Path 'plan.md'
@@ -346,10 +422,19 @@ foreach ($reference in $ChildPlan) {
         if (-not $Force) {
             throw "Child plan '$($child.Id)' already belongs to epic '$($markers.EpicId)'. Re-parenting is a deliberate call — re-run with -Force."
         }
-        $reparentedFrom.Add($markers.EpicId.ToLowerInvariant())
-    }
 
-    $lines = Set-PlanHeaderMarker -Lines $lines -Key 'epic' -Value $EpicId
+        $previousEpicId = $markers.EpicId.ToLowerInvariant()
+        $previousEpic = @($epicInventory | Where-Object {
+                $_.Id -and $_.Id.ToLowerInvariant() -eq $previousEpicId
+            })
+        if ($previousEpic.Count -ne 1 -or -not (Test-Path -LiteralPath $previousEpic[0].EpicFile -PathType Leaf)) {
+            throw "Cannot re-parent child plan '$($child.Id)': previous epic '$previousEpicId' has no unique epic.md."
+        }
+        $previousEpicFile = [System.IO.Path]::GetFullPath([string]$previousEpic[0].EpicFile)
+        if ($validatedEpicFiles.Add($previousEpicFile)) {
+            Get-EpicChildBlock -EpicFile $previousEpicFile | Out-Null
+        }
+    }
 
     $mergedDeps = [System.Collections.Generic.List[string]]::new()
     foreach ($existingDep in @($markers.DependsOn)) {
@@ -364,18 +449,72 @@ foreach ($reference in $ChildPlan) {
         $token = $resolvedDep.Id.ToLowerInvariant()
         if (-not $mergedDeps.Contains($token)) { $mergedDeps.Add($token) }
     }
+
+    $target = Get-PrefixedChildTarget -Child $child -TargetEpicId $EpicId
+    if ($target -and -not $pathComparer.Equals($target.Path, $child.Path)) {
+        if ((Test-DirectoryEntryExists -Path $target.Path) -or -not $targetPaths.Add($target.Path)) {
+            throw "Cannot attach child plan '$($child.Id)': target folder '$($target.Path)' already exists or is selected by another child."
+        }
+    }
+
+    $attachments.Add([pscustomobject]@{
+            Child     = $child
+            PlanFile  = $childPlanFile
+            Lines     = $lines
+            Markers   = $markers
+            DependsOn = $mergedDeps
+            Target    = $target
+        })
+}
+
+$stamped = [System.Collections.Generic.List[object]]::new()
+$reparentedFrom = [System.Collections.Generic.List[string]]::new()
+foreach ($attachment in $attachments) {
+    $child = $attachment.Child
+    $requiresMove = $attachment.Target -and
+    -not $pathComparer.Equals($attachment.Target.Path, $child.Path)
+    if ($requiresMove -and (Test-DirectoryEntryExists -Path $attachment.Target.Path)) {
+        throw "Cannot attach child plan '$($child.Id)': target folder '$($attachment.Target.Path)' already exists."
+    }
+
+    $lines = Set-PlanHeaderMarker -Lines $attachment.Lines -Key 'epic' -Value $EpicId
+    if ($attachment.Markers.EpicId -and $attachment.Markers.EpicId.ToLowerInvariant() -ne $EpicId) {
+        $reparentedFrom.Add($attachment.Markers.EpicId.ToLowerInvariant())
+    }
+
+    $mergedDeps = $attachment.DependsOn
     if ($mergedDeps.Count -gt 0) {
         $lines = Set-PlanHeaderMarker -Lines $lines -Key 'depends-on' -Value ($mergedDeps -join ', ')
     }
 
-    Write-PlanText -Path $childPlanFile -Lines $lines
+    Write-PlanText -Path $attachment.PlanFile -Lines $lines
+    $childPath = $child.Path
+    $childPlanFile = $attachment.PlanFile
+    if ($requiresMove) {
+        try {
+            [System.IO.Directory]::Move($child.Path, $attachment.Target.Path)
+        }
+        catch {
+            $moveError = $_
+            try {
+                Write-PlanText -Path $attachment.PlanFile -Lines $attachment.Lines
+            }
+            catch {
+                throw "Moving child plan '$($child.Id)' failed: $($moveError.Exception.Message). Restoring its original plan header also failed: $($_.Exception.Message)"
+            }
+            throw $moveError
+        }
+        $childPath = $attachment.Target.Path
+        $childPlanFile = Join-Path $childPath 'plan.md'
+    }
+
     $stamped.Add([pscustomobject]@{
-        Id         = $child.Id
-        Slug       = $child.Slug
-        Path       = $child.Path
-        PlanFile   = $childPlanFile
-        DependsOn  = $mergedDeps.ToArray()
-    })
+            Id        = $child.Id
+            Slug      = $child.Slug
+            Path      = $childPath
+            PlanFile  = $childPlanFile
+            DependsOn = $mergedDeps.ToArray()
+        })
 }
 
 # Rebuild the mirror from the markers on disk (including children stamped by earlier runs) so the table
