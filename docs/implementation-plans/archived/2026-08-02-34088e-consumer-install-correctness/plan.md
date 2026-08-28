@@ -1,6 +1,6 @@
 # 34088e: Consumer install correctness
 <!-- plan-id: 34088e -->
-<!-- cip-stage: drafted -->
+<!-- cip-stage: done -->
 <!-- epic: 33b1f9 -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -53,7 +53,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 4.1 Review the manifest-derived fixture, runtime-reference closure, active-plugin smoke attendance, scaffold confinement, and distribution drift; record `review:cr` before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) @human [after: 3.1] `S`
+- [x] 4.1 Review the manifest-derived fixture, runtime-reference closure, active-plugin smoke attendance, scaffold confinement, and distribution drift; record `review:cr` before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) @human [after: 3.1] `S`
   <details><summary>Details</summary>
 
   **Steps:**
