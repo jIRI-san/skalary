@@ -21,7 +21,6 @@ Describe 'New-Plan scaffolding' {
             return $root
         }
     }
-
     It 'test:PlanFolderPrefix.NewCreationAndCompatibility creates a standalone-prefixed folder with a plan-id anchor' {
         $repo = New-TempRepo
         try {
@@ -109,7 +108,7 @@ Describe 'New-Plan scaffolding' {
         }
     }
 
-    It 'creates an epic-prefixed child with membership in the initial plan content' {
+    It 'test:PlanFolderPrefix.NewCreationAndCompatibility creates an epic-prefixed child with membership in the initial plan content' {
         $repo = New-TempRepo
         try {
             & $newEpicScript -Title 'Parent' -Slug 'parent' -Date '2026-07-05' -EpicId 'fedcba' -RepoRoot $repo | Out-Null

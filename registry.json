@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T15:56:33.8071494Z",
+  "generatedAt": "2026-08-28T16:39:04.2711822Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -166,7 +166,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "72f50f2c7b79df84f6544e04a13021bbb35fe0f1dd1a16305b2cfcab571482af",
+          "sha256": "97e3fae5fe1bad2cf96ceb6b45199cdabded833176804726ab730ffeca45c9d6",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -340,7 +340,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.24"
+      "version": "1.2.25"
     },
     {
       "author": "jIRI-san",
