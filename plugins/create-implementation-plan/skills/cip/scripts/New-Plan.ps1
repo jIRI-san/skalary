@@ -167,14 +167,30 @@ else {
 
 $folderPrefix = if ($EpicId) { $EpicId } else { 'standalone' }
 $folderName = "$folderPrefix-$Date-$PlanId-$slugClean"
+$targetDir = Resolve-ConfinedFolder -Root $plansRoot -FolderName $folderName
+$pathComparison = if ($IsWindows) {
+    [System.StringComparison]::OrdinalIgnoreCase
+}
+else {
+    [System.StringComparison]::Ordinal
+}
 
 foreach ($existing in $takenIds) {
-    if ($existing.Id -and $existing.Id.ToLowerInvariant() -eq $PlanId -and $existing.FolderName -ne $folderName) {
+    if (-not $existing.Id -or $existing.Id.ToLowerInvariant() -ne $PlanId) {
+        continue
+    }
+
+    $existingPath = if ($existing.Path) {
+        [System.IO.Path]::GetFullPath([string]$existing.Path)
+    }
+    else {
+        $null
+    }
+    if (-not $existingPath -or -not [string]::Equals($existingPath, $targetDir, $pathComparison)) {
         throw "Plan id '$PlanId' is already taken by '$($existing.FolderName)'."
     }
 }
 
-$targetDir = Resolve-ConfinedFolder -Root $plansRoot -FolderName $folderName
 $planFile = Join-Path $targetDir 'plan.md'
 
 if ((Test-Path -LiteralPath $targetDir) -and -not $Force) {

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T17:16:38.3479808Z",
+  "generatedAt": "2026-08-28T17:50:49.2390481Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -698,12 +698,12 @@
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "95a8768789b63448cedb1b9aee26fb9a46db05c43b5276f71903e8fbc678d100",
+          "sha256": "94a9fbf062ac7fe7d5cbb26a1472f0aad07cc23a1e9f58448e4f25cdd065cb71",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "e4b52241d2e2ea8a43174e23df5db22eb1818b901a78dc368492233261a2a4c2",
+          "sha256": "104294a748b522089e9bc2500af1d74286f87925ce3a3a771bb61741e56e68b2",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -773,7 +773,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "e4b52241d2e2ea8a43174e23df5db22eb1818b901a78dc368492233261a2a4c2",
+          "sha256": "104294a748b522089e9bc2500af1d74286f87925ce3a3a771bb61741e56e68b2",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -825,7 +825,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.45"
+      "version": "1.0.46"
     },
     {
       "author": "jIRI-san",

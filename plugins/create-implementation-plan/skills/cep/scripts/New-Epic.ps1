@@ -253,6 +253,33 @@ function Get-PrefixedChildTarget {
     }
 }
 
+function Get-EpicChildBlock {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$EpicFile
+    )
+
+    $epicRaw = Get-Content -LiteralPath $EpicFile -Raw
+    $epicLines = ($epicRaw -replace "`r`n", "`n").Split("`n")
+    $startIndexes = @()
+    $endIndexes = @()
+    for ($i = 0; $i -lt $epicLines.Count; $i++) {
+        $trimmedLine = $epicLines[$i].Trim()
+        if ($trimmedLine -eq $script:ChildBlockStart) { $startIndexes += $i }
+        if ($trimmedLine -eq $script:ChildBlockEnd) { $endIndexes += $i }
+    }
+    if ($startIndexes.Count -ne 1 -or $endIndexes.Count -ne 1 -or $endIndexes[0] -le $startIndexes[0]) {
+        throw "Epic file '$EpicFile' must contain exactly one ordered '$script:ChildBlockStart' / '$script:ChildBlockEnd' block."
+    }
+
+    return [pscustomobject]@{
+        Lines      = $epicLines
+        StartIndex = $startIndexes[0]
+        EndIndex   = $endIndexes[0]
+    }
+}
+
 function Update-EpicChildTable {
     <#
     .SYNOPSIS
@@ -284,18 +311,10 @@ function Update-EpicChildTable {
         }
     }
 
-    $epicRaw = Get-Content -LiteralPath $EpicFile -Raw
-    $epicLines = ($epicRaw -replace "`r`n", "`n").Split("`n")
-    $startIndex = -1
-    $endIndex = -1
-    for ($i = 0; $i -lt $epicLines.Count; $i++) {
-        $trimmedLine = $epicLines[$i].Trim()
-        if ($startIndex -lt 0 -and $trimmedLine -eq $script:ChildBlockStart) { $startIndex = $i; continue }
-        if ($startIndex -ge 0 -and $trimmedLine -eq $script:ChildBlockEnd) { $endIndex = $i; break }
-    }
-    if ($startIndex -lt 0 -or $endIndex -lt $startIndex) {
-        throw "Epic file '$EpicFile' has no '$script:ChildBlockStart' / '$script:ChildBlockEnd' block to rewrite."
-    }
+    $block = Get-EpicChildBlock -EpicFile $EpicFile
+    $epicLines = $block.Lines
+    $startIndex = $block.StartIndex
+    $endIndex = $block.EndIndex
 
     $rebuilt = [System.Collections.Generic.List[string]]::new()
     $rebuilt.AddRange([string[]]($epicLines[0..$startIndex]))
@@ -371,8 +390,20 @@ else {
     }
 }
 
+$pathComparer = if ($IsWindows) {
+    [System.StringComparer]::OrdinalIgnoreCase
+}
+else {
+    [System.StringComparer]::Ordinal
+}
+$validatedEpicFiles = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
+$resolvedEpicFile = [System.IO.Path]::GetFullPath($epicFile)
+if ($validatedEpicFiles.Add($resolvedEpicFile)) {
+    Get-EpicChildBlock -EpicFile $resolvedEpicFile | Out-Null
+}
+
 $attachments = [System.Collections.Generic.List[object]]::new()
-$targetPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$targetPaths = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
 foreach ($reference in $ChildPlan) {
     $child = Resolve-Plan -Reference $reference -RepoRoot $repoRootPath -Inventory $planInventory
     $childPlanFile = Join-Path $child.Path 'plan.md'
@@ -391,6 +422,18 @@ foreach ($reference in $ChildPlan) {
         if (-not $Force) {
             throw "Child plan '$($child.Id)' already belongs to epic '$($markers.EpicId)'. Re-parenting is a deliberate call — re-run with -Force."
         }
+
+        $previousEpicId = $markers.EpicId.ToLowerInvariant()
+        $previousEpic = @($epicInventory | Where-Object {
+                $_.Id -and $_.Id.ToLowerInvariant() -eq $previousEpicId
+            })
+        if ($previousEpic.Count -ne 1 -or -not (Test-Path -LiteralPath $previousEpic[0].EpicFile -PathType Leaf)) {
+            throw "Cannot re-parent child plan '$($child.Id)': previous epic '$previousEpicId' has no unique epic.md."
+        }
+        $previousEpicFile = [System.IO.Path]::GetFullPath([string]$previousEpic[0].EpicFile)
+        if ($validatedEpicFiles.Add($previousEpicFile)) {
+            Get-EpicChildBlock -EpicFile $previousEpicFile | Out-Null
+        }
     }
 
     $mergedDeps = [System.Collections.Generic.List[string]]::new()
@@ -408,7 +451,7 @@ foreach ($reference in $ChildPlan) {
     }
 
     $target = Get-PrefixedChildTarget -Child $child -TargetEpicId $EpicId
-    if ($target -and -not [string]::Equals($target.Path, $child.Path, [System.StringComparison]::Ordinal)) {
+    if ($target -and -not $pathComparer.Equals($target.Path, $child.Path)) {
         if ((Test-DirectoryEntryExists -Path $target.Path) -or -not $targetPaths.Add($target.Path)) {
             throw "Cannot attach child plan '$($child.Id)': target folder '$($target.Path)' already exists or is selected by another child."
         }
@@ -429,7 +472,7 @@ $reparentedFrom = [System.Collections.Generic.List[string]]::new()
 foreach ($attachment in $attachments) {
     $child = $attachment.Child
     $requiresMove = $attachment.Target -and
-    -not [string]::Equals($attachment.Target.Path, $child.Path, [System.StringComparison]::Ordinal)
+    -not $pathComparer.Equals($attachment.Target.Path, $child.Path)
     if ($requiresMove -and (Test-DirectoryEntryExists -Path $attachment.Target.Path)) {
         throw "Cannot attach child plan '$($child.Id)': target folder '$($attachment.Target.Path)' already exists."
     }
@@ -449,7 +492,7 @@ foreach ($attachment in $attachments) {
     $childPlanFile = $attachment.PlanFile
     if ($requiresMove) {
         try {
-            Move-Item -LiteralPath $child.Path -Destination $attachment.Target.Path -ErrorAction Stop
+            [System.IO.Directory]::Move($child.Path, $attachment.Target.Path)
         }
         catch {
             $moveError = $_

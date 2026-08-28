@@ -314,6 +314,83 @@ Describe 'New-Epic' {
             }
         }
 
+        It 'validates the target epic child table before changing membership' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                $epic = & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd'
+                $created = & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template
+                $invalid = (Get-Content -LiteralPath $epic.EpicFile -Raw) -replace '<!-- child-plans:end -->', ''
+                Set-Content -LiteralPath $epic.EpicFile -Value $invalid -Encoding utf8NoBOM
+
+                { & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa' } |
+                    Should -Throw '*must contain exactly one ordered*'
+
+                Test-Path -LiteralPath $created.Path -PathType Container | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $created.PlanFile).EpicId | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'validates the losing epic child table before forced re-parenting' {
+            $tmp = & $newTempRoot
+            try {
+                $newPlan = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
+                $template = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
+                $firstEpic = & $newEpic -Title 'First' -Slug 'first' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd'
+                & $newEpic -Title 'Second' -Slug 'second' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'ee55ff' | Out-Null
+                & $newPlan -Title 'Attach later' -Slug 'attach-later' -RepoRoot $tmp -Date '2026-08-01' -PlanId '111aaa' -TemplatePath $template | Out-Null
+                $attached = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $invalid = (Get-Content -LiteralPath $firstEpic.EpicFile -Raw) -replace '<!-- child-plans:end -->', ''
+                Set-Content -LiteralPath $firstEpic.EpicFile -Value $invalid -Encoding utf8NoBOM
+
+                { & $newEpic -Epic 'ee55ff' -RepoRoot $tmp -ChildPlan '111aaa' -Force } |
+                    Should -Throw '*must contain exactly one ordered*'
+
+                Test-Path -LiteralPath $attached.Stamped[0].Path -PathType Container | Should -BeTrue
+                (Get-PlanHeaderMarkers -Path $attached.Stamped[0].PlanFile).EpicId | Should -Be 'cc33dd'
+                Test-Path -LiteralPath (
+                    Join-Path $tmp 'docs/implementation-plans/ee55ff-2026-08-01-111aaa-attach-later'
+                ) | Should -BeFalse
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'test:epic-scaffold-links-children handles case-equivalent prefix paths by platform' {
+            $tmp = & $newTempRoot
+            try {
+                & $newEpic -Title 'Parent' -Slug 'parent' -RepoRoot $tmp -Date '2026-08-01' -EpicId 'cc33dd' | Out-Null
+                $childDir = & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'case-prefix'
+                $planFile = Join-Path $childDir 'plan.md'
+                $lines = [System.Collections.Generic.List[string]]::new()
+                $lines.AddRange([string[]](Get-Content -LiteralPath $planFile))
+                $planIdIndex = $lines.FindIndex({ param($line) $line -match '<!-- plan-id:' })
+                $lines.Insert($planIdIndex + 1, '<!-- epic: cc33dd -->')
+                Set-Content -LiteralPath $planFile -Value $lines.ToArray() -Encoding utf8NoBOM
+
+                $upperPath = Join-Path $tmp 'docs/implementation-plans/CC33DD-2026-08-01-111aaa-case-prefix'
+                Move-Item -LiteralPath $childDir -Destination $upperPath
+
+                $result = & $newEpic -Epic 'cc33dd' -RepoRoot $tmp -ChildPlan '111aaa'
+                $expectedPath = if ($IsWindows) {
+                    $upperPath
+                }
+                else {
+                    Join-Path $tmp 'docs/implementation-plans/cc33dd-2026-08-01-111aaa-case-prefix'
+                }
+                $result.Stamped[0].Path | Should -BeExactly $expectedPath
+                Test-Path -LiteralPath $expectedPath -PathType Container | Should -BeTrue
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'test:epic-scaffold-links-children confines the epic folder to the epics root' {
             $tmp = & $newTempRoot
             try {

@@ -108,6 +108,27 @@ Describe 'New-Plan scaffolding' {
         }
     }
 
+    It 'test:PlanFolderPrefix.NewCreationAndCompatibility rejects an archived duplicate of the canonical plan id' {
+        $repo = New-TempRepo
+        try {
+            $folderName = 'standalone-2026-07-05-aaaa11-same'
+            $archived = Join-Path $repo "docs/implementation-plans/archived/$folderName"
+            New-Item -ItemType Directory -Path $archived -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $archived 'plan.md') -Encoding utf8NoBOM -Value @(
+                '# aaaa11: Archived plan'
+                '<!-- plan-id: aaaa11 -->'
+            )
+
+            {
+                & $scriptPath -Title 'Replacement' -Slug 'same' -Date '2026-07-05' -PlanId 'aaaa11' -RepoRoot $repo
+            } | Should -Throw '*already taken*'
+            Test-Path -LiteralPath (Join-Path $repo "docs/implementation-plans/$folderName") | Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'test:PlanFolderPrefix.NewCreationAndCompatibility creates an epic-prefixed child with membership in the initial plan content' {
         $repo = New-TempRepo
         try {
