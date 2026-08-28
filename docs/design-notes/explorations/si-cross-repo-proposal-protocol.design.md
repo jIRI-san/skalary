@@ -8,6 +8,12 @@ globs:
 
 # `/si` Cross-Repo Proposal Protocol
 
+> **Resolved by plan `2366ad`.** The implemented shape keeps the useful harvest/propose boundary but
+> deliberately omits the cache, container, credential, and publication platform explored below.
+> One bounded typed artifact is accepted by a clean upstream-rooted checkout, which then uses normal
+> upstream `/si` for small work or `/cip` for plan-sized work. The historical alternatives remain
+> below as exploration context, not executable direction.
+
 Operator note captured 2026-08-01, immediately after the first real `/si` run. **Not yet analysed in
 depth** — recorded for the next plan.
 

@@ -34,8 +34,8 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add one bounded typed export artifact produced from the existing `1936cb` capture, ledger, and SI activity records. Include source identity, candidate text, provenance, and disposition context; redact secrets, reject oversize input before writing, fence all imported text as untrusted, and add `test:CrossRepoSi.ExportBoundsRedactionAndReplay` (REQ-1, REQ-5, RISK-1, RISK-2, RISK-5) `L`
-- [ ] 1.2 Add the handoff that opens or accepts a clean upstream checkout, loads that checkout's instructions, imports the artifact as untrusted context, and invokes normal upstream `/si` for small changes or `/cip` for plan-sized work. Preserve existing `/si` scope, draft-PR, and never-auto-merge controls; add `test:CrossRepoSi.CleanUpstreamHandoff` (REQ-2, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.1] `L`
+- [x] 1.1 Add one bounded typed export artifact produced from the existing `1936cb` capture, ledger, and SI activity records. Include source identity, candidate text, provenance, and disposition context; redact secrets, reject oversize input before writing, fence all imported text as untrusted, and add `test:CrossRepoSi.ExportBoundsRedactionAndReplay` (REQ-1, REQ-5, RISK-1, RISK-2, RISK-5) `L`
+- [x] 1.2 Add the handoff that opens or accepts a clean upstream checkout, loads that checkout's instructions, imports the artifact as untrusted context, and invokes normal upstream `/si` for small changes or `/cip` for plan-sized work. Preserve existing `/si` scope, draft-PR, and never-auto-merge controls; add `test:CrossRepoSi.CleanUpstreamHandoff` (REQ-2, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.1] `L`
 
 ## Phase 2: Generic and repository-local review standards
 <!-- worktree: (recorded by /ci when worktree is created) -->

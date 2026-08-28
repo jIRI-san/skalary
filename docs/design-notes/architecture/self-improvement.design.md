@@ -75,6 +75,25 @@ degradation, never success, because opening a proposal with nobody present remai
 The consumer-repo fork/upstream flow is documented as manual — `gh` fork entitlement is out of
 scope, and skalary is itself the registry, so the PR target is this repo.
 
+## Cross-repository candidate transport
+
+A consumer may export one completed or in-progress durable SI run through installed
+`Export-CrossRepoSi.ps1`. The content-addressed `cross-repo-si-export/v1` artifact carries the
+consumer repository, plan, source commit, installed plugin version, SI run/receipt provenance,
+ranked candidate text, cited ledger/capture sources, targets, and current disposition. The writer
+accepts at most five candidates, checks the run's 1 MiB ceiling before reading, redacts common
+credential forms, neutralizes stored fence tokens, validates the closed schema, and refuses an
+artifact over 64 KiB before atomic replacement. Repeating the same export is byte-stable and
+reports a no-op.
+
+The artifact is transport, not a second SI history. In a clean upstream-rooted checkout,
+`Invoke-CrossRepoSiHandoff.ps1` validates its content address and closed schema, refuses dirty or
+nested roots, and loads a bounded digest inventory of upstream instruction files before returning
+the artifact inside a fresh untrusted-input fence. Small work resumes normal upstream `/si`;
+plan-sized work enters normal `/cip`. The existing write-scope guard, draft-only PR, and
+never-auto-merge controls remain authoritative, and every consumer claim is re-judged against
+current upstream code.
+
 ## Durable SI state ownership
 
 Self-improvement owns its state schemas and lifecycle commands directly under

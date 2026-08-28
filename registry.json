@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T19:35:04.9290961Z",
+  "generatedAt": "2026-08-28T20:01:01.9895850Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1228,8 +1228,13 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "6c90f94a3c17503dedc1bb021d747a611208dc539b34f826ab3bcd828f32b4b7",
+          "sha256": "73d81c75a4009fae6e0a9fb806a6ca74a802cafaf8769b37773d285bdeb8e5f9",
           "src": "skills/si/SKILL.md"
+        },
+        {
+          "dest": "skills/si/assets/cross-repo-guide.md",
+          "sha256": "114af49ddd983e2ca49d2497354a57d6f0dfeaa0b0d46d5b16bed70ad8b6f949",
+          "src": "skills/si/assets/cross-repo-guide.md"
         },
         {
           "dest": "skills/si/assets/harvest-guide.md",
@@ -1240,6 +1245,11 @@
           "dest": "skills/si/assets/propose-guide.md",
           "sha256": "0a8d8fe0cef8430db2457278c37a4a5701c659da0abfc8f49bd3f2ce3937844c",
           "src": "skills/si/assets/propose-guide.md"
+        },
+        {
+          "dest": "skills/si/schemas/cross-repo-export.schema.json",
+          "sha256": "de01dab5ffb724cb678cffb4326626df87d43fae69b2a72dd5923cee623e873f",
+          "src": "schemas/cross-repo-export.schema.json"
         },
         {
           "dest": "skills/si/schemas/manifest.schema.json",
@@ -1287,6 +1297,11 @@
           "src": "scripts/Enqueue-SiDue.ps1"
         },
         {
+          "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
+          "sha256": "a78b3d59ae472d36cc747d871542f1e9e1792cd4bf03162d3e66f3dfcabe5dc8",
+          "src": "scripts/Export-CrossRepoSi.ps1"
+        },
+        {
           "dest": "skills/si/scripts/Get-SiHarvest.ps1",
           "sha256": "4a1ff0d3d8a0e212e7a00758697fc077e7d4366f5c5048bfbd439cdc0767ebbb",
           "src": "scripts/Get-SiHarvest.ps1"
@@ -1295,6 +1310,11 @@
           "dest": "skills/si/scripts/Get-SiState.ps1",
           "sha256": "388447ebf88eecd830a86bac62d59c1a2bdb238bfb8515e73c31646d254e6b67",
           "src": "scripts/Get-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
+          "sha256": "5221a4dab7b9f0a755deafa751a10065e6a484f0c5be3345934455a605b73573",
+          "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {
           "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
@@ -1373,6 +1393,12 @@
         },
         {
           "mode": "literal",
+          "owner": "Export-CrossRepoSi.ps1",
+          "path": "docs/self-improvement/cross-repo-export.json",
+          "trigger": "consumer-to-upstream SI handoff"
+        },
+        {
+          "mode": "literal",
           "owner": "Get-SiHarvest.ps1",
           "path": "docs/self-improvement/harvest-index.json",
           "trigger": "bounded SI evidence scan"
@@ -1444,7 +1470,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.55"
+      "version": "1.0.56"
     },
     {
       "author": "jIRI-san",
