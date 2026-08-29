@@ -411,6 +411,14 @@ verified replay, cleanup tombstone, and exact retained-pair repair rules are unc
 corpus reference renderer and byte goldens include these fields so production and fixture rendering
 remain independently derived.
 
+`tests/skalary/fixtures/review-run/corroboration-matrix.json` is the compact behavioral corpus for the
+derived fields. It fixes exact and near duplicates, unrelated short boilerplate, single-source and
+degraded attendance, malicious echo, input-order stability, and unchanged clean elevation. The
+`test:ReviewReport.CorroborationMatrix` host verifies every expected projection and raw-record count,
+then adds each forbidden derived field to an otherwise schema-valid raw finding and requires the
+closed review-run v1 schema to reject it. Derived corroboration and effective severity therefore stay
+engine-owned rather than becoming caller assertions.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a

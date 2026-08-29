@@ -10,6 +10,9 @@ Describe 'review finding corroboration derivation' {
             -Force -DisableNameChecking -PassThru
         Import-Module (Join-Path $PSScriptRoot 'fixtures/review-run/ReviewRunTestKit.psm1') `
             -Force -DisableNameChecking
+        $script:corroborationMatrix = Get-Content `
+            -LiteralPath (Join-Path $PSScriptRoot 'fixtures/review-run/corroboration-matrix.json') `
+            -Raw | ConvertFrom-Json -Depth 30
 
         function Script:New-CorroborationRun {
             param(
@@ -350,5 +353,92 @@ Describe 'review finding corroboration derivation' {
             [System.IO.File]::ReadAllBytes($replayed.Receipt) | Should -Be ([System.IO.File]::ReadAllBytes($final.Receipt))
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
+    }
+
+    It 'test:ReviewReport.CorroborationMatrix covers support regimes deterministically and rejects caller-forged derived fields' {
+        $script:corroborationMatrix.schema | Should -Be 'skalary/review-corroboration-matrix@1'
+        @($script:corroborationMatrix.cases.id) | Should -Be @(
+            'exact-duplicate',
+            'near-duplicate',
+            'unrelated-boilerplate',
+            'single-source',
+            'incomplete-attendance',
+            'malicious-echo',
+            'input-order-stability',
+            'unchanged-clean-elevation'
+        )
+
+        foreach ($case in $script:corroborationMatrix.cases) {
+            $rawBefore = ConvertTo-Json -InputObject $case.findings -Depth 20 -Compress
+            $projection = ConvertTo-ReviewProjection -Run (
+                New-CorroborationRun -Roster $case.roster -Tasks $case.tasks -Findings $case.findings
+            )
+            (ConvertTo-Json -InputObject $case.findings -Depth 20 -Compress) |
+                Should -BeExactly $rawBefore -Because "$($case.id) must not mutate caller findings"
+            @($projection.Findings | ForEach-Object { @($_.Raw).Count } | Measure-Object -Sum).Sum |
+                Should -Be @($case.findings).Count -Because "$($case.id) must preserve every raw finding"
+
+            $byRoot = @{}
+            foreach ($entry in $projection.Findings) { $byRoot[[string]$entry.Raw[0].RootCause] = $entry }
+            foreach ($expected in $case.expected) {
+                $entry = $byRoot[[string]$expected.rootCause]
+                $entry | Should -Not -BeNullOrEmpty -Because "$($case.id) must retain group '$($expected.rootCause)'"
+                $entry.SupportCount | Should -Be $expected.supportCount -Because $case.id
+                $entry.AttendanceState | Should -Be $expected.attendanceState -Because $case.id
+                $entry.Similarity | Should -Be $expected.similarity -Because $case.id
+                $entry.CorroborationState | Should -Be $expected.corroborationState -Because $case.id
+                $entry.RawSeverity | Should -Be $expected.rawSeverity -Because $case.id
+                $entry.EffectiveSeverity | Should -Be $expected.effectiveSeverity -Because $case.id
+                $entry.NeedsReview | Should -Be $expected.needsReview -Because $case.id
+                $entry.Elevated | Should -Be $expected.elevated -Because $case.id
+                $entry.Reason | Should -Not -BeNullOrEmpty -Because "$($case.id) needs an observable explanation"
+            }
+
+            $full = Get-ReviewRunFullView -Projection $projection
+            foreach ($label in @(
+                    'Raw severity', 'Effective severity', 'Support count', 'Attendance state',
+                    'Similarity', 'Corroboration state', 'Reason'
+                )) {
+                $full | Should -Match ([regex]::Escape($label)) -Because "$($case.id) must render '$label'"
+            }
+
+            $reversed = ConvertTo-ReviewProjection -Run (
+                New-CorroborationRun -Roster $case.roster `
+                    -Tasks @($case.tasks[($case.tasks.Count - 1)..0]) `
+                    -Findings @($case.findings[($case.findings.Count - 1)..0])
+            )
+            $signature = {
+                param($value)
+                @($value.Findings | ForEach-Object {
+                        "$($_.Key):$($_.SupportCount):$($_.AttendanceState):$($_.Similarity):" +
+                        "$($_.CorroborationState):$($_.RawSeverity):$($_.EffectiveSeverity):$($_.NeedsReview)"
+                    })
+            }
+            & $signature $reversed | Should -Be (& $signature $projection) -Because "$($case.id) must be input-order stable"
+        }
+
+        $baseRun = New-ReviewTestRun `
+            -RunId '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35' `
+            -PlanDigest ('sha256:' + ('1' * 64)) `
+            -Roster @('model-a') `
+            -Tasks @(@{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }) `
+            -Findings @(@{
+                taskId = 'security-a'
+                severity = 'Medium'
+                title = 'Schema-owned derivation'
+                body = 'Callers provide only raw reviewer data.'
+                rootCause = 'schema'
+                component = 'src/schema.ps1'
+            })
+        $baseJson = ConvertTo-ReviewCanonicalJson -Node $baseRun
+        (Test-ReviewSchema -Json $baseJson -SchemaName 'review-run.schema.json') |
+            Should -BeTrue -Because 'the raw fixture must be valid before forged fields are added'
+        foreach ($forbidden in $script:corroborationMatrix.forbiddenFindingFields) {
+            $forged = $baseJson | ConvertFrom-Json -AsHashtable -Depth 30
+            $forged['findings'][0][[string]$forbidden.name] = $forbidden.value
+            $forgedJson = (ConvertTo-Json -InputObject $forged -Depth 30 -Compress) + "`n"
+            (Test-ReviewSchema -Json $forgedJson -SchemaName 'review-run.schema.json') |
+                Should -BeFalse -Because "callers cannot supply derived finding field '$($forbidden.name)'"
+        }
     }
 }

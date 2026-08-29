@@ -41,7 +41,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 2.1 Extend the existing review report's structured finding and rendered views with support count, attendance state, similarity flag, corroboration state, raw severity, effective severity, and reason. Preserve all raw findings and current review-run v1 publication, verification, replay, cleanup, and retained report/receipt behavior; add `test:ReviewReport.CorroborationRenderingAndRetention` (REQ-3, REQ-4, REQ-5, RISK-3, RISK-4, RISK-5) [after: 1.2] `L`
-- [ ] 2.2 Extend existing review-report fixtures for exact duplicates, clearly near duplicates, unrelated boilerplate, single source, incomplete attendance, malicious echo, input-order stability, and unchanged clean elevation. Prove callers cannot supply derived corroboration or effective severity with `test:ReviewReport.CorroborationMatrix` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.1] `M`
+- [x] 2.2 Extend existing review-report fixtures for exact duplicates, clearly near duplicates, unrelated boilerplate, single source, incomplete attendance, malicious echo, input-order stability, and unchanged clean elevation. Prove callers cannot supply derived corroboration or effective severity with `test:ReviewReport.CorroborationMatrix` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.1] `M`
 
 ## Phase 3: Distribution and integration evidence
 <!-- worktree: (recorded by /ci when worktree is created) -->
