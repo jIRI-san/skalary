@@ -8,6 +8,8 @@ Describe 'Vertical implementation requirement loop' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanState.psm1') -Force -DisableNameChecking
         $script:tempRoots = [System.Collections.Generic.List[string]]::new()
+        $script:evidenceBuilder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
+        $script:workflowNote = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
 
         function Set-AdmissionAssets {
             param(
@@ -272,5 +274,91 @@ flowchart TD
         $before = Get-FixtureSnapshot -Root $stale.Root
         (Get-AdmissionProjection -Root $stale.Root -Reference 'def222').Planning.Status | Should -Be 'stale'
         (Get-FixtureSnapshot -Root $stale.Root) | Should -BeExactly $before
+    }
+
+    It 'test:VerticalLoop.EvidenceCrosscheck preserves truthful phase outcomes and blocks every unresolved result' {
+        $commit = 'a' * 40
+        foreach ($status in @('passed', 'failed', 'skipped', 'stale', 'unrun', 'degraded')) {
+            $receipt = & $script:evidenceBuilder -Result @([pscustomobject]@{
+                    Req = 'REQ-1'
+                    Marker = "test:fixture.$status"
+                    Status = $status
+                }) -Commit $commit -Phase 1
+
+            $receipt.Text | Should -Match '^Phase 1 Crosscheck:'
+            $receipt.Outcomes[0].Status | Should -Be $status
+            if ($status -eq 'passed') {
+                $receipt.AllPassed | Should -BeTrue
+                $receipt.Lines[0] | Should -Match '^✓ REQ-1 '
+            }
+            else {
+                $receipt.AllPassed | Should -BeFalse
+                $receipt.Lines[0] | Should -Match '^✗ REQ-1 '
+            }
+            $receipt.Lines[0] | Should -Match "$status .+ $commit$"
+        }
+
+        $waivedFixture = New-AdmissionFixture
+        [ordered]@{
+            schema = 'skalary/evidence-waivers@1'
+            waivers = @(
+                [ordered]@{
+                    plan = 'def222'
+                    requirement = 'REQ-1'
+                    marker = 'test:fixture'
+                    outcome = 'skipped'
+                    reason = 'Not applicable to this environment'
+                }
+            )
+        } | ConvertTo-Json -Depth 8 |
+            Set-Content -LiteralPath (Join-Path $waivedFixture.TargetDir 'assets/evidence-waivers.json') -Encoding utf8NoBOM
+
+        $waived = & $script:evidenceBuilder -Result @([pscustomobject]@{
+                Req = 'REQ-1'
+                Marker = 'test:fixture'
+                Status = 'skipped'
+            }) -Commit $commit -Phase 1 -PlanDir $waivedFixture.TargetDir -RepoRoot $waivedFixture.Root
+        $waived.AllPassed | Should -BeTrue
+        $waived.Outcomes[0].Status | Should -Be 'waived'
+        $waived.Lines[0] | Should -Match '^⊘ REQ-1 .+ waived: from skipped: '
+    }
+
+    It 'test:VerticalLoop.OperatorCheckpoint covers continue, revise, stop, and resume with intent and evidence context' {
+        $guide = Get-Content -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+        ) -Raw
+        foreach ($token in @(
+                '### Operator checkpoint',
+                'usable increment',
+                'intent fit',
+                'requirement/evidence outcome matrix',
+                'contract',
+                'end-user experience',
+                'security',
+                'irreversible structure',
+                'Add-WorkflowNote.ps1 -Kind Capture',
+                '**Continue**',
+                '**Revise**',
+                '**Stop**',
+                '**Resume**'
+            )) {
+            $guide | Should -Match ([regex]::Escape($token))
+        }
+        $guide | Should -Match '(?s)Continue.+only when.+AllPassed.+no high-impact uncertainty'
+        $guide | Should -Match '(?s)failed.+skipped.+stale.+unrun.+degraded.+offer Revise and Stop only'
+
+        foreach ($disposition in @('Continue', 'Revise', 'Stop', 'Resume')) {
+            $fixture = New-AdmissionFixture
+            $message = "usable increment=vertical path; intent=deliver end to end; evidence=REQ-1 passed; disposition=$disposition"
+            & $script:workflowNote -Kind Capture -PlanDir $fixture.TargetDir -RepoRoot $fixture.Root `
+                -Phase 1 -Step 1.1 -Src note -Concern testing-evidence -Requirement REQ-1 `
+                -ReviewType none -Message $message | Out-Null
+
+            $capture = Get-Content -LiteralPath (Join-Path $fixture.TargetDir 'assets/logs/capture.md') -Raw
+            $capture | Should -Match 'usable increment=vertical path'
+            $capture | Should -Match 'intent=deliver end to end'
+            $capture | Should -Match 'evidence=REQ-1 passed'
+            $capture | Should -Match "disposition=$disposition"
+        }
     }
 }
