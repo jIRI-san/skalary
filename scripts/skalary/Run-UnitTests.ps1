@@ -5,11 +5,10 @@
 .DESCRIPTION
     This script is the `test:unit` leg of the repository test command and the executor
     behind every `test:` evidence marker. A green run therefore has to mean tests ran:
-    reporting success having executed zero assertions forges evidence (REQ-5).
+    reporting success having executed zero assertions would forge evidence.
 
-    It is also where runtime observations are reported (REQ-2), so the CI workflow REQ-9
-    describes must invoke this script rather than calling
-    Invoke-Pester directly (that wiring lands in this plan's phase 8). The budget in
+    It also owns advisory runtime observations, so CI invokes this script rather than
+    calling Invoke-Pester directly. The budget in
     `tools/suite-budget.psd1` is stated per platform and measured against the whole `npm test`
     command, not this leg alone — so the clock is started by the `pretest` hook (this same
     script, `-StartBudgetClock`) and read here, with this script last in the chain. Invoked
@@ -160,13 +159,7 @@ function Assert-PhysicalPathWithinRoot {
         [System.IO.Path]::DirectorySeparatorChar,
         [System.IO.Path]::AltDirectorySeparatorChar
     ) + [System.IO.Path]::DirectorySeparatorChar
-    $comparison = if ($IsWindows) {
-        [System.StringComparison]::OrdinalIgnoreCase
-    }
-    else {
-        [System.StringComparison]::Ordinal
-    }
-    if (-not $physicalPath.StartsWith($prefix, $comparison)) {
+    if (-not $physicalPath.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
         throw "$Description escapes '$Root' through a link or reparse point."
     }
 }
@@ -254,7 +247,12 @@ if (-not (Test-Path -LiteralPath $testRootPath -PathType Container)) {
     throw "Unit test path not found: $testRootPath"
 }
 
-$allTestFiles = @(Get-ChildItem -LiteralPath $testRootPath -Recurse -File -Filter '*.Tests.ps1')
+$allTestFiles = if ($Tier -ne 'Fast' -or $FullRepository) {
+    @(Get-ChildItem -LiteralPath $testRootPath -Recurse -File -Filter '*.Tests.ps1')
+}
+else {
+    @()
+}
 $tierManifestPath = Join-Path $RepoRoot 'tools/suite-tier.psd1'
 $slowPaths = @()
 $dedicatedPaths = @()
@@ -333,6 +331,10 @@ else {
 $pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
 $slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
 $dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
+$physicalSlowSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$physicalDedicatedSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($path in $slowPaths) { [void]$physicalSlowSet.Add((Resolve-PhysicalRepoPath -Path $path)) }
+foreach ($path in $dedicatedPaths) { [void]$physicalDedicatedSet.Add((Resolve-PhysicalRepoPath -Path $path)) }
 
 if ($Tier -ne 'Fast' -and ($FullRepository -or $TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
     Write-Host "FocusedScopeRequired: -TestPath, -TestName, and -FullRepository are valid only with -Tier Fast." -ForegroundColor Red
@@ -375,8 +377,10 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
         [System.IO.Path]::AltDirectorySeparatorChar
     ) + [System.IO.Path]::DirectorySeparatorChar
     try {
-        $focusedPaths = @($TestPath | ForEach-Object {
-                $relativePath = [string]$_
+        $focusedPathSet = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
+        $focusedPathList = [System.Collections.Generic.List[string]]::new()
+        foreach ($testPathItem in $TestPath) {
+                $relativePath = [string]$testPathItem
                 if ([string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath)) {
                     throw "Focused test path must be a non-empty repository-relative path: '$relativePath'."
                 }
@@ -390,14 +394,18 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
                 }
                 Assert-PhysicalPathWithinRoot -Root $testsRootFull -Path $fullPath `
                     -Description "Focused test path '$relativePath'"
-                if ($dedicatedSet.Contains($fullPath)) {
+                $physicalFullPath = Resolve-PhysicalRepoPath -Path $fullPath
+                if ($physicalDedicatedSet.Contains($physicalFullPath)) {
                     throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
                 }
-                if ($slowSet.Contains($fullPath) -and $TestName.Count -eq 0 -and -not $hasEvidenceIds) {
+                if ($physicalSlowSet.Contains($physicalFullPath) -and $TestName.Count -eq 0 -and -not $hasEvidenceIds) {
                     throw "Focused Fast requires -TestName when selecting a Slow-tier file: '$relativePath'."
                 }
-                $fullPath
-            } | Sort-Object -Unique)
+                if ($focusedPathSet.Add($fullPath)) {
+                    $focusedPathList.Add($fullPath)
+                }
+            }
+        $focusedPaths = $focusedPathList.ToArray()
     }
     catch {
         Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
@@ -413,7 +421,7 @@ $testFiles = @(switch ($Tier) {
                 @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) })
             }
             else {
-                @($allTestFiles | Where-Object { $focusedPaths -contains $_.FullName })
+                @($focusedPaths | ForEach-Object { Get-Item -LiteralPath $_ -Force })
             }
         }
     })
@@ -628,10 +636,8 @@ foreach ($name in ($candidateNames | Sort-Object)) {
     $before = if ($environmentBefore.ContainsKey($name)) { $environmentBefore[$name] } else { $null }
     $after = if ($environmentAfter.ContainsKey($name)) { $environmentAfter[$name] } else { $null }
     if ($before -ne $after) {
-        # Rendered rather than interpolated: an unset variable and one set to '' both interpolate to
-        # nothing, which turns a real difference into the unreadable "('' -> '')".
-        $shown = { param($v) if ($null -eq $v) { '<unset>' } else { "'$v'" } }
-        $leakedNames.Add("$name ($(& $shown $before) -> $(& $shown $after))")
+        $change = if ($null -eq $before) { 'added' } elseif ($null -eq $after) { 'removed' } else { 'changed' }
+        $leakedNames.Add("$name ($change)")
     }
 }
 

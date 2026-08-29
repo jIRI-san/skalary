@@ -268,6 +268,28 @@ Describe 'confined evidence' {
         [void](New-Item -ItemType Directory -Path $outside)
         $script:tempRoots.Add($outside)
 
+        $caseTest = Join-Path $fixture 'tests/Case.Tests.ps1'
+        $caseTestSibling = Join-Path $fixture 'tests/case.Tests.ps1'
+        Set-Content -LiteralPath $caseTest -Value @'
+Describe 'case-selected evidence' {
+    It 'test:EvidenceTruth.CaseSelected passes' { $true | Should -BeTrue }
+}
+'@ -Encoding utf8NoBOM
+        if (-not (Test-Path -LiteralPath $caseTestSibling)) {
+            Set-Content -LiteralPath $caseTestSibling -Value @'
+Describe 'case-unselected evidence' {
+    It 'test:EvidenceTruth.CaseSelected fails' { throw 'case-distinct selection widened' }
+}
+'@ -Encoding utf8NoBOM
+            $caseResultPath = Join-Path $fixture 'case-selection-results.json'
+            $caseOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
+                -TestPath 'tests/Case.Tests.ps1' -EvidenceTestId 'EvidenceTruth.CaseSelected' `
+                -EvidenceResultPath $caseResultPath 2>&1
+            $LASTEXITCODE | Should -Be 0 -Because ($caseOutput | Out-String)
+            (Get-Content -LiteralPath $caseResultPath -Raw | ConvertFrom-Json).results[0].status |
+                Should -Be 'passed'
+        }
+
         $outsideTest = Join-Path $outside 'External.Tests.ps1'
         Set-Content -LiteralPath $outsideTest -Value @'
 Describe 'external evidence' {
@@ -291,22 +313,34 @@ Describe 'external evidence' {
         $LASTEXITCODE | Should -Be 12 -Because ($linkedOutput | Out-String)
         Test-Path -LiteralPath (Join-Path $outsideResults 'evidence.json') | Should -BeFalse
 
+        Set-Content -LiteralPath (Join-Path $outside 'proof.txt') -Value 'outside' -Encoding utf8NoBOM
+        [void](New-Item -ItemType SymbolicLink -Path (Join-Path $fixture 'linked-proof.txt') -Target (Join-Path $outside 'proof.txt'))
+        [void](New-Item -ItemType SymbolicLink -Path (Join-Path $fixture 'linked-proof-dir') -Target $outside)
+        {
+            Invoke-PlanFileEvidence -Marker 'file:linked-proof.txt#exists' -RepoRoot $fixture -Stage PhaseCrosscheck
+        } | Should -Throw '*escapes repository root via symlink*'
+        {
+            Invoke-PlanFileEvidence -Marker 'file:linked-proof-dir#dircount>=1' -RepoRoot $fixture -Stage PhaseCrosscheck
+        } | Should -Throw '*escapes repository root via symlink*'
+
         $caseRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('EvidenceCase-' + [guid]::NewGuid().ToString('N'))
         $caseSibling = $caseRoot.ToLowerInvariant()
         if ($caseSibling -ceq $caseRoot) {
             $caseSibling = $caseRoot.ToUpperInvariant()
         }
         [void](New-Item -ItemType Directory -Path $caseRoot)
-        [void](New-Item -ItemType Directory -Path $caseSibling)
         $script:tempRoots.Add($caseRoot)
-        $script:tempRoots.Add($caseSibling)
-        Set-Content -LiteralPath (Join-Path $caseSibling 'proof.txt') -Value 'outside' -Encoding utf8NoBOM
+        if (-not (Test-Path -LiteralPath $caseSibling)) {
+            [void](New-Item -ItemType Directory -Path $caseSibling)
+            $script:tempRoots.Add($caseSibling)
+            Set-Content -LiteralPath (Join-Path $caseSibling 'proof.txt') -Value 'outside' -Encoding utf8NoBOM
 
-        Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
-        $relativeEscape = '../' + (Split-Path -Leaf $caseSibling) + '/proof.txt'
-        {
-            Invoke-PlanFileEvidence -Marker "file:$relativeEscape#exists" -RepoRoot $caseRoot -Stage PhaseCrosscheck
-        } | Should -Throw '*resolves outside repository root*'
+            Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
+            $relativeEscape = '../' + (Split-Path -Leaf $caseSibling) + '/proof.txt'
+            {
+                Invoke-PlanFileEvidence -Marker "file:$relativeEscape#exists" -RepoRoot $caseRoot -Stage PhaseCrosscheck
+            } | Should -Throw '*resolves outside repository root*'
+        }
     }
 
     It 'test:EvidenceTruth.FinalizationBlocksNonPassingResults rejects incomplete receipts and accepts exact waivers' {
@@ -359,22 +393,32 @@ Describe 'external evidence' {
             }) -Commit $script:head -PlanDir $missingPlan -RepoRoot $script:repoRoot
         Set-Content -LiteralPath $partial.ReceiptPath -Value $partial.Text -Encoding utf8NoBOM
         (Invoke-TestPlanFixture -PlanDir $missingPlan).Output | Should -Match 'missing required marker.*review:cr'
+
+        $casePlan = New-EvidencePlanFixture -Markers @(
+            'test:EvidenceTruth.Case',
+            'test:EvidenceTruth.case'
+        )
+        $caseReceipt = & $script:builder -Result @([pscustomobject]@{
+                Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Case'; Status = 'passed'
+            }) -Commit $script:head -PlanDir $casePlan -RepoRoot $script:repoRoot
+        Set-Content -LiteralPath $caseReceipt.ReceiptPath -Value $caseReceipt.Text -Encoding utf8NoBOM
+        (Invoke-TestPlanFixture -PlanDir $casePlan).Output |
+            Should -Match 'missing required marker.*test:EvidenceTruth\.case'
     }
 
     It 'test:EvidenceTruth.InstalledParityAndDrift keeps canonical, bundled, and dogfood evidence code identical' {
-        $comparisons = @(
-            @('scripts/skalary/Build-EvidenceReceipt.ps1', 'plugins/continue-implementation/skills/ci/scripts/Build-EvidenceReceipt.ps1'),
-            @('scripts/skalary/Build-EvidenceReceipt.ps1', '.github/skills/ci/scripts/Build-EvidenceReceipt.ps1'),
-            @('scripts/skalary/PlanEvidence.psm1', 'plugins/continue-implementation/skills/ci/scripts/PlanEvidence.psm1'),
-            @('scripts/skalary/PlanEvidence.psm1', 'plugins/autopilot/skills/autopilot/scripts/PlanEvidence.psm1'),
-            @('scripts/skalary/Test-Plan.ps1', 'plugins/continue-implementation/skills/ci/scripts/Test-Plan.ps1'),
-            @('scripts/skalary/Test-Plan.ps1', 'plugins/autopilot/skills/autopilot/scripts/Test-Plan.ps1')
-        )
-        foreach ($pair in $comparisons) {
-            $source = Join-Path $script:repoRoot $pair[0]
-            $target = Join-Path $script:repoRoot $pair[1]
-            (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash |
-                Should -BeExactly (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+        foreach ($name in @('Build-EvidenceReceipt.ps1', 'PlanEvidence.psm1', 'Test-Plan.ps1')) {
+            $source = Join-Path $script:repoRoot "scripts/skalary/$name"
+            $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+            $copies = @(
+                Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -Recurse -File -Filter $name
+                Get-ChildItem -LiteralPath (Join-Path $script:repoRoot '.github') -Recurse -File -Filter $name
+            )
+            $copies.Count | Should -BeGreaterThan 0
+            foreach ($copy in $copies) {
+                (Get-FileHash -LiteralPath $copy.FullName -Algorithm SHA256).Hash |
+                    Should -BeExactly $expectedHash -Because $copy.FullName
+            }
         }
     }
 }

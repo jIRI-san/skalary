@@ -299,7 +299,7 @@ function Resolve-PlanEvidencePath {
         [System.IO.Path]::DirectorySeparatorChar,
         [System.IO.Path]::AltDirectorySeparatorChar
     ) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $physicalCandidate.StartsWith($physicalPrefix, $pathComparison)) {
+    if (-not $physicalCandidate.StartsWith($physicalPrefix, [System.StringComparison]::Ordinal)) {
         throw "Evidence path '$RelativePath' escapes repository root via symlink."
     }
 
@@ -392,32 +392,12 @@ function Get-FileRegexMatchCount {
     )
 
     $content = Get-Content -LiteralPath $Path -Raw -Force
-    $remaining = [TimeSpan]::FromMilliseconds($PerFileBudgetMs)
-    $start = [DateTimeOffset]::UtcNow
-    $matchCount = 0
-    $offset = 0
     $regex = [regex]::new(
         $Pattern,
         [System.Text.RegularExpressions.RegexOptions]::None,
         [TimeSpan]::FromMilliseconds($PerMatchTimeoutMs)
     )
-    while ($offset -le $content.Length) {
-        if ($remaining.TotalMilliseconds -le 0) {
-            throw "Regex budget exhausted while scanning '$Path'."
-        }
-
-        $match = $regex.Match($content, $offset)
-        if (-not $match.Success) {
-            break
-        }
-
-        $matchCount++
-        $offset = if ($match.Length -gt 0) { $match.Index + $match.Length } else { $match.Index + 1 }
-        $elapsed = [DateTimeOffset]::UtcNow - $start
-        $remaining = [TimeSpan]::FromMilliseconds($PerFileBudgetMs) - $elapsed
-    }
-
-    return $matchCount
+    return [int]$regex.IsMatch($content)
 }
 
 function Invoke-PlanFileEvidence {
@@ -463,8 +443,12 @@ function Invoke-PlanFileEvidence {
             }
         }
 
-        $rootPrefix = Get-PathWithinRootPrefix -Root $RepoRoot
-        $seenDirectories = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        $physicalRoot = Resolve-PhysicalRepoPath -Path $RepoRoot
+        $rootPrefix = $physicalRoot.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ) + [System.IO.Path]::DirectorySeparatorChar
+        $seenDirectories = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         $queue = [System.Collections.Generic.Queue[string]]::new()
         $queue.Enqueue($resolvedPath)
         $count = 0
@@ -478,17 +462,29 @@ function Invoke-PlanFileEvidence {
 
                 if ($item.PSIsContainer) {
                     $childPath = [System.IO.Path]::GetFullPath($item.FullName)
-                    if (-not $childPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    if (-not $childPath.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
                         throw "Directory walk escaped repository root through '$childPath'."
                     }
                     if ($seenDirectories.Add($childPath)) {
                         $queue.Enqueue($childPath)
                         $count++
+                        if ($count -ge $parsed.Threshold) {
+                            return [pscustomobject]@{
+                                Marker = $Marker; Status = 'passed'; Success = $true; Blocking = $isBlockingStage
+                                Message = "Counted at least $count item(s), required >= $($parsed.Threshold)."
+                            }
+                        }
                     }
                     continue
                 }
 
                 $count++
+                if ($count -ge $parsed.Threshold) {
+                    return [pscustomobject]@{
+                        Marker = $Marker; Status = 'passed'; Success = $true; Blocking = $isBlockingStage
+                        Message = "Counted at least $count item(s), required >= $($parsed.Threshold)."
+                    }
+                }
             }
         }
 

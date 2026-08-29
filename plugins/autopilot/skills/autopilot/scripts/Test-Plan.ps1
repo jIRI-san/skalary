@@ -26,8 +26,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
-# Get-TypedEvidenceMarkers now lives in PlanState.psm1 (the shared parser) so the closed vocabulary and its
-# fail-loud-on-unknown-prefix behavior are single-sourced; it is imported below and called by this validator.
+# The shared parser single-sources the closed evidence vocabulary and fails on unknown prefixes.
 
 function Get-StepPoints {
     [CmdletBinding()]
@@ -97,14 +96,14 @@ function Test-PlanEvidenceReceipt {
         return $errors.ToArray()
     }
 
-    $expected = [ordered]@{}
+    $expected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($requirement in $Metadata.Requirements.Values) {
         $markers = @(
             Get-TypedEvidenceMarkers -AcceptanceCriteria $requirement.AcceptanceCriteria |
                 ForEach-Object { $_ }
         )
         foreach ($marker in $markers) {
-            $expected["$($requirement.Id)|$marker"] = $true
+            [void]$expected.Add("$($requirement.Id)|$marker")
         }
     }
 
@@ -163,7 +162,7 @@ function Test-PlanEvidenceReceipt {
         $errors.Add("Evidence receipt marker '$key' is $($entry.Status), not passed or waived.")
     }
 
-    foreach ($key in $expected.Keys) {
+    foreach ($key in $expected) {
         if (-not $seen.Contains($key)) {
             $errors.Add("Evidence receipt is missing required marker '$key' (unrun).")
         }

@@ -203,7 +203,7 @@ So an autopilot run that generates excellent harvest material leaves no record t
 
 ## Cluster H — the gate costs 29 minutes, and one file is 82% of it
 
-**Resolved by plan `768d7b`.** The 1741.8s below became **108.998s** on `ubuntu-latest` and **223.142s** on `windows-latest`, both measured on the runners the gate is enforced on (`tools/suite-runtime.json`, commit `c99d5d1`), against a ceiling bound at 600s *before* any optimisation so later work could not redefine success. The direction the note proposed — a shared fixture, and a slow tier split out of `npm test` — was not the one taken: a shared fixture fits 1–2 of ~20 executions, and the tier split held in reserve for a 10× platform gap was never needed once per-case process startup and git construction went away (D13, D15). What the note got right is the framing: the 29-minute figure was a behaviour problem, and the fix is only real because the ceiling is enforced per platform by `Run-UnitTests.ps1` on every run.
+**Resolved by plans `768d7b` and `31a3ef`.** Plan `768d7b` reduced the 1741.8s baseline below the then-recorded platform ceilings. Plan `31a3ef` later introduced manifest-owned Fast and Slow tiers when the suite grew again. Runtime ceilings now produce advisory observations rather than pass/fail verdicts; deterministic test failures remain blocking. The measurements and earlier rejected split below are retained as historical context, not current gate architecture.
 
 Measured from a full `npm test` capture on 2026-08-01: 1741.8s wall clock for 698 passing tests.
 

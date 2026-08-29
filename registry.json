@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T06:49:23.7082427Z",
+  "generatedAt": "2026-08-29T07:07:24.4868695Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -237,7 +237,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "ba584373f2afcd8b25d4e672b800cd901ae13310d9bfbcc606331314063cdb11",
+          "sha256": "6f92a32817ec0d3806af9261913675201722e96f1a7740e78f6edadc5220330f",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -252,7 +252,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Test-Plan.ps1",
-          "sha256": "36cead96fa6aa3ac99d452d80898a9cc3442f613f96d2cc1ffb481c5cb3f8af5",
+          "sha256": "5e59d9ca2957fe381e35c4158f0d4f4a15d80937d4271a03a562163a1a479916",
           "src": "skills/autopilot/scripts/Test-Plan.ps1"
         },
         {
@@ -341,7 +341,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.30"
+      "version": "1.2.31"
     },
     {
       "author": "jIRI-san",
@@ -570,7 +570,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "ba584373f2afcd8b25d4e672b800cd901ae13310d9bfbcc606331314063cdb11",
+          "sha256": "6f92a32817ec0d3806af9261913675201722e96f1a7740e78f6edadc5220330f",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -600,7 +600,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
-          "sha256": "36cead96fa6aa3ac99d452d80898a9cc3442f613f96d2cc1ffb481c5cb3f8af5",
+          "sha256": "5e59d9ca2957fe381e35c4158f0d4f4a15d80937d4271a03a562163a1a479916",
           "src": "skills/ci/scripts/Test-Plan.ps1"
         }
       ],
@@ -680,7 +680,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.57"
+      "version": "1.0.58"
     },
     {
       "author": "jIRI-san",
@@ -724,7 +724,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "ba584373f2afcd8b25d4e672b800cd901ae13310d9bfbcc606331314063cdb11",
+          "sha256": "6f92a32817ec0d3806af9261913675201722e96f1a7740e78f6edadc5220330f",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -739,7 +739,7 @@
         },
         {
           "dest": "skills/cep/scripts/Test-Plan.ps1",
-          "sha256": "36cead96fa6aa3ac99d452d80898a9cc3442f613f96d2cc1ffb481c5cb3f8af5",
+          "sha256": "5e59d9ca2957fe381e35c4158f0d4f4a15d80937d4271a03a562163a1a479916",
           "src": "skills/cep/scripts/Test-Plan.ps1"
         },
         {
@@ -799,7 +799,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "ba584373f2afcd8b25d4e672b800cd901ae13310d9bfbcc606331314063cdb11",
+          "sha256": "6f92a32817ec0d3806af9261913675201722e96f1a7740e78f6edadc5220330f",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -819,7 +819,7 @@
         },
         {
           "dest": "skills/cip/scripts/Test-Plan.ps1",
-          "sha256": "36cead96fa6aa3ac99d452d80898a9cc3442f613f96d2cc1ffb481c5cb3f8af5",
+          "sha256": "5e59d9ca2957fe381e35c4158f0d4f4a15d80937d4271a03a562163a1a479916",
           "src": "skills/cip/scripts/Test-Plan.ps1"
         }
       ],
@@ -846,7 +846,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.51"
+      "version": "1.0.52"
     },
     {
       "author": "jIRI-san",
