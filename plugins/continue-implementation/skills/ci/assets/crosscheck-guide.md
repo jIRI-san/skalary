@@ -8,7 +8,7 @@ At phase and plan crosschecks, verify each requirement's typed markers from Acce
 
 - `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
-- `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
+- `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate). A passed `review:cr` result must carry `ReviewRunId=<finalized-run-uuid>`; the formatter rechecks the retained pair, durable clean cycle, and reviewed commit.
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
 
@@ -20,7 +20,7 @@ $receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $result
 Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
-`Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>`: `✓ passed`, `⊘ waived`, and `✗` for `failed`, `skipped`, `unrun`, `stale`, or `degraded`. A REQ passes only when all markers passed or carry an exact valid plan-local waiver.
+`Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>`: `✓ passed`, `⊘ waived`, and `✗` for `failed`, `skipped`, `unrun`, `stale`, or `degraded`. A REQ passes only when all markers passed or carry an exact valid plan-local waiver. For passed `review:cr`, it replaces free-form detail with `review-run:<uuid>` so PlanCrosscheck can independently reverify the same authority.
 
 The optional layout-resolved waiver file is `assets/evidence-waivers.json` (legacy: `evidence-waivers.json`) with schema `skalary/evidence-waivers@1`. Every entry must bind the canonical `plan`, exact `requirement`, exact declared `marker`, source `outcome` (`skipped` or `degraded`), non-empty `reason`, and optional `platform` (`Windows`, `Linux`, or `MacOS`). Wildcards and waivers for failed, unrun, or stale evidence are rejected. The formatter renders a valid match as visibly `waived`; it never renders it as passed.
 
@@ -169,6 +169,14 @@ and triage through `Add-WorkflowNote -Kind CrLog`, then run
 automatically: use `vscode_askQuestions` with exactly **Continue looping** and **Wrap up**. Continue
 authorizes one additional round; Wrap retains residual findings and never produces clean evidence.
 The automatic cap is three rounds independently for each stage.
+
+Wrap is permanent non-clean history. If the operator later authorizes replacement evidence, invoke
+`-Action Reopen -OperatorAuthorization <bounded-id> -Reason <operator-reason>` against the wrapped
+stage. This appends a remediation record and permits one fresh cycle; it never deletes or changes the
+Wrap record. A clean replacement must be finalized first, then recorded with
+`-Action Record -Outcome clean -ReviewRunId <uuid> -RepoRoot <repo-root>`. The gate verifies that the
+run reviewed current HEAD, and plan-finalization requires whole-branch scope. Do not infer authorization from a request to
+resume, and never describe wrapped/degraded evidence as passed.
 
 - `security.md` — auth/trust-boundary/injection/secret/ACL
 - `performance.md` — latency/throughput/allocation/N+1
