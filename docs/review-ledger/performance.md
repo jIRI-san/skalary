@@ -4,6 +4,7 @@
 - [2026-08-09] Active-directory discovery materialized unbounded file lists before starting the scan deadline and enforcing plus-one limits. (plan-1936cb, src:autopilot, sev:Med) #performance #phase-4 #req-7
 - [2026-08-10] Batch writers must index idempotence and recurrence keys once; per-candidate scans become quadratic at the legal final-sweep boundary. (plan-1936cb, src:autopilot, sev:Med) #performance #phase-3 #req-4
 - [2026-08-15] Bound subprocess-heavy proof with an asserted launch cap and one shared kill timeout then measure through the existing platform suite budget. (plan-cda9da, src:autopilot, sev:Med) #phase-4
+- [2026-08-29] Cache one normalized similarity profile per raw finding before pairwise comparison so bounded lexical corroboration does not repeat Unicode and regex work for every pair. (plan-ca8ba8, src:autopilot, sev:Med) #performance #phase-1 #req-1
 - [2026-08-05] Cases that spawn pwsh -NoProfile -File once or twice are paying for process startup not isolation. A fresh runspace over a cached InitialSessionState gives the clean session for ~1/20 the cost. (plan-768d7b, src:autopilot, sev:High) #phase-3 #req-4
 - [2026-08-10] Code review found no significant defect in the indexed ledger batch engine or capacity-result ordering. (plan-1936cb, src:autopilot, sev:Low) #performance #phase-3 #req-4
 - [2026-08-10] Final CR: ledger batch idempotence and recurrence are O N times M at the 10000-record and 4096-candidate boundary. (plan-1936cb, src:autopilot, sev:Critical) #performance #phase-3 #req-4
