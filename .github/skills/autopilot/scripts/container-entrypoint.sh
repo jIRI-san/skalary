@@ -48,7 +48,8 @@ phase_needs_execution() {
     local plan_path="$1"
     local phase_number="$2"
     local repo_root="${3:-.}"
-    local validator="${4:-scripts/skalary/Invoke-PhaseHarvest.ps1}"
+    local validator="${4:-${AUTOPILOT_HARVEST_VALIDATOR:-/usr/local/lib/autopilot/Invoke-PhaseHarvest.ps1}}"
+    local validation_output
 
     if phase_has_incomplete "${plan_path}" "${phase_number}"; then
         return 0
@@ -56,9 +57,11 @@ phase_needs_execution() {
     if ! phase_has_harvest_receipt "${plan_path}" "${phase_number}"; then
         return 0
     fi
-    if ! pwsh -NoProfile -File "${validator}" -PlanDir "$(dirname "${plan_path}")" \
-        -Phase "${phase_number}" -ValidateReceipt -RepoRoot "${repo_root}" >/dev/null; then
+    if ! validation_output="$(pwsh -NoProfile -File "${validator}" \
+        -PlanDir "$(dirname "${plan_path}")" -Phase "${phase_number}" \
+        -ValidateReceipt -RepoRoot "${repo_root}" 2>&1)"; then
         echo "ERROR: Phase ${phase_number} harvest receipt is invalid." >&2
+        printf '%s\n' "${validation_output}" >&2
         return 2
     fi
     return 1
@@ -89,12 +92,11 @@ phase_dispatch_action() {
 stage_recoverable_work() {
     local repo_path="$1"
 
-    while IFS= read -r -d '' path; do
-        git -C "${repo_path}" add -- "${path}" || return 70
-    done < <(
+    {
         git -C "${repo_path}" diff --name-only -z
         git -C "${repo_path}" ls-files --others --exclude-standard -z
-    )
+    } | git -C "${repo_path}" add --pathspec-from-file=- --pathspec-file-nul ||
+        return 70
 }
 
 # Expose the pure phase-progress probe to focused tests without running bootstrap.
@@ -278,14 +280,17 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     # A phase is closed only after both its checklist and durable harvest complete.
     # Missing close state re-enters the same phase agent instead of skipping ahead.
     set +e
-    phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "." \
-        "scripts/skalary/Invoke-PhaseHarvest.ps1"
+    phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
     PHASE_STATE=$?
     set -e
     if [ "${PHASE_STATE}" -eq 1 ]; then
         echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
         continue
     elif [ "${PHASE_STATE}" -eq 2 ]; then
+        if ! preserve_work; then
+            echo "ERROR: Failed to preserve invalid phase-close state; container recovery is required."
+            exit 70
+        fi
         exit 3
     fi
 
@@ -352,8 +357,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     CLOSE_STATE=-1
     if [ "${EXIT_CODE}" -eq 0 ]; then
         set +e
-        phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "." \
-            "scripts/skalary/Invoke-PhaseHarvest.ps1"
+        phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
         CLOSE_STATE=$?
         set -e
     fi
@@ -362,7 +366,10 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     case "${ACTION}" in
         rebundle)
             echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
-            git push origin "${WORK_BRANCH}"
+            if ! git push origin "${WORK_BRANCH}"; then
+                echo "ERROR: Failed to publish the rebundle request; container recovery is required."
+                exit 70
+            fi
             exit 43
             ;;
         human-stop|phase-failed)
@@ -374,6 +381,10 @@ for PHASE_NUM in ${PHASE_NUMS}; do
             exit "${EXIT_CODE}"
             ;;
         invalid-receipt)
+            if ! preserve_work; then
+                echo "ERROR: Failed to preserve invalid phase-close state; container recovery is required."
+                exit 70
+            fi
             exit 3
             ;;
         close-pending)
@@ -398,7 +409,10 @@ done
 echo ""
 echo "=== Execution finished ==="
 echo "Pushing branch ${WORK_BRANCH}..."
-git push origin "${WORK_BRANCH}"
+if ! git push origin "${WORK_BRANCH}"; then
+    echo "ERROR: Failed to publish completed work; container recovery is required."
+    exit 70
+fi
 
 # Note: PR creation is handled by the autopilot agent in its Plan Completion step
 # with a structured title and body. The entrypoint only ensures the branch is pushed.

@@ -187,10 +187,17 @@ try {
     $ErrorActionPreference = $prevEAP
 
     # --- Cleanup container ---
-    Write-Host "Removing container: $ContainerName"
-    $ErrorActionPreference = 'Continue'
-    docker rm $ContainerName 2>$null
-    $ErrorActionPreference = $prevEAP
+    if ($exitCode -eq 70) {
+        Write-Warning "Preservation failed; retaining container '$ContainerName' for recovery."
+        Write-Host "Recover with: docker cp ${ContainerName}:/work <destination>"
+        Write-Host "Remove after recovery with: docker rm $ContainerName"
+    }
+    else {
+        Write-Host "Removing container: $ContainerName"
+        $ErrorActionPreference = 'Continue'
+        docker rm $ContainerName 2>$null
+        $ErrorActionPreference = $prevEAP
+    }
 
     Write-Host ""
     Write-Host "=== Container-mode execution complete ==="

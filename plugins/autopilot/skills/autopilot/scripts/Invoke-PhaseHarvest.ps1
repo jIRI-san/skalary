@@ -538,6 +538,7 @@ function Read-HarvestReceipt {
         throw "Harvest receipt '$Path' exceeds source or candidate bounds."
     }
     $sourcePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $sourceKinds = @{}
     foreach ($source in $sources) {
         $sourceProperties = @($source.PSObject.Properties.Name)
         if ($sourceProperties.Count -ne 4 -or
@@ -551,6 +552,13 @@ function Read-HarvestReceipt {
         }
         if (-not $sourcePaths.Add([string]$source.Path)) {
             throw "Duplicate harvest receipt source '$($source.Path)' in '$Path'."
+        }
+        $sourceKind = [string]$source.Kind
+        $sourceKinds[$sourceKind] = 1 + [int]($sourceKinds[$sourceKind] ?? 0)
+    }
+    foreach ($requiredKind in @('CrLog', 'Learnings', 'Capture')) {
+        if ([int]($sourceKinds[$requiredKind] ?? 0) -ne 1) {
+            throw "Harvest receipt '$Path' must contain exactly one $requiredKind source."
         }
     }
 

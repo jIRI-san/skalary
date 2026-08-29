@@ -594,6 +594,22 @@ $($header.TrimEnd())
             Should -Be 2
         [System.IO.File]::WriteAllBytes($receiptPath, $validReceipt)
 
+        # A self-consistent envelope still fails when the mandatory source set is forged.
+        $forgedReceipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 12
+        $forgedReceipt.payload.sources[0].Kind = 'LearningOverflow'
+        $payloadJson = $forgedReceipt.payload | ConvertTo-Json -Depth 12 -Compress
+        $digestInput = [System.Text.Encoding]::UTF8.GetBytes(
+            "phase-harvest-receipt/v2$([char]0)$payloadJson"
+        )
+        $forgedReceipt.receiptId = [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData($digestInput)
+        ).ToLowerInvariant()
+        $forgedReceipt | ConvertTo-Json -Depth 12 -Compress |
+            Set-Content -LiteralPath $receiptPath -Encoding utf8NoBOM
+        Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
+            Should -Be 2
+        [System.IO.File]::WriteAllBytes($receiptPath, $validReceipt)
+
         Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 1 |
             Should -Be 'phase-complete-stop'
         Get-ContainerDispatchAction -Mode whole-plan -ExitCode 0 -CloseState 1 |

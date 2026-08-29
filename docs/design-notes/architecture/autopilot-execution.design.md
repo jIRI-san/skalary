@@ -63,12 +63,15 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
 - Phase selection follows the one-phase autonomy contract in
   [plan-workflow.design.md](plan-workflow.design.md); container resume additionally requires the
-  phase's canonically validated durable harvest receipt before skipping checked work
+  phase's canonically validated durable harvest receipt before skipping checked work. The validator
+  and its module closure are copied into the image as root-owned read-only files, so a cloned branch
+  cannot replace the pre-admission trust boundary.
 - Nonzero and false-success phase exits stage recoverable tracked/untracked paths individually,
   commit and push them fail-loud, then preserve the original phase status; preservation failure exits
   `70` for container recovery instead of claiming the work is durable
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
-- Transcripts extracted via `docker cp`, container removed after
+- Transcripts extracted via `docker cp`; containers are removed after normal outcomes and retained
+  with recovery commands when exit `70` says publication durability could not be established
 
 #### Linux container toolchain
 
@@ -323,7 +326,7 @@ Absolute rules enforced:
 | Durable writer closure | Root-canonical capture/ledger writers import `AtomicStore.psm1`; `Invoke-PhaseHarvest.ps1` imports the shared `LedgerStore.psm1` scalar/batch engine. Autopilot carries both generated modules plus `PlanState.psm1` under `.github/skills/autopilot/scripts/`, so installed phase harvest uses the same confinement, lock/CAS/status, bounds, and atomic-replace contracts. |
 | Planning admission | Before any step/log mutation, autopilot calls shared `Get-PlanningContextState`. Enrolled `pending`, `stale`, `missing`, or `invalid` plans exit `42` for operator confirmation; marker-less legacy plans proceed. |
 | Phase-harvest execution | Phase crosscheck invokes the bound installed autopilot copy with `-Phase`, commits the receipt plus changed ledger categories before phase teardown, and finalization invokes `-FinalSweep`; only `complete`/`empty` permit phase completion or archival. Degraded phases are retried at the phase boundary because final sweep only replays existing receipts; unresolved degradation stops completion. The exact installed script is in autopilot's closed execution carve-out, and both current/legacy receipt trees are declared first-use scaffolds. |
-| Ephemeral capture durability | Each phase initializes and commits `cr-log.md`, `learnings.md`, and `evolution-log.md` sections by explicit filename with `No entries for this phase.` placeholders; harvest fails loud only on missing required sections. |
+| Ephemeral capture durability | Each phase initializes and commits `cr-log.md`, `learnings.md`, and `capture.md` sections by explicit filename with `No entries for this phase.` placeholders; harvest fails loud only on missing required sections. |
 | Headless SI due | Autopilot explicitly depends on `self-improvement` but never runs `/si`. Only after the autonomous archive commit is successfully pushed does its installed `Invoke-SiDueEnqueue.ps1` wrapper invoke dependency-installed `Enqueue-SiDue.ps1` with bound plan/source arguments. The due binds the complete-source OID, duplicate enqueue is a byte-stable no-op, and any retry-visible SI state delta is still committed/pushed before the plan PR. The wrapper converts writer exceptions/non-complete statuses into an explicit `degraded` result, so failure reporting and continuation are executable rather than prompt-only. |
 | Distribution proof | `test:LearningLoop.PayloadOwnershipAndDrift` proves the dependency, installed invocation/carve-out, root-canonical phase-harvest bundle closure, receipt scaffolds, dogfood bytes, versions, marketplace, and registry as one contract. This remains part of the existing unit suite rather than a new validation gate. |
 
