@@ -1,6 +1,7 @@
 # Testing Ledger
 
 - [2026-08-05] A determinism test comparing two copies of one cached artifact proves nothing about the build that produced it. Discard the cache between the two builds. (plan-768d7b, src:autopilot, sev:Med) #phase-3 #req-4
+- [2026-08-29] A sourceable pure phase-progress probe tests container stop and resume behavior without bootstrapping clone or authentication. (plan-6a629b, src:autopilot, sev:Med) #phase-2 #req-5 #testing-evidence
 - [2026-08-05] A test that pins a document must slice it by section before matching. A lazy cross-section regex is satisfied by the same sentence further down so the record it pins can be deleted while the test stays green. (plan-768d7b, src:autopilot, sev:Med) #phase-9 #req-10
 - [2026-08-01] A test whose fixture is overwritten before the only invocation asserts the opposite of its name; check that the arranged state is the state actually exercised. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-16
 - [2026-08-05] A text check over a CI run block must split statements on the semicolon as well as the newline: an inline pwsh script.ps1; exit 0 matches the enforcing pattern while discarding the exit code it produces. (plan-768d7b, src:autopilot, sev:Med) #phase-9 #req-9
