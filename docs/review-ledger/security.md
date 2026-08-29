@@ -31,6 +31,7 @@
 - [2026-08-10] Lexical plan confinement did not resolve symlink targets; physically confine existing ancestors before writes. (plan-1936cb, src:autopilot, sev:Med) #phase-2 #req-8 #security
 - [2026-08-28] Nested mapping confinement checked only lexical paths allowing an in-repository symlink alias into a moved source; compare physical mapping and folder paths before any move. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-4 #security
 - [2026-08-09] Physical ledger confinement compared paths case-insensitively on every platform permitting case-distinct outside targets on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
+- [2026-08-29] Planning asset reads could escape through symlinks; fixed by passing repository root and pinned inventory through planning-context resolution. (plan-6a629b, src:autopilot, sev:Med) #phase-1 #req-1 #security
 - [2026-08-09] PlanState physical confinement used case-insensitive prefix comparison on Unix and could accept case-distinct escape targets. (plan-1936cb, src:autopilot, sev:Med) #phase-3 #req-7 #security
 - [2026-08-23] Registry prose rendered into instruction-position Markdown must reject every CommonMark block opener; single-line validation alone does not preserve template-owned structure. (plan-79cfe1, src:ci, sev:Med) #markdown #phase-3 #req-4 #security
 - [2026-08-10] Release review found merged retries bypassed trusted validation; retries now fetch the immutable PR head and replay lifecycle or repair enforcement. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
@@ -41,10 +42,14 @@
 - [2026-08-10] Replay coverage used a never-valid token and the nonce was not consumed across a measured run. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
+- [2026-08-29] review 40a86ef6 finding 1 fixed: v2 harvest replay re-derives every candidate from its typed source record and ledger text is explicitly untrusted data (plan-6a629b, src:autopilot, sev:High) #phase-1 #req-3 #security
+- [2026-08-29] review 40a86ef6 finding 10 fixed: local repository identity is committed only as a SHA-256 path digest (plan-6a629b, src:autopilot, sev:Low) #phase-1 #security
 - [2026-08-28] Rubber-duck: mapping output could target arbitrary repository files and used a truncate write; fixed with JSON-only validated replacement and AtomicStore publication. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Second-opinion review found case-insensitive state-path admission; canonical Git paths now require ordinal-exact matches. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
 - [2026-08-10] Second-opinion review found record-only PRs admitted customization edits; zero-accepted outcomes now allow only exact lifecycle state paths. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
+- [2026-08-29] SI accepted forged v2 candidate projections as provenance; fixed by source-record and candidate byte-stable derivation checks. (plan-6a629b, src:autopilot, sev:Med) #phase-1 #req-6 #security
+- [2026-08-29] SI used a weaker v2 receipt trust boundary; fixed by validating closed nested shapes and re-deriving every current candidate. (plan-6a629b, src:autopilot, sev:Med) #phase-1 #req-6 #security
 - [2026-08-10] Sole-resolver proof scanned ps1 scripts but omitted executable psm1 modules. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Standalone resolver receipt verification could follow a symlinked receipt directory outside the physical repository root. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-7 #security
 - [2026-08-28] Symlinked plan.md and epic.md identity files bypassed folder-only physical checks; fixed with direct-child physical confinement. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security

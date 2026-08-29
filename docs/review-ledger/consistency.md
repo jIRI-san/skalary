@@ -3,6 +3,7 @@
 - [2026-08-01] A constant restated in prose needs either a pointer to the gated source or a test tying the two; an ungated third copy goes stale the moment the gated one moves. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-17
 - [2026-08-01] A gate whose scope is derived from what is already declared is self-referential; root the closed set in the grammar or state the residual bound where a reader will find it. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-08-01] A plugin payload edit must regenerate marketplace.json and registry.json in the same commit; the unit suite passes while the generated catalogs go stale. (plan-b0c0d3, src:autopilot, sev:Critical) #phase-10 #req-17
+- [2026-08-29] An obsolete active-runs path assignment remained in the SI scanner; removed. (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1 #req-6
 - [2026-08-29] decision=keep one admitted-phase and phase-close contract for next-phase and whole-plan; integration=installed CI and autopilot payloads now state progression and resume semantics explicitly; distribution=dogfood registr (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1 #req-4 #req-5 #req-6
 - [2026-08-29] decision=map scope phase to next-phase and keep the existing autopilot agent as admission and phase-close owner; lower-impact uncertainty=none; high-impact uncertainty=none; checkpoint outcome=REQ-2 and REQ-5 focused evi (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-2 #req-5
 - [2026-08-29] decision=reuse the closed Add-WorkflowNote kinds; lower-impact uncertainty=checkpoint wording may evolve within the existing Capture grammar; high-impact uncertainty=none; checkpoint outcome=REQ-3 and REQ-4 focused evide (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-3 #req-4
@@ -10,12 +11,19 @@
 - [2026-08-28] dr legacy step 4.3 : self-migration requires a host relaunch boundary because the already-running entrypoint cannot consume newly installed exit handling (plan-669ad3, src:autopilot, sev:Critical) #architecture-patterns #phase-2
 - [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2
 - [2026-08-28] Keep folder-name parsing pure and shared so worktree and pinned-tree inventories cannot drift across naming migrations. (plan-669ad3, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1
+- [2026-08-29] Legacy intent readiness had duplicate executable policy; fixed by sharing Assert-IntentReady across planning and admission. (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-1
 - [2026-08-29] Phase harvest must parse and skip legacy Phase: 0 planning capture before selecting executable phase sections. (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-3
 - [2026-08-28] Pinned SI inventory duplicates the plan-folder grammar instead of consuming a shared PlanState parser leaving future drift risk. (plan-669ad3, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
 - [2026-08-29] Plugin-owned SI modules must resolve shared generated closures in both source-plugin and installed-skill layouts. (plan-2366ad, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
 - [2026-08-10] Public lock and CAS parameters allowed values beyond exact 30-second and three-attempt maxima. (plan-1936cb, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-7
 - [2026-08-09] Regenerated registry payload hashes after the final autopilot agent wording change. (plan-1936cb, src:autopilot, sev:Low) #maintainability-consistency #phase-5 #req-8
 - [2026-08-10] Registry payload hashes are stale after final SI script and guide changes. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-6 #req-8
+- [2026-08-29] review 40a86ef6 finding 6 fixed: Get-PhaseAdmission is the single executable phase-admission owner (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1 #req-1
+- [2026-08-29] review 40a86ef6 finding 8 fixed: plan-workflow frontmatter now loads for the canonical harvest script (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1
+- [2026-08-29] review 40a86ef6 finding 9 fixed: Phase 0 compatibility is restricted to Capture (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1 #req-3
+- [2026-08-29] review-cycle stage=phase-1 cycle=1 outcome=findings summary=run-40a86ef6-10-findings-9-fixed-1-deferred (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
+- [2026-08-29] review-cycle stage=phase-1 cycle=2 outcome=findings summary=cycle-2 fixed 16; deferred pre-existing SI blob batching (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
+- [2026-08-29] review-cycle stage=phase-1 cycle=3 outcome=findings summary=cycle-3 findings fixed; changed-surface gate green (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle stage=phase-3 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=phase-3-review-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=42-triaged-actionable-remediated-4b7d4c5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=2 outcome=findings summary=47-triaged-actionable-remediated-e89bff5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
@@ -35,6 +43,7 @@
 - [2026-08-28] review-cycle stage=step-3.2 cycle=1 outcome=clean summary=clean=1 findings=0 run=step-3-2-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=2 outcome=findings summary=critical=0 high=1 medium=1 low=0 run=step-3-2-rereview (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-3-2-final-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle-decision stage=phase-1 after=3 action=wrap (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-29] review-cycle-decision stage=plan-finalization after=3 action=wrap (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle-decision stage=step-1.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle-decision stage=step-2.1 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2
