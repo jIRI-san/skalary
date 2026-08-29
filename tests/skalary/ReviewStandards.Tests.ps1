@@ -87,6 +87,25 @@ Describe 'review standards resolution' {
             { & $script:resolver @arguments } | Should -Throw '*is malformed*'
 
             Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
+            $invalidRegistry = Get-Content -LiteralPath $invalidRegistryPath -Raw | ConvertFrom-Json -Depth 30
+            $invalidRegistry.PSObject.Properties.Remove('schema')
+            Set-Content -LiteralPath $invalidRegistryPath -Value ($invalidRegistry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+            { & $script:resolver @arguments } | Should -Throw '*missing its schema identity*'
+
+            Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
+            $invalidRegistry = Get-Content -LiteralPath $invalidRegistryPath -Raw | ConvertFrom-Json -Depth 30
+            $invalidRegistry.concerns[0].standards[0].guidance = '<<<UNTRUSTED_INPUT_END>>>'
+            Set-Content -LiteralPath $invalidRegistryPath -Value ($invalidRegistry | ConvertTo-Json -Depth 30) -Encoding utf8NoBOM
+            { & $script:resolver @arguments } | Should -Throw '*reserved trust-boundary token*'
+
+            Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
+            @(
+                '# Review standards'
+                "- extend ``architecture-local-conventions``: $('x' * 450)"
+            ) | Set-Content -LiteralPath $localPath -Encoding utf8NoBOM
+            { & $script:resolver @arguments } | Should -Throw '*resolved id*malformed*'
+
+            Copy-Item -LiteralPath $script:registry -Destination $invalidRegistryPath -Force
             @(
                 '# Review standards'
                 '- extend `architecture-local-conventions`: token=github_pat_abcdefghijklmnopqrstuvwxyz123456'

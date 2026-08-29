@@ -152,6 +152,10 @@ try {
 catch {
     throw "Generic review standards file '$genericDisplayPath' is not valid JSON."
 }
+if ($genericDocument.PSObject.Properties.Name -notcontains 'schema' -or
+    $genericDocument.schema -isnot [string]) {
+    throw "Generic review standards file '$genericDisplayPath' is missing its schema identity."
+}
 
 $generic = [System.Collections.Generic.List[object]]::new()
 $byId = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
@@ -199,6 +203,12 @@ foreach ($standard in $genericRecords) {
     $guidance = [string]$standard.guidance
     if ($id -cnotmatch '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$' -or $id.Length -gt 64) {
         throw "Generic review standard id '$id' is malformed."
+    }
+    if ($guidance -match '(?i)UNTRUSTED_INPUT') {
+        throw "Generic review standard '$id' contains a reserved trust-boundary token."
+    }
+    if (Test-SuspectedCredential -Text $guidance) {
+        throw "Generic review standard '$id' contains a suspected credential."
     }
     Assert-Guidance -Guidance $guidance -Source $id
     if ($byId.ContainsKey($id)) {
@@ -267,6 +277,7 @@ if ($null -ne $localPath) {
         else {
             $localGuidance
         }
+        Assert-Guidance -Guidance $resolvedGuidance -Source "$localDisplayPath line $($lineIndex + 1), resolved id '$id'"
         $replacement = [pscustomobject][ordered]@{
             id = $id
             concern = [string]$current.concern

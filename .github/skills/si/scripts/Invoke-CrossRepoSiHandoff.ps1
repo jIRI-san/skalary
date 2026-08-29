@@ -105,6 +105,8 @@ $dirty = @(Invoke-UpstreamGit -Arguments @('status', '--porcelain=v1', '--untrac
 if ($dirty.Count -gt 0) {
     throw 'The upstream checkout must be clean before importing consumer context.'
 }
+$pinnedHead = (@(Invoke-UpstreamGit -Arguments @('rev-parse', 'HEAD') `
+            -Failure 'Unable to pin the upstream checkout commit.') -join '').Trim()
 $remote = (@(Invoke-UpstreamGit -Arguments @('config', '--get', 'remote.origin.url') `
             -Failure 'The upstream checkout must have an origin remote.') -join '').Trim()
 if ([string]::IsNullOrWhiteSpace($remote)) {
@@ -182,6 +184,14 @@ if (-not [string]::Equals($actualId, [string]$artifact.exportId, [System.StringC
 if (@($artifact.payload.candidates).Count -gt 5) {
     throw 'Cross-repository SI artifact exceeds the candidate bound.'
 }
+$finalHead = (@(Invoke-UpstreamGit -Arguments @('rev-parse', 'HEAD') `
+            -Failure 'Unable to recheck the upstream checkout commit.') -join '').Trim()
+$finalDirty = @(Invoke-UpstreamGit -Arguments @('status', '--porcelain=v1', '--untracked-files=normal') `
+        -Failure 'Unable to recheck the upstream checkout state.')
+if (-not [string]::Equals($pinnedHead, $finalHead, [System.StringComparison]::Ordinal) -or
+    $finalDirty.Count -gt 0) {
+    throw 'The upstream checkout changed while the handoff context was being prepared.'
+}
 
 $fenceId = [Guid]::NewGuid().ToString('N')
 $safeArtifact = ConvertTo-RedactedSiText -Text ($artifactText.TrimEnd())
@@ -198,8 +208,7 @@ $context = @(
     Action = $(if ($WorkSize -eq 'Small') { '/si' } else { '/cip' })
     ExportId = [string]$artifact.exportId
     UpstreamRoot = $upstreamFull
-    PinnedHead = (@(Invoke-UpstreamGit -Arguments @('rev-parse', 'HEAD') `
-                -Failure 'Unable to pin the upstream checkout commit.') -join '').Trim()
+    PinnedHead = $pinnedHead
     Instructions = $instructionDigests.ToArray()
     Context = $context
     ScopeGuard = '.github/skills/si/scripts/Test-SiWriteScope.ps1'

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T00:12:14.3823413Z",
+  "generatedAt": "2026-08-29T00:28:52.4482465Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -458,7 +458,7 @@
         },
         {
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "9912d8bbcaf1b901aa250761d5ea60364160a2619e68b461c4f6da747323bd44",
+          "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -505,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.35"
+      "version": "1.0.37"
     },
     {
       "author": "jIRI-san",
@@ -1023,7 +1023,7 @@
         },
         {
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "9912d8bbcaf1b901aa250761d5ea60364160a2619e68b461c4f6da747323bd44",
+          "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1070,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.34"
+      "version": "1.0.36"
     },
     {
       "author": "jIRI-san",
@@ -1333,7 +1333,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
-          "sha256": "ee84806b397bf84db47b21257b3760a4da569455f2e7ac51acc81605e0f36763",
+          "sha256": "bd78860bd298a2fd9ee85cc1bc1993c3471eb3533911ec32d1d6899c054f851d",
           "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {

@@ -76,7 +76,10 @@ Describe 'Cross-repository self-improvement transport' {
                 choices = @([ordered]@{
                         candidateId = $id
                         disposition = 'accepted'
-                        proposalPr = $null
+                        proposalPr = [ordered]@{
+                            url = 'https://user:secret@example.test/proposals/1?token=hidden#fragment'
+                            headOid = '1' * 40
+                        }
                     })
                 proposalPr = $null
             }
@@ -132,6 +135,8 @@ Describe 'Cross-repository self-improvement transport' {
         $artifact.payload.source.sourceCommit | Should -Be ('d' * 40)
         $artifact.payload.source.installedPluginVersion | Should -Be '1.0.55'
         $artifact.payload.candidates[0].disposition | Should -Be 'accepted'
+        $artifact.payload.candidates[0].proposalPr.url | Should -Be 'https://example.test/proposals/1'
+        $text | Should -Not -Match 'user:secret@|token=hidden|#fragment'
         $artifact.payload.candidates[0].candidateText | Should -Match 'UNTRUSTED_INPUT_START'
 
         $sentinel = $output
