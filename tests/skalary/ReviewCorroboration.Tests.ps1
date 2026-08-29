@@ -26,17 +26,17 @@ Describe 'review finding corroboration derivation' {
             )
 
             return [ordered]@{
-                runId            = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
-                reviewType       = 'code'
-                contentTrust     = 'reviewer-authored-data'
-                scope            = '1 changed file'
-                scopeAuthority   = @{ digest = 'sha256:' + ('1' * 64) }
-                planDigest       = 'sha256:' + ('2' * 64)
+                runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+                reviewType = 'code'
+                contentTrust = 'reviewer-authored-data'
+                scope = '1 changed file'
+                scopeAuthority = @{ digest = 'sha256:' + ('1' * 64) }
+                planDigest = 'sha256:' + ('2' * 64)
                 invocationBudget = 4
-                modelSelection   = @()
-                roster           = $Roster
-                tasks            = $Tasks
-                findings         = $Findings
+                modelSelection = @()
+                roster = $Roster
+                tasks = $Tasks
+                findings = $Findings
             }
         }
 
@@ -51,11 +51,11 @@ Describe 'review finding corroboration derivation' {
             )
 
             return [ordered]@{
-                taskId    = $TaskId
-                severity  = 'Medium'
-                title     = $Title
-                body      = $Body
-                action    = $Action
+                taskId = $TaskId
+                severity = 'Medium'
+                title = $Title
+                body = $Body
+                action = $Action
                 rootCause = $RootCause
                 component = $Component
             }
@@ -70,8 +70,8 @@ Describe 'review finding corroboration derivation' {
 
             return [pscustomobject]@{
                 ExactKey = $ExactKey
-                Content  = 'x' * $ContentLength
-                Tokens   = [System.Collections.Generic.HashSet[string]]::new(
+                Content = 'x' * $ContentLength
+                Tokens = [System.Collections.Generic.HashSet[string]]::new(
                     $Token,
                     [System.StringComparer]::Ordinal
                 )
@@ -156,6 +156,25 @@ Describe 'review finding corroboration derivation' {
             -Left (New-CorroborationProfile -ExactKey left -Token (1..10 | ForEach-Object { "t$_" }) -ContentLength 48) `
             -Right (New-CorroborationProfile -ExactKey right -Token (1..8 | ForEach-Object { "t$_" }) -ContentLength 48) |
             Should -Be 'none' -Because 'Jaccard similarity below 0.90 does not flag'
+
+        $maximumSingleModel = @(
+            1..256 | ForEach-Object {
+                New-CorroborationFinding -TaskId 'security-a' -Title "Single model finding $_" `
+                    -Body "alpha bravo charlie delta echo foxtrot golf hotel item $_" `
+                    -Action "Inspect item $_." -RootCause 'maximum single model'
+            }
+        )
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $maximumProjection = ConvertTo-ReviewProjection -Run (
+            New-CorroborationRun -Findings $maximumSingleModel -Roster @('model-a') -Tasks @(
+                @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+            ))
+        $stopwatch.Stop()
+        $maximumProjection.Findings | Should -HaveCount 1
+        $maximumProjection.Findings[0].RawCount | Should -Be 256
+        $maximumProjection.Findings[0].Similarity | Should -Be 'none'
+        $stopwatch.Elapsed.TotalSeconds | Should -BeLessThan 2 `
+            -Because 'single-model groups cannot produce cross-model similarity and must skip pair indexing'
     }
 
     It 'test:ReviewReport.CorroborationSeverityAndVerdict derives support conservatively and forces suspicious findings to needs-review' {
@@ -381,10 +400,10 @@ Describe 'review finding corroboration derivation' {
             (Invoke-ReviewFreeze -RunId $largeRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
             $largeFindings = @(1..128 | ForEach-Object {
                     @{
-                        taskId    = 'security-large'
-                        severity  = 'High'
-                        title     = ('Gate finding {0:d3} ' -f $_) + ('x' * 143)
-                        body      = 'Gate-relevant detail remains in live authority.'
+                        taskId = 'security-large'
+                        severity = 'High'
+                        title = ('Gate finding {0:d3} ' -f $_) + ('x' * 143)
+                        body = 'Gate-relevant detail remains in live authority.'
                         rootCause = "retained-root-$_"
                         component = "src/retained-$_.ps1"
                     }
@@ -520,10 +539,10 @@ Describe 'review finding corroboration derivation' {
             -Roster @('model-a') `
             -Tasks @(@{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }) `
             -Findings @(@{
-                taskId    = 'security-a'
-                severity  = 'Medium'
-                title     = 'Schema-owned derivation'
-                body      = 'Callers provide only raw reviewer data.'
+                taskId = 'security-a'
+                severity = 'Medium'
+                title = 'Schema-owned derivation'
+                body = 'Callers provide only raw reviewer data.'
                 rootCause = 'schema'
                 component = 'src/schema.ps1'
             })

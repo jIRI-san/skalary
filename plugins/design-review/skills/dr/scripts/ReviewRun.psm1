@@ -694,12 +694,17 @@ function ConvertTo-ReviewProjection {
                 )
             })
 
-        $similarityProfiles = @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
         $similarity = 'none'
+        $similarityProfiles = if ($models.Count -ge 2) {
+            @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
+        }
+        else {
+            @()
+        }
         $modelsByExactKey = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new(
             [System.StringComparer]::Ordinal
         )
-        for ($index = 0; $index -lt $raw.Count; $index++) {
+        for ($index = 0; $models.Count -ge 2 -and $index -lt $raw.Count; $index++) {
             $exactKey = [string]$similarityProfiles[$index].ExactKey
             if (-not $modelsByExactKey.ContainsKey($exactKey)) {
                 $modelsByExactKey[$exactKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -714,7 +719,7 @@ function ConvertTo-ReviewProjection {
         $tokenPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
             [System.StringComparer]::Ordinal
         )
-        for ($rightIndex = 0; $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
+        for ($rightIndex = 0; $models.Count -ge 2 -and $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
             $rightProfile = $similarityProfiles[$rightIndex]
             if ($rightProfile.Content.Length -lt 48 -or $rightProfile.Tokens.Count -lt 8) { continue }
 
@@ -3927,28 +3932,27 @@ function Finalize-ReviewPlanRun {
                     throw "Finalized review result '$RunId' did not verify after publication."
                 }
             }
+            $cleanupPending = $false
+            $cleanupDiagnostic = $null
+            try {
+                if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
+                if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
+                    [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
+                }
+                Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
+                if ($null -eq $existingMarker) {
+                    $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
+                    Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
+                }
+                Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
+                Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
+                Remove-ReviewTree -Path $cleanupDir
+                Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
+            }
+            catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
+            return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
         }
         finally { Exit-ReviewLock -Lock $runLock }
-
-        $cleanupPending = $false
-        $cleanupDiagnostic = $null
-        try {
-            if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
-            if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
-            }
-            Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
-            if ($null -eq $existingMarker) {
-                $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
-                Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
-            }
-            Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
-            Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
-            Remove-ReviewTree -Path $cleanupDir
-            Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
-        }
-        catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
-        return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
     }
     finally { Exit-ReviewLock -Lock $lock }
 }
