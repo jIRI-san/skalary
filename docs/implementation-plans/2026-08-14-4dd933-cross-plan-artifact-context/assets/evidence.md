@@ -1,3 +1,3 @@
-Phase 1 Crosscheck:
-✓ REQ-1 — test:PlanArtifactContext.Resolution — passed — ae982a303e77bae09a5bd1ee0d16e340b799b245
-✓ REQ-2 — test:PlanArtifactContext.BoundsAndConfinement — passed — ae982a303e77bae09a5bd1ee0d16e340b799b245
+Phase 2 Crosscheck:
+✓ REQ-3 — test:PlanArtifactContext.Provenance — passed — 153b0a296104271744aeba45245327d9d8ba05e3
+✓ REQ-4 — test:PlanArtifactContext.Consumers — passed — 153b0a296104271744aeba45245327d9d8ba05e3
