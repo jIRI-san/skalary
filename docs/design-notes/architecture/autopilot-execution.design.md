@@ -60,7 +60,7 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 
 - Builds image from `.github/skills/autopilot/devcontainer/Dockerfile`
 - Passes auth via env file (prepared by `prepare-env-file.ps1`)
-- Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
+- Container entry point: `container-entrypoint.sh` handles clone, branch, and targets selected by the deterministic `plan-dispatch.sh` helper
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
 
@@ -238,7 +238,7 @@ Key fields:
 - `context`: Copilot CLI context tier (`default` or `long_context`)
 - `reasoningEffort`: Copilot CLI reasoning depth (`low`, `medium`, `high`, `xhigh`, or `max`)
 - `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
-- `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
+- `timeout`: Minutes per phase before force-kill; a container completion-only resume uses the same per-invocation cap. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place target boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
 - `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle phase/finalization gates.
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.
@@ -282,6 +282,30 @@ Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 4. Loop until phase complete → primary-only `/cr post-phase` review → push
 5. After all phases → primary + secondary `/cr plan-finalization` review over the whole branch
 
+A container whole-plan resume selects only phases that still contain `[ ]` or `[~]` steps. If every
+implementation step is already `[x]` when the resumed container starts — including after an operator
+persists a post-phase `ReviewCycleGate` decision — the dispatcher emits one `completion-only` target
+instead of zero targets only when every `phase-N` gate is durably terminal (latest review outcome
+`clean` or operator `wrap`, validated through the installed
+`.github/skills/autopilot/scripts/ReviewCycleGate.ps1`). Missing or failed gate execution fails target
+selection and the container; it never degrades to a zero-target success. Checkbox completion alone is insufficient because the final step commit precedes phase
+crosscheck and review. Its prompt makes the agent verify the all-complete invariant, skip phase
+completion entirely, and enter Plan Completion without reopening steps or replaying phase crosschecks,
+harvests, reviews, commits, or pushes. A nonterminal `allow` gate emits a confined
+`phase-completion:<N>` target first; an unresolved `operator-decision` emits `operator-stop:<N>` and
+returns exit 42 without an agent invocation. `next-phase` remains implementation-only and emits no completion
+target when no implementation phase is pending. When the selected implementation or phase-completion
+target belongs to the actual final phase, that invocation owns the existing continuation into Plan
+Completion, so the dispatcher does not append a duplicate `completion-only` invocation. It appends
+`completion-only` only when all phase gates were terminal at launch or the selected work ends before an
+already-terminal final phase. Exit 42, exit 43, and timeout handling use the same
+per-invocation branches as phase execution. A gate that becomes nonterminal before finalization fails
+closed: an operator decision remains exit 42, while an unfinished phase gate or invalid phase step state
+exits nonzero. Other agent failures may still preserve and run later targets for partial progress, but
+their nonzero status is retained as the container result. After such a failure, dispatch stops before
+any target that owns finalization (`completion-only` or the actual final phase), so partial progress
+cannot authorize Plan Completion or mask the original failure code.
+
 The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step loops run named evidence and focused targets only. Once phase work settles, phase crosscheck runs one highest-signal changed-surface Fast selection and logs its 60-second advisory target; if it is too broad, scope may be reduced and complete coverage deferred. Slow and full-repository validation are forbidden before true plan finalization. Finalization opts into complete Fast through an explicit repository parameter, then runs Slow once. Runtime observations never trigger an automatic repair/rerun loop. The same cadence applies inside container autopilot because the same per-phase agent owns the boundary.
 
 CR is not dispatched after individual implementation steps. Post-phase dispatch uses only the
@@ -314,7 +338,7 @@ Absolute rules enforced:
 | Harvest guardrail | Finalization harvest runs when the installed `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` exists. Ledger categories scaffold on demand, so fresh installs do not require preexisting ledger files. Missing infra falls through to standard branch behavior. |
 | Harvest branch split | Append-harvest executes and commits before branch selection; autonomous branch archives + real PR, escalation branch runs `/udn` + prune + draft PR + marker + exit 42 (never archive). |
 | Script invocation safety | Installed `Invoke-PhaseHarvest.ps1`, autopilot-owned `Invoke-SiDueEnqueue.ps1`, `Remove-LedgerEntry.ps1`, `Update-FeedbackQueue.ps1`, and dependency-installed `Enqueue-SiDue.ps1` are the Rule-5 carve-out and must be invoked with argument arrays, never shell-interpolated command strings. |
-| Durable writer closure | Root-canonical capture/ledger writers import `AtomicStore.psm1`; `Invoke-PhaseHarvest.ps1` imports the shared `LedgerStore.psm1` scalar/batch engine. Autopilot carries both generated modules plus `PlanState.psm1` under `.github/skills/autopilot/scripts/`, so installed phase harvest uses the same confinement, lock/CAS/status, bounds, and atomic-replace contracts. |
+| Durable writer closure | Root-canonical capture/ledger writers import `AtomicStore.psm1`; `Invoke-PhaseHarvest.ps1` imports the shared `LedgerStore.psm1` scalar/batch engine. Autopilot carries both generated modules plus `PlanState.psm1`, `ReviewCycleGate.ps1`, and its `Add-WorkflowNote.ps1` writer closure under `.github/skills/autopilot/scripts/`, so installed phase harvest and completion-resume gating use the same confinement, lock/CAS/status, bounds, and atomic-replace contracts. |
 | Planning admission | Before any step/log mutation, autopilot calls shared `Get-PlanningContextState`. Enrolled `pending`, `stale`, `missing`, or `invalid` plans exit `42` for operator confirmation; marker-less legacy plans proceed. |
 | Phase-harvest execution | Phase crosscheck invokes the bound installed autopilot copy with `-Phase`, commits the receipt plus changed ledger categories before phase teardown, and finalization invokes `-FinalSweep`; only `complete`/`empty` permit phase completion or archival. Degraded phases are retried at the phase boundary because final sweep only replays existing receipts; unresolved degradation stops completion. The exact installed script is in autopilot's closed execution carve-out, and both current/legacy receipt trees are declared first-use scaffolds. |
 | Ephemeral capture durability | Each phase initializes and commits `cr-log.md`, `learnings.md`, and `evolution-log.md` sections by explicit filename with `No entries for this phase.` placeholders; harvest fails loud only on missing required sections. |
@@ -341,6 +365,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `prepare-env-file.ps1` | Create temp env file with restrictive ACL |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
 | `container-entrypoint.sh` | Container bootstrap (clone, branch, phase loop) |
+| `plan-dispatch.sh` | Deterministic container target selector — incomplete phases plus gate-aware, confined completion resume |
 | `run-smoke-test.ps1` | End-to-end smoke test runner |
 
 ## Trust Boundaries

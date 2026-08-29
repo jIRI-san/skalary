@@ -17,6 +17,8 @@ MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
 REPO_REMOTE="${REPO_REMOTE:?REPO_REMOTE env var required}"
 
+. /usr/local/lib/autopilot/plan-dispatch.sh
+
 echo "=== Autopilot Container Entry-Point ==="
 echo "Plan: ${PLAN_SLUG}"
 echo "Mode: ${MODE}"
@@ -158,13 +160,21 @@ if [ ! -f "${PLAN_PATH}" ]; then
     exit 1
 fi
 
-# Parse the actual phase numbers from "## Phase N" headings so plans that
-# start at Phase 0 (or skip numbers) are executed faithfully. Iterating a
-# blind `seq 1..count` would skip Phase 0 and chase a nonexistent trailing
-# phase. Matches the host launcher (launch-host.ps1) behaviour.
-PHASE_NUMS=$(grep -oE '^## Phase [0-9]+' "${PLAN_PATH}" | grep -oE '[0-9]+' || true)
+# Parse actual phase numbers and select only incomplete phases. A whole-plan
+# relaunch with every step complete gets one confined completion-only target.
+PHASE_NUMS=$(autopilot_phase_numbers "${PLAN_PATH}")
 PHASE_COUNT=$(printf '%s\n' "${PHASE_NUMS}" | grep -c '[0-9]' || echo "0")
+FINAL_PHASE_NUM=$(printf '%s\n' "${PHASE_NUMS}" | tail -n 1)
 echo "Found ${PHASE_COUNT} phases in plan (numbers: $(echo ${PHASE_NUMS} | tr '\n' ' '))."
+REVIEW_GATE=".github/skills/autopilot/scripts/ReviewCycleGate.ps1"
+if ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}" "${REVIEW_GATE}"); then
+    echo "ERROR: Unable to resolve safe autopilot execution targets."
+    exit 1
+fi
+EXECUTION_TARGETS=()
+if [ -n "${TARGET_OUTPUT}" ]; then
+    mapfile -t EXECUTION_TARGETS <<< "${TARGET_OUTPUT}"
+fi
 
 PHASE_TIMEOUT_MIN="${AUTOPILOT_PHASE_TIMEOUT_MIN:-0}"
 PHASE_TIMEOUT_SECS=$((PHASE_TIMEOUT_MIN * 60))
@@ -174,18 +184,57 @@ else
     echo "Per-phase timeout: disabled (whole-run cap is enforced by the host)."
 fi
 
-# Per-phase copilot invocations
-for PHASE_NUM in ${PHASE_NUMS}; do
+# Per-target copilot invocations
+COMPLETION_ALLOWED=1
+RUN_EXIT_CODE=0
+for TARGET in "${EXECUTION_TARGETS[@]}"; do
     echo ""
-    echo "=== Phase ${PHASE_NUM} (of ${PHASE_COUNT} total) ==="
-
-    # Check if phase has uncompleted steps
-    if ! grep -q '^\- \[ \]\|^\- \[\~\]' "${PLAN_PATH}"; then
-        echo "No uncompleted steps remain — skipping."
-        continue
+    if [ "${COMPLETION_ALLOWED}" -ne 1 ] &&
+        autopilot_target_owns_finalization "${TARGET}" "${FINAL_PHASE_NUM}"; then
+        echo "Skipping ${TARGET}: an earlier target failed, so plan finalization is not eligible."
+        break
     fi
-
-    TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
+    if [[ "${TARGET}" == operator-stop:* ]]; then
+        PHASE_NUM="${TARGET#operator-stop:}"
+        echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
+        git push origin "${WORK_BRANCH}" || true
+        exit 42
+    elif [ "${TARGET}" = "completion-only" ]; then
+        if ! autopilot_plan_all_steps_complete "${PLAN_PATH}"; then
+            echo "ERROR: Plan completion target is no longer eligible — stopping without finalization."
+            exit 1
+        fi
+        if autopilot_plan_phase_gates_terminal "${PLAN_PATH}" "${REVIEW_GATE}"; then
+            :
+        else
+            GATE_STATUS=$?
+            if [ "${GATE_STATUS}" -eq 2 ]; then
+                echo "ERROR: Unable to verify plan completion gates."
+                exit 1
+            fi
+            if [ "${GATE_STATUS}" -eq 42 ]; then
+                echo "Plan completion requires an operator review decision — stopping."
+                git push origin "${WORK_BRANCH}" || true
+                exit 42
+            fi
+            echo "ERROR: Plan completion gates are not terminal — stopping without finalization."
+            exit 1
+        fi
+        TARGET_LABEL="Plan completion"
+        TRANSCRIPT="session-transcript-completion.md"
+        PROMPT="Resume ${PLAN_PATH} at Plan Completion only. Every implementation step is already [x]. Do not replay phase completion or reopen completed steps."
+    elif [[ "${TARGET}" == phase-completion:* ]]; then
+        PHASE_NUM="${TARGET#phase-completion:}"
+        TARGET_LABEL="Phase ${PHASE_NUM} completion"
+        TRANSCRIPT="session-transcript-phase${PHASE_NUM}-completion.md"
+        PROMPT="Resume ${PLAN_PATH}, phase ${PHASE_NUM}, at On Phase Completion only. Every implementation step in the phase is already [x]. Do not reopen or replay completed implementation steps."
+    else
+        PHASE_NUM="${TARGET#phase:}"
+        TARGET_LABEL="Phase ${PHASE_NUM}"
+        TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
+        PROMPT="Execute ${PLAN_PATH}, phase ${PHASE_NUM}"
+    fi
+    echo "=== ${TARGET_LABEL} ==="
 
     # Pass --model explicitly when set so model selection is deterministic
     # (not just implied by COPILOT_MODEL) and visible in logs.
@@ -197,7 +246,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         echo "Invoking Copilot CLI with CLI default model (COPILOT_MODEL unset)"
     fi
 
-    copilot -p "Execute ${PLAN_PATH}, phase ${PHASE_NUM}" \
+    copilot -p "${PROMPT}" \
         "${MODEL_ARGS[@]}" \
         --context "${COPILOT_CONTEXT}" \
         --effort "${COPILOT_REASONING_EFFORT}" \
@@ -213,7 +262,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         ELAPSED=0
         while kill -0 "${COPILOT_PID}" 2>/dev/null; do
             if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
-                echo "Phase ${PHASE_NUM} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating phase."
+                echo "${TARGET_LABEL} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating."
                 PHASE_TIMED_OUT=1
                 kill -TERM "${COPILOT_PID}" 2>/dev/null || true
                 for _ in 1 2 3 4 5; do
@@ -238,16 +287,16 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         # Preserve whatever the phase produced, then stop: continuing into the next
         # phase after a truncated one would build on an unfinished phase.
         preserve_work
-        echo "Stopping run after per-phase timeout in phase ${PHASE_NUM}."
+        echo "Stopping run after timeout in ${TARGET_LABEL}."
         exit 124
     fi
 
     if [ ${EXIT_CODE} -ne 0 ]; then
-        echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}"
+        echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
         if [ ${EXIT_CODE} -eq 42 ]; then
             echo "@human step encountered — stopping."
             git push origin "${WORK_BRANCH}" || true
-            break
+            exit 42
         fi
         if [ ${EXIT_CODE} -eq 43 ]; then
             # Offline rebundle requested: the agent committed the package
@@ -259,10 +308,14 @@ for PHASE_NUM in ${PHASE_NUMS}; do
             exit 43
         fi
         # Non-zero but not @human — push what landed, then continue for partial progress
+        COMPLETION_ALLOWED=0
+        if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
+            RUN_EXIT_CODE="${EXIT_CODE}"
+        fi
         git push origin "${WORK_BRANCH}" || true
+    else
+        echo "${TARGET_LABEL} complete."
     fi
-
-    echo "Phase ${PHASE_NUM} complete."
 done
 
 echo ""
@@ -274,3 +327,4 @@ git push origin "${WORK_BRANCH}"
 # with a structured title and body. The entrypoint only ensures the branch is pushed.
 
 echo "Done."
+exit "${RUN_EXIT_CODE}"

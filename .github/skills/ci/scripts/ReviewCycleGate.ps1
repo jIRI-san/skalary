@@ -40,6 +40,12 @@ $provenancePattern = '(?: \[[^\]]+\])*'
 $cycleMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle stage=$stagePattern cycle=(?<cycle>[0-9]+) outcome=(?<outcome>clean|findings)(?: .*)?$")
 $cycles = @($cycleMatches | ForEach-Object { [int]$_.Groups['cycle'].Value } | Sort-Object)
 $count = $cycles.Count
+$latestOutcome = if ($cycleMatches.Count -gt 0) {
+    [string]$cycleMatches[$cycleMatches.Count - 1].Groups['outcome'].Value
+}
+else {
+    $null
+}
 if ($count -gt 0 -and (($cycles -join ',') -ne ((1..$count) -join ','))) {
     throw "Review-cycle history for '$Stage' is not the closed sequence 1..$count."
 }
@@ -62,7 +68,8 @@ function Add-ReviewCycleNote {
 }
 
 function Get-ReviewCycleState {
-    param([int]$CycleCount, [object]$Decision)
+    param([int]$CycleCount, [object]$Decision, [string]$LatestOutcome)
+    if ($LatestOutcome -eq 'clean') { return 'complete' }
     if ($CycleCount -lt 3) { return 'allow' }
     if ($null -ne $Decision -and $Decision.After -eq $CycleCount) {
         if ($Decision.Action -eq 'continue') { return 'allow' }
@@ -71,7 +78,7 @@ function Get-ReviewCycleState {
     return 'operator-decision'
 }
 
-$state = Get-ReviewCycleState -CycleCount $count -Decision $latestDecision
+$state = Get-ReviewCycleState -CycleCount $count -Decision $latestDecision -LatestOutcome $latestOutcome
 switch ($Action) {
     'Record' {
         if (-not $Outcome) { throw 'Record requires -Outcome clean|findings.' }
@@ -80,8 +87,9 @@ switch ($Action) {
         $suffix = if ([string]::IsNullOrWhiteSpace($Summary)) { '' } else { " summary=$Summary" }
         Add-ReviewCycleNote -Message "review-cycle stage=$Stage cycle=$next outcome=$Outcome$suffix"
         $count = $next
+        $latestOutcome = $Outcome
         $latestDecision = $null
-        $state = if ($Outcome -eq 'clean') { 'complete' } else { Get-ReviewCycleState -CycleCount $count -Decision $null }
+        $state = Get-ReviewCycleState -CycleCount $count -Decision $null -LatestOutcome $latestOutcome
     }
     'Continue' {
         if ($count -lt 3) { throw 'Continue is valid only after at least three recorded review cycles.' }

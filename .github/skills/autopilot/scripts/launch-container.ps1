@@ -183,7 +183,9 @@ try {
     # Copy all transcript files (ignore errors for missing files)
     for ($i = 1; $i -le 10; $i++) {
         docker cp "${ContainerName}:/work/session-transcript-phase${i}.md" $TranscriptsDir 2>$null
+        docker cp "${ContainerName}:/work/session-transcript-phase${i}-completion.md" $TranscriptsDir 2>$null
     }
+    docker cp "${ContainerName}:/work/session-transcript-completion.md" $TranscriptsDir 2>$null
     $ErrorActionPreference = $prevEAP
 
     # --- Cleanup container ---
