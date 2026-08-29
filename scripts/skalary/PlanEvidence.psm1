@@ -70,14 +70,278 @@ function ConvertTo-PlanEvidenceResult {
             }
         }
 
+        $reviewRunId = [string](Get-PlanEvidenceField -InputObject $InputObject -Name 'ReviewRunId')
+        if (-not [string]::IsNullOrWhiteSpace($reviewRunId) -and
+            $reviewRunId -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+            throw "Evidence result for '$marker' has invalid ReviewRunId '$reviewRunId'."
+        }
+
         return [pscustomobject]@{
             Req = $req
             Marker = $marker
             Status = $status
             Success = ($status -in @('passed', 'waived'))
             Note = $note.Trim()
+            ReviewRunId = $reviewRunId
         }
     }
+}
+
+function Get-PlanReviewCycleState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [Parameter(Mandatory)]
+        [ValidatePattern('^(?:step-[0-9]+\.[0-9]+[a-z]?|phase-[0-9]+|plan-finalization)$')]
+        [string]$Stage
+    )
+
+    $logPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind CrLog
+    $raw = if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+        Get-Content -LiteralPath $logPath -Raw
+    }
+    else {
+        ''
+    }
+    $stagePattern = [regex]::Escape($Stage)
+    $provenancePattern = '(?: \[[^\]]+\])*'
+    $cycleMatches = [regex]::Matches(
+        $raw,
+        "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle stage=$stagePattern cycle=(?<cycle>[0-9]+) outcome=(?<outcome>clean|findings)(?: run=(?<runId>[0-9a-f-]+))?(?: summary=.*)?$"
+    )
+    $cycles = @($cycleMatches | ForEach-Object { [int]$_.Groups['cycle'].Value })
+    $count = $cycles.Count
+    if ($count -gt 0 -and (($cycles -join ',') -ne ((1..$count) -join ','))) {
+        throw "Review-cycle history for '$Stage' is not the append-only sequence 1..$count."
+    }
+
+    $events = [System.Collections.Generic.List[object]]::new()
+    $decisionMatches = [regex]::Matches(
+        $raw,
+        "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-decision stage=$stagePattern after=(?<after>[0-9]+) action=(?<action>continue|wrap)$"
+    )
+    foreach ($match in $decisionMatches) {
+        $events.Add([pscustomobject]@{
+                Index = $match.Index
+                After = [int]$match.Groups['after'].Value
+                Action = [string]$match.Groups['action'].Value
+                Authorization = ''
+                Reason = ''
+            })
+    }
+    $remediationMatches = [regex]::Matches(
+        $raw,
+        "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-remediation stage=$stagePattern after=(?<after>[0-9]+) action=reopen authorization=(?<authorization>[A-Za-z0-9][A-Za-z0-9._:-]{0,127}) reason=(?<reason>.+)$"
+    )
+    foreach ($match in $remediationMatches) {
+        $events.Add([pscustomobject]@{
+                Index = $match.Index
+                After = [int]$match.Groups['after'].Value
+                Action = 'reopen'
+                Authorization = [string]$match.Groups['authorization'].Value
+                Reason = [string]$match.Groups['reason'].Value
+            })
+    }
+    $latestEvent = @($events | Sort-Object Index | Select-Object -Last 1)
+    $latestEvent = if ($latestEvent.Count -eq 1) { $latestEvent[0] } else { $null }
+
+    $latestCycle = if ($cycleMatches.Count -gt 0) { $cycleMatches[$cycleMatches.Count - 1] } else { $null }
+    $latestOutcome = if ($null -ne $latestCycle) { [string]$latestCycle.Groups['outcome'].Value } else { '' }
+    $reviewRunId = if ($null -ne $latestCycle -and $latestCycle.Groups['runId'].Success) {
+        [string]$latestCycle.Groups['runId'].Value
+    }
+    else {
+        ''
+    }
+
+    $state = if ($latestOutcome -eq 'clean' -and
+        $reviewRunId -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+        'complete'
+    }
+    elseif ($latestOutcome -eq 'clean') {
+        'legacy-clean'
+    }
+    elseif ($count -lt 3) {
+        'allow'
+    }
+    elseif ($null -ne $latestEvent -and $latestEvent.After -eq $count) {
+        if ($latestEvent.Action -in @('continue', 'reopen')) { 'allow' } else { 'wrap' }
+    }
+    else {
+        'operator-decision'
+    }
+
+    return [pscustomobject]@{
+        State = $state
+        Cycles = $count
+        LatestEvent = $latestEvent
+        LatestOutcome = $latestOutcome
+        ReviewRunId = $reviewRunId
+        LogPath = $logPath
+    }
+}
+
+function Assert-PlanReviewPropertySet {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Node,
+        [Parameter(Mandatory)][string[]]$Required,
+        [string[]]$Optional = @(),
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $actual = @($Node.Keys | ForEach-Object { [string]$_ } | Sort-Object)
+    $allowed = @($Required + $Optional | Sort-Object)
+    if (@($actual | Where-Object { $_ -cnotin $allowed }).Count -gt 0 -or
+        @($Required | Where-Object { $_ -cnotin $actual }).Count -gt 0) {
+        throw "$Label has an unexpected or incomplete property set."
+    }
+}
+
+function Assert-PlanReviewResultReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')]
+        [string]$ReviewRunId,
+        [string]$Commit,
+        [switch]$RequireBranchScope,
+        [string]$RepoRoot
+    )
+
+    $store = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind ReviewRuns
+    $receiptPath = Join-Path $store "$ReviewRunId.receipt.json"
+    $reportPath = Join-Path $store "$ReviewRunId.review.md"
+    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+        throw "Clean review evidence for run '$ReviewRunId' is missing its retained report/receipt pair."
+    }
+    if ((Get-Item -LiteralPath $receiptPath -Force).Length -gt 65536) {
+        throw "Review result receipt for run '$ReviewRunId' exceeds 65536 bytes."
+    }
+
+    try {
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw -Force | ConvertFrom-Json -AsHashtable -Depth 20
+    }
+    catch {
+        throw "Review result receipt for run '$ReviewRunId' is invalid JSON: $($_.Exception.Message)"
+    }
+    Assert-PlanReviewPropertySet -Node $receipt -Label 'Review result receipt' -Required @(
+        'attendance', 'findings', 'legacySource', 'manifestDigest', 'planDigest', 'report',
+        'reviewType', 'runDigest', 'runId', 'schema', 'source', 'state', 'verdict'
+    )
+    Assert-PlanReviewPropertySet -Node $receipt['attendance'] -Label 'Review attendance' `
+        -Required @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')
+    Assert-PlanReviewPropertySet -Node $receipt['findings'] -Label 'Review findings' `
+        -Required @('merged', 'raw', 'severity')
+    Assert-PlanReviewPropertySet -Node $receipt['findings']['severity'] -Label 'Review severity' `
+        -Required @('critical', 'high', 'low', 'medium')
+    Assert-PlanReviewPropertySet -Node $receipt['report'] -Label 'Review report binding' `
+        -Required @('bytes', 'digest', 'name')
+    Assert-PlanReviewPropertySet -Node $receipt['source'] -Label 'Review source' `
+        -Required @('digest', 'head', 'mode', 'pathCount') -Optional @('base')
+
+    if ($receipt['schema'] -cne 'skalary/review-result-receipt@1' -or
+        $receipt['runId'] -cne $ReviewRunId -or
+        $receipt['reviewType'] -cne 'code' -or
+        $receipt['state'] -cne 'clean' -or
+        $receipt['verdict'] -cne 'approved' -or
+        $receipt['legacySource'] -ne $false) {
+        throw "Review run '$ReviewRunId' is not qualifying clean code-review evidence."
+    }
+    if ([int]$receipt['findings']['merged'] -ne 0 -or [int]$receipt['findings']['raw'] -ne 0) {
+        throw "Review run '$ReviewRunId' still contains findings."
+    }
+    if ([int]$receipt['attendance']['completed'] -lt 1) {
+        throw "Review run '$ReviewRunId' has no completed attendance."
+    }
+    foreach ($name in @('critical', 'high', 'medium', 'low')) {
+        if ([int]$receipt['findings']['severity'][$name] -ne 0) {
+            throw "Review run '$ReviewRunId' still contains $name findings."
+        }
+    }
+    foreach ($name in @('failed', 'timed-out', 'omitted', 'cancelled', 'pending')) {
+        if ([int]$receipt['attendance'][$name] -ne 0) {
+            throw "Review run '$ReviewRunId' has non-completed attendance."
+        }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Commit) -and $receipt['source']['head'] -cne $Commit) {
+        throw "Review run '$ReviewRunId' reviewed commit '$($receipt['source']['head'])', not '$Commit'."
+    }
+    if ($receipt['source']['head'] -cnotmatch '^[0-9a-f]{40}$' -or
+        $receipt['source']['mode'] -cnotin @('branch', 'uncommitted', 'paths') -or
+        [int]$receipt['source']['pathCount'] -lt 0) {
+        throw "Review run '$ReviewRunId' has an invalid source binding."
+    }
+    if ($RequireBranchScope -and $receipt['source']['mode'] -cne 'branch') {
+        throw "Review run '$ReviewRunId' is not whole-branch evidence."
+    }
+    if ($RequireBranchScope) {
+        if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+            throw 'Whole-branch review evidence requires -RepoRoot.'
+        }
+        $repoFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $defaultRef = (& git -C $repoFull symbolic-ref refs/remotes/origin/HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($defaultRef)) {
+            throw "Whole-branch review evidence could not resolve refs/remotes/origin/HEAD under '$repoFull'."
+        }
+        $mergeBase = (& git -C $repoFull merge-base $Commit $defaultRef.Trim() 2>$null)
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($mergeBase)) {
+            throw "Whole-branch review evidence could not resolve the default-branch merge base for '$Commit'."
+        }
+        $mergeBase = $mergeBase.Trim().ToLowerInvariant()
+        if ($receipt['source']['base'] -cne $mergeBase) {
+            throw "Review run '$ReviewRunId' used base '$($receipt['source']['base'])', not canonical merge base '$mergeBase'."
+        }
+        $changedPaths = @(& git -C $repoFull diff --name-only "$mergeBase..$Commit" 2>$null)
+        if ($LASTEXITCODE -ne 0 -or [int]$receipt['source']['pathCount'] -ne $changedPaths.Count) {
+            throw "Review run '$ReviewRunId' does not cover the canonical whole-branch path count."
+        }
+    }
+    foreach ($digest in @(
+            $receipt['source']['digest'],
+            $receipt['planDigest'],
+            $receipt['runDigest'],
+            $receipt['manifestDigest'],
+            $receipt['report']['digest']
+        )) {
+        if ($digest -cnotmatch '^sha256:[0-9a-f]{64}$') {
+            throw "Review run '$ReviewRunId' has an invalid digest binding."
+        }
+    }
+
+    $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
+    $reportDigest = 'sha256:' + [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($reportBytes)
+    ).ToLowerInvariant()
+    if ($reportBytes.Length -lt 1 -or $reportBytes.Length -gt 8192 -or
+        $receipt['report']['name'] -cne "$ReviewRunId.review.md" -or
+        [int64]$receipt['report']['bytes'] -ne $reportBytes.Length -or
+        $receipt['report']['digest'] -cne $reportDigest) {
+        throw "Review run '$ReviewRunId' retained report does not match its receipt."
+    }
+    return [pscustomobject]@{ Receipt = $receipt; ReceiptPath = $receiptPath; ReportPath = $reportPath }
+}
+
+function Assert-PlanCleanReviewEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [Parameter(Mandatory)][string]$Stage,
+        [Parameter(Mandatory)][string]$Commit,
+        [Parameter(Mandatory)][string]$ReviewRunId,
+        [string]$RepoRoot
+    )
+
+    $cycle = Get-PlanReviewCycleState -PlanDir $PlanDir -Stage $Stage
+    if ($cycle.State -ne 'complete') {
+        throw "review:cr cannot pass while review-cycle stage '$Stage' is '$($cycle.State)'."
+    }
+    if ($cycle.ReviewRunId -cne $ReviewRunId) {
+        throw "review:cr run '$ReviewRunId' does not match the durable clean cycle '$($cycle.ReviewRunId)'."
+    }
+    return Assert-PlanReviewResultReceipt -PlanDir $PlanDir -ReviewRunId $ReviewRunId -Commit $Commit `
+        -RequireBranchScope:($Stage -ceq 'plan-finalization') -RepoRoot $RepoRoot
 }
 
 function Resolve-PlanEvidenceAssetPath {
@@ -539,4 +803,4 @@ function Invoke-PlanFileEvidence {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence
+Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence, Get-PlanReviewCycleState, Assert-PlanReviewResultReceipt, Assert-PlanCleanReviewEvidence

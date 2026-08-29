@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Check', 'Record', 'Continue', 'Wrap')]
+    [ValidateSet('Check', 'Record', 'Continue', 'Wrap', 'Reopen')]
     [string]$Action,
 
     [Parameter(Mandatory)]
@@ -21,35 +21,32 @@ param(
 
     [string]$Summary,
 
+    [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')]
+    [string]$ReviewRunId,
+
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$')]
+    [string]$OperatorAuthorization,
+
+    [string]$Reason,
+
+    [string]$RepoRoot,
+
     [switch]$Json
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
 
 $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
 if (-not (Test-Path -LiteralPath $planDirFull -PathType Container)) {
     throw "Plan folder not found: $planDirFull"
 }
-$logPath = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind CrLog
-$raw = if (Test-Path -LiteralPath $logPath -PathType Leaf) { Get-Content -LiteralPath $logPath -Raw } else { '' }
-$stagePattern = [regex]::Escape($Stage)
-$provenancePattern = '(?: \[[^\]]+\])*'
-$cycleMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle stage=$stagePattern cycle=(?<cycle>[0-9]+) outcome=(?<outcome>clean|findings)(?: .*)?$")
-$cycles = @($cycleMatches | ForEach-Object { [int]$_.Groups['cycle'].Value } | Sort-Object)
-$count = $cycles.Count
-if ($count -gt 0 -and (($cycles -join ',') -ne ((1..$count) -join ','))) {
-    throw "Review-cycle history for '$Stage' is not the closed sequence 1..$count."
-}
-
-$decisionMatches = [regex]::Matches($raw, "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-decision stage=$stagePattern after=(?<after>[0-9]+) action=(?<decision>continue|wrap)$")
-$latestDecision = $null
-if ($decisionMatches.Count -gt 0) {
-    $match = $decisionMatches[$decisionMatches.Count - 1]
-    $latestDecision = [pscustomobject]@{ After = [int]$match.Groups['after'].Value; Action = [string]$match.Groups['decision'].Value }
-}
+$cycleState = Get-PlanReviewCycleState -PlanDir $planDirFull -Stage $Stage
+$logPath = $cycleState.LogPath
+$count = $cycleState.Cycles
+$latestEvent = $cycleState.LatestEvent
 
 function Add-ReviewCycleNote {
     param([Parameter(Mandatory)][string]$Message)
@@ -61,41 +58,69 @@ function Add-ReviewCycleNote {
         -Message $Message | Out-Null
 }
 
-function Get-ReviewCycleState {
-    param([int]$CycleCount, [object]$Decision)
-    if ($CycleCount -lt 3) { return 'allow' }
-    if ($null -ne $Decision -and $Decision.After -eq $CycleCount) {
-        if ($Decision.Action -eq 'continue') { return 'allow' }
-        return 'wrap'
-    }
-    return 'operator-decision'
-}
-
-$state = Get-ReviewCycleState -CycleCount $count -Decision $latestDecision
+$state = $cycleState.State
 switch ($Action) {
     'Record' {
         if (-not $Outcome) { throw 'Record requires -Outcome clean|findings.' }
         if ($state -ne 'allow') { throw "Review cycle $($count + 1) for '$Stage' is blocked by state '$state'." }
+        if ($Outcome -eq 'clean') {
+            if (-not $ReviewRunId) { throw 'Recording a clean review requires -ReviewRunId.' }
+            $gitRoot = if ($RepoRoot) {
+                [System.IO.Path]::GetFullPath($RepoRoot)
+            }
+            else {
+                $resolved = (& git -C $planDirFull rev-parse --show-toplevel 2>$null)
+                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolved)) {
+                    throw 'Recording a clean review could not resolve the repository; pass -RepoRoot.'
+                }
+                [System.IO.Path]::GetFullPath($resolved.Trim())
+            }
+            $head = (& git -C $gitRoot rev-parse HEAD 2>$null)
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
+                throw "Recording a clean review could not resolve HEAD under '$gitRoot'."
+            }
+            [void](Assert-PlanReviewResultReceipt -PlanDir $planDirFull -ReviewRunId $ReviewRunId `
+                    -Commit $head.Trim().ToLowerInvariant() -RequireBranchScope:($Stage -ceq 'plan-finalization') `
+                    -RepoRoot $gitRoot)
+        }
         $next = $count + 1
+        $run = if ($ReviewRunId) { " run=$ReviewRunId" } else { '' }
         $suffix = if ([string]::IsNullOrWhiteSpace($Summary)) { '' } else { " summary=$Summary" }
-        Add-ReviewCycleNote -Message "review-cycle stage=$Stage cycle=$next outcome=$Outcome$suffix"
+        Add-ReviewCycleNote -Message "review-cycle stage=$Stage cycle=$next outcome=$Outcome$run$suffix"
         $count = $next
-        $latestDecision = $null
-        $state = if ($Outcome -eq 'clean') { 'complete' } else { Get-ReviewCycleState -CycleCount $count -Decision $null }
+        $latestEvent = $null
+        $state = if ($Outcome -eq 'clean') { 'complete' } elseif ($count -lt 3) { 'allow' } else { 'operator-decision' }
     }
     'Continue' {
         if ($count -lt 3) { throw 'Continue is valid only after at least three recorded review cycles.' }
         if ($state -ne 'operator-decision') { throw "Continue cannot be recorded while state is '$state'." }
         Add-ReviewCycleNote -Message "review-cycle-decision stage=$Stage after=$count action=continue"
-        $latestDecision = [pscustomobject]@{ After = $count; Action = 'continue' }
+        $latestEvent = [pscustomobject]@{ After = $count; Action = 'continue'; Authorization = ''; Reason = '' }
         $state = 'allow'
     }
     'Wrap' {
         if ($count -lt 3) { throw 'Wrap is valid only after at least three recorded review cycles.' }
         if ($state -ne 'operator-decision') { throw "Wrap cannot be recorded while state is '$state'." }
         Add-ReviewCycleNote -Message "review-cycle-decision stage=$Stage after=$count action=wrap"
-        $latestDecision = [pscustomobject]@{ After = $count; Action = 'wrap' }
+        $latestEvent = [pscustomobject]@{ After = $count; Action = 'wrap'; Authorization = ''; Reason = '' }
         $state = 'wrap'
+    }
+    'Reopen' {
+        if ($state -notin @('wrap', 'legacy-clean')) { throw "Reopen cannot be recorded while state is '$state'." }
+        if (-not $OperatorAuthorization) {
+            throw 'Reopen requires explicit -OperatorAuthorization.'
+        }
+        if ([string]::IsNullOrWhiteSpace($Reason)) {
+            throw 'Reopen requires a non-empty -Reason.'
+        }
+        Add-ReviewCycleNote -Message "review-cycle-remediation stage=$Stage after=$count action=reopen authorization=$OperatorAuthorization reason=$Reason"
+        $latestEvent = [pscustomobject]@{
+            After = $count
+            Action = 'reopen'
+            Authorization = $OperatorAuthorization
+            Reason = $Reason
+        }
+        $state = 'allow'
     }
 }
 
@@ -109,8 +134,24 @@ $result = [ordered]@{
     operatorDecisionRequired = ($state -eq 'operator-decision')
     logPath = $logPath
 }
-if ($null -ne $latestDecision) {
-    $result['decision'] = [ordered]@{ after = $latestDecision.After; action = $latestDecision.Action }
+if ($state -eq 'complete' -and $ReviewRunId) {
+    $result['reviewRunId'] = $ReviewRunId
+}
+elseif ($state -eq 'complete' -and $cycleState.ReviewRunId) {
+    $result['reviewRunId'] = $cycleState.ReviewRunId
+}
+if ($null -ne $latestEvent) {
+    if ($latestEvent.Action -eq 'reopen') {
+        $result['remediation'] = [ordered]@{
+            after = $latestEvent.After
+            action = $latestEvent.Action
+            authorization = $latestEvent.Authorization
+            reason = $latestEvent.Reason
+        }
+    }
+    else {
+        $result['decision'] = [ordered]@{ after = $latestEvent.After; action = $latestEvent.Action }
+    }
 }
 
 if ($Json) { return ($result | ConvertTo-Json -Depth 5 -Compress) }
