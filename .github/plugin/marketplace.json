@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.49"
+      "version": "1.2.52"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.72"
+      "version": "1.0.75"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",

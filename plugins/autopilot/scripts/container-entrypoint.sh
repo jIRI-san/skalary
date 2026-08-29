@@ -10,6 +10,18 @@
 #   COPILOT_MODEL — model override
 #   REPO_REMOTE — git remote URL to clone
 
+set -euo pipefail
+
+stage_recoverable_work() {
+    local repo_path="$1"
+
+    {
+        git -C "${repo_path}" diff --name-only -z
+        git -C "${repo_path}" ls-files --others --exclude-standard -z
+    } | git -C "${repo_path}" add --pathspec-from-file=- --pathspec-file-nul ||
+        return 70
+}
+
 phase_needs_execution() {
     local plan_path="$1"
     local phase_number="$2"
@@ -18,6 +30,7 @@ phase_needs_execution() {
     local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
     local state_output
     local invocation_state
+
     state_output="$(pwsh -NoProfile -File "${state_script}" \
         -PlanPath "${plan_path}" -Phase "${phase_number}" \
         -RepoRoot "${repo_root}" -HarvestValidator "${validator}" 2>&1)"
@@ -38,49 +51,12 @@ phase_needs_execution() {
     esac
 }
 
-phase_dispatch_action() {
-    local mode="$1"
-    local exit_code="$2"
-    local close_state="$3"
-
-    if [ "${exit_code}" -eq 43 ]; then
-        printf '%s\n' rebundle
-    elif [ "${exit_code}" -eq 42 ]; then
-        printf '%s\n' human-stop
-    elif [ "${exit_code}" -ne 0 ]; then
-        printf '%s\n' phase-failed
-    elif [ "${close_state}" -eq 2 ]; then
-        printf '%s\n' invalid-receipt
-    elif [ "${close_state}" -eq 0 ]; then
-        printf '%s\n' close-pending
-    elif [ "${mode}" = "next-phase" ]; then
-        printf '%s\n' phase-complete-stop
-    else
-        printf '%s\n' phase-complete-continue
-    fi
-}
-
-stage_recoverable_work() {
-    local repo_path="$1"
-
-    {
-        git -C "${repo_path}" diff --name-only -z
-        git -C "${repo_path}" ls-files --others --exclude-standard -z
-    } | git -C "${repo_path}" add --pathspec-from-file=- --pathspec-file-nul ||
-        return 70
-}
-
-# Expose the pure phase-progress probe to focused tests without running bootstrap.
-if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
-    return 0
-fi
-
-set -euo pipefail
-
 PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
 REPO_REMOTE="${REPO_REMOTE:?REPO_REMOTE env var required}"
+
+. /usr/local/lib/autopilot/plan-dispatch.sh
 
 echo "=== Autopilot Container Entry-Point ==="
 echo "Plan: ${PLAN_SLUG}"
@@ -142,14 +118,20 @@ preserve_work() {
     git rev-parse --git-dir >/dev/null 2>&1 || return 70
     if [ -n "$(git status --porcelain)" ]; then
         echo "Committing in-flight work before exit..."
-        stage_recoverable_work /work || return 70
-        if ! git diff --cached --quiet; then
-            git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]" ||
-                return 70
+        if ! stage_recoverable_work /work ||
+            { ! git diff --cached --quiet &&
+                ! git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]"; }; then
+            echo "ERROR: unable to commit in-flight work; retaining the container workspace."
+            touch /tmp/autopilot-preservation-failed
+            return 1
         fi
     fi
     echo "Pushing ${WORK_BRANCH}..."
-    git push origin "${WORK_BRANCH}" || return 70
+    if ! git push origin "${WORK_BRANCH}"; then
+        echo "ERROR: preservation push failed; retaining the container workspace."
+        touch /tmp/autopilot-preservation-failed
+        return 1
+    fi
 }
 
 on_terminate() {
@@ -227,154 +209,224 @@ if [ ! -f "${PLAN_PATH}" ]; then
     exit 1
 fi
 
-# Parse the actual phase numbers from "## Phase N" headings so plans that
-# start at Phase 0 (or skip numbers) are executed faithfully. Iterating a
-# blind `seq 1..count` would skip Phase 0 and chase a nonexistent trailing
-# phase. Matches the host launcher (launch-host.ps1) behaviour.
-PHASE_NUMS=$(grep -oE '^## Phase [0-9]+' "${PLAN_PATH}" | grep -oE '[0-9]+' || true)
+# Parse actual phase numbers and select only incomplete phases. A whole-plan
+# relaunch with every step complete gets one confined completion-only target.
+PHASE_NUMS=$(autopilot_phase_numbers "${PLAN_PATH}")
 PHASE_COUNT=$(printf '%s\n' "${PHASE_NUMS}" | grep -c '[0-9]' || echo "0")
+FINAL_PHASE_NUM=$(printf '%s\n' "${PHASE_NUMS}" | tail -n 1)
 echo "Found ${PHASE_COUNT} phases in plan (numbers: $(echo ${PHASE_NUMS} | tr '\n' ' '))."
+REVIEW_GATE=".github/skills/autopilot/scripts/ReviewCycleGate.ps1"
+if ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}" "${REVIEW_GATE}"); then
+    echo "ERROR: Unable to resolve safe autopilot execution targets."
+    exit 1
+fi
+EXECUTION_TARGETS=()
+if [ -n "${TARGET_OUTPUT}" ]; then
+    mapfile -t EXECUTION_TARGETS <<< "${TARGET_OUTPUT}"
+fi
 
 PHASE_TIMEOUT_MIN="${AUTOPILOT_PHASE_TIMEOUT_MIN:-0}"
 PHASE_TIMEOUT_SECS=$((PHASE_TIMEOUT_MIN * 60))
+COMPLETION_HANDOFF_LIMIT="${AUTOPILOT_COMPLETION_HANDOFF_LIMIT:-3}"
+if [[ ! "${COMPLETION_HANDOFF_LIMIT}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: AUTOPILOT_COMPLETION_HANDOFF_LIMIT must be a positive integer."
+    exit 1
+fi
 if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
     echo "Per-phase timeout: ${PHASE_TIMEOUT_MIN}m (whole-run cap is enforced by the host)."
 else
     echo "Per-phase timeout: disabled (whole-run cap is enforced by the host)."
 fi
+echo "Completion handoff limit: ${COMPLETION_HANDOFF_LIMIT} same-session resume(s) per target."
 
-# Per-phase copilot invocations
-for PHASE_NUM in ${PHASE_NUMS}; do
+# Per-target copilot invocations
+COMPLETION_ALLOWED=1
+RUN_EXIT_CODE=0
+for TARGET in "${EXECUTION_TARGETS[@]}"; do
     echo ""
-    echo "=== Phase ${PHASE_NUM} (of ${PHASE_COUNT} total) ==="
-
-    # A phase is closed only after both its checklist and durable harvest complete.
-    # Missing close state re-enters the same phase agent instead of skipping ahead.
-    set +e
-    phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
-    PHASE_STATE=$?
-    set -e
-    if [ "${PHASE_STATE}" -eq 1 ]; then
-        echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
-        continue
-    elif [ "${PHASE_STATE}" -eq 2 ]; then
-        if ! preserve_work; then
-            echo "ERROR: Failed to preserve invalid phase-close state; container recovery is required."
-            exit 70
+    if [ "${COMPLETION_ALLOWED}" -ne 1 ]; then
+        if autopilot_target_owns_finalization "${TARGET}" "${FINAL_PHASE_NUM}" ||
+            [[ "${TARGET}" == operator-stop:* ]]; then
+            echo "Skipping ${TARGET}: an earlier target failed, so completion is not eligible."
+            break
         fi
-        exit 3
     fi
-
-    TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
-
-    # Pass --model explicitly when set so model selection is deterministic
-    # (not just implied by COPILOT_MODEL) and visible in logs.
-    MODEL_ARGS=()
-    if [ -n "${COPILOT_MODEL:-}" ]; then
-        MODEL_ARGS=(--model "${COPILOT_MODEL}")
-        echo "Invoking Copilot CLI with model: ${COPILOT_MODEL}"
-    else
-        echo "Invoking Copilot CLI with CLI default model (COPILOT_MODEL unset)"
-    fi
-
-    copilot -p "Execute ${PLAN_PATH}, phase ${PHASE_NUM}" \
-        "${MODEL_ARGS[@]}" \
-        --context "${COPILOT_CONTEXT}" \
-        --effort "${COPILOT_REASONING_EFFORT}" \
-        --agent autopilot \
-        --no-ask-user \
-        --share="./${TRANSCRIPT}" &
-    COPILOT_PID=$!
-
-    # Per-phase timeout. The host only enforces the whole-run cap; it cannot see
-    # phase boundaries, so the per-phase budget is enforced here.
-    PHASE_TIMED_OUT=0
-    if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
-        ELAPSED=0
-        while kill -0 "${COPILOT_PID}" 2>/dev/null; do
-            if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
-                echo "Phase ${PHASE_NUM} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating phase."
-                PHASE_TIMED_OUT=1
-                kill -TERM "${COPILOT_PID}" 2>/dev/null || true
-                for _ in 1 2 3 4 5; do
-                    kill -0 "${COPILOT_PID}" 2>/dev/null || break
-                    sleep 1
-                done
-                kill -KILL "${COPILOT_PID}" 2>/dev/null || true
-                break
+    if [[ "${TARGET}" == operator-stop:* ]]; then
+        PHASE_NUM="${TARGET#operator-stop:}"
+        echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
+        preserve_work || exit 125
+        git push origin "${WORK_BRANCH}" || true
+        exit 42
+    elif [ "${TARGET}" = "completion-only" ]; then
+        if ! autopilot_plan_all_steps_complete "${PLAN_PATH}"; then
+            echo "ERROR: Plan completion target is no longer eligible — stopping without finalization."
+            exit 1
+        fi
+        if autopilot_plan_phase_gates_terminal "${PLAN_PATH}" "${REVIEW_GATE}"; then
+            :
+        else
+            GATE_STATUS=$?
+            if [ "${GATE_STATUS}" -eq 2 ]; then
+                echo "ERROR: Unable to verify plan completion gates."
+                exit 1
             fi
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-        done
-    fi
-
-    set +e
-    wait "${COPILOT_PID}"
-    EXIT_CODE=$?
-    set -e
-    COPILOT_PID=""
-
-    if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
-        # Preserve whatever the phase produced, then stop: continuing into the next
-        # phase after a truncated one would build on an unfinished phase.
-        if ! preserve_work; then
-            echo "ERROR: Failed to preserve timed-out phase work; container recovery is required."
-            exit 70
+            if [ "${GATE_STATUS}" -eq 42 ]; then
+                echo "Plan completion requires an operator review decision — stopping."
+                preserve_work || exit 125
+                git push origin "${WORK_BRANCH}" || true
+                exit 42
+            fi
+            echo "ERROR: Plan completion gates are not terminal — stopping without finalization."
+            exit 1
         fi
-        echo "Stopping run after per-phase timeout in phase ${PHASE_NUM}."
-        exit 124
-    fi
-
-    CLOSE_STATE=-1
-    if [ "${EXIT_CODE}" -eq 0 ]; then
+        TARGET_LABEL="Plan completion"
+        TRANSCRIPT="session-transcript-completion.md"
+        PROMPT="Resume ${PLAN_PATH} at Plan Completion only. Every implementation step is already [x]. Do not replay phase completion or reopen completed steps."
+    elif [[ "${TARGET}" == phase-completion:* ]]; then
+        PHASE_NUM="${TARGET#phase-completion:}"
+        TARGET_LABEL="Phase ${PHASE_NUM} completion"
+        TRANSCRIPT="session-transcript-phase${PHASE_NUM}-completion.md"
+        PROMPT="Resume ${PLAN_PATH}, phase ${PHASE_NUM}, at On Phase Completion only. Every implementation step in the phase is already [x]. Do not reopen or replay completed implementation steps."
+    else
+        PHASE_NUM="${TARGET#phase:}"
         set +e
         phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
-        CLOSE_STATE=$?
+        PHASE_STATE=$?
         set -e
-    fi
-
-    ACTION="$(phase_dispatch_action "${MODE}" "${EXIT_CODE}" "${CLOSE_STATE}")"
-    case "${ACTION}" in
-        rebundle)
-            echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
-            if ! git push origin "${WORK_BRANCH}"; then
-                echo "ERROR: Failed to publish the rebundle request; container recovery is required."
-                exit 70
-            fi
-            exit 43
-            ;;
-        human-stop|phase-failed)
-            echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}; preserving work."
-            if ! preserve_work; then
-                echo "ERROR: Failed to preserve phase work; container recovery is required."
-                exit 70
-            fi
-            exit "${EXIT_CODE}"
-            ;;
-        invalid-receipt)
-            if ! preserve_work; then
-                echo "ERROR: Failed to preserve invalid phase-close state; container recovery is required."
-                exit 70
-            fi
+        if [ "${PHASE_STATE}" -eq 1 ]; then
+            echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
+            continue
+        elif [ "${PHASE_STATE}" -eq 2 ]; then
+            preserve_work || exit 70
             exit 3
-            ;;
-        close-pending)
-            echo "ERROR: Phase ${PHASE_NUM} exited zero with close state 'close-pending'."
-            if ! preserve_work; then
-                echo "ERROR: Failed to preserve incomplete phase work; container recovery is required."
-                exit 70
+        fi
+        TARGET_LABEL="Phase ${PHASE_NUM}"
+        TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
+        PROMPT="Execute ${PLAN_PATH}, phase ${PHASE_NUM}"
+    fi
+    echo "=== ${TARGET_LABEL} ==="
+
+    TARGET_SESSION_ID=$(cat /proc/sys/kernel/random/uuid)
+    TARGET_STARTED_AT=$(date +%s)
+    TARGET_PROMPT="${PROMPT}"
+    HANDOFF_COUNT=0
+    while true; do
+        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ] &&
+            [ "$(($(date +%s) - TARGET_STARTED_AT))" -ge "${PHASE_TIMEOUT_SECS}" ]; then
+            preserve_work
+            echo "Stopping run after the shared timeout budget expired in ${TARGET_LABEL}."
+            exit 124
+        fi
+
+        # Pass --model explicitly when set so model selection is deterministic
+        # (not just implied by COPILOT_MODEL) and visible in logs.
+        MODEL_ARGS=()
+        if [ -n "${COPILOT_MODEL:-}" ]; then
+            MODEL_ARGS=(--model "${COPILOT_MODEL}")
+            echo "Invoking Copilot CLI with model: ${COPILOT_MODEL}"
+        else
+            echo "Invoking Copilot CLI with CLI default model (COPILOT_MODEL unset)"
+        fi
+
+        copilot -p "${TARGET_PROMPT}" \
+            "${MODEL_ARGS[@]}" \
+            --context "${COPILOT_CONTEXT}" \
+            --effort "${COPILOT_REASONING_EFFORT}" \
+            --agent autopilot \
+            --session-id "${TARGET_SESSION_ID}" \
+            --no-ask-user \
+            --share="./${TRANSCRIPT}" &
+        COPILOT_PID=$!
+
+        # Every same-session handoff shares the original target timeout budget.
+        PHASE_TIMED_OUT=0
+        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
+            while kill -0 "${COPILOT_PID}" 2>/dev/null; do
+                ELAPSED=$(($(date +%s) - TARGET_STARTED_AT))
+                if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
+                    echo "${TARGET_LABEL} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating."
+                    PHASE_TIMED_OUT=1
+                    kill -TERM "${COPILOT_PID}" 2>/dev/null || true
+                    for _ in 1 2 3 4 5; do
+                        kill -0 "${COPILOT_PID}" 2>/dev/null || break
+                        sleep 1
+                    done
+                    kill -KILL "${COPILOT_PID}" 2>/dev/null || true
+                    break
+                fi
+                sleep 5
+            done
+        fi
+
+        set +e
+        wait "${COPILOT_PID}"
+        EXIT_CODE=$?
+        set -e
+        COPILOT_PID=""
+
+        if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
+            preserve_work
+            echo "Stopping run after timeout in ${TARGET_LABEL}."
+            exit 124
+        fi
+
+        CLOSE_STATE=""
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+            if ! CLOSE_STATE=$(
+                autopilot_target_close_state \
+                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}"
+            ); then
+                echo "ERROR: Unable to verify terminal close state for ${TARGET_LABEL}."
+                preserve_work
+                exit 1
             fi
-            exit 1
-            ;;
-        phase-complete-stop)
-            echo "Phase ${PHASE_NUM} complete."
-            echo "Mode is 'next-phase' — stopping after Phase ${PHASE_NUM}."
-            break
-            ;;
-        phase-complete-continue)
-            echo "Phase ${PHASE_NUM} complete."
-            ;;
-    esac
+        fi
+        HANDOFF_ACTION=$(
+            autopilot_completion_handoff_action \
+                "${EXIT_CODE}" "${CLOSE_STATE}" "${HANDOFF_COUNT}" "${COMPLETION_HANDOFF_LIMIT}"
+        )
+        case "${HANDOFF_ACTION}" in
+            complete)
+                echo "${TARGET_LABEL} complete."
+                break
+                ;;
+            resume)
+                HANDOFF_COUNT=$((HANDOFF_COUNT + 1))
+                echo "${TARGET_LABEL} exited zero with close state 'close-pending'; resuming session ${TARGET_SESSION_ID} (${HANDOFF_COUNT}/${COMPLETION_HANDOFF_LIMIT})."
+                TARGET_PROMPT="Continue the existing ${TARGET_LABEL} target for ${PLAN_PATH}. The previous response ended while required close work was still pending. Resume any still-running validation through its existing tool session and wait for terminal output; if it is no longer running, rerun the required validation. Do not end or report success until validation, durable close receipts, review, push, PR, and archive work required by the original target are terminal. Do not replay completed implementation. Original target: ${PROMPT}"
+                ;;
+            pending-failed)
+                echo "ERROR: ${TARGET_LABEL} remained 'close-pending' after ${HANDOFF_COUNT} same-session handoffs."
+                preserve_work
+                exit 1
+                ;;
+            human-stop)
+                echo "${TARGET_LABEL} requires operator action — stopping."
+                preserve_work || exit 125
+                git push origin "${WORK_BRANCH}" || true
+                exit 42
+                ;;
+            rebundle)
+                echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
+                git push origin "${WORK_BRANCH}"
+                exit 43
+                ;;
+            invalid-close)
+                echo "ERROR: ${TARGET_LABEL} returned invalid close state '${CLOSE_STATE}'."
+                preserve_work
+                exit 1
+                ;;
+            target-failed)
+                echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
+                COMPLETION_ALLOWED=0
+                if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
+                    RUN_EXIT_CODE="${EXIT_CODE}"
+                fi
+                git push origin "${WORK_BRANCH}" || true
+                break
+                ;;
+        esac
+    done
 done
 
 echo ""
@@ -382,6 +434,7 @@ echo "=== Execution finished ==="
 echo "Pushing branch ${WORK_BRANCH}..."
 if ! git push origin "${WORK_BRANCH}"; then
     echo "ERROR: Failed to publish completed work; container recovery is required."
+    touch /tmp/autopilot-preservation-failed
     exit 70
 fi
 
@@ -389,3 +442,4 @@ fi
 # with a structured title and body. The entrypoint only ensures the branch is pushed.
 
 echo "Done."
+exit "${RUN_EXIT_CODE}"

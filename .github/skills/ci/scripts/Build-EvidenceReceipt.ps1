@@ -62,6 +62,18 @@ foreach ($item in $Result) {
 
     $status = $normalized.Status
     $detail = $normalized.Note
+    if ($marker -ceq 'review:cr' -and $status -eq 'passed') {
+        if (-not $PlanDir) {
+            throw "Passed review:cr evidence requires -PlanDir."
+        }
+        if ([string]::IsNullOrWhiteSpace($normalized.ReviewRunId)) {
+            throw "Passed review:cr evidence requires ReviewRunId."
+        }
+        $reviewStage = if ($PSBoundParameters.ContainsKey('Phase')) { "phase-$Phase" } else { 'plan-finalization' }
+        [void](Assert-PlanCleanReviewEvidence -PlanDir $PlanDir -Stage $reviewStage `
+                -Commit $Commit -ReviewRunId $normalized.ReviewRunId -RepoRoot $RepoRoot)
+        $detail = "review-run:$($normalized.ReviewRunId)"
+    }
     $matchingWaivers = @($waivers | Where-Object {
             $_.Applies -and $_.Requirement -ceq $req -and $_.Marker -ceq $marker -and $_.Outcome -ceq $status
         })

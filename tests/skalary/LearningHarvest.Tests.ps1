@@ -9,12 +9,14 @@ Describe 'Installed learning harvest workflow' {
         $script:ciScript = Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/scripts/Invoke-PhaseHarvest.ps1'
         $script:autopilotScript = Join-Path $script:repoRoot 'plugins/autopilot/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1'
         $script:noteScript = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
+        $script:phaseStateScript = Join-Path $script:repoRoot 'scripts/skalary/Get-PhaseExecutionState.ps1'
 
         function Script:New-HarvestFixture {
             param(
                 [switch]$MalformedCapture,
                 [switch]$MissingCrLog,
-                [ValidateRange(1, 99)][int]$PhaseCount = 1
+                [ValidateRange(1, 99)][int]$PhaseCount = 1,
+                [ValidateRange(0, 99)][int]$PhaseStart = 1
             )
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('learning-harvest-' + [guid]::NewGuid().ToString('N'))
@@ -25,9 +27,11 @@ Describe 'Installed learning harvest workflow' {
             $planLines.Add('# a1b2c3: Harvest fixture')
             $planLines.Add('<!-- plan-id: a1b2c3 -->')
             $planLines.Add('')
-            for ($phase = 1; $phase -le $PhaseCount; $phase++) {
+            $phaseEnd = $PhaseStart + $PhaseCount - 1
+            for ($phase = $PhaseStart; $phase -le $phaseEnd; $phase++) {
+                    $requirement = $phase - $PhaseStart + 1
                     $planLines.Add("## Phase ${phase}: Fixture")
-                    $planLines.Add("- [x] $phase.1 Fixture step (REQ-$phase, RISK-1) ``S``")
+                    $planLines.Add("- [x] $phase.1 Fixture step (REQ-$requirement, RISK-1) ``S``")
                     $planLines.Add('')
             }
             [System.IO.File]::WriteAllText(
@@ -40,8 +44,9 @@ Describe 'Installed learning harvest workflow' {
             $requirementLines.Add('')
             $requirementLines.Add('| ID | Requirement | Acceptance Criteria | Phases/Steps |')
             $requirementLines.Add('|----|-------------|---------------------|--------------|')
-            for ($phase = 1; $phase -le $PhaseCount; $phase++) {
-                    $requirementLines.Add("| REQ-$phase | Fixture $phase | ``test:fixture-$phase`` | $phase.1 |")
+            for ($phase = $PhaseStart; $phase -le $phaseEnd; $phase++) {
+                    $requirement = $phase - $PhaseStart + 1
+                    $requirementLines.Add("| REQ-$requirement | Fixture $phase | ``test:fixture-$phase`` | $phase.1 |")
             }
             $requirementLines.Add('')
             [System.IO.File]::WriteAllText(
@@ -52,7 +57,7 @@ Describe 'Installed learning harvest workflow' {
             $captureSections = [System.Collections.Generic.List[string]]::new()
             $learningSections = [System.Collections.Generic.List[string]]::new()
             $crSections = [System.Collections.Generic.List[string]]::new()
-            for ($phase = 1; $phase -le $PhaseCount; $phase++) {
+            for ($phase = $PhaseStart; $phase -le $phaseEnd; $phase++) {
                     $captureSections.Add("## Capture`nPhase: $phase`n`nNo entries for this phase.`n")
                     $learningSections.Add("## Learnings Capture`nPhase: $phase`n`nNo entries for this phase.`n")
                     $crSections.Add("## CR Capture`nPhase: $phase`n`nNo entries for this phase.`n")
@@ -122,7 +127,8 @@ Describe 'Installed learning harvest workflow' {
                     [Parameter(Mandatory)]$Fixture,
                     [Parameter(Mandatory)][ValidateSet('ci', 'autopilot')][string]$Source,
                     [int]$Phase = 1,
-                    [switch]$FinalSweep
+                    [switch]$FinalSweep,
+                    [switch]$ValidateReceipt
             )
 
             $arguments = @(
@@ -133,6 +139,9 @@ Describe 'Installed learning harvest workflow' {
             )
             if ($FinalSweep) {
                     $arguments += '-FinalSweep'
+            }
+            elseif ($ValidateReceipt) {
+                    $arguments += @('-Phase', [string]$Phase, '-ValidateReceipt')
             }
             else {
                     $arguments += @('-Phase', [string]$Phase)
@@ -196,8 +205,87 @@ Describe 'Installed learning harvest workflow' {
             $skill = if ($plugin -eq 'autopilot') { 'autopilot' } else { 'ci' }
             $destinations | Should -Contain "skills/$skill/scripts/Invoke-PhaseHarvest.ps1"
             $destinations | Should -Contain "skills/$skill/scripts/LedgerStore.psm1"
+            if ($plugin -eq 'autopilot') {
+                $destinations | Should -Contain 'skills/autopilot/scripts/Get-PhaseExecutionState.ps1'
+            }
             @($manifest.scaffolds.path) | Should -Contain 'docs/implementation-plans/<plan>/assets/harvest-receipts/**'
             @($manifest.scaffolds.path) | Should -Contain 'docs/implementation-plans/<plan>/harvest-receipts/**'
+        }
+    }
+
+    It 'validates an immutable close receipt after the plan is archived' {
+        $fixture = New-HarvestFixture
+        try {
+            & git -C $fixture.Root init --quiet
+            & git -C $fixture.Root config user.name fixture
+            & git -C $fixture.Root config user.email fixture@example.invalid
+            & git -C $fixture.Root add --all
+            & git -C $fixture.Root commit --quiet -m initial
+            $created = Invoke-InstalledHarvest -ScriptPath $script:autopilotScript `
+                -Fixture $fixture -Source autopilot
+            $created.ExitCode | Should -Be 0 -Because $created.Output
+
+            $pending = & pwsh -NoProfile -File $script:phaseStateScript `
+                -PlanPath (Join-Path $fixture.PlanDir 'plan.md') -Phase 1 `
+                -RepoRoot $fixture.Root -HarvestValidator $script:autopilotScript 2>&1
+            $LASTEXITCODE | Should -Be 0
+            ($pending -join "`n").Trim() | Should -Be 'close-pending'
+            & git -C $fixture.Root add --all
+            & git -C $fixture.Root commit --quiet -m 'persist close receipt'
+
+            $archiveRoot = Join-Path $fixture.Root 'docs/implementation-plans/archived'
+            [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
+            $archivedDir = Join-Path $archiveRoot (Split-Path $fixture.PlanDir -Leaf)
+            Move-Item -LiteralPath $fixture.PlanDir -Destination $archiveRoot
+            $archivedFixture = [pscustomobject]@{
+                Root = $fixture.Root
+                PlanDir = $archivedDir
+            }
+            & git -C $fixture.Root add --all
+            & git -C $fixture.Root commit --quiet -m archive
+
+            $validated = Invoke-InstalledHarvest -ScriptPath $script:autopilotScript `
+                -Fixture $archivedFixture -Source autopilot -ValidateReceipt
+            $validated.ExitCode | Should -Be 0 -Because $validated.Output
+            $validated.Output | Should -Match 'Validated immutable phase receipt'
+
+            $state = & pwsh -NoProfile -File $script:phaseStateScript `
+                -PlanPath (Join-Path $archivedDir 'plan.md') -Phase 1 `
+                -RepoRoot $fixture.Root -HarvestValidator $script:autopilotScript 2>&1
+            $LASTEXITCODE | Should -Be 0
+            ($state -join "`n").Trim() | Should -Be 'closed'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture.Root -Recurse -Force
+        }
+    }
+
+    It 'supports committed Phase 0 close receipts' {
+        $fixture = New-HarvestFixture -PhaseStart 0
+        try {
+            & git -C $fixture.Root init --quiet
+            & git -C $fixture.Root config user.name fixture
+            & git -C $fixture.Root config user.email fixture@example.invalid
+            & git -C $fixture.Root add --all
+            & git -C $fixture.Root commit --quiet -m initial
+
+            Add-HarvestNote -Fixture $fixture -Kind Capture -Phase 0 `
+                -Concern correctness-reliability -Requirement 'REQ-1' `
+                -Message 'phase zero close'
+            $created = Invoke-InstalledHarvest -ScriptPath $script:autopilotScript `
+                -Fixture $fixture -Source autopilot -Phase 0
+            $created.ExitCode | Should -Be 0 -Because $created.Output
+            & git -C $fixture.Root add --all
+            & git -C $fixture.Root commit --quiet -m 'persist phase zero close'
+
+            $state = & pwsh -NoProfile -File $script:phaseStateScript `
+                -PlanPath (Join-Path $fixture.PlanDir 'plan.md') -Phase 0 `
+                -RepoRoot $fixture.Root -HarvestValidator $script:autopilotScript 2>&1
+            $LASTEXITCODE | Should -Be 0 -Because ($state -join "`n")
+            ($state -join "`n").Trim() | Should -Be 'closed'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture.Root -Recurse -Force
         }
     }
 

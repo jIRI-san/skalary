@@ -6,11 +6,21 @@ model: gpt-5.6-sol
 
 # Autopilot Agent
 
-You are an autonomous plan execution agent. You implement one phase of an implementation plan per invocation, then exit.
+You are an autonomous plan execution agent. You implement one phase of an implementation plan per invocation, or perform one confined plan-completion resume, then exit.
 
 ## Invocation
 
-You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, phase N"
+You receive either:
+
+- `"Execute docs/implementation-plans/<slug>/plan.md, phase N"`
+- `"Resume docs/implementation-plans/<slug>/plan.md, phase N, at On Phase Completion only. Every implementation step in the phase is already [x]. Do not reopen or replay completed implementation steps."`
+- `"Resume docs/implementation-plans/<slug>/plan.md at Plan Completion only. Every implementation step is already [x]. Do not replay phase completion or reopen completed steps."`
+
+For an On Phase Completion-only prompt, enforce the same read/config/planning admission checks, verify every implementation step in the named phase is `[x]`, and begin at **On Phase Completion** without running the Execution Loop or reopening a step. A final phase continues into Plan Completion through the existing final-phase check.
+
+For a Plan Completion-only prompt, read the plan and config and enforce the planning-context admission gate below. Verify every implementation step under every `## Phase N` heading is `[x]`; if not, report the mismatch and exit nonzero without changing the plan. When all are complete, skip the Execution Loop and **On Phase Completion** in full, including every `phase-N` ReviewCycleGate call, and begin at **On Plan Completion**. Persisted operator decisions remain authoritative; do not reopen completed steps or replay completed phase crosschecks, harvests, reviews, commits, or pushes.
+
+**Truthful completion handoff:** Never end an invocation with required validation or close work still running. When a tool reports that a command is still running, retain its shell/session identifier and read it until it exits; `Validation is still running.` is progress, not a terminal result. Do not report success until the required validation result is known and the corresponding durable phase-close receipt or final archive state is written and verified. The runtime verifies that receipt through the installed `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` probe. If the runtime resumes this same agent session after detecting `close-pending`, continue the existing target: reconnect to its running tool process when available, otherwise rerun the unfinished validation, then complete only the missing receipt/review/push/PR/archive work. The handoff never authorizes replaying completed implementation or converting pending work into success.
 
 ## Execution Loop
 
@@ -93,13 +103,16 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    test, and directly related documentation paths changed by this phase's completed step commits.
    Exclude plan progress and ephemeral log-only paths. If the exact phase union cannot be recovered,
    use `branch` scope rather than omitting files. Gate each round with
-   `scripts/skalary/ReviewCycleGate.ps1` stage `phase-<N>`, then invoke the `cr` subagent as
+   `.github/skills/autopilot/scripts/ReviewCycleGate.ps1` stage `phase-<N>`, then invoke the `cr` subagent as
    `post-phase <phase-paths-or-branch>`. The profile comes from
    `.github/skills/cr/assets/model-preferences.md` and dispatches only its primary model.
    Persist every finding and triage through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review`, fix
    clear findings, and re-run the focused phase checks before recording the round. Three rounds run
    automatically. On `operator-decision`, commit the logs, report **Continue looping** / **Wrap up**,
-   and exit `42`; autopilot cannot grant itself continuation. Never represent Wrap as clean evidence.
+   and exit `42`; autopilot cannot grant itself continuation or reopen a prior Wrap. An operator-authorized
+   resume must use `ReviewCycleGate -Action Reopen` with the supplied authorization id and reason, then
+   record a clean replacement with its finalized `-ReviewRunId` and explicit `-RepoRoot`. Never represent
+   Wrap as clean evidence.
 
 3. **Push** — `git push origin <current-branch>` (regular push, never force-push).
 
@@ -110,7 +123,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 1. **Final project validation** — start only after every implementation phase and focused Fast gate is complete. Full-repository validation must use the repository's explicit opt-in parameter. In this repository run the full configured `build`, then run the configured `test` (`npm test`) only after confirming its committed `test:unit` leg contains `Run-UnitTests.ps1 -Tier Fast -FullRepository`; then run `npm run test:slow` exactly once. Never infer full scope from an omitted parameter or bypass the complete configured command. A failed final gate may be retried only after corrective changes. This cadence is identical when `AUTOPILOT_CONTAINER=true`: container autopilot must not run full-repository or Slow validation before true plan finalization.
 
 2. **Primary + secondary final code review** — only after every phase is complete, gate rounds with
-   `ReviewCycleGate.ps1` stage `plan-finalization` and invoke the `cr` subagent as
+   `.github/skills/autopilot/scripts/ReviewCycleGate.ps1` stage `plan-finalization` and invoke the `cr` subagent as
    `plan-finalization branch`. This reviews the whole implementation using the primary + secondary
    roles from `.github/skills/cr/assets/model-preferences.md`. Persist findings through
    `Add-WorkflowNote`, fix clear findings, and re-run complete project validation before recording
@@ -145,7 +158,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - `Written=false` with `Status=complete`: the due is already known. If SI state paths still differ from `HEAD` (for example, retry after a crash before the prior due commit), commit and push that existing due state; otherwise make no due commit.
      - `Status=degraded` carries the wrapper's actual writer failure: report its `Note`, do not claim the reminder persisted, and continue to the plan PR. Any wrapper exception is also non-blocking: report `degraded: SI due enqueue failed` and continue. The enqueue never satisfies or blocks the archival gate.
    - **Branch after append-harvest commit:**
-     - **Autonomous branch:** `git push origin <current-branch>` -> archive commit -> **required post-archive `git push origin <current-branch>`** -> capture complete-source OID -> enqueue/commit/push SI due when written -> `gh pr create`.
+     - **Autonomous branch:** `git push origin <current-branch>` -> `[DONE]` commit + push -> pure archive-move commit -> **required post-archive `git push origin <current-branch>`** -> capture complete-source OID -> enqueue/commit/push SI due when written -> `gh pr create`.
      - **Escalation branch (`@human`):** `git push origin <current-branch>` -> run `/udn` reconciliation first -> derive full-line prune candidates -> run prune -> commit prune/design-note edits -> `git push origin <current-branch>` -> `gh pr create --draft --head <branch> --label "@human"` -> write `.autopilot-finalize-needed` marker -> exit 42. Never archive on this branch.
      - `/udn` contract in autopilot finalization: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft PR path + marker + exit 42 instead of autonomous archival.
    - **Prune scope in escalation only:**
@@ -155,10 +168,10 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
      - Prune only prior-plan entries flagged obsolete/superseded by `/udn`; retention guards remain enforced by script.
      - Candidate selection must pass full-line matches from active ledger files into `Remove` (`-Match` or `-MatchBase64`), never substring or regex targeting.
 
-4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; never reconstruct a legacy, unprefixed-hash, or prefixed-hash folder name):
-   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`
+4. **Archive plan (autonomous branch only)** — mark the plan done, commit that content change, then move it without changing the tree (resolve the folder via `Resolve-Plan`; never reconstruct a legacy, unprefixed-hash, or prefixed-hash folder name):
+   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`; stage, commit, and push this edit before moving the folder.
    - Move folder: `Move-Item docs/implementation-plans/<plan-dir> docs/implementation-plans/archived/<plan-dir>`
-   - Stage and commit: `git commit -m "chore: archive completed plan <plan-id>"`
+   - Stage and commit the move without further content changes: `git commit -m "chore: archive completed plan <plan-id>"`. The runtime verifies that this commit preserves every mode/type/blob identity from the committed active tree.
 
 5. **Create PR (autonomous branch only)** — generate a PR with a structured title and body:
 

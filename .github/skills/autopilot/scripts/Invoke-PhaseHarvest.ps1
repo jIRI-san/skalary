@@ -6,7 +6,7 @@ param(
 
     [Parameter(Mandatory, ParameterSetName = 'Phase')]
     [Parameter(Mandatory, ParameterSetName = 'ValidateReceipt')]
-    [ValidateRange(1, 999)]
+    [ValidateRange(0, 999)]
     [int]$Phase,
 
     [Parameter(Mandatory, ParameterSetName = 'FinalSweep')]
@@ -322,15 +322,12 @@ function Get-PhaseSectionRecords {
     $ranges = [System.Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i].Trim() -ne $header) { continue }
-        # Planning capture predates executable phases and legitimately uses Phase: 0. Parse it so
-        # later Capture sections remain reachable, but never select it because TargetPhase starts at 1.
+        # Planning capture predates executable phases and legitimately uses Phase: 0.
+        # Other logs may carry their generated empty Phase 0 placeholders, but not records.
         if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>0|[1-9][0-9]*)\s*$') {
             throw "Malformed phase header after '$header' in '$Path'."
         }
         $sectionPhase = [int]$Matches.phase
-        if ($sectionPhase -eq 0 -and $Kind -ne 'Capture') {
-            throw "Phase 0 is valid only for planning Capture in '$Path'."
-        }
         $end = $lines.Count
         for ($j = $i + 2; $j -lt $lines.Count; $j++) {
             if ($lines[$j] -match '^##\s') { $end = $j; break }
@@ -363,6 +360,9 @@ function Get-PhaseSectionRecords {
     }
     if (-not $sawPlaceholder -and $records.Count -eq 0) {
         throw "Phase $TargetPhase section in '$relative' has neither records nor the empty placeholder."
+    }
+    if ($TargetPhase -eq 0 -and $Kind -ne 'Capture' -and $records.Count -gt 0) {
+        throw "Phase 0 records are valid only for planning Capture in '$Path'."
     }
 
     return [pscustomobject]@{
@@ -529,7 +529,7 @@ function Read-HarvestReceipt {
 
     $phaseNumber = 0
     if (-not [int]::TryParse([string]$parsed.payload.phase, [ref]$phaseNumber) -or
-        $phaseNumber -lt 1 -or $phaseNumber -gt 999) {
+        $phaseNumber -lt 0 -or $phaseNumber -gt 999) {
         throw "Harvest receipt '$Path' has an invalid phase."
     }
     $sources = @($parsed.payload.sources)
@@ -699,6 +699,9 @@ $metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot 
 $knownRequirements = [string[]]@($metadata.Requirements.Values | ForEach-Object { [string]$_.Id })
 
 try {
+    if ([string]::IsNullOrWhiteSpace($planId)) {
+        throw "Plan '$($metadata.PlanPath)' has no canonical plan-id marker."
+    }
     if ($ValidateReceipt) {
         $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
         if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {

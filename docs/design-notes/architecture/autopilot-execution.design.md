@@ -60,7 +60,8 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 
 - Builds image from `.github/skills/autopilot/devcontainer/Dockerfile`
 - Passes auth via env file (prepared by `prepare-env-file.ps1`)
-- Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
+- Container entry point: `container-entrypoint.sh` handles clone, branch, and targets selected by
+  the deterministic `plan-dispatch.sh` helper
 - Phase selection follows the one-phase autonomy contract in
   [plan-workflow.design.md](plan-workflow.design.md); container resume additionally requires the
   phase's canonically validated durable harvest receipt before skipping checked work. The validator
@@ -69,6 +70,9 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Nonzero and false-success phase exits stage recoverable tracked/untracked paths individually,
   commit and push them fail-loud, then preserve the original phase status; preservation failure exits
   `70` for container recovery instead of claiming the work is durable
+- Zero-exit targets are not terminal until committed phase-close proof is valid. The entrypoint uses
+  bounded same-session handoffs for pending completion, and finalization additionally requires
+  terminal phase gates, an exact committed archive transition, and an open branch PR.
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`; containers are removed after normal outcomes and retained
   with recovery commands when exit `70` says publication durability could not be established
@@ -247,8 +251,8 @@ Key fields:
 - `model`: Bare Copilot CLI model slug; the shipped default is `gpt-5.6-sol`
 - `context`: Copilot CLI context tier (`default` or `long_context`)
 - `reasoningEffort`: Copilot CLI reasoning depth (`low`, `medium`, `high`, `xhigh`, or `max`)
-- `build`/`test`: Coarse-filtered by schema and launcher prefix checks. They remain trusted repository configuration, not shell-safe argument arrays.
-- `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
+- `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`.
+- `timeout`: Minutes per phase before force-kill; bounded same-session completion handoffs share one target budget. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place target boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
 - `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle phase/finalization gates.
 - `offlinePackages` (optional): offline package bundling for container/sandbox. Object with boolean `enabled`; optional `ecosystems` array (`dotnet`/`npm`); optional `maxRebundles` integer ≥ 1 (default 3). Absent → disabled. See **Offline Package Bundling** below.

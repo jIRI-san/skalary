@@ -5,7 +5,7 @@ param(
     [string]$PlanPath,
 
     [Parameter(Mandatory)]
-    [ValidateRange(1, 999)]
+    [ValidateRange(0, 999)]
     [int]$Phase,
 
     [string]$RepoRoot = (git rev-parse --show-toplevel),
@@ -98,6 +98,22 @@ try {
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
         Write-Output 'close-pending'
         return
+    }
+
+    foreach ($requiredPath in @($planPathFull, $receiptPath)) {
+        $relativePath = (& git -C $repoRootFull ls-files --full-name --error-unmatch -- $requiredPath 2>$null)
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($relativePath)) {
+            Write-Output 'close-pending'
+            return
+        }
+        $pathStatus = (& git -C $repoRootFull status --porcelain --untracked-files=all -- $requiredPath)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect committed phase-close path '$requiredPath'."
+        }
+        if (-not [string]::IsNullOrWhiteSpace(($pathStatus -join "`n"))) {
+            Write-Output 'close-pending'
+            return
+        }
     }
 
     $validationOutput = & pwsh -NoProfile -File $HarvestValidator `

@@ -58,14 +58,14 @@ Describe 'Autopilot.ContainerOffline' {
             $entrypoint | Should -Match 'AUTOPILOT_OFFLINE'
         }
         It 'translates copilot exit 43 into a push then exit 43' {
-            $entrypoint | Should -Match 'exit_code\}" -eq 43'
-            $entrypoint | Should -Match 'phase_dispatch_action "\$\{MODE\}" "\$\{EXIT_CODE\}" "\$\{CLOSE_STATE\}"'
+            $entrypoint | Should -Match 'autopilot_completion_handoff_action'
+            $entrypoint | Should -Match 'rebundle\)'
             $entrypoint | Should -Match 'git push origin "\$\{WORK_BRANCH\}"'
             $entrypoint | Should -Match 'exit 43'
         }
         It 'keeps the existing exit-42 @human branch' {
-            $entrypoint | Should -Match 'exit_code\}" -eq 42'
-            $entrypoint | Should -Match 'human-stop\|phase-failed'
+            $entrypoint | Should -Match 'human-stop\)'
+            $entrypoint | Should -Match 'exit 42'
         }
         It 'fails when the selected start branch is unavailable instead of using the clone default' {
             $entrypoint | Should -Match "Selected start branch '\$\{BRANCH\}' is not available on origin"

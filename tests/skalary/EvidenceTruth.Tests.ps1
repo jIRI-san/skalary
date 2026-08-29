@@ -248,14 +248,14 @@ Describe 'broken' {
 
         $passedPlan = New-EvidencePlanFixture -Markers @(
             'test:EvidenceTruth.Sample',
-            'review:cr'
+            'test:EvidenceTruth.Second'
         )
         $passed = & $script:builder -Result @(
             [pscustomobject]@{
                 Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'passed'
             }
             [pscustomobject]@{
-                Req = 'REQ-1'; Marker = 'review:cr'; Status = 'passed'
+                Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Second'; Status = 'passed'
             }
         ) -Commit $script:head -PlanDir $passedPlan -RepoRoot $script:repoRoot
         Set-Content -LiteralPath $passed.ReceiptPath -Value $passed.Text -Encoding utf8NoBOM

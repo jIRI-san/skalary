@@ -33,8 +33,6 @@ param(
 
     [string]$Branch = "feature/$PlanSlug",
 
-    [string]$StartBranch = (git branch --show-current),
-
     # When set, mount this host package-feed read-only at /feed and run the
     # container fully offline (see prepare-packages.ps1).
     [string]$FeedPath
@@ -107,7 +105,7 @@ try {
 
     # --- Prepare env file ---
     Write-Host "Preparing environment file..."
-    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $StartBranch }
+    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $Branch }
     if ($FeedPath) { $envParams.Offline = $true }
     $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') @envParams
 
@@ -185,21 +183,27 @@ try {
     # Copy all transcript files (ignore errors for missing files)
     for ($i = 1; $i -le 10; $i++) {
         docker cp "${ContainerName}:/work/session-transcript-phase${i}.md" $TranscriptsDir 2>$null
+        docker cp "${ContainerName}:/work/session-transcript-phase${i}-completion.md" $TranscriptsDir 2>$null
     }
+    docker cp "${ContainerName}:/work/session-transcript-completion.md" $TranscriptsDir 2>$null
     $ErrorActionPreference = $prevEAP
 
     # --- Cleanup container ---
-    if ($exitCode -eq 70) {
-        Write-Warning "Preservation failed; retaining container '$ContainerName' for recovery."
-        Write-Host "Recover with: docker cp ${ContainerName}:/work <destination>"
-        Write-Host "Remove after recovery with: docker rm $ContainerName"
+    $preservationMarker = Join-Path ([System.IO.Path]::GetTempPath()) (
+        'autopilot-preservation-' + [guid]::NewGuid().ToString('N')
+    )
+    $ErrorActionPreference = 'Continue'
+    docker cp "${ContainerName}:/tmp/autopilot-preservation-failed" $preservationMarker 2>$null
+    $preservationFailed = Test-Path -LiteralPath $preservationMarker -PathType Leaf
+    Remove-Item -LiteralPath $preservationMarker -Force -ErrorAction SilentlyContinue
+    if ($preservationFailed) {
+        Write-Warning "Retaining container '$ContainerName' because work preservation failed."
     }
     else {
         Write-Host "Removing container: $ContainerName"
-        $ErrorActionPreference = 'Continue'
         docker rm $ContainerName 2>$null
-        $ErrorActionPreference = $prevEAP
     }
+    $ErrorActionPreference = $prevEAP
 
     Write-Host ""
     Write-Host "=== Container-mode execution complete ==="

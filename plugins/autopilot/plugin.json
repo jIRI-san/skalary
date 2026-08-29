@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.49",
+  "version": "1.2.52",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -29,6 +29,10 @@
       "dest": "skills/autopilot/scripts/AtomicStore.psm1"
     },
     {
+      "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1",
+      "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1"
+    },
+    {
       "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
       "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
     },
@@ -43,6 +47,10 @@
     {
       "src": "skills/autopilot/scripts/PlanState.psm1",
       "dest": "skills/autopilot/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/ReviewCycleGate.ps1",
+      "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1"
     },
     {
       "src": "scripts/clean-sandbox-cache.ps1",
@@ -79,6 +87,10 @@
     {
       "src": "scripts/launch.ps1",
       "dest": "skills/autopilot/scripts/launch.ps1"
+    },
+    {
+      "src": "scripts/plan-dispatch.sh",
+      "dest": "skills/autopilot/scripts/plan-dispatch.sh"
     },
     {
       "src": "scripts/autopilot-dispatch.ps1",
