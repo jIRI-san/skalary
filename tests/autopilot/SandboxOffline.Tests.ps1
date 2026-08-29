@@ -3,9 +3,8 @@ $ErrorActionPreference = 'Stop'
 
 # Run with: Invoke-Pester ./tests/autopilot
 #
-# launch-sandbox.ps1 is UTF-16 and shells out to Windows Sandbox, so this
-# fixture verifies the offline wiring by reading the script text (Get-Content
-# -Raw transparently decodes the BOM) rather than launching a sandbox.
+# launch-sandbox.ps1 shells out to Windows Sandbox, so this fixture verifies
+# the offline wiring by reading the UTF-8 script rather than launching a sandbox.
 
 Describe 'Autopilot.SandboxOffline' {
     BeforeAll {
@@ -34,6 +33,20 @@ Describe 'Autopilot.SandboxOffline' {
             $sandbox.Contains('$exitCode = 43') | Should -BeTrue
             $sandbox.Contains('exit $exitCode') | Should -BeTrue
         }
+        It 'reports invalid terminal markers without bypassing diagnostics or rebundle handling' {
+            $terminalStart = $sandbox.IndexOf('$exitCode = if', [System.StringComparison]::Ordinal)
+            $diagnosticsStart = $sandbox.IndexOf('Write-Host "Session output:', $terminalStart, [System.StringComparison]::Ordinal)
+            $terminalBlock = $sandbox.Substring($terminalStart, $diagnosticsStart - $terminalStart)
+            $terminalBlock | Should -Match 'Write-Warning "Sandbox returned invalid exit marker'
+            $terminalBlock | Should -Match "Write-Warning 'Sandbox completed without a valid exit marker"
+            $terminalBlock | Should -Not -Match 'Write-Error'
+            $terminalBlock.IndexOf('if (Test-Path $RebundleMarker)', [System.StringComparison]::Ordinal) |
+                Should -BeGreaterThan -1
+        }
+        It 'reports the repository mount as read-only' {
+            $sandbox.Contains('C:\repo (read-only)') | Should -BeTrue
+            $sandbox.Contains('C:\repo (read-write)') | Should -BeFalse
+        }
     }
 
     Context 'bootstrap offline restore' {
@@ -61,6 +74,21 @@ Describe 'Autopilot.SandboxOffline' {
             # Once in the host clear-markers, once in the bootstrap finally.
             ([regex]::Matches($sandbox, [regex]::Escape('.bootstrap-complete')).Count) |
                 Should -BeGreaterThan 1
+            $finallyStart = $sandbox.IndexOf('} finally {', [System.StringComparison]::Ordinal)
+            $bootstrapEnd = $sandbox.IndexOf('"@', $finallyStart, [System.StringComparison]::Ordinal)
+            $finallyBlock = $sandbox.Substring($finallyStart, $bootstrapEnd - $finallyStart)
+            $finallyBlock | Should -Match 'Complete-Bootstrap -Code'
+            $helperStart = $sandbox.IndexOf('function Complete-Bootstrap', [System.StringComparison]::Ordinal)
+            $helperEnd = $sandbox.IndexOf("Log 'Bootstrap started'", $helperStart, [System.StringComparison]::Ordinal)
+            $helper = $sandbox.Substring($helperStart, $helperEnd - $helperStart)
+            $exitMarker = $helper.IndexOf('.autopilot-exit-code', [System.StringComparison]::Ordinal)
+            $completionSentinel = $helper.IndexOf('.bootstrap-complete', [System.StringComparison]::Ordinal)
+            $exitMarker | Should -BeGreaterThan -1
+            $completionSentinel | Should -BeGreaterThan $exitMarker
+        }
+        It 'publishes terminal markers for setup and plan-resolution failures' {
+            ([regex]::Matches($sandbox, 'Complete-Bootstrap -Code 1').Count) |
+                Should -BeGreaterOrEqual 2
         }
         It 'keeps the existing exit-42 @human branch' {
             $sandbox.Contains('-eq 42') | Should -BeTrue

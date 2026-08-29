@@ -30,6 +30,70 @@ Describe 'Bounded SI harvest scanner' {
             ).ToLowerInvariant()
         }
 
+        function Script:New-V2PhaseReceiptText {
+            param(
+                [string]$Entry = 'Checkpoint evidence is reviewable.'
+            )
+
+            $planId = 'a1b2c3'
+            $repo = 'origin:example.test/fixture/repo'
+            $phase = 1
+            $kind = 'Capture'
+            $sourcePath = 'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/assets/logs/capture.md'
+            $workflowId = Get-FixtureDigest `
+                -Domain 'workflow-note/capture/source-record/v1' `
+                -Field @(
+                    $planId, '1', '1.1', 'testing-evidence', 'REQ-1', 'none',
+                    'note', 'Low', '-', 'Checkpoint evidence is reviewable.'
+                )
+            $sourceRecord = '- [1.1] [src:note] [sev:Low] [concern:testing-evidence] ' +
+                "[req:REQ-1] [review:none] [source-record:$workflowId] " +
+                'Checkpoint evidence is reviewable.'
+            $recordBytes = [System.Text.Encoding]::UTF8.GetBytes($sourceRecord)
+            $sourceId = Get-FixtureDigest -Domain 'phase-harvest/source-record/v1' -Field @(
+                $repo, $planId, '1', 'capture', 'none', $sourcePath,
+                [Convert]::ToBase64String($recordBytes)
+            )
+            $candidate = [ordered]@{
+                SourceRecord = $sourceRecord
+                SourceId = $sourceId
+                WorkflowSourceRecordId = $workflowId
+                SourceKind = $kind
+                SourcePath = $sourcePath
+                SourceBytesSha256 = [Convert]::ToHexString(
+                    [System.Security.Cryptography.SHA256]::HashData($recordBytes)
+                ).ToLowerInvariant()
+                ReviewType = 'none'
+                Concern = 'testing-evidence'
+                Requirements = @('REQ-1')
+                Category = 'testing'
+                Severity = 'Low'
+                Entry = $Entry
+                Tags = @('phase-1', 'req-1', 'testing-evidence')
+            }
+            $payload = [ordered]@{
+                repo = $repo
+                plan = $planId
+                phase = $phase
+                status = 'complete'
+                ledgerSource = 'ci'
+                candidateFormat = 'typed-source-record/v1'
+                sources = @(
+                    [ordered]@{ Kind = 'CrLog'; Path = $sourcePath.Replace('capture.md', 'cr-log.md'); Sha256 = '1' * 64; Bytes = 1 }
+                    [ordered]@{ Kind = 'Learnings'; Path = $sourcePath.Replace('capture.md', 'learnings.md'); Sha256 = '2' * 64; Bytes = 1 }
+                    [ordered]@{ Kind = 'Capture'; Path = $sourcePath; Sha256 = '3' * 64; Bytes = 1 }
+                )
+                candidates = @($candidate)
+            }
+            $payloadJson = $payload | ConvertTo-Json -Depth 12 -Compress
+            $receipt = [ordered]@{
+                schema = 'phase-harvest-receipt/v2'
+                receiptId = Get-FixtureDigest -Domain 'phase-harvest-receipt/v2' -Field @($payloadJson)
+                payload = $payload
+            }
+            return ($receipt | ConvertTo-Json -Depth 12 -Compress) + "`n"
+        }
+
         function Script:New-SiHarvestFixture {
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('si-harvest-' + [Guid]::NewGuid().ToString('N'))
             [void](New-Item -ItemType Directory -Path $root -Force)
@@ -268,6 +332,63 @@ No queued feedback.
         ($result.Items.wrappedContent -join "`n") | Should -Not -Match 'Mutable worktree evidence'
     }
 
+    It 'discovers direct active runs and explicit archive references from the pinned tree' {
+        $runId = '4' * 64
+        $runPath = Join-Path $script:fixture.Root "docs/self-improvement/runs/2026/08/$runId.json"
+        $run = [ordered]@{
+            schemaVersion = 2
+            runId = $runId
+            dueId = '5' * 64
+            status = 'resumable'
+            createdAtUtc = '2026-08-09T00:00:00Z'
+            updatedAtUtc = '2026-08-09T00:00:00Z'
+            completedAtUtc = $null
+            provenance = [ordered]@{
+                repoId = 'fixture/repo'
+                planId = 'a1b2c3'
+                sourceCommit = $script:fixture.Oid
+                pinnedBaseOid = $script:fixture.Oid
+                resolverReceiptId = $null
+            }
+            rankedSet = [ordered]@{ count = 0; digest = '0' * 64; candidates = @() }
+            choices = @()
+            proposalPr = $null
+        }
+        Write-Utf8 -Path $runPath -Content (($run | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        & git -C $script:fixture.Root add "docs/self-improvement/runs/2026/08/$runId.json"
+        & git -C $script:fixture.Root commit --quiet -m 'active run'
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        $result = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $oid -ArchiveReference 'docs/self-improvement/archive/2026/08/old.json'
+
+        $result.Status | Should -Be complete
+        $index = Get-Content -LiteralPath $result.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        @($index.sources.path) | Should -Contain "docs/self-improvement/runs/2026/08/$runId.json"
+        @($index.sources.path) | Should -Contain 'docs/self-improvement/archive/2026/08/old.json'
+        @($result.Items | Where-Object sourceKind -EQ 'archive-reference').Count | Should -Be 1
+    }
+
+    It 'fails closed when a pinned plan blob cannot be read' {
+        $planRelative = 'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/plan.md'
+        $blobOid = (& git -C $script:fixture.Root rev-parse `
+                "$($script:fixture.Oid):$planRelative").Trim()
+        $objectPath = Join-Path $script:fixture.Root (
+            ".git/objects/$($blobOid.Substring(0, 2))/$($blobOid.Substring(2))"
+        )
+        $backup = "$objectPath.harvest-test"
+        Move-Item -LiteralPath $objectPath -Destination $backup
+        try {
+            {
+                & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                    -PinnedBaseOid $script:fixture.Oid
+            } | Should -Throw '*non-regular or malformed*'
+        }
+        finally {
+            Move-Item -LiteralPath $backup -Destination $objectPath
+        }
+    }
+
     It 'test:PlanFolderPrefix.ConsumerCompatibility resolves a prefixed plan from the pinned tree' {
         $prefixedPlanDir = Join-Path $script:fixture.Root (
             'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'
@@ -323,6 +444,38 @@ No queued feedback.
             & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
                 -PinnedBaseOid $oid
         } | Should -Throw "*split-brain 'CrLog'*"
+    }
+
+    It 'accepts v1 and fully validates v2 phase receipts without ingesting receipt internals as SI records' {
+        $v1 = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $script:fixture.Oid
+        $v1.Status | Should -Be complete
+
+        $receiptPath = Join-Path $script:fixture.PlanDir 'assets/harvest-receipts/phase-001.json'
+        Write-Utf8 -Path $receiptPath -Content (New-V2PhaseReceiptText)
+        & git -C $script:fixture.Root add (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/assets/harvest-receipts/phase-001.json'
+        )
+        & git -C $script:fixture.Root commit --quiet -m 'v2 receipt'
+        $v2Oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        $v2 = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $v2Oid
+        $v2.Status | Should -Be complete
+        @($v2.Items | Where-Object sourceKind -EQ 'phase-receipt').Count | Should -Be 0
+
+        Write-Utf8 -Path $receiptPath -Content (
+            New-V2PhaseReceiptText -Entry 'Forged candidate projection.'
+        )
+        & git -C $script:fixture.Root add (
+            'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/assets/harvest-receipts/phase-001.json'
+        )
+        & git -C $script:fixture.Root commit --quiet -m 'forged v2 receipt'
+        $forgedOid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+        {
+            & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                -PinnedBaseOid $forgedOid
+        } | Should -Throw '*failed v2 candidate derivation*'
     }
 
     It 'bounds every Git child process by the shared scan deadline' {

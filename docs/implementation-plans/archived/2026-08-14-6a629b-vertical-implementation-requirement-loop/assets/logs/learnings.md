@@ -1,0 +1,16 @@
+## Learnings Capture
+Phase: 1
+
+- [1.2] [trigger:reusable-pattern] [concern:architecture-patterns] [req:REQ-3] [review:none] [source-record:a909af272334c8e729c158670833658b6ab5414730eb510debad715ab3321e8c] Phase harvest must parse and skip legacy Phase: 0 planning capture before selecting executable phase sections.
+
+## Learnings Capture
+Phase: 2
+
+- [2.2] [trigger:reusable-pattern] [concern:testing-evidence] [req:REQ-5] [review:none] [source-record:99ab4afc5aec14e4da0495b322552275abb0361fef6ab646d83b1b610ef62fb1] A sourceable pure phase-progress probe tests container stop and resume behavior without bootstrapping clone or authentication.
+- [2.2] [trigger:reusable-pattern] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:8bc1d347c43cddf5cde04a46cb1f1220dd5ddf1213c0eea4729243248ee946ee] Expose canonical durable-state parsers through read-only validation modes so launchers reuse the mutation path trust boundary rather than duplicating shape checks.
+
+## Learnings Capture
+Phase: 3
+
+- [3.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-1,REQ-2,REQ-3,REQ-4,REQ-5,REQ-6] [review:none] [source-record:6a51ac2614cf02fc83599f18103fec668daeacacab2a2e21553744eb4671fe59] Typed evidence tests must live in Fast-owned files because EvidenceTestId cannot be combined with the TestName narrowing required for Slow files.
+- [3.2] [trigger:plan-contradiction] [concern:architecture-patterns] [req:REQ-1] [review:cr] [source-record:85ac9c3b8a4e390af1a0704c64c76ec4bc3769a96b4aabaff188521743686283] Admission validates requirements that are present; it must not invent an every-phase-requires-REQ policy absent from the documented contract.

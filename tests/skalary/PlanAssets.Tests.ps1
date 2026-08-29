@@ -541,7 +541,7 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:planstate-capture-roots returns an immutable physical path through a plan alias' {
+        It 'test:planstate-capture-roots refuses a logical alias to an inventoried plan' {
             $tempRoot = & $newTempDir
             try {
                 $actualPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-actual-plan'
@@ -556,22 +556,10 @@ Describe 'Plan assets layout' {
                     return
                 }
 
-                $resolved = Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory
-                $expected = [System.IO.Path]::GetFullPath((Join-Path $actualPlanDir 'assets/logs/learning-overflow'))
-                $resolved | Should -Be $expected
-
-                $outside = Join-Path $tempRoot 'outside-retarget'
-                [void](New-Item -ItemType Directory -Path $outside -Force)
-                Remove-Item -LiteralPath $aliasPlanDir -Force
-                [void](New-Item -ItemType SymbolicLink -Path $aliasPlanDir -Target $outside -ErrorAction Stop)
-                [void](New-Item -ItemType Directory -Path $resolved -Force)
-                Set-Content -LiteralPath (Join-Path $resolved 'marker.txt') -Value 'physical target' -Encoding utf8NoBOM
-
-                Test-Path -LiteralPath (Join-Path $actualPlanDir 'assets/logs/learning-overflow/marker.txt') |
-                    Should -BeTrue
-                Test-Path -LiteralPath (Join-Path $outside 'assets/logs/learning-overflow/marker.txt') |
-                    Should -BeFalse
+                {
+                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*not a unique member*'
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

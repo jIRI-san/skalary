@@ -5354,6 +5354,11 @@
   ],
   "removals": [
     {
+      "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots returns an immutable physical path through a plan alias",
+      "reason": "Plan 6a629b phase 3 replaces alias acceptance with explicit rejection so layout-aware writers require both logical and physical inventory identity.",
+      "step": "6a629b/3.2"
+    },
+    {
       "test": "Self-improvement harvest contract.test:si-offered-at-completion.test:si-offered-at-completion documents the consumer-repo flow as manual",
       "reason": "Plan 2366ad step 3.1 replaces the manual-only consumer flow with the bounded typed export and clean upstream handoff while retaining installed-copy and never-merge controls.",
       "step": "2366ad/3.1"

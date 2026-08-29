@@ -215,11 +215,24 @@ function Resolve-PlanAssetPath {
         if (-not $PSBoundParameters.ContainsKey('Inventory')) {
             $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         }
-        $inventoryMatch = @($Inventory | Where-Object {
+        $pathComparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
+        $logicalInventoryMatch = @($Inventory | Where-Object {
                 $_.Path -and [string]::Equals(
+                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    $planDirFull,
+                    $pathComparison
+                )
+            })
+        $inventoryMatch = @($logicalInventoryMatch | Where-Object {
+                [string]::Equals(
                     (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
                     $physicalPlanDir,
-                    [System.StringComparison]::Ordinal
+                    $pathComparison
                 )
             })
         if ($inventoryMatch.Count -ne 1) {
@@ -588,8 +601,10 @@ function Get-PlanMetadata {
             $parenMatches = [regex]::Matches($body, '\((?<refs>[^)]*)\)')
             foreach ($parenMatch in $parenMatches) {
                 $candidateRefs = @($parenMatch.Groups['refs'].Value.Split(',') | ForEach-Object { $_.Trim() })
-                if ($candidateRefs -match '^REQ-\d+$' -or $candidateRefs -match '^RISK-\d+$') {
-                    $refs = @($candidateRefs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                foreach ($candidateRef in $candidateRefs) {
+                    if ($candidateRef -match '^(?:REQ|RISK)-\d+$' -and $refs -notcontains $candidateRef) {
+                        $refs += $candidateRef
+                    }
                 }
             }
 
@@ -1203,6 +1218,28 @@ function Get-PlanValidationDecision {
     }
 }
 
+function Assert-IntentReady {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Planning context asset not found: $Path"
+    }
+    $intent = (Get-Content -LiteralPath $Path -Raw) -replace "`r`n", "`n"
+    foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
+        $body = [regex]::Match(
+            $intent,
+            "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+        ).Groups['body'].Value
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+            throw "Intent section '$section' is missing or still contains a TBD placeholder."
+        }
+    }
+}
+
 function Get-PlanningContextDigest {
         <#
         .SYNOPSIS
@@ -1211,11 +1248,18 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        $assetArgs = @{ PlanDir = $PlanDir }
+        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
         foreach ($path in @($intentPath, $designPath)) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Planning context asset not found: $path"
@@ -1239,27 +1283,25 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        $assetArgs = @{ PlanDir = $PlanDir }
+        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
         foreach ($path in @($intentPath, $designPath)) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Planning context asset not found: $path"
             }
         }
 
-        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-        foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
-            $body = [regex]::Match(
-                $intent,
-                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-            ).Groups['body'].Value
-            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                throw "Intent section '$section' is missing or still contains a TBD placeholder."
-            }
-        }
+        Assert-IntentReady -Path $intentPath
 
         $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
         foreach ($section in @('Components and boundaries', 'Program flow')) {
@@ -1288,7 +1330,11 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
         $planFile = Join-Path $PlanDir 'plan.md'
@@ -1306,6 +1352,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $true
                 Marker      = $null
                 Digest      = $null
+                Reason      = $null
             }
         }
 
@@ -1317,6 +1364,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $marker
                 Digest      = $null
+                Reason      = 'The planning-confirmed marker is empty.'
             }
         }
 
@@ -1329,6 +1377,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = 'Planning confirmation is pending.'
             }
         }
 
@@ -1340,12 +1389,16 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = 'The planning-confirmed marker is malformed.'
             }
         }
         $expectedDigest = $Matches['digest']
 
         try {
-            $digest = Get-PlanningContextDigest -PlanDir $PlanDir
+            $assetArgs = @{ PlanDir = $PlanDir }
+            if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+            if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+            $digest = Get-PlanningContextDigest @assetArgs
         }
         catch {
             return [pscustomobject]@{
@@ -1355,6 +1408,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = $_.Exception.Message
             }
         }
 
@@ -1366,6 +1420,7 @@ function Get-PlanningContextDigest {
             CanProceed  = $confirmed
             Marker      = $normalized
             Digest      = $digest
+            Reason      = if ($confirmed) { $null } else { 'Planning context changed after confirmation.' }
         }
     }
 
@@ -1571,6 +1626,158 @@ function Get-NextStep {
         BlockedByAfter        = ($unmet.Count -gt 0)
         UnmetAfter            = $unmet
         IsComplete            = $false
+    }
+}
+
+function Get-PhaseAdmission {
+    <#
+    .SYNOPSIS
+    Computes the closed, read-only admission decision for the first incomplete plan phase.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Plan,
+        [Parameter(Mandatory)][object]$Metadata,
+        [Parameter(Mandatory)][object]$Markers,
+        [Parameter(Mandatory)][object]$NextStep,
+        [Parameter(Mandatory)][object]$PlanningContext,
+        [Parameter(Mandatory)][object[]]$Inventory,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $status = 'ready'
+    $reason = ''
+    $unmetDependencies = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($token in @($Markers.DependsOn)) {
+        try {
+            $dependency = Resolve-Plan -Reference $token -RepoRoot $RepoRoot -Inventory $Inventory
+            $dependencyPlanPath = Join-Path $dependency.Path 'plan.md'
+            if (-not (Test-Path -LiteralPath $dependencyPlanPath -PathType Leaf)) {
+                throw "Dependency plan file not found: $dependencyPlanPath"
+            }
+            $dependencyMetadata = Get-PlanMetadata `
+                -Path $dependencyPlanPath -RepoRoot $RepoRoot
+            $dependencyProgress = Get-PlanProgress -Metadata $dependencyMetadata
+            if (-not ($dependency.IsArchived -or $dependencyProgress.IsComplete)) {
+                $unmetDependencies.Add([string]$dependency.Id)
+            }
+        }
+        catch {
+            $message = $_.Exception.Message
+            $status = if ($message.StartsWith('Ambiguous plan reference:', [System.StringComparison]::Ordinal)) {
+                'ambiguous'
+            }
+            else {
+                'missing'
+            }
+            $reason = "Dependency '$token' could not be resolved: $message"
+            break
+        }
+    }
+
+    if ($status -eq 'ready' -and $unmetDependencies.Count -gt 0) {
+        $status = 'blocked'
+        $reason = "Incomplete dependencies: $($unmetDependencies -join ', ')."
+    }
+
+    $phase = if ($NextStep.Step) { [string]$NextStep.Step.Phase } else { '' }
+    $phaseNumber = 0
+    if ($status -eq 'ready') {
+        if ($NextStep.IsComplete -or [string]::IsNullOrWhiteSpace($phase) -or
+            $phase -notmatch '^##\s+Phase\s+(?<phase>[1-9][0-9]*):') {
+            $status = 'blocked'
+            $reason = 'No admissible incomplete phase was found.'
+        }
+        else {
+            $phaseNumber = [int]$Matches.phase
+        }
+    }
+
+    if ($status -eq 'ready') {
+        $incompleteEarlier = @($Metadata.Steps | Where-Object {
+                $_.Phase -match '^##\s+Phase\s+(?<phase>[1-9][0-9]*):' -and
+                [int]$Matches.phase -lt $phaseNumber -and $_.Status -ne 'x'
+            })
+        if ($incompleteEarlier.Count -gt 0) {
+            $status = 'blocked'
+            $reason = "Earlier phase step '$($incompleteEarlier[0].Id)' is incomplete."
+        }
+        elseif ($NextStep.BlockedByAfter) {
+            $status = 'blocked'
+            $reason = "Step '$($NextStep.Id)' has unmet prerequisites: $(@($NextStep.UnmetAfter) -join ', ')."
+        }
+    }
+
+    if ($status -eq 'ready' -and -not $PlanningContext.CanProceed) {
+        $status = if ($PlanningContext.Status -eq 'stale') { 'stale-input' } else { 'missing' }
+        $contextReason = if ($PlanningContext.PSObject.Properties['Reason'] -and
+            -not [string]::IsNullOrWhiteSpace([string]$PlanningContext.Reason)) {
+            " $($PlanningContext.Reason)"
+        }
+        else { '' }
+        $reason = "Planning context is '$($PlanningContext.Status)'.$contextReason"
+    }
+
+    if ($status -eq 'ready' -and $PlanningContext.Status -eq 'legacy') {
+        try {
+            $intentPath = Resolve-PlanAssetPath -PlanDir $Plan.Path -Kind Intent `
+                -RepoRoot $RepoRoot -Inventory $Inventory
+            Assert-IntentReady -Path $intentPath
+        }
+        catch {
+            $status = 'missing'
+            $reason = $_.Exception.Message
+        }
+    }
+
+    $applicableRequirements = @(
+        if ($phase -and $Metadata.PhaseSteps.ContainsKey($phase)) {
+            $Metadata.PhaseSteps[$phase] |
+                ForEach-Object { $_.Refs } |
+                Where-Object { $_ -match '^REQ-\d+$' } |
+                Sort-Object -Unique
+        }
+    )
+    $unknownRequirements = @(
+        $applicableRequirements | Where-Object { -not $Metadata.Requirements.ContainsKey($_) }
+    )
+    if ($status -eq 'ready' -and $unknownRequirements.Count -gt 0) {
+        $status = 'missing'
+        $reason = "Phase $phaseNumber references unknown requirements: $($unknownRequirements -join ', ')."
+    }
+
+    return [pscustomobject]@{
+        Status = $status
+        CanProceed = ($status -eq 'ready')
+        Reason = $reason
+        Phase = $phase
+        PhaseNumber = $phaseNumber
+        ApplicableRequirements = $applicableRequirements
+        UnknownRequirements = $unknownRequirements
+        UnmetDependencies = $unmetDependencies.ToArray()
+    }
+}
+
+function Get-PhaseCheckpointOptions {
+    <#
+    .SYNOPSIS
+    Returns the operator dispositions allowed by normalized phase evidence and uncertainty.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()]
+        [ValidateSet('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')]
+        [string[]]$EvidenceStatus,
+        [switch]$HasHighImpactUncertainty
+    )
+
+    $canContinue = $EvidenceStatus.Count -gt 0 -and
+        @($EvidenceStatus | Where-Object { $_ -notin @('passed', 'waived') }).Count -eq 0 -and
+        -not $HasHighImpactUncertainty
+    return [pscustomobject]@{
+        CanContinue = $canContinue
+        Options = if ($canContinue) { @('Continue', 'Revise', 'Stop') } else { @('Revise', 'Stop') }
     }
 }
 
@@ -1792,4 +1999,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-PhaseAdmission, Get-PhaseCheckpointOptions, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
