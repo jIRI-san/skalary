@@ -49,22 +49,19 @@ phase_needs_execution() {
     local phase_number="$2"
     local repo_root="${3:-.}"
     local validator="${4:-${AUTOPILOT_HARVEST_VALIDATOR:-/usr/local/lib/autopilot/Invoke-PhaseHarvest.ps1}}"
-    local validation_output
+    local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
+    local state_output
+    local state
 
-    if phase_has_incomplete "${plan_path}" "${phase_number}"; then
-        return 0
+    state_output="$(pwsh -NoProfile -File "${state_script}" \
+        -PlanPath "${plan_path}" -Phase "${phase_number}" \
+        -RepoRoot "${repo_root}" -HarvestValidator "${validator}" 2>&1)"
+    state=$?
+    if [ "${state}" -eq 2 ]; then
+        echo "ERROR: Phase ${phase_number} close state is invalid." >&2
+        printf '%s\n' "${state_output}" >&2
     fi
-    if ! phase_has_harvest_receipt "${plan_path}" "${phase_number}"; then
-        return 0
-    fi
-    if ! validation_output="$(pwsh -NoProfile -File "${validator}" \
-        -PlanDir "$(dirname "${plan_path}")" -Phase "${phase_number}" \
-        -ValidateReceipt -RepoRoot "${repo_root}" 2>&1)"; then
-        echo "ERROR: Phase ${phase_number} harvest receipt is invalid." >&2
-        printf '%s\n' "${validation_output}" >&2
-        return 2
-    fi
-    return 1
+    return "${state}"
 }
 
 phase_dispatch_action() {

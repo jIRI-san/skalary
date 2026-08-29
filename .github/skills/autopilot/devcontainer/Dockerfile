@@ -239,7 +239,7 @@ RUN pwsh -NoProfile -Command 'Install-PSResource -Name Pester -Version "[5.6.1]"
 
 # Container entry-point script
 COPY scripts/container-entrypoint.sh /usr/local/bin/container-entrypoint.sh
-COPY scripts/Invoke-PhaseHarvest.ps1 scripts/AtomicStore.psm1 scripts/LedgerStore.psm1 scripts/PlanState.psm1 /usr/local/lib/autopilot/
+COPY scripts/Get-PhaseExecutionState.ps1 scripts/Invoke-PhaseHarvest.ps1 scripts/AtomicStore.psm1 scripts/LedgerStore.psm1 scripts/PlanState.psm1 /usr/local/lib/autopilot/
 COPY devcontainer/container-toolchain-smoke.sh /usr/local/bin/container-toolchain-smoke
 RUN chmod 0755 /usr/local/bin/container-entrypoint.sh /usr/local/bin/container-toolchain-smoke \
     && chmod 0444 /usr/local/lib/autopilot/* \

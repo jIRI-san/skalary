@@ -22,14 +22,16 @@ The launcher is the sole reader of `.autopilot.host.json`. The skill and the aut
 3. Run first-run config bootstrap (next section).
 4. For container or sandbox, ask only for the starting branch.
 5. Run the launcher command for the selected runtime and mode.
-6. Print: "Autonomous execution started — exiting /ci flow."
+6. Preserve the launcher exit status. Report completion only for `0`, an actionable operator stop for
+   `42`, an exhausted rebundle for `43`, and the exact failure for every other nonzero status.
 
 ## First-run config bootstrap
 
 1. Check repo root for `.autopilot.json`.
 2. If file exists, continue.
 3. If file is missing:
-  - Interview for: `runtime`, `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `context`, `reasoningEffort`, `git.name`, `git.email`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
+  - Set `runtime` from the value already selected in `/ci`; do not interview for it again.
+  - Interview for: `copilotAuth`, `gitProvider`, `gitAuth`, `model`, `context`, `reasoningEffort`, `git.name`, `git.email`, `timeout`, `maxIterationsPerStep`, `build`, `test`.
    - Optionally interview for `offlinePackages` when the plan targets the container/sandbox runtime and restores from a private package stream.
    - Start from `.github/skills/autopilot/.autopilot.json.example`.
    - Write `.autopilot.json` at repo root.
@@ -48,6 +50,12 @@ The launcher is the sole reader of `.autopilot.host.json`. The skill and the aut
 
 Refuse any other value. Do not derive launcher mode from plan text: `Mode` is operator-selected before
 handoff, so it remains authoritative when container or sandbox starts from another branch.
+
+An existing `.autopilot.json.runtime` is the default for direct launcher use, not a second decision for
+the current `/ci` handoff; the explicit `-Runtime` value remains authoritative and should be surfaced
+when it differs. Validate a repository-derived branch against the launcher's restricted ref grammar,
+then invoke `launch.ps1` through a PowerShell argument splat or `ProcessStartInfo.ArgumentList`. Never
+construct a shell command string from the branch.
 
 For container and sandbox only, ask:
 
@@ -99,4 +107,5 @@ Use the installed launcher path and the delivered signature:
 - Sandbox:
   - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode <launcher-mode> -Runtime sandbox -Branch <chosen-branch>`
 
-After invoking, print: **Autonomous execution started — exit /ci flow.**
+The launcher is blocking. After it returns, report its terminal outcome and exit `/ci`; never print
+success-shaped "started" wording for an interrupted or failed run.

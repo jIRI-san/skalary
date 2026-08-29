@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T10:57:48.1480133Z",
+  "generatedAt": "2026-08-29T11:11:50.5126926Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -182,12 +182,12 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "e1bcee443d5cc94cb8313ea4ed70420537732768b072dbfed766e3cfedd288b1",
+          "sha256": "3baecd73486151e55a798025c17ec15dd061117c1c467f289381d173090cd411",
           "src": "skills/autopilot/SKILL.md"
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
-          "sha256": "e06eba2966a4e95077fdc19a5f70b821764ce416fe4979b12a3f5efb2da64635",
+          "sha256": "b5e0dbb0116e4049f50c930b34082e0b96c01d1b1705da707eaf4f1db3db6d43",
           "src": "devcontainer/Dockerfile"
         },
         {
@@ -219,6 +219,11 @@
           "dest": "skills/autopilot/scripts/AtomicStore.psm1",
           "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
+          "sha256": "f8c65e50671c16baa854f58632f722d6d4c35ad8cbf429fbeef41717ff8cd886",
+          "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
@@ -267,7 +272,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "979deac7cefc1e374a62060e505f5a2f3c7d8ebbc87e73ffd164210f76a9c1aa",
+          "sha256": "572c5afd004554b646c8a2cd9f92ec44be44a998189b3e5438bf49d2a62aa755",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -287,17 +292,17 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "8c5ee25840f55fe18889313f04267cfe30e8e11184e8289beabc47e11c607435",
+          "sha256": "e132eff0b204e75b2c75937280993eef4170deb7541ba79367bc738a48976e30",
           "src": "scripts/launch-host.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "470b884b147353fbfb9588b06b566fc50d648ed4129c13fa0e57767b934334b0",
+          "sha256": "d04bbb792a20727a80ceb7c20a815711b1e79cfb82e5af21a1092b2c74bd4cda",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "1b12bdd5a1b9c4abc817ffc85d5d228b879f934d1a66b59a8b015b07423464ea",
+          "sha256": "0c81116fa685a44d270cd800c36796f53c192c896a775db6bb60b62c2a140e40",
           "src": "scripts/launch.ps1"
         },
         {
@@ -341,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.39"
+      "version": "1.2.41"
     },
     {
       "author": "jIRI-san",
@@ -520,7 +525,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "adff994d637b7ce3090795cc210d86544d8b24381dcb29fac3534899514f38c4",
+          "sha256": "22cc847dbe9a345c34357a8c54131982f2bd79dc5c0330bbf4460484c1f7a72f",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -680,7 +685,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.64"
+      "version": "1.0.65"
     },
     {
       "author": "jIRI-san",

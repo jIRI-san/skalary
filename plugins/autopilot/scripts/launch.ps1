@@ -36,6 +36,15 @@ if ($PlanSlug -notmatch '^[a-z0-9-]+$') {
     Write-Error "Invalid plan slug '$PlanSlug'. Must match ^[a-z0-9-]+$."
     exit 1
 }
+if ($Branch -and (
+        $Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $Branch.Contains('..') -or $Branch.Contains('//') -or
+        $Branch.EndsWith('/') -or $Branch.EndsWith('.') -or
+        $Branch.EndsWith('.lock', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $Branch.Contains('@{'))) {
+    Write-Error "Invalid branch '$Branch'. Use a simple Git ref containing only letters, digits, '.', '_', '/', and '-'."
+    exit 1
+}
 
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 if (-not (Test-Path (Join-Path $PlanFolder 'plan.md'))) {

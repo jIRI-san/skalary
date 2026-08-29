@@ -321,7 +321,7 @@ Describe 'Autopilot container gate runner' {
             '"dest": "skills/autopilot/devcontainer/relocated-toolchain.tsv"'
         ) | Set-Content -LiteralPath $fixturePluginPath -Encoding utf8NoBOM -NoNewline
         { Get-ContainerGateContext -CheckoutRoot $payloadFixture } |
-            Should -Throw '*must preserve its path beneath the installed Docker build context*'
+            Should -Throw "*must install Docker input 'devcontainer/toolchain.tsv' exactly once*"
         Set-Content -LiteralPath $fixturePluginPath -Value $fixturePluginText -Encoding utf8NoBOM -NoNewline
         if (-not $IsWindows) {
             $installedManifest = Join-Path $payloadFixture '.github/skills/autopilot/devcontainer/toolchain.tsv'
@@ -359,7 +359,7 @@ Describe 'Autopilot container gate runner' {
         $canonicalDockerfileText = Get-Content -LiteralPath $canonicalDockerfile -Raw
         Add-Content -LiteralPath $canonicalDockerfile -Value 'copy scripts/unmapped.sh /tmp/unmapped.sh'
         { Get-ContainerGateContext -CheckoutRoot $payloadFixture } |
-            Should -Throw "*plugin.json must map Docker input 'scripts/unmapped.sh'*"
+            Should -Throw "*plugin.json must install Docker input 'scripts/unmapped.sh' exactly once*"
         Set-Content -LiteralPath $canonicalDockerfile -Value $canonicalDockerfileText -Encoding utf8NoBOM -NoNewline
         Add-Content -LiteralPath $canonicalDockerfile -Value 'add scripts/container-entrypoint.sh /tmp/entrypoint.sh'
         { Get-ContainerGateContext -CheckoutRoot $payloadFixture } |

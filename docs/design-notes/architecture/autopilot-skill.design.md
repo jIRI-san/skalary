@@ -17,7 +17,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 |---|---|---|
 | Runtime and execution-extent selection | `/ci` | Presents the runtime menu, then explicit One phase / Whole plan |
 | Autonomous handoff | skill | Accepts the selected runtime/mode; asks only for container/sandbox start branch |
-| First-run `.autopilot.json` bootstrap | skill | Interviews user, writes config, structurally validates |
+| First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
@@ -46,8 +46,19 @@ Launcher-mode selection follows the one-phase autonomy contract in
 selection and invocation arguments. `next-phase` returns after one successful phase close, while
 `whole-plan` repeats the same admitted-phase and close flow and advances only after the current gate
 passes. Either mode preserves checklist progress when an operator or evidence stop interrupts the run.
+Launcher invocation uses bound arguments, validates repository-derived branches against a restricted
+ref grammar, preserves the blocking process exit status, and reports the terminal outcome rather than
+success-shaped "started" wording.
 
-**First-run bootstrap is in-editor only.** When the user picks Autonomous, the skill checks for repo-root `.autopilot.json`; if absent it interviews (runtime, auth target, git provider/auth, build/test, model, context tier, reasoning effort, timeout), writes from `.autopilot.json.example`, then **structurally validates** required fields/types — mirroring `launch.ps1`'s hand-rolled checks. PowerShell 7.6+ can validate draft 2020-12 through `Test-Json -SchemaFile`, but autopilot deliberately retains its hand-rolled config checks because the launcher supports PowerShell 7.0 and must fail consistently before dispatch on every supported host. Headless `launch.ps1` never interviews; it fails loud if the file is missing.
+**First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
+it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout
+fields, writes from `.autopilot.json.example`, then **structurally validates** required fields/types —
+mirroring `launch.ps1`'s hand-rolled checks. Existing `runtime` is the direct-launch default; an explicit
+`-Runtime` remains the current invocation authority and any mismatch is surfaced. PowerShell 7.6+ can
+validate draft 2020-12 through `Test-Json -SchemaFile`, but autopilot deliberately retains its
+hand-rolled config checks because the launcher supports PowerShell 7.0 and must fail consistently before
+dispatch on every supported host. Headless `launch.ps1` never interviews; it fails loud if the file is
+missing.
 
 **Offline package bundling.** For container/sandbox plans that restore from a private package stream, the bootstrap may also interview for `offlinePackages` (boolean `enabled`; optional `ecosystems` array of `dotnet`/`npm`; optional `maxRebundles` ≥ 1). When enabled, the launcher pre-builds a feed and the host owns a rebundle loop: the sealed runtime exits `43` on a missing package (manifest-only commit), the launcher regenerates + pushes the lockfile and relaunches, capped by `maxRebundles`. This is host-owned and transparent to `/ci`, which just hands off. Mechanics live in [autopilot-execution.design.md](autopilot-execution.design.md); the `42` @human stop is unchanged.
 

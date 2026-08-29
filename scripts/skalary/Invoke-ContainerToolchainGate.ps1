@@ -623,22 +623,30 @@ function Get-ContainerGateContext {
 
     $payload = [System.Collections.Generic.List[object]]::new()
     foreach ($source in $requiredSources) {
+        $expectedInstalledPath = [System.IO.Path]::GetFullPath((Join-Path $installedContextPath $source))
         $mapping = @($mappings | Where-Object {
-                [string]::Equals([string]$_.src, $source, [System.StringComparison]::Ordinal)
+                $candidateDestination = ConvertTo-GateRelativePath ([string]$_.dest)
+                $candidateInstalledPath = [System.IO.Path]::GetFullPath(
+                    (Join-Path $CheckoutRoot ".github/$candidateDestination")
+                )
+                [string]::Equals(
+                    $candidateInstalledPath,
+                    $expectedInstalledPath,
+                    [System.StringComparison]::Ordinal
+                )
             })
-        if ($mapping.Count -ne 1) { throw "plugin.json must map Docker input '$source' exactly once." }
+        if ($mapping.Count -ne 1) {
+            throw "plugin.json must install Docker input '$source' exactly once beneath its build context."
+        }
         $destination = ConvertTo-GateRelativePath ([string]$mapping[0].dest)
         $installedPath = [System.IO.Path]::GetFullPath((Join-Path $CheckoutRoot ".github/$destination"))
-        $expectedInstalledPath = [System.IO.Path]::GetFullPath((Join-Path $installedContextPath $source))
-        if (-not [string]::Equals($installedPath, $expectedInstalledPath, [System.StringComparison]::Ordinal)) {
-            throw "plugin.json destination for '$source' must preserve its path beneath the installed Docker build context."
-        }
+        $canonicalSource = ConvertTo-GateRelativePath ([string]$mapping[0].src)
         $payload.Add([pscustomobject]@{
                 Source = $source
                 Destination = $destination
-                CanonicalRelative = "plugins/autopilot/$source"
+                CanonicalRelative = "plugins/autopilot/$canonicalSource"
                 InstalledRelative = ".github/$destination"
-                CanonicalPath = Join-Path $CheckoutRoot "plugins/autopilot/$source"
+                CanonicalPath = Join-Path $CheckoutRoot "plugins/autopilot/$canonicalSource"
                 InstalledPath = $installedPath
             })
     }

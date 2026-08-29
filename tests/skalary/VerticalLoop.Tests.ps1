@@ -11,6 +11,7 @@ Describe 'Vertical implementation requirement loop' {
         $script:evidenceBuilder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $script:workflowNote = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
         $script:phaseHarvest = Join-Path $script:repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
+        $script:phaseState = Join-Path $script:repoRoot 'scripts/skalary/Get-PhaseExecutionState.ps1'
         $script:getPlanState = Join-Path $script:repoRoot 'scripts/skalary/Get-PlanState.ps1'
 
         function Set-AdmissionAssets {
@@ -173,8 +174,8 @@ flowchart TD
             )
 
             $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
-            & bash -c 'source "$1"; phase_needs_execution "$2" "$3" "$4" "$5"' `
-                phase-probe $entrypoint $PlanPath $Phase $RepoRoot $script:phaseHarvest
+            & bash -c 'source "$1"; AUTOPILOT_PHASE_STATE_SCRIPT="$6" phase_needs_execution "$2" "$3" "$4" "$5"' `
+                phase-probe $entrypoint $PlanPath $Phase $RepoRoot $script:phaseHarvest $script:phaseState
             return $LASTEXITCODE
         }
 
@@ -679,6 +680,7 @@ $($header.TrimEnd())
                     Tokens = @(
                         'Accept the runtime and launcher mode selected by `/ci`',
                         'Do not derive launcher mode from plan text',
+                        'PowerShell argument splat or `ProcessStartInfo.ArgumentList`',
                         '`next-phase` still delegates admission',
                         '`whole-plan` uses the same admitted-phase and phase-close loop'
                     )
@@ -690,7 +692,45 @@ $($header.TrimEnd())
                         'phase_dispatch_action',
                         'phase-complete-stop',
                         'phase-complete-continue',
-                        '-ValidateReceipt'
+                        'Get-PhaseExecutionState.ps1'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/Get-PhaseExecutionState.ps1'
+                    Tokens = @(
+                        'Get-PlanMetadata',
+                        'Resolve-PlanAssetPath',
+                        'execution-required',
+                        'close-pending',
+                        'closed'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/launch-host.ps1'
+                    Tokens = @(
+                        'Get-PhaseExecutionState.ps1',
+                        'invalid phase-close state',
+                        'without a valid phase close'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/launch-sandbox.ps1'
+                    Tokens = @(
+                        'Get-PhaseExecutionState.ps1',
+                        'PowerShell 7',
+                        '.autopilot-exit-code'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/launch.ps1'
+                    Tokens = @(
+                        'Invalid branch',
+                        '$Branch.Contains(''..'')',
+                        '$Branch.Contains(''@{'')'
                     )
                 }
             )
@@ -730,6 +770,44 @@ $($header.TrimEnd())
                 [string]$registryFile[0].sha256 |
                     Should -BeExactly ([string]$catalogFile[0].Sha256)
             }
+
+            $installedEntrypoint = Join-Path $consumer.Root (
+                '.github/skills/autopilot/scripts/container-entrypoint.sh' -replace
+                    '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            (& bash -c 'source "$1"; phase_dispatch_action whole-plan 0 1' `
+                    installed-dispatch $installedEntrypoint).Trim() |
+                Should -BeExactly 'phase-complete-continue'
+            (& bash -c 'source "$1"; phase_dispatch_action next-phase 0 1' `
+                    installed-dispatch $installedEntrypoint).Trim() |
+                Should -BeExactly 'phase-complete-stop'
+
+            $phaseFixture = New-AdmissionFixture
+            $installedPhaseState = Join-Path $consumer.Root (
+                '.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1' -replace
+                    '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            $installedHarvest = Join-Path $consumer.Root (
+                '.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1' -replace
+                    '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            & pwsh -NoProfile -File $installedPhaseState -PlanPath $phaseFixture.TargetPlan `
+                -Phase 1 -RepoRoot $phaseFixture.Root -HarvestValidator $installedHarvest | Out-Null
+            $LASTEXITCODE | Should -Be 0
+
+            (Get-Content -LiteralPath $phaseFixture.TargetPlan -Raw).Replace(
+                '- [ ] 1.1 Deliver increment',
+                '- [x] 1.1 Deliver increment'
+            ) | Set-Content -LiteralPath $phaseFixture.TargetPlan -Encoding utf8NoBOM -NoNewline
+            foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+                & $script:workflowNote -Kind $kind -PlanDir $phaseFixture.TargetDir `
+                    -RepoRoot $phaseFixture.Root -Phase 1 | Out-Null
+            }
+            (Invoke-FixtureHarvest -PlanDir $phaseFixture.TargetDir -Root $phaseFixture.Root).ExitCode |
+                Should -Be 0
+            & pwsh -NoProfile -File $installedPhaseState -PlanPath $phaseFixture.TargetPlan `
+                -Phase 1 -RepoRoot $phaseFixture.Root -HarvestValidator $installedHarvest | Out-Null
+            $LASTEXITCODE | Should -Be 1
 
             foreach ($pluginName in @('continue-implementation', 'autopilot')) {
                 $catalogPlugin = @(

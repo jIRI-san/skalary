@@ -107,8 +107,8 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
 
 5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md` by path and pass the already-selected
    runtime and launcher mode into its bootstrap/launcher flow. The autopilot skill does not present
-   another runtime or execution-extent menu. After launch, print the handoff line and exit the `/ci`
-   flow.
+   another runtime or execution-extent menu. Treat the launcher as blocking, preserve its exit status,
+   report the actual completion/operator-stop/failure outcome, and then exit the `/ci` flow.
 
    - **Offline package rebundle (container/sandbox + `offlinePackages.enabled`).** The host launcher owns a rebundle loop on top of the normal `42` @human stop. If the sealed runtime needs a package missing from the feed it commits the **manifest only** and exits `43`; `launch.ps1` regenerates + pushes the lockfile (`prepare-packages.ps1 -Branch`), then relaunches the same runtime — capped by `maxRebundles`. This is host-owned; `/ci` just hands off and the loop is transparent. Exit `42` (@human) is unchanged.
    - **Progression contract.** `next-phase` stops after the first admitted phase completes its phase-close flow. `whole-plan` applies the same admission and close contract to each remaining phase and advances only after the current gate passes; an operator or evidence stop leaves checklist progress intact for a later resume.
