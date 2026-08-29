@@ -17,3 +17,8 @@ Phase: 3
 Phase: 4
 
 - [4.2] [src:note] [sev:High] dr: tracked CI rows cannot authenticate their own provenance; verify trusted workflow run job SHA conclusion and artifacts through the provider API
+
+## Capture
+Phase: 2
+
+No entries for this phase.

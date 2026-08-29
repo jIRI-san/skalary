@@ -48,3 +48,8 @@ Phase: 1
 - [-] [src:code-review] [sev:Low] [concern:operability-observability] [req:REQ-3] [review:cr] [source-record:fcc2a333535dd2f7f5915a34744389c31c71ab883be2da76b5a4a307892f1abb] CR3-9 interrupted runs use discovery terminal label; triage=fix with a distinct interruption label while retaining exit 4.
 - [-] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-3] [review:cr] [source-record:b8b36507fd2520a577d10a64ef78244365c25558d729db54a3e833ec71ea8235] CR3-10 mixed failed and unrun outcomes hide failure; triage=fix by giving failed precedence and retaining incomplete detail.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:5af1dab8da7f1ac9aa04b01fbd33e45f3f2f7911e8081b7c4d08899ef66571d0] review-cycle stage=phase-1 cycle=3 outcome=findings summary=ten-triaged-nine-fixed-one-deferred
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.
