@@ -43,3 +43,8 @@ Phase: 2
 - [2.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:e04e1d5acd1d8d98075e7b830027ed63669342a018bc0750c9cb8e19857b96df] round 3 finding 3 triage=fix: load architecture contracts before planning historical context
 - [2.2] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-3,REQ-4] [review:cr] [source-record:ee89cae4159abe06429c230d08606ba1c04f81df435a28ad8798d50538d72454] round 3 finding 4 triage=fix: bind consumer relationship guidance to the resolver vocabulary and remove stale classification text
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:c8ad4b2fbb9d6096741ea5e19e2e607e58c0c5783a7a4d60c3b77ee03d042636] review-cycle stage=phase-2 cycle=3 outcome=findings summary=fixed source descriptor grammar, architecture-first planning context, and resolver-bound relationship guidance
+
+## CR Capture
+Phase: 3
+
+No entries for this phase.

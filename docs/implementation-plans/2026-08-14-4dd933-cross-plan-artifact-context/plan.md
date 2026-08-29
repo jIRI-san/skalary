@@ -34,5 +34,5 @@
 ## Phase 3: Distribution and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Add focused resolver, confinement, byte-bound, missing-artifact, provenance, and installed-consumer tests; synchronize bundled scripts and plugin copies with existing generators (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.2] `M`
+- [x] 3.1 Add focused resolver, confinement, byte-bound, missing-artifact, provenance, and installed-consumer tests; synchronize bundled scripts and plugin copies with existing generators (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4) [after: 2.2] `M`
 - [ ] 3.2 Run focused plan-context, review-consumer, generated-drift, and validation checks; rebuild the existing evidence receipt and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4) [after: 3.1] `M`
