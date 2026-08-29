@@ -9,17 +9,16 @@ context: fork
 
 # Continue Implementation
 
-> This skill requires agent mode. It edits files, runs commands, and commits.
-
-> **Interaction rule:** every multiple-choice prompt uses `vscode_askQuestions` with `options`.
-
-> **Reference display rule:** in every user-facing question, summary, table, status, recommendation, or handoff, identify plans as `<canonical-id> <slug>` (for example, `863d97 evidence-receipt-truth`), never by id alone. Commands may remain id-only (for example, `/ci 863d97`). Apply the same `<epic-id> <slug>` form to epics.
+Requires agent mode. Edits files, runs commands, and commits. Use `vscode_askQuestions`
+with `options` for every multiple-choice prompt. In user-facing text, identify plans and epics
+as `<canonical-id> <slug>`; commands may use only the id.
 
 ## Step 1: Select plan and load context
 
-1. Resolve the target plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`. Read the resolved `plan.md` — in the current layout it carries only the header markers, the asset index, and the phases/steps.
-
-   **Epic reference:** the argument may be an epic id/slug instead (scaffolded by `/cep` under `docs/implementation-plans/epics/`). Epic ids and plan ids share one id space, so `Get-PlanState` (Step 2) resolves either and reports epic rollup plus the next unblocked child when the reference is an epic. Do not pick a child yourself: take `NextChild`, then continue this skill against that child plan exactly as if it had been named directly. Epic membership is the `<!-- epic: <id> -->` marker in each child plan; `epic.md` is a generated mirror, never the authority.
+1. Resolve a non-archived plan by hash prefix, legacy number, slug, or date through
+   `Resolve-Plan`, then read `plan.md`. An epic id/slug is also valid: `Get-PlanState` (Step 2)
+   returns its rollup and `NextChild`. Use that child; never select one independently.
+   `<!-- epic: <id> -->` is membership authority, while `epic.md` is generated.
 2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
 
    | Asset | Read it when |
@@ -32,9 +31,10 @@ context: fork
    | `assets/evidence.md` | phase/plan crosscheck and the archival gate |
    | `assets/logs/{capture,cr-log,learnings}.md` | harvest at plan completion (written only via `Add-WorkflowNote`) |
 
-   Never read the whole `assets/` tree "for context". Legacy plans keep these files at the plan-folder root; resolve the path with `Resolve-PlanAssetPath` (in `PlanState.psm1`) rather than assuming either location.
-
-   **Intent is the one non-optional read.** The plan's intent asset states the operator's goal, desired outcome, success signals, non-goals, and definition of done. Read it before implementing any step and re-anchor against it at every phase crosscheck — requirements say what to build, intent says what the operator is trying to achieve, and only intent can tell you a technically-green step missed the point. If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder, the plan did not clear the `/cip` `intent` gate: surface that to the user instead of guessing the intent yourself.
+   Never load the whole tree. Resolve every current or legacy asset with
+   `Resolve-PlanAssetPath`. Intent is mandatory before each step and again at phase crosscheck.
+   If it is missing or any of its five sections remains `TBD`, stop and return the plan to
+   `/cip` instead of guessing.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
 4. If legacy loose plan files exist, detect them now but defer migration until the read-only phase admission in Step 2 returns `ready`. Then migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
@@ -55,9 +55,10 @@ single result:
 pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot . -Json
 ```
 
-**Epic references** return `Kind = epic`: child-plan rollup (complete/blocked counts, step totals) plus `NextChild` — the first child, in date/id order, that is neither complete nor blocked by an unmet `depends-on`. A child counts as complete when every step is `[x]` or its plan is archived, and dependency resolution is fail-closed: a `depends-on` token that resolves to no plan (or to several) blocks the child and is reported. If `NextChild` is empty, either every child is complete or a dependency is unresolvable — surface that to the user instead of starting arbitrary work. Re-run against the returned child id to get its plan state, then proceed.
-
-For a plan reference, `Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
+For an epic, use its ordered, dependency-ready `NextChild`; an empty value means all children
+are complete or a dependency is unresolved. Re-run state against that child. For a plan, state
+reports progress and the first non-`[x]` step, including `@human`, `[discovery]`, and
+`blocked-by-after`; it never silently skips blocked work. Add only this judgment:
 
 - **Confirmed planning context:** an enrolled plan must report `Context: confirmed`. Stop before branch or file
   mutation on `pending`, `stale`, `missing`, or `invalid` and return the plan to `/cip` for the affected
@@ -83,7 +84,8 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
 
 1. **Read the plan's declared execution mode.** Parse the plan header for `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->`. This marker is a *runtime* selector, not a pacing hint — `*-autopilot` means the plan is meant to run autonomously, not interactively with approvals.
 
-2. **Always present the full mode menu.** Use `vscode_askQuestions` and list **every** mode below on every run, regardless of which configs exist. Mark the plan-declared mode as recommended. Never hide a mode because its config is missing — if the user picks an autonomous mode without config, the autopilot skill runs first-run bootstrap (Step 3.4).
+2. **Always present the full mode menu.** Use `vscode_askQuestions`, list every mode below,
+   and recommend the declared mode. Missing config does not hide a mode; autopilot bootstraps it.
 
    | Option | Kind | Description |
    |---|---|---|
@@ -99,18 +101,18 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
    - `AUTOPILOT_CONTAINER=true` (already inside the autopilot container): omit all autonomous options **and** Autopilot; execute in-place per the marker.
    - `AUTOPILOT_DISABLE_HOST=true`: omit **Host autopilot** only (`launch.ps1` also refuses `-Runtime host`).
 
-4. **Execution extent.** After the user selects Host / Container / Sandbox autopilot, ask a second
-   `vscode_askQuestions` question with exactly **One phase** and **Whole plan**. Use `scope: phase` or
-   `scope: step` only to recommend One phase, and `scope: plan` only to recommend Whole plan. Missing,
-   malformed, or unknown scope never infers `whole-plan`; recommend One phase and surface the missing
-   or invalid marker. Map the explicit answer to `next-phase` or `whole-plan`.
+4. **Execution extent.** For Host / Container / Sandbox, ask exactly **One phase** or
+   **Whole plan**. `scope: step|phase` recommends One phase; `scope: plan` recommends Whole plan.
+   Missing or invalid scope never infers `whole-plan`: report it and recommend One phase. Map the
+   answer to `next-phase` or `whole-plan`.
 
-5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md` by path and pass the already-selected
-   runtime and launcher mode into its bootstrap/launcher flow. The autopilot skill does not present
-   another runtime or execution-extent menu. Treat the launcher as blocking, preserve its exit status,
-   report the actual completion/operator-stop/failure outcome, and then exit the `/ci` flow.
+5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md`; pass the selected runtime and
+   launcher mode without another menu. Block on the launcher, preserve its exit status, report its
+   completion/operator-stop/failure outcome, and exit `/ci`.
 
-   - **Offline package rebundle (container/sandbox + `offlinePackages.enabled`).** The host launcher owns a rebundle loop on top of the normal `42` @human stop. If the sealed runtime needs a package missing from the feed it commits the **manifest only** and exits `43`; `launch.ps1` regenerates + pushes the lockfile (`prepare-packages.ps1 -Branch`), then relaunches the same runtime — capped by `maxRebundles`. This is host-owned; `/ci` just hands off and the loop is transparent. Exit `42` (@human) is unchanged.
+   - **Offline rebundle:** container/sandbox exit `43` after committing only a missing package's
+     manifest; host `launch.ps1` runs `prepare-packages.ps1 -Branch`, pushes the lockfile, and
+     relaunches up to `maxRebundles`. Exit `42` remains the `@human` stop.
    - **Progression contract.** `next-phase` stops after the first admitted phase completes its phase-close flow. `whole-plan` applies the same admission and close contract to each remaining phase and advances only after the current gate passes; an operator or evidence stop leaves checklist progress intact for a later resume.
 
 6. **In-session execution (Interactive / Autopilot).** Validate or create the expected branch/worktree naming, then continue to Step 4. Autopilot skips per-step approval prompts; Interactive pauses at each step.
