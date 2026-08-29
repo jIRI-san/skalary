@@ -51,6 +51,11 @@ phase_needs_execution() {
     esac
 }
 
+# Expose the pure phase-progress and recovery probes to focused tests.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+fi
+
 PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"

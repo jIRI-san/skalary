@@ -62,6 +62,8 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Passes auth via env file (prepared by `prepare-env-file.ps1`)
 - Container entry point: `container-entrypoint.sh` handles clone, branch, and targets selected by
   the deterministic `plan-dispatch.sh` helper
+- Sourcing `container-entrypoint.sh` exposes only its pure phase-state and recovery probes; bootstrap
+  remains executable-only. Target selection and completion handoff policy stay in `plan-dispatch.sh`.
 - Phase selection follows the one-phase autonomy contract in
   [plan-workflow.design.md](plan-workflow.design.md); container resume additionally requires the
   phase's canonically validated durable harvest receipt before skipping checked work. The validator

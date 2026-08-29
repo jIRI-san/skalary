@@ -332,6 +332,19 @@ function Get-PhaseSectionRecords {
         for ($j = $i + 2; $j -lt $lines.Count; $j++) {
             if ($lines[$j] -match '^##\s') { $end = $j; break }
         }
+        if ($sectionPhase -eq 0 -and $Kind -ne 'Capture') {
+            $phaseZeroContent = @(
+                for ($j = $i + 2; $j -lt $end; $j++) {
+                    if (-not [string]::IsNullOrWhiteSpace($lines[$j]) -and
+                        $lines[$j].Trim() -ne $placeholder) {
+                        $lines[$j]
+                    }
+                }
+            )
+            if ($phaseZeroContent.Count -gt 0) {
+                throw "Phase 0 records are valid only for planning Capture in '$Path'."
+            }
+        }
         if ($sectionPhase -eq $TargetPhase) { $ranges.Add([pscustomobject]@{ Start = $i + 2; End = $end }) }
     }
     if ($ranges.Count -ne 1) {

@@ -13,6 +13,7 @@ Describe 'Vertical implementation requirement loop' {
         $script:phaseHarvest = Join-Path $script:repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
         $script:phaseState = Join-Path $script:repoRoot 'scripts/skalary/Get-PhaseExecutionState.ps1'
         $script:getPlanState = Join-Path $script:repoRoot 'scripts/skalary/Get-PlanState.ps1'
+        $script:dispatchHelper = Join-Path $script:repoRoot 'plugins/autopilot/scripts/plan-dispatch.sh'
 
         function Set-AdmissionAssets {
             param(
@@ -150,6 +151,16 @@ flowchart TD
             & git -C $Root commit --quiet -m 'fixture'
         }
 
+        function Commit-FixturePlanState {
+            param(
+                [Parameter(Mandatory)][string]$Root,
+                [Parameter(Mandatory)][string]$Message
+            )
+
+            & git -C $Root add docs
+            & git -C $Root commit --quiet -m $Message
+        }
+
         function Get-FixtureAdmission {
             param(
                 [Parameter(Mandatory)][string]$Root,
@@ -189,16 +200,17 @@ flowchart TD
             return $LASTEXITCODE
         }
 
-        function Get-ContainerDispatchAction {
+        function Get-ContainerHandoffAction {
             param(
-                [Parameter(Mandatory)][string]$Mode,
                 [Parameter(Mandatory)][int]$ExitCode,
-                [Parameter(Mandatory)][int]$CloseState
+                [Parameter(Mandatory)][AllowEmptyString()][string]$CloseState,
+                [int]$HandoffCount = 0,
+                [int]$HandoffLimit = 3
             )
 
-            $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
-            return (& bash -c 'source "$1"; phase_dispatch_action "$2" "$3" "$4"' `
-                    phase-dispatch $entrypoint $Mode $ExitCode $CloseState).Trim()
+            return (& bash -c 'source "$1"; autopilot_completion_handoff_action "$2" "$3" "$4" "$5"' `
+                    completion-handoff $script:dispatchHelper $ExitCode $CloseState `
+                    $HandoffCount $HandoffLimit).Trim()
         }
 
         function Invoke-ContainerRecoveryStage {
@@ -607,6 +619,7 @@ $($header.TrimEnd())
         }
         (Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root -Phase 1).ExitCode |
             Should -Be 0
+        Commit-FixturePlanState -Root $fixture.Root -Message 'close phase 1'
 
         # Only a canonically validated receipt closes checked phase 1.
         Get-ContainerPhaseState -PlanPath $planPath -Phase 1 -RepoRoot $fixture.Root |
@@ -636,6 +649,7 @@ $($header.TrimEnd())
             '- [~] 2.1 Interrupted work',
             '- [x] 2.1 Interrupted work'
         ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+        Commit-FixturePlanState -Root $fixture.Root -Message 'complete phase 2 checklist'
         $closePending = @(1..3 | Where-Object {
                 (Get-ContainerPhaseState -PlanPath $planPath -Phase $_ `
                     -RepoRoot $fixture.Root) -eq 0
@@ -648,6 +662,7 @@ $($header.TrimEnd())
         }
         (Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root -Phase 2).ExitCode |
             Should -Be 0
+        Commit-FixturePlanState -Root $fixture.Root -Message 'close phase 2'
 
         (Get-Content -LiteralPath $planPath -Raw).Replace(
             '<!-- plan-id: def222 -->',
@@ -672,9 +687,11 @@ $($header.TrimEnd())
         $receiptPath = Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-002.json'
         $validReceipt = [System.IO.File]::ReadAllBytes($receiptPath)
         Set-Content -LiteralPath $receiptPath -Encoding utf8NoBOM -Value '{}'
+        Commit-FixturePlanState -Root $fixture.Root -Message 'commit invalid receipt'
         Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
             Should -Be 2
         [System.IO.File]::WriteAllBytes($receiptPath, $validReceipt)
+        Commit-FixturePlanState -Root $fixture.Root -Message 'restore valid receipt'
 
         # A self-consistent envelope still fails when the mandatory source set is forged.
         $forgedReceipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 12
@@ -688,24 +705,27 @@ $($header.TrimEnd())
         ).ToLowerInvariant()
         $forgedReceipt | ConvertTo-Json -Depth 12 -Compress |
             Set-Content -LiteralPath $receiptPath -Encoding utf8NoBOM
+        Commit-FixturePlanState -Root $fixture.Root -Message 'commit forged receipt'
         Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
             Should -Be 2
         [System.IO.File]::WriteAllBytes($receiptPath, $validReceipt)
+        Commit-FixturePlanState -Root $fixture.Root -Message 'restore source receipt'
 
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 1 |
-            Should -Be 'phase-complete-stop'
-        Get-ContainerDispatchAction -Mode whole-plan -ExitCode 0 -CloseState 1 |
-            Should -Be 'phase-complete-continue'
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 42 -CloseState -1 |
+        Get-ContainerHandoffAction -ExitCode 0 -CloseState closed |
+            Should -Be 'complete'
+        Get-ContainerHandoffAction -ExitCode 42 -CloseState '' |
             Should -Be 'human-stop'
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 43 -CloseState -1 |
+        Get-ContainerHandoffAction -ExitCode 43 -CloseState '' |
             Should -Be 'rebundle'
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 7 -CloseState -1 |
-            Should -Be 'phase-failed'
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 0 |
-            Should -Be 'close-pending'
-        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 2 |
-            Should -Be 'invalid-receipt'
+        Get-ContainerHandoffAction -ExitCode 7 -CloseState '' |
+            Should -Be 'target-failed'
+        Get-ContainerHandoffAction -ExitCode 0 -CloseState close-pending |
+            Should -Be 'resume'
+        Get-ContainerHandoffAction -ExitCode 0 -CloseState close-pending `
+            -HandoffCount 3 -HandoffLimit 3 |
+            Should -Be 'pending-failed'
+        Get-ContainerHandoffAction -ExitCode 0 -CloseState unexpected |
+            Should -Be 'invalid-close'
 
         $recoveryRoot = Join-Path $fixture.Root 'recovery-repo'
         New-Item -ItemType Directory -Path $recoveryRoot -Force | Out-Null
@@ -772,10 +792,19 @@ $($header.TrimEnd())
                     Plugin = 'autopilot'
                     Dest = 'skills/autopilot/scripts/container-entrypoint.sh'
                     Tokens = @(
-                        'phase_dispatch_action',
-                        'phase-complete-stop',
-                        'phase-complete-continue',
+                        'autopilot_execution_targets',
+                        'completion-only',
                         'Get-PhaseExecutionState.ps1'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/plan-dispatch.sh'
+                    Tokens = @(
+                        'autopilot_execution_targets',
+                        'autopilot_completion_handoff_action',
+                        'phase-completion:',
+                        'completion-only'
                     )
                 },
                 [pscustomobject]@{
@@ -855,16 +884,16 @@ $($header.TrimEnd())
                     Should -BeExactly ([string]$catalogFile[0].Sha256)
             }
 
-            $installedEntrypoint = Join-Path $consumer.Root (
-                '.github/skills/autopilot/scripts/container-entrypoint.sh' -replace
+            $installedDispatch = Join-Path $consumer.Root (
+                '.github/skills/autopilot/scripts/plan-dispatch.sh' -replace
                     '/', [System.IO.Path]::DirectorySeparatorChar
             )
-            (& bash -c 'source "$1"; phase_dispatch_action whole-plan 0 1' `
-                    installed-dispatch $installedEntrypoint).Trim() |
-                Should -BeExactly 'phase-complete-continue'
-            (& bash -c 'source "$1"; phase_dispatch_action next-phase 0 1' `
-                    installed-dispatch $installedEntrypoint).Trim() |
-                Should -BeExactly 'phase-complete-stop'
+            (& bash -c 'source "$1"; autopilot_completion_handoff_action 0 closed 0 3' `
+                    installed-dispatch $installedDispatch).Trim() |
+                Should -BeExactly 'complete'
+            (& bash -c 'source "$1"; autopilot_completion_handoff_action 0 close-pending 0 3' `
+                    installed-dispatch $installedDispatch).Trim() |
+                Should -BeExactly 'resume'
 
             $phaseFixture = New-AdmissionFixture
             Initialize-FixtureRepository -Root $phaseFixture.Root
@@ -892,6 +921,7 @@ $($header.TrimEnd())
             }
             (Invoke-FixtureHarvest -PlanDir $phaseFixture.TargetDir -Root $phaseFixture.Root).ExitCode |
                 Should -Be 0
+            Commit-FixturePlanState -Root $phaseFixture.Root -Message 'close installed phase'
             $closedState = & pwsh -NoProfile -File $installedPhaseState `
                 -PlanPath $phaseFixture.TargetPlan -Phase 1 -RepoRoot $phaseFixture.Root `
                 -HarvestValidator $installedHarvest
@@ -953,14 +983,14 @@ Phase: 0
 ## CR Capture
 Phase: 0
 
-No entries for this phase.
+- [0.1] [src:code-review] [sev:Low] invalid executable review capture
 '@
-        foreach ($kind in @('Learnings', 'Capture')) {
+        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
             & $script:workflowNote -Kind $kind -PlanDir $invalid.TargetDir -RepoRoot $invalid.Root `
                 -Phase 1 | Out-Null
         }
         $refused = Invoke-FixtureHarvest -PlanDir $invalid.TargetDir -Root $invalid.Root
         $refused.ExitCode | Should -Be 3
-        $refused.Output | Should -Match 'Phase 0 is valid only for planning Capture'
+        $refused.Output | Should -Match 'Phase 0 records are valid only for planning Capture'
     }
 }
