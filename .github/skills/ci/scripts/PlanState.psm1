@@ -1770,7 +1770,8 @@ function Get-PhaseCheckpointOptions {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][ValidateSet('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')]
+        [Parameter(Mandatory)][AllowEmptyCollection()]
+        [ValidateSet('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')]
         [string[]]$EvidenceStatus,
         [switch]$HasHighImpactUncertainty
     )

@@ -87,6 +87,7 @@ Exit-code round-trip (distinct from the `42` @human stop):
 - **Exit 43 — offline rebundle request.** The sealed runtime hit a package not in the feed. The agent commits the **manifest only** (never the lockfile), pushes the work branch, and exits `43`.
 - The **host owns the loop**: on `43`, `launch.ps1` calls `prepare-packages.ps1 -Branch <work-branch>` (regenerate + commit + push the lockfile), then relaunches the same runtime — the re-prep completes before the relaunch clones. Capped by `maxRebundles` (default 3); on cap it surfaces the failure.
 - **Exit 42 — @human stop.** Unchanged; halts for human review, no rebundle.
+- **Exit 3 — invalid runtime close state.** Canonical admission, checklist, or receipt validation failed; adapters preserve recoverable work and stop instead of advancing.
 
 ## Launcher invocations
 

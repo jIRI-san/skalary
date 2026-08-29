@@ -3,9 +3,8 @@ $ErrorActionPreference = 'Stop'
 
 # Run with: Invoke-Pester ./tests/autopilot
 #
-# launch-sandbox.ps1 is UTF-16 and shells out to Windows Sandbox, so this
-# fixture verifies the offline wiring by reading the script text (Get-Content
-# -Raw transparently decodes the BOM) rather than launching a sandbox.
+# launch-sandbox.ps1 shells out to Windows Sandbox, so this fixture verifies
+# the offline wiring by reading the UTF-8 script rather than launching a sandbox.
 
 Describe 'Autopilot.SandboxOffline' {
     BeforeAll {
@@ -64,10 +63,18 @@ Describe 'Autopilot.SandboxOffline' {
             $finallyStart = $sandbox.IndexOf('} finally {', [System.StringComparison]::Ordinal)
             $bootstrapEnd = $sandbox.IndexOf('"@', $finallyStart, [System.StringComparison]::Ordinal)
             $finallyBlock = $sandbox.Substring($finallyStart, $bootstrapEnd - $finallyStart)
-            $exitMarker = $finallyBlock.IndexOf('.autopilot-exit-code', [System.StringComparison]::Ordinal)
-            $completionSentinel = $finallyBlock.IndexOf('.bootstrap-complete', [System.StringComparison]::Ordinal)
+            $finallyBlock | Should -Match 'Complete-Bootstrap -Code'
+            $helperStart = $sandbox.IndexOf('function Complete-Bootstrap', [System.StringComparison]::Ordinal)
+            $helperEnd = $sandbox.IndexOf("Log 'Bootstrap started'", $helperStart, [System.StringComparison]::Ordinal)
+            $helper = $sandbox.Substring($helperStart, $helperEnd - $helperStart)
+            $exitMarker = $helper.IndexOf('.autopilot-exit-code', [System.StringComparison]::Ordinal)
+            $completionSentinel = $helper.IndexOf('.bootstrap-complete', [System.StringComparison]::Ordinal)
             $exitMarker | Should -BeGreaterThan -1
             $completionSentinel | Should -BeGreaterThan $exitMarker
+        }
+        It 'publishes terminal markers for setup and plan-resolution failures' {
+            ([regex]::Matches($sandbox, 'Complete-Bootstrap -Code 1').Count) |
+                Should -BeGreaterOrEqual 2
         }
         It 'keeps the existing exit-42 @human branch' {
             $sandbox.Contains('-eq 42') | Should -BeTrue

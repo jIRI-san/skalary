@@ -51,7 +51,6 @@ $GhCliVersion = '2.92.0'
 $PowerShellVersion = '7.5.3'
 
 $RepoRoot = git rev-parse --show-toplevel
-$ScriptDir = $PSScriptRoot
 $SandboxDir = Join-Path $env:TEMP "autopilot-sandbox-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
 # --- Verify Windows Sandbox is available ---
@@ -72,7 +71,7 @@ New-Item -ItemType Directory -Path $SandboxDir -Force | Out-Null
 $CacheDir = Join-Path $env:LOCALAPPDATA 'autopilot-sandbox-cache'
 New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
 
-# Node.js ΓÇö extract once, mount as C:\nodejs
+# Node.js -- extract once, mount as C:\nodejs
 $NodeDir = Join-Path $CacheDir "nodejs-$NodeVersion"
 if (-not (Test-Path (Join-Path $NodeDir 'node.exe'))) {
     Write-Host "Preparing cache: Node.js $NodeVersion..."
@@ -85,7 +84,7 @@ if (-not (Test-Path (Join-Path $NodeDir 'node.exe'))) {
     Remove-Item $nodeZip, $extractDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# .NET SDK ΓÇö install once, mount as C:\dotnet
+# .NET SDK -- install once, mount as C:\dotnet
 $DotnetDir = Join-Path $CacheDir "dotnet-$DotnetChannel"
 if (-not (Test-Path (Join-Path $DotnetDir 'dotnet.exe'))) {
     Write-Host "Preparing cache: .NET SDK ($DotnetChannel)..."
@@ -95,7 +94,7 @@ if (-not (Test-Path (Join-Path $DotnetDir 'dotnet.exe'))) {
     Remove-Item $installer -Force -ErrorAction SilentlyContinue
 }
 
-# GitHub CLI ΓÇö extract once, mount alongside nodejs/dotnet
+# GitHub CLI -- extract once, mount alongside nodejs/dotnet
 $GhDir = Join-Path $CacheDir "gh-$GhCliVersion"
 if (-not (Test-Path (Join-Path $GhDir 'bin\gh.exe'))) {
     Write-Host "Preparing cache: GitHub CLI $GhCliVersion..."
@@ -117,7 +116,7 @@ if (-not (Test-Path (Join-Path $PwshDir 'pwsh.exe'))) {
     Remove-Item $pwshZip -Force -ErrorAction SilentlyContinue
 }
 
-# Git for Windows ΓÇö mount host installation directly
+# Git for Windows -- mount host installation directly
 $GitDir = Split-Path (Split-Path (Get-Command git).Source)
 if (-not (Test-Path (Join-Path $GitDir 'cmd\git.exe'))) {
     throw "Cannot find Git installation at $GitDir"
@@ -158,6 +157,15 @@ function Log(`$msg) {
     `$line = "[`$ts] `$msg"
     Write-Host `$line
     Add-Content -Path `$LogFile -Value `$line -Force
+}
+
+function Complete-Bootstrap([int]`$Code) {
+    try {
+        Set-Content -Path (Join-Path `$SessionPath '.autopilot-exit-code') `
+            -Value `$Code -NoNewline -Encoding ASCII
+    } finally {
+        New-Item -ItemType File -Path (Join-Path `$SessionPath '.bootstrap-complete') -Force | Out-Null
+    }
 }
 
 Log 'Bootstrap started'
@@ -236,6 +244,7 @@ try {
 if (`$failed.Count -gt 0) {
     Log "INSTALL FAILURES: `$(`$failed -join ', ')"
     Log 'Stopping - fix failures before proceeding.'
+    Complete-Bootstrap -Code 1
     Start-Sleep -Seconds 5
     shutdown /s /t 0; exit 1
 }
@@ -334,6 +343,7 @@ if (`$AutopilotOffline) {
 `$PlanPath = 'docs/implementation-plans/$PlanSlug/plan.md'
 if (-not (Test-Path `$PlanPath)) {
     Log "Plan not found: `$PlanPath"
+    Complete-Bootstrap -Code 1
     Start-Sleep -Seconds 5
     shutdown /s /t 0; exit 1
 }
@@ -446,10 +456,7 @@ if (`$rebundleRequested) {
     if (Test-Path "`$env:TEMP\.copilot") {
         Copy-Item -Path "`$env:TEMP\.copilot" -Destination (Join-Path `$SessionPath 'copilot-logs') -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Set-Content -Path (Join-Path `$SessionPath '.autopilot-exit-code') `
-        -Value `$runExitCode -NoNewline -Encoding ASCII
-    # Publish the completion sentinel last so the host always observes the terminal outcome first.
-    New-Item -ItemType File -Path (Join-Path `$SessionPath '.bootstrap-complete') -Force | Out-Null
+    Complete-Bootstrap -Code `$runExitCode
     Start-Sleep -Seconds 3
     shutdown /s /t 0
 }

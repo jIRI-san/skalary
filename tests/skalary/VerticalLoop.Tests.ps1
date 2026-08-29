@@ -495,6 +495,9 @@ $($header.TrimEnd())
         $mixed = Get-PhaseCheckpointOptions -EvidenceStatus passed, failed
         $mixed.CanContinue | Should -BeFalse
         $mixed.Options | Should -Be @('Revise', 'Stop')
+        $empty = Get-PhaseCheckpointOptions -EvidenceStatus @()
+        $empty.CanContinue | Should -BeFalse
+        $empty.Options | Should -Be @('Revise', 'Stop')
         $green = Get-PhaseCheckpointOptions -EvidenceStatus passed, waived
         $green.CanContinue | Should -BeTrue
         $green.Options | Should -Be @('Continue', 'Revise', 'Stop')
@@ -621,13 +624,38 @@ $($header.TrimEnd())
                     -RepoRoot $fixture.Root) -eq 0
             })[0]
         $closePending | Should -Be 2
+            (Get-Content -LiteralPath $planPath -Raw).Replace(
+                "<!-- plan-id: def222 -->`n",
+                ''
+            ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+            $closeOutput = & pwsh -NoProfile -File $script:phaseState -PlanPath $planPath `
+                -Phase 2 -RepoRoot $fixture.Root -HarvestValidator $script:phaseHarvest 2>&1
+            $LASTEXITCODE | Should -Be 0
+            ($closeOutput -join '').Trim() | Should -BeExactly 'close-pending'
+            (Get-Content -LiteralPath $planPath -Raw).Replace(
+                '# def222: Next phase fixture',
+                "# def222: Next phase fixture`n<!-- plan-id: def222 -->"
+            ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
 
-        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+            foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
             & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir `
                 -RepoRoot $fixture.Root -Phase 2 | Out-Null
         }
         (Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root -Phase 2).ExitCode |
             Should -Be 0
+
+        (Get-Content -LiteralPath $planPath -Raw).Replace(
+            '<!-- plan-id: def222 -->',
+            "<!-- plan-id: def222 -->`n<!-- planning-confirmed: pending -->"
+        ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+        $blockedOutput = & pwsh -NoProfile -File $script:phaseState -PlanPath $planPath `
+            -Phase 3 -RepoRoot $fixture.Root -HarvestValidator $script:phaseHarvest 2>&1
+        $LASTEXITCODE | Should -Be 2
+        ($blockedOutput -join "`n") | Should -Match 'not admitted'
+        (Get-Content -LiteralPath $planPath -Raw).Replace(
+            "<!-- plan-id: def222 -->`n<!-- planning-confirmed: pending -->",
+            '<!-- plan-id: def222 -->'
+        ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
 
         # Once close is durable, relaunch advances without repeating checked phases.
         $resumedRunnable = @(1..3 | Where-Object {

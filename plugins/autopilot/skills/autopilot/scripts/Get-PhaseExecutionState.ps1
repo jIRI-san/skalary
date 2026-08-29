@@ -50,8 +50,24 @@ try {
     if (@($steps | Where-Object { [string]$_.Status -ne 'x' }).Count -gt 0) {
         $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         $markers = Get-PlanHeaderMarkers -Path $planPathFull
-        $plan = Resolve-Plan -Reference $markers.PlanId -RepoRoot $repoRootFull `
-            -Inventory $inventory
+        $planDirFull = Split-Path -Parent $planPathFull
+        $pathComparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
+        $planMatches = @($inventory | Where-Object {
+                $_.Path -and [string]::Equals(
+                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    $planDirFull,
+                    $pathComparison
+                )
+            })
+        if ($planMatches.Count -ne 1) {
+            throw "Plan path '$planDirFull' is not a unique member of the repository plan inventory."
+        }
+        $plan = $planMatches[0]
         $gitStatus = & git -C $repoRootFull status --porcelain 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "Unable to inspect the repository worktree: $(($gitStatus -join ' ').Trim())"
