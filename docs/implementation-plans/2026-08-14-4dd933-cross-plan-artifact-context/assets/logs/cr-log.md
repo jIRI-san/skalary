@@ -17,3 +17,8 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Med] [concern:security] [req:REQ-2] [review:cr] [source-record:3fa5c1038f7194414b7644ec81d1b24dcad4e3ce8416ac8d193091039ee624a1] round 3 finding 6: bound unique input combinations and review directory scan work before candidate expansion
 - [1.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:060fea86e29a14deb601f7ab0cab7cb5e51ee91633c31ba6bbbb052ce1d55526] round 3 finding 7: apply MaxCandidates before allocating unbounded refused missing or invalid results
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:a6ec4800292957e396ac2c7b4679d86bdc82539ee70ad7b9aacb1c26601dd4b4] review-cycle stage=phase-1 cycle=3 outcome=findings summary=fixed-global-bounds-paired-receipts-and-file-identity
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.

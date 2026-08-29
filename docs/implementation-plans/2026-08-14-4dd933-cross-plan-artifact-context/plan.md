@@ -28,7 +28,7 @@
 ## Phase 2: Shared consumer path and provenance
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Integrate `/cip` and `/cep` through the same resolver after index, epic/dependency, or operator selection; record plan ID, artifact kind, path, and relationship in existing `references.md` (REQ-3, REQ-4, RISK-3) [after: 1.2] `M`
+- [x] 2.1 Integrate `/cip` and `/cep` through the same resolver after index, epic/dependency, or operator selection; record plan ID, artifact kind, path, and relationship in existing `references.md` (REQ-3, REQ-4, RISK-3) [after: 1.2] `M`
 - [ ] 2.2 Optionally integrate plan-associated `/dr` and `/cr` through that resolver only, recording the same metadata in review scope while leaving review-run v1 unchanged (REQ-3, REQ-4, RISK-3, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Distribution and proof

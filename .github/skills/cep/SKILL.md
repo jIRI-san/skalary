@@ -24,14 +24,18 @@ context: fork
 ## Step 1: Load context and resolve the epic
 
 1. Read `docs/design-notes/.design-notes.md` and load design notes for the subsystems the goal touches.
-2. **Consult the cross-plan index, never the plan corpus** — prior requirements, risks, and decisions across active and archived plans:
+2. **Consult the cross-plan index, never the plan corpus** to discover bounded active and archived
+   candidates:
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cep/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
    ```
 
+   After topic, epic/dependency, or operator selection narrows the candidates, follow
+   `./assets/decomposition-guide.md` to load only needed artifacts through the installed
+   `Get-PlanArtifactContext.ps1`.
 3. **New epic:** do **not** scaffold anything yet. The `seams` gate in Step 2 can legitimately conclude the goal is one plan, not an epic; scaffolding before it passes leaves an orphan `epic.md` no script can remove. Scaffolding happens in Step 4, after the operator accepts a cut.
-4. **Extend:** resolve the existing epic with `Resolve-Epic` (hash prefix, slug, or date) and read its `epic.md`. Its child table is generated, so treat the child plans' markers as the truth.
+4. **Extend:** resolve the existing epic with `Resolve-Epic` (hash prefix, slug, or date) and read its `epic.md`. Its child table is generated, so treat the child plans' markers as the truth. Never open selected related-plan folders directly.
 
 ## Step 2: Interview at epic altitude (`./assets/decomposition-guide.md`)
 
@@ -64,7 +68,8 @@ Immediately after `New-Plan.ps1` creates each child, replace the scaffold-only c
 
 - `assets/intent.md` — preliminary Goal, Desired outcome, Success signals, Non-goals, and Definition of done derived from the accepted cut and operator discussion.
 - `assets/decisions.md` — every settled decomposition decision and its reason; explicitly label unresolved choices and rejected alternatives instead of dropping them.
-- `assets/references.md` — epic ID, relevant prior plans/assets, and a dated **Epic discussion provenance** summary containing the operator's material discussion points.
+- `assets/references.md` — epic ID, relevant prior plans/assets, the accepted-artifact provenance
+  table, and a dated **Epic discussion provenance** summary of the operator's material points.
 
 Prefix preliminary sections with `Preliminary context captured by /cep; /cip must confirm and refine it.` Do not leave a `TBD` placeholder where the epic discussion supplied an answer. Never invent missing operator intent: mark it as an unresolved question with the surrounding discussion that made it relevant. `/cip` extends these assets in place and must not reset them to templates.
 
