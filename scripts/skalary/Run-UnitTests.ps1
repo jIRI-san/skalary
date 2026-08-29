@@ -71,7 +71,10 @@ param(
     # Where the NUnit report is written. Pester's default is a fixed name in the working
     # directory, which two CI matrix legs would both produce and neither could be told apart
     # from — so CI names it per platform (REQ-9) and everything else keeps the default.
-    [string]$TestResultPath
+    [string]$TestResultPath,
+
+    # Deterministic test seam for the interruption-to-unrun contract.
+    [switch]$SimulateInterruption
 )
 
 Set-StrictMode -Version Latest
@@ -621,7 +624,7 @@ function Write-StructuredEvidenceResult {
     foreach ($id in $EvidenceTestId) {
         $pattern = '^test:' + [regex]::Escape($id) + '(?:\s|$)'
         $tests = @(
-            if ($PesterResult) {
+            if ($PesterResult -and [string]::IsNullOrWhiteSpace($FrameworkError)) {
                 $PesterResult.Tests | Where-Object { [string]$_.Name -cmatch $pattern }
             }
         )
@@ -686,18 +689,23 @@ function Write-StructuredEvidenceResult {
         executedCount = $totalExecuted
         results = $records.ToArray()
     }
-    Write-EvidencePayload -Payload $payload
-    return [pscustomobject]$payload
+    return $payload
 }
 
 $result = $null
 try {
+    if ($SimulateInterruption) {
+        throw [System.OperationCanceledException]::new('Simulated interruption.')
+    }
     $result = Invoke-Pester -Configuration $configuration
 }
 catch {
     $classification = if ($_.Exception -is [System.Management.Automation.PipelineStoppedException] -or
         $_.Exception -is [System.OperationCanceledException]) { 'interrupted' } else { 'discovery error' }
-    [void](Write-StructuredEvidenceResult -FrameworkError "$classification`: $($_.Exception.Message)")
+    $failedEvidence = Write-StructuredEvidenceResult -FrameworkError "$classification`: $($_.Exception.Message)"
+    if ($failedEvidence) {
+        Write-EvidencePayload -Payload $failedEvidence
+    }
     $terminal = if ($classification -eq 'interrupted') { 'TestRunInterrupted' } else { 'TestFilesNotDiscoverable' }
     Write-Host "${terminal}: $($_.Exception.Message)" -ForegroundColor Red
     exit 4
@@ -723,6 +731,9 @@ catch {
 # suite in which a whole file never ran — including this file, which would take the REQ-5
 # gate down with it and stay green.
 if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
+    if ($structuredEvidence) {
+        Write-EvidencePayload -Payload $structuredEvidence
+    }
     $undiscoverable = @($result.FailedContainers | ForEach-Object { [string]$_.Item })
     Write-Host "TestFilesNotDiscoverable: $($result.FailedContainersCount) test file(s) failed to load, so their tests never ran: $($undiscoverable -join ', ')" -ForegroundColor Red
     exit 4
@@ -733,6 +744,7 @@ if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
 # nothing (REQ-5).
 if ($null -eq $result -or [int]$result.TotalCount -le 0) {
     if ($structuredEvidence) {
+        Write-EvidencePayload -Payload $structuredEvidence
         Write-Host 'RequiredEvidenceNotPassed: no exact requested evidence test was discovered.' -ForegroundColor Red
         exit 8
     }
@@ -741,6 +753,9 @@ if ($null -eq $result -or [int]$result.TotalCount -le 0) {
 }
 
 if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
+    if ($structuredEvidence) {
+        Write-EvidencePayload -Payload $structuredEvidence
+    }
     exit 1
 }
 
@@ -757,6 +772,7 @@ if ($skippedReviewEvidence.Count -gt 0) {
 if ($structuredEvidence) {
     $nonPassingEvidence = @($structuredEvidence.results | Where-Object { $_.status -ne 'passed' })
     if ($nonPassingEvidence.Count -gt 0) {
+        Write-EvidencePayload -Payload $structuredEvidence
         $summary = @($nonPassingEvidence | ForEach-Object { "$($_.marker)=$($_.status)" }) -join ', '
         Write-Host "RequiredEvidenceNotPassed: structured evidence did not fully pass: $summary" -ForegroundColor Red
         exit 8
@@ -784,8 +800,21 @@ foreach ($name in ($candidateNames | Sort-Object)) {
 }
 
 if ($leakedNames.Count -gt 0) {
+    if ($structuredEvidence) {
+        foreach ($record in $structuredEvidence.results) {
+            if ([string]$record['status'] -eq 'passed') {
+                $record['status'] = 'degraded'
+            }
+            $record['message'] = 'runner postcondition failed: environment leak'
+        }
+        Write-EvidencePayload -Payload $structuredEvidence
+    }
     Write-Host "EnvironmentLeaked: the suite changed $($leakedNames.Count) environment variable(s) and did not restore them: $($leakedNames -join '; '). Snapshot and restore them in the owning test." -ForegroundColor Red
     exit 7
+}
+
+if ($structuredEvidence) {
+    Write-EvidencePayload -Payload $structuredEvidence
 }
 
 if ($Tier -eq 'Slow') {

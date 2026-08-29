@@ -306,8 +306,38 @@ function ConvertFrom-StructuredTestEvidenceResult {
         if ($status -cnotin @('passed', 'failed', 'skipped', 'unrun', 'degraded')) {
             throw "Structured test evidence '$Path' marker '$marker' has invalid status '$status'."
         }
-        if ([long]$record['executedCount'] -gt [long]$record['selectedCount']) {
-            throw "Structured test evidence '$Path' marker '$marker' executed more tests than it selected."
+        $outcomes = @($record['outcomes'])
+        $unknownOutcomes = @($outcomes | Where-Object {
+                $_ -cnotin @('Passed', 'Failed', 'Skipped', 'NotRun', 'Inconclusive')
+            })
+        $expectedExecuted = @($outcomes | Where-Object { $_ -cin @('Passed', 'Failed') }).Count
+        if ($unknownOutcomes.Count -gt 0 -or
+            $outcomes.Count -ne [long]$record['selectedCount'] -or
+            $expectedExecuted -ne [long]$record['executedCount']) {
+            throw "Structured test evidence '$Path' marker '$marker' has inconsistent counters or outcomes."
+        }
+        $expectedStatus = if ($outcomes -ccontains 'Failed') {
+            'failed'
+        }
+        elseif (@($outcomes | Where-Object { $_ -cin @('NotRun', 'Inconclusive') }).Count -gt 0) {
+            'unrun'
+        }
+        elseif ($outcomes -ccontains 'Passed' -and $outcomes -ccontains 'Skipped') {
+            'degraded'
+        }
+        elseif ($outcomes.Count -gt 0 -and
+            @($outcomes | Where-Object { $_ -ceq 'Skipped' }).Count -eq $outcomes.Count) {
+            'skipped'
+        }
+        elseif ($outcomes.Count -gt 0 -and
+            @($outcomes | Where-Object { $_ -ceq 'Passed' }).Count -eq $outcomes.Count) {
+            'passed'
+        }
+        else {
+            'unrun'
+        }
+        if ($status -cne $expectedStatus) {
+            throw "Structured test evidence '$Path' marker '$marker' status '$status' contradicts outcome-derived status '$expectedStatus'."
         }
 
         $matchingRequirements = @(
@@ -327,7 +357,6 @@ function ConvertFrom-StructuredTestEvidenceResult {
 
         $selectedTotal += [long]$record['selectedCount']
         $executedTotal += [long]$record['executedCount']
-        $outcomes = @($record['outcomes'])
         $note = "selected=$($record['selectedCount']) executed=$($record['executedCount']) outcomes=$($outcomes -join ',')"
         if (-not [string]::IsNullOrWhiteSpace([string]$record['message'])) {
             $note += "; $([string]$record['message'])"

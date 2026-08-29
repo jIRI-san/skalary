@@ -6,7 +6,7 @@ param(
 
     [Parameter(ParameterSetName = 'ValidatePlan')]
     [Parameter(ParameterSetName = 'VerifyEvidence')]
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+    [string]$RepoRoot,
 
     [Parameter(ParameterSetName = 'ValidatePlan')]
     [ValidateSet('Draft', 'PhaseCrosscheck', 'PlanCrosscheck')]
@@ -22,6 +22,14 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $resolvedRoot = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolvedRoot)) {
+        throw 'Test-Plan could not resolve the repository root; pass -RepoRoot explicitly.'
+    }
+    $RepoRoot = [System.IO.Path]::GetFullPath($resolvedRoot.Trim())
+}
 
 Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking

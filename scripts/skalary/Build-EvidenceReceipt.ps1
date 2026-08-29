@@ -12,11 +12,19 @@ param(
 
     [string]$PlanDir,
 
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    [string]$RepoRoot
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $resolvedRoot = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolvedRoot)) {
+        throw 'Build-EvidenceReceipt could not resolve the repository root; pass -RepoRoot explicitly.'
+    }
+    $RepoRoot = [System.IO.Path]::GetFullPath($resolvedRoot.Trim())
+}
 
 $receiptPath = $null
 $metadata = $null

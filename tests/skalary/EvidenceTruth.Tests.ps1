@@ -51,20 +51,23 @@ Describe 'Evidence truth' {
                 [string]$Outcome = 'skipped',
                 [string]$Plan = 'abcdef',
                 [string]$Requirement = 'REQ-1',
-                [string]$Reason = 'Unavailable on this platform'
+                [string]$Reason = 'Unavailable on this platform',
+                [string]$Platform
             )
 
+            $entry = [ordered]@{
+                plan = $Plan
+                requirement = $Requirement
+                marker = $Marker
+                outcome = $Outcome
+                reason = $Reason
+            }
+            if ($PSBoundParameters.ContainsKey('Platform')) {
+                $entry['platform'] = $Platform
+            }
             [ordered]@{
                 schema = 'skalary/evidence-waivers@1'
-                waivers = @(
-                    [ordered]@{
-                        plan = $Plan
-                        requirement = $Requirement
-                        marker = $Marker
-                        outcome = $Outcome
-                        reason = $Reason
-                    }
-                )
+                waivers = @($entry)
             } | ConvertTo-Json -Depth 8 |
                 Set-Content -LiteralPath (Join-Path $PlanDir 'evidence-waivers.json') -Encoding utf8NoBOM
         }
@@ -106,15 +109,17 @@ Describe 'Evidence truth' {
             param(
                 [Parameter(Mandatory)][string]$Root,
                 [Parameter(Mandatory)][string[]]$Id,
-                [string[]]$Path = @('tests/Fixture.Tests.ps1')
+                [string[]]$Path = @('tests/Fixture.Tests.ps1'),
+                [switch]$SimulateInterruption
             )
 
             $resultPath = Join-Path $Root '.github/.skalary/evidence-results/evidence-results.json'
             $quotedIds = @($Id | ForEach-Object { "'$_'" }) -join ','
             $quotedPaths = @($Path | ForEach-Object { "'$_'" }) -join ','
             $driver = Join-Path $Root 'driver.ps1'
+            $interruptionArgument = if ($SimulateInterruption) { ' -SimulateInterruption' } else { '' }
             @"
-& '$script:runner' -RepoRoot '$Root' -TestPath @($quotedPaths) -EvidenceTestId @($quotedIds) -EvidenceResultPath '$resultPath'
+& '$script:runner' -RepoRoot '$Root' -TestPath @($quotedPaths) -EvidenceTestId @($quotedIds) -EvidenceResultPath '$resultPath'$interruptionArgument
 exit `$LASTEXITCODE
 "@ | Set-Content -LiteralPath $driver -Encoding utf8NoBOM
             $output = & pwsh -NoProfile -File $driver 2>&1
@@ -197,6 +202,35 @@ exit `$LASTEXITCODE
                 }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
             Should -Throw '*expected*abcdef*'
 
+        Write-Waiver -PlanDir $planDir -Outcome 'degraded'
+        $degraded = & $script:builder -Result @([pscustomobject]@{
+                Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'degraded'
+            }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot
+        $degraded.Outcomes[0].Status | Should -Be 'waived'
+
+        foreach ($forbiddenOutcome in @('failed', 'unrun', 'stale')) {
+            Write-Waiver -PlanDir $planDir -Outcome $forbiddenOutcome
+            { & $script:builder -Result @([pscustomobject]@{
+                        Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = $forbiddenOutcome
+                    }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
+                Should -Throw '*may target only skipped or degraded*'
+        }
+
+        $currentPlatform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
+        $otherPlatform = @('Windows', 'Linux', 'MacOS') |
+            Where-Object { $_ -ne $currentPlatform } |
+            Select-Object -First 1
+        Write-Waiver -PlanDir $planDir -Platform $currentPlatform
+        (& $script:builder -Result @([pscustomobject]@{
+                    Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'skipped'
+                }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot).Outcomes[0].Status |
+            Should -Be 'waived'
+        Write-Waiver -PlanDir $planDir -Platform $otherPlatform
+        (& $script:builder -Result @([pscustomobject]@{
+                    Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'skipped'
+                }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot).Outcomes[0].Status |
+            Should -Be 'skipped'
+
         foreach ($invalidPolicy in @(
                 '{"schema":"skalary/evidence-waivers@1","waivers":{"plan":"abcdef","requirement":"REQ-1","marker":"test:EvidenceTruth.Sample","outcome":"skipped","reason":"seeded"}}',
                 '{"schema":"skalary/evidence-waivers@1","waivers":[{"plan":"abcdef","requirement":"REQ-1","marker":"test:EvidenceTruth.Sample","outcome":"skipped","reason":42}]}',
@@ -221,6 +255,7 @@ Describe 'focused evidence' {
     It 'test:EvidenceTruth.Mixed passes' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed skips' { Set-ItResult -Skipped -Because seeded }
     It 'test:EvidenceTruth.Skip skips' { Set-ItResult -Skipped -Because seeded }
+    It 'test:EvidenceTruth.Fail fails' { throw 'seeded evidence failure' }
     It 'unselected failure stays unexecuted' { throw 'evidence selection widened' }
     Context 'test:EvidenceTruth.Parent context' {
         It 'unrelated child fails if selected through its parent' { throw 'parent name widened evidence selection' }
@@ -262,6 +297,27 @@ Describe 'focused evidence' {
         @($structuredReceipt.Outcomes | Where-Object Status -eq 'passed').Count | Should -Be 3
         @($structuredReceipt.Outcomes | Where-Object Status -eq 'degraded').Count | Should -Be 1
 
+        $basePayload = Get-Content -LiteralPath $result.ResultPath -Raw | ConvertFrom-Json -AsHashtable
+        foreach ($contradiction in @(
+                @{ Status = 'passed'; Selected = 1; Executed = 1; Outcomes = @('Failed') },
+                @{ Status = 'passed'; Selected = 1; Executed = 0; Outcomes = @('Passed') },
+                @{ Status = 'passed'; Selected = 0; Executed = 0; Outcomes = @() }
+            )) {
+            $payload = $basePayload | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
+            $payload['results'] = @($payload['results'][0])
+            $payload['results'][0]['status'] = $contradiction.Status
+            $payload['results'][0]['selectedCount'] = $contradiction.Selected
+            $payload['results'][0]['executedCount'] = $contradiction.Executed
+            $payload['results'][0]['outcomes'] = $contradiction.Outcomes
+            $payload['selectedCount'] = $contradiction.Selected
+            $payload['executedCount'] = $contradiction.Executed
+            Set-Content -LiteralPath $result.ResultPath `
+                -Value ($payload | ConvertTo-Json -Depth 20) -Encoding utf8NoBOM
+            { & $script:builder -StructuredTestResultPath $result.ResultPath `
+                    -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
+                Should -Throw
+        }
+
         $passed = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Pass')
         $passed.ExitCode | Should -Be 0 -Because $passed.Output
         $passed.Result.results[0].status | Should -Be 'passed'
@@ -273,6 +329,27 @@ Describe 'focused evidence' {
         $parentName = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Parent')
         $parentName.ExitCode | Should -Be 8 -Because $parentName.Output
         $parentName.Result.results[0].status | Should -Be 'unrun'
+
+        $failed = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Fail')
+        $failed.ExitCode | Should -Be 1 -Because $failed.Output
+        $failed.Result.results[0].status | Should -Be 'failed'
+
+        $notRunFixture = New-RunnerFixture -Content @'
+$prefix = 'test:EvidenceTruth'
+Describe 'not-run evidence' {
+    It "$prefix.NotRun never starts" { $true | Should -BeTrue }
+}
+'@
+        $notRun = Invoke-EvidenceRunner -Root $notRunFixture -Id @('EvidenceTruth.NotRun')
+        $notRun.ExitCode | Should -Be 8 -Because $notRun.Output
+        $notRun.Result.results[0].status | Should -Be 'unrun'
+        $notRun.Result.results[0].outcomes | Should -Contain 'NotRun'
+
+        $interrupted = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Pass') -SimulateInterruption
+        $interrupted.ExitCode | Should -Be 4 -Because $interrupted.Output
+        $interrupted.Output | Should -Match 'TestRunInterrupted'
+        $interrupted.Result.results[0].status | Should -Be 'unrun'
+        $interrupted.Result.results[0].message | Should -Match 'interrupted'
 
         @'
 @{
@@ -474,18 +551,45 @@ Describe 'confined linked result evidence' {
     }
 
     It 'test:EvidenceTruth.InstalledParityAndDrift keeps canonical, bundled, and dogfood evidence code identical' {
-        foreach ($name in @('Build-EvidenceReceipt.ps1', 'PlanEvidence.psm1', 'Test-Plan.ps1')) {
+        $expectedCopies = @{
+            'Build-EvidenceReceipt.ps1' = @(
+                'plugins/continue-implementation/skills/ci/scripts/Build-EvidenceReceipt.ps1',
+                '.github/skills/ci/scripts/Build-EvidenceReceipt.ps1'
+            )
+            'PlanEvidence.psm1' = @(
+                'plugins/autopilot/skills/autopilot/scripts/PlanEvidence.psm1',
+                'plugins/continue-implementation/skills/ci/scripts/PlanEvidence.psm1',
+                'plugins/create-implementation-plan/skills/cep/scripts/PlanEvidence.psm1',
+                'plugins/create-implementation-plan/skills/cip/scripts/PlanEvidence.psm1',
+                '.github/skills/autopilot/scripts/PlanEvidence.psm1',
+                '.github/skills/ci/scripts/PlanEvidence.psm1',
+                '.github/skills/cep/scripts/PlanEvidence.psm1',
+                '.github/skills/cip/scripts/PlanEvidence.psm1'
+            )
+            'Test-Plan.ps1' = @(
+                'plugins/autopilot/skills/autopilot/scripts/Test-Plan.ps1',
+                'plugins/continue-implementation/skills/ci/scripts/Test-Plan.ps1',
+                'plugins/create-implementation-plan/skills/cep/scripts/Test-Plan.ps1',
+                'plugins/create-implementation-plan/skills/cip/scripts/Test-Plan.ps1',
+                '.github/skills/autopilot/scripts/Test-Plan.ps1',
+                '.github/skills/ci/scripts/Test-Plan.ps1',
+                '.github/skills/cep/scripts/Test-Plan.ps1',
+                '.github/skills/cip/scripts/Test-Plan.ps1'
+            )
+        }
+        foreach ($name in $expectedCopies.Keys) {
             $source = Join-Path $script:repoRoot "scripts/skalary/$name"
             $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-            $copies = @(
-                Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -Recurse -File -Filter $name
-                Get-ChildItem -LiteralPath (Join-Path $script:repoRoot '.github') -Recurse -File -Filter $name
-            )
-            $copies.Count | Should -BeGreaterThan 0
-            foreach ($copy in $copies) {
-                (Get-FileHash -LiteralPath $copy.FullName -Algorithm SHA256).Hash |
-                    Should -BeExactly $expectedHash -Because $copy.FullName
+            foreach ($relativePath in $expectedCopies[$name]) {
+                $copy = Join-Path $script:repoRoot $relativePath
+                Test-Path -LiteralPath $copy -PathType Leaf | Should -BeTrue -Because $relativePath
+                (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+                    Should -BeExactly $expectedHash -Because $relativePath
             }
         }
+
+        & (Join-Path $script:repoRoot '.github/skills/ci/scripts/Test-Plan.ps1') `
+            -EvidenceMarker 'file:README.md#exists' -EvidenceStage PhaseCrosscheck
+        $LASTEXITCODE | Should -Be 0
     }
 }
