@@ -7,6 +7,8 @@ globs:
   - scripts/skalary/ReviewRun.psm1
   - scripts/skalary/Get-ReviewRun.ps1
   - scripts/skalary/Remove-ReviewRun.ps1
+  - scripts/skalary/Resolve-ReviewStandards.ps1
+  - tests/skalary/ReviewStandards.Tests.ps1
   - tests/skalary/fixtures/review-run/**
   - tests/skalary/ReviewReport*.Tests.ps1
   - tests/skalary/ReviewRun*.Tests.ps1
@@ -615,6 +617,13 @@ order, and output structure come from `tools/review-concern-agent.template.md`.
 This generation boundary does not enter review-run v1. Concern agents still return findings only; they
 do not freeze, publish, read, retain, or clean run artifacts. The CR/DR orchestrators remain the sole
 callers of the review engine and the sole explicit model-binding authority.
+
+The same generator emits each review skill's bounded generic `review-standards.json`. Before Freeze,
+the orchestrator invokes its installed `Resolve-ReviewStandards.ps1` once and passes each concern only
+its resolved criteria. The fixed optional `docs/review-standards.md` consumer file may extend or replace
+only entries marked localizable. It remains repo-owned and absent by default. Resolved criteria are
+dispatch-only data: they never enter the review-plan/result handshake, publication manifest, or retained
+review-run v1 evidence.
 
 ## CR/DR caller adoption (step 2.2)
 

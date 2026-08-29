@@ -317,7 +317,7 @@ Describe 'skalary plugin registry scripts' {
         }
 
         $update = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Update-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Source', $updatedSource, '-Ref', 'HEAD')
-        $update.ExitCode | Should -Be 0
+        $update.ExitCode | Should -Be 0 -Because $update.Output
 
         $receipt = Get-Content -LiteralPath (Join-Path $target '.github/.skalary/receipts/code-review.json') -Raw | ConvertFrom-Json -Depth 100
         [bool]$receipt.degraded | Should -BeTrue
@@ -334,7 +334,7 @@ Describe 'skalary plugin registry scripts' {
 
         {
             Invoke-SkalaryScript -RepoRoot $target -ScriptName 'Remove-Plugin.ps1' -Parameters @{ Name = 'code-review' }
-        } | Should -Throw -ExpectedMessage "*installed dependent plugin(s): continue-implementation*"
+        } | Should -Throw -ExpectedMessage "*installed dependent plugin(s): autopilot, continue-implementation*"
     }
 
     It 'keeps modified files during remove unless -Force is used' {
@@ -411,7 +411,7 @@ Describe 'skalary plugin registry scripts' {
 
         {
             Invoke-SkalaryScript -RepoRoot $target -ScriptName 'Remove-Plugin.ps1' -Parameters @{ Name = 'code-review' }
-        } | Should -Throw -ExpectedMessage '*installed dependent plugin(s): continue-implementation*'
+        } | Should -Throw -ExpectedMessage '*installed dependent plugin(s): autopilot, continue-implementation*'
     }
 
     It 'Skalary.Registry.NoDrift keeps Build-Registry idempotent across repeated runs' {
@@ -473,7 +473,7 @@ Describe 'skalary plugin registry scripts' {
         $localInstall = Invoke-ScriptProcess -RepoRoot $targetLocal -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Source', $source, '-Ref', 'HEAD')
         $remoteInstall = Invoke-ScriptProcess -RepoRoot $targetRemote -ScriptName 'Install-Plugin.ps1' -Arguments @('-Name', 'code-review', '-Repository', $source, '-Ref', 'HEAD')
         $localInstall.ExitCode | Should -Be 0
-        $remoteInstall.ExitCode | Should -Be 0
+        $remoteInstall.ExitCode | Should -Be 0 -Because $remoteInstall.Output
 
         $localReceipt = Get-Content -LiteralPath (Join-Path $targetLocal '.github/.skalary/receipts/code-review.json') -Raw | ConvertFrom-Json -Depth 100
         $remoteReceipt = Get-Content -LiteralPath (Join-Path $targetRemote '.github/.skalary/receipts/code-review.json') -Raw | ConvertFrom-Json -Depth 100

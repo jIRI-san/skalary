@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jIRI-san/skalary/plugins/self-improvement/schemas/cross-repo-export.schema.json",
+  "title": "Cross-repository self-improvement export",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "exportId", "payload"],
+  "properties": {
+    "schema": { "const": "cross-repo-si-export/v1" },
+    "exportId": { "$ref": "#/$defs/sha256" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trust", "source", "provenance", "candidates"],
+      "properties": {
+        "trust": { "const": "untrusted-context-only" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repoId", "planId", "sourceCommit", "installedPluginVersion"],
+          "properties": {
+            "repoId": { "$ref": "#/$defs/text" },
+            "planId": { "type": "string", "pattern": "^(?:[0-9a-f]{6}|[0-9]{3})$" },
+            "sourceCommit": { "$ref": "#/$defs/gitOid" },
+            "installedPluginVersion": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runId", "dueId", "pinnedBaseOid", "resolverReceiptId"],
+          "properties": {
+            "runId": { "$ref": "#/$defs/sha256" },
+            "dueId": { "$ref": "#/$defs/sha256" },
+            "pinnedBaseOid": { "$ref": "#/$defs/gitOid" },
+            "resolverReceiptId": {
+              "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            }
+          }
+        },
+        "candidates": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "candidateId",
+              "rank",
+              "candidateText",
+              "sources",
+              "targets",
+              "disposition",
+              "proposalPr"
+            ],
+            "properties": {
+              "candidateId": { "$ref": "#/$defs/sha256" },
+              "rank": { "type": "integer", "minimum": 1, "maximum": 5 },
+              "candidateText": { "type": "string", "minLength": 1, "maxLength": 17408 },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "items": { "$ref": "#/$defs/path" }
+              },
+              "targets": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "items": { "$ref": "#/$defs/path" }
+              },
+              "disposition": {
+                "enum": ["pending", "accepted", "declined", "deferred"]
+              },
+              "proposalPr": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["url", "headOid"],
+                    "properties": {
+                      "url": { "type": "string", "format": "uri" },
+                      "headOid": { "$ref": "#/$defs/gitOid" }
+                    }
+                  },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitOid": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "text": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "path": { "type": "string", "minLength": 1, "maxLength": 1024 }
+  }
+}

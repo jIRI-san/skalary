@@ -52,10 +52,10 @@ Describe 'design-notes index integrity' {
         # point at agent files that no longer exist.
         $note | Should -Not -Match '(?m)^\| `\*-opus`'
         $note | Should -Match '(?i)concern roster'
-        # RISK-2: the Pro-plan caveat is recorded where a reader configuring models will find it,
-        # but the concrete names stay in the gated allowlist — a literal here would be a third,
-        # ungated copy that goes stale the moment the roster moves.
-        $note | Should -Match '(?i)Copilot \*\*Pro\*\* plan'
+        # RISK-2: the availability caveat is recorded without pinning a product-plan name that may
+        # change independently; concrete model names stay in the gated allowlist.
+        $note | Should -Match '(?i)Unavailable-model caveat'
+        $note | Should -Match "(?i)operator's tier"
         $note | Should -Match 'tools/model-allowlist\.psd1'
         foreach ($model in @($allowlist.VSCodeModels + $allowlist.Fallback.VSCode)) {
             $note | Should -Not -Match ([regex]::Escape($model)) -Because 'roster names belong to the allowlist, not to prose'

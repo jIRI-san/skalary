@@ -47,6 +47,28 @@
         "$ref": "#/$defs/singleLine"
       }
     },
+    "standard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "guidance",
+        "localizable"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "guidance": {
+          "$ref": "#/$defs/templateProse"
+        },
+        "localizable": {
+          "type": "boolean"
+        }
+      }
+    },
     "variant": {
       "type": "object",
       "additionalProperties": false,
@@ -98,6 +120,14 @@
         },
         "sharedGuidance": {
           "$ref": "#/$defs/templateProse"
+        },
+        "standards": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/standard"
+          }
         },
         "ledger": {
           "type": "object",

@@ -1,7 +1,7 @@
 {
   "name": "design-review",
-  "version": "1.0.30",
-  "description": "Design review orchestrator with specialist model agents.",
+  "version": "1.0.37",
+  "description": "Design review orchestrator with model-agnostic concern reviewers.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -29,6 +29,10 @@
       "dest": "skills/dr/assets/dispatch-guide.md"
     },
     {
+      "src": "skills/dr/assets/review-standards.json",
+      "dest": "skills/dr/assets/review-standards.json"
+    },
+    {
       "src": "skills/dr/assets/collation-guide.md",
       "dest": "skills/dr/assets/collation-guide.md"
     },
@@ -51,6 +55,10 @@
     {
       "src": "skills/dr/scripts/ReviewRun.psm1",
       "dest": "skills/dr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
+      "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
     },
     {
       "src": "skills/dr/scripts/schemas/review/review-admission.schema.json",

@@ -29,6 +29,7 @@ Describe 'Learning loop distribution contract' {
         $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
         $script:siSchemas = @(
+            'cross-repo-export.schema.json',
             'manifest.schema.json',
             'repair-observation.schema.json',
             'repair-receipt.schema.json',
@@ -39,8 +40,10 @@ Describe 'Learning loop distribution contract' {
             'Archive-SiState.ps1',
             'Complete-SiProposal.ps1',
             'Enqueue-SiDue.ps1',
+            'Export-CrossRepoSi.ps1',
             'Get-SiHarvest.ps1',
             'Get-SiState.ps1',
+            'Invoke-CrossRepoSiHandoff.ps1',
             'Invoke-SiLifecycle.ps1',
             'Invoke-SiProposalSync.ps1',
             'Repair-SiState.ps1',
@@ -229,6 +232,7 @@ Describe 'Learning loop distribution contract' {
             'docs/self-improvement/archive/<yyyy>/<mm>/<run>.json',
             'docs/self-improvement/archive-journal.json',
             'docs/self-improvement/backups/<observation>/**',
+            'docs/self-improvement/cross-repo-export.json',
             'docs/self-improvement/harvest-index.json',
             'docs/self-improvement/quarantine/<observation>/**',
             'docs/self-improvement/quarantine/index.json',
