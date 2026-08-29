@@ -1,5 +1,5 @@
 ---
-description: Partly retired exploration sourced from the 44-finding step 10.7 gate review. Clusters A and D are resolved by c21cdc; B (except evidence skipped), E and H by 768d7b; C is deferred to 34088e; F/G remain open. Load before changing review reporting, evidence, dispatch, or CI wiring.
+description: Partly retired exploration sourced from the 44-finding step 10.7 gate review. Clusters A and D are resolved by c21cdc; B by 863d97; E and H by 768d7b and 31a3ef; C is deferred to 34088e; F/G remain open. Load before changing review reporting, evidence, dispatch, or CI wiring.
 globs:
   - scripts/skalary/Build-ReviewReport.ps1
   - scripts/skalary/Build-EvidenceReceipt.ps1
@@ -14,21 +14,21 @@ Sourced from the `b0c0d3` step 10.7 operator gate: `cr branch`, 7 concerns × 2 
 
 Recorded because the findings are systemic rather than incidental: they describe one defect *shape* appearing in ten places.
 
-## Status after plan `768d7b`
+## Current status
 
-Clusters A and D are **resolved by `c21cdc`**, E and H are resolved, and Cluster B is resolved except
-for one row. C is deferred; F/G remain open. Retired material is not deleted—a cluster whose fix is
+Clusters A and D are **resolved by `c21cdc`**, B by `863d97`, E by `768d7b`, and H by `31a3ef`.
+C is deferred; F/G remain open. Retired material is not deleted—a cluster whose fix is
 described only by its own absence cannot be checked against what actually shipped.
 
 | Cluster | Status | Where it now lives |
 |---|---|---|
 | A — the report cannot describe its own run | **resolved** | `c21cdc`: frozen task truth, derived attendance, explicit clean/degraded state, bounded terminal status and verifying reader |
-| B — gates that pass without running | resolved except the evidence `skipped` state | `docs/design-notes/project/ci-gates.design.md`; the remaining row is `863d97`'s contract |
+| B — gates that pass without running | **resolved** | `768d7b` established the gate inventory; `863d97` added explicit skipped/unrun/stale/degraded outcomes and exact visible waivers |
 | C — constants copied into prose | **deferred to `34088e`** | not resolved here and asserted by nothing; see below |
 | D — collation passes data as code | **resolved** | `c21cdc`: two fixed JSON handshakes, closed schemas, fixed installed CLI, canonical JSON authority and bounded dual views |
 | E — generated output is locale-dependent | resolved | ordinal comparers in `Build-Registry.ps1`/`Build-Marketplace.ps1`, `test:BuildRegistry.CzechCollationFixtureIsStable` |
 | F, G — the `/si` loop has no durable state | open | — |
-| H — the gate costs 29 minutes | resolved | `tools/suite-budget.psd1`, `tools/suite-profile.json`, `tools/suite-runtime.json` |
+| H — the gate costs 29 minutes | resolved | `31a3ef`: manifest-owned Fast/Slow tiers with focused phase selection and advisory runtime observations |
 
 
 ## The shape
@@ -62,11 +62,11 @@ Common fix direction: give the formatter the *dispatched task set*, not just fin
 
 ## Cluster B — gates that pass without running
 
-**Resolved by plan `768d7b`, except the first row.** The gate inventory that replaced this cluster is `docs/design-notes/project/ci-gates.design.md`, checked against the workflow by `test:CiGates.InventoryMatchesWorkflow`.
+**Resolved by plans `768d7b` and `863d97`.** The gate inventory that replaced this cluster is `docs/design-notes/project/ci-gates.design.md`, checked against the workflow by `test:CiGates.InventoryMatchesWorkflow`.
 
 | Gap | Consequence | Status |
 |---|---|---|
-| Evidence grammar has no `skipped` state | Four of five symlink-confinement cases self-skip on Windows; the receipt records five passed | open — `863d97`'s contract, a declared non-goal of `768d7b` |
+| Evidence grammar has no `skipped` state | Four of five symlink-confinement cases self-skip on Windows; the receipt records five passed | resolved — `863d97` preserves explicit passed, failed, skipped, unrun, stale, degraded, and exact visibly waived outcomes from verifier through finalization |
 | `Run-UnitTests.ps1` exits 0 when Pester is absent | `npm test` reports success having executed zero assertions — and it is both the autopilot test command and the `test:unit` evidence executor | resolved — exits 2/3/4 for absent Pester, zero discovered, and a file that never loaded (`test:RunUnitTests.MissingPesterExitsNonZero`) |
 | `registry-ci.yml` runs one test file | ~20 new test files and both new gates never run on PR; reverting the UTF-8 fix produces a green PR | resolved — every gate is its own named step on both platforms, and `test:Ci.SeededFailureIsRed` proves a seeded failure returns non-zero rather than a hand-run revert |
 | `validate.ps1` enumerates without `-Force` | On Linux every dot-prefixed entry is hidden, so the bundled `.github/skills/**/scripts/` payloads are never parsed — the container validates a strictly smaller set than the host | resolved — allowlisted payload roots, canonicalised, reparse points refused (`test:Validate.FileCountEqualAcrossPlatforms`) |
@@ -229,4 +229,3 @@ An earlier reading of this data claimed the registry was rebuilt *per test case*
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
 
 G1–G3 have a sequencing claim of their own: they degrade the evidence every *later* `/si` run reasons from. G1 biases the recurrence axis, G2 destroys the records outright, G3 means the next operator to invoke the skill hits the same three failures. Fixing them is cheap and is a precondition for trusting any subsequent harvest — including the one that would judge whether the rest of this note's clusters were worth fixing.
-

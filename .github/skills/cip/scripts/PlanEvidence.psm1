@@ -283,19 +283,27 @@ function Resolve-PlanEvidencePath {
     $repoRootFullPath = [System.IO.Path]::GetFullPath($RepoRoot)
     $candidatePath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFullPath ($RelativePath -replace '/', $separator)))
     $repoRootPrefix = $repoRootFullPath.TrimEnd($separator) + $separator
-    if (-not $candidatePath.StartsWith($repoRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $pathComparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not $candidatePath.StartsWith($repoRootPrefix, $pathComparison)) {
         throw "Evidence path '$RelativePath' resolves outside repository root."
     }
 
-    if (Test-Path -LiteralPath $candidatePath) {
-        $resolved = (Resolve-Path -LiteralPath $candidatePath -Force).Path
-        if (-not $resolved.StartsWith($repoRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "Evidence path '$RelativePath' escapes repository root via symlink."
-        }
-        return $resolved
+    $physicalRepoRoot = Resolve-PhysicalRepoPath -Path $repoRootFullPath
+    $physicalCandidate = Resolve-PhysicalRepoPath -Path $candidatePath
+    $physicalPrefix = $physicalRepoRoot.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    ) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $physicalCandidate.StartsWith($physicalPrefix, $pathComparison)) {
+        throw "Evidence path '$RelativePath' escapes repository root via symlink."
     }
 
-    return $candidatePath
+    return $physicalCandidate
 }
 
 function Parse-PlanFileEvidenceMarker {

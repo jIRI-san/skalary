@@ -49,7 +49,7 @@ param(
     [string[]]$TestPath = @(),
 
     # Optional Pester full-name filters. Required when focused Fast selects a file
-    # assigned to Slow, so only the relevant sub-minute case executes.
+    # assigned to Slow unless exact evidence IDs provide the narrower selection.
     [string[]]$TestName = @(),
 
     # Stable IDs from leading `test:<id>` tokens in Pester test names. This uses the same
@@ -77,6 +77,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
 $legStart = [DateTimeOffset]::UtcNow
 $budgetClockSchema = 'skalary/suite-budget-clock@1'
@@ -144,6 +146,31 @@ $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
 
 $hasEvidenceIds = $EvidenceTestId.Count -gt 0
 $hasEvidencePath = -not [string]::IsNullOrWhiteSpace($EvidenceResultPath)
+
+function Assert-PhysicalPathWithinRoot {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Description
+    )
+
+    $physicalRoot = Resolve-PhysicalRepoPath -Path $Root
+    $physicalPath = Resolve-PhysicalRepoPath -Path $Path
+    $prefix = $physicalRoot.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    ) + [System.IO.Path]::DirectorySeparatorChar
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not $physicalPath.StartsWith($prefix, $comparison)) {
+        throw "$Description escapes '$Root' through a link or reparse point."
+    }
+}
+
 if ($hasEvidenceIds -ne $hasEvidencePath) {
     Write-Host 'FocusedScopeRequired: -EvidenceTestId and -EvidenceResultPath must be supplied together.' -ForegroundColor Red
     exit 12
@@ -163,6 +190,14 @@ if ($hasEvidencePath) {
     }
     if (-not $EvidenceResultPath.StartsWith($rootPrefix, $pathComparison)) {
         Write-Host "FocusedScopeRequired: evidence result path must stay inside the repository: '$EvidenceResultPath'." -ForegroundColor Red
+        exit 12
+    }
+    try {
+        Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $EvidenceResultPath `
+            -Description "Evidence result path '$EvidenceResultPath'"
+    }
+    catch {
+        Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
         exit 12
     }
     if (Test-Path -LiteralPath $EvidenceResultPath -PathType Container) {
@@ -321,8 +356,12 @@ if ($EvidenceTestId.Count -gt 0) {
         Write-Host 'FocusedScopeRequired: evidence IDs require focused Fast -TestPath selection and cannot be combined with -TestName or -FullRepository.' -ForegroundColor Red
         exit 12
     }
-    $invalidEvidenceIds = @($EvidenceTestId | Where-Object { [string]$_ -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$' })
-    if ($invalidEvidenceIds.Count -gt 0 -or @($EvidenceTestId | Sort-Object -Unique).Count -ne $EvidenceTestId.Count) {
+    $evidenceIdSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $invalidEvidenceIds = @($EvidenceTestId | Where-Object {
+            [string]$_ -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$' -or
+            -not $evidenceIdSet.Add([string]$_)
+        })
+    if ($invalidEvidenceIds.Count -gt 0) {
         Write-Host 'FocusedScopeRequired: evidence IDs must be unique non-empty tokens containing only letters, digits, dot, underscore, or hyphen.' -ForegroundColor Red
         exit 12
     }
@@ -349,6 +388,8 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
                 if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
                     throw "Focused test path does not exist: '$relativePath'."
                 }
+                Assert-PhysicalPathWithinRoot -Root $testsRootFull -Path $fullPath `
+                    -Description "Focused test path '$relativePath'"
                 if ($dedicatedSet.Contains($fullPath)) {
                     throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
                 }
@@ -440,7 +481,7 @@ function Write-StructuredEvidenceResult {
         $pattern = '^test:' + [regex]::Escape($id) + '(?:\s|$)'
         $tests = @(
             if ($PesterResult) {
-                $PesterResult.Tests | Where-Object { [string]$_.Name -match $pattern }
+                $PesterResult.Tests | Where-Object { [string]$_.Name -cmatch $pattern }
             }
         )
         $selectedCount = $tests.Count
@@ -504,6 +545,8 @@ function Write-StructuredEvidenceResult {
     if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
         [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
     }
+    Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $resultFullPath `
+        -Description "Evidence result path '$resultFullPath'"
     Set-Content -LiteralPath $resultFullPath -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
     return [pscustomobject]$payload
 }

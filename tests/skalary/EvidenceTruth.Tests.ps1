@@ -198,9 +198,11 @@ exit `$LASTEXITCODE
         $fixture = New-RunnerFixture -Content @'
 Describe 'focused evidence' {
     It 'test:EvidenceTruth.Pass works' { $true | Should -BeTrue }
+    It 'test:EvidenceTruth.CaseSensitive works' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed passes' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed skips' { Set-ItResult -Skipped -Because seeded }
     It 'test:EvidenceTruth.Skip skips' { Set-ItResult -Skipped -Because seeded }
+    It 'unselected failure stays unexecuted' { throw 'evidence selection widened' }
 }
 '@
         $result = Invoke-EvidenceRunner -Root $fixture -Id @(
@@ -224,6 +226,10 @@ Describe 'focused evidence' {
         $passed.ExitCode | Should -Be 0 -Because $passed.Output
         $passed.Result.results[0].status | Should -Be 'passed'
 
+        $wrongCase = Invoke-EvidenceRunner -Root $fixture -Id @('evidencetruth.casesensitive')
+        $wrongCase.ExitCode | Should -Be 8 -Because $wrongCase.Output
+        $wrongCase.Result.results[0].status | Should -Be 'unrun'
+
         @'
 @{
     Schema = 'skalary/suite-tier@1'
@@ -238,6 +244,10 @@ Describe 'focused evidence' {
         $slowOwned.ExitCode | Should -Be 0 -Because $slowOwned.Output
         $slowOwned.Result.results[0].status | Should -Be 'passed'
 
+        $selectorlessOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
+            -TestPath 'tests/Fixture.Tests.ps1' 2>&1
+        $LASTEXITCODE | Should -Be 12 -Because ($selectorlessOutput | Out-String)
+
         Set-Content -LiteralPath (Join-Path $fixture 'tests/Fixture.Tests.ps1') -Value @'
 Describe 'broken' {
     It 'test:EvidenceTruth.Broken never loads' { $true | Should -BeTrue }
@@ -246,6 +256,57 @@ Describe 'broken' {
         $broken.ExitCode | Should -Be 4 -Because $broken.Output
         $broken.Result.results[0].status | Should -Be 'unrun'
         $broken.Result.results[0].message | Should -Match 'discovery error'
+    }
+
+    It 'test:EvidenceTruth.PhysicalConfinement rejects linked runner paths and case-distinct siblings' -Skip:$IsWindows {
+        $fixture = New-RunnerFixture -Content @'
+Describe 'confined evidence' {
+    It 'test:EvidenceTruth.Confined passes' { $true | Should -BeTrue }
+}
+'@
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) ('evidence-outside-' + [guid]::NewGuid().ToString('N'))
+        [void](New-Item -ItemType Directory -Path $outside)
+        $script:tempRoots.Add($outside)
+
+        $outsideTest = Join-Path $outside 'External.Tests.ps1'
+        Set-Content -LiteralPath $outsideTest -Value @'
+Describe 'external evidence' {
+    It 'test:EvidenceTruth.External passes' { $true | Should -BeTrue }
+}
+'@ -Encoding utf8NoBOM
+        [void](New-Item -ItemType SymbolicLink -Path (Join-Path $fixture 'tests/Linked.Tests.ps1') -Target $outsideTest)
+
+        $linkedTestOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
+            -TestPath 'tests/Linked.Tests.ps1' -EvidenceTestId 'EvidenceTruth.External' `
+            -EvidenceResultPath 'linked-test-results.json' 2>&1
+        $LASTEXITCODE | Should -Be 12 -Because ($linkedTestOutput | Out-String)
+        ($linkedTestOutput | Out-String) | Should -Match 'escapes'
+
+        $outsideResults = Join-Path $outside 'results'
+        [void](New-Item -ItemType Directory -Path $outsideResults)
+        [void](New-Item -ItemType SymbolicLink -Path (Join-Path $fixture 'linked-results') -Target $outsideResults)
+        $linkedOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
+            -TestPath 'tests/Fixture.Tests.ps1' -EvidenceTestId 'EvidenceTruth.Confined' `
+            -EvidenceResultPath 'linked-results/evidence.json' 2>&1
+        $LASTEXITCODE | Should -Be 12 -Because ($linkedOutput | Out-String)
+        Test-Path -LiteralPath (Join-Path $outsideResults 'evidence.json') | Should -BeFalse
+
+        $caseRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('EvidenceCase-' + [guid]::NewGuid().ToString('N'))
+        $caseSibling = $caseRoot.ToLowerInvariant()
+        if ($caseSibling -ceq $caseRoot) {
+            $caseSibling = $caseRoot.ToUpperInvariant()
+        }
+        [void](New-Item -ItemType Directory -Path $caseRoot)
+        [void](New-Item -ItemType Directory -Path $caseSibling)
+        $script:tempRoots.Add($caseRoot)
+        $script:tempRoots.Add($caseSibling)
+        Set-Content -LiteralPath (Join-Path $caseSibling 'proof.txt') -Value 'outside' -Encoding utf8NoBOM
+
+        Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
+        $relativeEscape = '../' + (Split-Path -Leaf $caseSibling) + '/proof.txt'
+        {
+            Invoke-PlanFileEvidence -Marker "file:$relativeEscape#exists" -RepoRoot $caseRoot -Stage PhaseCrosscheck
+        } | Should -Throw '*resolves outside repository root*'
     }
 
     It 'test:EvidenceTruth.FinalizationBlocksNonPassingResults rejects incomplete receipts and accepts exact waivers' {
