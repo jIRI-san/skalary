@@ -18,9 +18,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $receiptPath = $null
+$metadata = $null
 if ($PlanDir) {
     Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
-    $receiptPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Evidence
+    $metadata = Get-PlanMetadata -Path (Join-Path $PlanDir 'plan.md') -RepoRoot $RepoRoot
+}
+Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
+if ($metadata) {
+    $receiptPath = Resolve-PlanEvidenceAssetPath -PlanMetadata $metadata -Kind Evidence
 }
 
 if (-not $Commit) {
@@ -31,60 +36,73 @@ if (-not $Commit) {
     }
     $Commit = $Commit.Trim()
 }
+if ($Commit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw "Build-EvidenceReceipt requires a full 40-hex commit, got '$Commit'."
+}
+$Commit = $Commit.ToLowerInvariant()
 
 $dash = [char]0x2014
 $sep = " $dash "
 
-function Get-ResultField {
-    param([object]$Object, [string]$Name)
-    if ($Object.PSObject.Properties.Name -contains $Name) { return $Object.$Name }
-    return $null
-}
-
 $lines = [System.Collections.Generic.List[string]]::new()
 $reqOrder = [System.Collections.Generic.List[string]]::new()
 $reqStatus = [ordered]@{}
+$outcomes = [System.Collections.Generic.List[object]]::new()
+$waivers = if ($metadata) { @(Get-PlanEvidenceWaiver -PlanMetadata $metadata -PlanDirectory $PlanDir) } else { @() }
+$seenResults = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 
 foreach ($item in $Result) {
-    $req = Get-ResultField -Object $item -Name 'Req'
-    $marker = Get-ResultField -Object $item -Name 'Marker'
-    if ([string]::IsNullOrWhiteSpace($req) -or [string]::IsNullOrWhiteSpace($marker)) {
-        throw 'Each evidence result requires a non-empty Req and Marker.'
+    $normalized = ConvertTo-PlanEvidenceResult -InputObject $item
+    $req = $normalized.Req
+    $marker = $normalized.Marker
+    $resultKey = "$req|$marker"
+    if (-not $seenResults.Add($resultKey)) {
+        throw "Duplicate evidence result '$resultKey'."
     }
 
-    $success = Get-ResultField -Object $item -Name 'Success'
-    $note = Get-ResultField -Object $item -Name 'Note'
-    $message = Get-ResultField -Object $item -Name 'Message'
+    $status = $normalized.Status
+    $detail = $normalized.Note
+    $matchingWaivers = @($waivers | Where-Object {
+            $_.Applies -and $_.Requirement -ceq $req -and $_.Marker -ceq $marker -and $_.Outcome -ceq $status
+        })
+    if ($matchingWaivers.Count -gt 1) {
+        throw "Multiple evidence waivers apply to '$resultKey'."
+    }
+    if ($status -eq 'waived') {
+        throw "Evidence result '$resultKey' claims waived without an exact skipped/degraded source outcome."
+    }
+    if ($matchingWaivers.Count -eq 1) {
+        $sourceStatus = $status
+        $status = 'waived'
+        $detail = "from ${sourceStatus}: $($matchingWaivers[0].Reason)"
+    }
 
-    if ($success -eq $true) {
+    if ($status -eq 'passed') {
         $glyph = [char]0x2713
-        $base = 'passed'
     }
-    elseif ($success -eq $false) {
-        $glyph = [char]0x2717
-        $base = 'failed'
+    elseif ($status -eq 'waived') {
+        $glyph = [char]0x2298
     }
     else {
         $glyph = [char]0x2717
-        $base = 'unrun'
     }
 
-    $detail = $null
-    if (-not [string]::IsNullOrWhiteSpace($note)) {
-        $detail = $note
-    }
-    elseif ($success -ne $true -and -not [string]::IsNullOrWhiteSpace($message)) {
-        $detail = $message
-    }
-    $resultText = if ($detail) { "${base}: $detail" } else { $base }
+    $resultText = if ($detail) { "${status}: $detail" } else { $status }
 
     $lines.Add("$glyph $req$sep$marker$sep$resultText$sep$Commit")
+    $outcomes.Add([pscustomobject]@{
+            Req = $req
+            Marker = $marker
+            Status = $status
+            Success = ($status -in @('passed', 'waived'))
+            Note = $detail
+        })
 
     if (-not $reqStatus.Contains($req)) {
         $reqOrder.Add($req)
         $reqStatus[$req] = $true
     }
-    if ($success -ne $true) {
+    if ($status -notin @('passed', 'waived')) {
         $reqStatus[$req] = $false
     }
 }
@@ -104,6 +122,7 @@ return [pscustomobject]@{
     Commit      = $Commit
     Lines       = $lines.ToArray()
     Text        = ($textLines -join "`n")
+    Outcomes    = $outcomes.ToArray()
     ReqStatus   = $reqStatus
     AllPassed   = ($reqOrder.Count -gt 0 -and $allPassed)
     ReceiptPath = $receiptPath

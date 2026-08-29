@@ -80,6 +80,98 @@ function Get-HumanStepDetailGap {
     return ''
 }
 
+function Test-PlanEvidenceReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Metadata
+    )
+
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $receiptPath = Resolve-PlanEvidenceAssetPath -PlanMetadata $Metadata -Kind Evidence
+    try {
+        $entries = @(Read-PlanEvidenceReceipt -Path $receiptPath)
+        $waivers = @(Get-PlanEvidenceWaiver -PlanMetadata $Metadata -PlanDirectory $Metadata.PlanDir)
+    }
+    catch {
+        $errors.Add($_.Exception.Message)
+        return $errors.ToArray()
+    }
+
+    $expected = [ordered]@{}
+    foreach ($requirement in $Metadata.Requirements.Values) {
+        $markers = @(
+            Get-TypedEvidenceMarkers -AcceptanceCriteria $requirement.AcceptanceCriteria |
+                ForEach-Object { $_ }
+        )
+        foreach ($marker in $markers) {
+            $expected["$($requirement.Id)|$marker"] = $true
+        }
+    }
+
+    $head = (& git -C $Metadata.RepoRoot rev-parse HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
+        $errors.Add('PlanCrosscheck could not resolve HEAD for evidence freshness.')
+        return $errors.ToArray()
+    }
+    $head = $head.Trim().ToLowerInvariant()
+    $allowedCommits = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    [void]$allowedCommits.Add($head)
+    $receiptRelative = [System.IO.Path]::GetRelativePath($Metadata.RepoRoot, $receiptPath).Replace('\', '/')
+    if (-not $receiptRelative.StartsWith('../', [System.StringComparison]::Ordinal)) {
+        $parent = (& git -C $Metadata.RepoRoot rev-parse HEAD^ 2>$null)
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($parent)) {
+            $changedInHead = @(& git -C $Metadata.RepoRoot diff-tree --no-commit-id --name-only -r HEAD 2>$null)
+            if ($LASTEXITCODE -eq 0 -and $changedInHead.Count -eq 1 -and
+                [string]$changedInHead[0] -ceq $receiptRelative) {
+                [void]$allowedCommits.Add($parent.Trim().ToLowerInvariant())
+            }
+        }
+    }
+
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($entry in $entries) {
+        $key = "$($entry.Req)|$($entry.Marker)"
+        if (-not $expected.Contains($key)) {
+            $errors.Add("Evidence receipt contains undeclared marker '$key'.")
+            continue
+        }
+        if (-not $seen.Add($key)) {
+            $errors.Add("Evidence receipt contains duplicate marker '$key'.")
+            continue
+        }
+        if (-not $allowedCommits.Contains($entry.Commit)) {
+            $errors.Add("Evidence receipt marker '$key' is stale: commit '$($entry.Commit)' is not the current evidence source for HEAD '$head'.")
+        }
+
+        if ($entry.Status -eq 'passed') {
+            continue
+        }
+        if ($entry.Status -eq 'waived') {
+            $matches = @($waivers | Where-Object {
+                    $_.Applies -and $_.Requirement -ceq $entry.Req -and $_.Marker -ceq $entry.Marker
+                })
+            $valid = @($matches | Where-Object {
+                    $entry.Note -ceq "from $($_.Outcome): $($_.Reason)"
+                })
+            if ($valid.Count -eq 1) {
+                continue
+            }
+            $errors.Add("Evidence receipt marker '$key' has no exact valid plan-local waiver.")
+            continue
+        }
+
+        $errors.Add("Evidence receipt marker '$key' is $($entry.Status), not passed or waived.")
+    }
+
+    foreach ($key in $expected.Keys) {
+        if (-not $seen.Contains($key)) {
+            $errors.Add("Evidence receipt is missing required marker '$key' (unrun).")
+        }
+    }
+
+    return $errors.ToArray()
+}
+
 function Test-PlanMetadata {
     [CmdletBinding()]
     param(
@@ -384,6 +476,12 @@ function Test-PlanMetadata {
             else {
                 $warnings.Add($message)
             }
+        }
+    }
+
+    if ($Stage -eq 'PlanCrosscheck' -and $isOptedIn) {
+        foreach ($receiptError in @(Test-PlanEvidenceReceipt -Metadata $Metadata)) {
+            $errors.Add($receiptError)
         }
     }
 

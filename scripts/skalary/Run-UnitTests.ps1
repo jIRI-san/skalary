@@ -31,6 +31,7 @@
         10  Reserved — stale runtime measurements are advisory
      11  MeasurementTokenInvalid — a measurement-mode token failed closed validation
      12  FocusedScopeRequired — Fast did not receive focused test paths or -FullRepository
+         The same code rejects malformed focused evidence IDs/output paths before execution.
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestPath tests/skalary/SkillContracts.Tests.ps1
 .EXAMPLE
@@ -50,6 +51,12 @@ param(
     # Optional Pester full-name filters. Required when focused Fast selects a file
     # assigned to Slow, so only the relevant sub-minute case executes.
     [string[]]$TestName = @(),
+
+    # Stable IDs from leading `test:<id>` tokens in Pester test names. This uses the same
+    # discovery and invocation as focused Fast, but also emits one structured result per ID.
+    [string[]]$EvidenceTestId = @(),
+
+    [string]$EvidenceResultPath,
 
     [switch]$FullRepository,
 
@@ -134,6 +141,36 @@ if ($StartBudgetClock) {
 # RISK-3: an environment without Pester now fails instead of skipping, so the message has to
 # carry the way out of that state rather than only the diagnosis.
 $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
+
+$hasEvidenceIds = $EvidenceTestId.Count -gt 0
+$hasEvidencePath = -not [string]::IsNullOrWhiteSpace($EvidenceResultPath)
+if ($hasEvidenceIds -ne $hasEvidencePath) {
+    Write-Host 'FocusedScopeRequired: -EvidenceTestId and -EvidenceResultPath must be supplied together.' -ForegroundColor Red
+    exit 12
+}
+if ($hasEvidencePath) {
+    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+    $rootPrefix = $repoRootFull.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    ) + [System.IO.Path]::DirectorySeparatorChar
+    $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $EvidenceResultPath = if ([System.IO.Path]::IsPathRooted($EvidenceResultPath)) {
+        [System.IO.Path]::GetFullPath($EvidenceResultPath)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $EvidenceResultPath))
+    }
+    if (-not $EvidenceResultPath.StartsWith($rootPrefix, $pathComparison)) {
+        Write-Host "FocusedScopeRequired: evidence result path must stay inside the repository: '$EvidenceResultPath'." -ForegroundColor Red
+        exit 12
+    }
+    if (Test-Path -LiteralPath $EvidenceResultPath -PathType Container) {
+        Write-Host "FocusedScopeRequired: evidence result path names a directory: '$EvidenceResultPath'." -ForegroundColor Red
+        exit 12
+    }
+    Remove-Item -LiteralPath $EvidenceResultPath -Force -ErrorAction SilentlyContinue
+}
 
 # Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
 # consume authorization that belongs to a concurrent or later complete run.
@@ -279,6 +316,17 @@ if ($Tier -eq 'Fast' -and -not $FullRepository -and
     Write-Host "FocusedScopeRequired: -TestName values must be non-empty Pester full-name filters." -ForegroundColor Red
     exit 12
 }
+if ($EvidenceTestId.Count -gt 0) {
+    if ($Tier -ne 'Fast' -or $FullRepository -or $TestPath.Count -eq 0 -or $TestName.Count -gt 0) {
+        Write-Host 'FocusedScopeRequired: evidence IDs require focused Fast -TestPath selection and cannot be combined with -TestName or -FullRepository.' -ForegroundColor Red
+        exit 12
+    }
+    $invalidEvidenceIds = @($EvidenceTestId | Where-Object { [string]$_ -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$' })
+    if ($invalidEvidenceIds.Count -gt 0 -or @($EvidenceTestId | Sort-Object -Unique).Count -ne $EvidenceTestId.Count) {
+        Write-Host 'FocusedScopeRequired: evidence IDs must be unique non-empty tokens containing only letters, digits, dot, underscore, or hyphen.' -ForegroundColor Red
+        exit 12
+    }
+}
 
 $focusedPaths = @()
 if ($Tier -eq 'Fast' -and -not $FullRepository) {
@@ -349,7 +397,13 @@ $configuration.Run.Path = @($testFiles.FullName)
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
-if ($TestName.Count -gt 0) {
+if ($EvidenceTestId.Count -gt 0) {
+    $configuration.Filter.FullName = @($EvidenceTestId | ForEach-Object {
+            "*test:$($_)"
+            "*test:$($_) *"
+        })
+}
+elseif ($TestName.Count -gt 0) {
     $configuration.Filter.FullName = @($TestName)
 }
 
@@ -369,7 +423,121 @@ foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
     $environmentBefore[[string]$entry.Key] = [string]$entry.Value
 }
 
-$result = Invoke-Pester -Configuration $configuration
+function Write-StructuredEvidenceResult {
+    param(
+        [object]$PesterResult,
+        [string]$FrameworkError
+    )
+
+    if ($EvidenceTestId.Count -eq 0) {
+        return $null
+    }
+
+    $records = [System.Collections.Generic.List[object]]::new()
+    $totalSelected = 0
+    $totalExecuted = 0
+    foreach ($id in $EvidenceTestId) {
+        $pattern = '^test:' + [regex]::Escape($id) + '(?:\s|$)'
+        $tests = @(
+            if ($PesterResult) {
+                $PesterResult.Tests | Where-Object { [string]$_.Name -match $pattern }
+            }
+        )
+        $selectedCount = $tests.Count
+        $executed = @($tests | Where-Object { [string]$_.Result -in @('Passed', 'Failed') })
+        $totalSelected += $selectedCount
+        $totalExecuted += $executed.Count
+        $results = @($tests | ForEach-Object { [string]$_.Result })
+        $status = 'unrun'
+        $message = $FrameworkError
+        if ([string]::IsNullOrWhiteSpace($FrameworkError)) {
+            if ($selectedCount -eq 0) {
+                $message = if ($PesterResult -and [int]$PesterResult.FailedContainersCount -gt 0) {
+                    'discovery error: one or more selected test files failed to load'
+                }
+                else {
+                    'no exact leading test ID match was discovered'
+                }
+            }
+            elseif (@($results | Where-Object { $_ -in @('NotRun', 'Inconclusive') }).Count -gt 0) {
+                $message = 'one or more selected tests were not run'
+            }
+            elseif ($results -contains 'Failed') {
+                $status = 'failed'
+                $message = 'one or more selected tests failed'
+            }
+            elseif (($results -contains 'Passed') -and ($results -contains 'Skipped')) {
+                $status = 'degraded'
+                $message = 'selected tests were partly passed and partly skipped'
+            }
+            elseif (@($results | Where-Object { $_ -eq 'Skipped' }).Count -eq $selectedCount) {
+                $status = 'skipped'
+                $message = 'all selected tests were skipped'
+            }
+            elseif (@($results | Where-Object { $_ -eq 'Passed' }).Count -eq $selectedCount) {
+                $status = 'passed'
+                $message = ''
+            }
+            else {
+                $message = 'selected test outcomes were incomplete'
+            }
+        }
+
+        $records.Add([ordered]@{
+                marker = "test:$id"
+                status = $status
+                selectedCount = $selectedCount
+                executedCount = $executed.Count
+                outcomes = $results
+                message = $message
+            })
+    }
+
+    $payload = [ordered]@{
+        schema = 'skalary/evidence-test-results@1'
+        selectedCount = $totalSelected
+        executedCount = $totalExecuted
+        results = $records.ToArray()
+    }
+    $resultFullPath = [System.IO.Path]::GetFullPath($EvidenceResultPath)
+    $resultDirectory = Split-Path -Parent $resultFullPath
+    if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
+    }
+    Set-Content -LiteralPath $resultFullPath -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
+    return [pscustomobject]$payload
+}
+
+$result = $null
+try {
+    $result = Invoke-Pester -Configuration $configuration
+}
+catch {
+    $classification = if ($_.Exception -is [System.Management.Automation.PipelineStoppedException] -or
+        $_.Exception -is [System.OperationCanceledException]) { 'interrupted' } else { 'discovery error' }
+    [void](Write-StructuredEvidenceResult -FrameworkError "$classification`: $($_.Exception.Message)")
+    Write-Host "TestFilesNotDiscoverable: $($_.Exception.Message)" -ForegroundColor Red
+    exit 4
+}
+
+try {
+    $structuredEvidence = Write-StructuredEvidenceResult -PesterResult $result
+}
+catch {
+    Write-Host "FocusedScopeRequired: structured evidence result could not be written: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    exit 12
+}
+
+# A test file that throws while being discovered contributes nothing to either count above:
+# Pester tracks it separately. Deciding on FailedCount alone therefore reports a pass for a
+# suite in which a whole file never ran — including this file, which would take the REQ-5
+# gate down with it and stay green.
+if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
+    $undiscoverable = @($result.FailedContainers | ForEach-Object { [string]$_.Item })
+    Write-Host "TestFilesNotDiscoverable: $($result.FailedContainersCount) test file(s) failed to load, so their tests never ran: $($undiscoverable -join ', ')" -ForegroundColor Red
+    exit 4
+}
 
 # Test files that discover no test are the quieter half of the same failure: Pester returns a
 # clean zero-failure result, so the run would otherwise be reported as a pass having asserted
@@ -377,16 +545,6 @@ $result = Invoke-Pester -Configuration $configuration
 if ($null -eq $result -or [int]$result.TotalCount -le 0) {
     Write-Host "NoTestsDiscovered: Pester $($pesterModule.Version) discovered 0 tests in $($testFiles.Count) file(s) under '$testRootPath'. A run that asserts nothing is not a pass." -ForegroundColor Red
     exit 3
-}
-
-# A test file that throws while being discovered contributes nothing to either count above:
-# Pester tracks it separately. Deciding on FailedCount alone therefore reports a pass for a
-# suite in which a whole file never ran — including this file, which would take the REQ-5
-# gate down with it and stay green.
-if ([int]$result.FailedContainersCount -gt 0) {
-    $undiscoverable = @($result.FailedContainers | ForEach-Object { [string]$_.Item })
-    Write-Host "TestFilesNotDiscoverable: $($result.FailedContainersCount) test file(s) failed to load, so their tests never ran: $($undiscoverable -join ', ')" -ForegroundColor Red
-    exit 4
 }
 
 if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
@@ -402,6 +560,14 @@ if ($skippedReviewEvidence.Count -gt 0) {
     $names = @($skippedReviewEvidence | ForEach-Object { [string]$_.Name })
     Write-Host "RequiredEvidenceSkipped: $($skippedReviewEvidence.Count) review-report evidence test(s) did not execute: $($names -join ', ')" -ForegroundColor Red
     exit 8
+}
+if ($structuredEvidence) {
+    $nonPassingEvidence = @($structuredEvidence.results | Where-Object { $_.status -ne 'passed' })
+    if ($nonPassingEvidence.Count -gt 0) {
+        $summary = @($nonPassingEvidence | ForEach-Object { "$($_.marker)=$($_.status)" }) -join ', '
+        Write-Host "RequiredEvidenceSkipped: structured evidence did not fully pass: $summary" -ForegroundColor Red
+        exit 8
+    }
 }
 
 # A green suite that leaves HOME pointing at TestDrive is still a defect: it sends git looking for

@@ -29,6 +29,7 @@
         'tests/skalary/AutopilotContainerGate.Tests.ps1'
         'tests/skalary/Ci.Tests.ps1'
         'tests/skalary/ConsumerInstall.Tests.ps1'
+        'tests/skalary/EvidenceTruth.Tests.ps1'
         'tests/skalary/PlanAssets.Tests.ps1'
         'tests/skalary/PluginRetirement.Tests.ps1'
         'tests/skalary/ReviewReportCorpus.Tests.ps1'

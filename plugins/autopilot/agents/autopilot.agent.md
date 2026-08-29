@@ -70,7 +70,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 
 ## On Phase Completion
 
-1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root for legacy plans). Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir` and write to the returned `.ReceiptPath`), which emits the shared golden grammar (`✓/✗ REQ-N — evidence — result — commit`, full HEAD SHA, `✗`/unrun preserved) — never hand-format the line:
+1. **Phase crosscheck** — verify all REQ-N IDs referenced by steps in this phase are satisfied and write/update the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root for legacy plans). Format the receipt through `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir` and write to the returned `.ReceiptPath`), which emits the shared golden grammar (`✓` passed, `⊘` waived, `✗` every other outcome; full HEAD SHA) — never hand-format the line:
    ```
    Phase N Crosscheck:
    ✓ REQ-1 — test:TestId — passed — <commit>
@@ -82,7 +82,7 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - Invoke `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src autopilot -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
    - On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase-end push. Skip the commit only when replay produced no git delta.
    Evidence rules at crosscheck:
-   - `test:<TestId>`: run the named Pester test only; missing or failing test = fail.
+   - `test:<TestId>`: run the named test through focused `Run-UnitTests.ps1` with explicit `-TestPath`, `-EvidenceTestId <TestId>`, and `-EvidenceResultPath`; feed its structured status into the formatter. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even if an individual structured record says passed.
    - `file:<path>#<assertion>`: verify through `scripts/skalary/Test-Plan.ps1 -EvidenceMarker ...` (PlanEvidence callable), never in-chat parsing.
    - `review:cr|dr`: require a review result proving the claimed finding class is absent; no review result = unrun evidence.
    - Rebuild the receipt from scratch on each run (one line per required marker; unexecuted markers are `✗ ... — unrun`), writing it to the path `Build-EvidenceReceipt` returns as `.ReceiptPath`.
@@ -116,24 +116,15 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    `Add-WorkflowNote`, fix clear findings, and re-run complete project validation before recording
    the next round. The same automatic three-round cap and headless operator-decision behavior applies.
 
-3. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run typed evidence checks, and append final receipt lines to the layout-resolved receipt via `scripts/skalary/Build-EvidenceReceipt.ps1` (pass `-PlanDir`, write to `.ReceiptPath`) (shared golden grammar; rebuilt, full HEAD SHA, `✗`/unrun preserved):
-   ```
-   Plan <plan-id> Final Crosscheck:
-   Requirements: X/Y satisfied
-   ✓ REQ-1 — test:TestId — passed — <commit>
-   ✗ REQ-4 — criterion — gap: [detail]
-   Risks: A/B mitigated
-   ✓ RISK-1 — mitigated by step 2.1
-   ✗ RISK-2 — not addressed: [detail]
-   ```
+3. **Plan-level crosscheck** — verify every REQ-N and RISK-N from the plan, re-run every typed marker, rebuild one complete layout-resolved receipt through `scripts/skalary/Build-EvidenceReceipt.ps1`, and write only its returned `.Text` to `.ReceiptPath`. Do not append summaries, risk prose, or hand-written lines: `Test-Plan` accepts only the shared per-marker grammar.
    Deterministic evidence execution rules:
-   - `test:` must run a named Pester test only.
+   - `test:` must run through the existing focused runner with `-EvidenceTestId` and consume `skalary/evidence-test-results@1`; no second Pester host is allowed.
    - `file:` must run through `scripts/skalary/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage PlanCrosscheck`.
    - `review:` requires a concrete CR/DR result for the current commit (missing review = unrun).
-   `PlanCrosscheck` stage (blocking target resolution) runs only at true finalization.
+   Run `PlanCrosscheck` at true finalization after writing the receipt and before committing it. A later receipt-only commit may retain its parent as the evidence source; any other implementation, plan, policy, or review change makes the receipt stale and requires a rebuild.
    If any requirement or risk is unresolved, attempt to fix. If unfixable autonomously, note it in the PR body.
 
-4. **archival-gate** — read the layout-resolved evidence receipt (`assets/evidence.md`, or the plan-folder root `evidence.md` for legacy plans — resolve it, never hard-code it) and refuse archival/PR on any `✗` or `unrun` REQ marker unless explicitly deferred in Decisions (REQ ID + rationale). If the gate is not satisfied, do not archive.
+4. **archival-gate** — invoke `scripts/skalary/Test-Plan.ps1 -Stage PlanCrosscheck` against the plan only at true finalization. It pure-parses the layout-resolved receipt, re-derives required marker coverage and current commit freshness, and revalidates any exact plan-local waiver. Refuse archival/PR when any marker is missing, stale, malformed, failed, skipped, unrun, or degraded; only passed and exact waived outcomes satisfy the gate.
 
 5. **Harvest finalization (canonical)**:
    - Run append-harvest when append infra exists:

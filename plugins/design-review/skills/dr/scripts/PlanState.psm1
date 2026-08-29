@@ -58,6 +58,7 @@ $script:PlanAssetMap = [ordered]@{
     Decisions       = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
     References      = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
     Evidence        = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
+    EvidenceWaivers = [pscustomobject]@{ Asset = 'evidence-waivers.json'; Legacy = 'evidence-waivers.json' }
     EvolutionLog    = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
     DecisionRecords = [pscustomobject]@{ Asset = 'decisions'; Legacy = 'decisions' }
     CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
@@ -184,7 +185,7 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Domain', 'Design', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
+        [ValidateSet('Intent', 'Domain', 'Design', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvidenceWaivers', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]

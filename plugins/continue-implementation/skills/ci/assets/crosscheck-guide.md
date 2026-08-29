@@ -6,27 +6,30 @@
 
 At phase and plan crosschecks, verify each requirement's typed markers from Acceptance Criteria:
 
-- `test:<TestId>` -> run only the named Pester test and fail if it is missing or failing.
+- `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
 
 Use deterministic, pre-approvable commands only. Parse markers into typed variables and pass them as bound arguments (no shell-string interpolation, no eval). Use `PlanCrosscheck` only at true finalization.
 
-Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes the per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, `Success`, and an optional `Note`) plus the current `-Commit`, and returns an object whose `.Text` you write into the receipt (the script itself does not read or write the receipt file). Pass `-PlanDir` and write to the returned `.ReceiptPath` — it resolves through `Resolve-PlanAssetPath` to `assets/evidence.md` in the current layout and to the plan-folder root `evidence.md` for legacy plans, so the receipt is never written where the archival gate does not look:
+Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, one closed `Status`, and an optional `Note`; legacy `Success` remains accepted) plus the current `-Commit`. It returns an object whose `.Text` you write into the receipt and never executes evidence. Pass `-PlanDir` and write to the returned `.ReceiptPath` — it resolves through `Resolve-PlanAssetPath` to `assets/evidence.md` in the current layout and to the plan-folder root `evidence.md` for legacy plans:
 
 ```powershell
-# $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Success=$true; Note='' } ...
+# $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Status='passed'; Note='' } ...
 $receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
 Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
-`Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>` (`✓` pass, `✗` fail/unrun); a REQ passes only when all its markers pass, and failed/unrun markers are preserved.
+`Build-EvidenceReceipt` emits the golden line `<glyph> REQ-N — <marker> — <result> — <commit>`: `✓ passed`, `⊘ waived`, and `✗` for `failed`, `skipped`, `unrun`, `stale`, or `degraded`. A REQ passes only when all markers passed or carry an exact valid plan-local waiver.
+
+The optional layout-resolved waiver file is `assets/evidence-waivers.json` (legacy: `evidence-waivers.json`) with schema `skalary/evidence-waivers@1`. Every entry must bind the canonical `plan`, exact `requirement`, exact declared `marker`, source `outcome` (`skipped` or `degraded`), non-empty `reason`, and optional `platform` (`Windows`, `Linux`, or `MacOS`). Wildcards and waivers for failed, unrun, or stale evidence are rejected. The formatter renders a valid match as visibly `waived`; it never renders it as passed.
 
 Receipt rules:
 - The receipt path is layout-resolved (`assets/evidence.md`, or the plan-folder root for legacy plans) — always take it from `$receipt.ReceiptPath`, never hard-code it.
 - Rebuild the receipt on each phase/plan crosscheck run (never append to stale results from old commits).
 - Emit one line per required marker; unexecuted markers emit `✗ … — unrun`.
 - Use the current `HEAD` commit SHA in every emitted line.
+- At finalization, write the receipt, run `Test-Plan -Stage PlanCrosscheck`, then commit. The gate accepts the parent source only when the current commit changes that receipt alone; any other later change makes it stale and requires rebuilding.
 
 ## Phase crosscheck
 
@@ -61,8 +64,8 @@ engine and is not a second harvest implementation.
 
 Before archive/PR completion, require:
 - The layout-resolved receipt (`assets/evidence.md`, or root `evidence.md` for legacy plans) exists and is current.
-- No unrun or failing required evidence (`✗`) remains unless explicitly deferred in Decisions (defer by REQ ID with rationale).
-- This step wires the gate only; run `PlanCrosscheck` blocking target resolution only at true plan finalization (after all phases).
+- `Test-Plan.ps1 -Stage PlanCrosscheck` passes against the current receipt. It re-derives every required marker, rejects stale or malformed lines, and revalidates exact waivers.
+- No required marker is failed, skipped, unrun, stale, or degraded; only passed and exact waived lines satisfy the gate.
 
 If the gate is not satisfied, block archival/completion.
 
