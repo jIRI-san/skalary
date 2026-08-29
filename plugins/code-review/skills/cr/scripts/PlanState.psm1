@@ -215,11 +215,24 @@ function Resolve-PlanAssetPath {
         if (-not $PSBoundParameters.ContainsKey('Inventory')) {
             $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         }
-        $inventoryMatch = @($Inventory | Where-Object {
+        $pathComparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
+        $logicalInventoryMatch = @($Inventory | Where-Object {
                 $_.Path -and [string]::Equals(
+                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    $planDirFull,
+                    $pathComparison
+                )
+            })
+        $inventoryMatch = @($logicalInventoryMatch | Where-Object {
+                [string]::Equals(
                     (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
                     $physicalPlanDir,
-                    [System.StringComparison]::Ordinal
+                    $pathComparison
                 )
             })
         if ($inventoryMatch.Count -ne 1) {

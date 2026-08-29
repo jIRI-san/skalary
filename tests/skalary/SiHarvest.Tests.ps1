@@ -332,6 +332,63 @@ No queued feedback.
         ($result.Items.wrappedContent -join "`n") | Should -Not -Match 'Mutable worktree evidence'
     }
 
+    It 'discovers direct active runs and explicit archive references from the pinned tree' {
+        $runId = '4' * 64
+        $runPath = Join-Path $script:fixture.Root "docs/self-improvement/runs/2026/08/$runId.json"
+        $run = [ordered]@{
+            schemaVersion = 2
+            runId = $runId
+            dueId = '5' * 64
+            status = 'resumable'
+            createdAtUtc = '2026-08-09T00:00:00Z'
+            updatedAtUtc = '2026-08-09T00:00:00Z'
+            completedAtUtc = $null
+            provenance = [ordered]@{
+                repoId = 'fixture/repo'
+                planId = 'a1b2c3'
+                sourceCommit = $script:fixture.Oid
+                pinnedBaseOid = $script:fixture.Oid
+                resolverReceiptId = $null
+            }
+            rankedSet = [ordered]@{ count = 0; digest = '0' * 64; candidates = @() }
+            choices = @()
+            proposalPr = $null
+        }
+        Write-Utf8 -Path $runPath -Content (($run | ConvertTo-Json -Depth 20 -Compress) + "`n")
+        & git -C $script:fixture.Root add "docs/self-improvement/runs/2026/08/$runId.json"
+        & git -C $script:fixture.Root commit --quiet -m 'active run'
+        $oid = (& git -C $script:fixture.Root rev-parse HEAD).Trim()
+
+        $result = & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+            -PinnedBaseOid $oid -ArchiveReference 'docs/self-improvement/archive/2026/08/old.json'
+
+        $result.Status | Should -Be complete
+        $index = Get-Content -LiteralPath $result.IndexPath -Raw | ConvertFrom-Json -Depth 100
+        @($index.sources.path) | Should -Contain "docs/self-improvement/runs/2026/08/$runId.json"
+        @($index.sources.path) | Should -Contain 'docs/self-improvement/archive/2026/08/old.json'
+        @($result.Items | Where-Object sourceKind -EQ 'archive-reference').Count | Should -Be 1
+    }
+
+    It 'fails closed when a pinned plan blob cannot be read' {
+        $planRelative = 'docs/implementation-plans/2026-08-09-a1b2c3-harvest-fixture/plan.md'
+        $blobOid = (& git -C $script:fixture.Root rev-parse `
+                "$($script:fixture.Oid):$planRelative").Trim()
+        $objectPath = Join-Path $script:fixture.Root (
+            ".git/objects/$($blobOid.Substring(0, 2))/$($blobOid.Substring(2))"
+        )
+        $backup = "$objectPath.harvest-test"
+        Move-Item -LiteralPath $objectPath -Destination $backup
+        try {
+            {
+                & $script:fixture.Script -RepoRoot $script:fixture.Root -PlanReference a1b2c3 `
+                    -PinnedBaseOid $script:fixture.Oid
+            } | Should -Throw '*non-regular or malformed*'
+        }
+        finally {
+            Move-Item -LiteralPath $backup -Destination $objectPath
+        }
+    }
+
     It 'test:PlanFolderPrefix.ConsumerCompatibility resolves a prefixed plan from the pinned tree' {
         $prefixedPlanDir = Join-Path $script:fixture.Root (
             'docs/implementation-plans/standalone-2026-08-09-a1b2c3-harvest-fixture'

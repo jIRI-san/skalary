@@ -149,6 +149,20 @@ flowchart TD
                 -HasUncommittedChanges:$false -Json
             return $json | ConvertFrom-Json -Depth 10 | Select-Object -ExpandProperty Admission
         }
+
+        function Invoke-FixtureHarvest {
+            param(
+                [Parameter(Mandatory)][string]$PlanDir,
+                [Parameter(Mandatory)][string]$Root
+            )
+
+            $output = & pwsh -NoProfile -File $script:phaseHarvest -PlanDir $PlanDir `
+                -RepoRoot $Root -Phase 1 -Src autopilot 2>&1
+            return [pscustomobject]@{
+                ExitCode = $LASTEXITCODE
+                Output = (($output -join "`n") -replace "`e\[[0-9;?]*[ -/]*[@-~]", '')
+            }
+        }
     }
 
     AfterAll {
@@ -213,7 +227,9 @@ flowchart TD
         $missing = New-AdmissionFixture
         Remove-Item -LiteralPath (Join-Path $missing.TargetDir 'assets/intent.md') -Force
         $before = Get-FixtureSnapshot -Root $missing.Root
-        (Get-FixtureAdmission -Root $missing.Root -Reference 'def222').Status | Should -Be 'missing'
+        $missingAdmission = Get-FixtureAdmission -Root $missing.Root -Reference 'def222'
+        $missingAdmission.Status | Should -Be 'missing'
+        $missingAdmission.Reason | Should -Match 'Planning context asset not found'
         (Get-FixtureSnapshot -Root $missing.Root) | Should -BeExactly $before
 
         $ambiguous = New-AdmissionFixture
@@ -229,13 +245,17 @@ flowchart TD
             '<!-- depends-on: depend -->'
         ) | Set-Content -LiteralPath $ambiguous.TargetPlan -Encoding utf8NoBOM -NoNewline
         $before = Get-FixtureSnapshot -Root $ambiguous.Root
-        (Get-FixtureAdmission -Root $ambiguous.Root -Reference 'def222').Status | Should -Be 'ambiguous'
+        $ambiguousAdmission = Get-FixtureAdmission -Root $ambiguous.Root -Reference 'def222'
+        $ambiguousAdmission.Status | Should -Be 'ambiguous'
+        $ambiguousAdmission.Reason | Should -Match 'Ambiguous plan reference'
         (Get-FixtureSnapshot -Root $ambiguous.Root) | Should -BeExactly $before
 
         $stale = New-AdmissionFixture
         Add-Content -LiteralPath (Join-Path $stale.TargetDir 'assets/intent.md') -Value "`nChanged after confirmation."
         $before = Get-FixtureSnapshot -Root $stale.Root
-        (Get-FixtureAdmission -Root $stale.Root -Reference 'def222').Status | Should -Be 'stale-input'
+        $staleAdmission = Get-FixtureAdmission -Root $stale.Root -Reference 'def222'
+        $staleAdmission.Status | Should -Be 'stale-input'
+        $staleAdmission.Reason | Should -Match 'changed after confirmation'
         (Get-FixtureSnapshot -Root $stale.Root) | Should -BeExactly $before
 
         $noRequirements = New-AdmissionFixture
@@ -253,6 +273,20 @@ flowchart TD
         $unknown = Get-FixtureAdmission -Root $unknownRequirement.Root -Reference 'def222'
         $unknown.Status | Should -Be 'missing'
         $unknown.UnknownRequirements | Should -Be @('REQ-9')
+        $unknown.Reason | Should -Match 'unknown requirements: REQ-9'
+
+        $legacy = New-AdmissionFixture
+        (Get-Content -LiteralPath $legacy.TargetPlan -Raw) -replace
+            '(?m)^<!-- planning-confirmed: .+ -->\r?\n', '' |
+            Set-Content -LiteralPath $legacy.TargetPlan -Encoding utf8NoBOM -NoNewline
+        (Get-Content -LiteralPath (Join-Path $legacy.TargetDir 'assets/intent.md') -Raw).Replace(
+            'Deliver one usable vertical increment.',
+            'TBD'
+        ) | Set-Content -LiteralPath (Join-Path $legacy.TargetDir 'assets/intent.md') `
+            -Encoding utf8NoBOM -NoNewline
+        $legacyAdmission = Get-FixtureAdmission -Root $legacy.Root -Reference 'def222'
+        $legacyAdmission.Status | Should -Be 'missing'
+        $legacyAdmission.Reason | Should -Match "Intent section 'Goal'.+TBD"
 
         $earlierPhase = New-AdmissionFixture
         $header = (Get-Content -LiteralPath $earlierPhase.TargetPlan -Raw).Split('## Phase 1')[0]
@@ -364,6 +398,8 @@ $($header.TrimEnd())
         $checkpoint | Should -BeGreaterThan -1
         $continue | Should -BeGreaterThan $checkpoint
         $harvest | Should -BeGreaterThan $continue
+        $guide.Substring($checkpoint, $continue - $checkpoint) |
+            Should -Not -Match 'Invoke-PhaseHarvest\.ps1'
         $guide | Should -Match 'Stop ends the phase flow without invoking harvest'
 
         foreach ($status in @('failed', 'skipped', 'stale', 'unrun', 'degraded')) {
@@ -413,17 +449,14 @@ Phase: 0
             -Phase 1 -Step 1.1 -Src note -Concern architecture-patterns -Requirement REQ-1 `
             -ReviewType none -Message 'usable increment retained after planning capture' | Out-Null
 
-        $result = & $script:phaseHarvest -PlanDir $fixture.TargetDir -RepoRoot $fixture.Root `
-            -Phase 1 -Src autopilot
-
-        $result.Status | Should -Be 'complete'
-        $result.Candidates | Should -Be 1
-        $result.Added | Should -Be 1
+        $result = Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root
+        $result.ExitCode | Should -Be 0
         $receiptPath = Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-001.json'
         $receiptText = Get-Content -LiteralPath $receiptPath -Raw
         $receipt = $receiptText |
             ConvertFrom-Json -Depth 12
         $receipt.schema | Should -Be 'phase-harvest-receipt/v2'
+        @($receipt.payload.candidates).Count | Should -Be 1
         $receiptText | Should -Not -Match ([regex]::Escape($fixture.Root))
         $receipt.payload.repo | Should -Match '^path-sha256:[0-9a-f]{64}$'
         $receipt.payload.repo | Should -Not -Match ([regex]::Escape($fixture.Root))
@@ -441,9 +474,8 @@ No entries for this phase.
             & $script:workflowNote -Kind $kind -PlanDir $invalid.TargetDir -RepoRoot $invalid.Root `
                 -Phase 1 | Out-Null
         }
-        $refused = & $script:phaseHarvest -PlanDir $invalid.TargetDir -RepoRoot $invalid.Root `
-            -Phase 1 -Src autopilot
-        $refused.Status | Should -Be 'degraded'
-        $refused.Note | Should -Match 'Phase 0 is valid only for planning Capture'
+        $refused = Invoke-FixtureHarvest -PlanDir $invalid.TargetDir -Root $invalid.Root
+        $refused.ExitCode | Should -Be 3
+        $refused.Output | Should -Match 'Phase 0 is valid only for planning Capture'
     }
 }
