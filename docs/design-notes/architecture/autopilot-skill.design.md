@@ -33,10 +33,9 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 
 Container and Sandbox carry the "Start from which branch? (Current / main)" follow-up via `-Branch`. Host uses its own `feature/<slug>` worktree and omits the follow-up. **The plan path is not a config field** — `launch.ps1`/`launch-host.ps1` derive `docs/implementation-plans/<PlanSlug>/plan.md` from `-PlanSlug`, so `.autopilot.json` never carries a (stale) plan path.
 
-The selected plan's header controls autonomous extent: `scope: phase` maps to `next-phase`; every
-other current or legacy scope retains `whole-plan`. Both modes invoke the same per-phase autopilot
-agent, so admission and phase-close policy have one owner. `next-phase` stops only after the first
-incomplete phase succeeds and a later launch resumes from checklist progress.
+Launcher-mode selection follows the one-phase autonomy contract in
+[plan-workflow.design.md](plan-workflow.design.md); this skill owns only the user-facing mode
+selection and invocation arguments.
 
 **First-run bootstrap is in-editor only.** When the user picks Autonomous, the skill checks for repo-root `.autopilot.json`; if absent it interviews (runtime, auth target, git provider/auth, build/test, model, context tier, reasoning effort, timeout), writes from `.autopilot.json.example`, then **structurally validates** required fields/types — mirroring `launch.ps1`'s hand-rolled checks. PowerShell 7.6+ can validate draft 2020-12 through `Test-Json -SchemaFile`, but autopilot deliberately retains its hand-rolled config checks because the launcher supports PowerShell 7.0 and must fail consistently before dispatch on every supported host. Headless `launch.ps1` never interviews; it fails loud if the file is missing.
 

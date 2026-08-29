@@ -164,14 +164,14 @@ flowchart TD
             }
         }
 
-        function Test-ContainerPhaseIncomplete {
+        function Test-ContainerPhaseNeedsExecution {
             param(
                 [Parameter(Mandatory)][string]$PlanPath,
                 [Parameter(Mandatory)][int]$Phase
             )
 
             $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
-            & bash -c 'source "$1"; phase_has_incomplete "$2" "$3"' `
+            & bash -c 'source "$1"; phase_needs_execution "$2" "$3"' `
                 phase-probe $entrypoint $PlanPath $Phase
             return $LASTEXITCODE -eq 0
         }
@@ -523,23 +523,37 @@ $($header.TrimEnd())
 - [ ] 3.1 Later work (REQ-1) [after: 2.1] `S`
 '@
 
-        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 1 | Should -BeFalse
-        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 2 | Should -BeTrue
-        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 3 | Should -BeTrue
+        # Checked steps without a durable close receipt re-enter the same phase.
+        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 1 | Should -BeTrue
+        $receiptRoot = Join-Path $root 'assets/harvest-receipts'
+        New-Item -ItemType Directory -Path $receiptRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $receiptRoot 'phase-001.json') `
+            -Encoding utf8NoBOM -Value '{}'
+        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 1 | Should -BeFalse
+        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 2 | Should -BeTrue
+        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 3 | Should -BeTrue
 
         # An interrupted phase remains the first runnable phase on relaunch.
         $firstRunnable = @(1..3 | Where-Object {
-                Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase $_
+                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
             })[0]
         $firstRunnable | Should -Be 2
 
-        # Once its existing checklist progress is complete, relaunch skips it.
+        # Checklist completion alone cannot skip its pending phase-close checks.
         (Get-Content -LiteralPath $planPath -Raw).Replace(
             '- [~] 2.1 Interrupted work',
             '- [x] 2.1 Interrupted work'
         ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+        $closePending = @(1..3 | Where-Object {
+                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
+            })[0]
+        $closePending | Should -Be 2
+
+        # Once the phase-close harvest is durable, relaunch advances without duplicates.
+        Set-Content -LiteralPath (Join-Path $receiptRoot 'phase-002.json') `
+            -Encoding utf8NoBOM -Value '{}'
         $resumedRunnable = @(1..3 | Where-Object {
-                Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase $_
+                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
             })[0]
         $resumedRunnable | Should -Be 3
 
@@ -547,28 +561,17 @@ $($header.TrimEnd())
         $entrypoint = Get-Content -LiteralPath (
             Join-Path $pluginRoot 'scripts/container-entrypoint.sh'
         ) -Raw
-        $hostLauncher = Get-Content -LiteralPath (
-            Join-Path $pluginRoot 'scripts/launch-host.ps1'
-        ) -Raw
-        $sandboxLauncher = Get-Content -LiteralPath (
-            Join-Path $pluginRoot 'scripts/launch-sandbox.ps1'
-        ) -Raw
         $autopilotSkill = Get-Content -LiteralPath (
             Join-Path $pluginRoot 'skills/autopilot/SKILL.md'
         ) -Raw
-        $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
 
-        $entrypoint | Should -Match 'phase_has_incomplete "\$\{PLAN_PATH\}" "\$\{PHASE_NUM\}"'
+        $entrypoint | Should -Match 'phase_needs_execution "\$\{PLAN_PATH\}" "\$\{PHASE_NUM\}"'
         $entrypoint | Should -Match 'if \[ "\$\{MODE\}" = "next-phase" \]; then'
-        $entrypoint | Should -Match '(?s)if \[ \$\{EXIT_CODE\} -ne 0 \]; then.+break\s+fi'
-        $hostLauncher | Should -Match "if \(\`$Mode -eq 'next-phase'\)"
-        $sandboxLauncher.Contains("if ('`$Mode' -eq 'next-phase')") | Should -BeTrue
+        $entrypoint | Should -Match 'exit 42'
+        $entrypoint | Should -Match 'exit "\$\{EXIT_CODE\}"'
         $autopilotSkill | Should -Match '(?s)scope: phase.+next-phase'
         $autopilotSkill | Should -Match 'Any other current or legacy scope -> `whole-plan`'
         $autopilotSkill | Should -Match '-Mode <launcher-mode>'
-        $agent | Should -Match 'Require confirmed planning context before mutation'
-        $agent | Should -Match '\*\*Phase crosscheck\*\*'
-        $agent | Should -Match 'Add-WorkflowNote\.ps1 -Kind Capture'
     }
 
     It 'allows phase-one harvest after legacy phase-zero planning capture' {

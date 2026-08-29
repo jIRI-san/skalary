@@ -32,6 +32,26 @@ phase_has_incomplete() {
     ' "${plan_path}"
 }
 
+phase_has_harvest_receipt() {
+    local plan_path="$1"
+    local phase_number="$2"
+    local plan_dir
+    local receipt_name
+
+    plan_dir="$(dirname "${plan_path}")"
+    receipt_name="$(printf 'phase-%03d.json' "${phase_number}")"
+    [ -f "${plan_dir}/assets/harvest-receipts/${receipt_name}" ] ||
+        [ -f "${plan_dir}/harvest-receipts/${receipt_name}" ]
+}
+
+phase_needs_execution() {
+    local plan_path="$1"
+    local phase_number="$2"
+
+    phase_has_incomplete "${plan_path}" "${phase_number}" ||
+        ! phase_has_harvest_receipt "${plan_path}" "${phase_number}"
+}
+
 # Expose the pure phase-progress probe to focused tests without running bootstrap.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -206,10 +226,10 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     echo ""
     echo "=== Phase ${PHASE_NUM} (of ${PHASE_COUNT} total) ==="
 
-    # Completed phases stay skipped on resume; the phase agent owns admission and
-    # phase-close checks for the first phase that still has checklist work.
-    if ! phase_has_incomplete "${PLAN_PATH}" "${PHASE_NUM}"; then
-        echo "Phase ${PHASE_NUM}: all steps complete — skipping."
+    # A phase is closed only after both its checklist and durable harvest complete.
+    # Missing close state re-enters the same phase agent instead of skipping ahead.
+    if ! phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}"; then
+        echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
         continue
     fi
 
@@ -275,7 +295,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         if [ ${EXIT_CODE} -eq 42 ]; then
             echo "@human step encountered — stopping."
             git push origin "${WORK_BRANCH}" || true
-            break
+            exit 42
         fi
         if [ ${EXIT_CODE} -eq 43 ]; then
             # Offline rebundle requested: the agent committed the package
@@ -288,7 +308,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
         fi
         # Preserve partial progress but never build a later phase on an interrupted one.
         git push origin "${WORK_BRANCH}" || true
-        break
+        exit "${EXIT_CODE}"
     fi
 
     echo "Phase ${PHASE_NUM} complete."
