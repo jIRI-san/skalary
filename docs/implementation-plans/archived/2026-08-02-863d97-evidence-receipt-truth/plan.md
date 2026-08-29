@@ -1,4 +1,4 @@
-# 863d97: Evidence and receipt truth
+# 863d97: Evidence and receipt truth [DONE]
 <!-- plan-id: 863d97 -->
 <!-- cip-stage: dr-round-3 -->
 <!-- epic: 33b1f9 -->
@@ -53,7 +53,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 4.1 Review outcome mapping, waiver exactness, focused structured output, receipt rendering, installed parity, and finalization blocking before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) @human [after: 3.1] `S`
+- [x] 4.1 Review outcome mapping, waiver exactness, focused structured output, receipt rendering, installed parity, and finalization blocking before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) @human [after: 3.1] `S`
   <details><summary>Details</summary>
 
   **Steps:**
