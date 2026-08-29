@@ -23,7 +23,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 1.1 Add one resolver beside `Get-PlanIndex.ps1` that accepts already resolved plan IDs and allowlisted artifact kinds, then uses existing plan inventory, layout resolution, and asset-path resolution to return content plus source metadata (REQ-1, RISK-1, RISK-2) `M`
-- [ ] 1.2 Enforce canonical plan confinement, regular-file checks, per-artifact and total byte bounds, deterministic ordering, and explicit missing/refused results while treating all returned content as untrusted historical input (REQ-2, RISK-1, RISK-2) [after: 1.1] `M`
+- [x] 1.2 Enforce canonical plan confinement, regular-file checks, per-artifact and total byte bounds, deterministic ordering, and explicit missing/refused results while treating all returned content as untrusted historical input (REQ-2, RISK-1, RISK-2) [after: 1.1] `M`
 
 ## Phase 2: Shared consumer path and provenance
 <!-- worktree: (recorded by /ci when worktree is created) -->
