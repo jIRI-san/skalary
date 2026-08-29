@@ -439,18 +439,17 @@ if (`$rebundleRequested) {
     Log "FATAL: `$_"
     `$runExitCode = 1
 } finally {
-    # Signal the host poll that the bootstrap finished (success or failure) so it
-    # is released immediately instead of waiting out the timeout. Always fires.
-    New-Item -ItemType File -Path (Join-Path `$SessionPath '.bootstrap-complete') -Force | Out-Null
     # Copy transcripts and any useful debug output to session dir (survives sandbox teardown)
     Get-ChildItem -Path C:\work -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
-        Copy-Item -Destination `$SessionPath -Force
+        Copy-Item -Destination `$SessionPath -Force -ErrorAction SilentlyContinue
     # Copy copilot CLI logs if they exist
     if (Test-Path "`$env:TEMP\.copilot") {
         Copy-Item -Path "`$env:TEMP\.copilot" -Destination (Join-Path `$SessionPath 'copilot-logs') -Recurse -Force -ErrorAction SilentlyContinue
     }
     Set-Content -Path (Join-Path `$SessionPath '.autopilot-exit-code') `
         -Value `$runExitCode -NoNewline -Encoding ASCII
+    # Publish the completion sentinel last so the host always observes the terminal outcome first.
+    New-Item -ItemType File -Path (Join-Path `$SessionPath '.bootstrap-complete') -Force | Out-Null
     Start-Sleep -Seconds 3
     shutdown /s /t 0
 }

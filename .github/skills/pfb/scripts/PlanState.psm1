@@ -601,8 +601,10 @@ function Get-PlanMetadata {
             $parenMatches = [regex]::Matches($body, '\((?<refs>[^)]*)\)')
             foreach ($parenMatch in $parenMatches) {
                 $candidateRefs = @($parenMatch.Groups['refs'].Value.Split(',') | ForEach-Object { $_.Trim() })
-                if ($candidateRefs -match '^REQ-\d+$' -or $candidateRefs -match '^RISK-\d+$') {
-                    $refs = @($candidateRefs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                foreach ($candidateRef in $candidateRefs) {
+                    if ($candidateRef -match '^(?:REQ|RISK)-\d+$' -and $refs -notcontains $candidateRef) {
+                        $refs += $candidateRef
+                    }
                 }
             }
 
@@ -1650,6 +1652,16 @@ function Get-PhaseAdmission {
     foreach ($token in @($Markers.DependsOn)) {
         try {
             $dependency = Resolve-Plan -Reference $token -RepoRoot $RepoRoot -Inventory $Inventory
+            $dependencyPlanPath = Join-Path $dependency.Path 'plan.md'
+            if (-not (Test-Path -LiteralPath $dependencyPlanPath -PathType Leaf)) {
+                throw "Dependency plan file not found: $dependencyPlanPath"
+            }
+            $dependencyMetadata = Get-PlanMetadata `
+                -Path $dependencyPlanPath -RepoRoot $RepoRoot
+            $dependencyProgress = Get-PlanProgress -Metadata $dependencyMetadata
+            if (-not ($dependency.IsArchived -or $dependencyProgress.IsComplete)) {
+                $unmetDependencies.Add([string]$dependency.Id)
+            }
         }
         catch {
             $message = $_.Exception.Message
@@ -1661,13 +1673,6 @@ function Get-PhaseAdmission {
             }
             $reason = "Dependency '$token' could not be resolved: $message"
             break
-        }
-
-        $dependencyMetadata = Get-PlanMetadata `
-            -Path (Join-Path $dependency.Path 'plan.md') -RepoRoot $RepoRoot
-        $dependencyProgress = Get-PlanProgress -Metadata $dependencyMetadata
-        if (-not ($dependency.IsArchived -or $dependencyProgress.IsComplete)) {
-            $unmetDependencies.Add([string]$dependency.Id)
         }
     }
 

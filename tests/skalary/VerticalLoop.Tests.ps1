@@ -282,6 +282,30 @@ flowchart TD
         $stepAdmission.Reason | Should -Match 'unmet prerequisites: 9\.9'
         (Get-FixtureSnapshot -Root $blockedByStep.Root) | Should -BeExactly $before
 
+        $malformedDependency = New-AdmissionFixture
+        $inventory = @(Get-PlanInventory -RepoRoot $malformedDependency.Root)
+        $target = Resolve-Plan -Reference 'def222' -RepoRoot $malformedDependency.Root -Inventory $inventory
+        $targetMetadata = Get-PlanMetadata -Path $malformedDependency.TargetPlan -RepoRoot $malformedDependency.Root
+        $targetMarkers = Get-PlanHeaderMarkers -Path $malformedDependency.TargetPlan
+        $targetNext = Get-NextStep -Metadata $targetMetadata -HasUncommittedChanges:$false
+        $targetContext = Get-PlanningContextState -PlanDir $target.Path -RepoRoot $malformedDependency.Root `
+            -Inventory $inventory
+        Remove-Item -LiteralPath (Join-Path $malformedDependency.DependencyDir 'plan.md') -Force
+        $dependencyError = Get-PhaseAdmission -Plan $target -Metadata $targetMetadata `
+            -Markers $targetMarkers -NextStep $targetNext -PlanningContext $targetContext `
+            -Inventory $inventory -RepoRoot $malformedDependency.Root
+        $dependencyError.Status | Should -Be 'missing'
+        $dependencyError.Reason | Should -Match "Dependency 'abc111' could not be resolved"
+
+        $multipleRefGroups = New-AdmissionFixture
+        (Get-Content -LiteralPath $multipleRefGroups.TargetPlan -Raw).Replace(
+            '(REQ-1, RISK-1)',
+            '(vertical context) (REQ-1) (RISK-1)'
+        ) | Set-Content -LiteralPath $multipleRefGroups.TargetPlan -Encoding utf8NoBOM -NoNewline
+        $multipleGroupAdmission = Get-FixtureAdmission -Root $multipleRefGroups.Root -Reference 'def222'
+        $multipleGroupAdmission.Status | Should -Be 'ready'
+        $multipleGroupAdmission.ApplicableRequirements | Should -Be @('REQ-1')
+
         $missing = New-AdmissionFixture
         Remove-Item -LiteralPath (Join-Path $missing.TargetDir 'assets/intent.md') -Force
         $before = Get-FixtureSnapshot -Root $missing.Root
@@ -465,11 +489,12 @@ $($header.TrimEnd())
             $options.CanContinue | Should -BeFalse
             $options.Options | Should -Be @('Revise', 'Stop')
         }
-        foreach ($uncertainty in @('contract', 'end-user experience', 'security', 'irreversible structure')) {
-            $options = Get-PhaseCheckpointOptions -EvidenceStatus passed -HasHighImpactUncertainty
-            $options.CanContinue | Should -BeFalse -Because "$uncertainty uncertainty blocks continuation"
-            $options.Options | Should -Be @('Revise', 'Stop')
-        }
+        $uncertain = Get-PhaseCheckpointOptions -EvidenceStatus passed -HasHighImpactUncertainty
+        $uncertain.CanContinue | Should -BeFalse -Because 'any high-impact uncertainty blocks continuation'
+        $uncertain.Options | Should -Be @('Revise', 'Stop')
+        $mixed = Get-PhaseCheckpointOptions -EvidenceStatus passed, failed
+        $mixed.CanContinue | Should -BeFalse
+        $mixed.Options | Should -Be @('Revise', 'Stop')
         $green = Get-PhaseCheckpointOptions -EvidenceStatus passed, waived
         $green.CanContinue | Should -BeTrue
         $green.Options | Should -Be @('Continue', 'Revise', 'Stop')
@@ -640,6 +665,8 @@ $($header.TrimEnd())
             Should -Be 'phase-complete-continue'
         Get-ContainerDispatchAction -Mode next-phase -ExitCode 42 -CloseState -1 |
             Should -Be 'human-stop'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 43 -CloseState -1 |
+            Should -Be 'rebundle'
         Get-ContainerDispatchAction -Mode next-phase -ExitCode 7 -CloseState -1 |
             Should -Be 'phase-failed'
         Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 0 |

@@ -61,6 +61,13 @@ Describe 'Autopilot.SandboxOffline' {
             # Once in the host clear-markers, once in the bootstrap finally.
             ([regex]::Matches($sandbox, [regex]::Escape('.bootstrap-complete')).Count) |
                 Should -BeGreaterThan 1
+            $finallyStart = $sandbox.IndexOf('} finally {', [System.StringComparison]::Ordinal)
+            $bootstrapEnd = $sandbox.IndexOf('"@', $finallyStart, [System.StringComparison]::Ordinal)
+            $finallyBlock = $sandbox.Substring($finallyStart, $bootstrapEnd - $finallyStart)
+            $exitMarker = $finallyBlock.IndexOf('.autopilot-exit-code', [System.StringComparison]::Ordinal)
+            $completionSentinel = $finallyBlock.IndexOf('.bootstrap-complete', [System.StringComparison]::Ordinal)
+            $exitMarker | Should -BeGreaterThan -1
+            $completionSentinel | Should -BeGreaterThan $exitMarker
         }
         It 'keeps the existing exit-42 @human branch' {
             $sandbox.Contains('-eq 42') | Should -BeTrue
