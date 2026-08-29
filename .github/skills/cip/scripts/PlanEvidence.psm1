@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -DisableNameChecking
 
 $script:PlanEvidenceOutcomes = @('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')
 

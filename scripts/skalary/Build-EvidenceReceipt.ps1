@@ -20,10 +20,10 @@ $ErrorActionPreference = 'Stop'
 $receiptPath = $null
 $metadata = $null
 if ($PlanDir) {
-    Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+    Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -DisableNameChecking
     $metadata = Get-PlanMetadata -Path (Join-Path $PlanDir 'plan.md') -RepoRoot $RepoRoot
 }
-Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -DisableNameChecking
 if ($metadata) {
     $receiptPath = Resolve-PlanEvidenceAssetPath -PlanMetadata $metadata -Kind Evidence
 }

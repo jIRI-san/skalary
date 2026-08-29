@@ -689,6 +689,8 @@ Describe 'Plan assets layout' {
                 # The formatter stays pure: it resolves the path but never writes it.
                 Test-Path -LiteralPath $assetsReceipt.ReceiptPath | Should -BeFalse
                 $assetsReceipt.Text | Should -Be $legacyReceipt.Text
+                Get-Command Get-PlanLayout -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+                Get-Command Resolve-PlanAssetPath -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
