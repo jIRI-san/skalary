@@ -525,9 +525,9 @@ function Assert-FinalizedReviewReceipt {
     if ($receipt['runId'] -cne $RunId) {
         throw 'Finalized review receipt run identity does not match its file name.'
     }
-    if ([string]$receipt['reviewType'] -notin @('code', 'design') -or
-        [string]$receipt['verdict'] -notin @('approved', 'blocked') -or
-        [string]$receipt['state'] -notin @('clean', 'degraded') -or
+    if ([string]$receipt['reviewType'] -cnotin @('code', 'design') -or
+        [string]$receipt['verdict'] -cnotin @('approved', 'blocked') -or
+        [string]$receipt['state'] -cnotin @('clean', 'degraded') -or
         $receipt['legacySource'] -isnot [bool]) {
         throw 'Finalized review receipt has invalid review state metadata.'
     }
@@ -556,10 +556,24 @@ function Assert-FinalizedReviewReceipt {
     if ($source -isnot [System.Collections.IDictionary]) {
         throw 'Finalized review receipt source binding is not an object.'
     }
+    if ($source['mode'] -isnot [string] -or
+        [string]$source['mode'] -cnotin @('branch', 'uncommitted', 'paths', 'design')) {
+        throw 'Finalized review receipt has an invalid source mode.'
+    }
     $sourceKeys = @('mode', 'pathCount', 'digest')
-    if ($source.Contains('base')) { $sourceKeys += 'base' }
-    if ($source.Contains('head')) { $sourceKeys += 'head' }
+    if ($source['mode'] -ceq 'branch') {
+        $sourceKeys += @('base', 'head')
+    }
     Assert-ExactObjectKeys -Value $source -Name 'Finalized review source binding' -Expected $sourceKeys
+    if ($source['mode'] -ceq 'branch') {
+        foreach ($field in @('base', 'head')) {
+            if ($source[$field] -isnot [string] -or
+                [string]::IsNullOrWhiteSpace([string]$source[$field]) -or
+                ([string]$source[$field]).Length -gt 256) {
+                throw "Finalized review receipt source field '$field' is invalid."
+            }
+        }
+    }
     $null = Get-NonNegativeReceiptInteger -Value $source['pathCount'] -Name 'source.pathCount'
     if ([string]$source['digest'] -cnotmatch '^sha256:[0-9a-f]{64}$') {
         throw 'Finalized review receipt has invalid source metadata.'
@@ -757,7 +771,7 @@ foreach ($id in $ids) {
                         $reviewOverflow = $true
                         break
                     }
-                    if ([System.IO.Path]::GetFileName($reviewPath) -notmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
+                    if ([System.IO.Path]::GetFileName($reviewPath) -cnotmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
                         continue
                     }
                     $reviewPaths.Add($reviewPath)
@@ -773,7 +787,7 @@ foreach ($id in $ids) {
                 $finalizedCount = 0
                 foreach ($reviewPath in $reviewPaths) {
                     $reviewName = [System.IO.Path]::GetFileName($reviewPath)
-                    if ($reviewName -notmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
+                    if ($reviewName -cnotmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
                         throw "Bounded review candidate '$reviewName' does not match the finalized review grammar."
                     }
                     $finalizedCount++

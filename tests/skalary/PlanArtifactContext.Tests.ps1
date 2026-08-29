@@ -261,6 +261,35 @@ Describe 'Get-PlanArtifactContext' {
             $exactTotal.status | Should -Be 'accepted'
             $exactTotal.byteCount | Should -Be $pair.PairBytes
 
+            $branchReceipt = Get-Content -LiteralPath $pair.ReceiptPath -Raw | ConvertFrom-Json -AsHashtable
+            $branchReceipt['source']['mode'] = 'branch'
+            $branchReceipt['source']['base'] = 'main'
+            $branchReceipt['source']['head'] = 'HEAD'
+            Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value (
+                $branchReceipt | ConvertTo-Json -Depth 10 -Compress
+            )
+            $branchSource = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses)
+            $branchSource.status | Should -Be 'accepted'
+
+            foreach ($mode in @('uncommitted', 'design')) {
+                $modePair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+                $modeReceipt = Get-Content -LiteralPath $modePair.ReceiptPath -Raw | ConvertFrom-Json -AsHashtable
+                $modeReceipt['source']['mode'] = $mode
+                Set-Content -LiteralPath $modePair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value (
+                    $modeReceipt | ConvertTo-Json -Depth 10 -Compress
+                )
+                $modeResult = @(& $resolver `
+                        -RepoRoot $root `
+                        -PlanId a1b2c3 `
+                        -ArtifactKind Reviews `
+                        -Relationship reuses)
+                $modeResult.status | Should -Be 'accepted'
+            }
+
             $overTotal = @(& $resolver `
                     -RepoRoot $root `
                     -PlanId a1b2c3 `
@@ -290,7 +319,14 @@ Describe 'Get-PlanArtifactContext' {
                     'source-count-fraction',
                     'attendance-boolean',
                     'findings-null',
-                    'severity-overflow'
+                    'severity-overflow',
+                    'source-mode-invalid',
+                    'source-mode-nonstring',
+                    'branch-missing-head',
+                    'paths-with-base',
+                    'review-type-case',
+                    'verdict-case',
+                    'state-case'
                 )) {
                 $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
                 $receipt = Get-Content -LiteralPath $pair.ReceiptPath -Raw | ConvertFrom-Json -AsHashtable
@@ -305,6 +341,13 @@ Describe 'Get-PlanArtifactContext' {
                     'attendance-boolean' { $receipt['attendance']['completed'] = $true }
                     'findings-null' { $receipt['findings']['merged'] = $null }
                     'severity-overflow' { $receipt['findings']['severity']['low'] = 1e30 }
+                    'source-mode-invalid' { $receipt['source']['mode'] = 'commit' }
+                    'source-mode-nonstring' { $receipt['source']['mode'] = 1 }
+                    'branch-missing-head' { $receipt['source']['mode'] = 'branch' }
+                    'paths-with-base' { $receipt['source']['base'] = 'main' }
+                    'review-type-case' { $receipt['reviewType'] = 'Code' }
+                    'verdict-case' { $receipt['verdict'] = 'Approved' }
+                    'state-case' { $receipt['state'] = 'Clean' }
                 }
                 Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value (
                     $receipt | ConvertTo-Json -Depth 10 -Compress
@@ -562,7 +605,17 @@ Describe 'Get-PlanArtifactContext' {
                 InstalledResolver = '.github/skills/dr/scripts/Get-PlanArtifactContext.ps1'
             }
         )
+        $resolverText = Get-Content -LiteralPath $canonicalResolver -Raw
+        $relationshipBlock = [regex]::Match(
+            $resolverText,
+            '(?s)\$relationshipValues\s*=\s*@\((?<values>.*?)\)'
+        )
+        $relationshipBlock.Success | Should -BeTrue
         $closedRelationships = @(
+            [regex]::Matches($relationshipBlock.Groups['values'].Value, "'(?<value>[^']+)'") |
+                ForEach-Object { $_.Groups['value'].Value }
+        )
+        $closedRelationships | Should -Be @(
             'reuses', 'extends', 'supersedes', 'conflicts', 'dependency', 'sibling', 'operator-selected'
         )
         foreach ($contract in $consumerContracts) {
@@ -575,15 +628,36 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'one bounded invocation'
             $text | Should -Match 'align(?:ing)?\s+each\s+`Relationship`\s+value\s+with\s+the\s+`PlanId`'
             $text | Should -Match '(?i)-Format Json'
-            $text | Should -Match '(?i)parse the returned JSON array'
-            foreach ($relationship in $closedRelationships) {
-                $text | Should -Match ([regex]::Escape($relationship))
-            }
+            $text | Should -Match '(?i)parse\s+the\s+returned\s+JSON\s+array'
+            $text | Should -Match 'resolver''s\s+closed\s+`Relationship`'
         }
 
-        $resolverText = Get-Content -LiteralPath $canonicalResolver -Raw
-        foreach ($relationship in $closedRelationships) {
-            $resolverText | Should -Match ("'" + [regex]::Escape($relationship) + "'")
+        $cipGuide = Get-Content -LiteralPath (
+            Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md'
+        ) -Raw
+        $relationshipTable = [regex]::Match(
+            $cipGuide,
+            '(?s)\| Relationship \| What to record \|(?<rows>.*?)\r?\n\r?\nRecord provenance'
+        )
+        $relationshipTable.Success | Should -BeTrue
+        $documentedRelationships = @(
+            [regex]::Matches(
+                $relationshipTable.Groups['rows'].Value,
+                '(?m)^\|\s*(?<value>[A-Za-z][A-Za-z-]*)\s*\|'
+            ) |
+                ForEach-Object { $_.Groups['value'].Value.ToLowerInvariant() }
+        )
+        $documentedRelationships | Should -Be $closedRelationships
+
+        foreach ($skillPath in @(
+                'plugins/create-implementation-plan/skills/cip/SKILL.md'
+                'plugins/create-implementation-plan/skills/cep/SKILL.md'
+            )) {
+            $skillText = Get-Content -LiteralPath (Join-Path $repoRoot $skillPath) -Raw
+            $architectureIndex = $skillText.IndexOf('docs/architecture-notes/.architecture-notes.md')
+            $designIndex = $skillText.IndexOf('docs/design-notes/.design-notes.md')
+            $architectureIndex | Should -BeGreaterOrEqual 0
+            $designIndex | Should -BeGreaterThan $architectureIndex
         }
 
         foreach ($schemaName in @('review-plan.schema.json', 'review-run.schema.json')) {

@@ -23,7 +23,8 @@ context: fork
 
 ## Step 1: Load context and resolve the epic
 
-1. Read `docs/design-notes/.design-notes.md` and load design notes for the subsystems the goal touches.
+1. Read `docs/architecture-notes/.architecture-notes.md` when present and load touched contracts,
+   then read `docs/design-notes/.design-notes.md` and load notes for the subsystems the goal touches.
 2. **Consult the cross-plan index, never the plan corpus** to discover bounded active and archived
    candidates:
 
