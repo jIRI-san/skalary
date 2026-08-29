@@ -1,9 +1,9 @@
 ## Capture
 Phase: 1
 
-- [1.1] [src:note] interview: execution status is immutable and separate from gate disposition; only an exact policy may waive skipped or mixed pass-skip evidence
-- [1.3] [src:note] interview: one focused Pester runner executes every exact test-id match from committed suite scope and preserves skipped, degraded, missing, and error outcomes
-- [1.1] [src:note] [sev:Critical] dr: a digest allowlist can omit the dependency that invalidates evidence; hash all tracked inputs and use only a closed lifecycle-output exclusion list
+- [1.1] [src:note] [concern:correctness-reliability] [req:REQ-1,REQ-2] [review:dr] [source-record:656a540dbf6222d6ed9de3d5ccf44dee1141125786654b82fd8f8e1d7f437d27] interview: execution status is immutable and separate from gate disposition; only an exact policy may waive skipped or mixed pass-skip evidence
+- [1.3] [src:note] [concern:testing-evidence] [req:REQ-3] [review:dr] [source-record:4c078aa465ea9e43f85dad84a599511660315b53b0b7058d2d344ad6f17a4e58] interview: one focused Pester runner executes every exact test-id match from committed suite scope and preserves skipped, degraded, missing, and error outcomes
+- [1.1] [src:note] [sev:Critical] [concern:correctness-reliability] [req:REQ-4] [review:dr] [source-record:1579cdbbf9fa0193b24ab881689bc8246b5cf0ec721943502df94beea7cc1cfa] dr: a digest allowlist can omit the dependency that invalidates evidence; hash all tracked inputs and use only a closed lifecycle-output exclusion list
 
 ## Capture
 Phase: 3
