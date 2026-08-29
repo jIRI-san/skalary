@@ -18,3 +18,4 @@ Phase: 1
 Phase: 2
 
 - [2.1] [src:note] [concern:architecture-patterns] [req:REQ-3,REQ-4] [review:none] [source-record:77931f35afda64af1d54681979d346664a413d68ca8df0bb094cb364ed77dfd2] decision=reuse the closed Add-WorkflowNote kinds; lower-impact uncertainty=checkpoint wording may evolve within the existing Capture grammar; high-impact uncertainty=none; checkpoint outcome=REQ-3 and REQ-4 focused evidence passed
+- [2.2] [src:note] [concern:architecture-patterns] [req:REQ-2,REQ-5] [review:none] [source-record:6bbf1b67585cf9d152280118ea6a5b30c885f6c615eac3ec4544422cab376510] decision=map scope phase to next-phase and keep the existing autopilot agent as admission and phase-close owner; lower-impact uncertainty=none; high-impact uncertainty=none; checkpoint outcome=REQ-2 and REQ-5 focused evidence passed

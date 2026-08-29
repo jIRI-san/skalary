@@ -61,6 +61,9 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Builds image from `.github/skills/autopilot/devcontainer/Dockerfile`
 - Passes auth via env file (prepared by `prepare-env-file.ps1`)
 - Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
+- `next-phase` skips completed phase sections, delegates the first incomplete phase to the same
+  autopilot agent admission/phase-close flow, and stops only after that invocation succeeds;
+  interrupted checklist work remains first on the next launch
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
 

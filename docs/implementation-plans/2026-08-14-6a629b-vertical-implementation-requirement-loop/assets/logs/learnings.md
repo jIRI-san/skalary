@@ -6,4 +6,4 @@ Phase: 1
 ## Learnings Capture
 Phase: 2
 
-No entries for this phase.
+- [2.2] [trigger:reusable-pattern] [concern:testing-evidence] [req:REQ-5] [review:none] [source-record:99ab4afc5aec14e4da0495b322552275abb0361fef6ab646d83b1b610ef62fb1] A sourceable pure phase-progress probe tests container stop and resume behavior without bootstrapping clone or authentication.

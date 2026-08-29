@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T09:40:24.3089454Z",
+  "generatedAt": "2026-08-29T09:51:32.2123969Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -182,7 +182,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "b18008db7f554c93ff96aecc1d3bd141f787447acb0a25208b2836ff381b6732",
+          "sha256": "a84041eef64a9bef87eec9e4eb9468aa59eeb2882bf95f8856fd3f5d54e3c428",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -267,7 +267,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "5edbc25ecd7d99b2fe8dc0559065e02367ceb04473e3c14dbd0eda81a8923167",
+          "sha256": "8edc367b01bd78556ce9d829de089036e147f84ef4b612846f6bae5fee2d0631",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -341,7 +341,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.33"
+      "version": "1.2.34"
     },
     {
       "author": "jIRI-san",
@@ -525,7 +525,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "79c6c1a1c376da05dea2dd5b0b953a7d733847916efbf0e27c0ea3104cb68fb4",
+          "sha256": "964241babfce1eaefa3e573597f6a6fd82d361f5d330bffb03c6cb68b1c7eeb6",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {

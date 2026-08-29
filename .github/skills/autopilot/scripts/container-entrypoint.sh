@@ -10,6 +10,33 @@
 #   COPILOT_MODEL — model override
 #   REPO_REMOTE — git remote URL to clone
 
+phase_has_incomplete() {
+    local plan_path="$1"
+    local phase_number="$2"
+
+    awk -v phase="${phase_number}" '
+        $0 ~ ("^## Phase " phase "([^0-9]|$)") {
+            in_phase = 1
+            next
+        }
+        in_phase && /^## Phase [0-9]+/ {
+            exit
+        }
+        in_phase && /^- \[( |~)\]/ {
+            found = 1
+            exit
+        }
+        END {
+            exit(found ? 0 : 1)
+        }
+    ' "${plan_path}"
+}
+
+# Expose the pure phase-progress probe to focused tests without running bootstrap.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+fi
+
 set -euo pipefail
 
 PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
@@ -179,9 +206,10 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     echo ""
     echo "=== Phase ${PHASE_NUM} (of ${PHASE_COUNT} total) ==="
 
-    # Check if phase has uncompleted steps
-    if ! grep -q '^\- \[ \]\|^\- \[\~\]' "${PLAN_PATH}"; then
-        echo "No uncompleted steps remain — skipping."
+    # Completed phases stay skipped on resume; the phase agent owns admission and
+    # phase-close checks for the first phase that still has checklist work.
+    if ! phase_has_incomplete "${PLAN_PATH}" "${PHASE_NUM}"; then
+        echo "Phase ${PHASE_NUM}: all steps complete — skipping."
         continue
     fi
 
@@ -258,11 +286,16 @@ for PHASE_NUM in ${PHASE_NUMS}; do
             git push origin "${WORK_BRANCH}"
             exit 43
         fi
-        # Non-zero but not @human — push what landed, then continue for partial progress
+        # Preserve partial progress but never build a later phase on an interrupted one.
         git push origin "${WORK_BRANCH}" || true
+        break
     fi
 
     echo "Phase ${PHASE_NUM} complete."
+    if [ "${MODE}" = "next-phase" ]; then
+        echo "Mode is 'next-phase' — stopping after Phase ${PHASE_NUM}."
+        break
+    fi
 done
 
 echo ""

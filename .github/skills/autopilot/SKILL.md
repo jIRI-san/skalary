@@ -79,13 +79,22 @@ Exit-code round-trip (distinct from the `42` @human stop):
 
 ## Launcher invocations
 
+Derive `<launcher-mode>` from the selected plan's header before invoking the launcher:
+
+- `<!-- scope: phase -->` -> `next-phase`
+- Any other current or legacy scope -> `whole-plan`
+
+`next-phase` still delegates admission, implementation, and phase-close checks to the same autopilot
+agent. The launcher stops only after that one phase succeeds; a later invocation resumes from the
+existing checklist without another checkpoint format.
+
 Use the installed launcher path and the delivered signature:
 
 - Host:
-  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode whole-plan -Runtime host`
+  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode <launcher-mode> -Runtime host`
 - Container:
-  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode whole-plan -Runtime container -Branch <chosen-branch>`
+  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode <launcher-mode> -Runtime container -Branch <chosen-branch>`
 - Sandbox:
-  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode whole-plan -Runtime sandbox -Branch <chosen-branch>`
+  - `.github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode <launcher-mode> -Runtime sandbox -Branch <chosen-branch>`
 
 After invoking, print: **Autonomous execution started — exit /ci flow.**

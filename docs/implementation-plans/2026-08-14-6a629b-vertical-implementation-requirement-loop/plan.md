@@ -31,7 +31,7 @@
 <!-- worktree: feature/2026-08-14-6a629b-vertical-implementation-requirement-loop -->
 
 - [x] 2.1 Capture decisions, lower-impact uncertainty, and checkpoint outcome through existing `Add-WorkflowNote` kinds; keep contract, user-experience, security, and irreversible-structure uncertainty as an operator checkpoint (REQ-3, REQ-4, RISK-3) [after: 1.2] `M`
-- [ ] 2.2 Route autopilot `next-phase` through the same admission and phase-close checks, then stop after one phase and resume from existing plan progress without a second checkpoint format (REQ-2, REQ-5, RISK-2, RISK-4) [after: 2.1] `M`
+- [x] 2.2 Route autopilot `next-phase` through the same admission and phase-close checks, then stop after one phase and resume from existing plan progress without a second checkpoint format (REQ-2, REQ-5, RISK-2, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Complete-plan integration and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->

@@ -163,6 +163,18 @@ flowchart TD
                 Output = (($output -join "`n") -replace "`e\[[0-9;?]*[ -/]*[@-~]", '')
             }
         }
+
+        function Test-ContainerPhaseIncomplete {
+            param(
+                [Parameter(Mandatory)][string]$PlanPath,
+                [Parameter(Mandatory)][int]$Phase
+            )
+
+            $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
+            & bash -c 'source "$1"; phase_has_incomplete "$2" "$3"' `
+                phase-probe $entrypoint $PlanPath $Phase
+            return $LASTEXITCODE -eq 0
+        }
     }
 
     AfterAll {
@@ -485,6 +497,78 @@ $($header.TrimEnd())
         ) -Raw
         $guide | Should -Match 'Capturing uncertainty never resolves it or changes its impact class'
         $guide | Should -Match 'Do not add a checkpoint kind, checkpoint file, parser, or parallel'
+    }
+
+    It 'test:VerticalLoop.AutopilotNextPhase stops after one checked phase and resumes from checklist progress' {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) (
+            'vertical-loop-autopilot-' + [guid]::NewGuid().ToString('N')
+        )
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+        $script:tempRoots.Add($root)
+        $planPath = Join-Path $root 'plan.md'
+        Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -Value @'
+# abc123: Next phase fixture
+<!-- plan-id: abc123 -->
+
+## Phase 1: Complete
+
+- [x] 1.1 Complete work (REQ-1) `S`
+
+## Phase 2: Current
+
+- [~] 2.1 Interrupted work (REQ-1) [after: 1.1] `S`
+
+## Phase 3: Later
+
+- [ ] 3.1 Later work (REQ-1) [after: 2.1] `S`
+'@
+
+        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 1 | Should -BeFalse
+        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 2 | Should -BeTrue
+        Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase 3 | Should -BeTrue
+
+        # An interrupted phase remains the first runnable phase on relaunch.
+        $firstRunnable = @(1..3 | Where-Object {
+                Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase $_
+            })[0]
+        $firstRunnable | Should -Be 2
+
+        # Once its existing checklist progress is complete, relaunch skips it.
+        (Get-Content -LiteralPath $planPath -Raw).Replace(
+            '- [~] 2.1 Interrupted work',
+            '- [x] 2.1 Interrupted work'
+        ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+        $resumedRunnable = @(1..3 | Where-Object {
+                Test-ContainerPhaseIncomplete -PlanPath $planPath -Phase $_
+            })[0]
+        $resumedRunnable | Should -Be 3
+
+        $pluginRoot = Join-Path $script:repoRoot 'plugins/autopilot'
+        $entrypoint = Get-Content -LiteralPath (
+            Join-Path $pluginRoot 'scripts/container-entrypoint.sh'
+        ) -Raw
+        $hostLauncher = Get-Content -LiteralPath (
+            Join-Path $pluginRoot 'scripts/launch-host.ps1'
+        ) -Raw
+        $sandboxLauncher = Get-Content -LiteralPath (
+            Join-Path $pluginRoot 'scripts/launch-sandbox.ps1'
+        ) -Raw
+        $autopilotSkill = Get-Content -LiteralPath (
+            Join-Path $pluginRoot 'skills/autopilot/SKILL.md'
+        ) -Raw
+        $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
+
+        $entrypoint | Should -Match 'phase_has_incomplete "\$\{PLAN_PATH\}" "\$\{PHASE_NUM\}"'
+        $entrypoint | Should -Match 'if \[ "\$\{MODE\}" = "next-phase" \]; then'
+        $entrypoint | Should -Match '(?s)if \[ \$\{EXIT_CODE\} -ne 0 \]; then.+break\s+fi'
+        $hostLauncher | Should -Match "if \(\`$Mode -eq 'next-phase'\)"
+        $sandboxLauncher.Contains("if ('`$Mode' -eq 'next-phase')") | Should -BeTrue
+        $autopilotSkill | Should -Match '(?s)scope: phase.+next-phase'
+        $autopilotSkill | Should -Match 'Any other current or legacy scope -> `whole-plan`'
+        $autopilotSkill | Should -Match '-Mode <launcher-mode>'
+        $agent | Should -Match 'Require confirmed planning context before mutation'
+        $agent | Should -Match '\*\*Phase crosscheck\*\*'
+        $agent | Should -Match 'Add-WorkflowNote\.ps1 -Kind Capture'
     }
 
     It 'allows phase-one harvest after legacy phase-zero planning capture' {
