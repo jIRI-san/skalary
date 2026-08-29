@@ -607,6 +607,13 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $tampered = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -AsHashtable -Depth 20
             $tampered['state'] = 'degraded'
             [System.IO.File]::WriteAllText($final.Receipt, (ConvertTo-ReviewCanonicalJson -Node $tampered), [System.Text.UTF8Encoding]::new($false))
+            $tamperedBytes = [System.IO.File]::ReadAllBytes($final.Receipt)
+            $previewRepair = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch -WhatIf
+            $previewRepair.Preview | Should -BeTrue
+            $previewRepair.CleanupPending | Should -BeTrue
+            [System.IO.File]::ReadAllBytes($final.Receipt) | Should -Be $tamperedBytes
+            Test-Path -LiteralPath (Join-Path $store ".cleanup/$script:runId") | Should -BeTrue
+
             $replay = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             $replay.Replayed | Should -BeFalse -Because 'tampered retained evidence is reconstructed from verified live authority'
             $replay.CleanupPending | Should -BeFalse

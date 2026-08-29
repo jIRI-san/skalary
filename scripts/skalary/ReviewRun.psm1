@@ -515,7 +515,8 @@ function Get-ReviewFindingSimilarity {
     #>
     param(
         [Parameter(Mandatory)][object]$LeftProfile,
-        [Parameter(Mandatory)][object]$RightProfile
+        [Parameter(Mandatory)][object]$RightProfile,
+        [Nullable[int]]$Intersection
     )
 
     if ([string]::Equals($leftProfile.ExactKey, $rightProfile.ExactKey, [System.StringComparison]::Ordinal)) {
@@ -526,12 +527,14 @@ function Get-ReviewFindingSimilarity {
         return 'none'
     }
 
-    $intersection = 0
-    foreach ($token in $leftProfile.Tokens) {
-        if ($rightProfile.Tokens.Contains($token)) { $intersection++ }
+    if ($null -eq $Intersection) {
+        $Intersection = 0
+        foreach ($token in $leftProfile.Tokens) {
+            if ($rightProfile.Tokens.Contains($token)) { $Intersection++ }
+        }
     }
-    $union = $leftProfile.Tokens.Count + $rightProfile.Tokens.Count - $intersection
-    if ($union -gt 0 -and ($intersection * 10) -ge ($union * 9)) { return 'near-duplicate' }
+    $union = $leftProfile.Tokens.Count + $rightProfile.Tokens.Count - $Intersection
+    if ($union -gt 0 -and ($Intersection * 10) -ge ($union * 9)) { return 'near-duplicate' }
     return 'none'
 }
 
@@ -730,9 +733,8 @@ function ConvertTo-ReviewProjection {
                 if ([string]::Equals($raw[$leftIndex].Model, $raw[$rightIndex].Model, [System.StringComparison]::Ordinal)) {
                     continue
                 }
-                $intersection = $intersections[$leftIndex]
-                $union = $similarityProfiles[$leftIndex].Tokens.Count + $rightProfile.Tokens.Count - $intersection
-                if ($union -gt 0 -and ($intersection * 10) -ge ($union * 9)) {
+                if ((Get-ReviewFindingSimilarity -LeftProfile $similarityProfiles[$leftIndex] `
+                            -RightProfile $rightProfile -Intersection $intersections[$leftIndex]) -eq 'near-duplicate') {
                     $similarity = 'near-duplicate'
                     break
                 }
@@ -1510,7 +1512,6 @@ function Test-ReviewRunSemantic {
         if (-not $runTaskById.ContainsKey($id)) { $failures.Add("frozen task '$id' is absent from the result") }
     }
 
-    $findingRefs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     # The vocabulary's `maxMergedFindings` is a property of the *merged* set, which no single-document
     # keyword can count: 256 raw findings are legal, and they may collapse into anything between one
     # group and 256. It is decided here, with the renderer's own grouping key, so a run that would
@@ -1532,7 +1533,6 @@ function Test-ReviewRunSemantic {
                 $failures.Add("a finding body exceeds $($limits.maxBodyBytes) UTF-8 bytes")
             }
         }
-        [void]$findingRefs.Add($taskId)
     }
     if ($mergeKeys.Count -gt [int]$limits.maxMergedFindings) {
         $failures.Add("the findings merge into $($mergeKeys.Count) groups, over the $($limits.maxMergedFindings) merged-finding maximum")
@@ -3709,14 +3709,28 @@ function Test-ReviewFinalizedPair {
     $reportBytes = [System.IO.File]::ReadAllBytes($ReportPath)
     $receiptBytes = [System.IO.File]::ReadAllBytes($ReceiptPath)
     if ($null -ne $ExpectedReportBytes -and
-        ($reportBytes.Length -ne $ExpectedReportBytes.Length -or (Get-ReviewDigest -Bytes $reportBytes) -ne (Get-ReviewDigest -Bytes $ExpectedReportBytes))) { return $false }
+        ($reportBytes.Length -ne $ExpectedReportBytes.Length -or
+        -not [string]::Equals(
+            (Get-ReviewDigest -Bytes $reportBytes),
+            (Get-ReviewDigest -Bytes $ExpectedReportBytes),
+            [System.StringComparison]::Ordinal))) { return $false }
     if ($null -ne $ExpectedReceiptBytes -and
-        ($receiptBytes.Length -ne $ExpectedReceiptBytes.Length -or (Get-ReviewDigest -Bytes $receiptBytes) -ne (Get-ReviewDigest -Bytes $ExpectedReceiptBytes))) { return $false }
+        ($receiptBytes.Length -ne $ExpectedReceiptBytes.Length -or
+        -not [string]::Equals(
+            (Get-ReviewDigest -Bytes $receiptBytes),
+            (Get-ReviewDigest -Bytes $ExpectedReceiptBytes),
+            [System.StringComparison]::Ordinal))) { return $false }
     try { $receipt = [System.Text.Encoding]::UTF8.GetString($receiptBytes) | ConvertFrom-Json -AsHashtable -Depth 20 }
     catch { return $false }
-    return $receipt['schema'] -eq 'skalary/review-result-receipt@1' -and
+    return [string]::Equals(
+        [string]$receipt['schema'],
+        'skalary/review-result-receipt@1',
+        [System.StringComparison]::Ordinal) -and
     $receipt['report']['bytes'] -eq $reportBytes.Length -and
-    $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
+    [string]::Equals(
+        [string]$receipt['report']['digest'],
+        (Get-ReviewDigest -Bytes $reportBytes),
+        [System.StringComparison]::Ordinal)
 }
 
 function Get-ReviewCleanupMarker {
@@ -3749,18 +3763,28 @@ function Read-ReviewCleanupMarker {
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Cleanup marker is missing for '$RunId'." }
     $marker = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable -Depth 10
-    if ($marker['schema'] -ne 'skalary/review-cleanup@1' -or $marker['runId'] -ne $RunId -or $marker['verdict'] -ne $Verdict) {
+    if (-not [string]::Equals([string]$marker['schema'], 'skalary/review-cleanup@1', [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$marker['runId'], $RunId, [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$marker['verdict'], $Verdict, [System.StringComparison]::Ordinal)) {
         throw "Cleanup marker for '$RunId' has a different verdict or identity."
     }
     if ($SkipPairValidation) { return $marker }
     foreach ($entry in @(@('report', $ReportPath), @('receipt', $ReceiptPath))) {
         $role = [string]$entry[0]
         $path = [string]$entry[1]
-        if ([string]$marker[$role]['name'] -ne [System.IO.Path]::GetFileName($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        if (-not [string]::Equals(
+                [string]$marker[$role]['name'],
+                [System.IO.Path]::GetFileName($path),
+                [System.StringComparison]::Ordinal) -or
+            -not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Cleanup marker '$role' is missing or names a different file."
         }
         $bytes = [System.IO.File]::ReadAllBytes($path)
-        if ($marker[$role]['bytes'] -ne $bytes.Length -or $marker[$role]['digest'] -ne (Get-ReviewDigest -Bytes $bytes)) {
+        if ($marker[$role]['bytes'] -ne $bytes.Length -or
+            -not [string]::Equals(
+                [string]$marker[$role]['digest'],
+                (Get-ReviewDigest -Bytes $bytes),
+                [System.StringComparison]::Ordinal)) {
             throw "Cleanup marker '$role' does not match retained evidence."
         }
     }
@@ -3772,7 +3796,11 @@ function Assert-ReviewCleanupMarkerMaterial {
     foreach ($entry in @(@('report', $Material.ReportBytes), @('receipt', $Material.ReceiptBytes))) {
         $role = [string]$entry[0]
         $bytes = [byte[]]$entry[1]
-        if ($Marker[$role]['bytes'] -ne $bytes.Length -or $Marker[$role]['digest'] -ne (Get-ReviewDigest -Bytes $bytes)) {
+        if ($Marker[$role]['bytes'] -ne $bytes.Length -or
+            -not [string]::Equals(
+                [string]$Marker[$role]['digest'],
+                (Get-ReviewDigest -Bytes $bytes),
+                [System.StringComparison]::Ordinal)) {
             throw "Cleanup marker '$role' is bound to different finalization material."
         }
     }
@@ -3819,7 +3847,11 @@ function Finalize-ReviewPlanRun {
                     Assert-ReviewCleanupMarkerMaterial -Marker $cleanupMarker -Material $material
                     $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
                         -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
-                    if (-not $pairExists -and $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
+                    if (-not $pairExists) {
+                        if (-not $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
+                            return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath `
+                                -Receipt $receiptPath -Preview $true -CleanupPending $true
+                        }
                         Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
                         Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
                     }
