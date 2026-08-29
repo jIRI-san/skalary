@@ -225,6 +225,10 @@ Describe 'Installed learning harvest workflow' {
             $phaseOne.ExitCode | Should -Be 0
             $receipt = Get-Content -LiteralPath (Join-Path $fixture.PlanDir 'assets/harvest-receipts/phase-001.json') `
                 -Raw | ConvertFrom-Json -Depth 12
+            $receipt.schema | Should -Be 'phase-harvest-receipt/v2'
+            $receipt.payload.candidateFormat | Should -Be 'typed-source-record/v1'
+            @($receipt.payload.candidates | Where-Object { [string]::IsNullOrWhiteSpace($_.SourceRecord) }).Count |
+                Should -Be 0
             $sourceKinds = @($receipt.payload.candidates.SourceKind | Select-Object -Unique)
             $sourceKinds | Should -Contain 'Capture'
             $sourceKinds | Should -Contain 'CrLog'
@@ -392,6 +396,13 @@ Describe 'Installed learning harvest workflow' {
             $receiptPath = Join-Path $fixture.PlanDir 'assets/harvest-receipts/phase-001.json'
             $tampered = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 12
             $tampered.payload.candidates[0].Entry = 'tampered receipt text'
+            $payloadJson = $tampered.payload | ConvertTo-Json -Depth 12 -Compress
+            $receiptFrame = [System.Text.Encoding]::UTF8.GetBytes(
+                'phase-harvest-receipt/v2' + [char]0 + $payloadJson
+            )
+            $tampered.receiptId = [Convert]::ToHexString(
+                [System.Security.Cryptography.SHA256]::HashData($receiptFrame)
+            ).ToLowerInvariant()
             [System.IO.File]::WriteAllText(
                 $receiptPath,
                 (($tampered | ConvertTo-Json -Depth 12 -Compress) + "`n"),
@@ -411,7 +422,7 @@ Describe 'Installed learning harvest workflow' {
             $refused = Invoke-InstalledHarvest -ScriptPath $script:ciScript -Fixture $fixture `
                 -Source ci -FinalSweep
             $refused.ExitCode | Should -Be 3
-            $refused.Output | Should -Match 'digest mismatch'
+            $refused.Output | Should -Match 'candidate derivation mismatch'
             $ledgerAfterTamper = @(
                 Get-ChildItem -LiteralPath $ledgerRoot -File -Filter '*.md' |
                     ForEach-Object {

@@ -1574,6 +1574,163 @@ function Get-NextStep {
     }
 }
 
+function Get-PhaseAdmission {
+    <#
+    .SYNOPSIS
+    Computes the closed, read-only admission decision for the first incomplete plan phase.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Plan,
+        [Parameter(Mandatory)][object]$Metadata,
+        [Parameter(Mandatory)][object]$Markers,
+        [Parameter(Mandatory)][object]$NextStep,
+        [Parameter(Mandatory)][object]$PlanningContext,
+        [Parameter(Mandatory)][object[]]$Inventory,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $status = 'ready'
+    $reason = ''
+    $unmetDependencies = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($token in @($Markers.DependsOn)) {
+        try {
+            $dependency = Resolve-Plan -Reference $token -RepoRoot $RepoRoot -Inventory $Inventory
+        }
+        catch {
+            $message = $_.Exception.Message
+            $status = if ($message.StartsWith('Ambiguous plan reference:', [System.StringComparison]::Ordinal)) {
+                'ambiguous'
+            }
+            else {
+                'missing'
+            }
+            $reason = "Dependency '$token' could not be resolved: $message"
+            break
+        }
+
+        $dependencyMetadata = Get-PlanMetadata `
+            -Path (Join-Path $dependency.Path 'plan.md') -RepoRoot $RepoRoot
+        $dependencyProgress = Get-PlanProgress -Metadata $dependencyMetadata
+        if (-not ($dependency.IsArchived -or $dependencyProgress.IsComplete)) {
+            $unmetDependencies.Add([string]$dependency.Id)
+        }
+    }
+
+    if ($status -eq 'ready' -and $unmetDependencies.Count -gt 0) {
+        $status = 'blocked'
+        $reason = "Incomplete dependencies: $($unmetDependencies -join ', ')."
+    }
+
+    $phase = if ($NextStep.Step) { [string]$NextStep.Step.Phase } else { '' }
+    $phaseNumber = 0
+    if ($status -eq 'ready') {
+        if ($NextStep.IsComplete -or [string]::IsNullOrWhiteSpace($phase) -or
+            $phase -notmatch '^##\s+Phase\s+(?<phase>[1-9][0-9]*):') {
+            $status = 'blocked'
+            $reason = 'No admissible incomplete phase was found.'
+        }
+        else {
+            $phaseNumber = [int]$Matches.phase
+        }
+    }
+
+    if ($status -eq 'ready') {
+        $incompleteEarlier = @($Metadata.Steps | Where-Object {
+                $_.Phase -match '^##\s+Phase\s+(?<phase>[1-9][0-9]*):' -and
+                [int]$Matches.phase -lt $phaseNumber -and $_.Status -ne 'x'
+            })
+        if ($incompleteEarlier.Count -gt 0) {
+            $status = 'blocked'
+            $reason = "Earlier phase step '$($incompleteEarlier[0].Id)' is incomplete."
+        }
+        elseif ($NextStep.BlockedByAfter) {
+            $status = 'blocked'
+            $reason = "Step '$($NextStep.Id)' has unmet prerequisites: $(@($NextStep.UnmetAfter) -join ', ')."
+        }
+    }
+
+    if ($status -eq 'ready' -and -not $PlanningContext.CanProceed) {
+        $status = if ($PlanningContext.Status -eq 'stale') { 'stale-input' } else { 'missing' }
+        $reason = "Planning context is '$($PlanningContext.Status)'."
+    }
+
+    if ($status -eq 'ready' -and $PlanningContext.Status -eq 'legacy') {
+        $intentPath = Resolve-PlanAssetPath -PlanDir $Plan.Path -Kind Intent
+        if (-not (Test-Path -LiteralPath $intentPath -PathType Leaf)) {
+            $status = 'missing'
+            $reason = "Intent asset not found: $intentPath"
+        }
+        else {
+            $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+            foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
+                $body = [regex]::Match(
+                    $intent,
+                    "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+                ).Groups['body'].Value
+                if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+                    $status = 'missing'
+                    $reason = "Intent section '$section' is missing or still contains a TBD placeholder."
+                    break
+                }
+            }
+        }
+    }
+
+    $applicableRequirements = @(
+        if ($phase -and $Metadata.PhaseSteps.ContainsKey($phase)) {
+            $Metadata.PhaseSteps[$phase] |
+                ForEach-Object { $_.Refs } |
+                Where-Object { $_ -match '^REQ-\d+$' } |
+                Sort-Object -Unique
+        }
+    )
+    $unknownRequirements = @(
+        $applicableRequirements | Where-Object { -not $Metadata.Requirements.ContainsKey($_) }
+    )
+    if ($status -eq 'ready' -and $applicableRequirements.Count -eq 0) {
+        $status = 'missing'
+        $reason = "Phase $phaseNumber has no applicable requirements."
+    }
+    elseif ($status -eq 'ready' -and $unknownRequirements.Count -gt 0) {
+        $status = 'missing'
+        $reason = "Phase $phaseNumber references unknown requirements: $($unknownRequirements -join ', ')."
+    }
+
+    return [pscustomobject]@{
+        Status = $status
+        CanProceed = ($status -eq 'ready')
+        Reason = $reason
+        Phase = $phase
+        PhaseNumber = $phaseNumber
+        ApplicableRequirements = $applicableRequirements
+        UnknownRequirements = $unknownRequirements
+        UnmetDependencies = $unmetDependencies.ToArray()
+    }
+}
+
+function Get-PhaseCheckpointOptions {
+    <#
+    .SYNOPSIS
+    Returns the operator dispositions allowed by normalized phase evidence and uncertainty.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')]
+        [string[]]$EvidenceStatus,
+        [switch]$HasHighImpactUncertainty
+    )
+
+    $canContinue = $EvidenceStatus.Count -gt 0 -and
+        @($EvidenceStatus | Where-Object { $_ -notin @('passed', 'waived') }).Count -eq 0 -and
+        -not $HasHighImpactUncertainty
+    return [pscustomobject]@{
+        CanContinue = $canContinue
+        Options = if ($canContinue) { @('Continue', 'Revise', 'Stop') } else { @('Revise', 'Stop') }
+    }
+}
+
 function Get-EpicRollup {
     <#
     .SYNOPSIS
@@ -1792,4 +1949,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-PhaseAdmission, Get-PhaseCheckpointOptions, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState

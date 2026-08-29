@@ -24,7 +24,7 @@ Import-Module (Join-Path $PSScriptRoot 'LedgerStore.psm1') -Force -DisableNameCh
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
-$receiptSchema = 'phase-harvest-receipt/v1'
+$receiptSchema = 'phase-harvest-receipt/v2'
 $overflowSchema = 'workflow-learning-overflow/v1'
 $maxCandidates = 64
 $maxCandidateBytes = 512KB
@@ -98,7 +98,8 @@ function Get-RepoIdentity {
         }
         return 'origin-sha256:' + (Get-Sha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes($remote)))
     }
-    return 'path:' + ([System.IO.Path]::GetFullPath($Root).Replace('\', '/').TrimEnd('/'))
+    $localPath = [System.IO.Path]::GetFullPath($Root).Replace('\', '/').TrimEnd('/')
+    return 'path-sha256:' + (Get-Sha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes($localPath)))
 }
 
 function Get-RelativeSourcePath {
@@ -279,6 +280,7 @@ function ConvertFrom-WorkflowNote {
     [Array]::Sort($sortedTags, [System.StringComparer]::Ordinal)
 
     return [pscustomobject][ordered]@{
+        SourceRecord = $Line
         SourceId = $harvestId
         WorkflowSourceRecordId = $match.Groups['record'].Value
         SourceKind = $Kind
@@ -317,11 +319,14 @@ function Get-PhaseSectionRecords {
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i].Trim() -ne $header) { continue }
         # Planning capture predates executable phases and legitimately uses Phase: 0. Parse it so
-        # later phase sections remain reachable, but never select it because TargetPhase starts at 1.
+        # later Capture sections remain reachable, but never select it because TargetPhase starts at 1.
         if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>0|[1-9][0-9]*)\s*$') {
             throw "Malformed phase header after '$header' in '$Path'."
         }
         $sectionPhase = [int]$Matches.phase
+        if ($sectionPhase -eq 0 -and $Kind -ne 'Capture') {
+            throw "Phase 0 is valid only for planning Capture in '$Path'."
+        }
         $end = $lines.Count
         for ($j = $i + 2; $j -lt $lines.Count; $j++) {
             if ($lines[$j] -match '^##\s') { $end = $j; break }
@@ -466,6 +471,7 @@ function New-HarvestReceipt {
         phase = $TargetPhase
         status = $Status
         ledgerSource = $LedgerSource
+        candidateFormat = 'typed-source-record/v1'
         sources = $Sources
         candidates = $Candidates
     }
@@ -488,7 +494,8 @@ function Read-HarvestReceipt {
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$ReceiptRoot,
         [Parameter(Mandatory)][string]$RepoIdentity,
-        [Parameter(Mandatory)][string]$PlanId
+        [Parameter(Mandatory)][string]$PlanId,
+        [Parameter(Mandatory)][string[]]$KnownRequirement
     )
 
     Assert-PhysicalDescendant -Root $ReceiptRoot -Path $Path
@@ -502,8 +509,8 @@ function Read-HarvestReceipt {
         throw "Malformed harvest receipt '$Path'."
     }
     $payloadProperties = @($parsed.payload.PSObject.Properties.Name)
-    if ($payloadProperties.Count -ne 7 -or
-        @('repo', 'plan', 'phase', 'status', 'ledgerSource', 'sources', 'candidates' |
+    if ($payloadProperties.Count -ne 8 -or
+        @('repo', 'plan', 'phase', 'status', 'ledgerSource', 'candidateFormat', 'sources', 'candidates' |
             Where-Object { $payloadProperties -notcontains $_ }).Count -gt 0) {
         throw "Malformed harvest receipt payload '$Path'."
     }
@@ -511,8 +518,67 @@ function Read-HarvestReceipt {
     $expectedId = Get-DomainSeparatedId -Domain $receiptSchema -Field @($payloadJson)
     if ($expectedId -ne $parsed.receiptId -or $parsed.payload.repo -ne $RepoIdentity -or
         $parsed.payload.plan -ne $PlanId -or $parsed.payload.status -notin @('complete', 'empty') -or
+        $parsed.payload.candidateFormat -ne 'typed-source-record/v1' -or
         $parsed.payload.ledgerSource -notin @('ci', 'autopilot')) {
         throw "Harvest receipt identity or digest mismatch '$Path'."
+    }
+
+    $phaseNumber = 0
+    if (-not [int]::TryParse([string]$parsed.payload.phase, [ref]$phaseNumber) -or
+        $phaseNumber -lt 1 -or $phaseNumber -gt 999) {
+        throw "Harvest receipt '$Path' has an invalid phase."
+    }
+    $sources = @($parsed.payload.sources)
+    $candidates = @($parsed.payload.candidates)
+    if ($sources.Count -lt 3 -or $candidates.Count -gt $maxCandidates) {
+        throw "Harvest receipt '$Path' exceeds source or candidate bounds."
+    }
+    $sourcePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($source in $sources) {
+        $sourceProperties = @($source.PSObject.Properties.Name)
+        if ($sourceProperties.Count -ne 4 -or
+            @('Kind', 'Path', 'Sha256', 'Bytes' | Where-Object { $sourceProperties -notcontains $_ }).Count -gt 0 -or
+            $source.Kind -notin @('CrLog', 'Learnings', 'Capture', 'LearningOverflow') -or
+            [string]::IsNullOrWhiteSpace([string]$source.Path) -or
+            [System.IO.Path]::IsPathRooted([string]$source.Path) -or
+            ([string]$source.Path).Split('/') -contains '..' -or
+            $source.Sha256 -notmatch '^[0-9a-f]{64}$' -or [long]$source.Bytes -lt 0) {
+            throw "Malformed harvest receipt source in '$Path'."
+        }
+        if (-not $sourcePaths.Add([string]$source.Path)) {
+            throw "Duplicate harvest receipt source '$($source.Path)' in '$Path'."
+        }
+    }
+
+    $candidateBytes = [long]0
+    foreach ($candidate in $candidates) {
+        $candidateProperties = @($candidate.PSObject.Properties.Name)
+        $requiredCandidateProperties = @(
+            'SourceRecord', 'SourceId', 'WorkflowSourceRecordId', 'SourceKind', 'SourcePath',
+            'SourceBytesSha256', 'ReviewType', 'Concern', 'Requirements', 'Category',
+            'Severity', 'Entry', 'Tags'
+        )
+        if ($candidateProperties.Count -ne $requiredCandidateProperties.Count -or
+            @($requiredCandidateProperties | Where-Object { $candidateProperties -notcontains $_ }).Count -gt 0 -or
+            -not $sourcePaths.Contains([string]$candidate.SourcePath)) {
+            throw "Malformed harvest receipt candidate in '$Path'."
+        }
+        $derived = ConvertFrom-WorkflowNote -Kind ([string]$candidate.SourceKind) `
+            -Line ([string]$candidate.SourceRecord) -SourcePhase $phaseNumber `
+            -RelativePath ([string]$candidate.SourcePath) -RepoIdentity $RepoIdentity `
+            -PlanId $PlanId -KnownRequirement $KnownRequirement
+        if (-not [string]::Equals(
+                (ConvertTo-CanonicalJson -Value $derived),
+                (ConvertTo-CanonicalJson -Value $candidate),
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Harvest receipt candidate derivation mismatch in '$Path'."
+        }
+        $candidateBytes += [System.Text.Encoding]::UTF8.GetByteCount([string]$candidate.Entry)
+    }
+    if ($candidateBytes -gt $maxCandidateBytes -or
+        ($parsed.payload.status -eq 'empty') -ne ($candidates.Count -eq 0)) {
+        throw "Harvest receipt '$Path' has inconsistent candidate state."
     }
     return $parsed
 }
@@ -617,6 +683,8 @@ $planId = [string]$planRecord[0].Id
 $repoIdentity = Get-RepoIdentity -Root $repoRootFull
 $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind HarvestReceiptRoot `
     -RepoRoot $repoRootFull -Inventory $inventory
+$metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot $repoRootFull
+$knownRequirements = [string[]]@($metadata.Requirements.Values | ForEach-Object { [string]$_.Id })
 
 try {
     if ($FinalSweep) {
@@ -628,7 +696,7 @@ try {
         }
         $receipts = @($receiptFiles | ForEach-Object {
                 Read-HarvestReceipt -Path $_.FullName -ReceiptRoot $receiptRoot `
-                    -RepoIdentity $repoIdentity -PlanId $planId
+                    -RepoIdentity $repoIdentity -PlanId $planId -KnownRequirement $knownRequirements
             })
         if ($receipts.Count -eq 0) {
             Write-HarvestResult -Status empty -ReceiptCount 0 -Note 'No active phase receipts to replay.'
@@ -666,7 +734,7 @@ try {
                 }
             }
             $receipt = Read-HarvestReceipt -Path $receiptPath -ReceiptRoot $receiptRoot `
-                -RepoIdentity $repoIdentity -PlanId $planId
+                -RepoIdentity $repoIdentity -PlanId $planId -KnownRequirement $knownRequirements
             if ([int]$receipt.payload.phase -ne $Phase) {
                 throw "Harvest receipt '$receiptPath' phase does not match requested phase $Phase."
             }
@@ -711,8 +779,6 @@ try {
         exit 4
     }
 
-    $metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot $repoRootFull
-    $knownRequirements = [string[]]@($metadata.Requirements.Values | ForEach-Object { [string]$_.Id })
     $allRecords = [System.Collections.Generic.List[object]]::new()
     $allSources = [System.Collections.Generic.List[object]]::new()
     foreach ($kind in $kindConfig.Keys) {

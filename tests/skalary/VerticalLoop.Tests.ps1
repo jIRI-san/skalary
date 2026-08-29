@@ -138,7 +138,7 @@ flowchart TD
                 }) -join "`n"
         }
 
-        function Get-AdmissionProjection {
+        function Get-FixtureAdmission {
             param(
                 [Parameter(Mandatory)][string]$Root,
                 [Parameter(Mandatory)][string]$Reference
@@ -151,38 +151,8 @@ flowchart TD
             $markers = Get-PlanHeaderMarkers -Path $planFile
             $next = Get-NextStep -Metadata $metadata
             $planning = Get-PlanningContextState -PlanDir $plan.Path
-
-            $unmetDependencies = [System.Collections.Generic.List[string]]::new()
-            foreach ($token in @($markers.DependsOn)) {
-                $dependency = Resolve-Plan -Reference $token -RepoRoot $Root -Inventory $inventory
-                $dependencyMetadata = Get-PlanMetadata -Path (Join-Path $dependency.Path 'plan.md') -RepoRoot $Root
-                $dependencyProgress = Get-PlanProgress -Metadata $dependencyMetadata
-                if (-not ($dependency.IsArchived -or $dependencyProgress.IsComplete)) {
-                    $unmetDependencies.Add($dependency.Id)
-                }
-            }
-
-            $phase = if ($next.Step) { [string]$next.Step.Phase } else { '' }
-            $applicableRequirements = @(
-                if ($phase -and $metadata.PhaseSteps.ContainsKey($phase)) {
-                    $metadata.PhaseSteps[$phase] |
-                        ForEach-Object { $_.Refs } |
-                        Where-Object { $_ -match '^REQ-\d+$' } |
-                        Sort-Object -Unique
-                }
-            )
-            $unknownRequirements = @(
-                $applicableRequirements | Where-Object { -not $metadata.Requirements.ContainsKey($_) }
-            )
-
-            return [pscustomobject]@{
-                Plan = $plan
-                Next = $next
-                Planning = $planning
-                UnmetDependencies = $unmetDependencies.ToArray()
-                ApplicableRequirements = $applicableRequirements
-                UnknownRequirements = $unknownRequirements
-            }
+            return Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
+                -NextStep $next -PlanningContext $planning -Inventory $inventory -RepoRoot $Root
         }
     }
 
@@ -205,14 +175,10 @@ flowchart TD
         $mutationStart | Should -BeGreaterThan $admissionStart
         $admissionText = $skill.Substring($admissionStart, $mutationStart - $admissionStart)
         foreach ($token in @(
-                'Get-PlanInventory',
-                'Resolve-Plan',
-                'Get-PlanProgress',
                 'Get-PlanState.ps1 -Json',
-                'Get-PlanMetadata',
-                'Get-NextStep',
-                'PlanningContext.CanProceed',
-                'Metadata.PhaseSteps',
+                'Get-PhaseAdmission',
+                'Admission.ApplicableRequirements',
+                'Admission.Reason',
                 'ready',
                 'blocked',
                 'missing',
@@ -225,13 +191,10 @@ flowchart TD
 
         $ready = New-AdmissionFixture
         $before = Get-FixtureSnapshot -Root $ready.Root
-        $projection = Get-AdmissionProjection -Root $ready.Root -Reference 'def222'
-        $projection.Planning.Status | Should -Be 'confirmed'
-        $projection.Planning.CanProceed | Should -BeTrue
-        $projection.Next.BlockedByAfter | Should -BeFalse
-        @($projection.UnmetDependencies).Count | Should -Be 0
-        $projection.ApplicableRequirements | Should -Be @('REQ-1')
-        @($projection.UnknownRequirements).Count | Should -Be 0
+        $admission = Get-FixtureAdmission -Root $ready.Root -Reference 'def222'
+        $admission.Status | Should -Be 'ready'
+        $admission.CanProceed | Should -BeTrue
+        $admission.ApplicableRequirements | Should -Be @('REQ-1')
         (Get-FixtureSnapshot -Root $ready.Root) | Should -BeExactly $before
 
         $blocked = New-AdmissionFixture
@@ -245,36 +208,70 @@ flowchart TD
             '(REQ-1, RISK-1) [after: 9.9] `S`'
         ) | Set-Content -LiteralPath $blocked.TargetPlan -Encoding utf8NoBOM -NoNewline
         $before = Get-FixtureSnapshot -Root $blocked.Root
-        $projection = Get-AdmissionProjection -Root $blocked.Root -Reference 'def222'
-        $projection.UnmetDependencies | Should -Be @('abc111')
-        $projection.Next.BlockedByAfter | Should -BeTrue
-        $projection.Next.UnmetAfter | Should -Be @('9.9')
+        $admission = Get-FixtureAdmission -Root $blocked.Root -Reference 'def222'
+        $admission.Status | Should -Be 'blocked'
+        $admission.UnmetDependencies | Should -Be @('abc111')
         (Get-FixtureSnapshot -Root $blocked.Root) | Should -BeExactly $before
 
         $missing = New-AdmissionFixture
         Remove-Item -LiteralPath (Join-Path $missing.TargetDir 'assets/intent.md') -Force
         $before = Get-FixtureSnapshot -Root $missing.Root
-        (Get-AdmissionProjection -Root $missing.Root -Reference 'def222').Planning.Status | Should -Be 'missing'
+        (Get-FixtureAdmission -Root $missing.Root -Reference 'def222').Status | Should -Be 'missing'
         (Get-FixtureSnapshot -Root $missing.Root) | Should -BeExactly $before
 
-        $ambiguous = New-AdmissionFixture -TargetSlug 'shared-alpha'
-        $secondDir = Join-Path $ambiguous.Root 'docs/implementation-plans/2026-08-03-def223-shared-beta'
-        Copy-Item -LiteralPath $ambiguous.TargetDir -Destination $secondDir -Recurse
+        $ambiguous = New-AdmissionFixture
+        $secondDir = Join-Path $ambiguous.Root 'docs/implementation-plans/2026-08-03-abc112-dependency-copy'
+        Copy-Item -LiteralPath $ambiguous.DependencyDir -Destination $secondDir -Recurse
         $secondPlan = Join-Path $secondDir 'plan.md'
         (Get-Content -LiteralPath $secondPlan -Raw).Replace(
-            '<!-- plan-id: def222 -->',
-            '<!-- plan-id: def223 -->'
+            '<!-- plan-id: abc111 -->',
+            '<!-- plan-id: abc112 -->'
         ) | Set-Content -LiteralPath $secondPlan -Encoding utf8NoBOM -NoNewline
+        (Get-Content -LiteralPath $ambiguous.TargetPlan -Raw).Replace(
+            '<!-- depends-on: abc111 -->',
+            '<!-- depends-on: depend -->'
+        ) | Set-Content -LiteralPath $ambiguous.TargetPlan -Encoding utf8NoBOM -NoNewline
         $before = Get-FixtureSnapshot -Root $ambiguous.Root
-        { Get-AdmissionProjection -Root $ambiguous.Root -Reference 'shared' } |
-            Should -Throw '*Ambiguous plan reference*'
+        (Get-FixtureAdmission -Root $ambiguous.Root -Reference 'def222').Status | Should -Be 'ambiguous'
         (Get-FixtureSnapshot -Root $ambiguous.Root) | Should -BeExactly $before
 
         $stale = New-AdmissionFixture
         Add-Content -LiteralPath (Join-Path $stale.TargetDir 'assets/intent.md') -Value "`nChanged after confirmation."
         $before = Get-FixtureSnapshot -Root $stale.Root
-        (Get-AdmissionProjection -Root $stale.Root -Reference 'def222').Planning.Status | Should -Be 'stale'
+        (Get-FixtureAdmission -Root $stale.Root -Reference 'def222').Status | Should -Be 'stale-input'
         (Get-FixtureSnapshot -Root $stale.Root) | Should -BeExactly $before
+
+        $noRequirements = New-AdmissionFixture
+        (Get-Content -LiteralPath $noRequirements.TargetPlan -Raw).Replace(
+            '(REQ-1, RISK-1)',
+            '(RISK-1)'
+        ) | Set-Content -LiteralPath $noRequirements.TargetPlan -Encoding utf8NoBOM -NoNewline
+        (Get-FixtureAdmission -Root $noRequirements.Root -Reference 'def222').Status | Should -Be 'missing'
+
+        $unknownRequirement = New-AdmissionFixture
+        (Get-Content -LiteralPath $unknownRequirement.TargetPlan -Raw).Replace(
+            '(REQ-1, RISK-1)',
+            '(REQ-9, RISK-1)'
+        ) | Set-Content -LiteralPath $unknownRequirement.TargetPlan -Encoding utf8NoBOM -NoNewline
+        $unknown = Get-FixtureAdmission -Root $unknownRequirement.Root -Reference 'def222'
+        $unknown.Status | Should -Be 'missing'
+        $unknown.UnknownRequirements | Should -Be @('REQ-9')
+
+        $earlierPhase = New-AdmissionFixture
+        $header = (Get-Content -LiteralPath $earlierPhase.TargetPlan -Raw).Split('## Phase 1')[0]
+        @"
+$($header.TrimEnd())
+## Phase 2: Misordered candidate
+
+- [ ] 2.1 Later increment (REQ-1) ``S``
+
+## Phase 1: Earlier incomplete
+
+- [ ] 1.1 Earlier increment (REQ-1) ``S``
+"@ | Set-Content -LiteralPath $earlierPhase.TargetPlan -Encoding utf8NoBOM
+        $earlier = Get-FixtureAdmission -Root $earlierPhase.Root -Reference 'def222'
+        $earlier.Status | Should -Be 'blocked'
+        $earlier.Reason | Should -Match 'Earlier phase step'
     }
 
     It 'test:VerticalLoop.EvidenceCrosscheck preserves truthful phase outcomes and blocks every unresolved result' {
@@ -348,6 +345,20 @@ flowchart TD
         $guide | Should -Match '(?s)Continue.+only when.+AllPassed.+no high-impact uncertainty'
         $guide | Should -Match '(?s)failed.+skipped.+stale.+unrun.+degraded.+offer Revise and Stop only'
 
+        foreach ($status in @('failed', 'skipped', 'stale', 'unrun', 'degraded')) {
+            $options = Get-PhaseCheckpointOptions -EvidenceStatus $status
+            $options.CanContinue | Should -BeFalse
+            $options.Options | Should -Be @('Revise', 'Stop')
+        }
+        foreach ($uncertainty in @('contract', 'end-user experience', 'security', 'irreversible structure')) {
+            $options = Get-PhaseCheckpointOptions -EvidenceStatus passed -HasHighImpactUncertainty
+            $options.CanContinue | Should -BeFalse -Because "$uncertainty uncertainty blocks continuation"
+            $options.Options | Should -Be @('Revise', 'Stop')
+        }
+        $green = Get-PhaseCheckpointOptions -EvidenceStatus passed, waived
+        $green.CanContinue | Should -BeTrue
+        $green.Options | Should -Be @('Continue', 'Revise', 'Stop')
+
         foreach ($disposition in @('Continue', 'Revise', 'Stop', 'Resume')) {
             $fixture = New-AdmissionFixture
             $message = "usable increment=vertical path; intent=deliver end to end; evidence=REQ-1 passed; disposition=$disposition"
@@ -387,5 +398,10 @@ Phase: 0
         $result.Status | Should -Be 'complete'
         $result.Candidates | Should -Be 1
         $result.Added | Should -Be 1
+        $receipt = Get-Content -LiteralPath (
+            Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-001.json'
+        ) -Raw | ConvertFrom-Json -Depth 12
+        $receipt.payload.repo | Should -Match '^path-sha256:[0-9a-f]{64}$'
+        $receipt.payload.repo | Should -Not -Match ([regex]::Escape($fixture.Root))
     }
 }

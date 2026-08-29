@@ -66,13 +66,16 @@ For a plan reference, `Get-PlanState` reports progress (done/total, current phas
 
 ### Phase admission (read-only hard gate)
 
-Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization, build one read-only admission snapshot from the installed `PlanState.psm1` APIs. Do not infer or repair a missing value during this pass:
+Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization, invoke
+`Get-PlanState.ps1 -Json` exactly once and consume its `Admission` result. The CLI builds one
+`Get-PlanInventory` snapshot and delegates the complete policy to `Get-PhaseAdmission`: dependency
+completion and resolution, first-incomplete-phase and `[after:]` eligibility, confirmed/legacy intent
+availability, and phase requirement mapping. Do not reconstruct any part of that policy in the skill.
 
-1. Take one `Get-PlanInventory` snapshot and resolve the selected plan and every header `depends-on` token through `Resolve-Plan` against that same inventory. A dependency is complete only when its `Get-PlanProgress` state is complete or its resolved inventory entry is archived. Missing or ambiguous resolution blocks admission.
-2. Use `Get-PlanState.ps1 -Json`, `Get-PlanMetadata`, and `Get-NextStep` as the progress authorities. Admit only the first incomplete phase, require every earlier phase step to be `[x]`, and require `NextStep.BlockedByAfter` to be false. Never skip a blocked candidate to start later work.
-3. Require `PlanningContext.CanProceed`. Enrolled plans must be `confirmed`; `pending`, `stale`, `missing`, and `invalid` return to `/cip`. Marker-less `legacy` plans retain compatibility, but their layout-resolved intent must still exist, contain all five required sections, and contain no `TBD`.
-4. From `Metadata.PhaseSteps` for the admitted phase, collect the distinct `REQ-N` values already parsed into each step's `Refs`. Require at least one applicable requirement, require every collected id to exist in `Metadata.Requirements`, and report the ids before execution.
-5. Classify the snapshot as `ready`, `blocked`, `missing`, `ambiguous`, or `stale-input`. Only `ready` permits deferred repair, branch/worktree mutation, `[~]`, or log initialization. Every other result stops with the parser-owned reason and leaves the plan tree byte-for-byte unchanged.
+Admission has the closed states `ready`, `blocked`, `missing`, `ambiguous`, and `stale-input`. Report
+`Admission.ApplicableRequirements` before execution. Only `ready` permits deferred repair,
+branch/worktree mutation, `[~]`, or log initialization. Every other result stops with
+`Admission.Reason` and leaves the plan tree byte-for-byte unchanged.
 
 ## Step 3: Determine execution mode and branch/worktree
 

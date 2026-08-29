@@ -568,13 +568,17 @@ function ConvertTo-HarvestRecords {
             catch { throw "Malformed phase receipt '$SourcePath': $($_.Exception.Message)" }
             $names = @($receipt.PSObject.Properties.Name)
             $payloadNames = @($receipt.payload.PSObject.Properties.Name)
+            $receiptSchema = [string]$receipt.schema
+            $expectedPayloadNames = if ($receiptSchema -eq 'phase-harvest-receipt/v2') { 8 } else { 7 }
             if ($names.Count -ne 3 -or
                 @('schema', 'receiptId', 'payload' | Where-Object { $names -notcontains $_ }).Count -gt 0 -or
-                $receipt.schema -ne 'phase-harvest-receipt/v1' -or
+                $receiptSchema -notin @('phase-harvest-receipt/v1', 'phase-harvest-receipt/v2') -or
                 $receipt.receiptId -notmatch '^[0-9a-f]{64}$' -or
-                $payloadNames.Count -ne 7 -or
+                $payloadNames.Count -ne $expectedPayloadNames -or
                 @('repo', 'plan', 'phase', 'status', 'ledgerSource', 'sources', 'candidates' |
                         Where-Object { $payloadNames -notcontains $_ }).Count -gt 0 -or
+                ($receiptSchema -eq 'phase-harvest-receipt/v2' -and
+                    $receipt.payload.candidateFormat -ne 'typed-source-record/v1') -or
                 $receipt.payload.plan -ne $PlanId -or
                 $receipt.payload.status -notin @('complete', 'empty') -or
                 $receipt.payload.ledgerSource -notin @('ci', 'autopilot') -or
@@ -582,7 +586,7 @@ function ConvertTo-HarvestRecords {
                 [int]([regex]::Match($SourcePath, 'phase-(\d{3})\.json$').Groups[1].Value)) {
                 throw "Phase receipt '$SourcePath' failed closed payload validation."
             }
-            $expected = Get-SiHarvestDigest -Domain 'phase-harvest-receipt/v1' -Field @(
+            $expected = Get-SiHarvestDigest -Domain $receiptSchema -Field @(
                 ConvertTo-StableJson -Value $receipt.payload
             )
             if ($expected -ne [string]$receipt.receiptId) {

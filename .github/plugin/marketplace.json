@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.30"
+      "version": "1.2.31"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.39"
+      "version": "1.0.40"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.57"
+      "version": "1.0.58"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.50"
+      "version": "1.0.51"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.38"
+      "version": "1.0.39"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
@@ -139,7 +139,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.60"
+      "version": "1.0.61"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
@@ -154,7 +154,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.11"
+      "version": "1.0.12"
     }
   ]
 }
