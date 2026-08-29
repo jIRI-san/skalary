@@ -122,7 +122,12 @@ Describe 'Evidence truth' {
                 reviewType = 'code'
                 verdict = 'approved'
                 state = 'clean'
-                source = [ordered]@{ mode = $Mode; base = $script:base; head = $script:head; pathCount = $script:pathCount; digest = 'sha256:' + ('1' * 64) }
+                source = if ($Mode -eq 'branch') {
+                    [ordered]@{ mode = $Mode; base = $script:base; head = $script:head; pathCount = $script:pathCount; digest = 'sha256:' + ('1' * 64) }
+                }
+                else {
+                    [ordered]@{ mode = $Mode; head = $script:head; pathCount = $script:pathCount; digest = 'sha256:' + ('1' * 64) }
+                }
                 planDigest = 'sha256:' + ('2' * 64)
                 runDigest = 'sha256:' + ('3' * 64)
                 manifestDigest = 'sha256:' + ('4' * 64)

@@ -637,15 +637,23 @@ dispatch-only data: they never enter the review-plan/result handshake, publicati
 review-run v1 evidence.
 
 Plan-associated CR/DR may also select related plan artifacts after their primary code/design scope is
-known. Both call the same bundled `Get-PlanArtifactContext.ps1`, consume accepted content only as
-complete-result JSON inside their existing untrusted-input framing, never interpolate raw content into
-instructions, and append deterministic plan ID/kind/path/relationship tokens to the existing bounded
-`scope` string. Only consumer-authored marker lines have structural meaning; marker-like content
-remains data. Consumers use one aligned, bounded selection and parse the resolver's JSON result array.
+known. Both call the same bundled `Get-PlanArtifactConsumerContext.ps1`; it runs
+`Get-PlanArtifactContext.ps1` in an isolated process, requires exit zero and top-level array JSON,
+validates the closed public shape, and emits accepted complete-result JSON only inside the standard
+`UNTRUSTED_INPUT` framing. Raw content is never interpolated into instructions. Deterministic
+plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`
+string. Only consumer-authored marker lines have structural meaning; marker-like content remains data.
 Generic and chat-only reviews skip this path. Full provenance must fit
 the existing 1024-character scope bound or the artifact is not consumed; metadata is never truncated.
 No context field, role, schema, receipt, `scopeAuthority` member, publication step, or retention path is
 added, so Freeze and Publish remain review-run v1 authority.
+
+Compact retained review receipt parsing is shared from `PlanEvidence.psm1`. The historical resolver
+and final evidence gate use one closed shape/type/source-mode parser with producer-equivalent semantic
+invariants: attendance determines clean/degraded state, severity totals equal merged findings, raw
+findings cannot undercount merged findings, and approved requires clean state without Critical/High.
+Evidence qualification layers its stricter clean code-review/commit/whole-branch rules above that
+parser; review-run v1 production and lifecycle remain unchanged.
 
 ## CR/DR caller adoption (step 2.2)
 

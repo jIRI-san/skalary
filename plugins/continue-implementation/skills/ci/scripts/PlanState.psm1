@@ -50,23 +50,23 @@ function Split-MarkdownTableCells {
 }
 
 $script:PlanAssetMap = [ordered]@{
-    Intent          = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
-    Domain          = [pscustomobject]@{ Asset = 'domain.md'; Legacy = 'domain.md' }
-    Design          = [pscustomobject]@{ Asset = 'design.md'; Legacy = 'design.md' }
-    Requirements    = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
-    Risks           = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
-    Decisions       = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
-    References      = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
-    Evidence        = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
+    Intent = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
+    Domain = [pscustomobject]@{ Asset = 'domain.md'; Legacy = 'domain.md' }
+    Design = [pscustomobject]@{ Asset = 'design.md'; Legacy = 'design.md' }
+    Requirements = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
+    Risks = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
+    Decisions = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
+    References = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
+    Evidence = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
     EvidenceWaivers = [pscustomobject]@{ Asset = 'evidence-waivers.json'; Legacy = 'evidence-waivers.json' }
-    EvolutionLog    = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
+    EvolutionLog = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
     DecisionRecords = [pscustomobject]@{ Asset = 'decisions'; Legacy = 'decisions' }
-    CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
-    Learnings       = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
-    Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
+    CrLog = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
+    Learnings = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
+    Capture = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
     LearningOverflowRoot = [pscustomobject]@{ Asset = 'logs/learning-overflow'; Legacy = 'learning-overflow' }
-    HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
-    ReviewRuns           = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
+    HarvestReceiptRoot = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
+    ReviewRuns = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
 }
 
 function Normalize-PhysicalPathRoot {
@@ -317,6 +317,36 @@ function Get-PlanSectionRecord {
     return , $records.ToArray()
 }
 
+function Get-PlanInlineSectionLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Content,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Requirements', 'Risks', 'Decisions')]
+        [string]$Section
+    )
+
+    $lines = Remove-FencedCodeBlocks -Lines (($Content -replace "`r`n", "`n").Split("`n"))
+    $sectionLines = [System.Collections.Generic.List[string]]::new()
+    $inSection = $false
+    foreach ($line in $lines) {
+        if ($line -match "^\s*##\s+$([regex]::Escape($Section))\b") {
+            $inSection = $true
+            continue
+        }
+        if ($inSection -and $line -match '^\s*##\s+') {
+            break
+        }
+        if ($inSection) {
+            $sectionLines.Add($line)
+        }
+    }
+    return , $sectionLines.ToArray()
+}
+
 function Resolve-PlanSection {
     <#
     .SYNOPSIS
@@ -343,7 +373,20 @@ function Resolve-PlanSection {
         [AllowEmptyCollection()]
         [AllowEmptyString()]
         [AllowNull()]
-        [string[]]$LegacyLine
+        [string[]]$LegacyLine,
+
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$LegacyContent,
+
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$AssetContent,
+
+        [AllowNull()]
+        [string]$AssetPath,
+
+        [switch]$AssetAbsent
     )
 
     $kind = if ($Section -eq 'Decisions') { 'List' } else { 'Table' }
@@ -358,22 +401,52 @@ function Resolve-PlanSection {
         default { 2 }
     }
 
-    $legacyLines = @($LegacyLine)
+    if ($PSBoundParameters.ContainsKey('LegacyLine') -and $PSBoundParameters.ContainsKey('LegacyContent')) {
+        throw 'Resolve-PlanSection accepts LegacyLine or LegacyContent, not both.'
+    }
+    $legacyLines = if ($PSBoundParameters.ContainsKey('LegacyContent')) {
+        @(Get-PlanInlineSectionLine -Content $LegacyContent -Section $Section)
+    }
+    else {
+        @($LegacyLine)
+    }
     $legacyRecords = Get-PlanSectionRecord -Lines $legacyLines -Kind $kind -IdPattern $idPattern -MinCell $minCell
 
-    $assetPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind $Section
-    if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+    if ($PSBoundParameters.ContainsKey('AssetContent') -and $AssetAbsent) {
+        throw 'Resolve-PlanSection accepts AssetContent or AssetAbsent, not both.'
+    }
+    $assetPath = if ($PSBoundParameters.ContainsKey('AssetPath')) {
+        $AssetPath
+    }
+    else {
+        Resolve-PlanAssetPath -PlanDir $PlanDir -Kind $Section
+    }
+    $assetPresent = if ($PSBoundParameters.ContainsKey('AssetContent')) {
+        $true
+    }
+    elseif ($AssetAbsent) {
+        $false
+    }
+    else {
+        Test-Path -LiteralPath $assetPath -PathType Leaf
+    }
+    if (-not $assetPresent) {
         $source = if ($legacyRecords.Count -gt 0) { 'legacy' } else { 'none' }
         return [pscustomobject]@{
             Section = $Section
-            Source  = $source
-            Path    = $null
-            Lines   = $legacyLines
+            Source = $source
+            Path = $null
+            Lines = $legacyLines
             Records = $legacyRecords
         }
     }
 
-    $raw = Get-Content -LiteralPath $assetPath -Raw
+    $raw = if ($PSBoundParameters.ContainsKey('AssetContent')) {
+        $AssetContent
+    }
+    else {
+        Get-Content -LiteralPath $assetPath -Raw
+    }
     if ([string]::IsNullOrWhiteSpace($raw)) {
         throw "Plan asset '$assetPath' is present but empty; $Section must never silently resolve to zero records. Author the file or delete it to fall back to plan.md."
     }
@@ -395,9 +468,9 @@ function Resolve-PlanSection {
 
     return [pscustomobject]@{
         Section = $Section
-        Source  = 'asset'
-        Path    = $assetPath
-        Lines   = $assetLines
+        Source = 'asset'
+        Path = $assetPath
+        Lines = $assetLines
         Records = $assetRecords
     }
 }
@@ -483,8 +556,8 @@ function Get-PlanMetadata {
     $phaseSteps = @{}
     $sectionLines = @{
         Requirements = [System.Collections.Generic.List[string]]::new()
-        Risks        = [System.Collections.Generic.List[string]]::new()
-        Decisions    = [System.Collections.Generic.List[string]]::new()
+        Risks = [System.Collections.Generic.List[string]]::new()
+        Decisions = [System.Collections.Generic.List[string]]::new()
     }
     $steps = [System.Collections.Generic.List[object]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
@@ -698,25 +771,25 @@ function ConvertFrom-PlanFolderName {
 
     if ($FolderName -match '^(?:(?<prefix>standalone|[0-9a-f]{6})-)?(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
         return [pscustomobject]@{
-            Scheme       = 'new'
-            FolderId     = $Matches.hash
+            Scheme = 'new'
+            FolderId = $Matches.hash
             FolderPrefix = if ($Matches.ContainsKey('prefix')) {
                 $Matches.prefix.ToLowerInvariant()
             }
             else {
                 $null
             }
-            Slug         = $Matches.slug
-            Date         = $Matches.date
+            Slug = $Matches.slug
+            Date = $Matches.date
         }
     }
     if ($FolderName -match '^(?<num>\d{3})-(?<slug>.+)$') {
         return [pscustomobject]@{
-            Scheme       = 'legacy'
-            FolderId     = $Matches.num
+            Scheme = 'legacy'
+            FolderId = $Matches.num
             FolderPrefix = $null
-            Slug         = $Matches.slug
-            Date         = $null
+            Slug = $Matches.slug
+            Date = $null
         }
     }
     return $null
@@ -774,18 +847,18 @@ function Get-PlanInventory {
         $canonicalId = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
 
         $inventory.Add([pscustomobject]@{
-            Id = $canonicalId
-            FolderId = $parsedFolder.FolderId
-            FolderPrefix = $parsedFolder.FolderPrefix
-            AnchorId = $anchorId
-            EpicId = $epicId
-            Scheme = $parsedFolder.Scheme
-            Slug = $parsedFolder.Slug
-            Date = $parsedFolder.Date
-            FolderName = $name
-            Path = $entry.Dir.FullName
-            IsArchived = $entry.IsArchived
-        })
+                Id = $canonicalId
+                FolderId = $parsedFolder.FolderId
+                FolderPrefix = $parsedFolder.FolderPrefix
+                AnchorId = $anchorId
+                EpicId = $epicId
+                Scheme = $parsedFolder.Scheme
+                Slug = $parsedFolder.Slug
+                Date = $parsedFolder.Date
+                FolderName = $name
+                Path = $entry.Dir.FullName
+                IsArchived = $entry.IsArchived
+            })
     }
 
     return $inventory.ToArray()
@@ -964,16 +1037,16 @@ function Get-EpicInventory {
         }
 
         $inventory.Add([pscustomobject]@{
-            Id         = if ($anchorId) { $anchorId } else { $folderId }
-            FolderId   = $folderId
-            AnchorId   = $anchorId
-            Slug       = $slug
-            Date       = $date
-            Title      = $title
-            FolderName = $dir.Name
-            Path       = $dir.FullName
-            EpicFile   = $epicFile
-        })
+                Id = if ($anchorId) { $anchorId } else { $folderId }
+                FolderId = $folderId
+                AnchorId = $anchorId
+                Slug = $slug
+                Date = $date
+                Title = $title
+                FolderName = $dir.Name
+                Path = $dir.FullName
+                EpicFile = $epicFile
+            })
     }
 
     return $inventory.ToArray()
@@ -1114,10 +1187,10 @@ function Resolve-PlanStage {
     }
 
     return [pscustomobject]@{
-        Stage       = $value
-        Family      = $family
-        Round       = $round
-        Rank        = $rank
+        Stage = $value
+        Family = $family
+        Round = $round
+        Rank = $rank
         IsDefaulted = $isDefaulted
     }
 }
@@ -1195,179 +1268,179 @@ function Get-PlanValidationDecision {
     }
 
     return [pscustomobject]@{
-        Path           = $Path
-        Stage          = $stage.Stage
-        Floor          = $script:PlanValidationFloor
+        Path = $Path
+        Stage = $stage.Stage
+        Floor = $script:PlanValidationFloor
         ShouldValidate = $shouldValidate
-        Signal         = $signal
+        Signal = $signal
     }
 }
 
 function Get-PlanningContextDigest {
-        <#
+    <#
         .SYNOPSIS
         Returns the digest bound to an operator confirmation of a plan's intent and design.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir
-        )
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir
+    )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
-        foreach ($path in @($intentPath, $designPath)) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Planning context asset not found: $path"
-            }
+    $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
+    $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+    foreach ($path in @($intentPath, $designPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Planning context asset not found: $path"
         }
-
-        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
-        $payload = "intent.md`n$intent`n--design.md--`n$design"
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-        return [System.Convert]::ToHexString(
-            [System.Security.Cryptography.SHA256]::HashData($bytes)
-        ).ToLowerInvariant()
     }
 
-    function Assert-PlanningContextReady {
-        <#
+    $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+    $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+    $payload = "intent.md`n$intent`n--design.md--`n$design"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    return [System.Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($bytes)
+    ).ToLowerInvariant()
+}
+
+function Assert-PlanningContextReady {
+    <#
         .SYNOPSIS
         Fails when the Markdown context is still a scaffold rather than confirmable planning input.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir
-        )
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir
+    )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
-        foreach ($path in @($intentPath, $designPath)) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Planning context asset not found: $path"
-            }
-        }
-
-        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-        foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
-            $body = [regex]::Match(
-                $intent,
-                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-            ).Groups['body'].Value
-            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                throw "Intent section '$section' is missing or still contains a TBD placeholder."
-            }
-        }
-
-        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
-        foreach ($section in @('Components and boundaries', 'Program flow')) {
-            $body = [regex]::Match(
-                $design,
-                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-            ).Groups['body'].Value
-            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                throw "Design section '$section' is missing or still contains a TBD placeholder."
-            }
-            if ($section -eq 'Program flow') {
-                $diagram = [regex]::Match($body, '(?ms)```mermaid[^\S\r\n]*\r?\n(?<body>.*?)```')
-                if (-not $diagram.Success -or
-                    [string]::IsNullOrWhiteSpace($diagram.Groups['body'].Value)) {
-                    throw "Design section 'Program flow' must contain a non-empty Mermaid diagram."
-                }
-            }
+    $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
+    $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+    foreach ($path in @($intentPath, $designPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Planning context asset not found: $path"
         }
     }
 
-    function Get-PlanningContextState {
-        <#
+    $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+    foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
+        $body = [regex]::Match(
+            $intent,
+            "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+        ).Groups['body'].Value
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+            throw "Intent section '$section' is missing or still contains a TBD placeholder."
+        }
+    }
+
+    $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+    foreach ($section in @('Components and boundaries', 'Program flow')) {
+        $body = [regex]::Match(
+            $design,
+            "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+        ).Groups['body'].Value
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+            throw "Design section '$section' is missing or still contains a TBD placeholder."
+        }
+        if ($section -eq 'Program flow') {
+            $diagram = [regex]::Match($body, '(?ms)```mermaid[^\S\r\n]*\r?\n(?<body>.*?)```')
+            if (-not $diagram.Success -or
+                [string]::IsNullOrWhiteSpace($diagram.Groups['body'].Value)) {
+                throw "Design section 'Program flow' must contain a non-empty Mermaid diagram."
+            }
+        }
+    }
+}
+
+function Get-PlanningContextState {
+    <#
         .SYNOPSIS
         Reports whether an enrolled plan's operator confirmation still matches its intent and design.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir
-        )
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir
+    )
 
-        $planFile = Join-Path $PlanDir 'plan.md'
-        if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
-            throw "Plan file not found: $planFile"
-        }
+    $planFile = Join-Path $PlanDir 'plan.md'
+    if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
+        throw "Plan file not found: $planFile"
+    }
 
-        $markers = Get-PlanHeaderMarkers -Path $planFile
-        $marker = $markers.PlanningConfirmed
-        if (-not $markers.All.Contains('planning-confirmed')) {
-            return [pscustomobject]@{
-                IsEnrolled  = $false
-                Status      = 'legacy'
-                IsConfirmed = $true
-                CanProceed  = $true
-                Marker      = $null
-                Digest      = $null
-            }
-        }
-
-        if ([string]::IsNullOrWhiteSpace($marker)) {
-            return [pscustomobject]@{
-                IsEnrolled  = $true
-                Status      = 'invalid'
-                IsConfirmed = $false
-                CanProceed  = $false
-                Marker      = $marker
-                Digest      = $null
-            }
-        }
-
-        $normalized = $marker.Trim().ToLowerInvariant()
-        if ($normalized -eq 'pending') {
-            return [pscustomobject]@{
-                IsEnrolled  = $true
-                Status      = 'pending'
-                IsConfirmed = $false
-                CanProceed  = $false
-                Marker      = $normalized
-                Digest      = $null
-            }
-        }
-
-        if ($normalized -notmatch '^sha256:(?<digest>[0-9a-f]{64})$') {
-            return [pscustomobject]@{
-                IsEnrolled  = $true
-                Status      = 'invalid'
-                IsConfirmed = $false
-                CanProceed  = $false
-                Marker      = $normalized
-                Digest      = $null
-            }
-        }
-        $expectedDigest = $Matches['digest']
-
-        try {
-            $digest = Get-PlanningContextDigest -PlanDir $PlanDir
-        }
-        catch {
-            return [pscustomobject]@{
-                IsEnrolled  = $true
-                Status      = 'missing'
-                IsConfirmed = $false
-                CanProceed  = $false
-                Marker      = $normalized
-                Digest      = $null
-            }
-        }
-
-        $confirmed = [string]::Equals($expectedDigest, $digest, [System.StringComparison]::Ordinal)
+    $markers = Get-PlanHeaderMarkers -Path $planFile
+    $marker = $markers.PlanningConfirmed
+    if (-not $markers.All.Contains('planning-confirmed')) {
         return [pscustomobject]@{
-            IsEnrolled  = $true
-            Status      = if ($confirmed) { 'confirmed' } else { 'stale' }
-            IsConfirmed = $confirmed
-            CanProceed  = $confirmed
-            Marker      = $normalized
-            Digest      = $digest
+            IsEnrolled = $false
+            Status = 'legacy'
+            IsConfirmed = $true
+            CanProceed = $true
+            Marker = $null
+            Digest = $null
         }
     }
+
+    if ([string]::IsNullOrWhiteSpace($marker)) {
+        return [pscustomobject]@{
+            IsEnrolled = $true
+            Status = 'invalid'
+            IsConfirmed = $false
+            CanProceed = $false
+            Marker = $marker
+            Digest = $null
+        }
+    }
+
+    $normalized = $marker.Trim().ToLowerInvariant()
+    if ($normalized -eq 'pending') {
+        return [pscustomobject]@{
+            IsEnrolled = $true
+            Status = 'pending'
+            IsConfirmed = $false
+            CanProceed = $false
+            Marker = $normalized
+            Digest = $null
+        }
+    }
+
+    if ($normalized -notmatch '^sha256:(?<digest>[0-9a-f]{64})$') {
+        return [pscustomobject]@{
+            IsEnrolled = $true
+            Status = 'invalid'
+            IsConfirmed = $false
+            CanProceed = $false
+            Marker = $normalized
+            Digest = $null
+        }
+    }
+    $expectedDigest = $Matches['digest']
+
+    try {
+        $digest = Get-PlanningContextDigest -PlanDir $PlanDir
+    }
+    catch {
+        return [pscustomobject]@{
+            IsEnrolled = $true
+            Status = 'missing'
+            IsConfirmed = $false
+            CanProceed = $false
+            Marker = $normalized
+            Digest = $null
+        }
+    }
+
+    $confirmed = [string]::Equals($expectedDigest, $digest, [System.StringComparison]::Ordinal)
+    return [pscustomobject]@{
+        IsEnrolled = $true
+        Status = if ($confirmed) { 'confirmed' } else { 'stale' }
+        IsConfirmed = $confirmed
+        CanProceed = $confirmed
+        Marker = $normalized
+        Digest = $digest
+    }
+}
 
 function Split-PlanHeader {
     <#
@@ -1401,10 +1474,10 @@ function Split-PlanHeader {
     $bodyLines = if ($boundary -lt $lines.Count) { $lines[$boundary..($lines.Count - 1)] } else { @() }
 
     return [pscustomobject]@{
-        Header          = (@($headerLines) -join "`n")
-        Body            = (@($bodyLines) -join "`n")
+        Header = (@($headerLines) -join "`n")
+        Body = (@($bodyLines) -join "`n")
         HeaderLineCount = @($headerLines).Count
-        HasBody         = @($bodyLines).Count -gt 0
+        HasBody = @($bodyLines).Count -gt 0
     }
 }
 
@@ -1446,14 +1519,14 @@ function Get-PlanHeaderMarkers {
     }
 
     return [pscustomobject]@{
-        PlanId        = & $getValue 'plan-id'
-        EpicId        = & $getValue 'epic'
+        PlanId = & $getValue 'plan-id'
+        EpicId = & $getValue 'epic'
         ExecutionMode = & $getValue 'execution-mode'
-        Scope         = & $getValue 'scope'
-        CipStage      = & $getValue 'cip-stage'
+        Scope = & $getValue 'scope'
+        CipStage = & $getValue 'cip-stage'
         PlanningConfirmed = & $getValue 'planning-confirmed'
-        DependsOn     = $dependsOn
-        All           = $all
+        DependsOn = $dependsOn
+        All = $all
     }
 }
 
@@ -1496,14 +1569,14 @@ function Get-PlanProgress {
     $percent = if ($total -gt 0) { [math]::Round(($completed / $total) * 100, 1) } else { 0 }
 
     return [pscustomobject]@{
-        Total         = $total
-        Completed     = $completed
-        InProgress    = $inProgress
-        Pending       = $pending
-        Percent       = $percent
-        CurrentPhase  = $currentPhase
+        Total = $total
+        Completed = $completed
+        InProgress = $inProgress
+        Pending = $pending
+        Percent = $percent
+        CurrentPhase = $currentPhase
         LastCompleted = $lastCompleted
-        IsComplete    = ($total -gt 0 -and $completed -eq $total)
+        IsComplete = ($total -gt 0 -and $completed -eq $total)
     }
 }
 
@@ -1539,16 +1612,16 @@ function Get-NextStep {
 
     if (-not $next) {
         return [pscustomobject]@{
-            Step                  = $null
-            Id                    = $null
-            Status                = $null
-            IsHuman               = $false
-            IsDiscovery           = $false
-            Detail                = ''
+            Step = $null
+            Id = $null
+            Status = $null
+            IsHuman = $false
+            IsDiscovery = $false
+            Detail = ''
             HasUncommittedChanges = [bool]$HasUncommittedChanges
-            BlockedByAfter        = $false
-            UnmetAfter            = @()
-            IsComplete            = $true
+            BlockedByAfter = $false
+            UnmetAfter = @()
+            IsComplete = $true
         }
     }
 
@@ -1561,16 +1634,16 @@ function Get-NextStep {
     $detail = if ($next.PSObject.Properties['Detail']) { [string]$next.Detail } else { '' }
 
     return [pscustomobject]@{
-        Step                  = $next
-        Id                    = $next.Id
-        Status                = $next.Status
-        IsHuman               = ($next.Role -eq 'human')
-        IsDiscovery           = [bool]$isDiscovery
-        Detail                = $detail
+        Step = $next
+        Id = $next.Id
+        Status = $next.Status
+        IsHuman = ($next.Role -eq 'human')
+        IsDiscovery = [bool]$isDiscovery
+        Detail = $detail
         HasUncommittedChanges = [bool]$HasUncommittedChanges
-        BlockedByAfter        = ($unmet.Count -gt 0)
-        UnmetAfter            = $unmet
-        IsComplete            = $false
+        BlockedByAfter = ($unmet.Count -gt 0)
+        UnmetAfter = $unmet
+        IsComplete = $false
     }
 }
 
@@ -1606,8 +1679,8 @@ function Get-EpicRollup {
 
     $epicIdLower = $EpicId.Trim().ToLowerInvariant()
     $members = @($Inventory |
-        Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $epicIdLower } |
-        Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
+            Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $epicIdLower } |
+            Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
 
     $records = [System.Collections.Generic.List[object]]::new()
     # Completion is cached per plan id because a `depends-on` may point at a plan outside the epic; the
@@ -1624,18 +1697,18 @@ function Get-EpicRollup {
         $completionCache[$member.Id.ToLowerInvariant()] = $isComplete
 
         $records.Add([pscustomobject]@{
-            Id            = $member.Id
-            Slug          = $member.Slug
-            FolderName    = $member.FolderName
-            Path          = $member.Path
-            PlanFile      = $planFile
-            IsArchived    = $member.IsArchived
-            IsComplete    = $isComplete
-            DependsOn     = @($markers.DependsOn)
-            Progress      = $progress
-            NextStepId    = $next.Id
-            NextStepHuman = $next.IsHuman
-        })
+                Id = $member.Id
+                Slug = $member.Slug
+                FolderName = $member.FolderName
+                Path = $member.Path
+                PlanFile = $planFile
+                IsArchived = $member.IsArchived
+                IsComplete = $isComplete
+                DependsOn = @($markers.DependsOn)
+                Progress = $progress
+                NextStepId = $next.Id
+                NextStepHuman = $next.IsHuman
+            })
     }
 
     $resolved = [System.Collections.Generic.List[object]]::new()
@@ -1667,21 +1740,21 @@ function Get-EpicRollup {
         }
 
         $resolved.Add([pscustomobject]@{
-            Id             = $record.Id
-            Slug           = $record.Slug
-            FolderName     = $record.FolderName
-            Path           = $record.Path
-            PlanFile       = $record.PlanFile
-            IsArchived     = $record.IsArchived
-            IsComplete     = $record.IsComplete
-            DependsOn      = @($record.DependsOn)
-            UnmetDependsOn = $unmet.ToArray()
-            UnknownDependsOn = $unknown.ToArray()
-            IsBlocked      = (-not $record.IsComplete -and ($unmet.Count -gt 0 -or $unknown.Count -gt 0))
-            Progress       = $record.Progress
-            NextStepId     = $record.NextStepId
-            NextStepHuman  = $record.NextStepHuman
-        })
+                Id = $record.Id
+                Slug = $record.Slug
+                FolderName = $record.FolderName
+                Path = $record.Path
+                PlanFile = $record.PlanFile
+                IsArchived = $record.IsArchived
+                IsComplete = $record.IsComplete
+                DependsOn = @($record.DependsOn)
+                UnmetDependsOn = $unmet.ToArray()
+                UnknownDependsOn = $unknown.ToArray()
+                IsBlocked = (-not $record.IsComplete -and ($unmet.Count -gt 0 -or $unknown.Count -gt 0))
+                Progress = $record.Progress
+                NextStepId = $record.NextStepId
+                NextStepHuman = $record.NextStepHuman
+            })
     }
 
     $nextChild = $null
@@ -1697,16 +1770,16 @@ function Get-EpicRollup {
     }
 
     return [pscustomobject]@{
-        EpicId          = $epicIdLower
-        Children        = $resolved.ToArray()
-        ChildCount      = $resolved.Count
-        CompleteCount   = @($resolved | Where-Object { $_.IsComplete }).Count
-        BlockedCount    = @($resolved | Where-Object { $_.IsBlocked }).Count
-        TotalSteps      = $totalSteps
-        CompletedSteps  = $completedSteps
-        Percent         = if ($totalSteps -gt 0) { [math]::Round(($completedSteps / $totalSteps) * 100, 1) } else { 0 }
-        NextChild       = $nextChild
-        IsComplete      = ($resolved.Count -gt 0 -and @($resolved | Where-Object { $_.IsComplete }).Count -eq $resolved.Count)
+        EpicId = $epicIdLower
+        Children = $resolved.ToArray()
+        ChildCount = $resolved.Count
+        CompleteCount = @($resolved | Where-Object { $_.IsComplete }).Count
+        BlockedCount = @($resolved | Where-Object { $_.IsBlocked }).Count
+        TotalSteps = $totalSteps
+        CompletedSteps = $completedSteps
+        Percent = if ($totalSteps -gt 0) { [math]::Round(($completedSteps / $totalSteps) * 100, 1) } else { 0 }
+        NextChild = $nextChild
+        IsComplete = ($resolved.Count -gt 0 -and @($resolved | Where-Object { $_.IsComplete }).Count -eq $resolved.Count)
     }
 }
 
@@ -1792,4 +1865,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState

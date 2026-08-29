@@ -23,8 +23,8 @@ Describe 'retired arch evidence marker' {
                     $skill = [regex]::Match($dest, '^skills/(?<name>[^/]+)/scripts/').Groups['name'].Value
                     $bundles.Add([pscustomobject]@{
                             Plugin = [string]$manifest.name
-                            Skill  = $skill
-                            Path   = Join-Path $pluginRoot ([string]$entry.src)
+                            Skill = $skill
+                            Path = Join-Path $pluginRoot ([string]$entry.src)
                         })
                 }
             }
@@ -91,7 +91,7 @@ Describe 'retired arch evidence marker' {
         @($script:stateBundles.Skill) |
             Should -Be @('autopilot', 'cep', 'ci', 'cip', 'cr', 'dr', 'pfb', 'si', 'work-hierarchy-sync')
         @($script:validatorBundles.Skill) | Should -Be @('autopilot', 'cep', 'ci', 'cip')
-        @($script:evidenceBundles.Skill) | Should -Be @('autopilot', 'cep', 'ci', 'cip')
+        @($script:evidenceBundles.Skill) | Should -Be @('autopilot', 'cep', 'ci', 'cip', 'cr', 'dr')
 
         $canonicalStateHash = (Get-FileHash -LiteralPath $script:canonicalState -Algorithm SHA256).Hash
         foreach ($bundle in $script:stateBundles) {

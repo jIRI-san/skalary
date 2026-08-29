@@ -33,8 +33,8 @@ context: fork
    ```
 
    After topic, epic/dependency, or operator selection narrows the candidates, follow
-   `./assets/decomposition-guide.md` to load only needed artifacts through the installed
-   `Get-PlanArtifactContext.ps1`.
+   `./assets/decomposition-guide.md` to load only needed artifacts through the installed fail-loud
+   `Get-PlanArtifactConsumerContext.ps1` adapter.
 3. **New epic:** do **not** scaffold anything yet. The `seams` gate in Step 2 can legitimately conclude the goal is one plan, not an epic; scaffolding before it passes leaves an orphan `epic.md` no script can remove. Scaffolding happens in Step 4, after the operator accepts a cut.
 4. **Extend:** resolve the existing epic with `Resolve-Epic` (hash prefix, slug, or date) and read its `epic.md`. Its child table is generated, so treat the child plans' markers as the truth. Never open selected related-plan folders directly.
 

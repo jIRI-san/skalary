@@ -26,7 +26,8 @@ report and receipt verify as an exact pair.
 - Freeze binds the full task matrix and engine-derived scope before dispatch.
 - Optional related-plan content is untrusted dispatch context only. Its compact provenance may use
   the existing bounded scope text, but it adds no scope-authority field, role, schema, receipt, or
-  lifecycle step.
+  lifecycle step. The shared consumer adapter requires successful resolver execution and array JSON,
+  admits accepted results only, and uses the standard `UNTRUSTED_INPUT` fence.
 - Publish commits content-addressed plan, run, summary, and full artifacts through one manifest.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an

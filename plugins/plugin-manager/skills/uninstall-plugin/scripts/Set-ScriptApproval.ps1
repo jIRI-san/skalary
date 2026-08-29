@@ -412,13 +412,31 @@ else {
     @()
 }
 
+$obsoleteWriterKeys = @()
+if (-not $Remove) {
+    $ownedWriterSkills = @(
+        foreach ($plugin in $targetPlugins) {
+            switch ([string]$plugin.name) {
+                'code-review' { 'cr' }
+                'design-review' { 'dr' }
+            }
+        }
+    )
+    foreach ($skill in $ownedWriterSkills) {
+        $ownedFragment = "skills\\/$skill\\/scripts\\/Build-ReviewReport"
+        $obsoleteWriterKeys += @($before | Where-Object {
+                $_ -match [regex]::Escape($ownedFragment) -and $approvalKeys -cnotcontains $_
+            })
+    }
+}
+
 if ($Remove) {
     $updated = Set-ApprovalKeys -Text $settingsText -RemoveKeys $approvalKeys
     $changed = @($approvalKeys | Where-Object { $before -contains $_ })
     $verb = 'Removed'
 }
 else {
-    $updated = Set-ApprovalKeys -Text $settingsText -Add $approvalEntries
+    $updated = Set-ApprovalKeys -Text $settingsText -Add $approvalEntries -RemoveKeys $obsoleteWriterKeys
     $changed = @($approvalKeys | Where-Object { $before -notcontains $_ })
     $verb = 'Added'
 }

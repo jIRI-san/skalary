@@ -44,19 +44,24 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -DisableNameChecking
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $artifactMap = [ordered]@{
-    Intent    = 'Intent'
-    Design    = 'Design'
+    Intent = 'Intent'
+    Design = 'Design'
     Decisions = 'Decisions'
-    Reviews   = 'ReviewRuns'
-    Evidence  = 'Evidence'
+    Reviews = 'ReviewRuns'
+    Evidence = 'Evidence'
     Learnings = 'Learnings'
 }
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 
-if (-not ('SkalaryPlanArtifactHandle' -as [type])) {
+function Initialize-NativeArtifactHandle {
+    if ('SkalaryPlanArtifactHandle' -as [type]) {
+        return
+    }
+
     Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
@@ -106,6 +111,124 @@ public static class SkalaryPlanArtifactHandle
 
     [DllImport("libc", SetLastError = true)]
     private static extern int fstat(int fd, byte[] buffer);
+
+    private static bool IsSupportedArchitecture(OSPlatform platform, Architecture architecture)
+    {
+        if (platform == OSPlatform.Windows)
+        {
+            return architecture == Architecture.X86 ||
+                architecture == Architecture.X64 ||
+                architecture == Architecture.Arm64;
+        }
+        return architecture == Architecture.X64 || architecture == Architecture.Arm64;
+    }
+
+    private static void AssertSupportedArchitecture(OSPlatform platform, Architecture architecture)
+    {
+        if (!BitConverter.IsLittleEndian || !IsSupportedArchitecture(platform, architecture))
+        {
+            throw new PlatformNotSupportedException(
+                "Opened artifact identity is not supported on " + platform + "/" + architecture + ".");
+        }
+    }
+
+    public static bool IsSupportedPlatformArchitecture(string platform, string architecture)
+    {
+        Architecture parsed;
+        if (!Enum.TryParse(architecture, false, out parsed))
+        {
+            return false;
+        }
+        if (String.Equals(platform, "Windows", StringComparison.Ordinal))
+        {
+            return IsSupportedArchitecture(OSPlatform.Windows, parsed);
+        }
+        if (String.Equals(platform, "Linux", StringComparison.Ordinal))
+        {
+            return IsSupportedArchitecture(OSPlatform.Linux, parsed);
+        }
+        if (String.Equals(platform, "macOS", StringComparison.Ordinal))
+        {
+            return IsSupportedArchitecture(OSPlatform.OSX, parsed);
+        }
+        return false;
+    }
+
+    public static Identity ParseUnixIdentityForTest(string platform, string architecture, byte[] stat)
+    {
+        Architecture parsed;
+        if (!Enum.TryParse(architecture, false, out parsed))
+        {
+            throw new PlatformNotSupportedException("Unknown test architecture '" + architecture + "'.");
+        }
+        if (String.Equals(platform, "Linux", StringComparison.Ordinal))
+        {
+            AssertSupportedArchitecture(OSPlatform.Linux, parsed);
+            return ParseLinuxIdentity(stat, parsed);
+        }
+        if (String.Equals(platform, "macOS", StringComparison.Ordinal))
+        {
+            AssertSupportedArchitecture(OSPlatform.OSX, parsed);
+            return ParseMacIdentity(stat, parsed);
+        }
+        throw new PlatformNotSupportedException("Unix identity fixture platform must be Linux or macOS.");
+    }
+
+    private static Identity ParseLinuxIdentity(byte[] stat, Architecture architecture)
+    {
+        if (stat == null || stat.Length < 28)
+        {
+            throw new IOException("Linux fstat buffer is shorter than the supported layout.");
+        }
+
+        var device = BitConverter.ToUInt64(stat, 0);
+        var inode = BitConverter.ToUInt64(stat, 8);
+        ulong links;
+        uint mode;
+        if (architecture == Architecture.X64)
+        {
+            links = BitConverter.ToUInt64(stat, 16);
+            mode = BitConverter.ToUInt32(stat, 24);
+        }
+        else if (architecture == Architecture.Arm64)
+        {
+            mode = BitConverter.ToUInt32(stat, 16);
+            links = BitConverter.ToUInt32(stat, 20);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException("Linux fstat layout is unsupported on " + architecture + ".");
+        }
+        return new Identity
+        {
+            Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
+            LinkCount = links,
+            IsRegular = (mode & 0xF000) == 0x8000
+        };
+    }
+
+    private static Identity ParseMacIdentity(byte[] stat, Architecture architecture)
+    {
+        if (architecture != Architecture.X64 && architecture != Architecture.Arm64)
+        {
+            throw new PlatformNotSupportedException("macOS fstat layout is unsupported on " + architecture + ".");
+        }
+        if (stat == null || stat.Length < 16)
+        {
+            throw new IOException("macOS fstat buffer is shorter than the supported layout.");
+        }
+
+        var device = BitConverter.ToUInt32(stat, 0);
+        var mode = BitConverter.ToUInt16(stat, 4);
+        var links = BitConverter.ToUInt16(stat, 6);
+        var inode = BitConverter.ToUInt64(stat, 8);
+        return new Identity
+        {
+            Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
+            LinkCount = links,
+            IsRegular = (mode & 0xF000) == 0x8000
+        };
+    }
 
     public static string GetPath(SafeFileHandle handle)
     {
@@ -173,6 +296,7 @@ public static class SkalaryPlanArtifactHandle
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            AssertSupportedArchitecture(OSPlatform.Windows, RuntimeInformation.ProcessArchitecture);
             ByHandleFileInformation information;
             if (!GetFileInformationByHandle(handle, out information))
             {
@@ -187,6 +311,19 @@ public static class SkalaryPlanArtifactHandle
             };
         }
 
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            AssertSupportedArchitecture(OSPlatform.Linux, RuntimeInformation.ProcessArchitecture);
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            AssertSupportedArchitecture(OSPlatform.OSX, RuntimeInformation.ProcessArchitecture);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException("Opened artifact identity supports Windows, Linux, and macOS.");
+        }
+
         var stat = new byte[256];
         if (fstat(handle.DangerousGetHandle().ToInt32(), stat) != 0)
         {
@@ -194,29 +331,11 @@ public static class SkalaryPlanArtifactHandle
         }
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            var device = BitConverter.ToUInt64(stat, 0);
-            var inode = BitConverter.ToUInt64(stat, 8);
-            var links = BitConverter.ToUInt64(stat, 16);
-            var mode = BitConverter.ToUInt32(stat, 24);
-            return new Identity
-            {
-                Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
-                LinkCount = links,
-                IsRegular = (mode & 0xF000) == 0x8000
-            };
+            return ParseLinuxIdentity(stat, RuntimeInformation.ProcessArchitecture);
         }
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            var device = BitConverter.ToUInt32(stat, 0);
-            var mode = BitConverter.ToUInt16(stat, 4);
-            var links = BitConverter.ToUInt16(stat, 6);
-            var inode = BitConverter.ToUInt64(stat, 8);
-            return new Identity
-            {
-                Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
-                LinkCount = links,
-                IsRegular = (mode & 0xF000) == 0x8000
-            };
+            return ParseMacIdentity(stat, RuntimeInformation.ProcessArchitecture);
         }
 
         throw new PlatformNotSupportedException("Opened artifact identity supports Windows, Linux, and macOS.");
@@ -234,36 +353,70 @@ function ConvertTo-RepoRelativePath {
 function New-ArtifactCandidate {
     param(
         [Parameter(Mandatory)][string]$Status,
-        [Parameter(Mandatory)][string]$RequestedPlanId,
-        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$RequestedPlanId,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Kind,
         [AllowNull()][object]$Plan,
         [AllowNull()][string]$Path,
         [AllowNull()][string]$Reason,
-        [Parameter(Mandatory)][string]$Relationship,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Relationship,
         [ValidateSet('Raw', 'LegacyDecisions')]
         [string]$ReadMode = 'Raw',
-        [AllowNull()][string]$CompanionPath = $null
+        [AllowNull()][string]$CompanionPath = $null,
+        [ValidateSet('None', 'ReviewReceipt', 'DecisionsPlan')]
+        [string]$CompanionPurpose = 'None',
+        [AllowNull()][string]$PhysicalPlanPath = $null,
+        [AllowNull()][string]$ReviewRunId = $null
     )
 
     return [pscustomobject][ordered]@{
-        status       = $Status
-        planId       = if ($Plan) { $Plan.Id } else { $RequestedPlanId }
+        status = $Status
+        planId = if ($Plan) { $Plan.Id } else { $RequestedPlanId }
         artifactKind = $Kind
-        path         = $Path
+        path = $Path
         relationship = $Relationship
-        layout       = if ($Plan) { $Plan.Layout } else { $null }
-        isArchived   = if ($Plan) { [bool]$Plan.IsArchived } else { $null }
-        isUntrusted  = $true
-        authority    = 'historical-context-only'
-        byteCount    = $null
-        content      = $null
-        reason       = $Reason
-        sourcePath   = $Path
-        planPath     = if ($Plan) { $Plan.Path } else { $null }
-        readMode     = $ReadMode
-        stream       = $null
+        layout = if ($Plan) { $Plan.Layout } else { $null }
+        isArchived = if ($Plan) { [bool]$Plan.IsArchived } else { $null }
+        isUntrusted = $true
+        authority = 'historical-context-only'
+        byteCount = $null
+        content = $null
+        reason = $Reason
+        sourcePath = $Path
+        planPath = if ($Plan) { $Plan.Path } else { $null }
+        readMode = $ReadMode
+        stream = $null
         companionPath = $CompanionPath
         companionStream = $null
+        companionPurpose = $CompanionPurpose
+        physicalPlanPath = if ($PhysicalPlanPath) {
+            $PhysicalPlanPath
+        }
+        elseif ($Plan -and $Plan.PSObject.Properties.Name -contains 'PhysicalPath') {
+            $Plan.PhysicalPath
+        }
+        else {
+            $null
+        }
+        reviewRunId = $ReviewRunId
+    }
+}
+
+function ConvertTo-PublicArtifactResult {
+    param([Parameter(Mandatory)][object]$Candidate)
+
+    return [pscustomobject][ordered]@{
+        status = $Candidate.status
+        planId = $Candidate.planId
+        artifactKind = $Candidate.artifactKind
+        path = $Candidate.path
+        relationship = $Candidate.relationship
+        layout = $Candidate.layout
+        isArchived = $Candidate.isArchived
+        isUntrusted = $Candidate.isUntrusted
+        authority = $Candidate.authority
+        byteCount = $Candidate.byteCount
+        content = $Candidate.content
+        reason = $Candidate.reason
     }
 }
 
@@ -284,7 +437,8 @@ function Get-OrdinallySortedUnique {
 function Test-RegularConfinedFile {
     param(
         [Parameter(Mandatory)][string]$PlanPath,
-        [Parameter(Mandatory)][string]$Path
+        [Parameter(Mandatory)][string]$Path,
+        [AllowNull()][string]$PhysicalPlanPath
     )
 
     $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
@@ -293,7 +447,12 @@ function Test-RegularConfinedFile {
         throw "Resolved artifact '$Path' is not a regular file."
     }
 
-    $physicalPlan = Resolve-PhysicalRepoPath -Path $PlanPath
+    $physicalPlan = if ([string]::IsNullOrWhiteSpace($PhysicalPlanPath)) {
+        Resolve-PhysicalRepoPath -Path $PlanPath
+    }
+    else {
+        $PhysicalPlanPath
+    }
     $physicalFile = Resolve-PhysicalRepoPath -Path $item.FullName
     $prefix = $physicalPlan.TrimEnd([char[]]@(
             [System.IO.Path]::DirectorySeparatorChar,
@@ -303,19 +462,63 @@ function Test-RegularConfinedFile {
         throw "Resolved artifact '$Path' escapes canonical plan folder '$PlanPath'."
     }
 
-    return $item
+    return [pscustomobject]@{
+        Item = $item
+        PhysicalPath = $physicalFile
+        PhysicalPlanPath = $physicalPlan
+    }
+}
+
+function Invoke-ArtifactOpenTestHook {
+    param([Parameter(Mandatory)][ValidateSet('preflight-first-open', 'first-verification-open')][string]$Phase)
+
+    $hookValue = [string]$env:SKALARY_PLAN_ARTIFACT_CONTEXT_TEST_HOOK
+    if ([string]::IsNullOrWhiteSpace($hookValue)) {
+        return
+    }
+
+    $hookRoot = [System.IO.Path]::GetFullPath($hookValue)
+    $repoPrefix = $repoRootPath.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $hookRoot.StartsWith($repoPrefix, [System.StringComparison]::Ordinal) -or
+        [System.IO.Path]::GetFileName($hookRoot) -cne '.skalary-plan-artifact-context-test-hook') {
+        throw 'The plan-artifact test hook must be the fixed test-hook directory inside RepoRoot.'
+    }
+    $hookItem = Get-Item -LiteralPath $hookRoot -Force -ErrorAction Stop
+    if ($hookItem -isnot [System.IO.DirectoryInfo] -or
+        ($hookItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The plan-artifact test hook root must be a regular directory.'
+    }
+
+    $readyPath = Join-Path $hookRoot "$Phase.ready"
+    $continuePath = Join-Path $hookRoot "$Phase.continue"
+    [System.IO.File]::WriteAllText($readyPath, $Phase, [System.Text.UTF8Encoding]::new($false))
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not [System.IO.File]::Exists($continuePath)) {
+        if ([DateTime]::UtcNow -ge $deadline) {
+            throw "Timed out waiting for the plan-artifact '$Phase' test hook."
+        }
+        [System.Threading.Thread]::Sleep(10)
+    }
 }
 
 function Open-ConfinedArtifact {
     param(
         [Parameter(Mandatory)][string]$PlanPath,
-        [Parameter(Mandatory)][string]$Path
+        [Parameter(Mandatory)][string]$Path,
+        [AllowNull()][string]$PhysicalPlanPath
     )
 
-    $initialItem = Test-RegularConfinedFile -PlanPath $PlanPath -Path $Path
-    $expectedPhysicalPath = Resolve-PhysicalRepoPath -Path $initialItem.FullName
+    $validated = Test-RegularConfinedFile `
+        -PlanPath $PlanPath `
+        -Path $Path `
+        -PhysicalPlanPath $PhysicalPlanPath
+    Invoke-ArtifactOpenTestHook -Phase preflight-first-open
+    Initialize-NativeArtifactHandle
     $stream = [System.IO.File]::Open(
-        $initialItem.FullName,
+        $validated.Item.FullName,
         [System.IO.FileMode]::Open,
         [System.IO.FileAccess]::Read,
         [System.IO.FileShare]::Read
@@ -323,7 +526,7 @@ function Open-ConfinedArtifact {
     try {
         $handlePath = [SkalaryPlanArtifactHandle]::GetPath($stream.SafeFileHandle)
         $handlePhysicalPath = Resolve-PhysicalRepoPath -Path $handlePath
-        $physicalPlanPath = Resolve-PhysicalRepoPath -Path $PlanPath
+        $physicalPlanPath = $validated.PhysicalPlanPath
         $planPrefix = $physicalPlanPath.TrimEnd([char[]]@(
                 [System.IO.Path]::DirectorySeparatorChar,
                 [System.IO.Path]::AltDirectorySeparatorChar
@@ -331,7 +534,7 @@ function Open-ConfinedArtifact {
         if (-not $handlePhysicalPath.StartsWith($planPrefix, [System.StringComparison]::Ordinal)) {
             throw "Opened artifact handle '$handlePath' escapes canonical plan folder '$PlanPath'."
         }
-        if (-not [string]::Equals($handlePhysicalPath, $expectedPhysicalPath, [System.StringComparison]::Ordinal)) {
+        if (-not [string]::Equals($handlePhysicalPath, $validated.PhysicalPath, [System.StringComparison]::Ordinal)) {
             throw "Opened artifact handle '$handlePath' does not match the confined file that was validated."
         }
 
@@ -340,6 +543,7 @@ function Open-ConfinedArtifact {
             throw "Opened artifact '$Path' is not a single-link regular file."
         }
 
+        Invoke-ArtifactOpenTestHook -Phase first-verification-open
         $verification = [System.IO.File]::Open(
             $Path,
             [System.IO.FileMode]::Open,
@@ -392,222 +596,14 @@ function Read-BoundedUtf8Stream {
         $offset += $read
     }
     if ($Stream.ReadByte() -ne -1) {
-        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $MaxArtifactBytes + 1; Content = $null; Bytes = $null }
+        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $null; Content = $null; Bytes = $null }
     }
 
     return [pscustomobject]@{
-        Status    = 'accepted'
+        Status = 'accepted'
         ByteCount = $length
-        Content   = $utf8.GetString($bytes)
-        Bytes     = $bytes
-    }
-}
-
-function Get-LegacyDecisions {
-    param([Parameter(Mandatory)][string]$Content)
-
-    $lines = Remove-FencedCodeBlocks -Lines (($Content -replace "`r`n", "`n").Split("`n"))
-    $section = [System.Collections.Generic.List[string]]::new()
-    $inSection = $false
-    foreach ($line in $lines) {
-        if ($line -match '^\s*##\s+Decisions\s*$') {
-            $inSection = $true
-            continue
-        }
-        if ($inSection -and $line -match '^\s*##\s+') {
-            break
-        }
-        if ($inSection) {
-            $section.Add($line)
-        }
-    }
-
-    $records = @(Get-PlanSectionRecord -Lines $section.ToArray() -Kind List)
-    if ($records.Count -eq 0) {
-        return $null
-    }
-    return ($section.ToArray() -join "`n").Trim()
-}
-
-function Assert-ExactObjectKeys {
-    param(
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Value,
-        [Parameter(Mandatory)][string[]]$Expected,
-        [Parameter(Mandatory)][string]$Name
-    )
-
-    $actualKeys = [System.Collections.Generic.List[string]]::new()
-    foreach ($key in $Value.Keys) {
-        $actualKeys.Add([string]$key)
-    }
-    $actualKeys.Sort([System.Comparison[string]] {
-        param($left, $right)
-        [string]::CompareOrdinal($left, $right)
-    })
-    $expectedKeys = [System.Collections.Generic.List[string]]::new()
-    $expectedKeys.AddRange($Expected)
-    $expectedKeys.Sort([System.Comparison[string]] {
-        param($left, $right)
-        [string]::CompareOrdinal($left, $right)
-    })
-    if (($actualKeys -join "`n") -cne ($expectedKeys -join "`n")) {
-        throw "$Name does not match the closed finalized-review receipt shape."
-    }
-}
-
-function Get-ArtifactSha256Digest {
-    param([Parameter(Mandatory)][byte[]]$Bytes)
-
-    return 'sha256:' + [System.Convert]::ToHexString(
-        [System.Security.Cryptography.SHA256]::HashData($Bytes)
-    ).ToLowerInvariant()
-}
-
-function Get-NonNegativeReceiptInteger {
-    param(
-        [AllowNull()][object]$Value,
-        [Parameter(Mandatory)][string]$Name
-    )
-
-    if ($null -eq $Value) {
-        throw "Finalized review receipt field '$Name' must be a non-negative integer."
-    }
-    $integerTypes = @(
-        [System.TypeCode]::Byte,
-        [System.TypeCode]::SByte,
-        [System.TypeCode]::Int16,
-        [System.TypeCode]::UInt16,
-        [System.TypeCode]::Int32,
-        [System.TypeCode]::UInt32,
-        [System.TypeCode]::Int64,
-        [System.TypeCode]::UInt64
-    )
-    if ([System.Type]::GetTypeCode($Value.GetType()) -notin $integerTypes) {
-        throw "Finalized review receipt field '$Name' must be a non-negative integer."
-    }
-    try {
-        $integer = [System.Convert]::ToInt64($Value, [System.Globalization.CultureInfo]::InvariantCulture)
-    }
-    catch {
-        throw "Finalized review receipt field '$Name' exceeds the supported integer range."
-    }
-    if ($integer -lt 0) {
-        throw "Finalized review receipt field '$Name' must be a non-negative integer."
-    }
-    return $integer
-}
-
-function Assert-FinalizedReviewReceipt {
-    param(
-        [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$ReportName,
-        [Parameter(Mandatory)][byte[]]$ReportBytes,
-        [Parameter(Mandatory)][string]$ReceiptContent
-    )
-
-    try {
-        $receipt = $ReceiptContent | ConvertFrom-Json -AsHashtable -Depth 20
-    }
-    catch {
-        throw "Finalized review receipt is not valid JSON: $($_.Exception.Message)"
-    }
-    if ($receipt -isnot [System.Collections.IDictionary]) {
-        throw 'Finalized review receipt is not an object.'
-    }
-
-    Assert-ExactObjectKeys -Value $receipt -Name 'Finalized review receipt' -Expected @(
-        'schema', 'runId', 'reviewType', 'verdict', 'state', 'source', 'planDigest', 'runDigest',
-        'manifestDigest', 'legacySource', 'attendance', 'findings', 'report'
-    )
-    if ($receipt['schema'] -cne 'skalary/review-result-receipt@1') {
-        throw 'Finalized review receipt has an unsupported schema.'
-    }
-    if ($receipt['runId'] -cne $RunId) {
-        throw 'Finalized review receipt run identity does not match its file name.'
-    }
-    if ([string]$receipt['reviewType'] -cnotin @('code', 'design') -or
-        [string]$receipt['verdict'] -cnotin @('approved', 'blocked') -or
-        [string]$receipt['state'] -cnotin @('clean', 'degraded') -or
-        $receipt['legacySource'] -isnot [bool]) {
-        throw 'Finalized review receipt has invalid review state metadata.'
-    }
-    foreach ($field in @('planDigest', 'runDigest', 'manifestDigest')) {
-        if ([string]$receipt[$field] -cnotmatch '^sha256:[0-9a-f]{64}$') {
-            throw "Finalized review receipt field '$field' is not a canonical digest."
-        }
-    }
-
-    $report = $receipt['report']
-    if ($report -isnot [System.Collections.IDictionary]) {
-        throw 'Finalized review receipt report binding is not an object.'
-    }
-    Assert-ExactObjectKeys -Value $report -Name 'Finalized review report binding' -Expected @(
-        'name', 'bytes', 'digest'
-    )
-    $expectedDigest = Get-ArtifactSha256Digest -Bytes $ReportBytes
-    $reportByteCount = Get-NonNegativeReceiptInteger -Value $report['bytes'] -Name 'report.bytes'
-    if ([string]$report['name'] -cne $ReportName -or
-        $reportByteCount -ne $ReportBytes.Length -or
-        [string]$report['digest'] -cne $expectedDigest) {
-        throw 'Finalized review receipt does not match the report name, byte count, and digest.'
-    }
-
-    $source = $receipt['source']
-    if ($source -isnot [System.Collections.IDictionary]) {
-        throw 'Finalized review receipt source binding is not an object.'
-    }
-    if ($source['mode'] -isnot [string] -or
-        [string]$source['mode'] -cnotin @('branch', 'uncommitted', 'paths', 'design')) {
-        throw 'Finalized review receipt has an invalid source mode.'
-    }
-    $sourceKeys = @('mode', 'pathCount', 'digest')
-    if ($source['mode'] -ceq 'branch') {
-        $sourceKeys += @('base', 'head')
-    }
-    Assert-ExactObjectKeys -Value $source -Name 'Finalized review source binding' -Expected $sourceKeys
-    if ($source['mode'] -ceq 'branch') {
-        foreach ($field in @('base', 'head')) {
-            if ($source[$field] -isnot [string] -or
-                [string]::IsNullOrWhiteSpace([string]$source[$field]) -or
-                ([string]$source[$field]).Length -gt 256) {
-                throw "Finalized review receipt source field '$field' is invalid."
-            }
-        }
-    }
-    $null = Get-NonNegativeReceiptInteger -Value $source['pathCount'] -Name 'source.pathCount'
-    if ([string]$source['digest'] -cnotmatch '^sha256:[0-9a-f]{64}$') {
-        throw 'Finalized review receipt has invalid source metadata.'
-    }
-
-    $attendance = $receipt['attendance']
-    if ($attendance -isnot [System.Collections.IDictionary]) {
-        throw 'Finalized review receipt attendance is not an object.'
-    }
-    Assert-ExactObjectKeys -Value $attendance -Name 'Finalized review attendance' -Expected @(
-        'completed', 'failed', 'timed-out', 'omitted', 'cancelled', 'pending'
-    )
-    foreach ($key in $attendance.Keys) {
-        $null = Get-NonNegativeReceiptInteger -Value $attendance[$key] -Name "attendance.$key"
-    }
-
-    $findings = $receipt['findings']
-    if ($findings -isnot [System.Collections.IDictionary] -or
-        $findings['severity'] -isnot [System.Collections.IDictionary]) {
-        throw 'Finalized review receipt findings are not an object.'
-    }
-    Assert-ExactObjectKeys -Value $findings -Name 'Finalized review findings' -Expected @(
-        'merged', 'raw', 'severity'
-    )
-    Assert-ExactObjectKeys -Value $findings['severity'] -Name 'Finalized review severity counts' -Expected @(
-        'critical', 'high', 'medium', 'low'
-    )
-    foreach ($key in @('merged', 'raw')) {
-        $null = Get-NonNegativeReceiptInteger -Value $findings[$key] -Name "findings.$key"
-    }
-    foreach ($key in $findings['severity'].Keys) {
-        $null = Get-NonNegativeReceiptInteger `
-            -Value $findings['severity'][$key] `
-            -Name "findings.severity.$key"
+        Content = $utf8.GetString($bytes)
+        Bytes = $bytes
     }
 }
 
@@ -644,38 +640,62 @@ else {
 
 $ids = @(Get-OrdinallySortedUnique -Value $PlanId)
 $kinds = @(Get-OrdinallySortedUnique -Value $ArtifactKind)
-$invalidInput = @($ids + $kinds + @($Relationship) | Where-Object {
-        [string]::IsNullOrWhiteSpace($_) -or $_.Length -gt 64
-    })
 $combinationCount = [int64]$ids.Count * [int64]$kinds.Count
-if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or
-    $relationshipError -or $combinationCount -gt $MaxCandidates) {
-    $refusal = [pscustomobject][ordered]@{
-        status       = 'refused'
-        planId       = if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { $null }
-        artifactKind = if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { $null }
-        path         = $null
-        relationship = if ($Relationship.Count -eq 1 -and $Relationship[0].Length -le 64) { $Relationship[0] } else { $null }
-        layout       = $null
-        isArchived   = $null
-        isUntrusted  = $true
-        authority    = 'historical-context-only'
-        byteCount    = $null
-        content      = $null
-        reason       = if ($relationshipError) {
-            $relationshipError
+$inputError = $relationshipError
+if (-not $inputError) {
+    foreach ($inputSet in @(
+            [pscustomobject]@{ Name = 'PlanId'; Values = @($PlanId) }
+            [pscustomobject]@{ Name = 'ArtifactKind'; Values = @($ArtifactKind) }
+            [pscustomobject]@{ Name = 'Relationship'; Values = @($Relationship) }
+        )) {
+        for ($index = 0; $index -lt $inputSet.Values.Count; $index++) {
+            $value = [string]$inputSet.Values[$index]
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                $inputError = "$($inputSet.Name)[$index] is empty."
+                break
+            }
+            if ($value.Length -gt 64) {
+                $inputError = "$($inputSet.Name)[$index] exceeds the 64-character limit."
+                break
+            }
         }
-        else {
-            "Selection exceeds the $MaxCandidates-candidate limit or contains an empty or overlong input."
-        }
+        if ($inputError) { break }
     }
+}
+if (-not $inputError -and ($ids.Count -eq 0 -or $kinds.Count -eq 0)) {
+    $inputError = 'PlanId and ArtifactKind must each contain at least one value.'
+}
+if (-not $inputError -and $combinationCount -gt $MaxCandidates) {
+    $inputError = "Selection expands to $combinationCount candidates, exceeding the $MaxCandidates-candidate limit."
+}
+if ($inputError) {
+    $refusal = New-ArtifactCandidate `
+        -Status 'refused' `
+        -RequestedPlanId $(if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { '' }) `
+        -Kind $(if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { '' }) `
+        -Relationship $(if ($Relationship.Count -eq 1 -and $Relationship[0].Length -le 64) { $Relationship[0] } else { '' }) `
+        -Plan $null `
+        -Path $null `
+        -Reason $inputError
+    $publicRefusal = ConvertTo-PublicArtifactResult -Candidate $refusal
+    if ([string]::IsNullOrEmpty($publicRefusal.planId)) { $publicRefusal.planId = $null }
+    if ([string]::IsNullOrEmpty($publicRefusal.artifactKind)) { $publicRefusal.artifactKind = $null }
+    if ([string]::IsNullOrEmpty($publicRefusal.relationship)) { $publicRefusal.relationship = $null }
     if ($Format -eq 'Json') {
-        ConvertTo-Json -InputObject @($refusal) -Depth 5
+        ConvertTo-Json -InputObject @($publicRefusal) -Depth 5
     }
     else {
-        $refusal
+        $publicRefusal
     }
     return
+}
+
+$plansRoot = Join-Path $repoRootPath 'docs/implementation-plans'
+if (-not (Test-Path -LiteralPath $repoRootPath -PathType Container)) {
+    throw "RepoRoot '$repoRootPath' is not an existing directory."
+}
+if (-not (Test-Path -LiteralPath $plansRoot -PathType Container)) {
+    throw "RepoRoot '$repoRootPath' does not contain the required plan corpus at '$plansRoot'."
 }
 
 $inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
@@ -712,12 +732,13 @@ foreach ($id in $ids) {
                     throw "Inventoried plan folder '$($entry.Path)' is a link or reparse point."
                 }
                 $planFile = Join-Path $entry.Path 'plan.md'
-                $null = Test-RegularConfinedFile -PlanPath $entry.Path -Path $planFile
+                $planValidation = Test-RegularConfinedFile -PlanPath $entry.Path -Path $planFile
                 $plan = [pscustomobject]@{
-                    Id         = $entry.Id
-                    Path       = $entry.Path
+                    Id = $entry.Id
+                    Path = $entry.Path
+                    PhysicalPath = $planValidation.PhysicalPlanPath
                     IsArchived = [bool]$entry.IsArchived
-                    Layout     = Get-PlanLayout -PlanDir $entry.Path
+                    Layout = Get-PlanLayout -PlanDir $entry.Path
                     InventoryEntry = $entry
                 }
             }
@@ -729,11 +750,11 @@ foreach ($id in $ids) {
 
     foreach ($kind in $kinds) {
         if ($planRefusal) {
-        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $null -Path $null -Reason $planRefusal)
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $null -Path $null -Reason $planRefusal)
             continue
         }
         if ($artifactMap.Keys -cnotcontains $kind) {
-        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
             continue
         }
 
@@ -741,9 +762,7 @@ foreach ($id in $ids) {
             $resolvedPath = Resolve-PlanAssetPath `
                 -PlanDir $plan.Path `
                 -Kind $artifactMap[$kind] `
-                -Layout $plan.Layout `
-                -RepoRoot $repoRootPath `
-                -Inventory @($plan.InventoryEntry)
+                -Layout $plan.Layout
 
             if ($kind -eq 'Reviews') {
                 $relativeRoot = ConvertTo-RepoRelativePath $resolvedPath
@@ -757,13 +776,21 @@ foreach ($id in $ids) {
                     ($reviewRoot.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
                     throw "Resolved review root '$resolvedPath' is not a regular directory."
                 }
+                $physicalReviewRoot = Resolve-PhysicalRepoPath -Path $reviewRoot.FullName
+                $planPrefix = $plan.PhysicalPath.TrimEnd([char[]]@(
+                        [System.IO.Path]::DirectorySeparatorChar,
+                        [System.IO.Path]::AltDirectorySeparatorChar
+                    )) + [System.IO.Path]::DirectorySeparatorChar
+                if (-not $physicalReviewRoot.StartsWith($planPrefix, [System.StringComparison]::Ordinal)) {
+                    throw "Resolved review root '$resolvedPath' escapes canonical plan folder '$($plan.Path)'."
+                }
 
-                $reviewPaths = [System.Collections.Generic.List[string]]::new()
+                $reviewPaths = [System.Collections.Generic.List[object]]::new()
                 $scannedEntries = 0
                 $reviewOverflow = $false
-                foreach ($reviewPath in [System.IO.Directory]::EnumerateFiles(
+                foreach ($reviewPath in [System.IO.Directory]::EnumerateFileSystemEntries(
                         $resolvedPath,
-                        '*.md',
+                        '*',
                         [System.IO.SearchOption]::TopDirectoryOnly
                     )) {
                     $scannedEntries++
@@ -771,29 +798,31 @@ foreach ($id in $ids) {
                         $reviewOverflow = $true
                         break
                     }
-                    if ([System.IO.Path]::GetFileName($reviewPath) -cnotmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
+                    $reviewName = [System.IO.Path]::GetFileName($reviewPath)
+                    if ($reviewName -cnotmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
                         continue
                     }
-                    $reviewPaths.Add($reviewPath)
+                    $reviewPaths.Add([pscustomobject]@{
+                            Path = $reviewPath
+                            Name = $reviewName
+                            RunId = [string]$Matches.id
+                        })
                 }
                 if ($reviewOverflow) {
                     $selectionOverflow = $true
                     Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason "Review directory exceeds the $MaxCandidates-entry scan limit.")
                     continue
                 }
-                $reviewPaths.Sort([System.Comparison[string]] {
-                    param($left, $right)
-                    [string]::CompareOrdinal($left, $right)
-                })
+                $reviewPaths.Sort([System.Comparison[object]] {
+                        param($left, $right)
+                        [string]::CompareOrdinal([string]$left.Path, [string]$right.Path)
+                    })
                 $finalizedCount = 0
-                foreach ($reviewPath in $reviewPaths) {
-                    $reviewName = [System.IO.Path]::GetFileName($reviewPath)
-                    if ($reviewName -cnotmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
-                        throw "Bounded review candidate '$reviewName' does not match the finalized review grammar."
-                    }
+                foreach ($reviewEntry in $reviewPaths) {
                     $finalizedCount++
+                    $reviewPath = [string]$reviewEntry.Path
                     $relativePath = ConvertTo-RepoRelativePath $reviewPath
-                    $receiptPath = Join-Path $resolvedPath "$($Matches.id).receipt.json"
+                    $receiptPath = Join-Path $resolvedPath "$($reviewEntry.RunId).receipt.json"
                     if (-not (Test-Path -LiteralPath $receiptPath)) {
                         Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.')
                         continue
@@ -812,7 +841,7 @@ foreach ($id in $ids) {
                         Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason "Finalized review pair was refused: $($_.Exception.Message)")
                         continue
                     }
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath))
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath) -CompanionPurpose ReviewReceipt -ReviewRunId $reviewEntry.RunId)
                 }
                 if ($finalizedCount -eq 0) {
                     Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
@@ -820,9 +849,13 @@ foreach ($id in $ids) {
                 continue
             }
 
-            if ($kind -eq 'Decisions' -and -not (Test-Path -LiteralPath $resolvedPath)) {
+            if ($kind -eq 'Decisions') {
                 $planFile = Join-Path $plan.Path 'plan.md'
-                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
+                if (-not (Test-Path -LiteralPath $resolvedPath)) {
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
+                    continue
+                }
+                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $resolvedPath) -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $planFile) -CompanionPurpose DecisionsPlan)
                 continue
             }
 
@@ -859,13 +892,17 @@ try {
         try {
             if (-not [string]::IsNullOrWhiteSpace($candidate.companionPath)) {
                 $companionFullPath = Join-Path $repoRootPath $candidate.companionPath
-                $candidate.companionStream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $companionFullPath
+                $candidate.companionStream = Open-ConfinedArtifact `
+                    -PlanPath $candidate.planPath `
+                    -Path $companionFullPath `
+                    -PhysicalPlanPath $candidate.physicalPlanPath
                 if ($candidate.companionStream.Length -eq 0) {
-                    throw "Finalized review receipt '$($candidate.companionPath)' is empty."
+                    throw "$($candidate.companionPurpose) companion '$($candidate.companionPath)' is empty."
                 }
                 if ($candidate.companionStream.Length -gt $MaxArtifactBytes) {
                     $candidate.status = 'oversized'
-                    $candidate.reason = "Finalized review receipt is $($candidate.companionStream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
+                    $candidate.byteCount = [int64]$candidate.companionStream.Length
+                    $candidate.reason = "$($candidate.companionPurpose) companion is $($candidate.companionStream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
                     $candidate.companionStream.Dispose()
                     $candidate.companionStream = $null
                     continue
@@ -873,7 +910,10 @@ try {
             }
 
             $fullPath = Join-Path $repoRootPath $candidate.sourcePath
-            $stream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $fullPath
+            $stream = Open-ConfinedArtifact `
+                -PlanPath $candidate.planPath `
+                -Path $fullPath `
+                -PhysicalPlanPath $candidate.physicalPlanPath
             $candidate.stream = $stream
             $candidate.byteCount = [int64]$stream.Length
             if ($stream.Length -eq 0) {
@@ -928,7 +968,7 @@ try {
         foreach ($candidate in @($candidates | Where-Object status -eq 'pending')) {
             try {
                 $read = Read-BoundedUtf8Stream -Stream $candidate.stream -Path $candidate.sourcePath
-                $candidate.byteCount = [int64]$read.ByteCount
+                $candidate.byteCount = if ($null -eq $read.ByteCount) { $null } else { [int64]$read.ByteCount }
                 if ($read.Status -eq 'refused') {
                     $candidate.status = 'refused'
                     $candidate.reason = 'Artifact file is empty.'
@@ -945,26 +985,52 @@ try {
                     $companionRead = Read-BoundedUtf8Stream -Stream $candidate.companionStream -Path $candidate.companionPath
                     if ($companionRead.Status -ne 'accepted') {
                         $candidate.status = $companionRead.Status
-                        $candidate.reason = if ($companionRead.Status -eq 'oversized') {
-                            "Finalized review receipt exceeded the per-artifact limit of $MaxArtifactBytes bytes while being read."
+                        $candidate.byteCount = if ($null -eq $companionRead.ByteCount) {
+                            $null
                         }
                         else {
-                            'Finalized review receipt is empty.'
+                            [int64]$companionRead.ByteCount
+                        }
+                        $candidate.reason = if ($companionRead.Status -eq 'oversized') {
+                            "$($candidate.companionPurpose) companion exceeded the per-artifact limit of $MaxArtifactBytes bytes while being read."
+                        }
+                        else {
+                            "$($candidate.companionPurpose) companion is empty."
                         }
                         continue
                     }
-                    Assert-FinalizedReviewReceipt `
-                        -RunId ([System.IO.Path]::GetFileName($candidate.sourcePath).Substring(
-                            0,
-                            [System.IO.Path]::GetFileName($candidate.sourcePath).Length - '.review.md'.Length
-                        )) `
+                }
+
+                if ($candidate.companionPurpose -eq 'ReviewReceipt') {
+                    $null = Assert-ReviewResultReceipt `
+                        -ReviewRunId $candidate.reviewRunId `
                         -ReportName ([System.IO.Path]::GetFileName($candidate.sourcePath)) `
                         -ReportBytes $read.Bytes `
                         -ReceiptContent $companionRead.Content
                 }
 
-                $content = if ($candidate.readMode -eq 'LegacyDecisions') {
-                    Get-LegacyDecisions -Content $read.Content
+                $content = if ($candidate.artifactKind -eq 'Decisions') {
+                    $decisionSection = if ($candidate.readMode -eq 'LegacyDecisions') {
+                        Resolve-PlanSection `
+                            -PlanDir $candidate.planPath `
+                            -Section Decisions `
+                            -LegacyContent $read.Content `
+                            -AssetAbsent
+                    }
+                    else {
+                        Resolve-PlanSection `
+                            -PlanDir $candidate.planPath `
+                            -Section Decisions `
+                            -LegacyContent $companionRead.Content `
+                            -AssetContent $read.Content `
+                            -AssetPath (Join-Path $repoRootPath $candidate.sourcePath)
+                    }
+                    if ($decisionSection.Source -eq 'none') {
+                        $null
+                    }
+                    else {
+                        (@($decisionSection.Lines) -join "`n").Trim()
+                    }
                 }
                 else {
                     $read.Content
@@ -978,10 +1044,13 @@ try {
                 $candidate.status = 'accepted'
                 $candidate.content = $content
                 $candidate.byteCount = [int64]$read.ByteCount
-                if ($null -ne $companionRead) {
+                if ($candidate.companionPurpose -eq 'ReviewReceipt') {
                     $candidate.byteCount += [int64]$companionRead.ByteCount
                 }
-                $actualBytes += $candidate.byteCount
+                $actualBytes += [int64]$read.ByteCount
+                if ($null -ne $companionRead) {
+                    $actualBytes += [int64]$companionRead.ByteCount
+                }
             }
             catch {
                 $candidate.status = 'refused'
@@ -1011,13 +1080,7 @@ finally {
 
 $output = [System.Collections.Generic.List[object]]::new()
 foreach ($candidate in $candidates) {
-    $candidate.PSObject.Properties.Remove('sourcePath')
-    $candidate.PSObject.Properties.Remove('planPath')
-    $candidate.PSObject.Properties.Remove('readMode')
-    $candidate.PSObject.Properties.Remove('stream')
-    $candidate.PSObject.Properties.Remove('companionPath')
-    $candidate.PSObject.Properties.Remove('companionStream')
-    $output.Add($candidate)
+    $output.Add((ConvertTo-PublicArtifactResult -Candidate $candidate))
 }
 if ($Format -eq 'Json') {
     ConvertTo-Json -InputObject $output.ToArray() -Depth 5

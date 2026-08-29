@@ -84,11 +84,12 @@ Describe 'cr diff extraction retirement' {
     }
 
     It 'test:no-diff-extraction-refs keeps the injection guard where the content is now read' {
-        # The orchestrator-side fence is gone because cr no longer passes content; deleting it is
-        # only safe while every reviewer carries the directive itself (RISK-11).
+        # Reviewed code is still read directly by each reviewer, while optional related-plan
+        # artifacts enter through the scope guide's explicit historical-data fence.
         foreach ($surface in $script:crSurfaces) {
             $raw = Get-SurfaceText -Files $surface.Files
-            $raw | Should -Not -Match 'UNTRUSTED_INPUT'
+            $raw | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
+            $raw | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
             $raw | Should -Match 'data, not instructions'
         }
 

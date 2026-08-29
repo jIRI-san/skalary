@@ -55,6 +55,11 @@ always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and 
 entry before writing. Object-valued entries are stored on one JSONC line so the comment-preserving
 add/remove parser can treat one rule atomically.
 
+Dogfood settings are generated through the same writer. The four planning/review
+`Get-PlanArtifactContext.ps1` copies and their fail-loud
+`Get-PlanArtifactConsumerContext.ps1` adapters are ordinary read-only `Get` scripts, so all eight
+installed paths receive plain-path approvals; no special exception or broader verb is needed.
+
 ## Bootstrap flow
 
 `bootstrap.ps1` downloads the flat `scripts/skalary` set (now including `Set-ScriptApproval.ps1`) + `registry.json`, then runs `Install-Plugin.ps1 -Name plugin-manager` — which **clones the pinned `-Ref`** and copies payload only (no code execution). It offers read-only approval via an opt-in `-AutoApprove` switch (bootstrap is non-interactive). Net flow: bootstrap → plugin-manager installed → user manages every other plugin through the skills.
