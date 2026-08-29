@@ -15,7 +15,8 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 
 | Concern | Owner | Notes |
 |---|---|---|
-| Mode selection (`/ci` Autonomous) | skill | Presents Host / Container / Sandbox sub-menu |
+| Runtime and execution-extent selection | `/ci` | Presents the runtime menu, then explicit One phase / Whole plan |
+| Autonomous handoff | skill | Accepts the selected runtime/mode; asks only for container/sandbox start branch |
 | First-run `.autopilot.json` bootstrap | skill | Interviews user, writes config, structurally validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
@@ -31,7 +32,14 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 .github/skills/autopilot/scripts/launch.ps1 -PlanSlug <slug> -Mode whole-plan|next-phase -Runtime host|container|sandbox [-Branch <branch>]
 ```
 
-Container and Sandbox carry the "Start from which branch? (Current / main)" follow-up via `-Branch`. Host uses its own `feature/<slug>` worktree and omits the follow-up. **The plan path is not a config field** — `launch.ps1`/`launch-host.ps1` derive `docs/implementation-plans/<PlanSlug>/plan.md` from `-PlanSlug`, so `.autopilot.json` never carries a (stale) plan path.
+Container and Sandbox carry the "Start from which branch? (Current / main)" follow-up via `-Branch`.
+Host uses its own `feature/<slug>` worktree and omits the follow-up. `/ci` passes an explicit,
+operator-selected mode; plan `scope` is recommendation input only, and missing/invalid scope defaults
+the recommendation to One phase rather than silently broadening unattended execution. Because mode is
+not derived from branch content, selecting a different starting branch cannot change the approved
+extent. **The plan path is not a config field** — `launch.ps1`/`launch-host.ps1` derive
+`docs/implementation-plans/<PlanSlug>/plan.md` from `-PlanSlug`, so `.autopilot.json` never carries a
+(stale) plan path.
 
 Launcher-mode selection follows the one-phase autonomy contract in
 [plan-workflow.design.md](plan-workflow.design.md); this skill owns only the user-facing mode
@@ -47,9 +55,14 @@ passes. Either mode preserves checklist progress when an operator or evidence st
 
 **Skill ships in `autopilot`, not `ci`.** It co-locates with the scripts it drives (reverses an earlier `ci`-ownership decision). `ci` keeps its existing `autopilot` dependency. This makes `autopilot` a single self-contained plugin — agent + skill + scripts + schemas + devcontainer + config templates all install under `.github/skills/autopilot/**` (agent stays at `.github/agents/`).
 
-**`/ci` menu collapsed to three options:** Approve · Autopilot · **Autonomous**. The prior inline Host/Container/Sandbox prose moved entirely into this skill. `AUTOPILOT_CONTAINER=true` suppresses Autonomous in `/ci` (already inside an autonomous container).
+**`/ci` owns autonomous selection.** Its menu exposes Host / Container / Sandbox directly, then asks
+One phase / Whole plan. The autopilot skill owns bootstrap and invocation only, preventing duplicate
+runtime prompts. `AUTOPILOT_CONTAINER=true` suppresses all autonomous choices in `/ci` because execution
+is already inside an autonomous container.
 
-**Static Host label.** The skill shows a fixed "Host autopilot" label and never reads `.autopilot.host.json` — preserving the "launcher is sole reader" invariant and the agent/skill no-read rule (agent Absolute Rule #10).
+**Static Host label.** `/ci` shows a fixed "Host autopilot" label, and neither workflow skill reads
+`.autopilot.host.json` — preserving the "launcher is sole reader" invariant and the agent/skill no-read
+rule (agent Absolute Rule #10).
 
 ## Custom Host Command
 

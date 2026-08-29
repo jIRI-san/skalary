@@ -99,14 +99,23 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
    - `AUTOPILOT_CONTAINER=true` (already inside the autopilot container): omit all autonomous options **and** Autopilot; execute in-place per the marker.
    - `AUTOPILOT_DISABLE_HOST=true`: omit **Host autopilot** only (`launch.ps1` also refuses `-Runtime host`).
 
-4. **Autonomous handoff.** When the user picks Host / Container / Sandbox autopilot, read `.github/skills/autopilot/SKILL.md` by path and follow its steps: first-run `.autopilot.json` bootstrap (if config missing), then invoke the launcher for the chosen runtime. The chosen runtime pre-selects the autopilot sub-menu. After launch, print the handoff line and exit the `/ci` flow.
+4. **Execution extent.** After the user selects Host / Container / Sandbox autopilot, ask a second
+   `vscode_askQuestions` question with exactly **One phase** and **Whole plan**. Use `scope: phase` or
+   `scope: step` only to recommend One phase, and `scope: plan` only to recommend Whole plan. Missing,
+   malformed, or unknown scope never infers `whole-plan`; recommend One phase and surface the missing
+   or invalid marker. Map the explicit answer to `next-phase` or `whole-plan`.
+
+5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md` by path and pass the already-selected
+   runtime and launcher mode into its bootstrap/launcher flow. The autopilot skill does not present
+   another runtime or execution-extent menu. After launch, print the handoff line and exit the `/ci`
+   flow.
 
    - **Offline package rebundle (container/sandbox + `offlinePackages.enabled`).** The host launcher owns a rebundle loop on top of the normal `42` @human stop. If the sealed runtime needs a package missing from the feed it commits the **manifest only** and exits `43`; `launch.ps1` regenerates + pushes the lockfile (`prepare-packages.ps1 -Branch`), then relaunches the same runtime — capped by `maxRebundles`. This is host-owned; `/ci` just hands off and the loop is transparent. Exit `42` (@human) is unchanged.
    - **Progression contract.** `next-phase` stops after the first admitted phase completes its phase-close flow. `whole-plan` applies the same admission and close contract to each remaining phase and advances only after the current gate passes; an operator or evidence stop leaves checklist progress intact for a later resume.
 
-5. **In-session execution (Interactive / Autopilot).** Validate or create the expected branch/worktree naming, then continue to Step 4. Autopilot skips per-step approval prompts; Interactive pauses at each step.
+6. **In-session execution (Interactive / Autopilot).** Validate or create the expected branch/worktree naming, then continue to Step 4. Autopilot skips per-step approval prompts; Interactive pauses at each step.
 
-6. Record `<!-- worktree: <branch> -->` in the current phase when first running in that worktree.
+7. Record `<!-- worktree: <branch> -->` in the current phase when first running in that worktree.
 
 ## Step 4: Implement (`./assets/execution-guide.md`)
 

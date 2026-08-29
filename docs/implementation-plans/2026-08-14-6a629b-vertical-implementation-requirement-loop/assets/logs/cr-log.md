@@ -80,4 +80,8 @@ Phase: 2
 ## CR Capture
 Phase: 3
 
-No entries for this phase.
+- [3.1] [src:code-review] [sev:High] [concern:security] [req:REQ-5] [review:cr] [source-record:7fcb6fb00e8d0b55f6e566de71d51028deaa6e7f9844c8fff6c097565fcba781] finding=autonomous scope fails open to whole-plan execution; triage=fix by explicit execution-extent selection in CI
+- [3.1] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-5,REQ-6] [review:cr] [source-record:7a05ed097d5ca43988fc0631cf8d301143fd5418123a47ca4779fa4911f86f11] finding=execution-mode menu has conflicting owners; triage=fix by making CI the sole runtime menu owner
+- [3.1] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:5c1674176dbe18a28bc6fd26094fb6f895177a1b8d9989c87eacce7fd6a78c44] finding=launcher mode derived before target branch resolution; triage=fix by passing operator-selected mode independent of branch content
+- [3.2] [src:code-review] [sev:Med] [concern:performance] [req:REQ-6] [review:cr] [source-record:e34b65d60391ae6049416b2f462786b75401f4eb23298cbdb84ab8dbe01f68bc] finding=foreign-consumer fixture repeats plugin installation; triage=retain because canonical EvidenceTestId cannot target the Slow owner with required TestName narrowing and the focused test remains below the Fast ceiling
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:36fff19e32794b842afbd1868ba1149a40d1a0193b9654fb897a834a6a9071d2] review-cycle stage=phase-3 cycle=1 outcome=findings summary=run-acf71d3c-4-findings-2-reviewer-failures

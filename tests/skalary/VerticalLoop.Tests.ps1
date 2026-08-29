@@ -659,6 +659,8 @@ $($header.TrimEnd())
                     Dest = 'skills/ci/SKILL.md'
                     Tokens = @(
                         'Admission.ApplicableRequirements',
+                        '**Execution extent.**',
+                        'scope never infers `whole-plan`',
                         '`next-phase` stops after the first admitted phase',
                         '`whole-plan` applies the same admission and close contract'
                     )
@@ -675,6 +677,8 @@ $($header.TrimEnd())
                     Plugin = 'autopilot'
                     Dest = 'skills/autopilot/SKILL.md'
                     Tokens = @(
+                        'Accept the runtime and launcher mode selected by `/ci`',
+                        'Do not derive launcher mode from plan text',
                         '`next-phase` still delegates admission',
                         '`whole-plan` uses the same admitted-phase and phase-close loop'
                     )

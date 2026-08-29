@@ -9,17 +9,20 @@ disable-model-invocation: true
 
 ## Overview
 
-This skill is read by `/ci` when the user chooses **Autonomous** mode. It handles first-run `.autopilot.json` bootstrap and then launches autonomous execution through `.github/skills/autopilot/scripts/launch.ps1`.
+This skill is read by `/ci` after the user selects an autonomous runtime and execution extent. It
+handles first-run `.autopilot.json` bootstrap and launches the already-selected runtime/mode through
+`.github/skills/autopilot/scripts/launch.ps1`.
 
 The launcher is the sole reader of `.autopilot.host.json`. The skill and the autopilot agent never read, create, or modify `.autopilot.host.json` or `.autopilot.host.json.example`.
 
 ## When invoked by /ci
 
 1. Confirm plan slug from `/ci` context.
-2. Run first-run config bootstrap (next section).
-3. Show autonomous mode sub-menu.
-4. Run launcher command for the chosen runtime.
-5. Print: "Autonomous execution started — exiting /ci flow."
+2. Accept the runtime and launcher mode selected by `/ci`; do not ask for either again.
+3. Run first-run config bootstrap (next section).
+4. For container or sandbox, ask only for the starting branch.
+5. Run the launcher command for the selected runtime and mode.
+6. Print: "Autonomous execution started — exiting /ci flow."
 
 ## First-run config bootstrap
 
@@ -36,15 +39,15 @@ The launcher is the sole reader of `.autopilot.host.json`. The skill and the aut
    - If `offlinePackages` is present: it is an object with boolean `enabled`; optional `ecosystems` is an array of `dotnet`/`npm`; optional `maxRebundles` is a number ≥ 1.
 5. If validation fails, stop with a loud actionable error. Do not invoke launcher.
 
-## Mode sub-menu
+## Runtime handoff
 
-Offer autonomous modes:
+`/ci` is the sole owner of runtime and execution-extent selection. This skill receives:
 
-- **Host autopilot** (static label, never derived from host config)
-- **Container autopilot**
-- **Sandbox autopilot**
+- runtime: `host`, `container`, or `sandbox`
+- launcher mode: `next-phase` or `whole-plan`
 
-If `AUTOPILOT_DISABLE_HOST=true`, omit **Host autopilot** from this menu.
+Refuse any other value. Do not derive launcher mode from plan text: `Mode` is operator-selected before
+handoff, so it remains authoritative when container or sandbox starts from another branch.
 
 For container and sandbox only, ask:
 
@@ -78,11 +81,6 @@ Exit-code round-trip (distinct from the `42` @human stop):
 - **Exit 42 — @human stop.** Unchanged; halts for human review, no rebundle.
 
 ## Launcher invocations
-
-Derive `<launcher-mode>` from the selected plan's header before invoking the launcher:
-
-- `<!-- scope: phase -->` -> `next-phase`
-- Any other current or legacy scope -> `whole-plan`
 
 `next-phase` still delegates admission, implementation, and phase-close checks to the same autopilot
 agent. The launcher stops only after that one phase succeeds; a later invocation resumes from the
