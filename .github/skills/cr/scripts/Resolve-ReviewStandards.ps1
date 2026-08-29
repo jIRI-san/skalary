@@ -1,7 +1,11 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot $(
+                if ($PSScriptRoot -match '[\\/]\.github[\\/]skills[\\/]') { '../../../..' }
+                elseif ($PSScriptRoot -match '[\\/]plugins[\\/]') { '../../../../..' }
+                else { '../..' }
+            ))).Path,
 
     [string]$GenericStandardsPath,
 
@@ -240,6 +244,9 @@ if ($null -ne $localPath) {
         $id = $match.Groups['id'].Value
         $mode = $match.Groups['mode'].Value
         $localGuidance = $match.Groups['guidance'].Value
+        if ($localGuidance -match '(?i)UNTRUSTED_INPUT') {
+            throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' contains a reserved trust-boundary token."
+        }
         Assert-Guidance -Guidance $localGuidance -Source "$localDisplayPath line $($lineIndex + 1), id '$id'"
         if (Test-SuspectedCredential -Text $localGuidance) {
             throw "Local review standard at $localDisplayPath line $($lineIndex + 1), id '$id' contains a suspected credential."

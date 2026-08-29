@@ -54,6 +54,28 @@ function ConvertTo-RedactedSiText {
     return [regex]::Replace($value, '(?i)UNTRUSTED_INPUT', 'UNTRUSTED-INPUT[neutralized]')
 }
 
+function Read-StrictUtf8 {
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        return [System.Text.UTF8Encoding]::new($false, $true).GetString(
+            [System.IO.File]::ReadAllBytes($Path)
+        )
+    }
+    catch {
+        throw "Cross-repository SI artifact '$Path' is not valid UTF-8."
+    }
+}
+
+function Invoke-UpstreamGit {
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [Parameter(Mandatory)][string]$Failure
+    )
+    $output = @(& git -C $upstreamFull @Arguments 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw $Failure }
+    return $output
+}
+
 $artifactFull = [System.IO.Path]::GetFullPath($ArtifactPath)
 $upstreamFull = [System.IO.Path]::GetFullPath($UpstreamRoot)
 if (-not (Test-Path -LiteralPath $artifactFull -PathType Leaf)) {
@@ -68,8 +90,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $upstreamFull '.git'))) {
         throw "Upstream root '$upstreamFull' is not a Git checkout."
     }
 }
-$topLevel = (& git -C $upstreamFull rev-parse --show-toplevel).Trim()
-if ($LASTEXITCODE -ne 0 -or
+$topLevel = (@(Invoke-UpstreamGit -Arguments @('rev-parse', '--show-toplevel') `
+            -Failure 'Unable to resolve the upstream checkout root.') -join '').Trim()
+if (
     -not [string]::Equals(
         [System.IO.Path]::GetFullPath($topLevel).TrimEnd('\', '/'),
         $upstreamFull.TrimEnd('\', '/'),
@@ -77,12 +100,14 @@ if ($LASTEXITCODE -ne 0 -or
     )) {
     throw 'The upstream checkout must be the workspace root.'
 }
-$dirty = @(& git -C $upstreamFull status --porcelain=v1 --untracked-files=all)
-if ($LASTEXITCODE -ne 0 -or $dirty.Count -gt 0) {
+$dirty = @(Invoke-UpstreamGit -Arguments @('status', '--porcelain=v1', '--untracked-files=normal') `
+        -Failure 'Unable to inspect the upstream checkout state.')
+if ($dirty.Count -gt 0) {
     throw 'The upstream checkout must be clean before importing consumer context.'
 }
-$remote = (@(& git -C $upstreamFull config --get remote.origin.url) -join '').Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($remote)) {
+$remote = (@(Invoke-UpstreamGit -Arguments @('config', '--get', 'remote.origin.url') `
+            -Failure 'The upstream checkout must have an origin remote.') -join '').Trim()
+if ([string]::IsNullOrWhiteSpace($remote)) {
     throw 'The upstream checkout must have an origin remote.'
 }
 $remoteRepository = $null
@@ -138,7 +163,7 @@ if ($instructionDigests.Count -eq 0) {
     throw 'The upstream checkout has no recognized repository instruction file.'
 }
 
-$artifactText = [System.IO.File]::ReadAllText($artifactFull)
+$artifactText = Read-StrictUtf8 -Path $artifactFull
 $artifactSchema = Join-Path $PSScriptRoot '../schemas/cross-repo-export.schema.json'
 if (-not ($artifactText | Test-Json -SchemaFile $artifactSchema -ErrorAction SilentlyContinue)) {
     throw 'Cross-repository SI artifact failed its closed schema validation.'
@@ -173,7 +198,8 @@ $context = @(
     Action = $(if ($WorkSize -eq 'Small') { '/si' } else { '/cip' })
     ExportId = [string]$artifact.exportId
     UpstreamRoot = $upstreamFull
-    PinnedHead = (& git -C $upstreamFull rev-parse HEAD).Trim()
+    PinnedHead = (@(Invoke-UpstreamGit -Arguments @('rev-parse', 'HEAD') `
+                -Failure 'Unable to pin the upstream checkout commit.') -join '').Trim()
     Instructions = $instructionDigests.ToArray()
     Context = $context
     ScopeGuard = '.github/skills/si/scripts/Test-SiWriteScope.ps1'

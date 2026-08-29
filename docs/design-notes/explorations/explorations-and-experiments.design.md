@@ -25,12 +25,16 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 |---|---|---|
 | [container-autopilot-watchdog.design.md](container-autopilot-watchdog.design.md) | `plugins/autopilot/scripts/**` | Would restructure autopilot invocation granularity mid-plan; the phase + whole-run caps shipped instead |
 | [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md) | `/cip`, `/cep`, plan `assets/` | Operator notes; builds on `b0c0d3` intent asset, which must land first |
-| [review-standards-tiering.design.md](review-standards-tiering.design.md) | `plugins/{code,design}-review/**`, `docs/review-ledger/**` | Operator notes; depends on the concern split, concern→ledger map and `/si` from `b0c0d3` |
 | [design-rfc-artifacts.design.md](design-rfc-artifacts.design.md) | `/cip`, plan `assets/` | Operator notes; fits the `b0c0d3` assets layout, sequenced after it |
 | [asset-scanner-root-bound.design.md](asset-scanner-root-bound.design.md) | `Sync-PluginScripts.ps1`, `schemas/{plugin,registry}/**` | Found mid-`b0c0d3`; widening the scanner grammar is a schema change, not a script fix |
 | [review-system-enforcement-gaps.design.md](review-system-enforcement-gaps.design.md) | `Build-ReviewReport.ps1`, `Build-EvidenceReceipt.ps1`, `plugins/{code,design}-review/**`, `.github/workflows/**` | Sourced from the `b0c0d3` step 10.7 gate. A/D resolved by `c21cdc`; B (except evidence skipped), E/H by `768d7b`; C deferred to `34088e`; F/G remain |
-| [si-cross-repo-proposal-protocol.design.md](si-cross-repo-proposal-protocol.design.md) | `plugins/self-improvement/**`, `.github/skills/si/**`, `Test-SiWriteScope.ps1` | Operator note; `/si` across repos edits under the wrong repo's rules. Splitting it into harvest + propose phases is a protocol change, not a fix |
+## Resolved Explorations
+
+| File | Resolution |
+|---|---|
+| [review-standards-tiering.design.md](review-standards-tiering.design.md) | Plan `2366ad` shipped bounded generic and repository-local review standards while leaving automated ledger promotion deferred. |
+| [si-cross-repo-proposal-protocol.design.md](si-cross-repo-proposal-protocol.design.md) | Plan `2366ad` shipped a bounded typed export and clean upstream-rooted handoff; the broader platform alternatives remain rejected. |
 
 ## Scheduled review
 
-All seven explorations above are to be revisited in the **align phase** at `b0c0d3` completion (the `/pfb` loop, REQ-13) and pulled into the following plan. The three operator notes recorded on 2026-07-31 were parked during planning; `asset-scanner-root-bound` and `review-system-enforcement-gaps` were parked during execution and the completion gate respectively, and carry the sharper evidence. `si-cross-repo-proposal-protocol` was parked immediately after the first real `/si` run.
+The five active explorations above remain candidates for a later align phase. Resolved entries stay indexed separately so their rejected alternatives and implementation decisions remain discoverable.

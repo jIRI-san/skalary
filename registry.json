@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T23:02:20.5415211Z",
+  "generatedAt": "2026-08-29T00:12:14.3823413Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -458,7 +458,7 @@
         },
         {
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "dfbcd5bfc851ec25cda9a60b178a711d0965b7d9e0e38f4e240e1d0c086e5cfb",
+          "sha256": "9912d8bbcaf1b901aa250761d5ea60364160a2619e68b461c4f6da747323bd44",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1023,7 +1023,7 @@
         },
         {
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-          "sha256": "dfbcd5bfc851ec25cda9a60b178a711d0965b7d9e0e38f4e240e1d0c086e5cfb",
+          "sha256": "9912d8bbcaf1b901aa250761d5ea60364160a2619e68b461c4f6da747323bd44",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
@@ -1318,7 +1318,7 @@
         },
         {
           "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
-          "sha256": "6733b2ac1e35f95fe1b6179e029f9fe7fc9c80ec86504e6f7aa9de02fdb0a1ad",
+          "sha256": "df78f8fc41d5224bfdea6f721ea9455e80bed2c443a3d2daf569ef18412fcbbd",
           "src": "scripts/Export-CrossRepoSi.ps1"
         },
         {
@@ -1333,7 +1333,7 @@
         },
         {
           "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
-          "sha256": "b4a58f0e60b49a3d879441cde13a1230ffb293d85e6151db707ab20771c294e2",
+          "sha256": "ee84806b397bf84db47b21257b3760a4da569455f2e7ac51acc81605e0f36763",
           "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {
@@ -1363,7 +1363,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "3860e54598fb71c8f6f81c67bca31150e7c7ccc0cb3eb897bc0e99b108f7c3ac",
+          "sha256": "86fbb189ee52f67e70a824b6641de46c8560513476102582a893d706c0e3fb4b",
           "src": "scripts/SiStateStore.psm1"
         },
         {

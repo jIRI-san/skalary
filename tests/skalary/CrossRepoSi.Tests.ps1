@@ -8,6 +8,9 @@ Describe 'Cross-repository self-improvement transport' {
         $script:exportScript = Join-Path $script:repoRoot 'plugins/self-improvement/scripts/Export-CrossRepoSi.ps1'
         $script:handoffScript = Join-Path $script:repoRoot 'plugins/self-improvement/scripts/Invoke-CrossRepoSiHandoff.ps1'
         Import-Module (
+            Join-Path $script:repoRoot 'plugins/self-improvement/scripts/SiStateStore.psm1'
+        ) -Force
+        Import-Module (
             Join-Path $script:repoRoot 'plugins/self-improvement/scripts/SiResolverReceipt.psm1'
         ) -Force
         $script:roots = [System.Collections.Generic.List[string]]::new()
@@ -41,18 +44,27 @@ Describe 'Cross-repository self-improvement transport' {
             }
             $ranked = New-SiRankedCandidates -Candidate @($candidateInput)
             $id = $ranked.CandidateIds[0]
+            if (-not (Test-Path -LiteralPath (Join-Path $Root '.git'))) {
+                & git -C $Root init --quiet
+                & git -C $Root remote add origin https://github.com/consumer/repo.git
+            }
+            $repoId = Get-SiRepoId -RepoRoot $Root
+            $sourceCommit = 'd' * 40
+            $planId = '1936cb'
+            $dueId = Get-SiDueId -RepoId $repoId -PlanId $planId -SourceCommit $sourceCommit
+            $runId = 'b' * 64
             $run = [ordered]@{
                 schemaVersion = 2
-                runId = 'b' * 64
-                dueId = 'c' * 64
+                runId = $runId
+                dueId = $dueId
                 status = 'proposal-pending'
                 createdAtUtc = '2026-08-28T00:00:00Z'
                 updatedAtUtc = '2026-08-28T00:00:00Z'
                 completedAtUtc = $null
                 provenance = [ordered]@{
-                    repoId = 'consumer/repo'
-                    planId = '1936cb'
-                    sourceCommit = 'd' * 40
+                    repoId = $repoId
+                    planId = $planId
+                    sourceCommit = $sourceCommit
                     pinnedBaseOid = 'e' * 40
                     resolverReceiptId = 'f' * 64
                 }
@@ -68,7 +80,7 @@ Describe 'Cross-repository self-improvement transport' {
                     })
                 proposalPr = $null
             }
-            $path = Join-Path $Root 'docs/self-improvement/runs/2026/08/run.json'
+            $path = Join-Path $Root "docs/self-improvement/runs/2026/08/$runId.json"
             [void](New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force)
             [System.IO.File]::WriteAllText(
                 $path,
@@ -115,6 +127,10 @@ Describe 'Cross-repository self-improvement transport' {
         $artifact = $text | ConvertFrom-Json -Depth 100
         $artifact.schema | Should -Be 'cross-repo-si-export/v1'
         $artifact.payload.trust | Should -Be 'untrusted-context-only'
+        $artifact.payload.source.repoId | Should -Be 'origin:github.com/consumer/repo'
+        $artifact.payload.source.planId | Should -Be '1936cb'
+        $artifact.payload.source.sourceCommit | Should -Be ('d' * 40)
+        $artifact.payload.source.installedPluginVersion | Should -Be '1.0.55'
         $artifact.payload.candidates[0].disposition | Should -Be 'accepted'
         $artifact.payload.candidates[0].candidateText | Should -Match 'UNTRUSTED_INPUT_START'
 
@@ -130,6 +146,24 @@ Describe 'Cross-repository self-improvement transport' {
         { & $script:exportScript -RepoRoot $root -RunPath $runPath `
                 -InstalledPluginVersion '1.0.55' } |
             Should -Throw '*existing cross-repository SI artifact exceeds*'
+
+        $runBytes = [System.IO.File]::ReadAllBytes($runPath)
+        [System.IO.File]::WriteAllBytes($runPath, [byte[]]@(0x7B, 0xFF, 0x7D))
+        { & $script:exportScript -RepoRoot $root -RunPath $runPath `
+                -InstalledPluginVersion '1.0.55' } |
+            Should -Throw '*not valid UTF-8*'
+        [System.IO.File]::WriteAllBytes($runPath, $runBytes)
+
+        $outside = Join-Path ([System.IO.Path]::GetTempPath()) ('outside-run-' + [Guid]::NewGuid().ToString('N') + '.json')
+        try {
+            [System.IO.File]::WriteAllText($outside, '{}')
+            { & $script:exportScript -RepoRoot $root -RunPath $outside `
+                    -InstalledPluginVersion '1.0.55' } |
+                Should -Throw '*escapes the consumer repository*'
+        }
+        finally {
+            Remove-Item -LiteralPath $outside -Force -ErrorAction SilentlyContinue
+        }
     }
 
     It 'test:CrossRepoSi.CleanUpstreamHandoff validates a clean upstream root and selects normal SI or CIP' {
@@ -163,10 +197,12 @@ Describe 'Cross-repository self-improvement transport' {
         $large.Action | Should -Be '/cip'
         $small.DraftOnly | Should -BeTrue
         $small.AutoMerge | Should -BeFalse
+        $small.PinnedHead | Should -Match '^[0-9a-f]{40}$'
         $small.ScopeGuard | Should -Match 'Test-SiWriteScope'
         $small.Context | Should -Match 'UNTRUSTED_INPUT_START'
         $small.Context | Should -Match ([regex]::Escape($small.ExportId))
         @($small.Instructions).path | Should -Contain '.github/copilot-instructions.md'
+        @($small.Instructions).sha256 | Should -Match '^[0-9a-f]{64}$'
         { & $script:handoffScript -ArtifactPath $artifactPath `
                 -UpstreamRoot $upstream -ExpectedUpstreamHost github.com `
                 -ExpectedUpstreamRepository attacker/other `

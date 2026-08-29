@@ -64,6 +64,18 @@ function ConvertTo-SafeMetadata {
     return ConvertTo-RedactedSiText -Text $safe
 }
 
+function Read-StrictUtf8 {
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        return [System.Text.UTF8Encoding]::new($false, $true).GetString(
+            [System.IO.File]::ReadAllBytes($Path)
+        )
+    }
+    catch {
+        throw "SI run record '$Path' is not valid UTF-8."
+    }
+}
+
 function Assert-CrossRepoPathHasNoLink {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -100,8 +112,7 @@ $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
 $runFull = [System.IO.Path]::GetFullPath(
     $(if ([System.IO.Path]::IsPathRooted($RunPath)) { $RunPath } else { Join-Path $repoRootFull $RunPath })
 )
-$stateRootRelative = Get-SiStateRelativePath -Kind Root
-$outputFull = Join-Path $repoRootFull "$stateRootRelative/cross-repo-export.json"
+$outputFull = Join-Path $repoRootFull (Get-SiStateRelativePath -Kind CrossRepoExport)
 Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $runFull
 Assert-CrossRepoPathHasNoLink -Root $repoRootFull -Path $outputFull
 $runRoots = @(
@@ -129,7 +140,7 @@ if ((Get-Item -LiteralPath $runFull).Length -gt $maxRunBytes) {
     throw "capacity-blocked: SI run exceeds the $maxRunBytes-byte export input ceiling."
 }
 
-$runText = [System.IO.File]::ReadAllText($runFull)
+$runText = Read-StrictUtf8 -Path $runFull
 $runSchema = Join-Path $PSScriptRoot '../schemas/run.schema.json'
 if (-not ($runText | Test-Json -SchemaFile $runSchema -ErrorAction SilentlyContinue)) {
     throw 'SI run failed its closed schema validation.'
@@ -142,6 +153,34 @@ if (@($required | Where-Object { $run.PSObject.Properties.Name -notcontains $_ }
 }
 if ($run.status -notin @('ranked', 'proposal-pending', 'no-candidates', 'completed')) {
     throw "SI run status '$($run.status)' is not exportable."
+}
+$repoId = Get-SiRepoId -RepoRoot $repoRootFull
+if (-not [string]::Equals($repoId, [string]$run.provenance.repoId, [System.StringComparison]::Ordinal)) {
+    throw 'SI run record repository identity does not match the exporting repository.'
+}
+$expectedDueId = Get-SiDueId `
+    -RepoId $repoId `
+    -PlanId ([string]$run.provenance.planId) `
+    -SourceCommit ([string]$run.provenance.sourceCommit)
+if (-not [string]::Equals($expectedDueId, [string]$run.dueId, [System.StringComparison]::Ordinal)) {
+    throw 'SI run record due identity does not match its repository provenance.'
+}
+$created = [datetimeoffset]$run.createdAtUtc
+$expectedActivePath = [System.IO.Path]::GetFullPath(
+    (Get-SiRunPath -RepoRoot $repoRootFull -RunId ([string]$run.runId) -Timestamp $created.UtcDateTime)
+)
+$expectedArchivePath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull (
+            Get-SiStateRelativePath -Kind Archive -Child @(
+                $created.ToUniversalTime().ToString('yyyy'),
+                $created.ToUniversalTime().ToString('MM'),
+                "$([string]$run.runId).json"
+            )
+        )))
+if (-not (
+        [string]::Equals($runFull, $expectedActivePath, $runComparison) -or
+        [string]::Equals($runFull, $expectedArchivePath, $runComparison)
+    )) {
+    throw 'SI run record path does not match its durable run identity.'
 }
 if (@($run.rankedSet.candidates).Count -gt 5 -or
     [int]$run.rankedSet.count -ne @($run.rankedSet.candidates).Count) {
