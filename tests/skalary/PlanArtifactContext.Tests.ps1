@@ -219,4 +219,100 @@ Describe 'Get-PlanArtifactContext' {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'test:PlanArtifactContext.Provenance records complete deterministic metadata only for consumed artifacts' {
+        $planningGuides = @(
+            'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md'
+            'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
+        )
+        foreach ($relativePath in $planningGuides) {
+            $text = Get-Content -LiteralPath (Join-Path $repoRoot $relativePath) -Raw
+            $text | Should -Match 'references\.md'
+            $text | Should -Match '\| Plan ID \| Artifact kind \| Path \| Relationship \|'
+            $text | Should -Match 'planId'
+            $text | Should -Match 'artifactKind'
+            $text | Should -Match 'relationship'
+            $text | Should -Match 'accepted'
+            $text | Should -Match 'missing'
+            $text | Should -Match 'refused'
+            $text | Should -Match 'oversized'
+            $text | Should -Match 'sorted by plan ID, artifact kind, path, then\s+relationship'
+        }
+
+        $cipGuide = Get-Content -LiteralPath (Join-Path $repoRoot $planningGuides[0]) -Raw
+        $cepGuide = Get-Content -LiteralPath (Join-Path $repoRoot $planningGuides[1]) -Raw
+        $cipGuide | Should -Match 'Write rows only for `accepted` results'
+        $cepGuide | Should -Match 'without recording provenance'
+
+        foreach ($relativePath in @(
+                'plugins/code-review/skills/cr/assets/scope-guide.md'
+                'plugins/design-review/skills/dr/assets/plan-scope-guide.md'
+            )) {
+            $text = Get-Content -LiteralPath (Join-Path $repoRoot $relativePath) -Raw
+            $text | Should -Match 'historical-context\[planId=<id>;artifactKind=<kind>;path=<path>;relationship=<relationship>\]'
+            $text | Should -Match 'Sort accepted metadata by `planId`, `artifactKind`, `path`, then `relationship`'
+            $text | Should -Match 'never truncate metadata or consume unrecorded content'
+        }
+    }
+
+    It 'test:PlanArtifactContext.Consumers uses one bounded resolver path without changing review-run v1 authority' {
+        $canonicalResolver = Join-Path $repoRoot 'scripts/skalary/Get-PlanArtifactContext.ps1'
+        $expectedHash = (Get-FileHash -LiteralPath $canonicalResolver -Algorithm SHA256).Hash
+        $resolverCopies = @(
+            'plugins/create-implementation-plan/skills/cip/scripts/Get-PlanArtifactContext.ps1'
+            'plugins/create-implementation-plan/skills/cep/scripts/Get-PlanArtifactContext.ps1'
+            'plugins/code-review/skills/cr/scripts/Get-PlanArtifactContext.ps1'
+            'plugins/design-review/skills/dr/scripts/Get-PlanArtifactContext.ps1'
+            '.github/skills/cip/scripts/Get-PlanArtifactContext.ps1'
+            '.github/skills/cep/scripts/Get-PlanArtifactContext.ps1'
+            '.github/skills/cr/scripts/Get-PlanArtifactContext.ps1'
+            '.github/skills/dr/scripts/Get-PlanArtifactContext.ps1'
+        )
+        foreach ($relativePath in $resolverCopies) {
+            Test-Path -LiteralPath (Join-Path $repoRoot $relativePath) -PathType Leaf | Should -BeTrue
+            (Get-FileHash -LiteralPath (Join-Path $repoRoot $relativePath) -Algorithm SHA256).Hash |
+                Should -BeExactly $expectedHash
+        }
+
+        $consumerContracts = @(
+            [pscustomobject]@{
+                Path = 'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md'
+                InstalledResolver = '.github/skills/cip/scripts/Get-PlanArtifactContext.ps1'
+            }
+            [pscustomobject]@{
+                Path = 'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
+                InstalledResolver = '.github/skills/cep/scripts/Get-PlanArtifactContext.ps1'
+            }
+            [pscustomobject]@{
+                Path = 'plugins/code-review/skills/cr/assets/scope-guide.md'
+                InstalledResolver = '.github/skills/cr/scripts/Get-PlanArtifactContext.ps1'
+            }
+            [pscustomobject]@{
+                Path = 'plugins/design-review/skills/dr/assets/plan-scope-guide.md'
+                InstalledResolver = '.github/skills/dr/scripts/Get-PlanArtifactContext.ps1'
+            }
+        )
+        foreach ($contract in $consumerContracts) {
+            $text = Get-Content -LiteralPath (Join-Path $repoRoot $contract.Path) -Raw
+            $text | Should -Match ([regex]::Escape($contract.InstalledResolver))
+            $text | Should -Match 'accepted'
+            $text | Should -Match 'untrusted'
+            $text | Should -Match 'architecture\s+contracts'
+            $text | Should -Match 'remain\s+authoritative|cannot\s+override'
+        }
+
+        foreach ($schemaName in @('review-plan.schema.json', 'review-run.schema.json')) {
+            $schema = Get-Content -LiteralPath (Join-Path $repoRoot "schemas/review/$schemaName") -Raw
+            $schema | Should -Not -Match '(?i)historicalContext|artifactContext|contextRole'
+        }
+        foreach ($reviewGuide in @(
+                'plugins/code-review/skills/cr/assets/scope-guide.md'
+                'plugins/design-review/skills/dr/assets/plan-scope-guide.md'
+            )) {
+            $text = Get-Content -LiteralPath (Join-Path $repoRoot $reviewGuide) -Raw
+            $text | Should -Match 'existing 1024-character scope limit'
+            $text | Should -Match 'do not add a context role, field, schema,\s+receipt, lifecycle'
+            $text | Should -Match 'scopeAuthority'
+        }
+    }
 }

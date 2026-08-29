@@ -6,4 +6,4 @@ Phase: 1
 ## Learnings Capture
 Phase: 2
 
-No entries for this phase.
+- [2.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-4] [review:none] [source-record:f4c7efa4e52c86186b3e3c6c5d3809a517dc6bbc48fd9f2f588ec23a1525356d] Markdown contract tests must match semantic whitespace across wrapped lines rather than requiring one physical line
