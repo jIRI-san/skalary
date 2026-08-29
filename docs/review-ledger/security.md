@@ -16,6 +16,7 @@
 - [2026-08-10] Final CR: repair follows descendant symlinks and may copy host files into repository backups; each source needs physical confinement recheck. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-10] Final review found a link-swap race between repair source validation and copy; read once and bind bytes to the immutable observation digest before backup write. (plan-1936cb, src:autopilot, sev:High) #phase-1 #req-7 #security
 - [2026-08-10] Final review found mutable branch choices unbound; completion now requires the operator-retained lifecycle head and verifies exact dispositions. (plan-1936cb, src:autopilot, sev:High) #phase-7 #req-7 #security
+- [2026-08-29] finding=autonomous scope fails open to whole-plan execution; triage=fix by explicit execution-extent selection in CI (plan-6a629b, src:autopilot, sev:High) #phase-3 #req-5 #security
 - [2026-08-10] Fingerprint confinement did not reject intermediate links or reparse points. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Fixed case-distinct PlanState inventory matching that could accept an uninventoried sibling on case-sensitive filesystems. (plan-1936cb, src:autopilot, sev:High) #phase-2 #req-8 #security
 - [2026-08-09] Fixed case-insensitive physical containment on Unix accepting a case-variant sibling link target. (plan-1936cb, src:autopilot, sev:Med) #phase-5 #req-7 #security
@@ -44,6 +45,10 @@
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
 - [2026-08-29] review 40a86ef6 finding 1 fixed: v2 harvest replay re-derives every candidate from its typed source record and ledger text is explicitly untrusted data (plan-6a629b, src:autopilot, sev:High) #phase-1 #req-3 #security
 - [2026-08-29] review 40a86ef6 finding 10 fixed: local repository identity is committed only as a SHA-256 path digest (plan-6a629b, src:autopilot, sev:Low) #phase-1 #security
+- [2026-08-29] review 66e61b31 finding 1 deferred as pre-existing: host rebundle trust was mitigated in phase 2 by disabling npm lifecycle scripts; a closed cross-ecosystem restore manifest requires a separate host trust design (plan-6a629b, src:autopilot, sev:Critical) #phase-3 #req-5 #security
+- [2026-08-29] review 66e61b31 finding 6 deferred as pre-existing recovery policy: replacing recovery commits with a secret-scanned allowlist needs a dedicated recoverability and trust design (plan-6a629b, src:autopilot, sev:High) #phase-3 #req-5 #security
+- [2026-08-29] review 66e61b31 finding 9 fixed: Sandbox mounts the installed checker and module closure read-only from the host instead of running checkout-owned gate code (plan-6a629b, src:autopilot, sev:High) #phase-3 #req-5 #security
+- [2026-08-29] review round 2 finding 1 fixed: repository-derived branch names are restrictively validated and launcher values are passed through bound argument APIs instead of constructed shell text (plan-6a629b, src:autopilot, sev:High) #phase-3 #req-5 #security
 - [2026-08-28] Rubber-duck: mapping output could target arbitrary repository files and used a truncate write; fixed with JSON-only validated replacement and AtomicStore publication. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Second-opinion review found case-insensitive state-path admission; canonical Git paths now require ordinal-exact matches. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security

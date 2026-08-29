@@ -9,6 +9,8 @@
 - [2026-08-29] decision=reuse the closed Add-WorkflowNote kinds; lower-impact uncertainty=checkpoint wording may evolve within the existing Capture grammar; high-impact uncertainty=none; checkpoint outcome=REQ-3 and REQ-4 focused evide (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-3 #req-4
 - [2026-08-28] dr legacy step 2.2 : recovery authority for namespace mutation must live in a verified host-mounted session root and survive kill teardown and fresh-clone relaunch (plan-669ad3, src:autopilot, sev:Critical) #architecture-patterns #phase-2
 - [2026-08-28] dr legacy step 4.3 : self-migration requires a host relaunch boundary because the already-running entrypoint cannot consume newly installed exit handling (plan-669ad3, src:autopilot, sev:Critical) #architecture-patterns #phase-2
+- [2026-08-29] finding=execution-mode menu has conflicting owners; triage=fix by making CI the sole runtime menu owner (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-5 #req-6
+- [2026-08-29] finding=launcher mode derived before target branch resolution; triage=fix by passing operator-selected mode independent of branch content (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-5
 - [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2
 - [2026-08-28] Keep folder-name parsing pure and shared so worktree and pinned-tree inventories cannot drift across naming migrations. (plan-669ad3, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1
 - [2026-08-29] Legacy intent readiness had duplicate executable policy; fixed by sharing Assert-IntentReady across planning and admission. (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-1
@@ -21,10 +23,20 @@
 - [2026-08-29] review 40a86ef6 finding 6 fixed: Get-PhaseAdmission is the single executable phase-admission owner (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1 #req-1
 - [2026-08-29] review 40a86ef6 finding 8 fixed: plan-workflow frontmatter now loads for the canonical harvest script (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1
 - [2026-08-29] review 40a86ef6 finding 9 fixed: Phase 0 compatibility is restricted to Capture (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1 #req-3
+- [2026-08-29] review 66e61b31 finding 17 fixed: auto-loaded customization docs and launcher help now describe CI-owned runtime and extent selection post-phase review and all runtimes (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-6
+- [2026-08-29] review 66e61b31 finding 2 deferred: the immutable harvest receipt intentionally precedes post-phase review under the canonical autopilot protocol; a new all-close-outcomes authority requires a protocol and schema migrati (plan-6a629b, src:autopilot, sev:High) #architecture-patterns #phase-3 #req-3
+- [2026-08-29] review 66e61b31 finding 20 fixed: weaker checkbox and receipt-existence predicates were removed from the Container adapter (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-3 #req-6
+- [2026-08-29] review 66e61b31 finding 4 fixed: Host Container and Sandbox all consume the same admission-aware state checker (plan-6a629b, src:autopilot, sev:High) #architecture-patterns #phase-3 #req-1
+- [2026-08-29] review round 2 finding 3 fixed: CI owns runtime selection and autopilot bootstraps from the handed-off runtime without a second interview (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-5
+- [2026-08-29] review round 2 finding 8 fixed: Sandbox provisions PowerShell 7 so it can execute the same shared phase-state contract as other runtimes (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-5
+- [2026-08-29] review round 2 finding 9 fixed: workflow and execution design notes identify CI as the sole selector and the shared checker as the runtime-neutral close authority (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-5
 - [2026-08-29] review-cycle stage=phase-1 cycle=1 outcome=findings summary=run-40a86ef6-10-findings-9-fixed-1-deferred (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-29] review-cycle stage=phase-1 cycle=2 outcome=findings summary=cycle-2 fixed 16; deferred pre-existing SI blob batching (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-29] review-cycle stage=phase-1 cycle=3 outcome=findings summary=cycle-3 findings fixed; changed-surface gate green (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle stage=phase-3 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=phase-3-review-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=1 outcome=findings summary=run-acf71d3c-4-findings-2-reviewer-failures (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=2 outcome=findings summary=round-2 10-findings-fixed; runtime parity and installed behavior evidence (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=3 outcome=findings summary=run-66e61b31-20-findings-11-fixed-1-partial-8-deferred-or-accepted (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=42-triaged-actionable-remediated-4b7d4c5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=2 outcome=findings summary=47-triaged-actionable-remediated-e89bff5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=3 outcome=findings summary=36-triaged-no-new-actionable-scope (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
@@ -44,6 +56,7 @@
 - [2026-08-28] review-cycle stage=step-3.2 cycle=2 outcome=findings summary=critical=0 high=1 medium=1 low=0 run=step-3-2-rereview (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-3-2-final-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle-decision stage=phase-1 after=3 action=wrap (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1
+- [2026-08-29] review-cycle-decision stage=phase-3 after=3 action=wrap (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle-decision stage=plan-finalization after=3 action=wrap (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle-decision stage=step-1.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle-decision stage=step-2.1 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2
