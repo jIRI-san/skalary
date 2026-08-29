@@ -107,7 +107,10 @@ For a Plan Completion-only prompt, read the plan and config and enforce the plan
    Persist every finding and triage through `Add-WorkflowNote.ps1 -Kind CrLog -Src code-review`, fix
    clear findings, and re-run the focused phase checks before recording the round. Three rounds run
    automatically. On `operator-decision`, commit the logs, report **Continue looping** / **Wrap up**,
-   and exit `42`; autopilot cannot grant itself continuation. Never represent Wrap as clean evidence.
+   and exit `42`; autopilot cannot grant itself continuation or reopen a prior Wrap. An operator-authorized
+   resume must use `ReviewCycleGate -Action Reopen` with the supplied authorization id and reason, then
+   record a clean replacement with its finalized `-ReviewRunId` and explicit `-RepoRoot`. Never represent
+   Wrap as clean evidence.
 
 3. **Push** — `git push origin <current-branch>` (regular push, never force-push).
 
