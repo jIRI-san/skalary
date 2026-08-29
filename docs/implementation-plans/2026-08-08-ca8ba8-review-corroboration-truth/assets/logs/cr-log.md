@@ -22,6 +22,7 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-5] [review:cr] [source-record:c1fcc3c7551747110c6d5e4fd3e9d1dfaee37a7cdb46869791bc86d6253b0424] Round 3 finding 16 triage=rejected-preexisting: the unrelated semantic-validation reference set predates and is untouched by corroboration work.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:5be728ed94428716acde6032c5eeca0b67bc0cc93365972d07e490d2d28eda25] review-cycle stage=phase-1 cycle=3 outcome=findings summary=fixed phase-1 gaps and deferred planned phase-2 and phase-3 surfaces
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:65c33473b7efc415e06a213d8b0bf69c27e5fb5f4b3426c3a6145a992ef24cd4] review-cycle-decision stage=phase-1 after=3 action=wrap
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:243dbc22d136c121c9c40f4995564ff68bbd340c8a01fa3ba2f046a3963f2741] review-cycle-remediation stage=phase-1 after=3 action=reopen authorization=operator-2026-08-29-ca8ba8-extra-cycle reason=Operator authorized one additional replacement review cycle after merged remediation infrastructure.
 
 ## CR Capture
 Phase: 2
@@ -46,6 +47,7 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:694c427e5838344043ea8945399af093c5de881d8014b7361174075840c24f6f] Round 3 finding 5 triage=rejected-stale: the independent reference renderer already performs an exact-key prepass before near matching, and the exact-over-near parity case passes.
 - [2.1] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-1] [review:cr] [source-record:ca84dada6af807fccc26f711e84666118c9320b76f75dd0f5cef809960399f76] Round 3 finding 6 triage=fix: the similarity guard comment inverted the short-boilerplate intent; state that the minimum prevents short boilerplate from looking suspicious.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:c7895ce1942df84d3f1efca33c683967a0b73d23c3cc36288441fde096903e67] review-cycle-decision stage=phase-2 after=3 action=wrap
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:1d08f81eeeb0312ffa43caac8b1740fffe7d275ccf80dde4d92401beadf77fa6] review-cycle-remediation stage=phase-2 after=3 action=reopen authorization=operator-2026-08-29-ca8ba8-extra-cycle reason=Operator authorized one additional replacement review cycle after merged remediation infrastructure.
 
 ## CR Capture
 Phase: 3
@@ -66,3 +68,4 @@ Phase: 3
 - [3.1] [src:code-review] [sev:Low] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:de3afbc3e7823fb702df58cf62e77443931a6f133836b821ac5844e0b7c5e90a] Round 3 finding 7 triage=rejected-pre-existing: the README prerequisite inventory predates this phase and the plan does not change runtime prerequisites.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:e1871cf29d33f4d16d1f9ad9ca62190ddf1216e6a78399014e675894edbd2230] review-cycle stage=phase-3 cycle=3 outcome=findings summary=run=73325770-65f0-4657-863a-a39ee1080798;findings=7;fixed=2;rejected-pre-existing=5;attendance=degraded-2-failed
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:fd7f85cd632187f5b2af8ba8fc556ed65574fa98015833897e75bae19af2dafc] review-cycle-decision stage=phase-3 after=3 action=wrap
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:ed8e01694d5d922828e42f14a658b1e6cd5dda762e79bfccabe4e185e39b7877] review-cycle-remediation stage=phase-3 after=3 action=reopen authorization=operator-2026-08-29-ca8ba8-extra-cycle reason=Operator authorized one additional replacement review cycle after merged remediation infrastructure.
