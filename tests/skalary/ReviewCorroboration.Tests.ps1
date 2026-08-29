@@ -26,17 +26,17 @@ Describe 'review finding corroboration derivation' {
             )
 
             return [ordered]@{
-                runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
-                reviewType = 'code'
-                contentTrust = 'reviewer-authored-data'
-                scope = '1 changed file'
-                scopeAuthority = @{ digest = 'sha256:' + ('1' * 64) }
-                planDigest = 'sha256:' + ('2' * 64)
+                runId            = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+                reviewType       = 'code'
+                contentTrust     = 'reviewer-authored-data'
+                scope            = '1 changed file'
+                scopeAuthority   = @{ digest = 'sha256:' + ('1' * 64) }
+                planDigest       = 'sha256:' + ('2' * 64)
                 invocationBudget = 4
-                modelSelection = @()
-                roster = $Roster
-                tasks = $Tasks
-                findings = $Findings
+                modelSelection   = @()
+                roster           = $Roster
+                tasks            = $Tasks
+                findings         = $Findings
             }
         }
 
@@ -51,11 +51,11 @@ Describe 'review finding corroboration derivation' {
             )
 
             return [ordered]@{
-                taskId = $TaskId
-                severity = 'Medium'
-                title = $Title
-                body = $Body
-                action = $Action
+                taskId    = $TaskId
+                severity  = 'Medium'
+                title     = $Title
+                body      = $Body
+                action    = $Action
                 rootCause = $RootCause
                 component = $Component
             }
@@ -70,8 +70,8 @@ Describe 'review finding corroboration derivation' {
 
             return [pscustomobject]@{
                 ExactKey = $ExactKey
-                Content = 'x' * $ContentLength
-                Tokens = [System.Collections.Generic.HashSet[string]]::new(
+                Content  = 'x' * $ContentLength
+                Tokens   = [System.Collections.Generic.HashSet[string]]::new(
                     $Token,
                     [System.StringComparer]::Ordinal
                 )
@@ -268,6 +268,8 @@ Describe 'review finding corroboration derivation' {
         $resultTasks = @($tasks | ForEach-Object {
                 @{ taskId = $_.taskId; concern = $_.concern; model = $_.model; outcome = 'completed' }
             })
+        $nearLeft = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango'
+        $nearRight = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra uniform'
         $findings = @(
             New-CorroborationFinding -TaskId 'security-a' -Title 'Suspicious retained echo' `
                 -Body 'Identical reviewer output is retained as observable support.' -Action 'Inspect manually.'
@@ -277,10 +279,17 @@ Describe 'review finding corroboration derivation' {
                 -Body 'The first reviewer found a shared retention defect.' -Action 'Repair the first path.' -RootCause 'elevated'
             New-CorroborationFinding -TaskId 'security-b' -Title 'Independent retained report B' `
                 -Body 'The second reviewer found that retention defect separately.' -Action 'Repair the second path.' -RootCause 'elevated'
+            New-CorroborationFinding -TaskId 'security-a' -Title 'Near retained echo' `
+                -Body $nearLeft -Action 'Inspect the near match.' -RootCause 'near'
+            New-CorroborationFinding -TaskId 'security-b' -Title 'Near retained echo' `
+                -Body $nearRight -Action 'Inspect the near match.' -RootCause 'near'
         )
         $run = New-CorroborationRun -Findings $findings -Tasks $resultTasks
         $projection = ConvertTo-ReviewProjection -Run $run
-        $entry = @($projection.Findings | Where-Object CorroborationState -eq 'suspicious')[0]
+        $entry = @(
+            $projection.Findings |
+                Where-Object { $_.CorroborationState -eq 'suspicious' -and $_.Similarity -eq 'exact' }
+        )[0]
 
         foreach ($property in @(
                 'SupportCount', 'AttendanceState', 'Similarity', 'CorroborationState',
@@ -345,15 +354,16 @@ Describe 'review finding corroboration derivation' {
             $retained | Should -Match 'corroboration=suspicious; support=2; attendance=clean; similarity=exact'
             $retained | Should -Match 'needs-review:'
             $receipt = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -Depth 20
-            $receipt.findings.rawSeverity.medium | Should -Be 2
+            $receipt.findings.rawSeverity.medium | Should -Be 3
             $receipt.findings.rawSeverity.high | Should -Be 0
-            $receipt.findings.severity.medium | Should -Be 1
+            $receipt.findings.severity.medium | Should -Be 2
             $receipt.findings.severity.high | Should -Be 1
-            $receipt.findings.corroboration.suspicious | Should -Be 1
+            $receipt.findings.corroboration.suspicious | Should -Be 2
             $receipt.findings.corroboration.corroborated | Should -Be 1
             $receipt.findings.similarity.exact | Should -Be 1
+            $receipt.findings.similarity.'near-duplicate' | Should -Be 1
             $receipt.findings.similarity.none | Should -Be 1
-            $receipt.findings.needsReview | Should -Be 1
+            $receipt.findings.needsReview | Should -Be 2
 
             $replayed = Finalize-ReviewPlanRun -RunId $run.runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             $replayed.Replayed | Should -BeTrue
@@ -371,10 +381,10 @@ Describe 'review finding corroboration derivation' {
             (Invoke-ReviewFreeze -RunId $largeRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
             $largeFindings = @(1..128 | ForEach-Object {
                     @{
-                        taskId = 'security-large'
-                        severity = 'High'
-                        title = ('Gate finding {0:d3} ' -f $_) + ('x' * 143)
-                        body = 'Gate-relevant detail remains in live authority.'
+                        taskId    = 'security-large'
+                        severity  = 'High'
+                        title     = ('Gate finding {0:d3} ' -f $_) + ('x' * 143)
+                        body      = 'Gate-relevant detail remains in live authority.'
                         rootCause = "retained-root-$_"
                         component = "src/retained-$_.ps1"
                     }
@@ -392,8 +402,50 @@ Describe 'review finding corroboration derivation' {
             $largeReportBytes.Length | Should -BeLessOrEqual ([int](Get-ReviewLimits)['maxRetainedReportBytes'])
             [System.Text.Encoding]::UTF8.GetString($largeReportBytes) |
                 Should -Match 'additional blocking finding\(s\) omitted'
-            (Get-Content -LiteralPath $largeFinal.Receipt -Raw | ConvertFrom-Json -Depth 20).findings.merged |
-                Should -Be 128
+            $largeReceipt = Get-Content -LiteralPath $largeFinal.Receipt -Raw | ConvertFrom-Json -Depth 20
+            $largeReceipt.findings.merged | Should -Be 128
+            $largeReceipt.findings.corroboration.'single-source' | Should -Be 128
+            $largeReceipt.findings.similarity.none | Should -Be 128
+
+            $degradedRunId = [guid]::NewGuid().ToString()
+            $degradedRunDir = Resolve-ReviewRunPreparation -RunId $degradedRunId -PlanDir $planDir -RepoRoot $scratch |
+                Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $degradedRunDir -Force)
+            $degradedPlanTasks = @(
+                @{ taskId = 'security-a'; concern = 'security'; model = 'model-a' }
+                @{ taskId = 'security-b'; concern = 'security'; model = 'model-b' }
+                @{ taskId = 'security-c'; concern = 'security'; model = 'model-c' }
+            )
+            Set-ReviewHandshake -RunDir $degradedRunDir -Kind plan -Object (
+                New-ReviewTestPlan -RunId $degradedRunId -Roster @('model-a', 'model-b', 'model-c') `
+                    -Tasks $degradedPlanTasks
+            )
+            (Invoke-ReviewFreeze -RunId $degradedRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $degradedResultTasks = @(
+                @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+                @{ taskId = 'security-b'; concern = 'security'; model = 'model-b'; outcome = 'completed' }
+                @{ taskId = 'security-c'; concern = 'security'; model = 'model-c'; outcome = 'failed'; diagnostic = 'reviewer unavailable' }
+            )
+            $degradedFindings = @(
+                New-CorroborationFinding -TaskId 'security-a' -Title 'Near degraded echo' `
+                    -Body $nearLeft -Action 'Inspect the degraded near match.' -RootCause 'near-degraded'
+                New-CorroborationFinding -TaskId 'security-b' -Title 'Near degraded echo' `
+                    -Body $nearRight -Action 'Inspect the degraded near match.' -RootCause 'near-degraded'
+                New-CorroborationFinding -TaskId 'security-a' -Title 'Attendance degraded' `
+                    -Body 'One completed reviewer reported this separate issue.' -Action 'Do not elevate.' -RootCause 'degraded'
+            )
+            $degradedPublishedRun = New-ReviewTestRun -RunId $degradedRunId `
+                -PlanDigest (Get-ReviewFrozenDigest -RunDir $degradedRunDir) -Roster @('model-a', 'model-b', 'model-c') `
+                -Tasks $degradedResultTasks -Findings $degradedFindings
+            Set-ReviewHandshake -RunDir $degradedRunDir -Kind result -Object $degradedPublishedRun
+            (Invoke-ReviewPublish -RunId $degradedRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 5
+            $degradedFinal = Finalize-ReviewPlanRun -RunId $degradedRunId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
+            Test-Path -LiteralPath $degradedRunDir | Should -BeFalse
+            $degradedReceipt = Get-Content -LiteralPath $degradedFinal.Receipt -Raw | ConvertFrom-Json -Depth 20
+            $degradedReceipt.findings.corroboration.suspicious | Should -Be 1
+            $degradedReceipt.findings.corroboration.degraded | Should -Be 1
+            $degradedReceipt.findings.similarity.'near-duplicate' | Should -Be 1
+            $degradedReceipt.findings.similarity.none | Should -Be 1
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
@@ -408,6 +460,7 @@ Describe 'review finding corroboration derivation' {
             'single-source',
             'incomplete-attendance',
             'malicious-echo',
+            'merged-severity-boundaries',
             'input-order-stability',
             'unchanged-clean-elevation'
         )
@@ -467,10 +520,10 @@ Describe 'review finding corroboration derivation' {
             -Roster @('model-a') `
             -Tasks @(@{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }) `
             -Findings @(@{
-                taskId = 'security-a'
-                severity = 'Medium'
-                title = 'Schema-owned derivation'
-                body = 'Callers provide only raw reviewer data.'
+                taskId    = 'security-a'
+                severity  = 'Medium'
+                title     = 'Schema-owned derivation'
+                body      = 'Callers provide only raw reviewer data.'
                 rootCause = 'schema'
                 component = 'src/schema.ps1'
             })

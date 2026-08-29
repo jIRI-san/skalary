@@ -118,6 +118,24 @@
       ]
     },
     {
+      "id": "merged-severity-boundaries",
+      "roster": ["model-a", "model-b"],
+      "tasks": [
+        { "taskId": "security-a", "concern": "security", "model": "model-a", "outcome": "completed" },
+        { "taskId": "security-b", "concern": "security", "model": "model-b", "outcome": "completed" }
+      ],
+      "findings": [
+        { "taskId": "security-a", "severity": "Low", "title": "Mixed lower report", "body": "The first reviewer assigned a lower raw severity.", "action": "Inspect the first path.", "rootCause": "mixed-boundary", "component": "src/mixed.ps1" },
+        { "taskId": "security-b", "severity": "High", "title": "Mixed higher report", "body": "The second reviewer assigned the highest raw severity.", "action": "Inspect the second path.", "rootCause": "mixed-boundary", "component": "src/mixed.ps1" },
+        { "taskId": "security-a", "severity": "Critical", "title": "Critical first report", "body": "The first reviewer found a critical issue.", "action": "Block the first path.", "rootCause": "critical-boundary", "component": "src/critical.ps1" },
+        { "taskId": "security-b", "severity": "Critical", "title": "Critical second report", "body": "The second reviewer independently found the critical issue.", "action": "Block the second path.", "rootCause": "critical-boundary", "component": "src/critical.ps1" }
+      ],
+      "expected": [
+        { "rootCause": "mixed-boundary", "supportCount": 2, "attendanceState": "clean", "similarity": "none", "corroborationState": "corroborated", "rawSeverity": "High", "effectiveSeverity": "Critical", "needsReview": false, "elevated": true },
+        { "rootCause": "critical-boundary", "supportCount": 2, "attendanceState": "clean", "similarity": "none", "corroborationState": "corroborated", "rawSeverity": "Critical", "effectiveSeverity": "Critical", "needsReview": false, "elevated": false }
+      ]
+    },
+    {
       "id": "input-order-stability",
       "roster": ["model-a", "model-b"],
       "tasks": [
