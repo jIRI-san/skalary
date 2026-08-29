@@ -51,6 +51,8 @@ function Split-MarkdownTableCells {
 
 $script:PlanAssetMap = [ordered]@{
     Intent          = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
+    Domain          = [pscustomobject]@{ Asset = 'domain.md'; Legacy = 'domain.md' }
+    Design          = [pscustomobject]@{ Asset = 'design.md'; Legacy = 'design.md' }
     Requirements    = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
     Risks           = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
     Decisions       = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
@@ -182,7 +184,7 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
+        [ValidateSet('Intent', 'Domain', 'Design', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]
@@ -1200,6 +1202,172 @@ function Get-PlanValidationDecision {
     }
 }
 
+function Get-PlanningContextDigest {
+        <#
+        .SYNOPSIS
+        Returns the digest bound to an operator confirmation of a plan's intent and design.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string]$PlanDir
+        )
+
+        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
+        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        foreach ($path in @($intentPath, $designPath)) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Planning context asset not found: $path"
+            }
+        }
+
+        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+        $payload = "intent.md`n$intent`n--design.md--`n$design"
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+        return [System.Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData($bytes)
+        ).ToLowerInvariant()
+    }
+
+    function Assert-PlanningContextReady {
+        <#
+        .SYNOPSIS
+        Fails when the Markdown context is still a scaffold rather than confirmable planning input.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string]$PlanDir
+        )
+
+        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
+        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        foreach ($path in @($intentPath, $designPath)) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Planning context asset not found: $path"
+            }
+        }
+
+        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+        foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
+            $body = [regex]::Match(
+                $intent,
+                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+            ).Groups['body'].Value
+            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+                throw "Intent section '$section' is missing or still contains a TBD placeholder."
+            }
+        }
+
+        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+        foreach ($section in @('Components and boundaries', 'Program flow')) {
+            $body = [regex]::Match(
+                $design,
+                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+            ).Groups['body'].Value
+            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+                throw "Design section '$section' is missing or still contains a TBD placeholder."
+            }
+            if ($section -eq 'Program flow') {
+                $diagram = [regex]::Match($body, '(?ms)```mermaid[^\S\r\n]*\r?\n(?<body>.*?)```')
+                if (-not $diagram.Success -or
+                    [string]::IsNullOrWhiteSpace($diagram.Groups['body'].Value)) {
+                    throw "Design section 'Program flow' must contain a non-empty Mermaid diagram."
+                }
+            }
+        }
+    }
+
+    function Get-PlanningContextState {
+        <#
+        .SYNOPSIS
+        Reports whether an enrolled plan's operator confirmation still matches its intent and design.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string]$PlanDir
+        )
+
+        $planFile = Join-Path $PlanDir 'plan.md'
+        if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
+            throw "Plan file not found: $planFile"
+        }
+
+        $markers = Get-PlanHeaderMarkers -Path $planFile
+        $marker = $markers.PlanningConfirmed
+        if (-not $markers.All.Contains('planning-confirmed')) {
+            return [pscustomobject]@{
+                IsEnrolled  = $false
+                Status      = 'legacy'
+                IsConfirmed = $true
+                CanProceed  = $true
+                Marker      = $null
+                Digest      = $null
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($marker)) {
+            return [pscustomobject]@{
+                IsEnrolled  = $true
+                Status      = 'invalid'
+                IsConfirmed = $false
+                CanProceed  = $false
+                Marker      = $marker
+                Digest      = $null
+            }
+        }
+
+        $normalized = $marker.Trim().ToLowerInvariant()
+        if ($normalized -eq 'pending') {
+            return [pscustomobject]@{
+                IsEnrolled  = $true
+                Status      = 'pending'
+                IsConfirmed = $false
+                CanProceed  = $false
+                Marker      = $normalized
+                Digest      = $null
+            }
+        }
+
+        if ($normalized -notmatch '^sha256:(?<digest>[0-9a-f]{64})$') {
+            return [pscustomobject]@{
+                IsEnrolled  = $true
+                Status      = 'invalid'
+                IsConfirmed = $false
+                CanProceed  = $false
+                Marker      = $normalized
+                Digest      = $null
+            }
+        }
+        $expectedDigest = $Matches['digest']
+
+        try {
+            $digest = Get-PlanningContextDigest -PlanDir $PlanDir
+        }
+        catch {
+            return [pscustomobject]@{
+                IsEnrolled  = $true
+                Status      = 'missing'
+                IsConfirmed = $false
+                CanProceed  = $false
+                Marker      = $normalized
+                Digest      = $null
+            }
+        }
+
+        $confirmed = [string]::Equals($expectedDigest, $digest, [System.StringComparison]::Ordinal)
+        return [pscustomobject]@{
+            IsEnrolled  = $true
+            Status      = if ($confirmed) { 'confirmed' } else { 'stale' }
+            IsConfirmed = $confirmed
+            CanProceed  = $confirmed
+            Marker      = $normalized
+            Digest      = $digest
+        }
+    }
+
 function Split-PlanHeader {
     <#
     .SYNOPSIS
@@ -1263,6 +1431,10 @@ function Get-PlanHeaderMarkers {
             $all[$key] = $match.Groups['value'].Value.Trim()
         }
     }
+    if (-not $all.Contains('planning-confirmed') -and
+        $header -match '<!--\s*planning-confirmed(?![\w-])') {
+        $all['planning-confirmed'] = ''
+    }
 
     $getValue = { param($k) if ($all.Contains($k)) { $all[$k] } else { $null } }
 
@@ -1278,6 +1450,7 @@ function Get-PlanHeaderMarkers {
         ExecutionMode = & $getValue 'execution-mode'
         Scope         = & $getValue 'scope'
         CipStage      = & $getValue 'cip-stage'
+        PlanningConfirmed = & $getValue 'planning-confirmed'
         DependsOn     = $dependsOn
         All           = $all
     }
@@ -1618,4 +1791,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState

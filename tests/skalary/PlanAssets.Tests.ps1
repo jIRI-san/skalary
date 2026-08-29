@@ -137,7 +137,7 @@ Describe 'Plan assets layout' {
         It 'test:plan-assets-template-shape keeps plan.md to markers, an asset index, and steps' {
             $template = Get-Content -LiteralPath $templatePath -Raw
 
-            foreach ($asset in @('assets/intent.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
+            foreach ($asset in @('assets/intent.md', 'assets/domain.md', 'assets/design.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
                 $template | Should -Match ([regex]::Escape($asset))
             }
             $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>.review.md'))
@@ -169,7 +169,7 @@ Describe 'Plan assets layout' {
 
                 $assetsDir = Join-Path $planDir 'assets'
                 Test-Path -LiteralPath $assetsDir -PathType Container | Should -BeTrue
-                foreach ($name in @('intent.md', 'requirements.md', 'risks.md', 'decisions.md', 'references.md')) {
+                foreach ($name in @('intent.md', 'domain.md', 'design.md', 'requirements.md', 'risks.md', 'decisions.md', 'references.md')) {
                     $assetPath = Join-Path $assetsDir $name
                     Test-Path -LiteralPath $assetPath -PathType Leaf | Should -BeTrue
                     # Placeholder, never zero content — "present-but-empty" must stay distinguishable from "authored".

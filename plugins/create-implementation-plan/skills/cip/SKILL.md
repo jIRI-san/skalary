@@ -15,7 +15,7 @@ context: fork
 
 ## non-negotiable planning summary
 
-- Capture and confirm operator **intent** before drafting; the plan's `intent.md` is the anchor `/ci` re-reads and `/pfb` measures against.
+- Rephrase and confirm operator **intent**, domain/design context, and the final pre-draft summary; the plan's `intent.md` is the anchor `/ci` re-reads and `/pfb` measures against.
 - Reconcile against prior plans through `Get-PlanIndex.ps1`, not by reading the plan corpus.
 - Resolve architecture decisions before drafting; no silent TBDs.
 - Keep steps checklist-style, specific, and implementation-oriented.
@@ -53,15 +53,24 @@ context: fork
 
 ## Step 2: Run interview (`./assets/interview-guide.md`)
 
-1. Follow the full question bank and the `intent`, `no-tbd`, `evidence`, and `pre-draft` gates from the interview asset.
-2. Capture operator intent **first** into the plan's intent asset (`assets/intent.md`, or the plan-folder root for legacy plans — resolve with `Resolve-PlanAssetPath`, never a hand-built path). When `/cep` already populated preliminary intent, decisions, or references, read them back as interview input, preserve their **Epic discussion provenance**, and refine them in place — never reset them to scaffold templates. The `intent` gate blocks drafting until intent carries no `TBD` and the operator has confirmed it read back.
-3. Do not allow unresolved architecture or evidence-less requirements.
-4. Confirm interview summary with the user before drafting.
+1. Follow the full question bank and the three ordered confirmation checkpoints from the interview asset, beginning with the `intent` gate.
+2. **Intent checkpoint:** capture operator intent first in the layout-resolved `assets/intent.md` (or legacy root `intent.md`). Rephrase all five sections, read them back together, and revise until the operator confirms them. Preserve preliminary `/cep` wording and **Epic discussion provenance** while refining it; never reset an authored asset to the template.
+3. **Domain/design checkpoint:** write the layout-resolved domain and design assets, rephrase the important boundaries and uncertainty, and revise until the operator approves the concise Mermaid-backed design. Use `./assets/design-template.md`; call stacks are optional and included only when they clarify control flow.
+4. Build a provisional MVP-first vertical outline that routes every requirement through usable increments to the complete outcome. This outline is interview material, not the detailed plan.
+5. **Final pre-draft checkpoint:** present the confirmed intent, approved design, decisions, uncertainty, rejected alternatives, and provisional vertical outline. Revise the affected asset and repeat the affected checkpoint on correction.
+6. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
+
+   ```powershell
+   pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage scaffolded -ConfirmPlanningContext
+   ```
+
+   On resume, pass the plan's current stage instead of `scaffolded`. The marker binds the current intent and design; either asset changing makes `Get-PlanState` report `stale` until the affected checkpoint is repeated and the marker is refreshed.
+7. Do not allow unresolved architecture, placeholder context, or evidence-less requirements.
 
 ## Step 3: Draft plan (`./assets/drafting-guide.md` + template)
 
 1. Build/update the plan in-repo using `./assets/plan-template.md`.
-2. Follow the drafting checklist in `./assets/drafting-guide.md` (typed evidence legend, phase-budget points, concise steps, decisions extraction, size limits).
+2. Follow the drafting checklist in `./assets/drafting-guide.md` (typed evidence legend, MVP-first vertical routing, phase-budget points, concise steps, decisions extraction, size limits).
 3. Set the stage anchor with `Set-PlanStage.ps1`:
 
    ```powershell
@@ -92,4 +101,5 @@ Long runs drift; re-anchor every step instead of trusting context memory:
 
 - **Validation authority:** `Test-Plan.ps1` / `npm run validate-plan` is the only authority on plan structure and evidence integrity. Resolve divergence by re-running it, not by reasoning from context.
 - **Script-only mutation:** plan scaffolding (`New-Plan`), stage anchors (`Set-PlanStage`), and capture writes (`Add-WorkflowNote`) are script-mediated — never hand-edit those structures.
+- **Confirmed context:** `Get-PlanState` must report `Context: confirmed` before drafting. A pending, stale, missing, or invalid enrolled marker blocks progress; repeat the affected checkpoint and refresh it through `Set-PlanStage -ConfirmPlanningContext`.
 - **No silent TBDs:** unresolved architecture or evidence-less requirements block drafting; surface them to the user.

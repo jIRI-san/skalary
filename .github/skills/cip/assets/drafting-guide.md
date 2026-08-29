@@ -10,6 +10,19 @@
 4. Add `[after: X.Y]` where dependencies exist.
 5. Assign `S`, `M`, or `L` for each step.
 6. Use `@human` only for true human-only actions, and give each one the detail block below.
+7. Make phase 1 a usable end-to-end MVP; later phases remain vertical increments through the complete outcome.
+8. Route every requirement to at least one step and ensure the final phase reaches the full definition of done.
+
+## Vertical plan invariants
+
+- An MVP-first plan is still a complete plan. It may defer depth, scale, or secondary paths, but it does not
+  drop confirmed requirements or redefine the desired outcome.
+- Prefer phases that leave observable behavior working across component boundaries. Reject layer-only sequences
+  such as all models, then all APIs, then all UI.
+- Keep the provisional outline from the final interview checkpoint as the phase skeleton. Detailed drafting may
+  add evidence and dependencies, but must not silently change its operator-confirmed user value.
+- Objective validation owns section presence and requirement-to-step routing. The operator and design review own
+  whether each slice is meaningfully usable.
 
 ## `@human` step detail (blocking)
 

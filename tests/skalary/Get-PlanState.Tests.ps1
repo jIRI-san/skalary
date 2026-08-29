@@ -56,6 +56,8 @@ Describe 'Get-PlanState CLI' {
             $obj.Markers.ExecutionMode | Should -Be 'manual'
             $obj.Markers.Scope | Should -Be 'step'
             $obj.Markers.CipStage | Should -Be 'dr-round-2'
+            $obj.PlanningContext.Status | Should -Be 'legacy'
+            $obj.PlanningContext.CanProceed | Should -BeTrue
             $obj.Progress.Total | Should -Be 3
             $obj.Progress.Completed | Should -Be 1
             $obj.Progress.InProgress | Should -Be 1

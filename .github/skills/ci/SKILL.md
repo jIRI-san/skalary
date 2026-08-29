@@ -57,6 +57,9 @@ pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-
 
 For a plan reference, `Get-PlanState` reports progress (done/total, current phase, last completed) and the next incomplete candidate step — flagged with `@human` / `[discovery]` / `blocked-by-after`. It picks the first non-`[x]` step in order and marks it `blocked-by-after` if its `[after:]` deps are unmet; it does **not** skip ahead to later unblocked work, so on a `blocked-by-after` flag resolve the dependency (or pick eligible work) yourself. Add only the judgment it cannot make:
 
+- **Confirmed planning context:** an enrolled plan must report `Context: confirmed`. Stop before branch or file
+  mutation on `pending`, `stale`, `missing`, or `invalid` and return the plan to `/cip` for the affected
+  confirmation checkpoint. Marker-less legacy plans retain existing behavior.
 - **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
 - **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.
 - **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute. For `@human`, print the step's full `Handoff:` block from `Get-PlanState` verbatim (**Steps**, **Verify**, **Rollback**), not just the step title: that block is what makes the operator round-trip single-pass. If the block is missing or incomplete, say so — the plan did not clear the `human-step-detail` gate.
