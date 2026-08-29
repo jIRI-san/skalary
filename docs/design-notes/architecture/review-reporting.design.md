@@ -581,7 +581,11 @@ manifest identity verification valid). Before the rename it atomically writes a 
 binding run id, verdict, and both retained-file digests. It then recursively removes the tombstone with
 terminating errors. A partial recursive failure therefore cannot be rediscovered as an incomplete
 review and can converge from the marker plus retained pair even if the tombstone manifest was already
-deleted. Marker identity is checked before repair, so a different verdict cannot rewrite evidence.
+deleted. Replay validates and preserves an intact marker-bound pair before invoking the current
+renderer, so a renderer upgrade cannot strand cleanup. A missing or tampered pair is regenerated only
+when verified cleanup authority reproduces the marker-bound bytes; renderer drift therefore never
+silently rewrites retained evidence. Marker identity is checked before repair, so a different verdict
+cannot rewrite evidence.
 Cleanup diagnostics cross the CLI boundary with exit `4`. Retrying the same verdict verifies the pair and converges cleanup. Historical
 live bundles were compacted during migration, so production finalization now accepts only the current
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical

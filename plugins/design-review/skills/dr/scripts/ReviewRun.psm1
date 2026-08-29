@@ -3806,21 +3806,23 @@ function Finalize-ReviewPlanRun {
         $liveExists = Test-Path -LiteralPath $runDir -PathType Container
         if (-not $liveExists) {
             if (Test-Path -LiteralPath $cleanupDir -PathType Container) {
-                [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict `
-                        -ReportPath $reportPath -ReceiptPath $receiptPath -SkipPairValidation)
+                $cleanupMarker = Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict `
+                    -ReportPath $reportPath -ReceiptPath $receiptPath -SkipPairValidation
                 $pairExists = $true
                 try {
+                    [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict `
+                            -ReportPath $reportPath -ReceiptPath $receiptPath)
+                }
+                catch {
                     $verified = Read-ReviewManifestForFinalization -RunDir $cleanupDir -Boundary $repoFull
                     $material = Get-ReviewFinalizationMaterial -Verified $verified -Verdict $Verdict -ReportPath $reportPath
+                    Assert-ReviewCleanupMarkerMaterial -Marker $cleanupMarker -Material $material
                     $pairExists = Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
                         -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes
                     if (-not $pairExists -and $PSCmdlet.ShouldProcess($cleanupDir, 'Repair compact evidence from cleanup authority')) {
                         Write-ReviewBytesAtomic -Path $reportPath -Bytes $material.ReportBytes
                         Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
                     }
-                }
-                catch {
-                    [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
                 }
                 [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
                 $cleanupPending = $true

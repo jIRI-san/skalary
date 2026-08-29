@@ -48,4 +48,6 @@ Phase: 2
 ## CR Capture
 Phase: 3
 
-No entries for this phase.
+- [3.1] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:74c07ca8cb1b47d64bd5dcd60ac73c870ea25a8617a9f1df0b1affe008da2ec5] Round 1 finding 1 triage=fix: validate an intact cleanup-marker-bound retained pair before invoking the current renderer, preserving replay across renderer upgrades while retaining fail-closed repair.
+- [3.1] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-4] [review:cr] [source-record:6f8c4761ed830bd09b068ff5659930a244505389c0dff5cc03b1dd480920b34d] Round 1 finding 2 triage=rejected-scope: v1 full evidence already preserves every raw record and its task-to-declared-model mapping; pair-level trigger fields exceed the settled group-level similarity contract and retained 8 KiB budget.
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:612f3e5a4f982af1879101bfa9223babe976df6b71de4d1aaed91cc105630d8a] review-cycle stage=phase-3 cycle=1 outcome=findings summary=run=f6e74f43-f585-427f-9b49-9aec1c9a3241;findings=2;fixed=1;rejected=1
