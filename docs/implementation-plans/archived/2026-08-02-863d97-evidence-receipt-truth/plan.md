@@ -1,4 +1,4 @@
-# 863d97: Evidence and receipt truth
+# 863d97: Evidence and receipt truth [DONE]
 <!-- plan-id: 863d97 -->
 <!-- cip-stage: dr-round-3 -->
 <!-- epic: 33b1f9 -->
