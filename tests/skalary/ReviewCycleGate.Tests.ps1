@@ -202,6 +202,7 @@ Describe 'review cycle gate' {
                 -ReviewRunId $runId -Summary 'zero-blockers'
             $result.state | Should -Be 'complete'
             $result.cycles | Should -Be 1
+            (Invoke-CycleGate -PlanDir $plan -Action Check).state | Should -Be 'complete'
         }
         finally { Remove-Item -LiteralPath $plan -Recurse -Force }
     }

@@ -5,11 +5,15 @@ param(
     [string]$PlanDir,
 
     [Parameter(Mandatory, ParameterSetName = 'Phase')]
-    [ValidateRange(1, 999)]
+    [Parameter(Mandatory, ParameterSetName = 'ValidateReceipt')]
+    [ValidateRange(0, 999)]
     [int]$Phase,
 
     [Parameter(Mandatory, ParameterSetName = 'FinalSweep')]
     [switch]$FinalSweep,
+
+    [Parameter(Mandatory, ParameterSetName = 'ValidateReceipt')]
+    [switch]$ValidateReceipt,
 
     [ValidateSet('ci', 'autopilot')]
     [string]$Src = 'ci',
@@ -316,7 +320,7 @@ function Get-PhaseSectionRecords {
     $ranges = [System.Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i].Trim() -ne $header) { continue }
-        if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>[1-9][0-9]*)\s*$') {
+        if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>0|[1-9][0-9]*)\s*$') {
             throw "Malformed phase header after '$header' in '$Path'."
         }
         $sectionPhase = [int]$Matches.phase
@@ -600,23 +604,45 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     }
 }
 $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-$inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
-$planRecord = @($inventory | Where-Object {
-        $_.Path -and [string]::Equals(
-            [System.IO.Path]::GetFullPath([string]$_.Path),
-            $planDirFull,
-            [System.StringComparison]::OrdinalIgnoreCase
-        )
-    })
-if ($planRecord.Count -ne 1) {
-    throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
-}
-$planId = [string]$planRecord[0].Id
+$metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot $repoRootFull
+$markers = Get-PlanHeaderMarkers -Path $metadata.PlanPath
+$planId = [string]$markers.PlanId
 $repoIdentity = Get-RepoIdentity -Root $repoRootFull
 $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind HarvestReceiptRoot `
-    -RepoRoot $repoRootFull -Inventory $inventory
+    -RepoRoot $repoRootFull
 
 try {
+    if ([string]::IsNullOrWhiteSpace($planId)) {
+        throw "Plan '$($metadata.PlanPath)' has no canonical plan-id marker."
+    }
+    if ($ValidateReceipt) {
+        $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
+        if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+            throw "Harvest receipt '$receiptPath' does not exist."
+        }
+        $receipt = Read-HarvestReceipt -Path $receiptPath -ReceiptRoot $receiptRoot `
+            -RepoIdentity $repoIdentity -PlanId $planId
+        if ([int]$receipt.payload.phase -ne $Phase) {
+            throw "Harvest receipt '$receiptPath' phase does not match requested phase $Phase."
+        }
+        Write-HarvestResult -Status $receipt.payload.status -TargetPhase $Phase `
+            -CandidateCount @($receipt.payload.candidates).Count -ReceiptCount 1 `
+            -ReceiptPath $receiptPath -Note 'Validated immutable phase receipt.'
+        exit 0
+    }
+
+    $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
+    $planRecord = @($inventory | Where-Object {
+            $_.Path -and [string]::Equals(
+                [System.IO.Path]::GetFullPath([string]$_.Path),
+                $planDirFull,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+        })
+    if ($planRecord.Count -ne 1 -or [string]$planRecord[0].Id -cne $planId) {
+        throw "Plan folder '$planDirFull' is not a unique matching member of the repository plan inventory."
+    }
+
     if ($FinalSweep) {
         $receiptFiles = @(if (Test-Path -LiteralPath $receiptRoot -PathType Container) {
                 Get-ChildItem -LiteralPath $receiptRoot -File -Filter 'phase-*.json' | Sort-Object Name
@@ -709,7 +735,6 @@ try {
         exit 4
     }
 
-    $metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot $repoRootFull
     $knownRequirements = [string[]]@($metadata.Requirements.Values | ForEach-Object { [string]$_.Id })
     $allRecords = [System.Collections.Generic.List[object]]::new()
     $allSources = [System.Collections.Generic.List[object]]::new()
