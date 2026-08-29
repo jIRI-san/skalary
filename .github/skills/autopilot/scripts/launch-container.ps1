@@ -14,6 +14,8 @@
     GitHub token for Copilot CLI.
 .PARAMETER AdoToken
     Optional ADO access token.
+.PARAMETER StartBranch
+    Validated branch from which a new target branch is created.
 #>
 param(
     [Parameter(Mandatory)]
@@ -32,6 +34,8 @@ param(
     [string]$AdoToken,
 
     [string]$Branch = "feature/$PlanSlug",
+
+    [string]$StartBranch = (git branch --show-current),
 
     # When set, mount this host package-feed read-only at /feed and run the
     # container fully offline (see prepare-packages.ps1).
@@ -105,7 +109,7 @@ try {
 
     # --- Prepare env file ---
     Write-Host "Preparing environment file..."
-    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $Branch }
+    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $StartBranch }
     if ($FeedPath) { $envParams.Offline = $true }
     $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') @envParams
 

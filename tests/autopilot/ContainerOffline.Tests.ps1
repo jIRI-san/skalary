@@ -17,6 +17,11 @@ Describe 'Autopilot.ContainerOffline' {
     }
 
     Context 'launch-container.ps1' {
+        It 'passes the validated start branch to the container environment' {
+            $launcher | Should -Match '\[string\]\$StartBranch'
+            $launcher | Should -Match 'Branch = \$StartBranch'
+        }
+
         It 'exposes a -FeedPath parameter' {
             $launcher | Should -Match '\[string\]\$FeedPath'
         }

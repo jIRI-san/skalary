@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T22:01:33.4319762Z",
+  "generatedAt": "2026-08-29T22:05:10.6255772Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -297,7 +297,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "3d65bf55e7d047b8e4c621c1b679f73bd969e856ca21b172442de0a1cc8c7c33",
+          "sha256": "bff14d7c9c950accfc03ed42574be98e79b25b8ec7a7eeb0d7223d2148d3cb0a",
           "src": "scripts/launch-container.ps1"
         },
         {
