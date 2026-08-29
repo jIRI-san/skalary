@@ -777,6 +777,7 @@ foreach ($id in $ids) {
                     $reviewPaths.Add($reviewPath)
                 }
                 if ($reviewOverflow) {
+                    $selectionOverflow = $true
                     Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason "Review directory exceeds the $MaxCandidates-entry scan limit.")
                     continue
                 }

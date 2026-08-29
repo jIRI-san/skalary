@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T10:46:38.2867570Z",
+  "generatedAt": "2026-08-29T11:17:30.1230707Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -433,7 +433,7 @@
         },
         {
           "dest": "skills/cr/assets/scope-guide.md",
-          "sha256": "597b0efeb1c5dc4297f26b07df6400c3afcc24d51cf895fb9d7e6434209a97ad",
+          "sha256": "72a1e5ede2dc9cb7afbe991004db5704b51b4e2662017ef7a96e547f886fe9b4",
           "src": "skills/cr/assets/scope-guide.md"
         },
         {
@@ -443,7 +443,7 @@
         },
         {
           "dest": "skills/cr/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "e1146f5a077ad5d11d7f5ae086d49b8f7d1327aa966579cc719bb1a0ff64acc1",
+          "sha256": "8d4ed31553d4659ecb45c42062fa1335a1be43d44c4d65db90a2541ac98dd51f",
           "src": "skills/cr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -510,7 +510,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.44"
+      "version": "1.0.45"
     },
     {
       "author": "jIRI-san",
@@ -704,7 +704,7 @@
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "a78c33cf0a1b8b4d9f7591a2db381f415eb783067e7ea4150ba9f9da9021e010",
+          "sha256": "6452142b21fe1917ff64db0808fee82b4300ddd1ad381e594e5e48c7cf508820",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -714,7 +714,7 @@
         },
         {
           "dest": "skills/cep/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "e1146f5a077ad5d11d7f5ae086d49b8f7d1327aa966579cc719bb1a0ff64acc1",
+          "sha256": "8d4ed31553d4659ecb45c42062fa1335a1be43d44c4d65db90a2541ac98dd51f",
           "src": "skills/cep/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -779,7 +779,7 @@
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "93d3197ab1160227a94af061674ef265dbc61ed98835823f90c4d3dcb4c57b1f",
+          "sha256": "7461d286d3a6b8422eced8e741951541febbced0e029bd4ba7bb8d406d2a49ea",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
@@ -799,7 +799,7 @@
         },
         {
           "dest": "skills/cip/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "e1146f5a077ad5d11d7f5ae086d49b8f7d1327aa966579cc719bb1a0ff64acc1",
+          "sha256": "8d4ed31553d4659ecb45c42062fa1335a1be43d44c4d65db90a2541ac98dd51f",
           "src": "skills/cip/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -861,7 +861,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.55"
+      "version": "1.0.56"
     },
     {
       "author": "jIRI-san",
@@ -1013,7 +1013,7 @@
         },
         {
           "dest": "skills/dr/assets/plan-scope-guide.md",
-          "sha256": "8570324a8d8ba54e8a5f9d1be6bf533c5a196b8bcc2cd7282e687af038a73557",
+          "sha256": "55f12b30c8969d9cae58dc8b3e504756fe7c1ad098ca771644d27a55d979a39c",
           "src": "skills/dr/assets/plan-scope-guide.md"
         },
         {
@@ -1028,7 +1028,7 @@
         },
         {
           "dest": "skills/dr/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "e1146f5a077ad5d11d7f5ae086d49b8f7d1327aa966579cc719bb1a0ff64acc1",
+          "sha256": "8d4ed31553d4659ecb45c42062fa1335a1be43d44c4d65db90a2541ac98dd51f",
           "src": "skills/dr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -1095,7 +1095,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.43"
+      "version": "1.0.44"
     },
     {
       "author": "jIRI-san",

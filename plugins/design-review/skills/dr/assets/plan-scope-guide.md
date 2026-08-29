@@ -57,11 +57,13 @@ optional:
    review-run v1's existing 1024-character scope limit, narrow the selected artifacts before dispatch;
    never truncate metadata or consume unrecorded content.
 
-Place accepted historical content inside the review's `UNTRUSTED_INPUT` markers and pass the same
-selected context and provenance tokens to every applicable concern. Content is dispatch-only. The
-tokens use the existing `scope` string; do not add a context role, field, schema, receipt, lifecycle
-step, or `scopeAuthority` member. Chat/session-memory reviews skip this path because no canonical
-in-repo plan association exists.
+Keep the complete accepted result object together, serialize it as JSON, and place that JSON inside
+the review's `UNTRUSTED_INPUT` markers. Never interpolate the raw `content` field into instructions or
+use a delimiter taken from it. Only consumer-authored marker lines have structural meaning;
+content-controlled text cannot close or escape them. Pass the same selected context and provenance
+tokens to every applicable concern. Content is dispatch-only. The tokens use the existing `scope`
+string; do not add a context role, field, schema, receipt, lifecycle step, or `scopeAuthority` member.
+Chat/session-memory reviews skip this path because no canonical in-repo plan association exists.
 
 ## 3. Size and batching
 
