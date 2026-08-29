@@ -648,6 +648,103 @@ $($header.TrimEnd())
         $staged | Should -Not -Contain 'ignored.tmp'
     }
 
+    It 'test:VerticalLoop.ConsumerInstall preserves the admitted phase loop in installed CI and autopilot payloads' {
+        Import-Module (Join-Path $script:repoRoot 'tests/ConsumerInstallFixture.psm1') `
+            -Force -DisableNameChecking
+        $consumer = New-ConsumerInstallFixture -SourceRepoRoot $script:repoRoot
+        try {
+            $contracts = @(
+                [pscustomobject]@{
+                    Plugin = 'continue-implementation'
+                    Dest = 'skills/ci/SKILL.md'
+                    Tokens = @(
+                        'Admission.ApplicableRequirements',
+                        '`next-phase` stops after the first admitted phase',
+                        '`whole-plan` applies the same admission and close contract'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'continue-implementation'
+                    Dest = 'skills/ci/assets/crosscheck-guide.md'
+                    Tokens = @(
+                        'Get-PhaseCheckpointOptions',
+                        'Only after recording **Continue**'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/SKILL.md'
+                    Tokens = @(
+                        '`next-phase` still delegates admission',
+                        '`whole-plan` uses the same admitted-phase and phase-close loop'
+                    )
+                },
+                [pscustomobject]@{
+                    Plugin = 'autopilot'
+                    Dest = 'skills/autopilot/scripts/container-entrypoint.sh'
+                    Tokens = @(
+                        'phase_dispatch_action',
+                        'phase-complete-stop',
+                        'phase-complete-continue',
+                        '-ValidateReceipt'
+                    )
+                }
+            )
+
+            foreach ($contract in $contracts) {
+                $catalogFile = @(
+                    $consumer.Catalog.Files |
+                        Where-Object {
+                            [string]$_.Plugin -eq $contract.Plugin -and
+                            [string]$_.Dest -eq $contract.Dest
+                        }
+                )
+                $catalogFile.Count | Should -Be 1
+
+                $installedPath = Join-Path (Join-Path $consumer.Root '.github') (
+                    $contract.Dest -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                )
+                Test-Path -LiteralPath $installedPath -PathType Leaf | Should -BeTrue
+                (Get-FileHash -LiteralPath $installedPath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                    Should -BeExactly ([string]$catalogFile[0].Sha256)
+
+                $installed = [System.IO.File]::ReadAllText($installedPath)
+                foreach ($token in $contract.Tokens) {
+                    $installed | Should -Match ([regex]::Escape($token))
+                }
+
+                $registryPlugin = @(
+                    $consumer.Registry.plugins |
+                        Where-Object { [string]$_.name -eq $contract.Plugin }
+                )
+                $registryPlugin.Count | Should -Be 1
+                $registryFile = @(
+                    $registryPlugin[0].files |
+                        Where-Object { [string]$_.dest -eq $contract.Dest }
+                )
+                $registryFile.Count | Should -Be 1
+                [string]$registryFile[0].sha256 |
+                    Should -BeExactly ([string]$catalogFile[0].Sha256)
+            }
+
+            foreach ($pluginName in @('continue-implementation', 'autopilot')) {
+                $catalogPlugin = @(
+                    $consumer.Catalog.Plugins |
+                        Where-Object { [string]$_.Name -eq $pluginName }
+                )[0]
+                $registryPlugin = @(
+                    $consumer.Registry.plugins |
+                        Where-Object { [string]$_.name -eq $pluginName }
+                )[0]
+                [string]$registryPlugin.version |
+                    Should -BeExactly ([string]$catalogPlugin.Version)
+            }
+        }
+        finally {
+            Remove-ConsumerInstallFixture -Fixture $consumer
+        }
+    }
+
     It 'allows phase-one harvest after legacy phase-zero planning capture' {
         $fixture = New-AdmissionFixture
         $logs = Join-Path $fixture.TargetDir 'assets/logs'

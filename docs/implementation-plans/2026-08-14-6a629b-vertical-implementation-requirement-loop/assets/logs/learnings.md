@@ -12,4 +12,4 @@ Phase: 2
 ## Learnings Capture
 Phase: 3
 
-No entries for this phase.
+- [3.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-1,REQ-2,REQ-3,REQ-4,REQ-5,REQ-6] [review:none] [source-record:6a51ac2614cf02fc83599f18103fec668daeacacab2a2e21553744eb4671fe59] Typed evidence tests must live in Fast-owned files because EvidenceTestId cannot be combined with the TestName narrowing required for Slow files.
