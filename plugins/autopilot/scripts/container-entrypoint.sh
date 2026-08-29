@@ -120,8 +120,8 @@ elif [ "${BRANCH}" != "${WORK_BRANCH}" ] && git ls-remote --exit-code origin "re
     echo "Creating work branch ${WORK_BRANCH} from ${BRANCH}..."
     git checkout -b "${WORK_BRANCH}"
 else
-    echo "Creating new branch ${WORK_BRANCH} from $(git branch --show-current)..."
-    git checkout -b "${WORK_BRANCH}"
+    echo "ERROR: Selected start branch '${BRANCH}' is not available on origin." >&2
+    exit 1
 fi
 
 # --- Configure git identity ---
@@ -359,7 +359,7 @@ for PHASE_NUM in ${PHASE_NUMS}; do
             exit 3
             ;;
         close-pending)
-            echo "ERROR: Phase ${PHASE_NUM} exited zero without completing checklist and phase close."
+            echo "ERROR: Phase ${PHASE_NUM} exited zero with close state 'close-pending'."
             if ! preserve_work; then
                 echo "ERROR: Failed to preserve incomplete phase work; container recovery is required."
                 exit 70

@@ -349,7 +349,7 @@ foreach ($phase in $phaseNumbers) {
         break
     }
     if ($closeState -ne 'closed') {
-        Write-Warning "Phase $phase exited zero without a valid phase close. Stopping."
+        Write-Warning "Phase $phase exited zero without a valid phase close ($closeState). Stopping."
         $executionExitCode = 1
         break
     }

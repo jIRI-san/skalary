@@ -13,3 +13,4 @@ Phase: 2
 Phase: 3
 
 - [3.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-1,REQ-2,REQ-3,REQ-4,REQ-5,REQ-6] [review:none] [source-record:6a51ac2614cf02fc83599f18103fec668daeacacab2a2e21553744eb4671fe59] Typed evidence tests must live in Fast-owned files because EvidenceTestId cannot be combined with the TestName narrowing required for Slow files.
+- [3.2] [trigger:plan-contradiction] [concern:architecture-patterns] [req:REQ-1] [review:cr] [source-record:85ac9c3b8a4e390af1a0704c64c76ec4bc3769a96b4aabaff188521743686283] Admission validates requirements that are present; it must not invent an every-phase-requires-REQ policy absent from the documented contract.

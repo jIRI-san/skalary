@@ -21,8 +21,8 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 ```
 ┌─────────────────────────────────────────────────┐
 │  /ci skill (VS Code) — Autonomous mode          │
-│  └─ reads autopilot SKILL.md by path            │
-│     └─ Host/Container/Sandbox menu → launch.ps1 │
+│  ├─ selects runtime and execution extent        │
+│  └─ reads autopilot SKILL.md → launch.ps1       │
 └───────────────────┬─────────────────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────┐
@@ -42,7 +42,7 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 │  │   copilot CLI  │ │         │ │  ├─ Bootstrap script  │
 │  ├─ Live stream   │ │         │ │  ├─ Clone from mount  │
 │  └─ Timeout kill  │ │         │ │  ├─ Per-phase CLI     │
-│                   │ │         │ │  └─ Push + PR create  │
+│                   │ │         │ │  └─ Final push        │
 └───────────────────┘ └─────────┘ └──────────────────────┘
 ```
 
@@ -163,17 +163,18 @@ Windows Sandbox provides isolation with full Win32 support (including WPF/deskto
 - `nodejs-<ver>/` — extracted from zip
 - `dotnet-<channel>/` — installed via `dotnet-install.ps1`
 - `gh-<ver>/` — extracted from zip (not MSI — MSI hangs on read-only mount)
+- `powershell-<ver>/` — extracted from zip for the canonical phase validators
 
 **Bootstrap flow (inside sandbox):**
 1. Wait for `C:\sandbox-session` mount availability
-2. Set PATH: `C:\git\cmd` + `C:\dotnet` + `C:\nodejs` + `C:\npm-global` + `C:\gh\bin`
+2. Set PATH: `C:\git\cmd` + `C:\pwsh` + `C:\dotnet` + `C:\nodejs` + `C:\npm-global` + `C:\gh\bin`
 3. Install Copilot CLI via npm to writable `C:\npm-global` prefix
 4. Read token from session dir, configure `GH_TOKEN` + `gh auth setup-git`
 5. `git clone C:\repo C:\work` (fast local clone from read-only mount)
 6. `git remote set-url origin <https-url>` (SSH→HTTPS conversion for push)
 7. Branch checkout (existing) or creation (new)
 8. Per-phase Copilot CLI invocation loop
-9. `git push` + `gh pr create`
+9. Final `git push`; plan finalization owns PR creation
 
 **Key design decisions:**
 - SSH remote converted to HTTPS (`git@github.com:` → `https://github.com/`) because sandbox has no SSH keys; `gh auth setup-git` provides HTTPS credentials
@@ -246,7 +247,7 @@ Key fields:
 - `model`: Bare Copilot CLI model slug; the shipped default is `gpt-5.6-sol`
 - `context`: Copilot CLI context tier (`default` or `long_context`)
 - `reasoningEffort`: Copilot CLI reasoning depth (`low`, `medium`, `high`, `xhigh`, or `max`)
-- `build`/`test`: Coarse-filtered by schema prefix pattern; authoritative argv tokenization + flag denylist enforced in `launch.ps1`
+- `build`/`test`: Coarse-filtered by schema and launcher prefix checks. They remain trusted repository configuration, not shell-safe argument arrays.
 - `timeout`: Minutes per phase before force-kill. Host mode enforces it around each Copilot CLI invocation; container mode enforces it inside the entrypoint, which is the only place phase boundaries are visible.
 - `planTimeout`: Optional whole-run cap in minutes across all phases (container mode; default 1440). Must be `>= timeout`. On expiry the host sends `docker stop --time 30` and the entrypoint commits + pushes in-flight work before exiting `143`.
 - `maxIterationsPerStep`: Build/test/acceptance fix-retry cap. Code-review retries are governed separately by the durable three-cycle phase/finalization gates.

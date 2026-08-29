@@ -345,7 +345,9 @@ flowchart TD
             '(REQ-1, RISK-1)',
             '(RISK-1)'
         ) | Set-Content -LiteralPath $noRequirements.TargetPlan -Encoding utf8NoBOM -NoNewline
-        (Get-FixtureAdmission -Root $noRequirements.Root -Reference 'def222').Status | Should -Be 'missing'
+        $noRequirementAdmission = Get-FixtureAdmission -Root $noRequirements.Root -Reference 'def222'
+        $noRequirementAdmission.Status | Should -Be 'ready'
+        $noRequirementAdmission.ApplicableRequirements | Should -BeNullOrEmpty
 
         $unknownRequirement = New-AdmissionFixture
         (Get-Content -LiteralPath $unknownRequirement.TargetPlan -Raw).Replace(
@@ -455,6 +457,11 @@ $($header.TrimEnd())
         $guide = Get-Content -LiteralPath (
             Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
         ) -Raw
+        $operatorStart = $guide.IndexOf('### Operator checkpoint', [System.StringComparison]::Ordinal)
+        $operatorEnd = $guide.IndexOf('## Plan crosscheck', $operatorStart, [System.StringComparison]::Ordinal)
+        $operatorStart | Should -BeGreaterThan -1
+        $operatorEnd | Should -BeGreaterThan $operatorStart
+        $operatorSection = $guide.Substring($operatorStart, $operatorEnd - $operatorStart)
         foreach ($token in @(
                 '### Operator checkpoint',
                 'usable increment',
@@ -470,10 +477,10 @@ $($header.TrimEnd())
                 '**Stop**',
                 '**Resume**'
             )) {
-            $guide | Should -Match ([regex]::Escape($token))
+            $operatorSection | Should -Match ([regex]::Escape($token))
         }
-        $guide | Should -Match '(?s)Continue.+only when.+AllPassed.+no high-impact uncertainty'
-        $guide | Should -Match '(?s)failed.+skipped.+stale.+unrun.+degraded.+offer Revise and Stop only'
+        $operatorSection | Should -Match '(?s)Continue.+only when.+AllPassed.+no high-impact uncertainty'
+        $operatorSection | Should -Match '(?s)failed.+skipped.+stale.+unrun.+degraded.+offer Revise and Stop only'
         $checkpoint = $guide.IndexOf('8. Run the operator checkpoint below.', [System.StringComparison]::Ordinal)
         $continue = $guide.IndexOf('Only after recording **Continue**', [System.StringComparison]::Ordinal)
         $harvest = $guide.IndexOf('Invoke-PhaseHarvest.ps1', $continue, [System.StringComparison]::Ordinal)
@@ -606,6 +613,16 @@ $($header.TrimEnd())
             Should -Be 1
         Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
             Should -Be 0
+        (Get-Content -LiteralPath $planPath -Raw).Replace(
+            "<!-- plan-id: def222 -->`n",
+            ''
+        ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
+        Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
+            Should -Be 0
+        (Get-Content -LiteralPath $planPath -Raw).Replace(
+            '# def222: Next phase fixture',
+            "# def222: Next phase fixture`n<!-- plan-id: def222 -->"
+        ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
 
         # An interrupted phase remains the first runnable phase on relaunch.
         $firstRunnable = @(1..3 | Where-Object {
@@ -624,20 +641,8 @@ $($header.TrimEnd())
                     -RepoRoot $fixture.Root) -eq 0
             })[0]
         $closePending | Should -Be 2
-            (Get-Content -LiteralPath $planPath -Raw).Replace(
-                "<!-- plan-id: def222 -->`n",
-                ''
-            ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
-            $closeOutput = & pwsh -NoProfile -File $script:phaseState -PlanPath $planPath `
-                -Phase 2 -RepoRoot $fixture.Root -HarvestValidator $script:phaseHarvest 2>&1
-            $LASTEXITCODE | Should -Be 0
-            ($closeOutput -join '').Trim() | Should -BeExactly 'close-pending'
-            (Get-Content -LiteralPath $planPath -Raw).Replace(
-                '# def222: Next phase fixture',
-                "# def222: Next phase fixture`n<!-- plan-id: def222 -->"
-            ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
 
-            foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
             & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir `
                 -RepoRoot $fixture.Root -Phase 2 | Out-Null
         }

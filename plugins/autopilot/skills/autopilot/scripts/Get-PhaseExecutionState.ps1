@@ -29,6 +29,7 @@ try {
     if (-not (Test-Path -LiteralPath $planPathFull -PathType Leaf)) {
         throw "Plan file not found: $planPathFull"
     }
+    $planDirFull = Split-Path -Parent $planPathFull
     if (-not (Test-Path -LiteralPath $HarvestValidator -PathType Leaf)) {
         throw "Phase-harvest validator not found: $HarvestValidator"
     }
@@ -50,7 +51,6 @@ try {
     if (@($steps | Where-Object { [string]$_.Status -ne 'x' }).Count -gt 0) {
         $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         $markers = Get-PlanHeaderMarkers -Path $planPathFull
-        $planDirFull = Split-Path -Parent $planPathFull
         $pathComparison = if ($IsWindows) {
             [System.StringComparison]::OrdinalIgnoreCase
         }
@@ -92,8 +92,7 @@ try {
         return
     }
 
-    $planDir = Split-Path -Parent $planPathFull
-    $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDir -Kind HarvestReceiptRoot `
+    $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind HarvestReceiptRoot `
         -RepoRoot $repoRootFull
     $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
@@ -102,7 +101,7 @@ try {
     }
 
     $validationOutput = & pwsh -NoProfile -File $HarvestValidator `
-        -PlanDir $planDir -Phase $Phase -ValidateReceipt -RepoRoot $repoRootFull 2>&1
+        -PlanDir $planDirFull -Phase $Phase -ValidateReceipt -RepoRoot $repoRootFull 2>&1
     if ($LASTEXITCODE -ne 0) {
         [Console]::Error.WriteLine(
             "Phase $Phase harvest receipt is invalid.`n$($validationOutput -join "`n")"

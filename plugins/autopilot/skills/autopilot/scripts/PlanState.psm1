@@ -1742,11 +1742,7 @@ function Get-PhaseAdmission {
     $unknownRequirements = @(
         $applicableRequirements | Where-Object { -not $Metadata.Requirements.ContainsKey($_) }
     )
-    if ($status -eq 'ready' -and $applicableRequirements.Count -eq 0) {
-        $status = 'missing'
-        $reason = "Phase $phaseNumber has no applicable requirements."
-    }
-    elseif ($status -eq 'ready' -and $unknownRequirements.Count -gt 0) {
+    if ($status -eq 'ready' -and $unknownRequirements.Count -gt 0) {
         $status = 'missing'
         $reason = "Phase $phaseNumber references unknown requirements: $($unknownRequirements -join ', ')."
     }

@@ -419,7 +419,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
     `$closeState = (`$closeStateOutput -join '').Trim()
     if (`$closeState -ne 'closed') {
-        Log "Phase `${phase} exited zero without a valid phase close. Stopping."
+        Log "Phase `${phase} exited zero without a valid phase close (`$closeState). Stopping."
         `$runExitCode = 1
         break
     }
@@ -430,7 +430,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 }
 
-# --- Push results and create PR ---
+# --- Push results ---
 if (`$rebundleRequested) {
     Log '=== Offline rebundle requested - manifest pushed, deferring PR to the post-rebundle run. ==='
 } else {
@@ -549,7 +549,7 @@ Remove-Item -Path $SentinelPath, $RebundleMarker, $ExitCodeMarker -Force -ErrorA
 Write-Host ""
 Write-Host "=== Launching Windows Sandbox ==="
 Write-Host "Config: $wsbPath"
-Write-Host "Repo mapped: $RepoRoot -> C:\repo (read-write)"
+Write-Host "Repo mapped: $RepoRoot -> C:\repo (read-only)"
 Write-Host "Session: $SandboxDir -> C:\sandbox-session"
 Write-Host ""
 Write-Host "NOTE: Sandbox is interactive. It will:"
@@ -590,7 +590,7 @@ $exitCode = if (-not (Test-Path -LiteralPath $SentinelPath -PathType Leaf)) {
 elseif (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
     $rawExitCode = (Get-Content -LiteralPath $ExitCodeMarker -Raw).Trim()
     if ($rawExitCode -notmatch '^(?:0|[1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$') {
-        Write-Error "Sandbox returned invalid exit marker '$rawExitCode'."
+        Write-Warning "Sandbox returned invalid exit marker '$rawExitCode'."
         1
     }
     else {
@@ -598,7 +598,7 @@ elseif (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
     }
 }
 else {
-    Write-Error 'Sandbox completed without a valid exit marker.'
+    Write-Warning 'Sandbox completed without a valid exit marker.'
     1
 }
 if (Test-Path $RebundleMarker) {

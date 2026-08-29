@@ -33,6 +33,20 @@ Describe 'Autopilot.SandboxOffline' {
             $sandbox.Contains('$exitCode = 43') | Should -BeTrue
             $sandbox.Contains('exit $exitCode') | Should -BeTrue
         }
+        It 'reports invalid terminal markers without bypassing diagnostics or rebundle handling' {
+            $terminalStart = $sandbox.IndexOf('$exitCode = if', [System.StringComparison]::Ordinal)
+            $diagnosticsStart = $sandbox.IndexOf('Write-Host "Session output:', $terminalStart, [System.StringComparison]::Ordinal)
+            $terminalBlock = $sandbox.Substring($terminalStart, $diagnosticsStart - $terminalStart)
+            $terminalBlock | Should -Match 'Write-Warning "Sandbox returned invalid exit marker'
+            $terminalBlock | Should -Match "Write-Warning 'Sandbox completed without a valid exit marker"
+            $terminalBlock | Should -Not -Match 'Write-Error'
+            $terminalBlock.IndexOf('if (Test-Path $RebundleMarker)', [System.StringComparison]::Ordinal) |
+                Should -BeGreaterThan -1
+        }
+        It 'reports the repository mount as read-only' {
+            $sandbox.Contains('C:\repo (read-only)') | Should -BeTrue
+            $sandbox.Contains('C:\repo (read-write)') | Should -BeFalse
+        }
     }
 
     Context 'bootstrap offline restore' {

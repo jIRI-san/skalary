@@ -170,7 +170,7 @@ if ($effectiveRuntime -eq 'sandbox') {
 }
 
 # --- Detect partial state ---
-$branchName = if ($Branch) { $Branch } else { "feature/$PlanSlug" }
+$branchName = "feature/$PlanSlug"
 if ($effectiveRuntime -eq 'host') {
     $worktreeRoot = Join-Path (Split-Path $RepoRoot -Parent) "$((Split-Path $RepoRoot -Leaf)).worktrees"
     $worktreePath = Join-Path $worktreeRoot $branchName.Replace('/', '-')

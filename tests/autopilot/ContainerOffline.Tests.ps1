@@ -67,5 +67,9 @@ Describe 'Autopilot.ContainerOffline' {
             $entrypoint | Should -Match 'exit_code\}" -eq 42'
             $entrypoint | Should -Match 'human-stop\|phase-failed'
         }
+        It 'fails when the selected start branch is unavailable instead of using the clone default' {
+            $entrypoint | Should -Match "Selected start branch '\$\{BRANCH\}' is not available on origin"
+            $entrypoint | Should -Not -Match 'Creating new branch \$\{WORK_BRANCH\} from \$\(git branch --show-current\)'
+        }
     }
 }
