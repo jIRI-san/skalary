@@ -207,7 +207,7 @@ function Get-PlanEvidenceWaiver {
             })
     }
 
-    return , $waivers.ToArray()
+    return $waivers.ToArray()
 }
 
 function Read-PlanEvidenceReceipt {
@@ -250,7 +250,7 @@ function Read-PlanEvidenceReceipt {
             })
     }
 
-    return , $entries.ToArray()
+    return $entries.ToArray()
 }
 
 function Resolve-PlanEvidencePath {
