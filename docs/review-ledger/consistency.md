@@ -13,6 +13,9 @@
 - [2026-08-09] Regenerated registry payload hashes after the final autopilot agent wording change. (plan-1936cb, src:autopilot, sev:Low) #maintainability-consistency #phase-5 #req-8
 - [2026-08-10] Registry payload hashes are stale after final SI script and guide changes. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-6 #req-8
 - [2026-08-28] review-cycle stage=phase-3 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=phase-3-review-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=1 outcome=findings summary=run=f6e74f43-f585-427f-9b49-9aec1c9a3241;findings=2;fixed=1;rejected=1 (plan-ca8ba8, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=2 outcome=findings summary=run=a56a3320-a5e4-4237-a989-c55af9063f8d;findings=3;fixed=3;attendance=degraded-security-failed (plan-ca8ba8, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=phase-3 cycle=3 outcome=findings summary=run=73325770-65f0-4657-863a-a39ee1080798;findings=7;fixed=2;rejected-pre-existing=5;attendance=degraded-2-failed (plan-ca8ba8, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=42-triaged-actionable-remediated-4b7d4c5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=2 outcome=findings summary=47-triaged-actionable-remediated-e89bff5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle stage=plan-finalization cycle=3 outcome=findings summary=36-triaged-no-new-actionable-scope (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
@@ -31,11 +34,17 @@
 - [2026-08-28] review-cycle stage=step-3.2 cycle=1 outcome=clean summary=clean=1 findings=0 run=step-3-2-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=2 outcome=findings summary=critical=0 high=1 medium=1 low=0 run=step-3-2-rereview (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-3-2-final-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle-decision stage=phase-3 after=3 action=wrap (plan-ca8ba8, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-29] review-cycle-decision stage=plan-finalization after=3 action=wrap (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle-decision stage=step-1.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle-decision stage=step-2.1 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2
 - [2026-08-28] review-cycle-decision stage=step-2.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2
 - [2026-08-28] review-cycle-decision stage=step-3.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] Round 2 finding 1 triage=fix: standardize retained-pair and cleanup-marker string identity and digest checks on explicit ordinal comparison. (plan-ca8ba8, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-4
+- [2026-08-29] Round 2 finding 3 triage=fix: reuse the similarity classifier from the optimized candidate pass and remove the unread finding-reference set. (plan-ca8ba8, src:autopilot, sev:Low) #maintainability-consistency #phase-3 #req-1
+- [2026-08-29] Round 3 finding 2 triage=fix: retain the per-run publication lock through marker creation authority rename and cleanup transition. (plan-ca8ba8, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-4
+- [2026-08-29] Round 3 finding 4 triage=rejected-pre-existing: post-commit input cleanup diagnostics are an established publication lifecycle decision unchanged by this phase. (plan-ca8ba8, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-5
+- [2026-08-29] Round 3 finding 7 triage=rejected-pre-existing: the README prerequisite inventory predates this phase and the plan does not change runtime prerequisites. (plan-ca8ba8, src:autopilot, sev:Low) #architecture-patterns #phase-3 #req-5
 - [2026-08-28] Rubber-duck triage: direct consumers with old folder regexes require inventory in step 3.1; shared resolution remains the target contract. (plan-669ad3, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-5
 - [2026-08-28] Rubber-duck triage: hardcoded historical plan paths may become stale after optional migration; consumer compatibility remains assigned to step 3.1. (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2 #req-5
 - [2026-08-28] Rubber-duck triage: step 1.2 remains review-gated but the explicit Phase 2 invocation is eligible because step 2.1 depends only on completed step 1.1. (plan-669ad3, src:autopilot, sev:Low) #architecture-patterns #phase-2 #req-2

@@ -42,6 +42,8 @@
 - [2026-08-10] Replay coverage used a never-valid token and the nonce was not consumed across a measured run. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
+- [2026-08-29] Round 3 finding 1 triage=rejected-pre-existing: generic cleanup authority target binding predates and is outside corroboration derivation rendering distribution and the phase changes. (plan-ca8ba8, src:autopilot, sev:Med) #phase-3 #req-5 #security
+- [2026-08-29] Round 3 finding 6 triage=rejected-pre-existing: artifact read and rejected-input disposal bounds are pre-existing review-run concerns outside the phase scope. (plan-ca8ba8, src:autopilot, sev:Med) #phase-3 #req-5 #security
 - [2026-08-28] Rubber-duck: mapping output could target arbitrary repository files and used a truncate write; fixed with JSON-only validated replacement and AtomicStore publication. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
 - [2026-08-10] Second review found pretest could recreate a consumed nonce clock with the same still-live authorization. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-10] Second-opinion review found case-insensitive state-path admission; canonical Git paths now require ordinal-exact matches. (plan-1936cb, src:autopilot, sev:Med) #phase-7 #req-7 #security
