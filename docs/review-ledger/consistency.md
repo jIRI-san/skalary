@@ -8,10 +8,14 @@
 - [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2
 - [2026-08-28] Keep folder-name parsing pure and shared so worktree and pinned-tree inventories cannot drift across naming migrations. (plan-669ad3, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1
 - [2026-08-28] Pinned SI inventory duplicates the plan-folder grammar instead of consuming a shared PlanState parser leaving future drift risk. (plan-669ad3, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
+- [2026-08-29] Plugin-owned SI modules must resolve shared generated closures in both source-plugin and installed-skill layouts. (plan-2366ad, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
 - [2026-08-10] Public lock and CAS parameters allowed values beyond exact 30-second and three-attempt maxima. (plan-1936cb, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-7
 - [2026-08-09] Regenerated registry payload hashes after the final autopilot agent wording change. (plan-1936cb, src:autopilot, sev:Low) #maintainability-consistency #phase-5 #req-8
 - [2026-08-10] Registry payload hashes are stale after final SI script and guide changes. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-6 #req-8
 - [2026-08-28] review-cycle stage=phase-3 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=phase-3-review-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=plan-finalization cycle=1 outcome=findings summary=42-triaged-actionable-remediated-4b7d4c5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=plan-finalization cycle=2 outcome=findings summary=47-triaged-actionable-remediated-e89bff5 (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle stage=plan-finalization cycle=3 outcome=findings summary=36-triaged-no-new-actionable-scope (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-1.1 cycle=1 outcome=clean summary=critical=0 high=0 medium=0 low=0 run=step-1.1-round-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle stage=step-1.2 cycle=1 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-1.2-round-1 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle stage=step-1.2 cycle=2 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-1.2-round-2 (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
@@ -27,6 +31,7 @@
 - [2026-08-28] review-cycle stage=step-3.2 cycle=1 outcome=clean summary=clean=1 findings=0 run=step-3-2-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=2 outcome=findings summary=critical=0 high=1 medium=1 low=0 run=step-3-2-rereview (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle stage=step-3.2 cycle=3 outcome=findings summary=critical=0 high=0 medium=1 low=0 run=step-3-2-final-review (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3
+- [2026-08-29] review-cycle-decision stage=plan-finalization after=3 action=wrap (plan-2366ad, src:autopilot, sev:Low) #maintainability-consistency #phase-3
 - [2026-08-28] review-cycle-decision stage=step-1.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-1
 - [2026-08-28] review-cycle-decision stage=step-2.1 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2
 - [2026-08-28] review-cycle-decision stage=step-2.2 after=3 action=wrap (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-2

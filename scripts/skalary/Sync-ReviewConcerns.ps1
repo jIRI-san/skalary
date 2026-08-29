@@ -278,6 +278,36 @@ function Render-LedgerMap {
     return ($lines -join "`n") + "`n"
 }
 
+function Render-ReviewStandards {
+    param(
+        [Parameter(Mandatory)][object[]]$Concerns
+    )
+
+    $standards = @(
+        foreach ($concern in $Concerns) {
+            $entries = if ($concern.PSObject.Properties.Name -contains 'standards') {
+                @($concern.standards)
+            }
+            else {
+                @()
+            }
+            foreach ($standard in $entries) {
+                [ordered]@{
+                    id = [string]$standard.id
+                    concern = [string]$concern.id
+                    guidance = [string]$standard.guidance
+                    localizable = [bool]$standard.localizable
+                }
+            }
+        }
+    )
+    $document = [ordered]@{
+        schema = 'skalary/review-standards@1'
+        standards = $standards
+    }
+    return (($document | ConvertTo-Json -Depth 8) -replace "`r`n", "`n") + "`n"
+}
+
 function Write-FileAtomically {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -352,6 +382,25 @@ foreach ($concern in $registry.concerns) {
             throw "Review-concern '$($concern.id)' has no $reviewType ledger mapping."
         }
     }
+    if ($concern.PSObject.Properties.Name -contains 'standards') {
+        foreach ($standard in @($concern.standards)) {
+            if ([string]$standard.guidance -match '[\r\n@{}]') {
+                throw "Review standard '$($standard.id)' contains unsafe template prose."
+            }
+        }
+    }
+}
+
+$standardIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($concern in $registry.concerns) {
+    if ($concern.PSObject.Properties.Name -notcontains 'standards') {
+        continue
+    }
+    foreach ($standard in @($concern.standards)) {
+        if (-not $standardIds.Add([string]$standard.id)) {
+            throw "Review standard id '$($standard.id)' is duplicated across concerns."
+        }
+    }
 }
 
 $template = [System.IO.File]::ReadAllText($templatePath)
@@ -381,6 +430,18 @@ foreach ($relativePath in @(
             RelativePath = $relativePath
             Path = Resolve-ConfinedOutput -RelativePath $relativePath -Root $repoRootPath
             Content = $mapContent
+        })
+}
+
+$standardsContent = Render-ReviewStandards -Concerns @($registry.concerns)
+foreach ($relativePath in @(
+        'plugins/code-review/skills/cr/assets/review-standards.json'
+        'plugins/design-review/skills/dr/assets/review-standards.json'
+    )) {
+    $outputs.Add([pscustomobject]@{
+            RelativePath = $relativePath
+            Path = Resolve-ConfinedOutput -RelativePath $relativePath -Root $repoRootPath
+            Content = $standardsContent
         })
 }
 

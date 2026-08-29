@@ -110,11 +110,12 @@ skill is installed.
    against the repo's own instructions with nobody to have asked. Queue nothing and skip.
 5. It is never a gate: a decline, an empty harvest, or a refused write-scope check blocks neither
    archival nor the PR.
-6. **Consumer repos are manual.** `/si` proposes into the repository it runs in, and in a consumer
-   repo the customizations arrive through the registry — an improvement made there is overwritten by
-   the next update. Carry the candidate list upstream by hand: fork `skalary`, apply the change, and
-   open the PR there. The fork/upstream round-trip is deliberately not automated; `gh` fork
-   entitlement is out of scope.
+6. **Consumer repos use the bounded upstream handoff.** `/si` proposes into the repository it runs
+   in, so an installed consumer copy is never the upstream source. Follow the self-improvement
+   `cross-repo-guide.md`: export one bounded typed artifact, then invoke the handoff from a clean
+   upstream checkout governed by that checkout's instructions. Small work enters normal upstream
+   `/si`; plan-sized work enters `/cip`. The artifact remains untrusted context and neither path
+   gains merge authority.
 
 ## Dependency preflight (hard start-gate)
 
@@ -140,7 +141,7 @@ At interactive plan completion, `/ci` runs harvest with the same shared scripts 
    - If harvest is idempotent/no-op with no staged ledger delta, skip the append commit and continue to branch selection.
 3. **ADR harvest (when the `architecture-notes` plugin is installed).** So architectural decisions made during `/cip` + `/ci` become reviewable records, harvest the plan's decision records into proposed ADRs via the arch-notes **adr-harvest** operation: `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot .` (from its install). Pass the plan folder, not the decisions folder — the script resolves `assets/decisions/` for the current layout and `decisions/` for legacy plans. ADRs land quarantined (`reviewed: false`, under `docs/architecture-notes/.staging/adr/`) and are **not** auto-loaded until a human promotes accepted ones into the index's Decision Records (active) table. Commit staged ADRs by explicit path. Skip silently if the plugin is not installed.
 4. **Post-plan feedback (`/pfb`), offered before archiving and never blocking.** Offer the `/pfb` run against the completing plan; on acceptance, read `.github/skills/pfb/SKILL.md` by path, run it, and commit `docs/feedback/queue.md` by explicit path. A decline, or a `self-improvement` plugin that is not installed, skips it silently. See the `archival-gate` section above — the offer never gates archival or the PR.
-5. **Self-improvement (`/si`), surfaced after this harvest step and never blocking.** Invoke dependency-installed `Invoke-SiLifecycle.ps1 -Operation Surface` with bound arguments first; it fetches/pins `origin/main` and returns metadata-only due/run/fixed-branch state. Report explicit degradation and skip ranking when Surface fails. Then offer the `/si` run once harvest has run — whether or not it produced an append commit — so the lessons this plan just wrote are in the corpus it reads. On acceptance, read `.github/skills/si/SKILL.md` by path and follow it; it ranks candidates and, only with explicit consent, opens a **draft** PR on a worktree branch cut from `origin/main` — never a merge, never a push to `main`, never a branch off the plan's branch (its diff would land in the proposal's scope and the pre-PR guard would refuse). A decline, an absent `self-improvement` plugin, or an empty harvest skips it silently. Headless completion does not run it: a proposal nobody asked for is a PR against the repo's own instructions. Consumer repos carry candidates upstream by hand — see the `/si` section above.
+5. **Self-improvement (`/si`), surfaced after this harvest step and never blocking.** Invoke dependency-installed `Invoke-SiLifecycle.ps1 -Operation Surface` with bound arguments first; it fetches/pins `origin/main` and returns metadata-only due/run/fixed-branch state. Report explicit degradation and skip ranking when Surface fails. Then offer the `/si` run once harvest has run — whether or not it produced an append commit — so the lessons this plan just wrote are in the corpus it reads. On acceptance, read `.github/skills/si/SKILL.md` by path and follow it; it ranks candidates and, only with explicit consent, opens a **draft** PR on a worktree branch cut from `origin/main` — never a merge, never a push to `main`, never a branch off the plan's branch (its diff would land in the proposal's scope and the pre-PR guard would refuse). A decline, an absent `self-improvement` plugin, or an empty harvest skips it silently. Headless completion does not run it: a proposal nobody asked for is a PR against the repo's own instructions. Consumer repos use the bounded clean-upstream handoff described in the `/si` section above.
 6. Branch after the append commit:
    - Autonomous completion: push, archive commit, **required post-archive push**, create non-draft PR.
    - `@human` escalation: push, run `/udn` reconciliation with the user present first, derive full-line prune candidates, run `Remove-LedgerEntry.ps1`, commit prune/design-note edits, push, create draft PR, write marker, stop.

@@ -5,8 +5,12 @@ globs:
   - tools/review-concern-agent.template.md
   - schemas/review/review-concerns.schema.json
   - scripts/skalary/Sync-ReviewConcerns.ps1
+  - scripts/skalary/Resolve-ReviewStandards.ps1
+  - tests/skalary/ReviewStandards.Tests.ps1
+  - docs/review-standards.md
   - plugins/{code-review,design-review}/agents/{cr,dr}-*.agent.md
   - plugins/{code-review,design-review}/skills/{cr,dr}/assets/concern-ledger-map.md
+  - plugins/{code-review,design-review}/skills/{cr,dr}/assets/review-standards.json
   - tests/skalary/ReviewConcerns.Tests.ps1
 ---
 
@@ -16,16 +20,23 @@ globs:
 
 | Surface | Authority | Rule |
 |---|---|---|
-| Concern policy | `tools/review-concerns.json` | Defines the closed seven-concern roster in canonical order, shared guidance, explicit CR/DR variants, and total ledger mappings. |
+| Concern policy | `tools/review-concerns.json` | Defines the closed seven-concern roster in canonical order, shared guidance, optional generic standards, explicit CR/DR variants, and total ledger mappings. |
 | Agent structure and safety | `tools/review-concern-agent.template.md` | Owns read-only tools, no-model binding, untrusted-content handling, architecture-before-design context loading, and finding output shape. Registry prose cannot alter these controls. |
 | Registry shape | `schemas/review/review-concerns.schema.json` | Rejects missing variants, mappings, or malformed fields before rendering. |
-| Generation | `scripts/skalary/Sync-ReviewConcerns.ps1` | Renders all 14 agents and both mapping views, validates the complete candidate set before writing, and removes only extra `cr-*.agent.md`/`dr-*.agent.md` files in its confined managed directories. |
-| Generated plugin payloads | `plugins/code-review/agents/cr-*.agent.md`, `plugins/design-review/agents/dr-*.agent.md`, and the two `concern-ledger-map.md` files | Never hand-edit. Regenerate with `Sync-ReviewConcerns.ps1`; the template applies only to agents, while `Render-LedgerMap` owns map structure. |
+| Generation | `scripts/skalary/Sync-ReviewConcerns.ps1` | Renders all 14 agents, both mapping views, and both generic-standards assets; validates the complete candidate set before writing; and removes only extra `cr-*.agent.md`/`dr-*.agent.md` files in its confined managed directories. |
+| Generated plugin payloads | `plugins/code-review/agents/cr-*.agent.md`, `plugins/design-review/agents/dr-*.agent.md`, and each review skill's `concern-ledger-map.md` and `review-standards.json` | Never hand-edit. Regenerate with `Sync-ReviewConcerns.ps1`; the template applies only to agents, while dedicated renderers own map and standards structure. |
 
 The taxonomy is settled policy, not an extension point. Adding, removing, reordering, or redefining a
 concern requires a separately reviewed policy change; ordinary guidance changes preserve all seven ids.
 Model selection also stays outside this source: generated agents declare no `model`, and the CR/DR
 orchestrators remain the explicit model-binding authority.
+
+Optional `standards[]` entries attach bounded generic guidance to a concern. Each stable id declares
+whether repository-local guidance may refine it. `Resolve-ReviewStandards.ps1` reads the fixed optional
+`docs/review-standards.md` file and accepts only `extend` or `replace` lines for ids marked
+`localizable`; unknown, duplicate, non-localizable, malformed, oversized, non-UTF-8, or link-routed
+input fails closed. The local file remains repository-owned and absence returns the generic set
+unchanged.
 
 ## Generation contract
 
@@ -43,7 +54,7 @@ cannot create template structure or tokens.
 
 ## Distribution boundary
 
-Generation stops at plugin sources. Each generated file must be declared exactly once by its owning
+Generation stops at plugin sources. Generated agents, maps, and standards assets must each be declared exactly once by their owning
 plugin manifest. A payload-byte change requires the owning plugin version to move, followed by the
 existing dogfood, marketplace, and registry writers. Those writers retain their own authority:
 `Sync-Dogfood.ps1` mirrors installed `.github/` payloads, `Build-Marketplace.ps1` publishes manifest
@@ -61,3 +72,4 @@ responsibilities would duplicate the repository's packaging transaction model.
 | `test:ReviewConcerns.DeterministicGeneration` | Confined all-before-write rendering, explicit surface differences, convergence, and refusal of unsafe outputs. |
 | `test:ReviewConcerns.GeneratedBehaviorAndDistribution` | Generated behavior, manifest declarations, dogfood bytes, versions, and registry hashes stay aligned. |
 | `test:ReviewConcerns.GenerationDrift` | Detect-only failure for changed, missing, extra, hand-edited, and encoding-drifted outputs; a registry mutation changes every expected output and a second pass is byte-stable. |
+| `test:ReviewStandards.GenericLocalResolution` | Generic-only and absent-local behavior are stable; bounded local extension/replacement is explicit and malformed or non-localizable input fails closed. |

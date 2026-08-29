@@ -63,6 +63,9 @@ Describe 'Review skills, shims, and prompts' {
             (Get-Body -Text $skill) | Should -Match "\./assets/collation-guide\.md"
             (Get-Body -Text $skill) | Should -Match 'Freeze exactly once'
             (Get-Body -Text $skill) | Should -Match 'Publish once'
+            (Get-Body -Text $skill) | Should -Match ([regex]::Escape(".github/skills/$id/scripts/Resolve-ReviewStandards.ps1"))
+            (Get-Body -Text $skill) | Should -Match 'resolved review standards'
+            (Get-Body -Text $skill) | Should -Match 'do not\s+add the resolved criteria to review-run v1 inputs'
             (Get-Body -Text $skill) | Should -Match '(?m)^##\s+Step\s+\d'
 
             # Installation must materialize it: declared in the manifest and present in the dogfood tree.
@@ -141,7 +144,7 @@ Describe 'Review skills, shims, and prompts' {
     It 'test:cr-dr-skill-shim-parity shares one dispatch and collation definition across both skills' {
         # Dispatch policy and report collation are shared contracts; two copies that can drift are
         # how one review type ends up on a different roster or budget than the other.
-        foreach ($asset in @('dispatch-guide.md', 'collation-guide.md', 'concern-ledger-map.md')) {
+        foreach ($asset in @('dispatch-guide.md', 'collation-guide.md', 'concern-ledger-map.md', 'review-standards.json')) {
             $cr = Get-RepoText -Relative "plugins/code-review/skills/cr/assets/$asset"
             $dr = Get-RepoText -Relative "plugins/design-review/skills/dr/assets/$asset"
             $dr | Should -Be $cr -Because "$asset must be byte-identical across the two review skills"

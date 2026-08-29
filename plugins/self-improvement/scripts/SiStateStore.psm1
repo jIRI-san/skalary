@@ -2,8 +2,16 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Installed shared closure: .github/skills/si/scripts/AtomicStore.psm1
-Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+# Installed shared closure: .github/skills/si/scripts/AtomicStore.psm1. The source plugin keeps
+# the generated closure under skills/si/scripts, so resolve both layouts without duplicating state.
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'AtomicStore.psm1') -PathType Leaf) {
+    Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
+}
+else {
+    Import-Module (
+        Join-Path (Split-Path -Parent $PSScriptRoot) 'skills/si/scripts/AtomicStore.psm1'
+    ) -Force
+}
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 $script:SiStateContract = [pscustomobject]@{
@@ -48,6 +56,7 @@ $script:SiStateContract = [pscustomobject]@{
         ObservationSegments = @('repair-observations')
         ReceiptSegments     = @('repair-receipts')
         ResolverReceiptSegments = @('resolver-receipts'); HarvestIndexName = 'harvest-index.json'
+        CrossRepoExportName = 'cross-repo-export.json'
         ArchiveJournalName = 'archive-journal.json'
         LockName            = '.state.lock'
     }
@@ -83,7 +92,7 @@ function Get-SiStateRelativePath {
         [ValidateSet(
             'Root', 'Manifest', 'ActiveRuns', 'Archive', 'Backups', 'Quarantine',
             'RepairObservations', 'RepairReceipts', 'ResolverReceipts', 'HarvestIndex',
-            'ArchiveJournal'
+            'ArchiveJournal', 'CrossRepoExport'
         )]
         [string]$Kind,
         [string[]]$Child = @()
@@ -130,6 +139,7 @@ function Get-SiStateRelativePath {
                 $segments.Add([string]$segment)
             }
         }
+        'CrossRepoExport' { $segments.Add([string]$script:SiStateContract.Topology.CrossRepoExportName) }
         'HarvestIndex' { $segments.Add([string]$script:SiStateContract.Topology.HarvestIndexName) }
         'ArchiveJournal' { $segments.Add([string]$script:SiStateContract.Topology.ArchiveJournalName) }
     }

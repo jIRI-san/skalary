@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-28T19:35:04.9290961Z",
+  "generatedAt": "2026-08-29T00:28:52.4482465Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -403,7 +403,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "03f521e5b3abba97147f0d827ef452756bdbe7e1303e5ae93a02dcd91fd278af",
+          "sha256": "4d5e3465a1be69480c6fc12b716f02984dea7a6f046c83d3f4678d0959de0363",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -418,13 +418,18 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "c1bbe8e0df0c86e639707e770ced9a5ab5336a4c72e176d0e7e4249752ec77f3",
+          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
           "dest": "skills/cr/assets/model-preferences.md",
           "sha256": "ba5110c68ed62ebed2f9d7ea5415306db9529cef49a3fee02ae5849efc7f3b43",
           "src": "skills/cr/assets/model-preferences.md"
+        },
+        {
+          "dest": "skills/cr/assets/review-standards.json",
+          "sha256": "bbcd515d08c51797185ef2389446982bc8e1b504157429f6c46636cc89a5365c",
+          "src": "skills/cr/assets/review-standards.json"
         },
         {
           "dest": "skills/cr/assets/scope-guide.md",
@@ -450,6 +455,11 @@
           "dest": "skills/cr/scripts/Remove-ReviewRun.ps1",
           "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
           "src": "skills/cr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
+          "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
+          "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
@@ -495,7 +505,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.30"
+      "version": "1.0.37"
     },
     {
       "author": "jIRI-san",
@@ -515,7 +525,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "5754eb9fa21699b11c62ed875ecac9720e346a120fbf651d7aa2ae7db958a7ef",
+          "sha256": "b5d6f8db9989ff4d19d9058edbf1f72133ff949c0e3848c677987c1833e3e11b",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -670,7 +680,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.52"
+      "version": "1.0.53"
     },
     {
       "author": "jIRI-san",
@@ -911,7 +921,7 @@
     {
       "author": "jIRI-san",
       "dependencies": [],
-      "description": "Design review orchestrator with specialist model agents.",
+      "description": "Design review orchestrator with model-agnostic concern reviewers.",
       "evals": {
         "status": "none"
       },
@@ -963,7 +973,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3a27597e06d844078f94452b3ca2fa6eaf9e61182ac49367ab092eca4f57fff9",
+          "sha256": "d9fb205f335e5a9df4c8756dd52151157e9cec1588fd2ce191f18f624c608481",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -978,13 +988,18 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "c1bbe8e0df0c86e639707e770ced9a5ab5336a4c72e176d0e7e4249752ec77f3",
+          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
           "dest": "skills/dr/assets/plan-scope-guide.md",
           "sha256": "03e7570ac56ec86fca140482c0592306bc5187c30ee81696573ad340ff27e411",
           "src": "skills/dr/assets/plan-scope-guide.md"
+        },
+        {
+          "dest": "skills/dr/assets/review-standards.json",
+          "sha256": "bbcd515d08c51797185ef2389446982bc8e1b504157429f6c46636cc89a5365c",
+          "src": "skills/dr/assets/review-standards.json"
         },
         {
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
@@ -1005,6 +1020,11 @@
           "dest": "skills/dr/scripts/Remove-ReviewRun.ps1",
           "sha256": "3ebca03e7787cc4c6f1667632e8d1dc50d8de6c784c0588ade1f7d0f1a6df5be",
           "src": "skills/dr/scripts/Remove-ReviewRun.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
+          "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
+          "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
@@ -1050,7 +1070,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.29"
+      "version": "1.0.36"
     },
     {
       "author": "jIRI-san",
@@ -1228,8 +1248,13 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "6c90f94a3c17503dedc1bb021d747a611208dc539b34f826ab3bcd828f32b4b7",
+          "sha256": "73d81c75a4009fae6e0a9fb806a6ca74a802cafaf8769b37773d285bdeb8e5f9",
           "src": "skills/si/SKILL.md"
+        },
+        {
+          "dest": "skills/si/assets/cross-repo-guide.md",
+          "sha256": "798a5e137fdd24be10cbc2a154e3b057bb62a535df4e5bdc5e3b9d61237651d9",
+          "src": "skills/si/assets/cross-repo-guide.md"
         },
         {
           "dest": "skills/si/assets/harvest-guide.md",
@@ -1240,6 +1265,11 @@
           "dest": "skills/si/assets/propose-guide.md",
           "sha256": "0a8d8fe0cef8430db2457278c37a4a5701c659da0abfc8f49bd3f2ce3937844c",
           "src": "skills/si/assets/propose-guide.md"
+        },
+        {
+          "dest": "skills/si/schemas/cross-repo-export.schema.json",
+          "sha256": "de01dab5ffb724cb678cffb4326626df87d43fae69b2a72dd5923cee623e873f",
+          "src": "schemas/cross-repo-export.schema.json"
         },
         {
           "dest": "skills/si/schemas/manifest.schema.json",
@@ -1287,6 +1317,11 @@
           "src": "scripts/Enqueue-SiDue.ps1"
         },
         {
+          "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
+          "sha256": "df78f8fc41d5224bfdea6f721ea9455e80bed2c443a3d2daf569ef18412fcbbd",
+          "src": "scripts/Export-CrossRepoSi.ps1"
+        },
+        {
           "dest": "skills/si/scripts/Get-SiHarvest.ps1",
           "sha256": "4a1ff0d3d8a0e212e7a00758697fc077e7d4366f5c5048bfbd439cdc0767ebbb",
           "src": "scripts/Get-SiHarvest.ps1"
@@ -1295,6 +1330,11 @@
           "dest": "skills/si/scripts/Get-SiState.ps1",
           "sha256": "388447ebf88eecd830a86bac62d59c1a2bdb238bfb8515e73c31646d254e6b67",
           "src": "scripts/Get-SiState.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
+          "sha256": "bd78860bd298a2fd9ee85cc1bc1993c3471eb3533911ec32d1d6899c054f851d",
+          "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
         },
         {
           "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
@@ -1323,7 +1363,7 @@
         },
         {
           "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "7aa23ece4d64feec1e0ae783571d060c09f146727a54898a66f2abc029556593",
+          "sha256": "86fbb189ee52f67e70a824b6641de46c8560513476102582a893d706c0e3fb4b",
           "src": "scripts/SiStateStore.psm1"
         },
         {
@@ -1370,6 +1410,12 @@
           "owner": "Repair-SiState.ps1",
           "path": "docs/self-improvement/backups/<observation>/**",
           "trigger": "repair apply journal and backup"
+        },
+        {
+          "mode": "literal",
+          "owner": "Export-CrossRepoSi.ps1",
+          "path": "docs/self-improvement/cross-repo-export.json",
+          "trigger": "consumer-to-upstream SI handoff"
         },
         {
           "mode": "literal",
@@ -1444,7 +1490,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.55"
+      "version": "1.0.58"
     },
     {
       "author": "jIRI-san",
