@@ -200,6 +200,33 @@ if ($hasEvidencePath) {
     Remove-Item -LiteralPath $EvidenceResultPath -Force -ErrorAction SilentlyContinue
 }
 
+function Write-UnrunEvidencePayload {
+    param([Parameter(Mandatory)][string]$Message)
+
+    if (-not $hasEvidenceIds) {
+        return
+    }
+    $payload = [ordered]@{
+        schema = 'skalary/evidence-test-results@1'
+        selectedCount = 0
+        executedCount = 0
+        results = @($EvidenceTestId | ForEach-Object {
+                [ordered]@{
+                    marker = "test:$_"
+                    status = 'unrun'
+                    selectedCount = 0
+                    executedCount = 0
+                    outcomes = @()
+                    message = $Message
+                }
+            })
+    }
+    Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $EvidenceResultPath `
+        -Description "Evidence result path '$EvidenceResultPath'"
+    Set-Content -LiteralPath $EvidenceResultPath `
+        -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
+}
+
 # Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
 # consume authorization that belongs to a concurrent or later complete run.
 $clockStartedAt = $null
@@ -238,6 +265,7 @@ if ($Tier -eq 'Fast' -and $FullRepository -and (Test-Path -LiteralPath $BudgetCl
 
 $pesterModule = Get-Module -ListAvailable -Name Pester | Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $pesterModule) {
+    Write-UnrunEvidencePayload -Message 'prerequisite unavailable: Pester is not installed'
     Write-Host "PesterNotInstalled: cannot run the unit tests because Pester is not installed. Install it with: $installCommand" -ForegroundColor Red
     exit 2
 }
@@ -316,12 +344,6 @@ if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
         exit 9
     }
 
-    $allDeclared = @($slowPaths) + @($dedicatedPaths)
-    $distinctDeclared = @($allDeclared | Sort-Object -Unique)
-    if ($distinctDeclared.Count -ne $allDeclared.Count) {
-        Write-Host "SuiteTierInvalid: slow and dedicated paths must be unique and disjoint." -ForegroundColor Red
-        exit 9
-    }
 }
 else {
     Write-Host "SuiteTierInvalid: tier '$Tier' requires '$tierManifestPath'." -ForegroundColor Red
@@ -333,8 +355,19 @@ $slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPath
 $dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
 $physicalSlowSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $physicalDedicatedSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-foreach ($path in $slowPaths) { [void]$physicalSlowSet.Add((Resolve-PhysicalRepoPath -Path $path)) }
-foreach ($path in $dedicatedPaths) { [void]$physicalDedicatedSet.Add((Resolve-PhysicalRepoPath -Path $path)) }
+foreach ($path in $slowPaths) {
+    if (-not $physicalSlowSet.Add((Resolve-PhysicalRepoPath -Path $path))) {
+        Write-Host 'SuiteTierInvalid: SlowFiles contains duplicate physical test identities.' -ForegroundColor Red
+        exit 9
+    }
+}
+foreach ($path in $dedicatedPaths) {
+    $physicalPath = Resolve-PhysicalRepoPath -Path $path
+    if (-not $physicalDedicatedSet.Add($physicalPath) -or $physicalSlowSet.Contains($physicalPath)) {
+        Write-Host 'SuiteTierInvalid: slow and dedicated paths must be physically unique and disjoint.' -ForegroundColor Red
+        exit 9
+    }
+}
 
 if ($Tier -ne 'Fast' -and ($FullRepository -or $TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
     Write-Host "FocusedScopeRequired: -TestPath, -TestName, and -FullRepository are valid only with -Tier Fast." -ForegroundColor Red
@@ -435,22 +468,65 @@ if ($testFiles.Count -eq 0) {
 $scopeLabel = if ($Tier -eq 'Fast' -and -not $FullRepository) { 'focused' } elseif ($Tier -eq 'Fast') { 'full repository' } else { 'complete tier' }
 Write-Host "Suite tier: $Tier $scopeLabel ($($testFiles.Count) file(s))."
 
-Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
+try {
+    Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
+}
+catch {
+    Write-UnrunEvidencePayload -Message "prerequisite unavailable: Pester could not load: $($_.Exception.Message)"
+    Write-Host "PesterNotInstalled: Pester could not be loaded. Install it with: $installCommand" -ForegroundColor Red
+    exit 2
+}
 
 # `-CI` is Pester's shorthand for `Run.Exit` plus `TestResult.Enabled`, and `Run.Exit` makes
 # Pester exit with the failure count before this script can. That collides a "could not test"
 # code with "that many tests failed" — the one distinction this script exists to make — so the
 # NUnit output is kept and the exit is taken back.
-$configuration = New-PesterConfiguration
+try {
+    $configuration = New-PesterConfiguration
+}
+catch {
+    Write-UnrunEvidencePayload -Message "prerequisite unavailable: Pester could not initialize: $($_.Exception.Message)"
+    Write-Host "PesterNotInstalled: Pester could not initialize. Install it with: $installCommand" -ForegroundColor Red
+    exit 2
+}
 $configuration.Run.Path = @($testFiles.FullName)
 $configuration.Run.PassThru = $true
 $configuration.Run.Exit = $false
 $configuration.TestResult.Enabled = $true
 if ($EvidenceTestId.Count -gt 0) {
-    $configuration.Filter.FullName = @($EvidenceTestId | ForEach-Object {
-            "*test:$($_)"
-            "*test:$($_) *"
-        })
+    $evidenceLines = [System.Collections.Generic.List[string]]::new()
+    foreach ($testFile in $testFiles) {
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $testFile.FullName,
+            [ref]$tokens,
+            [ref]$parseErrors
+        )
+        $commands = @($ast.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -ceq 'It'
+                }, $true))
+        foreach ($command in $commands) {
+            if ($command.CommandElements.Count -lt 2 -or
+                $command.CommandElements[1] -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                continue
+            }
+            $name = [string]$command.CommandElements[1].Value
+            foreach ($id in $EvidenceTestId) {
+                if ($name -cmatch ('^test:' + [regex]::Escape($id) + '(?:\s|$)')) {
+                    $evidenceLines.Add("$($testFile.FullName):$($command.Extent.StartLineNumber)")
+                }
+            }
+        }
+    }
+    if ($evidenceLines.Count -eq 0) {
+        foreach ($testFile in $testFiles) {
+            $evidenceLines.Add("$($testFile.FullName):2147483647")
+        }
+    }
+    $configuration.Filter.Line = $evidenceLines.ToArray()
 }
 elseif ($TestName.Count -gt 0) {
     $configuration.Filter.FullName = @($TestName)
@@ -508,12 +584,17 @@ function Write-StructuredEvidenceResult {
                     'no exact leading test ID match was discovered'
                 }
             }
-            elseif (@($results | Where-Object { $_ -in @('NotRun', 'Inconclusive') }).Count -gt 0) {
-                $message = 'one or more selected tests were not run'
-            }
             elseif ($results -contains 'Failed') {
                 $status = 'failed'
-                $message = 'one or more selected tests failed'
+                $message = if (@($results | Where-Object { $_ -in @('NotRun', 'Inconclusive') }).Count -gt 0) {
+                    'one or more selected tests failed and execution was incomplete'
+                }
+                else {
+                    'one or more selected tests failed'
+                }
+            }
+            elseif (@($results | Where-Object { $_ -in @('NotRun', 'Inconclusive') }).Count -gt 0) {
+                $message = 'one or more selected tests were not run'
             }
             elseif (($results -contains 'Passed') -and ($results -contains 'Skipped')) {
                 $status = 'degraded'
@@ -567,12 +648,19 @@ catch {
     $classification = if ($_.Exception -is [System.Management.Automation.PipelineStoppedException] -or
         $_.Exception -is [System.OperationCanceledException]) { 'interrupted' } else { 'discovery error' }
     [void](Write-StructuredEvidenceResult -FrameworkError "$classification`: $($_.Exception.Message)")
-    Write-Host "TestFilesNotDiscoverable: $($_.Exception.Message)" -ForegroundColor Red
+    $terminal = if ($classification -eq 'interrupted') { 'TestRunInterrupted' } else { 'TestFilesNotDiscoverable' }
+    Write-Host "${terminal}: $($_.Exception.Message)" -ForegroundColor Red
     exit 4
 }
 
 try {
-    $structuredEvidence = Write-StructuredEvidenceResult -PesterResult $result
+    $discoveryError = if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
+        'discovery error: one or more selected test files failed to load'
+    }
+    else {
+        $null
+    }
+    $structuredEvidence = Write-StructuredEvidenceResult -PesterResult $result -FrameworkError $discoveryError
 }
 catch {
     Write-Host "FocusedScopeRequired: structured evidence result could not be written: $($_.Exception.Message)" -ForegroundColor Red
@@ -594,6 +682,10 @@ if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
 # clean zero-failure result, so the run would otherwise be reported as a pass having asserted
 # nothing (REQ-5).
 if ($null -eq $result -or [int]$result.TotalCount -le 0) {
+    if ($structuredEvidence) {
+        Write-Host 'RequiredEvidenceNotPassed: no exact requested evidence test was discovered.' -ForegroundColor Red
+        exit 8
+    }
     Write-Host "NoTestsDiscovered: Pester $($pesterModule.Version) discovered 0 tests in $($testFiles.Count) file(s) under '$testRootPath'. A run that asserts nothing is not a pass." -ForegroundColor Red
     exit 3
 }
@@ -616,7 +708,7 @@ if ($structuredEvidence) {
     $nonPassingEvidence = @($structuredEvidence.results | Where-Object { $_.status -ne 'passed' })
     if ($nonPassingEvidence.Count -gt 0) {
         $summary = @($nonPassingEvidence | ForEach-Object { "$($_.marker)=$($_.status)" }) -join ', '
-        Write-Host "RequiredEvidenceSkipped: structured evidence did not fully pass: $summary" -ForegroundColor Red
+        Write-Host "RequiredEvidenceNotPassed: structured evidence did not fully pass: $summary" -ForegroundColor Red
         exit 8
     }
 }

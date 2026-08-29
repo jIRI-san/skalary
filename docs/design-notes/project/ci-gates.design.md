@@ -119,7 +119,7 @@ The gate host's `-TestPath` parameter is fixture-only executable evidence for it
 contract. The workflow is structurally forbidden from supplying it, so CI always runs the default
 `ReviewConsumerInstall.Tests.ps1` matrix.
 
-Exit codes `5`, `6`, and `10` are reserved: runtime overruns, missing advisory budget metadata, and stale measurements are warnings. Blocking diagnosis remains `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `7` leaked environment, `8` skipped required evidence, `9` invalid tier manifest, `11` invalid explicit measurement authorization, and `12` missing focused scope.
+Exit codes `5`, `6`, and `10` are reserved: runtime overruns, missing advisory budget metadata, and stale measurements are warnings. Blocking diagnosis remains `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded or the run was interrupted, `7` leaked environment, `8` required evidence did not pass, `9` invalid tier manifest, `11` invalid explicit measurement authorization, and `12` missing focused scope.
 
 ## Constraints
 

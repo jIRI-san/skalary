@@ -272,6 +272,19 @@ Describe 'sandbox' {
         $withoutPester.Output |
             Should -Match ([regex]::Escape('Install-Module Pester -Scope CurrentUser -Force')) -Because 'the message names the install command'
 
+        $evidencePath = Join-Path $sandbox 'missing-pester-evidence.json'
+        $withoutPesterEvidence = Invoke-Runner -SandboxRoot $sandbox `
+            -ModulePath (Join-Path $sandbox 'emptymodules') -ExactArguments -ExtraArguments @(
+                '-Tier Fast',
+                "-TestPath 'tests/Sandbox.Tests.ps1'",
+                "-EvidenceTestId 'RunUnitTests.MissingPester'",
+                "-EvidenceResultPath '$evidencePath'"
+            )
+        $withoutPesterEvidence.ExitCode | Should -Be 2 -Because $withoutPesterEvidence.Output
+        $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
+        $evidence.results[0].status | Should -Be 'unrun'
+        $evidence.results[0].message | Should -Match 'Pester is not installed'
+
         # "Could not test" has to stay distinguishable from "tested and failed", or the
         # non-zero exit says nothing about whether anything ran.
         $failingSandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile

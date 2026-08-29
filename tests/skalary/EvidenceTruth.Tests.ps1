@@ -9,6 +9,7 @@ Describe 'Evidence truth' {
         $script:builder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $script:testPlan = Join-Path $script:repoRoot 'scripts/skalary/Test-Plan.ps1'
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
+        Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
         $script:head = (& git -C $script:repoRoot rev-parse HEAD).Trim()
         $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
@@ -104,14 +105,16 @@ Describe 'Evidence truth' {
         function Invoke-EvidenceRunner {
             param(
                 [Parameter(Mandatory)][string]$Root,
-                [Parameter(Mandatory)][string[]]$Id
+                [Parameter(Mandatory)][string[]]$Id,
+                [string[]]$Path = @('tests/Fixture.Tests.ps1')
             )
 
             $resultPath = Join-Path $Root 'evidence-results.json'
             $quotedIds = @($Id | ForEach-Object { "'$_'" }) -join ','
+            $quotedPaths = @($Path | ForEach-Object { "'$_'" }) -join ','
             $driver = Join-Path $Root 'driver.ps1'
             @"
-& '$script:runner' -RepoRoot '$Root' -TestPath @('tests/Fixture.Tests.ps1') -EvidenceTestId @($quotedIds) -EvidenceResultPath '$resultPath'
+& '$script:runner' -RepoRoot '$Root' -TestPath @($quotedPaths) -EvidenceTestId @($quotedIds) -EvidenceResultPath '$resultPath'
 exit `$LASTEXITCODE
 "@ | Set-Content -LiteralPath $driver -Encoding utf8NoBOM
             $output = & pwsh -NoProfile -File $driver 2>&1
@@ -198,11 +201,14 @@ exit `$LASTEXITCODE
         $fixture = New-RunnerFixture -Content @'
 Describe 'focused evidence' {
     It 'test:EvidenceTruth.Pass works' { $true | Should -BeTrue }
-    It 'test:EvidenceTruth.CaseSensitive works' { $true | Should -BeTrue }
+    It 'test:EvidenceTruth.CaseSensitive works' { throw 'wrong-case evidence selector executed' }
     It 'test:EvidenceTruth.Mixed passes' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed skips' { Set-ItResult -Skipped -Because seeded }
     It 'test:EvidenceTruth.Skip skips' { Set-ItResult -Skipped -Because seeded }
     It 'unselected failure stays unexecuted' { throw 'evidence selection widened' }
+    Context 'test:EvidenceTruth.Parent context' {
+        It 'unrelated child fails if selected through its parent' { throw 'parent name widened evidence selection' }
+    }
 }
 '@
         $result = Invoke-EvidenceRunner -Root $fixture -Id @(
@@ -230,6 +236,10 @@ Describe 'focused evidence' {
         $wrongCase.ExitCode | Should -Be 8 -Because $wrongCase.Output
         $wrongCase.Result.results[0].status | Should -Be 'unrun'
 
+        $parentName = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Parent')
+        $parentName.ExitCode | Should -Be 8 -Because $parentName.Output
+        $parentName.Result.results[0].status | Should -Be 'unrun'
+
         @'
 @{
     Schema = 'skalary/suite-tier@1'
@@ -256,6 +266,22 @@ Describe 'broken' {
         $broken.ExitCode | Should -Be 4 -Because $broken.Output
         $broken.Result.results[0].status | Should -Be 'unrun'
         $broken.Result.results[0].message | Should -Match 'discovery error'
+
+        Set-Content -LiteralPath (Join-Path $fixture 'tests/Fixture.Tests.ps1') -Value @'
+Describe 'passing selected file' {
+    It 'test:EvidenceTruth.DiscoveryConflict passes' { $true | Should -BeTrue }
+}
+'@ -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $fixture 'tests/Broken.Tests.ps1') -Value @'
+Describe 'broken selected file' {
+    It 'test:EvidenceTruth.DiscoveryConflict never loads' { $true | Should -BeTrue }
+'@ -Encoding utf8NoBOM
+        $discoveryConflict = Invoke-EvidenceRunner -Root $fixture `
+            -Id @('EvidenceTruth.DiscoveryConflict') `
+            -Path @('tests/Fixture.Tests.ps1', 'tests/Broken.Tests.ps1')
+        $discoveryConflict.ExitCode | Should -Be 4 -Because $discoveryConflict.Output
+        $discoveryConflict.Result.results[0].status | Should -Be 'unrun'
+        $discoveryConflict.Result.results[0].message | Should -Match 'discovery error'
     }
 
     It 'test:EvidenceTruth.PhysicalConfinement rejects linked runner paths and case-distinct siblings' -Skip:$IsWindows {
@@ -335,7 +361,6 @@ Describe 'external evidence' {
             $script:tempRoots.Add($caseSibling)
             Set-Content -LiteralPath (Join-Path $caseSibling 'proof.txt') -Value 'outside' -Encoding utf8NoBOM
 
-            Import-Module (Join-Path $script:repoRoot 'scripts/skalary/PlanEvidence.psm1') -Force -DisableNameChecking
             $relativeEscape = '../' + (Split-Path -Leaf $caseSibling) + '/proof.txt'
             {
                 Invoke-PlanFileEvidence -Marker "file:$relativeEscape#exists" -RepoRoot $caseRoot -Stage PhaseCrosscheck

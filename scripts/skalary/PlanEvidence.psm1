@@ -366,17 +366,6 @@ function Parse-PlanFileEvidenceMarker {
     throw "Invalid file evidence assertion '$assertion' in '$Marker'. Allowed: exists, contains:, count>=N, dircount>=N."
 }
 
-function Get-PathWithinRootPrefix {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Root
-    )
-
-    $separator = [System.IO.Path]::DirectorySeparatorChar
-    return [System.IO.Path]::GetFullPath($Root).TrimEnd($separator) + $separator
-}
-
 function Get-FileRegexMatchCount {
     [CmdletBinding()]
     param(
@@ -386,9 +375,7 @@ function Get-FileRegexMatchCount {
         [Parameter(Mandatory)]
         [string]$Pattern,
 
-        [int]$PerMatchTimeoutMs = 100,
-
-        [int]$PerFileBudgetMs = 750
+        [int]$PerMatchTimeoutMs = 100
     )
 
     $content = Get-Content -LiteralPath $Path -Raw -Force
@@ -414,9 +401,7 @@ function Invoke-PlanFileEvidence {
 
         [long]$MaxFileBytes = 1048576,
 
-        [int]$PerMatchTimeoutMs = 100,
-
-        [int]$PerFileRegexBudgetMs = 750
+        [int]$PerMatchTimeoutMs = 100
     )
 
     $parsed = Parse-PlanFileEvidenceMarker -Marker $Marker
@@ -533,7 +518,7 @@ function Invoke-PlanFileEvidence {
         }
     }
 
-    $matchCount = Get-FileRegexMatchCount -Path $resolvedPath -Pattern $parsed.Regex -PerMatchTimeoutMs $PerMatchTimeoutMs -PerFileBudgetMs $PerFileRegexBudgetMs
+    $matchCount = Get-FileRegexMatchCount -Path $resolvedPath -Pattern $parsed.Regex -PerMatchTimeoutMs $PerMatchTimeoutMs
     return [pscustomobject]@{
         Marker = $Marker
         Status = if ($matchCount -gt 0) { 'passed' } else { 'failed' }
