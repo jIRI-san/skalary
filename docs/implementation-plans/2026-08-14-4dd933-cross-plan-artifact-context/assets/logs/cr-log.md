@@ -47,4 +47,10 @@ Phase: 2
 ## CR Capture
 Phase: 3
 
-No entries for this phase.
+- [3.2] [src:code-review] [sev:High] [concern:security] [req:REQ-2] [review:cr] [source-record:a2ae65c28131ad38e1b6e30cc5a4e5c1fcde10d12b6352d880639c933d19ae18] round 1 finding 1 triage=fix: cover linked parent directories plus linked review report and receipt files
+- [3.2] [src:code-review] [sev:High] [concern:security] [req:REQ-4] [review:cr] [source-record:7a659530b83ce13d802ed3a460ebb8cf0605f6da8d0ba522b169ce500e226bc8] round 1 finding 2 triage=fix: exercise directive-like historical bytes and assert untrusted authority metadata for intent and review artifacts
+- [3.2] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-3] [review:cr] [source-record:0617e1f06e1df9426f25d28f7b9af73a7ea8c6515e34c2b62c24b1afc2658bc6] round 1 finding 3 triage=reject: skill instructions are the consumer execution surface and adding a provenance writer would violate the accepted no-new-lifecycle design
+- [3.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:d2ee76db795aa3830624cd52f91844a80727eb8642727aa6183599e8128c9d8b] round 1 finding 4 triage=fix: require one explicit refused result for an empty review receipt
+- [3.2] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:4926be81a761481a3d9eecbdd13b13f757b23165d9fc265a3782a225a02d41ca] round 1 finding 5 triage=fix: derive resolver payload paths from plugin manifests rather than parallel hard-coded lists
+- [3.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-5] [review:cr] [source-record:ef464b58e558e3bba6f894a633f6138f154020ad30e387db46b133f0cfda5fe7] round 1 finding 6 triage=reject: shared fixture negative-probe restoration is pre-existing outside the net phase change and unrelated to artifact-context proof
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:b336c76792fa7fdda5048b17ba74c2cb463ce2805cc3c97377eeae0835282731] review-cycle stage=phase-3 cycle=1 outcome=findings summary=fixed linked-path, hostile-content, explicit-refusal, and manifest-inventory coverage; rejected out-of-scope writer and pre-existing fixture findings
