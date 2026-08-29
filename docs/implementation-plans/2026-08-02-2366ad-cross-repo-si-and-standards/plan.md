@@ -47,4 +47,4 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Run the focused transport and standards tests, required structural evals, generated-artifact drift checks, and normal repository validation; update only the owning self-improvement, review-reporting, and concern-generator notes (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 1.2, 2.2] `M`
-- [~] 3.2 Review the bounded export, upstream instruction boundary, optional local standards precedence, and unchanged review-run v1 authority; record `review:cr` and leave typed evidence ready for plan crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `S`
+- [x] 3.2 Review the bounded export, upstream instruction boundary, optional local standards precedence, and unchanged review-run v1 authority; record `review:cr` and leave typed evidence ready for plan crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `S`
