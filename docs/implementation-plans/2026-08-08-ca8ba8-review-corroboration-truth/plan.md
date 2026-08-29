@@ -46,7 +46,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Distribution and integration evidence
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Synchronize CR/DR bundles, dogfood, manifests, versions, marketplace, and registry through existing writers; update review-reporting guidance and run focused report tests, installed-consumer checks, structural evals, and normal repository validation. Record `review:cr` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Synchronize CR/DR bundles, dogfood, manifests, versions, marketplace, and registry through existing writers; update review-reporting guidance and run focused report tests, installed-consumer checks, structural evals, and normal repository validation. Record `review:cr` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 2.2] `M`
 
 ## Finalization (conditional)
 

@@ -44,3 +44,8 @@ Phase: 2
 - [2.1] [src:code-review] [sev:High] [concern:performance] [req:REQ-1] [review:cr] [source-record:e63fe05c2ea913bb755b3ba9db721debd3f2065b71c3312d47c248add447753b] Round 3 finding 4 triage=fix: nested all-pairs near-duplicate comparison is quadratic for bounded dense groups; generate candidates from deterministic token postings while preserving the 0.90 Jaccard rule.
 - [2.1] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:694c427e5838344043ea8945399af093c5de881d8014b7361174075840c24f6f] Round 3 finding 5 triage=rejected-stale: the independent reference renderer already performs an exact-key prepass before near matching, and the exact-over-near parity case passes.
 - [2.1] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-1] [review:cr] [source-record:ca84dada6af807fccc26f711e84666118c9320b76f75dd0f5cef809960399f76] Round 3 finding 6 triage=fix: the similarity guard comment inverted the short-boilerplate intent; state that the minimum prevents short boilerplate from looking suspicious.
+
+## CR Capture
+Phase: 3
+
+No entries for this phase.

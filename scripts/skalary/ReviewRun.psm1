@@ -70,10 +70,10 @@ $script:AdmissionName = '.review-run.admission.json'
 $script:AdmissionDiscriminator = 'skalary/review-admission@1'
 
 $script:ArtifactRole = [ordered]@{
-    plan            = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
-    canonical       = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
-    summary         = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
-    full            = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
+    plan = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
+    canonical = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
+    summary = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
+    full = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
     admissionSource = [pscustomobject]@{ Prefix = $script:AdmissionSourcePrefix; Extension = '.json' }
 }
 
@@ -85,12 +85,12 @@ $script:RemoveTreeProvider = $null
 # These literal paths are the closed schema sidecar closure copied by Sync-PluginScripts. Root
 # execution still uses the canonical schemas/review directory; installed execution uses these copies.
 $script:BundledSchemaPath = [ordered]@{
-    'review-limits.schema.json'    = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
+    'review-limits.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
     'review-admission.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-admission.schema.json'
-    'review-manifest.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
-    'review-plan.schema.json'      = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
-    'review-run.schema.json'       = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
-    'terminal-status.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
+    'review-manifest.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
+    'review-plan.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
+    'review-run.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
+    'terminal-status.schema.json' = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
 }
 $script:BundledPlanStatePath = Join-Path $PSScriptRoot 'PlanState.psm1'
 $canonicalModulePath = [System.IO.Path]::GetFullPath(
@@ -498,8 +498,8 @@ function Get-ReviewFindingSimilarityProfile {
 
     return [pscustomobject]@{
         ExactKey = Get-ReviewOrdinalTupleKey -Value $normalized.ToArray()
-        Content  = $content
-        Tokens   = $tokens
+        Content = $content
+        Tokens = $tokens
     }
 }
 
@@ -560,11 +560,11 @@ function ConvertTo-ReviewProjection {
         $task = $taskById[$taskId]
         $diagnostic = [string](Get-ReviewValue -Node $task -Name 'diagnostic')
         $orderedTasks.Add([pscustomobject]@{
-                TaskId      = $taskId
-                Concern     = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model       = [string](Get-ReviewValue -Node $task -Name 'model')
-                Outcome     = [string](Get-ReviewValue -Node $task -Name 'outcome')
-                Diagnostic  = $diagnostic
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Outcome = [string](Get-ReviewValue -Node $task -Name 'outcome')
+                Diagnostic = $diagnostic
                 RawFindings = $(if ($findingsByTask.ContainsKey($taskId)) { [int]$findingsByTask[$taskId] } else { 0 })
             })
     }
@@ -595,15 +595,15 @@ function ConvertTo-ReviewProjection {
         $key = Get-ReviewMergeKey -Finding $finding
         if (-not $groups.Contains($key)) {
             $groups[$key] = [pscustomobject]@{
-                Key        = $key
-                Titles     = [System.Collections.Generic.List[string]]::new()
-                Bodies     = [System.Collections.Generic.List[string]]::new()
-                Actions    = [System.Collections.Generic.List[string]]::new()
-                Concerns   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Models     = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Key = $key
+                Titles = [System.Collections.Generic.List[string]]::new()
+                Bodies = [System.Collections.Generic.List[string]]::new()
+                Actions = [System.Collections.Generic.List[string]]::new()
+                Concerns = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Models = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
                 References = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Raw        = [System.Collections.Generic.List[object]]::new()
-                Rank       = 0
+                Raw = [System.Collections.Generic.List[object]]::new()
+                Rank = 0
             }
         }
 
@@ -616,15 +616,15 @@ function ConvertTo-ReviewProjection {
         foreach ($reference in $references) { [void]$group.References.Add($reference) }
         if ($script:SeverityRank[$severity] -gt $group.Rank) { $group.Rank = $script:SeverityRank[$severity] }
         $group.Raw.Add([pscustomobject]@{
-                TaskId     = $taskId
-                Concern    = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model      = [string](Get-ReviewValue -Node $task -Name 'model')
-                Severity   = $severity
-                Title      = $title
-                Body       = $body
-                Action     = $action
-                RootCause  = $rootCause
-                Component  = $component
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Severity = $severity
+                Title = $title
+                Body = $body
+                Action = $action
+                RootCause = $rootCause
+                Component = $component
                 References = $references
             })
     }
@@ -780,26 +780,26 @@ function ConvertTo-ReviewProjection {
         }
 
         $entries.Add([pscustomobject]@{
-                Key                = $group.Key
-                Title              = $title
-                Rank               = $rank
-                Severity           = $script:SeverityByRank[$rank]
-                Elevated           = $elevated
-                Concerns           = $concerns
-                Models             = $models
-                Bodies             = @($distinctBodies)
-                References         = @(Sort-ReviewOrdinal -Value @($group.References))
-                Action             = $action
-                Raw                = @($raw)
-                RawCount           = $group.Raw.Count
-                Similarity         = $similarity
+                Key = $group.Key
+                Title = $title
+                Rank = $rank
+                Severity = $script:SeverityByRank[$rank]
+                Elevated = $elevated
+                Concerns = $concerns
+                Models = $models
+                Bodies = @($distinctBodies)
+                References = @(Sort-ReviewOrdinal -Value @($group.References))
+                Action = $action
+                Raw = @($raw)
+                RawCount = $group.Raw.Count
+                Similarity = $similarity
                 CorroborationState = $corroborationState
-                SupportCount       = $models.Count
-                AttendanceState    = $state
-                RawSeverity        = $script:SeverityByRank[$group.Rank]
-                EffectiveSeverity  = $script:SeverityByRank[$rank]
-                NeedsReview        = $corroborationState -eq 'suspicious'
-                Reason             = $reason
+                SupportCount = $models.Count
+                AttendanceState = $state
+                RawSeverity = $script:SeverityByRank[$group.Rank]
+                EffectiveSeverity = $script:SeverityByRank[$rank]
+                NeedsReview = $corroborationState -eq 'suspicious'
+                Reason = $reason
             })
     }
 
@@ -819,20 +819,20 @@ function ConvertTo-ReviewProjection {
     $sorted = @(Sort-ReviewArrayByKey -Items @($entries) -KeyScript { param($entry) $sortKeys[$entry.Key] })
 
     return [pscustomobject]@{
-        RunId            = [string](Get-ReviewValue -Node $Run -Name 'runId')
-        ReviewType       = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
-        ContentTrust     = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
-        Scope            = [string](Get-ReviewValue -Node $Run -Name 'scope')
-        ScopeAuthority   = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
-        PlanDigest       = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
+        RunId = [string](Get-ReviewValue -Node $Run -Name 'runId')
+        ReviewType = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
+        ContentTrust = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
+        Scope = [string](Get-ReviewValue -Node $Run -Name 'scope')
+        ScopeAuthority = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
+        PlanDigest = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
         InvocationBudget = [int](Get-ReviewValue -Node $Run -Name 'invocationBudget')
-        ModelSelection   = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
-        Roster           = $roster
-        Tasks            = @($orderedTasks)
-        Attendance       = $attendance
-        State            = $state
-        Findings         = $sorted
-        RawFindingCount  = $findings.Count
+        ModelSelection = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
+        Roster = $roster
+        Tasks = @($orderedTasks)
+        Attendance = $attendance
+        State = $state
+        Findings = $sorted
+        RawFindingCount = $findings.Count
     }
 }
 
@@ -1785,8 +1785,8 @@ function Get-ReviewTerminalStatusShape {
     }
 
     return [pscustomobject]@{
-        ExitCode      = $exitCode
-        State         = $state
+        ExitCode = $exitCode
+        State = $state
         HasValidRunId = $hasValidRunId
         RejectedRunId = $rejectedRunId
     }
@@ -1894,13 +1894,13 @@ function New-ReviewResult {
         [object]$Summary
     )
     return [pscustomobject]@{
-        Mode        = $Mode
-        ExitCode    = $ExitCode
-        State       = $State
-        Message     = $Message
-        RunId       = $RunId
+        Mode = $Mode
+        ExitCode = $ExitCode
+        State = $State
+        Message = $Message
+        RunId = $RunId
         Diagnostics = @($Diagnostic)
-        Summary     = $Summary
+        Summary = $Summary
     }
 }
 
@@ -2090,8 +2090,8 @@ function Resolve-ReviewRunPreparation {
     foreach ($candidate in @($store, $runRoot)) { Assert-ReviewPathSafe -Path $candidate -Boundary $repoFull }
 
     return [pscustomobject]@{
-        schema  = 'skalary/review-prepare@1'
-        runId   = $RunId
+        schema = 'skalary/review-prepare@1'
+        runId = $RunId
         runRoot = [System.IO.Path]::GetFullPath($runRoot)
     }
 }
@@ -2402,11 +2402,11 @@ function Read-ReviewFrozenPlan {
     }
 
     return [pscustomobject]@{
-        Path   = $files[0].FullName
-        Name   = $files[0].Name
-        Bytes  = $bytes
+        Path = $files[0].FullName
+        Name = $files[0].Name
+        Bytes = $bytes
         Digest = $digest
-        Plan   = $plan
+        Plan = $plan
     }
 }
 
@@ -2447,13 +2447,13 @@ function Write-ReviewAdmissionMarker {
 
     $marker = [ordered]@{
         maxPartitions = 16
-        maxRestarts   = 1
-        mode          = $Mode
-        reasons       = @(Sort-ReviewOrdinal -Value @($Reason))
-        restartable   = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
-        runId         = $RunId
-        schema        = $script:AdmissionDiscriminator
-        state         = 'admission'
+        maxRestarts = 1
+        mode = $Mode
+        reasons = @(Sort-ReviewOrdinal -Value @($Reason))
+        restartable = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
+        runId = $RunId
+        schema = $script:AdmissionDiscriminator
+        state = 'admission'
     }
     $sourcePath = $null
     try {
@@ -3202,18 +3202,18 @@ function Invoke-ReviewPublishCore {
             Invoke-ReviewFaultSeam -Edge 'after-full'
 
             $manifest = [ordered]@{
-                schema       = $script:ManifestDiscriminator
-                runId        = $RunId
-                state        = 'published'
+                schema = $script:ManifestDiscriminator
+                runId = $RunId
+                state = 'published'
                 contentTrust = [string](Get-ReviewValue -Node $canonicalRun -Name 'contentTrust')
-                scopeDigest  = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
-                planDigest   = $frozenPlanDigest
-                runDigest    = $runDigest
-                files        = [ordered]@{
-                    plan      = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
+                scopeDigest = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
+                planDigest = $frozenPlanDigest
+                runDigest = $runDigest
+                files = [ordered]@{
+                    plan = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
                     canonical = [ordered]@{ name = $canonicalName; digest = $runDigest; bytes = $canonicalBytes.Length }
-                    summary   = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
-                    full      = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
+                    summary = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
+                    full = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
                 }
             }
             $manifestJson = (ConvertTo-Json -InputObject $manifest -Depth 10 -Compress) + "`n"
@@ -3426,14 +3426,14 @@ function Read-ReviewManifest {
     }
 
     return [pscustomobject]@{
-        RunId             = [string]$manifest['runId']
-        PlanDigest        = [string]$manifest['planDigest']
-        RunDigest         = [string]$manifest['runDigest']
-        Files             = $verified
-        Bytes             = $verifiedBytes
-        Documents         = [ordered]@{ plan = $plan; canonical = $canonical }
-        Boundary          = $boundaryFull
-        Manifest          = $manifest
+        RunId = [string]$manifest['runId']
+        PlanDigest = [string]$manifest['planDigest']
+        RunDigest = [string]$manifest['runDigest']
+        Files = $verified
+        Bytes = $verifiedBytes
+        Documents = [ordered]@{ plan = $plan; canonical = $canonical }
+        Boundary = $boundaryFull
+        Manifest = $manifest
         VerificationToken = $script:VerifiedAuthorityToken
     }
 }
@@ -3622,14 +3622,14 @@ function Read-ReviewManifestForFinalization {
     $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
     $verified = Read-ReviewManifest -RunDir $RunDir -Boundary $Boundary -ManifestBytes $manifestBytes
     return [pscustomobject]@{
-        RunId          = $verified.RunId
-        PlanDigest     = $verified.PlanDigest
-        RunDigest      = $verified.RunDigest
-        Files          = $verified.Files
-        Boundary       = $verified.Boundary
-        Manifest       = $verified.Manifest
+        RunId = $verified.RunId
+        PlanDigest = $verified.PlanDigest
+        RunDigest = $verified.RunDigest
+        Files = $verified.Files
+        Boundary = $verified.Boundary
+        Manifest = $verified.Manifest
         ManifestDigest = Get-ReviewDigest -Bytes $manifestBytes
-        Run            = $verified.Documents['canonical']
+        Run = $verified.Documents['canonical']
     }
 }
 
@@ -3656,43 +3656,43 @@ function Get-ReviewFinalizationMaterial {
         if ($finding.NeedsReview) { $needsReview++ }
     }
     $source = [ordered]@{
-        mode      = [string](Get-ReviewValue -Node $authority -Name 'mode')
+        mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
         pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
-        digest    = [string](Get-ReviewValue -Node $authority -Name 'digest')
+        digest = [string](Get-ReviewValue -Node $authority -Name 'digest')
     }
     foreach ($name in @('base', 'head')) {
         $identity = [string](Get-ReviewValue -Node $authority -Name $name)
         if (-not [string]::IsNullOrWhiteSpace($identity)) { $source[$name] = $identity }
     }
     $receipt = [ordered]@{
-        schema         = 'skalary/review-result-receipt@1'
-        runId          = $Verified.RunId
-        reviewType     = $projection.ReviewType
-        verdict        = $Verdict
-        state          = $projection.State
-        source         = $source
-        planDigest     = $Verified.PlanDigest
-        runDigest      = $Verified.RunDigest
+        schema = 'skalary/review-result-receipt@1'
+        runId = $Verified.RunId
+        reviewType = $projection.ReviewType
+        verdict = $Verdict
+        state = $projection.State
+        source = $source
+        planDigest = $Verified.PlanDigest
+        runDigest = $Verified.RunDigest
         manifestDigest = $Verified.ManifestDigest
-        legacySource   = $false
-        attendance     = $projection.Attendance
-        findings       = [ordered]@{
-            merged        = $projection.Findings.Count
-            raw           = $projection.RawFindingCount
-            severity      = $effectiveSeverity
-            rawSeverity   = $rawSeverity
+        legacySource = $false
+        attendance = $projection.Attendance
+        findings = [ordered]@{
+            merged = $projection.Findings.Count
+            raw = $projection.RawFindingCount
+            severity = $effectiveSeverity
+            rawSeverity = $rawSeverity
             corroboration = $corroboration
-            similarity    = $similarity
-            needsReview   = $needsReview
+            similarity = $similarity
+            needsReview = $needsReview
         }
-        report         = [ordered]@{
-            name   = [System.IO.Path]::GetFileName($ReportPath)
-            bytes  = $reportBytes.Length
+        report = [ordered]@{
+            name = [System.IO.Path]::GetFileName($ReportPath)
+            bytes = $reportBytes.Length
             digest = Get-ReviewDigest -Bytes $reportBytes
         }
     }
     return [pscustomobject]@{
-        ReportBytes  = $reportBytes
+        ReportBytes = $reportBytes
         ReceiptBytes = $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
     }
 }
@@ -3729,10 +3729,10 @@ function Get-ReviewCleanupMarker {
     )
 
     return [ordered]@{
-        schema  = 'skalary/review-cleanup@1'
-        runId   = $RunId
+        schema = 'skalary/review-cleanup@1'
+        runId = $RunId
         verdict = $Verdict
-        report  = [ordered]@{ name = [System.IO.Path]::GetFileName($ReportPath); bytes = $Material.ReportBytes.Length; digest = Get-ReviewDigest -Bytes $Material.ReportBytes }
+        report = [ordered]@{ name = [System.IO.Path]::GetFileName($ReportPath); bytes = $Material.ReportBytes.Length; digest = Get-ReviewDigest -Bytes $Material.ReportBytes }
         receipt = [ordered]@{ name = [System.IO.Path]::GetFileName($ReceiptPath); bytes = $Material.ReceiptBytes.Length; digest = Get-ReviewDigest -Bytes $Material.ReceiptBytes }
     }
 }
@@ -3997,13 +3997,13 @@ function Get-ReviewAdmissionRollup {
     $expectedFindings = @(Get-ReviewValue -Node $parentRun -Name 'findings')
 
     return [pscustomobject]@{
-        schema          = 'skalary/review-admission-rollup@1'
-        state           = 'verified'
-        parentRunId     = $ParentRunId
+        schema = 'skalary/review-admission-rollup@1'
+        state = 'verified'
+        parentRunId = $ParentRunId
         parentRunDigest = [string]$admission.Marker['parentRunDigest']
-        scopeDigest     = [string]$admission.Marker['scopeDigest']
-        findingCount    = $expectedFindings.Count
-        partitions      = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
+        scopeDigest = [string]$admission.Marker['scopeDigest']
+        findingCount = $expectedFindings.Count
+        partitions = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
     }
 }
 

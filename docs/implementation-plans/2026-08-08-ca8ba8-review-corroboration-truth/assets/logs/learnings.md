@@ -7,3 +7,8 @@ Phase: 1
 Phase: 2
 
 - [2.1] [trigger:rework>1] [concern:performance] [req:REQ-5] [review:none] [source-record:604b81d45679daf164c2cb7515b4097a817524cb28bdacc25c7d39009527cee1] Repeated per-finding reason prose exceeded the fixed summary budget; render compact evidence and reason codes with one lossless legend while keeping full and retained views descriptive.
+
+## Learnings Capture
+Phase: 3
+
+No entries for this phase.

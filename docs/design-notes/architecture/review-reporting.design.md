@@ -418,6 +418,12 @@ then adds each forbidden derived field to an otherwise schema-valid raw finding 
 closed review-run v1 schema to reject it. Derived corroboration and effective severity therefore stay
 engine-owned rather than becoming caller assertions.
 
+`ReviewRun.psm1` remains the single canonical implementation of this derivation. The existing plugin
+script writer copies it into both CR and DR bundles, bumps each changed plugin version, and the
+dogfood, marketplace, and registry writers propagate those exact bytes and hashes. Installed-consumer
+tests execute both shipped copies with canonical source fallbacks poisoned; structural CR/DR evals
+continue to prove orchestration ownership independently of the report behavior corpus.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a
