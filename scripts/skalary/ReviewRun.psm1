@@ -470,6 +470,71 @@ function Get-ReviewMergeKey {
     return (Get-ReviewNormalizedKey -Value $rootCause) + $script:Unit + (Get-ReviewNormalizedKey -Value $component)
 }
 
+function Get-ReviewFindingSimilarityProfile {
+    <#
+    .SYNOPSIS
+        Normalizes the reviewer-authored title, body, and action for corroboration comparison.
+    .DESCRIPTION
+        Similarity is observable evidence, not proof of served-model identity. Each field is
+        canonicalized, lowercased invariantly, reduced to Unicode letter/decimal-number words, and
+        kept in a length-prefixed tuple so untrusted text cannot forge a field boundary.
+    #>
+    param([Parameter(Mandatory)][object]$Finding)
+
+    $normalized = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in @('Title', 'Body', 'Action')) {
+        $value = [string](Get-ReviewValue -Node $Finding -Name $name)
+        $canonical = ConvertTo-ReviewCanonicalText -Value $value
+        $normalized.Add(([regex]::Replace($canonical.ToLowerInvariant(), '[^\p{L}\p{Nd}]+', ' ')).Trim())
+    }
+
+    $content = ([regex]::Replace(($normalized -join ' '), '\s+', ' ')).Trim()
+    $tokens = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    if ($content.Length -gt 0) {
+        foreach ($token in $content.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            [void]$tokens.Add($token)
+        }
+    }
+
+    return [pscustomobject]@{
+        ExactKey = Get-ReviewOrdinalTupleKey -Value $normalized.ToArray()
+        Content = $content
+        Tokens = $tokens
+    }
+}
+
+function Get-ReviewFindingSimilarity {
+    <#
+    .SYNOPSIS
+        Classifies two findings as exact, clearly near-duplicate, or unrelated.
+    .DESCRIPTION
+        Exact normalized title/body/action tuples always flag. The conservative near-duplicate rule
+        applies only when both normalized records contain at least 8 distinct tokens and 48
+        characters, then requires token-set Jaccard similarity of at least 0.90. The fixed minimums
+        keep short shared boilerplate from looking like independent corroboration.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$LeftProfile,
+        [Parameter(Mandatory)][object]$RightProfile
+    )
+
+    if ([string]::Equals($leftProfile.ExactKey, $rightProfile.ExactKey, [System.StringComparison]::Ordinal)) {
+        return 'exact'
+    }
+    if ($leftProfile.Content.Length -lt 48 -or $rightProfile.Content.Length -lt 48 -or
+        $leftProfile.Tokens.Count -lt 8 -or $rightProfile.Tokens.Count -lt 8) {
+        return 'none'
+    }
+
+    $intersection = 0
+    foreach ($token in $leftProfile.Tokens) {
+        if ($rightProfile.Tokens.Contains($token)) { $intersection++ }
+    }
+    $union = $leftProfile.Tokens.Count + $rightProfile.Tokens.Count - $intersection
+    if ($union -gt 0 -and ($intersection * 10) -ge ($union * 9)) { return 'near-duplicate' }
+    return 'none'
+}
+
 function ConvertTo-ReviewProjection {
     param([Parameter(Mandatory)][object]$Run)
 
@@ -628,6 +693,21 @@ function ConvertTo-ReviewProjection {
                 )
             })
 
+        $similarityProfiles = @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
+        $similarity = 'none'
+        for ($leftIndex = 0; $leftIndex -lt $raw.Count -and $similarity -ne 'exact'; $leftIndex++) {
+            for ($rightIndex = $leftIndex + 1; $rightIndex -lt $raw.Count; $rightIndex++) {
+                if ([string]::Equals($raw[$leftIndex].Model, $raw[$rightIndex].Model, [System.StringComparison]::Ordinal)) {
+                    continue
+                }
+                $pairSimilarity = Get-ReviewFindingSimilarity `
+                    -LeftProfile $similarityProfiles[$leftIndex] `
+                    -RightProfile $similarityProfiles[$rightIndex]
+                if ($pairSimilarity -eq 'exact') { $similarity = 'exact'; break }
+                if ($pairSimilarity -eq 'near-duplicate') { $similarity = 'near-duplicate' }
+            }
+        }
+
         $entries.Add([pscustomobject]@{
                 Key        = $group.Key
                 Title      = $title
@@ -641,6 +721,7 @@ function ConvertTo-ReviewProjection {
                 Action     = $action
                 Raw        = @($raw)
                 RawCount   = $group.Raw.Count
+                Similarity = $similarity
             })
     }
 

@@ -367,6 +367,22 @@ normalize to the same merge tuple (a title differing only in surrounding whitesp
 projection and the full view in a deterministic ordinal order. Keying a dictionary by that tuple — the
 earlier implementation — turned legal input into a crashed publication.
 
+### Observable finding similarity
+
+Corroboration similarity is derived only inside an existing `(rootCause, component)` merge group and
+only between findings attributed to distinct declared model labels. It is evidence that two nominally
+independent outputs may not be independent; it never proves which model served a request, and absence
+of a match means only that no suspicious similarity was observed.
+
+One engine-owned helper canonicalizes each raw finding's title, body, and action independently to NFC,
+LF, invariant lowercase Unicode letter/decimal-number words. The three normalized fields remain a
+length-prefixed tuple, so reviewer text cannot forge field boundaries. Exact tuple matches always flag.
+Otherwise, a pair is a clearly near duplicate only when both combined normalized records have at least
+8 distinct tokens and 48 characters and their token-set Jaccard similarity is at least `0.90`. The
+fixed content guard prevents short shared boilerplate from suppressing valid corroboration. Comparison
+uses the projection's deterministic raw-record order, preserves every raw field unchanged, and records
+only `none`, `near-duplicate`, or `exact` on the derived merged entry.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a
