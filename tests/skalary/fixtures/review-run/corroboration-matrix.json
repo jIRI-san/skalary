@@ -58,6 +58,21 @@
       ]
     },
     {
+      "id": "unicode-tokenization",
+      "roster": ["model-a", "model-b"],
+      "tasks": [
+        { "taskId": "security-a", "concern": "security", "model": "model-a", "outcome": "completed" },
+        { "taskId": "security-b", "concern": "security", "model": "model-b", "outcome": "completed" }
+      ],
+      "findings": [
+        { "taskId": "security-a", "severity": "Medium", "title": "\u8fb9\u754c\u68c0\u67e5", "body": "\u7b2c\u4e00\u4e2a\u5ba1\u67e5\u8005\u53d1\u73b0\u8fb9\u754c\u9519\u8bef", "action": "\u4fee\u590d\u7b2c\u4e00\u6761\u8def\u5f84", "rootCause": "unicode", "component": "src/unicode.ps1" },
+        { "taskId": "security-b", "severity": "Medium", "title": "\u6743\u9650\u9a8c\u8bc1", "body": "\u7b2c\u4e8c\u4e2a\u5ba1\u67e5\u8005\u72ec\u7acb\u53d1\u73b0\u6743\u9650\u7f3a\u53e3", "action": "\u9650\u5236\u7b2c\u4e8c\u6761\u8def\u5f84", "rootCause": "unicode", "component": "src/unicode.ps1" }
+      ],
+      "expected": [
+        { "rootCause": "unicode", "supportCount": 2, "attendanceState": "clean", "similarity": "none", "corroborationState": "corroborated", "rawSeverity": "Medium", "effectiveSeverity": "High", "needsReview": false, "elevated": true }
+      ]
+    },
+    {
       "id": "single-source",
       "roster": ["model-a", "model-b"],
       "tasks": [
@@ -104,7 +119,6 @@
     },
     {
       "id": "input-order-stability",
-      "reverseStable": true,
       "roster": ["model-a", "model-b"],
       "tasks": [
         { "taskId": "security-a", "concern": "security", "model": "model-a", "outcome": "completed" },

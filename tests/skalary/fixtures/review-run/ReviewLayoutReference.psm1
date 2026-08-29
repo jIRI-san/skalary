@@ -296,7 +296,7 @@ function ConvertTo-ReviewProjection {
         if (-not [string]::IsNullOrWhiteSpace($body)) { $group.Bodies.Add($body.Trim()) }
         if (-not [string]::IsNullOrWhiteSpace($action)) { $group.Actions.Add($action.Trim()) }
         [void]$group.Concerns.Add(([string](Get-Value -Node $task -Name 'concern')).Trim())
-        [void]$group.Models.Add(([string](Get-Value -Node $task -Name 'model')).Trim())
+        [void]$group.Models.Add([string](Get-Value -Node $task -Name 'model'))
         foreach ($reference in $references) { [void]$group.References.Add($reference) }
         if ($script:SeverityRank[$severity] -gt $group.Rank) { $group.Rank = $script:SeverityRank[$severity] }
         $group.Raw.Add([pscustomobject]@{
@@ -315,13 +315,7 @@ function ConvertTo-ReviewProjection {
 
     $entries = [System.Collections.Generic.List[object]]::new()
     foreach ($group in $groups.Values) {
-        $models = @(Sort-Ordinal -Value @($group.Models | ForEach-Object {
-                    $index = [array]::IndexOf([string[]]$roster, [string]$_)
-                    # Roster position first, so the merged model list reads in dispatch order; an
-                    # off-roster model sorts after the roster rather than into it.
-                    $prefix = $(if ($index -lt 0) { '1' + $script:Unit + $_ } else { '0' + (Format-Invariant -Value $index).PadLeft(4, '0') })
-                    $prefix + $script:Unit + $_
-                }) | ForEach-Object { $_.Substring($_.LastIndexOf([char]1) + 1) })
+        $models = @($roster | Where-Object { $group.Models.Contains([string]$_) })
         $concerns = @(Sort-Ordinal -Value @($group.Concerns))
 
         $observedModels = [System.Collections.Generic.HashSet[string]]::new(

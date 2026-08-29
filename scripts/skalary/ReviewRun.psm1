@@ -3488,6 +3488,7 @@ function Get-ReviewRetainedReportText {
     if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0 -or $needsReview.Count -gt 0)) {
         throw 'An approved review result requires a clean run with no Critical or High findings and no finding marked needs-review.'
     }
+    $maximum = [int](Get-ReviewLimits)['maxRetainedReportBytes']
 
     $authority = $Projection.ScopeAuthority
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -3530,45 +3531,58 @@ function Get-ReviewRetainedReportText {
     $lines.Add('|---:|---:|---:|---:|---:|---:|---:|---:|')
     $lines.Add("| $($corroboration.corroborated) | $($corroboration.'single-source') | $($corroboration.suspicious) | " +
         "$($corroboration.degraded) | $($similarity.none) | $($similarity.'near-duplicate') | $($similarity.exact) | $($needsReview.Count) |")
-    $lines.Add('')
-    $lines.Add('## Blocking findings')
-    $lines.Add('')
-    if ($blocking.Count -eq 0) {
-        $lines.Add('None.')
-    }
-    else {
-        $shown = [Math]::Min($blocking.Count, 20)
-        for ($index = 0; $index -lt $shown; $index++) {
-            $finding = $blocking[$index]
-            $lines.Add("$($index + 1). **Effective $($finding.EffectiveSeverity) (raw $($finding.RawSeverity))** — " +
-                "$(Limit-ReviewRetainedInlineText -Value $finding.Title) — corroboration=$($finding.CorroborationState); " +
-                "support=$($finding.SupportCount); attendance=$($finding.AttendanceState); similarity=$($finding.Similarity); " +
-                "reason=$(Limit-ReviewRetainedInlineText -Value $finding.Reason -MaxBytes 160)")
-        }
-        if ($shown -lt $blocking.Count) { $lines.Add("- $($blocking.Count - $shown) additional blocking finding(s) omitted from this compact result.") }
-    }
-    $lines.Add('')
-    $lines.Add('## Non-blocking needs-review findings')
-    $lines.Add('')
     $nonBlockingNeedsReview = @($needsReview | Where-Object { $_.EffectiveSeverity -notin @('Critical', 'High') })
-    if ($nonBlockingNeedsReview.Count -eq 0) {
-        $lines.Add('None.')
+
+    $formatFinding = {
+        param([object]$Finding, [int]$Index)
+        return "$Index. **Effective $($Finding.EffectiveSeverity) (raw $($Finding.RawSeverity))** — " +
+        "$(Limit-ReviewRetainedInlineText -Value $Finding.Title) — corroboration=$($Finding.CorroborationState); " +
+        "support=$($Finding.SupportCount); attendance=$($Finding.AttendanceState); similarity=$($Finding.Similarity); " +
+        "reason=$(Limit-ReviewRetainedInlineText -Value $Finding.Reason -MaxBytes 160)"
     }
-    else {
-        $shown = [Math]::Min($nonBlockingNeedsReview.Count, 20)
-        for ($index = 0; $index -lt $shown; $index++) {
-            $finding = $nonBlockingNeedsReview[$index]
-            $lines.Add("$($index + 1). **Effective $($finding.EffectiveSeverity) (raw $($finding.RawSeverity))** — " +
-                "$(Limit-ReviewRetainedInlineText -Value $finding.Title) — corroboration=$($finding.CorroborationState); " +
-                "support=$($finding.SupportCount); attendance=$($finding.AttendanceState); similarity=$($finding.Similarity); " +
-                "reason=$(Limit-ReviewRetainedInlineText -Value $finding.Reason -MaxBytes 160)")
+    $addFindingSection = {
+        param(
+            [string]$Title,
+            [object[]]$Finding,
+            [string]$OmittedLabel,
+            [string[]]$TailReserve
+        )
+
+        $lines.Add('')
+        $lines.Add("## $Title")
+        $lines.Add('')
+        if ($Finding.Count -eq 0) {
+            $lines.Add('None.')
+            return
         }
-        if ($shown -lt $nonBlockingNeedsReview.Count) {
-            $lines.Add("- $($nonBlockingNeedsReview.Count - $shown) additional needs-review finding(s) omitted from this compact result.")
+
+        $shown = 0
+        $limit = [Math]::Min($Finding.Count, 20)
+        for ($index = 0; $index -lt $limit; $index++) {
+            $line = & $formatFinding $Finding[$index] ($index + 1)
+            $remaining = $Finding.Count - ($shown + 1)
+            $reserve = @($TailReserve)
+            if ($remaining -gt 0) {
+                $reserve = @("- $remaining additional $OmittedLabel finding(s) omitted from this compact result.") + $reserve
+            }
+            $candidate = @($lines.ToArray()) + $line + $reserve
+            if ($script:Utf8NoBom.GetByteCount((($candidate -join "`n") + "`n")) -gt $maximum) { break }
+            $lines.Add($line)
+            $shown++
+        }
+        if ($shown -lt $Finding.Count) {
+            $lines.Add("- $($Finding.Count - $shown) additional $OmittedLabel finding(s) omitted from this compact result.")
         }
     }
+
+    $nonBlockingTail = @('', '## Non-blocking needs-review findings', '') +
+    $(if ($nonBlockingNeedsReview.Count -eq 0) { @('None.') } else {
+            @("- $($nonBlockingNeedsReview.Count) additional needs-review finding(s) omitted from this compact result.")
+        })
+    & $addFindingSection 'Blocking findings' $blocking 'blocking' $nonBlockingTail
+    & $addFindingSection 'Non-blocking needs-review findings' $nonBlockingNeedsReview 'needs-review' @()
+
     $text = ($lines -join "`n") + "`n"
-    $maximum = [int](Get-ReviewLimits)['maxRetainedReportBytes']
     if ($script:Utf8NoBom.GetByteCount($text) -gt $maximum) { throw "The compact review result exceeds its $maximum-byte bound." }
     return $text
 }

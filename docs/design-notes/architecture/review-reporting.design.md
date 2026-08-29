@@ -119,16 +119,15 @@ rebuilds the envelope and projection from that archived source, and finishes by 
 `New-ReviewLayoutGolden.ps1` so the new-layout goldens can never describe a superseded envelope.
 
 `new-layout.expectation.json` is the closed content contract for the two published views, and it is
-no longer a promise: `new-layout.summary.golden.md` (5,710 bytes) and `new-layout.full.golden.md`
-(81,403 bytes) are committed beside it, with their exact byte counts and SHA-256 digests recorded in
+no longer a promise: `new-layout.summary.golden.md` (7,278 bytes) and `new-layout.full.golden.md`
+(94,468 bytes) are committed beside it, with their exact byte counts and SHA-256 digests recorded in
 both the expectation and the provenance file.
 
 The goldens are produced from the envelope, not copied from anything. `ReviewLayoutReference.psm1`
 is a **test-only** deterministic reference renderer: it derives both views from a
-`skalary/review-run@1` envelope using the contract alone — the merge, elevation and ordering rules
-`Build-ReviewReport.ps1` already implements, plus D4 attendance and D5/D15 encoding — and performs
-no file I/O, no publication and no schema loading. Step 1.2 owns the production renderer,
-`Freeze`/`Publish` and the module; it reproduces these exact bytes, and
+`skalary/review-run@1` envelope using the contract alone — merge, corroboration, elevation, ordering,
+D4 attendance, and D5/D15 encoding — and performs no file I/O, no publication and no schema loading.
+The production renderer, `Freeze`/`Publish`, and the module reproduce these exact bytes, and
 `ReviewReportCorpus.Tests.ps1` holds the production and reference renderers equal.
 
 Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`;
@@ -139,8 +138,8 @@ invariant culture, or that changes when the task and finding arrays are reversed
 
 | View | Bound | Contains |
 |---|---|---|
-| `summary` | 32 KiB | identity table (run, type, state, plan/scope digests, structural content trust, requested/declared model state, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming its severity and title |
-| `full` | 1 MiB | the same identity table and structural trust marker, one row per planned task (concern, declared model label, outcome, raw-finding count, diagnostic), every merged finding with its severities/concerns/declared model labels, distinct bodies, references and raw records, then recommendations |
+| `summary` | 32 KiB | identity table (run, type, state, plan/scope digests, structural content trust, requested/declared model state, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming raw/effective severity, compact support/attendance/similarity/corroboration codes, title, and a lossless reason-legend key |
+| `full` | 1 MiB | the same identity table and structural trust marker, one row per planned task (concern, declared model label, outcome, raw-finding count, diagnostic), every merged finding with raw/effective severity, support count, attendance, similarity, corroboration, reason, concerns/declared model labels, distinct bodies, references and raw records, then recommendations |
 
 Untrusted-field handling is part of the layout, not a later addition:
 
@@ -559,9 +558,11 @@ cleanup without verified authority is refused, and `-Force` is limited to unpubl
 For a plan run, `-PlanDir` plus explicit
 `-Verdict approved|blocked` verifies the bundle, emits compact sibling files, then removes the live
 directory. `<uuid>.review.md` is human evidence bounded by `maxRetainedReportBytes` (8 KiB): identity,
-source scope, gate verdict, attendance, severity totals, and bounded blocking titles only. The closed
-`<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance, and
-severity digests/counts. Approval is impossible when the run is degraded or has Critical/High findings.
+source scope, gate verdict, attendance, raw/effective severity totals, corroboration/similarity totals,
+and byte-budgeted blocking and non-blocking needs-review rows with explicit omission counts. The closed
+`<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance,
+raw/effective severity, corroboration, similarity, and needs-review counts. Approval is impossible
+when the run is degraded, has Critical/High effective findings, or has any needs-review finding.
 Live `<uuid>/` directories are gitignored; only those compact siblings are committed. Finalization is
 serialized by a stable ignored store-level lock and the run publication lock, and supports PowerShell
 `ShouldProcess`/`-WhatIf`; dry runs report `would finalize` and write nothing. The live directory is

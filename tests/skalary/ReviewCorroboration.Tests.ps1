@@ -273,10 +273,14 @@ Describe 'review finding corroboration derivation' {
                 -Body 'Identical reviewer output is retained as observable support.' -Action 'Inspect manually.'
             New-CorroborationFinding -TaskId 'security-b' -Title 'Suspicious retained echo' `
                 -Body 'Identical reviewer output is retained as observable support.' -Action 'Inspect manually.'
+            New-CorroborationFinding -TaskId 'security-a' -Title 'Independent retained report A' `
+                -Body 'The first reviewer found a shared retention defect.' -Action 'Repair the first path.' -RootCause 'elevated'
+            New-CorroborationFinding -TaskId 'security-b' -Title 'Independent retained report B' `
+                -Body 'The second reviewer found that retention defect separately.' -Action 'Repair the second path.' -RootCause 'elevated'
         )
         $run = New-CorroborationRun -Findings $findings -Tasks $resultTasks
         $projection = ConvertTo-ReviewProjection -Run $run
-        $entry = $projection.Findings[0]
+        $entry = @($projection.Findings | Where-Object CorroborationState -eq 'suspicious')[0]
 
         foreach ($property in @(
                 'SupportCount', 'AttendanceState', 'Similarity', 'CorroborationState',
@@ -341,16 +345,55 @@ Describe 'review finding corroboration derivation' {
             $retained | Should -Match 'corroboration=suspicious; support=2; attendance=clean; similarity=exact'
             $retained | Should -Match 'needs-review:'
             $receipt = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -Depth 20
-            $receipt.findings.rawSeverity.medium | Should -Be 1
+            $receipt.findings.rawSeverity.medium | Should -Be 2
+            $receipt.findings.rawSeverity.high | Should -Be 0
             $receipt.findings.severity.medium | Should -Be 1
+            $receipt.findings.severity.high | Should -Be 1
             $receipt.findings.corroboration.suspicious | Should -Be 1
+            $receipt.findings.corroboration.corroborated | Should -Be 1
             $receipt.findings.similarity.exact | Should -Be 1
+            $receipt.findings.similarity.none | Should -Be 1
             $receipt.findings.needsReview | Should -Be 1
 
             $replayed = Finalize-ReviewPlanRun -RunId $run.runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             $replayed.Replayed | Should -BeTrue
             [System.IO.File]::ReadAllBytes($replayed.Report) | Should -Be ([System.IO.File]::ReadAllBytes($final.Report))
             [System.IO.File]::ReadAllBytes($replayed.Receipt) | Should -Be ([System.IO.File]::ReadAllBytes($final.Receipt))
+
+            $largeRunId = [guid]::NewGuid().ToString()
+            $largeRunDir = Resolve-ReviewRunPreparation -RunId $largeRunId -PlanDir $planDir -RepoRoot $scratch |
+                Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $largeRunDir -Force)
+            $largeTask = @{ taskId = 'security-large'; concern = 'security'; model = 'model-a' }
+            Set-ReviewHandshake -RunDir $largeRunDir -Kind plan -Object (
+                New-ReviewTestPlan -RunId $largeRunId -Roster @('model-a') -Tasks @($largeTask) -InvocationBudget 128
+            )
+            (Invoke-ReviewFreeze -RunId $largeRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $largeFindings = @(1..128 | ForEach-Object {
+                    @{
+                        taskId = 'security-large'
+                        severity = 'High'
+                        title = ('Gate finding {0:d3} ' -f $_) + ('x' * 143)
+                        body = 'Gate-relevant detail remains in live authority.'
+                        rootCause = "retained-root-$_"
+                        component = "src/retained-$_.ps1"
+                    }
+                })
+            $largeResultTask = @{ taskId = 'security-large'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+            $largePublishedRun = New-ReviewTestRun -RunId $largeRunId `
+                -PlanDigest (Get-ReviewFrozenDigest -RunDir $largeRunDir) -Roster @('model-a') `
+                -Tasks @($largeResultTask) -Findings $largeFindings -InvocationBudget 128
+            Set-ReviewHandshake -RunDir $largeRunDir -Kind result -Object $largePublishedRun
+            (Invoke-ReviewPublish -RunId $largeRunId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            $largeFinal = Finalize-ReviewPlanRun -RunId $largeRunId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
+            Test-Path -LiteralPath $largeRunDir | Should -BeFalse
+            $largeReportBytes = [System.IO.File]::ReadAllBytes($largeFinal.Report)
+            $largeReportBytes.Length | Should -BeLessOrEqual ([int](Get-ReviewLimits)['maxRetainedReportBytes'])
+            [System.Text.Encoding]::UTF8.GetString($largeReportBytes) |
+                Should -Match 'additional blocking finding\(s\) omitted'
+            (Get-Content -LiteralPath $largeFinal.Receipt -Raw | ConvertFrom-Json -Depth 20).findings.merged |
+                Should -Be 128
         }
         finally { Remove-ReviewScratchRoot -Path $scratch }
     }
@@ -361,6 +404,7 @@ Describe 'review finding corroboration derivation' {
             'exact-duplicate',
             'near-duplicate',
             'unrelated-boilerplate',
+            'unicode-tokenization',
             'single-source',
             'incomplete-attendance',
             'malicious-echo',

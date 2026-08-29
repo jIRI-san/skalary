@@ -515,6 +515,33 @@ Describe 'review report corpus' {
         $caseProjection.Findings[0].Severity |
             Should -Be 'Medium' -Because 'declared model identity is an ordinal value, not a case-insensitive label'
 
+        $spacedModel = ' model-a'
+        $whitespaceSensitive = @{
+            findings = @(
+                @{ body = 'first account'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'plain'; title = 'Plain label' }
+                @{ body = 'second account'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'spaced'; title = 'Spaced label' }
+            )
+            invocationBudget = 2
+            planDigest = 'sha256:' + ('0' * 64)
+            reviewType = 'code'
+            roster = @('model-a', $spacedModel)
+            runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+            schema = 'skalary/review-run@1'
+            scope = 'whitespace-sensitive model identity'
+            tasks = @(
+                @{ concern = 'security'; model = 'model-a'; outcome = 'completed'; taskId = 'plain' }
+                @{ concern = 'security'; model = $spacedModel; outcome = 'completed'; taskId = 'spaced' }
+            )
+        }
+        $referenceWhitespace = ConvertTo-ReviewProjection -Run $whitespaceSensitive
+        $productionWhitespace = ConvertTo-ProdReviewProjection -Run $whitespaceSensitive
+        $referenceWhitespace.Findings[0].Models | Should -Contain $spacedModel
+        $referenceWhitespace.Findings[0].SupportCount | Should -Be 2
+        $referenceWhitespace.Findings[0].EffectiveSeverity | Should -Be 'High'
+        @($referenceWhitespace.Findings[0].Models) | Should -Be @($productionWhitespace.Findings[0].Models)
+        $referenceWhitespace.Findings[0].CorroborationState |
+            Should -Be $productionWhitespace.Findings[0].CorroborationState
+
         $caseDistinctModels.findings = @(
             @{ body = 'same'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'upper'; title = 'Alpha' }
             @{ body = 'same'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'upper'; title = 'alpha' }
