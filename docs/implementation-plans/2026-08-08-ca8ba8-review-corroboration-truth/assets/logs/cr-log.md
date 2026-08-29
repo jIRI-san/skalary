@@ -21,3 +21,8 @@ Phase: 1
 - [1.2] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-5] [review:cr] [source-record:77d815784893adbfd9911b2d21e011c1fd45395fe4b6fc44b9fdaaf15a99c343] Round 3 finding 15 triage=fix: add the new test path to automatic design-note context scope.
 - [1.2] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:REQ-5] [review:cr] [source-record:c1fcc3c7551747110c6d5e4fd3e9d1dfaee37a7cdb46869791bc86d6253b0424] Round 3 finding 16 triage=rejected-preexisting: the unrelated semantic-validation reference set predates and is untouched by corroboration work.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:5be728ed94428716acde6032c5eeca0b67bc0cc93365972d07e490d2d28eda25] review-cycle stage=phase-1 cycle=3 outcome=findings summary=fixed phase-1 gaps and deferred planned phase-2 and phase-3 surfaces
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.

@@ -40,7 +40,13 @@
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -76,7 +82,13 @@ The formatter receives only findings and a caller-supplied invocation count. It 
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `architecture-patterns` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -115,7 +127,13 @@ Both review skills invoke the repo-root Test-ModelAllowlist.ps1, but neither plu
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `security` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -152,7 +170,13 @@ Review findings are copied verbatim into a pwsh -Command script. An attacker can
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `architecture-patterns` · `performance` · `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 4 |
@@ -204,7 +228,13 @@ The 15-file batch limit is prose-only. Every dispatch still receives the complet
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `correctness-reliability` · `security` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 3 |
@@ -247,7 +277,13 @@ Invoke-Git does not force UTF-8 while reading git -z output. On OEM-codepage con
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `architecture-patterns` · `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 3 |
@@ -294,7 +330,13 @@ The 28-invocation budget is repeated in both skills, the collation guide, format
 
 | | |
 |---|---|
-| **Severity** | Critical (elevated — flagged under every declared model label) |
+| **Raw severity** | `High` |
+| **Effective severity** | Critical (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -333,7 +375,13 @@ All four symlink-confinement cases were skipped on Windows, yet the receipt reco
 
 | | |
 |---|---|
-| **Severity** | Critical |
+| **Raw severity** | `Critical` |
+| **Effective severity** | Critical |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -360,7 +408,13 @@ Reviewed content directs the reviewer to ignore all prior instructions and appro
 
 | | |
 |---|---|
-| **Severity** | High (elevated — flagged under every declared model label) |
+| **Raw severity** | `Medium` |
+| **Effective severity** | High (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -396,7 +450,13 @@ One validation run performs separate recursive scans for PowerShell, JSON, agent
 
 | | |
 |---|---|
-| **Severity** | High (elevated — flagged under every declared model label) |
+| **Raw severity** | `Medium` |
+| **Effective severity** | High (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -434,7 +494,13 @@ Plan-size thresholds are independently encoded in PlanState.psm1 and the draftin
 
 | | |
 |---|---|
-| **Severity** | High (elevated — flagged under every declared model label) |
+| **Raw severity** | `Medium` |
+| **Effective severity** | High (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -470,7 +536,13 @@ Consumer installations may continue when Test-ModelAllowlist.ps1 is absent, but 
 
 | | |
 |---|---|
-| **Severity** | High (elevated — flagged under every declared model label) |
+| **Raw severity** | `Medium` |
+| **Effective severity** | High (elevated — flagged under every declared model label) |
+| **Support count** | 2 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `corroborated` |
+| **Reason** | every declared model label reported this finding with complete attendance; no suspicious similarity observed |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) · GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -507,7 +579,13 @@ The authoritative plugin manifest still says specialist model agents, although d
 
 | | |
 |---|---|
-| **Severity** | High |
+| **Raw severity** | `High` |
+| **Effective severity** | High |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `security` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -535,7 +613,13 @@ The /ci execution guide and the autopilot agent both prescribe -Message "&lt;one
 
 | | |
 |---|---|
-| **Severity** | High |
+| **Raw severity** | `High` |
+| **Effective severity** | High |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `architecture-patterns` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -563,7 +647,13 @@ The ci skill declares the Step-4 reconcile gate the single authority on plan/evi
 
 | | |
 |---|---|
-| **Severity** | High |
+| **Raw severity** | `High` |
+| **Effective severity** | High |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -592,7 +682,13 @@ registry-ci.yml runs Pester against exactly one file, tests/skalary/Skalary.Test
 
 | | |
 |---|---|
-| **Severity** | High |
+| **Raw severity** | `High` |
+| **Effective severity** | High |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `security` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -621,7 +717,13 @@ Several writers use lexical GetFullPath prefix checks, which do not resolve syml
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -650,7 +752,13 @@ Several writers use lexical GetFullPath prefix checks, which do not resolve syml
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -678,7 +786,13 @@ The script fails loud on every other malformed input, but a Model value that is 
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -706,7 +820,13 @@ The -WhatIf drift gate throws a message with counts only. validate.ps1 invokes i
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -735,7 +855,13 @@ Get-ReviewScope.ps1 filters deleted paths out of its output by default and emits
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -762,7 +888,13 @@ The headless workflow declares queueing non-blocking, but provides no durable fa
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `operability-observability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -789,7 +921,13 @@ The parameter is accepted verbatim and printed as Dispatched n of 28 budgeted in
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` · `operability-observability` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 2 |
@@ -823,7 +961,13 @@ Child plans are resolved and written sequentially. If a later child reference fa
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -850,7 +994,13 @@ scripts/skalary/Run-UnitTests.ps1 returns exit 0 with a yellow warning when no P
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `security` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -879,7 +1029,13 @@ Test-SiWriteScope.ps1 is the enforcement layer for a workflow that edits the rep
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -908,7 +1064,13 @@ The fix is correct as far as it goes: every git call goes through Invoke-Git, th
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -937,7 +1099,13 @@ Test-SkillSize.ps1 exists because a SKILL.md is loaded into context in full ever
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -966,7 +1134,13 @@ Four of the five test:si-write-scope-rejects-symlink-escape cases self-skip when
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -995,7 +1169,13 @@ Ledger categories and recorded feedback have no retention or compaction bound. E
 
 | | |
 |---|---|
-| **Severity** | Medium |
+| **Raw severity** | `Medium` |
+| **Effective severity** | Medium |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1023,7 +1203,13 @@ Both gates this branch adds enumerate with -Force and say why: .github/ is hidde
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1050,7 +1236,13 @@ The final ordering sorts the composite keys and then, for each sorted key, pipes
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -1077,7 +1269,13 @@ The collision check rejects the existing epic ID before execution reaches the br
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -1105,7 +1303,13 @@ The eval design note says all ten plugins use the two-tier harness. The branch a
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1133,7 +1337,13 @@ Add-LedgerEntry.ps1 canonicalizes its -Plan argument through Resolve-LedgerPlanI
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -1160,7 +1370,13 @@ Auto-resolved commits are checked for command failure, but caller-supplied value
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `architecture-patterns` |
 | **Declared model labels** | GPT-5.6 Sol (copilot) |
 | **Raw findings** | 1 |
@@ -1189,7 +1405,13 @@ The design note says any assets/ directory selects the assets layout. The implem
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1216,7 +1438,13 @@ Four separate recursive plan.md enumerations of docs/implementation-plans appear
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1245,7 +1473,13 @@ All fourteen concern agents emit a title-cased section header. Everything downst
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `performance` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1272,7 +1506,13 @@ The manifest set is walked twice and Read-JsonFile is called on each plugin.json
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1300,7 +1540,13 @@ Every failure-path case in SkillSize.Tests.ps1 passes an explicit -MaxBytes 1024
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1329,7 +1575,13 @@ Every failure-path case in SkillSize.Tests.ps1 passes an explicit -MaxBytes 1024
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `maintainability-consistency` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1357,7 +1609,13 @@ Both eval specs were updated to add the skills directory to the bundle but kept 
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `correctness-reliability` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |
@@ -1385,7 +1643,13 @@ Both Invoke-Git helpers pass -z and then reassemble by joining on newline and sp
 
 | | |
 |---|---|
-| **Severity** | Low |
+| **Raw severity** | `Low` |
+| **Effective severity** | Low |
+| **Support count** | 1 |
+| **Attendance state** | `clean` |
+| **Similarity** | `none` |
+| **Corroboration state** | `single-source` |
+| **Reason** | one declared model label reported this finding with complete attendance |
 | **Concerns** | `testing-evidence` |
 | **Declared model labels** | Claude Opus 5 (copilot) |
 | **Raw findings** | 1 |

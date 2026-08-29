@@ -396,6 +396,21 @@ support never elevate. Suspicious support sets `NeedsReview`, carries a `needs-r
 an `approved` retained-result verdict invalid even when its effective severity is otherwise
 non-blocking.
 
+Each projected finding exposes the engine-owned fields `SupportCount`, `AttendanceState`,
+`Similarity`, `CorroborationState`, `RawSeverity`, `EffectiveSeverity`, and `Reason`; none is accepted
+from the review-run envelope. The summary renders all seven beside each merged title. The full view
+renders the same values in each finding's detail table, keeps every raw record and its original
+severity, and labels recommendations with effective severity.
+
+Plan finalization retains the gate-relevant part of that truth without replacing the bounded v1
+lifecycle. The compact report records raw/effective severity distributions, corroboration and
+similarity distributions, needs-review count, and the complete support/attendance/similarity/reason
+tuple for each displayed blocking or non-blocking needs-review finding. The digest-bound receipt
+carries the same aggregate distributions. The 8 KiB retained-report bound, manifest-last publication,
+verified replay, cleanup tombstone, and exact retained-pair repair rules are unchanged. The committed
+corpus reference renderer and byte goldens include these fields so production and fixture rendering
+remain independently derived.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a

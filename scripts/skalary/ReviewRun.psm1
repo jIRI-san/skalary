@@ -70,10 +70,10 @@ $script:AdmissionName = '.review-run.admission.json'
 $script:AdmissionDiscriminator = 'skalary/review-admission@1'
 
 $script:ArtifactRole = [ordered]@{
-    plan            = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
-    canonical       = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
-    summary         = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
-    full            = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
+    plan = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
+    canonical = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
+    summary = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
+    full = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
     admissionSource = [pscustomobject]@{ Prefix = $script:AdmissionSourcePrefix; Extension = '.json' }
 }
 
@@ -85,12 +85,12 @@ $script:RemoveTreeProvider = $null
 # These literal paths are the closed schema sidecar closure copied by Sync-PluginScripts. Root
 # execution still uses the canonical schemas/review directory; installed execution uses these copies.
 $script:BundledSchemaPath = [ordered]@{
-    'review-limits.schema.json'    = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
+    'review-limits.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
     'review-admission.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-admission.schema.json'
-    'review-manifest.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
-    'review-plan.schema.json'      = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
-    'review-run.schema.json'       = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
-    'terminal-status.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
+    'review-manifest.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
+    'review-plan.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
+    'review-run.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
+    'terminal-status.schema.json' = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
 }
 $script:BundledPlanStatePath = Join-Path $PSScriptRoot 'PlanState.psm1'
 $canonicalModulePath = [System.IO.Path]::GetFullPath(
@@ -459,8 +459,8 @@ function Get-ReviewMergeKey {
 
     $title = ([string](Get-ReviewValue -Node $Finding -Name 'title')).Trim()
     $references = @(@(Sort-ReviewOrdinal -Value @(Get-ReviewValue -Node $Finding -Name 'references')) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
-        ForEach-Object { ([string]$_).Trim() })
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            ForEach-Object { ([string]$_).Trim() })
 
     $rootCause = [string](Get-ReviewValue -Node $Finding -Name 'rootCause')
     if ([string]::IsNullOrWhiteSpace($rootCause)) { $rootCause = $title }
@@ -560,11 +560,11 @@ function ConvertTo-ReviewProjection {
         $task = $taskById[$taskId]
         $diagnostic = [string](Get-ReviewValue -Node $task -Name 'diagnostic')
         $orderedTasks.Add([pscustomobject]@{
-                TaskId      = $taskId
-                Concern     = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model       = [string](Get-ReviewValue -Node $task -Name 'model')
-                Outcome     = [string](Get-ReviewValue -Node $task -Name 'outcome')
-                Diagnostic  = $diagnostic
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Outcome = [string](Get-ReviewValue -Node $task -Name 'outcome')
+                Diagnostic = $diagnostic
                 RawFindings = $(if ($findingsByTask.ContainsKey($taskId)) { [int]$findingsByTask[$taskId] } else { 0 })
             })
     }
@@ -584,8 +584,8 @@ function ConvertTo-ReviewProjection {
         $body = [string](Get-ReviewValue -Node $finding -Name 'body')
         $action = [string](Get-ReviewValue -Node $finding -Name 'action')
         $references = @(@(Get-ReviewValue -Node $finding -Name 'references') |
-            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
-            ForEach-Object { ([string]$_).Trim() })
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+                ForEach-Object { ([string]$_).Trim() })
 
         $rootCause = [string](Get-ReviewValue -Node $finding -Name 'rootCause')
         if ([string]::IsNullOrWhiteSpace($rootCause)) { $rootCause = $title }
@@ -595,15 +595,15 @@ function ConvertTo-ReviewProjection {
         $key = Get-ReviewMergeKey -Finding $finding
         if (-not $groups.Contains($key)) {
             $groups[$key] = [pscustomobject]@{
-                Key        = $key
-                Titles     = [System.Collections.Generic.List[string]]::new()
-                Bodies     = [System.Collections.Generic.List[string]]::new()
-                Actions    = [System.Collections.Generic.List[string]]::new()
-                Concerns   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Models     = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Key = $key
+                Titles = [System.Collections.Generic.List[string]]::new()
+                Bodies = [System.Collections.Generic.List[string]]::new()
+                Actions = [System.Collections.Generic.List[string]]::new()
+                Concerns = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Models = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
                 References = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Raw        = [System.Collections.Generic.List[object]]::new()
-                Rank       = 0
+                Raw = [System.Collections.Generic.List[object]]::new()
+                Rank = 0
             }
         }
 
@@ -616,15 +616,15 @@ function ConvertTo-ReviewProjection {
         foreach ($reference in $references) { [void]$group.References.Add($reference) }
         if ($script:SeverityRank[$severity] -gt $group.Rank) { $group.Rank = $script:SeverityRank[$severity] }
         $group.Raw.Add([pscustomobject]@{
-                TaskId     = $taskId
-                Concern    = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model      = [string](Get-ReviewValue -Node $task -Name 'model')
-                Severity   = $severity
-                Title      = $title
-                Body       = $body
-                Action     = $action
-                RootCause  = $rootCause
-                Component  = $component
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Severity = $severity
+                Title = $title
+                Body = $body
+                Action = $action
+                RootCause = $rootCause
+                Component = $component
                 References = $references
             })
     }
@@ -723,7 +723,7 @@ function ConvertTo-ReviewProjection {
             }
         }
 
-        $support = if ($similarity -ne 'none') {
+        $corroborationState = if ($similarity -ne 'none') {
             'suspicious'
         }
         elseif ($state -ne 'clean') {
@@ -735,9 +735,9 @@ function ConvertTo-ReviewProjection {
         else {
             'single-source'
         }
-        $elevated = $support -eq 'corroborated' -and $unanimous -and $group.Rank -lt 4
+        $elevated = $corroborationState -eq 'corroborated' -and $unanimous -and $group.Rank -lt 4
         $rank = $group.Rank + $(if ($elevated) { 1 } else { 0 })
-        $reason = switch ($support) {
+        $reason = switch ($corroborationState) {
             'suspicious' {
                 "needs-review: $similarity normalized finding text appears under distinct declared model labels; severity elevation suppressed"
             }
@@ -758,27 +758,27 @@ function ConvertTo-ReviewProjection {
         }
 
         $entries.Add([pscustomobject]@{
-                Key        = $group.Key
-                Title      = $title
-                Rank       = $rank
-                Severity   = $script:SeverityByRank[$rank]
-                Elevated   = $elevated
-                Concerns   = $concerns
-                Models     = $models
-                Bodies     = @($distinctBodies)
+                Key = $group.Key
+                Title = $title
+                Rank = $rank
+                Severity = $script:SeverityByRank[$rank]
+                Elevated = $elevated
+                Concerns = $concerns
+                Models = $models
+                Bodies = @($distinctBodies)
                 References = @(Sort-ReviewOrdinal -Value @($group.References))
-                Action     = $action
-                Raw        = @($raw)
-                RawCount   = $group.Raw.Count
+                Action = $action
+                Raw = @($raw)
+                RawCount = $group.Raw.Count
                 Similarity = $similarity
-                Support    = $support
+                CorroborationState = $corroborationState
                 SupportCount = $models.Count
                 AttendanceState = $state
-                RawRank    = $group.Rank
+                RawRank = $group.Rank
                 RawSeverity = $script:SeverityByRank[$group.Rank]
                 EffectiveSeverity = $script:SeverityByRank[$rank]
-                NeedsReview = $support -eq 'suspicious'
-                Reason     = $reason
+                NeedsReview = $corroborationState -eq 'suspicious'
+                Reason = $reason
             })
     }
 
@@ -798,20 +798,20 @@ function ConvertTo-ReviewProjection {
     $sorted = @(Sort-ReviewArrayByKey -Items @($entries) -KeyScript { param($entry) $sortKeys[$entry.Key] })
 
     return [pscustomobject]@{
-        RunId            = [string](Get-ReviewValue -Node $Run -Name 'runId')
-        ReviewType       = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
-        ContentTrust     = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
-        Scope            = [string](Get-ReviewValue -Node $Run -Name 'scope')
-        ScopeAuthority   = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
-        PlanDigest       = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
+        RunId = [string](Get-ReviewValue -Node $Run -Name 'runId')
+        ReviewType = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
+        ContentTrust = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
+        Scope = [string](Get-ReviewValue -Node $Run -Name 'scope')
+        ScopeAuthority = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
+        PlanDigest = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
         InvocationBudget = [int](Get-ReviewValue -Node $Run -Name 'invocationBudget')
-        ModelSelection   = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
-        Roster           = $roster
-        Tasks            = @($orderedTasks)
-        Attendance       = $attendance
-        State            = $state
-        Findings         = $sorted
-        RawFindingCount  = $findings.Count
+        ModelSelection = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
+        Roster = $roster
+        Tasks = @($orderedTasks)
+        Attendance = $attendance
+        State = $state
+        Findings = $sorted
+        RawFindingCount = $findings.Count
     }
 }
 
@@ -848,8 +848,28 @@ function Get-ReviewHeaderTable {
 function Get-ReviewSeverityCell {
     param([Parameter(Mandatory)][object]$Entry)
 
-    if ($Entry.Elevated) { return "$($Entry.Severity) (elevated — flagged under every declared model label)" }
-    return [string]$Entry.Severity
+    if ($Entry.Elevated) { return "$($Entry.EffectiveSeverity) (elevated — flagged under every declared model label)" }
+    return [string]$Entry.EffectiveSeverity
+}
+
+function Get-ReviewSeverityCode {
+    param([Parameter(Mandatory)][string]$Severity)
+
+    return [string]@{ Critical = 'C'; High = 'H'; Medium = 'M'; Low = 'L' }[$Severity]
+}
+
+function Get-ReviewEvidenceCode {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Attendance', 'Similarity', 'Corroboration')][string]$Kind,
+        [Parameter(Mandatory)][string]$Value
+    )
+
+    $codes = switch ($Kind) {
+        'Attendance' { @{ clean = 'C'; degraded = 'D' } }
+        'Similarity' { @{ none = 'N'; 'near-duplicate' = '~'; exact = 'X' } }
+        default { @{ corroborated = 'C'; 'single-source' = '1'; suspicious = 'S'; degraded = 'D' } }
+    }
+    return [string]$codes[$Value]
 }
 
 function Get-ReviewRunSummaryView {
@@ -891,13 +911,31 @@ function Get-ReviewRunSummaryView {
         return (($lines -join "`n") + "`n")
     }
 
-    $lines.Add('| # | Severity | Title |')
-    $lines.Add('|---|---|---|')
+    $lines.Add('| # | Raw severity → effective severity | Support / attendance / similarity / corroboration | Title | Reason |')
+    $lines.Add('|---|---|---|---|---|')
+    $reasonIds = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
     $index = 0
     foreach ($entry in $merged) {
         $index++
-        $severity = $(if ($entry.Elevated) { "$($entry.Severity) (elevated)" } else { [string]$entry.Severity })
-        $lines.Add("| $(Format-ReviewInvariant -Value $index) | $severity | $(ConvertTo-ReviewInlineText -Value $entry.Title) |")
+        if (-not $reasonIds.Contains($entry.Reason)) {
+            $reasonIds[$entry.Reason] = 'R' + (Format-ReviewInvariant -Value ($reasonIds.Count + 1))
+        }
+        $lines.Add("| $(Format-ReviewInvariant -Value $index) | $(Get-ReviewSeverityCode -Severity $entry.RawSeverity)→" +
+            "$(Get-ReviewSeverityCode -Severity $entry.EffectiveSeverity) | $(Format-ReviewInvariant -Value $entry.SupportCount)/" +
+            "$(Get-ReviewEvidenceCode -Kind Attendance -Value $entry.AttendanceState)/" +
+            "$(Get-ReviewEvidenceCode -Kind Similarity -Value $entry.Similarity)/" +
+            "$(Get-ReviewEvidenceCode -Kind Corroboration -Value $entry.CorroborationState) | " +
+            "$(ConvertTo-ReviewInlineText -Value $entry.Title) | " +
+            "$(ConvertTo-ReviewCodeSpan -Value ([string]$reasonIds[$entry.Reason])) |")
+    }
+    $lines.Add('')
+    $lines.Add('### Reason legend')
+    $lines.Add('')
+    $lines.Add('Severity: C = Critical; H = High; M = Medium; L = Low.')
+    $lines.Add('Evidence: support count / attendance (C = clean, D = degraded) / similarity (N = none, ~ = near-duplicate, X = exact) / corroboration (C = corroborated, 1 = single-source, S = suspicious, D = degraded).')
+    $lines.Add('')
+    foreach ($reason in $reasonIds.Keys) {
+        $lines.Add("- $(ConvertTo-ReviewCodeSpan -Value ([string]$reasonIds[$reason])) — $(ConvertTo-ReviewInlineText -Value ([string]$reason))")
     }
     $lines.Add('')
 
@@ -959,7 +997,13 @@ function Get-ReviewRunFullView {
         $lines.Add('')
         $lines.Add('| | |')
         $lines.Add('|---|---|')
-        $lines.Add("| **Severity** | $(Get-ReviewSeverityCell -Entry $entry) |")
+        $lines.Add("| **Raw severity** | $(ConvertTo-ReviewCodeSpan -Value $entry.RawSeverity) |")
+        $lines.Add("| **Effective severity** | $(Get-ReviewSeverityCell -Entry $entry) |")
+        $lines.Add("| **Support count** | $(Format-ReviewInvariant -Value $entry.SupportCount) |")
+        $lines.Add("| **Attendance state** | $(ConvertTo-ReviewCodeSpan -Value $entry.AttendanceState) |")
+        $lines.Add("| **Similarity** | $(ConvertTo-ReviewCodeSpan -Value $entry.Similarity) |")
+        $lines.Add("| **Corroboration state** | $(ConvertTo-ReviewCodeSpan -Value $entry.CorroborationState) |")
+        $lines.Add("| **Reason** | $(ConvertTo-ReviewInlineText -Value $entry.Reason) |")
         $lines.Add("| **Concerns** | $(@($entry.Concerns | ForEach-Object { ConvertTo-ReviewCodeSpan -Value $_ }) -join ' · ') |")
         $lines.Add("| **Declared model labels** | $(@($entry.Models | ForEach-Object { ConvertTo-ReviewInlineText -Value $_ }) -join ' · ') |")
         $lines.Add("| **Raw findings** | $(Format-ReviewInvariant -Value $entry.RawCount) |")
@@ -1004,7 +1048,7 @@ function Get-ReviewRunFullView {
     foreach ($entry in $merged) {
         $index++
         $action = $(if ([string]::IsNullOrWhiteSpace($entry.Action)) { $entry.Title } else { $entry.Action })
-        $lines.Add("$(Format-ReviewInvariant -Value $index). **\[$($entry.Severity)\] $(ConvertTo-ReviewInlineText -Value $entry.Title)** — $(ConvertTo-ReviewInlineText -Value $action)")
+        $lines.Add("$(Format-ReviewInvariant -Value $index). **\[$($entry.EffectiveSeverity)\] $(ConvertTo-ReviewInlineText -Value $entry.Title)** — $(ConvertTo-ReviewInlineText -Value $action)")
     }
     $lines.Add('')
 
@@ -1720,8 +1764,8 @@ function Get-ReviewTerminalStatusShape {
     }
 
     return [pscustomobject]@{
-        ExitCode      = $exitCode
-        State         = $state
+        ExitCode = $exitCode
+        State = $state
         HasValidRunId = $hasValidRunId
         RejectedRunId = $rejectedRunId
     }
@@ -1829,13 +1873,13 @@ function New-ReviewResult {
         [object]$Summary
     )
     return [pscustomobject]@{
-        Mode        = $Mode
-        ExitCode    = $ExitCode
-        State       = $State
-        Message     = $Message
-        RunId       = $RunId
+        Mode = $Mode
+        ExitCode = $ExitCode
+        State = $State
+        Message = $Message
+        RunId = $RunId
         Diagnostics = @($Diagnostic)
-        Summary     = $Summary
+        Summary = $Summary
     }
 }
 
@@ -2025,8 +2069,8 @@ function Resolve-ReviewRunPreparation {
     foreach ($candidate in @($store, $runRoot)) { Assert-ReviewPathSafe -Path $candidate -Boundary $repoFull }
 
     return [pscustomobject]@{
-        schema  = 'skalary/review-prepare@1'
-        runId   = $RunId
+        schema = 'skalary/review-prepare@1'
+        runId = $RunId
         runRoot = [System.IO.Path]::GetFullPath($runRoot)
     }
 }
@@ -2257,8 +2301,8 @@ function Get-ReviewFrozenPlanFile {
 
     $pattern = Get-ReviewContentNamePattern -Role 'plan'
     return @(Get-ChildItem -LiteralPath $RunDir -File -Force -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -cmatch $pattern } |
-        Sort-Object -Property Name)
+            Where-Object { $_.Name -cmatch $pattern } |
+            Sort-Object -Property Name)
 }
 
 function Get-ReviewFrozenMarkerDigest {
@@ -2337,11 +2381,11 @@ function Read-ReviewFrozenPlan {
     }
 
     return [pscustomobject]@{
-        Path   = $files[0].FullName
-        Name   = $files[0].Name
-        Bytes  = $bytes
+        Path = $files[0].FullName
+        Name = $files[0].Name
+        Bytes = $bytes
         Digest = $digest
-        Plan   = $plan
+        Plan = $plan
     }
 }
 
@@ -2382,13 +2426,13 @@ function Write-ReviewAdmissionMarker {
 
     $marker = [ordered]@{
         maxPartitions = 16
-        maxRestarts   = 1
-        mode          = $Mode
-        reasons       = @(Sort-ReviewOrdinal -Value @($Reason))
-        restartable   = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
-        runId         = $RunId
-        schema        = $script:AdmissionDiscriminator
-        state         = 'admission'
+        maxRestarts = 1
+        mode = $Mode
+        reasons = @(Sort-ReviewOrdinal -Value @($Reason))
+        restartable = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
+        runId = $RunId
+        schema = $script:AdmissionDiscriminator
+        state = 'admission'
     }
     $sourcePath = $null
     try {
@@ -3137,18 +3181,18 @@ function Invoke-ReviewPublishCore {
             Invoke-ReviewFaultSeam -Edge 'after-full'
 
             $manifest = [ordered]@{
-                schema       = $script:ManifestDiscriminator
-                runId        = $RunId
-                state        = 'published'
+                schema = $script:ManifestDiscriminator
+                runId = $RunId
+                state = 'published'
                 contentTrust = [string](Get-ReviewValue -Node $canonicalRun -Name 'contentTrust')
-                scopeDigest  = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
-                planDigest   = $frozenPlanDigest
-                runDigest    = $runDigest
-                files        = [ordered]@{
-                    plan      = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
+                scopeDigest = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
+                planDigest = $frozenPlanDigest
+                runDigest = $runDigest
+                files = [ordered]@{
+                    plan = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
                     canonical = [ordered]@{ name = $canonicalName; digest = $runDigest; bytes = $canonicalBytes.Length }
-                    summary   = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
-                    full      = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
+                    summary = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
+                    full = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
                 }
             }
             $manifestJson = (ConvertTo-Json -InputObject $manifest -Depth 10 -Compress) + "`n"
@@ -3341,9 +3385,9 @@ function Read-ReviewManifest {
 
     # Identity binding: the canonical envelope must name this run and the plan the manifest names.
     $canonical = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['canonical']) |
-    ConvertFrom-Json -AsHashtable -Depth 40
+        ConvertFrom-Json -AsHashtable -Depth 40
     $plan = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['plan']) |
-    ConvertFrom-Json -AsHashtable -Depth 40
+        ConvertFrom-Json -AsHashtable -Depth 40
     if (-not [string]::Equals([string](Get-ReviewValue -Node $canonical -Name 'runId'), [string]$manifest['runId'], [System.StringComparison]::Ordinal)) {
         throw 'the canonical envelope names a different run id than the manifest'
     }
@@ -3361,14 +3405,14 @@ function Read-ReviewManifest {
     }
 
     return [pscustomobject]@{
-        RunId      = [string]$manifest['runId']
+        RunId = [string]$manifest['runId']
         PlanDigest = [string]$manifest['planDigest']
-        RunDigest  = [string]$manifest['runDigest']
-        Files      = $verified
-        Bytes      = $verifiedBytes
-        Documents  = [ordered]@{ plan = $plan; canonical = $canonical }
-        Boundary   = $boundaryFull
-        Manifest   = $manifest
+        RunDigest = [string]$manifest['runDigest']
+        Files = $verified
+        Bytes = $verifiedBytes
+        Documents = [ordered]@{ plan = $plan; canonical = $canonical }
+        Boundary = $boundaryFull
+        Manifest = $manifest
         VerificationToken = $script:VerifiedAuthorityToken
     }
 }
@@ -3429,9 +3473,17 @@ function Get-ReviewRetainedReportText {
         [ValidateSet('approved', 'blocked')][string]$Verdict
     )
 
-    $severity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
-    foreach ($finding in @($Projection.Findings)) { $severity[[string]$finding.Severity]++ }
-    $blocking = @($Projection.Findings | Where-Object { $_.Severity -in @('Critical', 'High') })
+    $rawSeverity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
+    $effectiveSeverity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
+    $corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
+    $similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
+    foreach ($finding in @($Projection.Findings)) {
+        $rawSeverity[[string]$finding.RawSeverity]++
+        $effectiveSeverity[[string]$finding.EffectiveSeverity]++
+        $corroboration[[string]$finding.CorroborationState]++
+        $similarity[[string]$finding.Similarity]++
+    }
+    $blocking = @($Projection.Findings | Where-Object { $_.EffectiveSeverity -in @('Critical', 'High') })
     $needsReview = @($Projection.Findings | Where-Object { $_.NeedsReview })
     if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0 -or $needsReview.Count -gt 0)) {
         throw 'An approved review result requires a clean run with no Critical or High findings and no finding marked needs-review.'
@@ -3467,9 +3519,17 @@ function Get-ReviewRetainedReportText {
     $lines.Add('')
     $lines.Add('## Findings')
     $lines.Add('')
-    $lines.Add('| Critical | High | Medium | Low | Merged | Raw |')
-    $lines.Add('|---:|---:|---:|---:|---:|---:|')
-    $lines.Add("| $($severity.Critical) | $($severity.High) | $($severity.Medium) | $($severity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add('| Severity basis | Critical | High | Medium | Low | Merged | Raw |')
+    $lines.Add('|---|---:|---:|---:|---:|---:|---:|')
+    $lines.Add("| Raw | $($rawSeverity.Critical) | $($rawSeverity.High) | $($rawSeverity.Medium) | $($rawSeverity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add("| Effective | $($effectiveSeverity.Critical) | $($effectiveSeverity.High) | $($effectiveSeverity.Medium) | $($effectiveSeverity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add('')
+    $lines.Add('## Corroboration')
+    $lines.Add('')
+    $lines.Add('| Corroborated | Single source | Suspicious | Degraded | Similarity none | Near duplicate | Exact | Needs review |')
+    $lines.Add('|---:|---:|---:|---:|---:|---:|---:|---:|')
+    $lines.Add("| $($corroboration.corroborated) | $($corroboration.'single-source') | $($corroboration.suspicious) | " +
+        "$($corroboration.degraded) | $($similarity.none) | $($similarity.'near-duplicate') | $($similarity.exact) | $($needsReview.Count) |")
     $lines.Add('')
     $lines.Add('## Blocking findings')
     $lines.Add('')
@@ -3480,9 +3540,32 @@ function Get-ReviewRetainedReportText {
         $shown = [Math]::Min($blocking.Count, 20)
         for ($index = 0; $index -lt $shown; $index++) {
             $finding = $blocking[$index]
-            $lines.Add("$($index + 1). **$($finding.Severity)** — $(Limit-ReviewRetainedInlineText -Value $finding.Title)")
+            $lines.Add("$($index + 1). **Effective $($finding.EffectiveSeverity) (raw $($finding.RawSeverity))** — " +
+                "$(Limit-ReviewRetainedInlineText -Value $finding.Title) — corroboration=$($finding.CorroborationState); " +
+                "support=$($finding.SupportCount); attendance=$($finding.AttendanceState); similarity=$($finding.Similarity); " +
+                "reason=$(Limit-ReviewRetainedInlineText -Value $finding.Reason -MaxBytes 160)")
         }
         if ($shown -lt $blocking.Count) { $lines.Add("- $($blocking.Count - $shown) additional blocking finding(s) omitted from this compact result.") }
+    }
+    $lines.Add('')
+    $lines.Add('## Non-blocking needs-review findings')
+    $lines.Add('')
+    $nonBlockingNeedsReview = @($needsReview | Where-Object { $_.EffectiveSeverity -notin @('Critical', 'High') })
+    if ($nonBlockingNeedsReview.Count -eq 0) {
+        $lines.Add('None.')
+    }
+    else {
+        $shown = [Math]::Min($nonBlockingNeedsReview.Count, 20)
+        for ($index = 0; $index -lt $shown; $index++) {
+            $finding = $nonBlockingNeedsReview[$index]
+            $lines.Add("$($index + 1). **Effective $($finding.EffectiveSeverity) (raw $($finding.RawSeverity))** — " +
+                "$(Limit-ReviewRetainedInlineText -Value $finding.Title) — corroboration=$($finding.CorroborationState); " +
+                "support=$($finding.SupportCount); attendance=$($finding.AttendanceState); similarity=$($finding.Similarity); " +
+                "reason=$(Limit-ReviewRetainedInlineText -Value $finding.Reason -MaxBytes 160)")
+        }
+        if ($shown -lt $nonBlockingNeedsReview.Count) {
+            $lines.Add("- $($nonBlockingNeedsReview.Count - $shown) additional needs-review finding(s) omitted from this compact result.")
+        }
     }
     $text = ($lines -join "`n") + "`n"
     $maximum = [int](Get-ReviewLimits)['maxRetainedReportBytes']
@@ -3524,8 +3607,18 @@ function Get-ReviewFinalizationMaterial {
     $projection = ConvertTo-ReviewProjection -Run $Verified.Run
     $reportBytes = $script:Utf8NoBom.GetBytes((Get-ReviewRetainedReportText -Projection $projection -Verdict $Verdict))
     $authority = $projection.ScopeAuthority
-    $severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
-    foreach ($finding in @($projection.Findings)) { $severity[[string]$finding.Severity.ToLowerInvariant()]++ }
+    $rawSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    $effectiveSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    $corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
+    $similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
+    $needsReview = 0
+    foreach ($finding in @($projection.Findings)) {
+        $rawSeverity[[string]$finding.RawSeverity.ToLowerInvariant()]++
+        $effectiveSeverity[[string]$finding.EffectiveSeverity.ToLowerInvariant()]++
+        $corroboration[[string]$finding.CorroborationState]++
+        $similarity[[string]$finding.Similarity]++
+        if ($finding.NeedsReview) { $needsReview++ }
+    }
     $source = [ordered]@{
         mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
         pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
@@ -3550,7 +3643,11 @@ function Get-ReviewFinalizationMaterial {
         findings = [ordered]@{
             merged = $projection.Findings.Count
             raw = $projection.RawFindingCount
-            severity = $severity
+            severity = $effectiveSeverity
+            rawSeverity = $rawSeverity
+            corroboration = $corroboration
+            similarity = $similarity
+            needsReview = $needsReview
         }
         report = [ordered]@{
             name = [System.IO.Path]::GetFileName($ReportPath)
@@ -3582,8 +3679,8 @@ function Test-ReviewFinalizedPair {
     try { $receipt = [System.Text.Encoding]::UTF8.GetString($receiptBytes) | ConvertFrom-Json -AsHashtable -Depth 20 }
     catch { return $false }
     return $receipt['schema'] -eq 'skalary/review-result-receipt@1' -and
-        $receipt['report']['bytes'] -eq $reportBytes.Length -and
-        $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
+    $receipt['report']['bytes'] -eq $reportBytes.Length -and
+    $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
 }
 
 function Get-ReviewCleanupMarker {
@@ -3756,7 +3853,7 @@ function Finalize-ReviewPlanRun {
                 Invoke-ReviewFaultSeam -Edge 'after-final-report'
                 Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
                 if (-not (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
-                        -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes)) {
+                            -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes)) {
                     throw "Finalized review result '$RunId' did not verify after publication."
                 }
             }
@@ -3864,13 +3961,13 @@ function Get-ReviewAdmissionRollup {
     $expectedFindings = @(Get-ReviewValue -Node $parentRun -Name 'findings')
 
     return [pscustomobject]@{
-        schema          = 'skalary/review-admission-rollup@1'
-        state           = 'verified'
-        parentRunId     = $ParentRunId
+        schema = 'skalary/review-admission-rollup@1'
+        state = 'verified'
+        parentRunId = $ParentRunId
         parentRunDigest = [string]$admission.Marker['parentRunDigest']
-        scopeDigest     = [string]$admission.Marker['scopeDigest']
-        findingCount    = $expectedFindings.Count
-        partitions      = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
+        scopeDigest = [string]$admission.Marker['scopeDigest']
+        findingCount = $expectedFindings.Count
+        partitions = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
     }
 }
 

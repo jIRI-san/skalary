@@ -304,7 +304,7 @@ Describe 'review report corpus' {
             $text.IsNormalized([System.Text.NormalizationForm]::FormC) | Should -BeTrue
             $text | Should -Match "`n$" -Because 'both views end with exactly one newline'
         }
-        [string]$script:expectation.ownedByStep | Should -Be '1.1'
+        [string]$script:expectation.ownedByStep | Should -Be 'ca8ba8/2.1'
         [string]$script:expectation.status | Should -Be 'committed'
     }
 
@@ -341,7 +341,8 @@ Describe 'review report corpus' {
 
         # The summary names every merged severity/title exactly once as a numbered row, and carries
         # the attendance totals for every outcome the contract defines.
-        @([regex]::Matches($summary, '(?m)^\| \d+ \| (Critical|High|Medium|Low)')).Count | Should -Be 44
+        @([regex]::Matches($summary, '(?m)^\| \d+ \| [CHML]→[CHML] \|')).Count |
+            Should -Be 44
         $attendance = $script:expectation.summary.requiredAttendance
         [int]$attendance.plannedTasks | Should -Be @($script:run.tasks).Count
         [int]$attendance.completed | Should -Be @($script:run.tasks | Where-Object { [string]$_.outcome -eq 'completed' }).Count

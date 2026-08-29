@@ -3,10 +3,10 @@
 .SYNOPSIS
     Regenerates the committed v1 summary/full goldens and the layout expectation from the corpus.
 .DESCRIPTION
-    Plan c21cdc REQ-4/REQ-5, step 1.1. The two published views need goldens now — separate from the
-    legacy report, across culture and platform — but the production renderer is step 1.2. The
-    goldens are therefore derived from the committed `skalary/review-run@1` envelope through the
-    test-only reference renderer in `ReviewLayoutReference.psm1`, which implements the contract
+    Plan c21cdc created the v1 goldens; plan ca8ba8 step 2.1 extends them with observable
+    corroboration fields. The goldens are derived from the committed `skalary/review-run@1`
+    envelope through the test-only reference renderer in `ReviewLayoutReference.psm1`, which
+    implements the contract
     rather than reading any golden.
 
     This script writes:
@@ -112,9 +112,9 @@ $expectationPath = Join-Path $CorpusDirectory 'new-layout.expectation.json'
 $expectation = Read-Json -Path $expectationPath
 
 $expectation['schema'] = 'skalary/review-layout-expectation@1'
-$expectation['ownedByStep'] = '1.1'
+$expectation['ownedByStep'] = 'ca8ba8/2.1'
 $expectation['status'] = 'committed'
-$expectation['description'] = 'The v1 layout of the two published views, pinned as committed byte goldens beside the closed content contract they satisfy. The goldens are produced from `gate-10.7-cr-branch.run.json` by the test-only reference renderer `ReviewLayoutReference.psm1`; the production renderer, publication and the `Freeze`/`Publish` CLI remain step 1.2 and must reproduce these bytes. Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`.'
+$expectation['description'] = 'The v1 layout of the two published views, extended by plan ca8ba8 step 2.1 with observable corroboration fields and pinned as committed byte goldens beside the closed content contract they satisfy. The goldens are produced from `gate-10.7-cr-branch.run.json` by the test-only reference renderer `ReviewLayoutReference.psm1`; the production renderer, publication and the `Freeze`/`Publish` CLI must reproduce these bytes. Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`.'
 $expectation['corpus'] = 'gate-10.7-cr-branch.run.json'
 $expectation['renderer'] = 'ReviewLayoutReference.psm1'
 $expectation['bounds'] = [ordered]@{
@@ -129,7 +129,7 @@ $expectation['encoding'] = [ordered]@{
     cultureInvariant = $true
     untrustedFields = [ordered]@{
         inline = 'scope, model names, titles, actions, references and task diagnostics are NFC-normalized, whitespace-collapsed, HTML-encoded and Markdown-escaped before they reach a line or a table cell'
-        block  = 'bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain; content trust is carried by the schema field and rendered marker rather than directive prose'
+        block = 'bodies are NFC/LF-normalized, HTML-encoded and wrapped in a backtick fence longer than any backtick run they contain; content trust is carried by the schema field and rendered marker rather than directive prose'
         code = 'only schema-patterned identifiers (run id, task id, concern, outcome, severity, digest) are rendered as code spans'
     }
 }
@@ -188,7 +188,7 @@ Write-Utf8NoBom -Path $expectationPath -Text (((ConvertTo-Json -InputObject $ord
 $provenancePath = Join-Path $CorpusDirectory 'gate-10.7-cr-branch.provenance.json'
 $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json -Depth 40
 $newLayout = [ordered]@{
-    description = 'The v1 summary and full views of the same run, committed as byte goldens. They are derived from `gate-10.7-cr-branch.run.json` by the test-only reference renderer and are not a second copy of the archived Markdown: the archived report is the pre-change layout, these are the layout step 1.2 must reproduce.'
+    description = 'The v1 summary and full views of the same run, including the plan ca8ba8 corroboration fields, committed as byte goldens. They are derived from `gate-10.7-cr-branch.run.json` by the test-only reference renderer and are not a second copy of the archived Markdown.'
     renderer = 'tests/skalary/fixtures/review-run/ReviewLayoutReference.psm1'
     generator = 'tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1'
     expectation = 'new-layout.expectation.json'

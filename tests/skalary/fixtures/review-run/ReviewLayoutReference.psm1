@@ -3,15 +3,15 @@
 .SYNOPSIS
     Test-only reference renderer for the v1 `summary` and `full` review views.
 .DESCRIPTION
-    Plan c21cdc REQ-4/REQ-5/D5/D15, step 1.1.
+    Plan c21cdc REQ-4/REQ-5/D5/D15, extended by plan ca8ba8 step 2.1.
 
     Step 1.1 owns the data contract and the layout the two published views must have; step 1.2 owns
     the production renderer, `Freeze`/`Publish` and the module that carries them. That leaves a gap
     a committed golden cannot close on its own: a `.md` file compared against itself proves nothing.
 
     This module closes it. It derives both views from a `skalary/review-run@1` envelope using only
-    the contract — the merge, elevation and ordering rules `Build-ReviewReport.ps1` already
-    implements, plus the attendance and encoding rules D4/D5/D15 add — and returns exact strings.
+    the contract — merge, corroboration, elevation, ordering, attendance, and encoding rules — and
+    returns exact strings.
     `ReviewReportCorpus.Tests.ps1` renders the committed corpus through it under four cultures and
     shuffled input and requires the bytes to equal the committed goldens; the goldens are the
     fixture, the renderer is the derivation, and neither is read from the other.
@@ -103,6 +103,51 @@ function Get-ReviewNormalizedKey {
     if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
     $canonical = $Value.Normalize([System.Text.NormalizationForm]::FormC)
     return ([regex]::Replace($canonical.ToLowerInvariant(), '[^a-z0-9]+', ' ')).Trim()
+}
+
+function Get-FindingSimilarityProfile {
+    param([Parameter(Mandatory)][object]$Finding)
+
+    $normalized = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in @('Title', 'Body', 'Action')) {
+        $value = [string](Get-Value -Node $Finding -Name $name)
+        $canonical = $value.Normalize([System.Text.NormalizationForm]::FormC)
+        $canonical = $canonical -replace "`r`n", "`n" -replace "`r", "`n"
+        $normalized.Add(([regex]::Replace($canonical.ToLowerInvariant(), '[^\p{L}\p{Nd}]+', ' ')).Trim())
+    }
+
+    $content = ([regex]::Replace(($normalized -join ' '), '\s+', ' ')).Trim()
+    $tokens = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($token in $content.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        [void]$tokens.Add($token)
+    }
+    return [pscustomobject]@{
+        ExactKey = Get-OrdinalTupleKey -Value $normalized.ToArray()
+        Content = $content
+        Tokens = $tokens
+    }
+}
+
+function Get-FindingSimilarity {
+    param(
+        [Parameter(Mandatory)][object]$Left,
+        [Parameter(Mandatory)][object]$Right
+    )
+
+    if ([string]::Equals($Left.ExactKey, $Right.ExactKey, [System.StringComparison]::Ordinal)) {
+        return 'exact'
+    }
+    if ($Left.Content.Length -lt 48 -or $Right.Content.Length -lt 48 -or
+        $Left.Tokens.Count -lt 8 -or $Right.Tokens.Count -lt 8) {
+        return 'none'
+    }
+    $intersection = 0
+    foreach ($token in $Left.Tokens) {
+        if ($Right.Tokens.Contains($token)) { $intersection++ }
+    }
+    $union = $Left.Tokens.Count + $Right.Tokens.Count - $intersection
+    if ($union -gt 0 -and ($intersection * 10) -ge ($union * 9)) { return 'near-duplicate' }
+    return 'none'
 }
 
 function ConvertTo-ReviewInlineText {
@@ -279,16 +324,12 @@ function ConvertTo-ReviewProjection {
                 }) | ForEach-Object { $_.Substring($_.LastIndexOf([char]1) + 1) })
         $concerns = @(Sort-Ordinal -Value @($group.Concerns))
 
-        # Unanimity across the declared roster is the only corroboration signal available, and it is
-        # a render-time decision: the stored severity is never rewritten.
         $observedModels = [System.Collections.Generic.HashSet[string]]::new(
             [string[]]$models,
             [System.StringComparer]::Ordinal
         )
         $unanimous = $roster.Count -ge 2 -and
         @($roster | Where-Object { -not $observedModels.Contains([string]$_) }).Count -eq 0
-        $rank = $group.Rank
-        if ($unanimous -and $rank -lt 4) { $rank++ }
 
         # Longest first ("preserve the strongest"), ordinal for ties, so the choice never depends on
         # the order reviewers returned in.
@@ -324,20 +365,75 @@ function ConvertTo-ReviewProjection {
             $rawByKey.Add($key, $record)
         }
         $raw = @(Sort-Ordinal -Value @($rawByKey.Keys))
+        $rawRecords = @($raw | ForEach-Object { $rawByKey[$_] })
+
+        $profiles = @($rawRecords | ForEach-Object { Get-FindingSimilarityProfile -Finding $_ })
+        $similarity = 'none'
+        for ($leftIndex = 0; $leftIndex -lt $rawRecords.Count -and $similarity -eq 'none'; $leftIndex++) {
+            for ($rightIndex = $leftIndex + 1; $rightIndex -lt $rawRecords.Count; $rightIndex++) {
+                if ([string]::Equals($rawRecords[$leftIndex].Model, $rawRecords[$rightIndex].Model, [System.StringComparison]::Ordinal)) {
+                    continue
+                }
+                $similarity = Get-FindingSimilarity -Left $profiles[$leftIndex] -Right $profiles[$rightIndex]
+                if ($similarity -ne 'none') { break }
+            }
+        }
+
+        $corroborationState = if ($similarity -ne 'none') {
+            'suspicious'
+        }
+        elseif ($state -ne 'clean') {
+            'degraded'
+        }
+        elseif ($models.Count -ge 2) {
+            'corroborated'
+        }
+        else {
+            'single-source'
+        }
+        $elevated = $corroborationState -eq 'corroborated' -and $unanimous -and $group.Rank -lt 4
+        $rank = $group.Rank + $(if ($elevated) { 1 } else { 0 })
+        $reason = switch ($corroborationState) {
+            'suspicious' {
+                "needs-review: $similarity normalized finding text appears under distinct declared model labels; severity elevation suppressed"
+            }
+            'degraded' {
+                'review attendance is degraded; severity elevation suppressed'
+            }
+            'corroborated' {
+                if ($unanimous) {
+                    'every declared model label reported this finding with complete attendance; no suspicious similarity observed'
+                }
+                else {
+                    'multiple declared model labels reported this finding with complete attendance; no suspicious similarity observed'
+                }
+            }
+            default {
+                'one declared model label reported this finding with complete attendance'
+            }
+        }
 
         $entries.Add([pscustomobject]@{
                 Key = $group.Key
                 Title = $title
                 Rank = $rank
                 Severity = $script:SeverityByRank[$rank]
-                Elevated = $unanimous
+                Elevated = $elevated
                 Concerns = $concerns
                 Models = $models
                 Bodies = @($distinctBodies)
                 References = @(Sort-Ordinal -Value @($group.References))
                 Action = $action
-                Raw = @($raw | ForEach-Object { $rawByKey[$_] })
+                Raw = $rawRecords
                 RawCount = $group.Raw.Count
+                Similarity = $similarity
+                CorroborationState = $corroborationState
+                SupportCount = $models.Count
+                AttendanceState = $state
+                RawSeverity = $script:SeverityByRank[$group.Rank]
+                EffectiveSeverity = $script:SeverityByRank[$rank]
+                NeedsReview = $corroborationState -eq 'suspicious'
+                Reason = $reason
             })
     }
 
@@ -410,8 +506,28 @@ function Get-HeaderTable {
 function Get-SeverityCell {
     param([Parameter(Mandatory)][object]$Entry)
 
-    if ($Entry.Elevated) { return "$($Entry.Severity) (elevated — flagged under every declared model label)" }
-    return [string]$Entry.Severity
+    if ($Entry.Elevated) { return "$($Entry.EffectiveSeverity) (elevated — flagged under every declared model label)" }
+    return [string]$Entry.EffectiveSeverity
+}
+
+function Get-SeverityCode {
+    param([Parameter(Mandatory)][string]$Severity)
+
+    return [string]@{ Critical = 'C'; High = 'H'; Medium = 'M'; Low = 'L' }[$Severity]
+}
+
+function Get-EvidenceCode {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Attendance', 'Similarity', 'Corroboration')][string]$Kind,
+        [Parameter(Mandatory)][string]$Value
+    )
+
+    $codes = switch ($Kind) {
+        'Attendance' { @{ clean = 'C'; degraded = 'D' } }
+        'Similarity' { @{ none = 'N'; 'near-duplicate' = '~'; exact = 'X' } }
+        default { @{ corroborated = 'C'; 'single-source' = '1'; suspicious = 'S'; degraded = 'D' } }
+    }
+    return [string]$codes[$Value]
 }
 
 function New-ReviewSummaryView {
@@ -452,13 +568,31 @@ function New-ReviewSummaryView {
         return (($lines -join "`n") + "`n")
     }
 
-    $lines.Add('| # | Severity | Title |')
-    $lines.Add('|---|---|---|')
+    $lines.Add('| # | Raw severity → effective severity | Support / attendance / similarity / corroboration | Title | Reason |')
+    $lines.Add('|---|---|---|---|---|')
+    $reasonIds = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
     $index = 0
     foreach ($entry in $merged) {
         $index++
-        $severity = $(if ($entry.Elevated) { "$($entry.Severity) (elevated)" } else { [string]$entry.Severity })
-        $lines.Add("| $(Format-Invariant -Value $index) | $severity | $(ConvertTo-ReviewInlineText -Value $entry.Title) |")
+        if (-not $reasonIds.Contains($entry.Reason)) {
+            $reasonIds[$entry.Reason] = 'R' + (Format-Invariant -Value ($reasonIds.Count + 1))
+        }
+        $lines.Add("| $(Format-Invariant -Value $index) | $(Get-SeverityCode -Severity $entry.RawSeverity)→" +
+            "$(Get-SeverityCode -Severity $entry.EffectiveSeverity) | $(Format-Invariant -Value $entry.SupportCount)/" +
+            "$(Get-EvidenceCode -Kind Attendance -Value $entry.AttendanceState)/" +
+            "$(Get-EvidenceCode -Kind Similarity -Value $entry.Similarity)/" +
+            "$(Get-EvidenceCode -Kind Corroboration -Value $entry.CorroborationState) | " +
+            "$(ConvertTo-ReviewInlineText -Value $entry.Title) | " +
+            "$(ConvertTo-ReviewCodeSpan -Value ([string]$reasonIds[$entry.Reason])) |")
+    }
+    $lines.Add('')
+    $lines.Add('### Reason legend')
+    $lines.Add('')
+    $lines.Add('Severity: C = Critical; H = High; M = Medium; L = Low.')
+    $lines.Add('Evidence: support count / attendance (C = clean, D = degraded) / similarity (N = none, ~ = near-duplicate, X = exact) / corroboration (C = corroborated, 1 = single-source, S = suspicious, D = degraded).')
+    $lines.Add('')
+    foreach ($reason in $reasonIds.Keys) {
+        $lines.Add("- $(ConvertTo-ReviewCodeSpan -Value ([string]$reasonIds[$reason])) — $(ConvertTo-ReviewInlineText -Value ([string]$reason))")
     }
     $lines.Add('')
 
@@ -519,7 +653,13 @@ function New-ReviewFullView {
         $lines.Add('')
         $lines.Add('| | |')
         $lines.Add('|---|---|')
-        $lines.Add("| **Severity** | $(Get-SeverityCell -Entry $entry) |")
+        $lines.Add("| **Raw severity** | $(ConvertTo-ReviewCodeSpan -Value $entry.RawSeverity) |")
+        $lines.Add("| **Effective severity** | $(Get-SeverityCell -Entry $entry) |")
+        $lines.Add("| **Support count** | $(Format-Invariant -Value $entry.SupportCount) |")
+        $lines.Add("| **Attendance state** | $(ConvertTo-ReviewCodeSpan -Value $entry.AttendanceState) |")
+        $lines.Add("| **Similarity** | $(ConvertTo-ReviewCodeSpan -Value $entry.Similarity) |")
+        $lines.Add("| **Corroboration state** | $(ConvertTo-ReviewCodeSpan -Value $entry.CorroborationState) |")
+        $lines.Add("| **Reason** | $(ConvertTo-ReviewInlineText -Value $entry.Reason) |")
         $lines.Add("| **Concerns** | $(@($entry.Concerns | ForEach-Object { ConvertTo-ReviewCodeSpan -Value $_ }) -join ' · ') |")
         $lines.Add("| **Declared model labels** | $(@($entry.Models | ForEach-Object { ConvertTo-ReviewInlineText -Value $_ }) -join ' · ') |")
         $lines.Add("| **Raw findings** | $(Format-Invariant -Value $entry.RawCount) |")
@@ -564,7 +704,7 @@ function New-ReviewFullView {
     foreach ($entry in $merged) {
         $index++
         $action = $(if ([string]::IsNullOrWhiteSpace($entry.Action)) { $entry.Title } else { $entry.Action })
-        $lines.Add("$(Format-Invariant -Value $index). **\[$($entry.Severity)\] $(ConvertTo-ReviewInlineText -Value $entry.Title)** — $(ConvertTo-ReviewInlineText -Value $action)")
+        $lines.Add("$(Format-Invariant -Value $index). **\[$($entry.EffectiveSeverity)\] $(ConvertTo-ReviewInlineText -Value $entry.Title)** — $(ConvertTo-ReviewInlineText -Value $action)")
     }
     $lines.Add('')
 
