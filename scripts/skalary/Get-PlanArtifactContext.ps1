@@ -41,7 +41,6 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
-$inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
 $artifactMap = [ordered]@{
     Intent    = 'Intent'
     Design    = 'Design'
@@ -63,6 +62,28 @@ using Microsoft.Win32.SafeHandles;
 
 public static class SkalaryPlanArtifactHandle
 {
+    public sealed class Identity
+    {
+        public string Value { get; set; }
+        public ulong LinkCount { get; set; }
+        public bool IsRegular { get; set; }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
+        public uint VolumeSerialNumber;
+        public uint FileSizeHigh;
+        public uint FileSizeLow;
+        public uint NumberOfLinks;
+        public uint FileIndexHigh;
+        public uint FileIndexLow;
+    }
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetFinalPathNameByHandle(
         SafeFileHandle handle,
@@ -70,8 +91,16 @@ public static class SkalaryPlanArtifactHandle
         uint pathLength,
         uint flags);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileInformationByHandle(
+        SafeFileHandle handle,
+        out ByHandleFileInformation information);
+
     [DllImport("libc", SetLastError = true)]
     private static extern int fcntl(int fd, int command, byte[] buffer);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int fstat(int fd, byte[] buffer);
 
     public static string GetPath(SafeFileHandle handle)
     {
@@ -134,6 +163,59 @@ public static class SkalaryPlanArtifactHandle
 
         throw new PlatformNotSupportedException("Opened artifact handle validation supports Windows, Linux, and macOS.");
     }
+
+    public static Identity GetIdentity(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            ByHandleFileInformation information;
+            if (!GetFileInformationByHandle(handle, out information))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            var fileIndex = ((ulong)information.FileIndexHigh << 32) | information.FileIndexLow;
+            return new Identity
+            {
+                Value = "windows:" + information.VolumeSerialNumber.ToString("x") + ":" + fileIndex.ToString("x"),
+                LinkCount = information.NumberOfLinks,
+                IsRegular = (information.FileAttributes & 0x10) == 0
+            };
+        }
+
+        var stat = new byte[256];
+        if (fstat(handle.DangerousGetHandle().ToInt32(), stat) != 0)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var device = BitConverter.ToUInt64(stat, 0);
+            var inode = BitConverter.ToUInt64(stat, 8);
+            var links = BitConverter.ToUInt64(stat, 16);
+            var mode = BitConverter.ToUInt32(stat, 24);
+            return new Identity
+            {
+                Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
+                LinkCount = links,
+                IsRegular = (mode & 0xF000) == 0x8000
+            };
+        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var device = BitConverter.ToUInt32(stat, 0);
+            var mode = BitConverter.ToUInt16(stat, 4);
+            var links = BitConverter.ToUInt16(stat, 6);
+            var inode = BitConverter.ToUInt64(stat, 8);
+            return new Identity
+            {
+                Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
+                LinkCount = links,
+                IsRegular = (mode & 0xF000) == 0x8000
+            };
+        }
+
+        throw new PlatformNotSupportedException("Opened artifact identity supports Windows, Linux, and macOS.");
+    }
 }
 '@
 }
@@ -153,7 +235,8 @@ function New-ArtifactCandidate {
         [AllowNull()][string]$Path,
         [AllowNull()][string]$Reason,
         [ValidateSet('Raw', 'LegacyDecisions')]
-        [string]$ReadMode = 'Raw'
+        [string]$ReadMode = 'Raw',
+        [AllowNull()][string]$CompanionPath = $null
     )
 
     return [pscustomobject][ordered]@{
@@ -173,6 +256,8 @@ function New-ArtifactCandidate {
         planPath     = if ($Plan) { $Plan.Path } else { $null }
         readMode     = $ReadMode
         stream       = $null
+        companionPath = $CompanionPath
+        companionStream = $null
     }
 }
 
@@ -244,11 +329,28 @@ function Open-ConfinedArtifact {
             throw "Opened artifact handle '$handlePath' does not match the confined file that was validated."
         }
 
-        $openedItem = Test-RegularConfinedFile -PlanPath $PlanPath -Path $Path
-        $openedPhysicalPath = Resolve-PhysicalRepoPath -Path $openedItem.FullName
-        if (-not [string]::Equals($openedPhysicalPath, $handlePhysicalPath, [System.StringComparison]::Ordinal) -or
-            $openedItem.Length -ne $stream.Length) {
-            throw "Artifact '$Path' changed while its stable read handle was opened."
+        $identity = [SkalaryPlanArtifactHandle]::GetIdentity($stream.SafeFileHandle)
+        if (-not $identity.IsRegular -or $identity.LinkCount -ne 1) {
+            throw "Opened artifact '$Path' is not a single-link regular file."
+        }
+
+        $verification = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read
+        )
+        try {
+            $verificationPath = Resolve-PhysicalRepoPath -Path ([SkalaryPlanArtifactHandle]::GetPath($verification.SafeFileHandle))
+            $verificationIdentity = [SkalaryPlanArtifactHandle]::GetIdentity($verification.SafeFileHandle)
+            if (-not [string]::Equals($verificationPath, $handlePhysicalPath, [System.StringComparison]::Ordinal) -or
+                -not [string]::Equals($verificationIdentity.Value, $identity.Value, [System.StringComparison]::Ordinal) -or
+                $verification.Length -ne $stream.Length) {
+                throw "Artifact '$Path' changed while its stable read handle was opened."
+            }
+        }
+        finally {
+            $verification.Dispose()
         }
 
         return $stream
@@ -320,10 +422,45 @@ function Get-LegacyDecisions {
     return ($section.ToArray() -join "`n").Trim()
 }
 
-$candidates = [System.Collections.Generic.List[object]]::new()
+$ids = @(Get-OrdinallySortedUnique -Value $PlanId)
 $kinds = @(Get-OrdinallySortedUnique -Value $ArtifactKind)
+$invalidInput = @($ids + $kinds + @($Relationship) | Where-Object {
+        [string]::IsNullOrWhiteSpace($_) -or $_.Length -gt 64
+    })
+$combinationCount = [int64]$ids.Count * [int64]$kinds.Count
+if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or $combinationCount -gt $MaxCandidates) {
+    [pscustomobject][ordered]@{
+        status       = 'refused'
+        planId       = if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { $null }
+        artifactKind = if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { $null }
+        path         = $null
+        relationship = if ($Relationship.Length -le 64) { $Relationship } else { $null }
+        layout       = $null
+        isArchived   = $null
+        isUntrusted  = $true
+        authority    = 'historical-context-only'
+        byteCount    = $null
+        content      = $null
+        reason       = "Selection exceeds the $MaxCandidates-candidate limit or contains an empty or overlong input."
+    }
+    return
+}
 
-foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
+$inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
+$candidates = [System.Collections.Generic.List[object]]::new()
+$selectionOverflow = $false
+
+function Add-ArtifactCandidate {
+    param([Parameter(Mandatory)][object]$Candidate)
+
+    if ($script:candidates.Count -eq $MaxCandidates) {
+        $script:selectionOverflow = $true
+        return
+    }
+    $script:candidates.Add($Candidate)
+}
+
+foreach ($id in $ids) {
     $plan = $null
     $planRefusal = $null
     if ($id -notmatch '^(?:[0-9a-f]{6}|\d{3})$') {
@@ -358,11 +495,11 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
 
     foreach ($kind in $kinds) {
         if ($planRefusal) {
-            $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $null -Path $null -Reason $planRefusal))
+        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $null -Path $null -Reason $planRefusal)
             continue
         }
         if ($artifactMap.Keys -cnotcontains $kind) {
-            $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported."))
+        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
             continue
         }
 
@@ -377,7 +514,7 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
             if ($kind -eq 'Reviews') {
                 $relativeRoot = ConvertTo-RepoRelativePath $resolvedPath
                 if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                    $candidates.Add((New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.'))
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
                     continue
                 }
 
@@ -387,74 +524,78 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
                     throw "Resolved review root '$resolvedPath' is not a regular directory."
                 }
 
-                $reviewFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-                $tooManyReviews = $false
+                $reviewPaths = [System.Collections.Generic.List[string]]::new()
+                $scannedEntries = 0
                 foreach ($reviewPath in [System.IO.Directory]::EnumerateFiles(
                         $resolvedPath,
                         '*.md',
                         [System.IO.SearchOption]::TopDirectoryOnly
                     )) {
-                    $reviewFile = Get-Item -LiteralPath $reviewPath -Force
-                    if ($reviewFile.Name -notmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
-                        continue
-                    }
-                    if ($reviewFiles.Count -eq $MaxCandidates) {
-                        $tooManyReviews = $true
+                    $scannedEntries++
+                    if ($scannedEntries -gt $MaxCandidates) {
+                        $selectionOverflow = $true
                         break
                     }
-                    $reviewFiles.Add($reviewFile)
-                }
-                if ($tooManyReviews) {
-                    $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason "Finalized review artifacts exceed the $MaxCandidates-candidate limit."))
-                    continue
-                }
-                $reviewFiles.Sort([System.Comparison[System.IO.FileInfo]] {
-                    param($left, $right)
-                    [string]::CompareOrdinal($left.Name, $right.Name)
-                })
-                $finalizedCount = 0
-                foreach ($reviewFile in $reviewFiles) {
-                    if ($reviewFile.Name -notmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
+                    if ([System.IO.Path]::GetFileName($reviewPath) -notmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
                         continue
                     }
+                    $reviewPaths.Add($reviewPath)
+                }
+                $reviewPaths.Sort([System.Comparison[string]] {
+                    param($left, $right)
+                    [string]::CompareOrdinal($left, $right)
+                })
+                $finalizedCount = 0
+                foreach ($reviewPath in $reviewPaths) {
+                    $reviewName = [System.IO.Path]::GetFileName($reviewPath)
+                    if ($reviewName -notmatch '^(?<id>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.review\.md$') {
+                        throw "Bounded review candidate '$reviewName' does not match the finalized review grammar."
+                    }
                     $finalizedCount++
-                    $relativePath = ConvertTo-RepoRelativePath $reviewFile.FullName
+                    $relativePath = ConvertTo-RepoRelativePath $reviewPath
                     $receiptPath = Join-Path $resolvedPath "$($Matches.id).receipt.json"
                     if (-not (Test-Path -LiteralPath $receiptPath)) {
-                        $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.'))
+                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.')
                         continue
                     }
                     try {
-                        $null = Test-RegularConfinedFile -PlanPath $plan.Path -Path $receiptPath
+                        $reviewFile = Get-Item -LiteralPath $reviewPath -Force -ErrorAction Stop
+                        if ($reviewFile -isnot [System.IO.FileInfo]) {
+                            throw "Finalized review '$reviewPath' is not a regular file."
+                        }
+                        $receiptFile = Get-Item -LiteralPath $receiptPath -Force -ErrorAction Stop
+                        if ($receiptFile -isnot [System.IO.FileInfo]) {
+                            throw "Finalized review receipt '$receiptPath' is not a regular file."
+                        }
                     }
                     catch {
-                        $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason "Finalized review receipt was refused: $($_.Exception.Message)"))
+                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason "Finalized review pair was refused: $($_.Exception.Message)")
                         continue
                     }
-                    $candidates.Add((New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null))
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath))
                 }
                 if ($finalizedCount -eq 0) {
-                    $candidates.Add((New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.'))
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
                 }
                 continue
             }
 
             if ($kind -eq 'Decisions' -and -not (Test-Path -LiteralPath $resolvedPath)) {
                 $planFile = Join-Path $plan.Path 'plan.md'
-                $candidates.Add((New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions))
+                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
                 continue
             }
 
             $relativePath = ConvertTo-RepoRelativePath $resolvedPath
             if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                $candidates.Add((New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Artifact file does not exist.'))
+                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Artifact file does not exist.')
                 continue
             }
 
-            $candidates.Add((New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null))
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null)
         }
         catch {
-            $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason $_.Exception.Message))
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason $_.Exception.Message)
         }
     }
 }
@@ -462,16 +603,28 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
 $eligibleBytes = [int64]0
 try {
     $pendingCandidates = @($candidates | Where-Object status -eq 'pending')
-    if ($pendingCandidates.Count -gt $MaxCandidates) {
-        foreach ($candidate in $pendingCandidates) {
+    $requiredHandles = @($pendingCandidates | ForEach-Object {
+            if (-not [string]::IsNullOrWhiteSpace($_.companionPath)) { 2 } else { 1 }
+        } | Measure-Object -Sum).Sum
+    if ($selectionOverflow -or $requiredHandles -gt $MaxCandidates) {
+        foreach ($candidate in $candidates) {
             $candidate.status = 'refused'
-            $candidate.reason = "Selected artifacts exceed the $MaxCandidates-candidate limit."
+            $candidate.content = $null
+            $candidate.reason = "Selection exceeds the $MaxCandidates-candidate or open-handle limit."
         }
         $pendingCandidates = @()
     }
 
     foreach ($candidate in $pendingCandidates) {
         try {
+            if (-not [string]::IsNullOrWhiteSpace($candidate.companionPath)) {
+                $companionFullPath = Join-Path $repoRootPath $candidate.companionPath
+                $candidate.companionStream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $companionFullPath
+                if ($candidate.companionStream.Length -eq 0) {
+                    throw "Finalized review receipt '$($candidate.companionPath)' is empty."
+                }
+            }
+
             $fullPath = Join-Path $repoRootPath $candidate.sourcePath
             $stream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $fullPath
             $candidate.stream = $stream
@@ -481,18 +634,34 @@ try {
                 $candidate.reason = 'Artifact file is empty.'
                 $stream.Dispose()
                 $candidate.stream = $null
+                if ($null -ne $candidate.companionStream) {
+                    $candidate.companionStream.Dispose()
+                    $candidate.companionStream = $null
+                }
             }
             elseif ($stream.Length -gt $MaxArtifactBytes) {
                 $candidate.status = 'oversized'
                 $candidate.reason = "Artifact is $($stream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
                 $stream.Dispose()
                 $candidate.stream = $null
+                if ($null -ne $candidate.companionStream) {
+                    $candidate.companionStream.Dispose()
+                    $candidate.companionStream = $null
+                }
             }
             else {
                 $eligibleBytes += $stream.Length
             }
         }
         catch {
+            if ($null -ne $candidate.stream) {
+                $candidate.stream.Dispose()
+                $candidate.stream = $null
+            }
+            if ($null -ne $candidate.companionStream) {
+                $candidate.companionStream.Dispose()
+                $candidate.companionStream = $null
+            }
             $candidate.status = 'refused'
             $candidate.reason = $_.Exception.Message
         }
@@ -557,6 +726,9 @@ finally {
         if ($null -ne $candidate.stream) {
             $candidate.stream.Dispose()
         }
+        if ($null -ne $candidate.companionStream) {
+            $candidate.companionStream.Dispose()
+        }
     }
 }
 
@@ -565,5 +737,7 @@ foreach ($candidate in $candidates) {
     $candidate.PSObject.Properties.Remove('planPath')
     $candidate.PSObject.Properties.Remove('readMode')
     $candidate.PSObject.Properties.Remove('stream')
+    $candidate.PSObject.Properties.Remove('companionPath')
+    $candidate.PSObject.Properties.Remove('companionStream')
     $candidate
 }

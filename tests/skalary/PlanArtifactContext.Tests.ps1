@@ -120,6 +120,14 @@ Describe 'Get-PlanArtifactContext' {
             $acceptedReview = $reviews | Where-Object status -eq 'accepted'
             $acceptedReview.path | Should -Be "docs/implementation-plans/2026-01-02-a1b2c3-assets/assets/reviews/$reviewId.review.md"
             $acceptedReview.content | Should -Match 'Final review'
+
+            $mixedOverflow = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Reviews -Relationship dependency -MaxCandidates 2)
+            $mixedOverflow.Count | Should -BeLessOrEqual 2
+            @($mixedOverflow | Where-Object { $_.status -eq 'accepted' -or $_.content }).Count | Should -Be 0
+
+            [System.IO.File]::WriteAllBytes((Join-Path $reviewsDir "$reviewId.receipt.json"), [byte[]]::new(0))
+            $emptyReceipt = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Reviews -Relationship dependency)
+            @($emptyReceipt | Where-Object status -eq 'accepted').Count | Should -Be 0
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -153,7 +161,8 @@ Describe 'Get-PlanArtifactContext' {
             @($overTotal | Where-Object { $_.content }).Count | Should -Be 0
 
             $overCandidates = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxCandidates 1)
-            @($overCandidates.status) | Should -Be @('refused', 'refused')
+            $overCandidates.Count | Should -Be 1
+            $overCandidates.status | Should -Be 'refused'
             @($overCandidates | Where-Object { $_.content }).Count | Should -Be 0
 
             $missing = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Evidence -Relationship reuse)
@@ -199,6 +208,12 @@ Describe 'Get-PlanArtifactContext' {
             $linked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
             $linked.status | Should -Be 'refused'
             $linked.content | Should -BeNullOrEmpty
+
+            Remove-Item -LiteralPath $intentPath -Force
+            New-Item -ItemType HardLink -Path $intentPath -Target $outsidePath | Out-Null
+            $hardLinked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $hardLinked.status | Should -Be 'refused'
+            $hardLinked.content | Should -BeNullOrEmpty
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
