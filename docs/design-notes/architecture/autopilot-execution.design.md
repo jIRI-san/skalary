@@ -63,7 +63,10 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
 - Phase selection follows the one-phase autonomy contract in
   [plan-workflow.design.md](plan-workflow.design.md); container resume additionally requires the
-  phase's durable harvest receipt before skipping checked work
+  phase's canonically validated durable harvest receipt before skipping checked work
+- Nonzero and false-success phase exits stage recoverable tracked/untracked paths individually,
+  commit and push them fail-loud, then preserve the original phase status; preservation failure exits
+  `70` for container recovery instead of claiming the work is durable
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
 

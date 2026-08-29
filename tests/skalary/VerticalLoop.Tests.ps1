@@ -153,27 +153,50 @@ flowchart TD
         function Invoke-FixtureHarvest {
             param(
                 [Parameter(Mandatory)][string]$PlanDir,
-                [Parameter(Mandatory)][string]$Root
+                [Parameter(Mandatory)][string]$Root,
+                [int]$Phase = 1
             )
 
             $output = & pwsh -NoProfile -File $script:phaseHarvest -PlanDir $PlanDir `
-                -RepoRoot $Root -Phase 1 -Src autopilot 2>&1
+                -RepoRoot $Root -Phase $Phase -Src autopilot 2>&1
             return [pscustomobject]@{
                 ExitCode = $LASTEXITCODE
                 Output = (($output -join "`n") -replace "`e\[[0-9;?]*[ -/]*[@-~]", '')
             }
         }
 
-        function Test-ContainerPhaseNeedsExecution {
+        function Get-ContainerPhaseState {
             param(
                 [Parameter(Mandatory)][string]$PlanPath,
-                [Parameter(Mandatory)][int]$Phase
+                [Parameter(Mandatory)][int]$Phase,
+                [Parameter(Mandatory)][string]$RepoRoot
             )
 
             $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
-            & bash -c 'source "$1"; phase_needs_execution "$2" "$3"' `
-                phase-probe $entrypoint $PlanPath $Phase
-            return $LASTEXITCODE -eq 0
+            & bash -c 'source "$1"; phase_needs_execution "$2" "$3" "$4" "$5"' `
+                phase-probe $entrypoint $PlanPath $Phase $RepoRoot $script:phaseHarvest
+            return $LASTEXITCODE
+        }
+
+        function Get-ContainerDispatchAction {
+            param(
+                [Parameter(Mandatory)][string]$Mode,
+                [Parameter(Mandatory)][int]$ExitCode,
+                [Parameter(Mandatory)][int]$CloseState
+            )
+
+            $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
+            return (& bash -c 'source "$1"; phase_dispatch_action "$2" "$3" "$4"' `
+                    phase-dispatch $entrypoint $Mode $ExitCode $CloseState).Trim()
+        }
+
+        function Invoke-ContainerRecoveryStage {
+            param([Parameter(Mandatory)][string]$RepoPath)
+
+            $entrypoint = Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
+            & bash -c 'source "$1"; stage_recoverable_work "$2"' `
+                recovery-stage $entrypoint $RepoPath
+            return $LASTEXITCODE
         }
     }
 
@@ -500,15 +523,11 @@ $($header.TrimEnd())
     }
 
     It 'test:VerticalLoop.AutopilotNextPhase stops after one checked phase and resumes from checklist progress' {
-        $root = Join-Path ([System.IO.Path]::GetTempPath()) (
-            'vertical-loop-autopilot-' + [guid]::NewGuid().ToString('N')
-        )
-        New-Item -ItemType Directory -Path $root -Force | Out-Null
-        $script:tempRoots.Add($root)
-        $planPath = Join-Path $root 'plan.md'
+        $fixture = New-AdmissionFixture
+        $planPath = $fixture.TargetPlan
         Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -Value @'
-# abc123: Next phase fixture
-<!-- plan-id: abc123 -->
+# def222: Next phase fixture
+<!-- plan-id: def222 -->
 
 ## Phase 1: Complete
 
@@ -523,19 +542,23 @@ $($header.TrimEnd())
 - [ ] 3.1 Later work (REQ-1) [after: 2.1] `S`
 '@
 
-        # Checked steps without a durable close receipt re-enter the same phase.
-        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 1 | Should -BeTrue
-        $receiptRoot = Join-Path $root 'assets/harvest-receipts'
-        New-Item -ItemType Directory -Path $receiptRoot -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $receiptRoot 'phase-001.json') `
-            -Encoding utf8NoBOM -Value '{}'
-        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 1 | Should -BeFalse
-        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 2 | Should -BeTrue
-        Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase 3 | Should -BeTrue
+        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+            & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir `
+                -RepoRoot $fixture.Root -Phase 1 | Out-Null
+        }
+        (Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root -Phase 1).ExitCode |
+            Should -Be 0
+
+        # Only a canonically validated receipt closes checked phase 1.
+        Get-ContainerPhaseState -PlanPath $planPath -Phase 1 -RepoRoot $fixture.Root |
+            Should -Be 1
+        Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
+            Should -Be 0
 
         # An interrupted phase remains the first runnable phase on relaunch.
         $firstRunnable = @(1..3 | Where-Object {
-                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
+                (Get-ContainerPhaseState -PlanPath $planPath -Phase $_ `
+                    -RepoRoot $fixture.Root) -eq 0
             })[0]
         $firstRunnable | Should -Be 2
 
@@ -545,33 +568,68 @@ $($header.TrimEnd())
             '- [x] 2.1 Interrupted work'
         ) | Set-Content -LiteralPath $planPath -Encoding utf8NoBOM -NoNewline
         $closePending = @(1..3 | Where-Object {
-                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
+                (Get-ContainerPhaseState -PlanPath $planPath -Phase $_ `
+                    -RepoRoot $fixture.Root) -eq 0
             })[0]
         $closePending | Should -Be 2
 
-        # Once the phase-close harvest is durable, relaunch advances without duplicates.
-        Set-Content -LiteralPath (Join-Path $receiptRoot 'phase-002.json') `
-            -Encoding utf8NoBOM -Value '{}'
+        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+            & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir `
+                -RepoRoot $fixture.Root -Phase 2 | Out-Null
+        }
+        (Invoke-FixtureHarvest -PlanDir $fixture.TargetDir -Root $fixture.Root -Phase 2).ExitCode |
+            Should -Be 0
+
+        # Once close is durable, relaunch advances without repeating checked phases.
         $resumedRunnable = @(1..3 | Where-Object {
-                Test-ContainerPhaseNeedsExecution -PlanPath $planPath -Phase $_
+                (Get-ContainerPhaseState -PlanPath $planPath -Phase $_ `
+                    -RepoRoot $fixture.Root) -eq 0
             })[0]
         $resumedRunnable | Should -Be 3
 
-        $pluginRoot = Join-Path $script:repoRoot 'plugins/autopilot'
-        $entrypoint = Get-Content -LiteralPath (
-            Join-Path $pluginRoot 'scripts/container-entrypoint.sh'
-        ) -Raw
-        $autopilotSkill = Get-Content -LiteralPath (
-            Join-Path $pluginRoot 'skills/autopilot/SKILL.md'
-        ) -Raw
+        $receiptPath = Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-002.json'
+        $validReceipt = [System.IO.File]::ReadAllBytes($receiptPath)
+        Set-Content -LiteralPath $receiptPath -Encoding utf8NoBOM -Value '{}'
+        Get-ContainerPhaseState -PlanPath $planPath -Phase 2 -RepoRoot $fixture.Root |
+            Should -Be 2
+        [System.IO.File]::WriteAllBytes($receiptPath, $validReceipt)
 
-        $entrypoint | Should -Match 'phase_needs_execution "\$\{PLAN_PATH\}" "\$\{PHASE_NUM\}"'
-        $entrypoint | Should -Match 'if \[ "\$\{MODE\}" = "next-phase" \]; then'
-        $entrypoint | Should -Match 'exit 42'
-        $entrypoint | Should -Match 'exit "\$\{EXIT_CODE\}"'
-        $autopilotSkill | Should -Match '(?s)scope: phase.+next-phase'
-        $autopilotSkill | Should -Match 'Any other current or legacy scope -> `whole-plan`'
-        $autopilotSkill | Should -Match '-Mode <launcher-mode>'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 1 |
+            Should -Be 'phase-complete-stop'
+        Get-ContainerDispatchAction -Mode whole-plan -ExitCode 0 -CloseState 1 |
+            Should -Be 'phase-complete-continue'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 42 -CloseState -1 |
+            Should -Be 'human-stop'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 7 -CloseState -1 |
+            Should -Be 'phase-failed'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 0 |
+            Should -Be 'close-pending'
+        Get-ContainerDispatchAction -Mode next-phase -ExitCode 0 -CloseState 2 |
+            Should -Be 'invalid-receipt'
+
+        $recoveryRoot = Join-Path $fixture.Root 'recovery-repo'
+        New-Item -ItemType Directory -Path $recoveryRoot -Force | Out-Null
+        & git -C $recoveryRoot init --quiet
+        & git -C $recoveryRoot config user.name fixture
+        & git -C $recoveryRoot config user.email fixture@example.invalid
+        Set-Content -LiteralPath (Join-Path $recoveryRoot '.gitignore') `
+            -Encoding utf8NoBOM -Value "ignored.tmp"
+        Set-Content -LiteralPath (Join-Path $recoveryRoot 'tracked.txt') `
+            -Encoding utf8NoBOM -Value 'before'
+        & git -C $recoveryRoot add -- .gitignore tracked.txt
+        & git -C $recoveryRoot commit --quiet -m fixture
+        Set-Content -LiteralPath (Join-Path $recoveryRoot 'tracked.txt') `
+            -Encoding utf8NoBOM -Value 'after'
+        Set-Content -LiteralPath (Join-Path $recoveryRoot 'new.txt') `
+            -Encoding utf8NoBOM -Value 'new'
+        Set-Content -LiteralPath (Join-Path $recoveryRoot 'ignored.tmp') `
+            -Encoding utf8NoBOM -Value 'ignored'
+
+        (Invoke-ContainerRecoveryStage -RepoPath $recoveryRoot) | Should -Be 0
+        $staged = @(& git -C $recoveryRoot diff --cached --name-only)
+        $staged | Should -Contain 'tracked.txt'
+        $staged | Should -Contain 'new.txt'
+        $staged | Should -Not -Contain 'ignored.tmp'
     }
 
     It 'allows phase-one harvest after legacy phase-zero planning capture' {

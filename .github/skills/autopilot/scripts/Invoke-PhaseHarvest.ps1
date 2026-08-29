@@ -5,11 +5,15 @@ param(
     [string]$PlanDir,
 
     [Parameter(Mandatory, ParameterSetName = 'Phase')]
+    [Parameter(Mandatory, ParameterSetName = 'ValidateReceipt')]
     [ValidateRange(1, 999)]
     [int]$Phase,
 
     [Parameter(Mandatory, ParameterSetName = 'FinalSweep')]
     [switch]$FinalSweep,
+
+    [Parameter(Mandatory, ParameterSetName = 'ValidateReceipt')]
+    [switch]$ValidateReceipt,
 
     [ValidateSet('ci', 'autopilot')]
     [string]$Src = 'ci',
@@ -687,6 +691,22 @@ $metadata = Get-PlanMetadata -Path (Join-Path $planDirFull 'plan.md') -RepoRoot 
 $knownRequirements = [string[]]@($metadata.Requirements.Values | ForEach-Object { [string]$_.Id })
 
 try {
+    if ($ValidateReceipt) {
+        $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
+        if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+            throw "Harvest receipt '$receiptPath' does not exist."
+        }
+        $receipt = Read-HarvestReceipt -Path $receiptPath -ReceiptRoot $receiptRoot `
+            -RepoIdentity $repoIdentity -PlanId $planId -KnownRequirement $knownRequirements
+        if ([int]$receipt.payload.phase -ne $Phase) {
+            throw "Harvest receipt '$receiptPath' phase does not match requested phase $Phase."
+        }
+        Write-HarvestResult -Status $receipt.payload.status -TargetPhase $Phase `
+            -CandidateCount @($receipt.payload.candidates).Count -ReceiptCount 1 `
+            -ReceiptPath $receiptPath -Note 'Validated immutable phase receipt.'
+        exit 0
+    }
+
     if ($FinalSweep) {
         $receiptFiles = @(if (Test-Path -LiteralPath $receiptRoot -PathType Container) {
                 Get-ChildItem -LiteralPath $receiptRoot -File -Filter 'phase-*.json' | Sort-Object Name

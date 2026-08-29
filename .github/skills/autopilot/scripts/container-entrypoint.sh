@@ -47,9 +47,54 @@ phase_has_harvest_receipt() {
 phase_needs_execution() {
     local plan_path="$1"
     local phase_number="$2"
+    local repo_root="${3:-.}"
+    local validator="${4:-scripts/skalary/Invoke-PhaseHarvest.ps1}"
 
-    phase_has_incomplete "${plan_path}" "${phase_number}" ||
-        ! phase_has_harvest_receipt "${plan_path}" "${phase_number}"
+    if phase_has_incomplete "${plan_path}" "${phase_number}"; then
+        return 0
+    fi
+    if ! phase_has_harvest_receipt "${plan_path}" "${phase_number}"; then
+        return 0
+    fi
+    if ! pwsh -NoProfile -File "${validator}" -PlanDir "$(dirname "${plan_path}")" \
+        -Phase "${phase_number}" -ValidateReceipt -RepoRoot "${repo_root}" >/dev/null; then
+        echo "ERROR: Phase ${phase_number} harvest receipt is invalid." >&2
+        return 2
+    fi
+    return 1
+}
+
+phase_dispatch_action() {
+    local mode="$1"
+    local exit_code="$2"
+    local close_state="$3"
+
+    if [ "${exit_code}" -eq 43 ]; then
+        printf '%s\n' rebundle
+    elif [ "${exit_code}" -eq 42 ]; then
+        printf '%s\n' human-stop
+    elif [ "${exit_code}" -ne 0 ]; then
+        printf '%s\n' phase-failed
+    elif [ "${close_state}" -eq 2 ]; then
+        printf '%s\n' invalid-receipt
+    elif [ "${close_state}" -eq 0 ]; then
+        printf '%s\n' close-pending
+    elif [ "${mode}" = "next-phase" ]; then
+        printf '%s\n' phase-complete-stop
+    else
+        printf '%s\n' phase-complete-continue
+    fi
+}
+
+stage_recoverable_work() {
+    local repo_path="$1"
+
+    while IFS= read -r -d '' path; do
+        git -C "${repo_path}" add -- "${path}" || return 70
+    done < <(
+        git -C "${repo_path}" diff --name-only -z
+        git -C "${repo_path}" ls-files --others --exclude-standard -z
+    )
 }
 
 # Expose the pure phase-progress probe to focused tests without running bootstrap.
@@ -120,17 +165,18 @@ COPILOT_PID=""
 TERMINATING=0
 
 preserve_work() {
-    cd /work 2>/dev/null || return 0
-    git rev-parse --git-dir >/dev/null 2>&1 || return 0
-    # Untracked build/session noise is ignored via .gitignore, so -A here only
-    # sweeps real in-flight work.
+    cd /work 2>/dev/null || return 70
+    git rev-parse --git-dir >/dev/null 2>&1 || return 70
     if [ -n "$(git status --porcelain)" ]; then
         echo "Committing in-flight work before exit..."
-        git add -A
-        git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]" || true
+        stage_recoverable_work /work || return 70
+        if ! git diff --cached --quiet; then
+            git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]" ||
+                return 70
+        fi
     fi
     echo "Pushing ${WORK_BRANCH}..."
-    git push origin "${WORK_BRANCH}" || echo "WARNING: preservation push failed — commits remain only in this container."
+    git push origin "${WORK_BRANCH}" || return 70
 }
 
 on_terminate() {
@@ -146,7 +192,10 @@ on_terminate() {
         done
         kill -KILL "${COPILOT_PID}" 2>/dev/null || true
     fi
-    preserve_work
+    if ! preserve_work; then
+        echo "ERROR: Failed to preserve in-flight work; container recovery is required."
+        exit 70
+    fi
     exit 143
 }
 
@@ -228,9 +277,16 @@ for PHASE_NUM in ${PHASE_NUMS}; do
 
     # A phase is closed only after both its checklist and durable harvest complete.
     # Missing close state re-enters the same phase agent instead of skipping ahead.
-    if ! phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}"; then
+    set +e
+    phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "." \
+        "scripts/skalary/Invoke-PhaseHarvest.ps1"
+    PHASE_STATE=$?
+    set -e
+    if [ "${PHASE_STATE}" -eq 1 ]; then
         echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
         continue
+    elif [ "${PHASE_STATE}" -eq 2 ]; then
+        exit 3
     fi
 
     TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
@@ -285,37 +341,58 @@ for PHASE_NUM in ${PHASE_NUMS}; do
     if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
         # Preserve whatever the phase produced, then stop: continuing into the next
         # phase after a truncated one would build on an unfinished phase.
-        preserve_work
+        if ! preserve_work; then
+            echo "ERROR: Failed to preserve timed-out phase work; container recovery is required."
+            exit 70
+        fi
         echo "Stopping run after per-phase timeout in phase ${PHASE_NUM}."
         exit 124
     fi
 
-    if [ ${EXIT_CODE} -ne 0 ]; then
-        echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}"
-        if [ ${EXIT_CODE} -eq 42 ]; then
-            echo "@human step encountered — stopping."
-            git push origin "${WORK_BRANCH}" || true
-            exit 42
-        fi
-        if [ ${EXIT_CODE} -eq 43 ]; then
-            # Offline rebundle requested: the agent committed the package
-            # manifest (not the lockfile). Push it so the host can regenerate
-            # the lockfile + re-bundle the feed, then signal the launcher.
-            # Exits here, before the unconditional end-of-run push.
+    CLOSE_STATE=-1
+    if [ "${EXIT_CODE}" -eq 0 ]; then
+        set +e
+        phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "." \
+            "scripts/skalary/Invoke-PhaseHarvest.ps1"
+        CLOSE_STATE=$?
+        set -e
+    fi
+
+    ACTION="$(phase_dispatch_action "${MODE}" "${EXIT_CODE}" "${CLOSE_STATE}")"
+    case "${ACTION}" in
+        rebundle)
             echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
             git push origin "${WORK_BRANCH}"
             exit 43
-        fi
-        # Preserve partial progress but never build a later phase on an interrupted one.
-        git push origin "${WORK_BRANCH}" || true
-        exit "${EXIT_CODE}"
-    fi
-
-    echo "Phase ${PHASE_NUM} complete."
-    if [ "${MODE}" = "next-phase" ]; then
-        echo "Mode is 'next-phase' — stopping after Phase ${PHASE_NUM}."
-        break
-    fi
+            ;;
+        human-stop|phase-failed)
+            echo "Phase ${PHASE_NUM} exited with code ${EXIT_CODE}; preserving work."
+            if ! preserve_work; then
+                echo "ERROR: Failed to preserve phase work; container recovery is required."
+                exit 70
+            fi
+            exit "${EXIT_CODE}"
+            ;;
+        invalid-receipt)
+            exit 3
+            ;;
+        close-pending)
+            echo "ERROR: Phase ${PHASE_NUM} exited zero without completing checklist and phase close."
+            if ! preserve_work; then
+                echo "ERROR: Failed to preserve incomplete phase work; container recovery is required."
+                exit 70
+            fi
+            exit 1
+            ;;
+        phase-complete-stop)
+            echo "Phase ${PHASE_NUM} complete."
+            echo "Mode is 'next-phase' — stopping after Phase ${PHASE_NUM}."
+            break
+            ;;
+        phase-complete-continue)
+            echo "Phase ${PHASE_NUM} complete."
+            ;;
+    esac
 done
 
 echo ""
