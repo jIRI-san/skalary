@@ -6,4 +6,4 @@ Phase: 1
 ## Learnings Capture
 Phase: 2
 
-No entries for this phase.
+- [2.2] [trigger:rework>1] [concern:architecture-patterns] [req:REQ-3,REQ-4] [review:cr] [source-record:d9f6c62bd0b48382198e6901e21410b9a84686525555fe49f172d84a9f5d4097] Structured producer artifacts need a deterministic plan-metadata adapter; callers should not reconstruct marker-to-requirement mappings.

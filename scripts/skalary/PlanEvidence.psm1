@@ -128,16 +128,23 @@ function Get-PlanEvidenceWaiver {
     }
 
     try {
-        $policy = Get-Content -LiteralPath $path -Raw -Force | ConvertFrom-Json -Depth 20
+        $policy = Get-Content -LiteralPath $path -Raw -Force |
+            ConvertFrom-Json -AsHashtable -Depth 20
     }
     catch {
         throw "Evidence waiver file '$path' is malformed JSON: $($_.Exception.Message)"
     }
 
-    $topProperties = @($policy.PSObject.Properties.Name | Sort-Object)
+    if ($policy -isnot [System.Collections.IDictionary]) {
+        throw "Evidence waiver file '$path' must contain a JSON object."
+    }
+    $topProperties = @($policy.Keys | Sort-Object)
+    $waiverEntries = $policy['waivers']
     if (($topProperties -join ',') -cne 'schema,waivers' -or
-        [string]$policy.schema -cne 'skalary/evidence-waivers@1' -or
-        $null -eq $policy.waivers) {
+        $policy['schema'] -isnot [string] -or
+        [string]$policy['schema'] -cne 'skalary/evidence-waivers@1' -or
+        $waiverEntries -isnot [System.Collections.IList] -or
+        $waiverEntries -is [string]) {
         throw "Evidence waiver file '$path' must contain only schema 'skalary/evidence-waivers@1' and a waivers array."
     }
 
@@ -153,21 +160,32 @@ function Get-PlanEvidenceWaiver {
     $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $waivers = [System.Collections.Generic.List[object]]::new()
-    foreach ($entry in @($policy.waivers)) {
-        $properties = @($entry.PSObject.Properties.Name | Sort-Object)
+    foreach ($entry in @($waiverEntries)) {
+        if ($entry -isnot [System.Collections.IDictionary]) {
+            throw "Evidence waiver file '$path' contains a non-object entry."
+        }
+        $properties = @($entry.Keys | Sort-Object)
         $required = @('marker', 'outcome', 'plan', 'reason', 'requirement')
         $allowed = @($required + 'platform' | Sort-Object)
         if (@($required | Where-Object { $_ -cnotin $properties }).Count -gt 0 -or
             @($properties | Where-Object { $_ -cnotin $allowed }).Count -gt 0) {
             throw "Evidence waiver file '$path' contains an entry with missing or unknown fields."
         }
+        foreach ($field in $required) {
+            if ($entry[$field] -isnot [string]) {
+                throw "Evidence waiver file '$path' entry field '$field' must be a string."
+            }
+        }
+        if ($properties -contains 'platform' -and $entry['platform'] -isnot [string]) {
+            throw "Evidence waiver file '$path' entry field 'platform' must be a string when present."
+        }
 
-        $entryPlan = [string]$entry.plan
-        $requirement = [string]$entry.requirement
-        $marker = [string]$entry.marker
-        $outcome = [string]$entry.outcome
-        $reason = [string]$entry.reason
-        $entryPlatform = if ($properties -contains 'platform') { [string]$entry.platform } else { $null }
+        $entryPlan = [string]$entry['plan']
+        $requirement = [string]$entry['requirement']
+        $marker = [string]$entry['marker']
+        $outcome = [string]$entry['outcome']
+        $reason = [string]$entry['reason']
+        $entryPlatform = if ($properties -contains 'platform') { [string]$entry['platform'] } else { $null }
         if ($entryPlan -cne $planId) {
             throw "Evidence waiver targets plan '$entryPlan', expected '$planId'."
         }
@@ -208,6 +226,127 @@ function Get-PlanEvidenceWaiver {
     }
 
     return , $waivers.ToArray()
+}
+
+function ConvertFrom-StructuredTestEvidenceResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        $PlanMetadata
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Structured test evidence is missing: '$Path'."
+    }
+    if ((Get-Item -LiteralPath $Path -Force).Length -gt 1048576) {
+        throw "Structured test evidence '$Path' exceeds 1048576 bytes."
+    }
+    try {
+        $payload = Get-Content -LiteralPath $Path -Raw -Force |
+            ConvertFrom-Json -AsHashtable -Depth 20
+    }
+    catch {
+        throw "Structured test evidence '$Path' is malformed JSON: $($_.Exception.Message)"
+    }
+    if ($payload -isnot [System.Collections.IDictionary]) {
+        throw "Structured test evidence '$Path' must contain a JSON object."
+    }
+
+    $expectedTop = 'executedCount,results,schema,selectedCount'
+    if ((@($payload.Keys | Sort-Object) -join ',') -cne $expectedTop -or
+        $payload['schema'] -isnot [string] -or
+        [string]$payload['schema'] -cne 'skalary/evidence-test-results@1' -or
+        $payload['results'] -isnot [System.Collections.IList] -or
+        $payload['results'] -is [string]) {
+        throw "Structured test evidence '$Path' has an invalid top-level shape."
+    }
+    foreach ($field in @('selectedCount', 'executedCount')) {
+        if ($payload[$field] -isnot [ValueType] -or
+            [long]$payload[$field] -lt 0 -or
+            [decimal]$payload[$field] -ne [long]$payload[$field]) {
+            throw "Structured test evidence '$Path' field '$field' must be a non-negative integer."
+        }
+    }
+
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $results = [System.Collections.Generic.List[object]]::new()
+    $selectedTotal = 0L
+    $executedTotal = 0L
+    foreach ($record in @($payload['results'])) {
+        if ($record -isnot [System.Collections.IDictionary] -or
+            (@($record.Keys | Sort-Object) -join ',') -cne 'executedCount,marker,message,outcomes,selectedCount,status') {
+            throw "Structured test evidence '$Path' contains a result with an invalid shape."
+        }
+        foreach ($field in @('marker', 'status', 'message')) {
+            if ($record[$field] -isnot [string]) {
+                throw "Structured test evidence '$Path' result field '$field' must be a string."
+            }
+        }
+        foreach ($field in @('selectedCount', 'executedCount')) {
+            if ($record[$field] -isnot [ValueType] -or
+                [long]$record[$field] -lt 0 -or
+                [decimal]$record[$field] -ne [long]$record[$field]) {
+                throw "Structured test evidence '$Path' result field '$field' must be a non-negative integer."
+            }
+        }
+        if ($record['outcomes'] -isnot [System.Collections.IList] -or
+            $record['outcomes'] -is [string] -or
+            @($record['outcomes'] | Where-Object { $_ -isnot [string] }).Count -gt 0) {
+            throw "Structured test evidence '$Path' result outcomes must be an array of strings."
+        }
+
+        $marker = [string]$record['marker']
+        $status = [string]$record['status']
+        if ($marker -notmatch '^test:[A-Za-z0-9._-]+$' -or -not $seen.Add($marker)) {
+            throw "Structured test evidence '$Path' contains an invalid or duplicate marker '$marker'."
+        }
+        if ($status -cnotin @('passed', 'failed', 'skipped', 'unrun', 'degraded')) {
+            throw "Structured test evidence '$Path' marker '$marker' has invalid status '$status'."
+        }
+        if ([long]$record['executedCount'] -gt [long]$record['selectedCount']) {
+            throw "Structured test evidence '$Path' marker '$marker' executed more tests than it selected."
+        }
+
+        $matchingRequirements = @(
+            foreach ($requirement in $PlanMetadata.Requirements.Values) {
+                $declaredMarkers = @(
+                    Get-TypedEvidenceMarkers -AcceptanceCriteria ([string]$requirement.AcceptanceCriteria) |
+                        ForEach-Object { $_ }
+                )
+                if ($declaredMarkers -ccontains $marker) {
+                    $requirement
+                }
+            }
+        )
+        if ($matchingRequirements.Count -eq 0) {
+            throw "Structured test evidence '$Path' marker '$marker' is not declared by the plan."
+        }
+
+        $selectedTotal += [long]$record['selectedCount']
+        $executedTotal += [long]$record['executedCount']
+        $outcomes = @($record['outcomes'])
+        $note = "selected=$($record['selectedCount']) executed=$($record['executedCount']) outcomes=$($outcomes -join ',')"
+        if (-not [string]::IsNullOrWhiteSpace([string]$record['message'])) {
+            $note += "; $([string]$record['message'])"
+        }
+        foreach ($requirement in $matchingRequirements) {
+            $results.Add([pscustomobject]@{
+                    Req = [string]$requirement.Id
+                    Marker = $marker
+                    Status = $status
+                    Note = $note
+                })
+        }
+    }
+    if ($selectedTotal -ne [long]$payload['selectedCount'] -or
+        $executedTotal -ne [long]$payload['executedCount']) {
+        throw "Structured test evidence '$Path' aggregate counts do not match its results."
+    }
+
+    return $results.ToArray()
 }
 
 function Read-PlanEvidenceReceipt {
@@ -528,4 +667,4 @@ function Invoke-PlanFileEvidence {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence
+Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, ConvertFrom-StructuredTestEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence

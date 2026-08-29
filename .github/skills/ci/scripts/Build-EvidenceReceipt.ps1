@@ -1,9 +1,10 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)]
     [AllowEmptyCollection()]
-    [object[]]$Result,
+    [object[]]$Result = @(),
+
+    [string[]]$StructuredTestResultPath = @(),
 
     [string]$Commit,
 
@@ -26,6 +27,20 @@ if ($PlanDir) {
 Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -DisableNameChecking
 if ($metadata) {
     $receiptPath = Resolve-PlanEvidenceAssetPath -PlanMetadata $metadata -Kind Evidence
+}
+if ($StructuredTestResultPath.Count -gt 0 -and -not $metadata) {
+    throw 'Build-EvidenceReceipt requires -PlanDir when -StructuredTestResultPath is supplied.'
+}
+
+$allResults = [System.Collections.Generic.List[object]]::new()
+$allResults.AddRange([object[]]$Result)
+foreach ($path in $StructuredTestResultPath) {
+    $allResults.AddRange([object[]]@(
+            ConvertFrom-StructuredTestEvidenceResult -Path $path -PlanMetadata $metadata
+        ))
+}
+if ($allResults.Count -eq 0) {
+    throw 'Build-EvidenceReceipt requires at least one result.'
 }
 
 if (-not $Commit) {
@@ -51,7 +66,7 @@ $outcomes = [System.Collections.Generic.List[object]]::new()
 $waivers = if ($metadata) { @(Get-PlanEvidenceWaiver -PlanMetadata $metadata -PlanDirectory $PlanDir) } else { @() }
 $seenResults = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 
-foreach ($item in $Result) {
+foreach ($item in $allResults) {
     $normalized = ConvertTo-PlanEvidenceResult -InputObject $item
     $req = $normalized.Req
     $marker = $normalized.Marker

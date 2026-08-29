@@ -272,7 +272,7 @@ Describe 'sandbox' {
         $withoutPester.Output |
             Should -Match ([regex]::Escape('Install-Module Pester -Scope CurrentUser -Force')) -Because 'the message names the install command'
 
-        $evidencePath = Join-Path $sandbox 'missing-pester-evidence.json'
+        $evidencePath = Join-Path $sandbox '.github/.skalary/evidence-results/missing-pester-evidence.json'
         $withoutPesterEvidence = Invoke-Runner -SandboxRoot $sandbox `
             -ModulePath (Join-Path $sandbox 'emptymodules') -ExactArguments -ExtraArguments @(
                 '-Tier Fast',

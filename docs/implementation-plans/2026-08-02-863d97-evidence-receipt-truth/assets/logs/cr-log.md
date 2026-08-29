@@ -52,4 +52,13 @@ Phase: 1
 ## CR Capture
 Phase: 2
 
-No entries for this phase.
+- [-] [src:code-review] [sev:High] [concern:security] [req:REQ-4] [review:cr] [source-record:caf7ff479ce51c7a24eb0d1f2c2104c60763390c00e8295665087ccb32e19bb0] CR1-1 self-authored receipt authority; triage=reject, conflicts with approved format-only receipt and no-new-attestation/digest decisions.
+- [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-3] [review:cr] [source-record:89926362f4d26f1670e626e7e46432ee4bcdf395740a10827df6bcb748367dc8] CR1-3 cannot-test output fails for a new result directory; triage=fix.
+- [-] [src:code-review] [sev:Med] [concern:security] [req:REQ-3] [review:cr] [source-record:69bcf73af601ea54cfc91a014210abde8a822bbc1fadd4aef61cda39a6ca876a] CR1-4 evidence output can overwrite arbitrary repository JSON; triage=fix with dedicated owned output root and atomic publication.
+- [-] [src:code-review] [sev:Med] [concern:performance] [req:REQ-3] [review:cr] [source-record:ac25fdcd7e2f31b63068175bb532adfdf86af1d9306fa56e8384ac21caee3aab] CR1-5 evidence tests launch nested processes; triage=reject, the focused evidence gate completes below its committed 60-second advisory target and the proposed validation refactor is outside phase scope.
+- [-] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-3] [review:cr] [source-record:2a7d14e10ab1663572ea1897dfdefedd2af7f5709ab7c4d09ad12d635a6e6a9e] CR1-6 evidence failure publication can leave stale results; triage=fix with one failure-safe writer and initial unrun payload.
+- [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:919918c0166efc28a541d502a09910b76dbeb46f845dbf2933e91af6b829ea76] CR1-7 malformed waiver value types are coerced; triage=fix.
+- [-] [src:code-review] [sev:Med] [concern:architecture-patterns] [req:REQ-3] [review:cr] [source-record:ae0ac9a432c8bd4c0764bc0a0cb34ee861a08ddae0cdc96b3930338497d7352b] CR1-8 generic runner imports PlanState; triage=reject, Resolve-PhysicalRepoPath is already the documented shared physical-identity primitive and extraction adds a new module boundary without behavior gain.
+- [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-3] [review:cr] [source-record:08ce3a598046f1e793933a254b753d7b8ac1046d6fead2da736fecf4410067b5] CR1-9 valid Pester name forms can report unrun; triage=fix.
+- [-] [src:code-review] [sev:High] [concern:architecture-patterns] [req:REQ-3,REQ-4] [review:cr] [source-record:01592f4209438a22c4489900d010a5d9dc07683d694f299fb2811acde2ac0318] CR1-2 structured test evidence lacks deterministic requirement mapping; triage=fix.
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:6686b3214139d4d369ee60ed22e5464fe2ebd1700fcd99a21ae6b96c10000da2] review-cycle stage=phase-2 cycle=1 outcome=findings summary=six-confirmed-fixed-three-rejected

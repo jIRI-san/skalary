@@ -170,10 +170,9 @@ if ($hasEvidenceIds -ne $hasEvidencePath) {
 }
 if ($hasEvidencePath) {
     $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-    $rootPrefix = $repoRootFull.TrimEnd(
-        [System.IO.Path]::DirectorySeparatorChar,
-        [System.IO.Path]::AltDirectorySeparatorChar
-    ) + [System.IO.Path]::DirectorySeparatorChar
+    $evidenceOutputRoot = [System.IO.Path]::GetFullPath(
+        (Join-Path $repoRootFull '.github/.skalary/evidence-results')
+    )
     $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
     $EvidenceResultPath = if ([System.IO.Path]::IsPathRooted($EvidenceResultPath)) {
         [System.IO.Path]::GetFullPath($EvidenceResultPath)
@@ -181,13 +180,26 @@ if ($hasEvidencePath) {
     else {
         [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $EvidenceResultPath))
     }
-    if (-not $EvidenceResultPath.StartsWith($rootPrefix, $pathComparison)) {
-        Write-Host "FocusedScopeRequired: evidence result path must stay inside the repository: '$EvidenceResultPath'." -ForegroundColor Red
+    if (-not [string]::Equals((Split-Path -Parent $EvidenceResultPath), $evidenceOutputRoot, $pathComparison) -or
+        [System.IO.Path]::GetExtension($EvidenceResultPath) -cne '.json') {
+        Write-Host "FocusedScopeRequired: evidence result path must be a direct .json child of '$evidenceOutputRoot'." -ForegroundColor Red
         exit 12
     }
     try {
-        Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $EvidenceResultPath `
+        if (-not (Test-Path -LiteralPath $evidenceOutputRoot -PathType Container)) {
+            [void](New-Item -ItemType Directory -Path $evidenceOutputRoot -Force)
+        }
+        Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $evidenceOutputRoot `
+            -Description "Evidence output root '$evidenceOutputRoot'"
+        Assert-PhysicalPathWithinRoot -Root $evidenceOutputRoot -Path $EvidenceResultPath `
             -Description "Evidence result path '$EvidenceResultPath'"
+        if (Test-Path -LiteralPath $EvidenceResultPath -PathType Leaf) {
+            $existing = Get-Content -LiteralPath $EvidenceResultPath -Raw -Force |
+                ConvertFrom-Json -AsHashtable -Depth 20
+            if ($existing['schema'] -cne 'skalary/evidence-test-results@1') {
+                throw "Existing evidence result path is not owned by this runner: '$EvidenceResultPath'."
+            }
+        }
     }
     catch {
         Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
@@ -197,34 +209,64 @@ if ($hasEvidencePath) {
         Write-Host "FocusedScopeRequired: evidence result path names a directory: '$EvidenceResultPath'." -ForegroundColor Red
         exit 12
     }
-    Remove-Item -LiteralPath $EvidenceResultPath -Force -ErrorAction SilentlyContinue
+}
+
+function Write-EvidencePayload {
+    param([Parameter(Mandatory)][System.Collections.IDictionary]$Payload)
+
+    if (-not $hasEvidenceIds) { return }
+
+    $temporaryPath = Join-Path $evidenceOutputRoot (
+        ".$([System.IO.Path]::GetFileName($EvidenceResultPath)).$([guid]::NewGuid().ToString('N')).tmp"
+    )
+    try {
+        Assert-PhysicalPathWithinRoot -Root $evidenceOutputRoot -Path $EvidenceResultPath `
+            -Description "Evidence result path '$EvidenceResultPath'"
+        Assert-PhysicalPathWithinRoot -Root $evidenceOutputRoot -Path $temporaryPath `
+            -Description "Evidence temporary path '$temporaryPath'"
+        [System.IO.File]::WriteAllText(
+            $temporaryPath,
+            (($Payload | ConvertTo-Json -Depth 8) + "`n"),
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        Assert-PhysicalPathWithinRoot -Root $evidenceOutputRoot -Path $EvidenceResultPath `
+            -Description "Evidence result path '$EvidenceResultPath'"
+        [System.IO.File]::Move($temporaryPath, $EvidenceResultPath, $true)
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Write-UnrunEvidencePayload {
     param([Parameter(Mandatory)][string]$Message)
 
-    if (-not $hasEvidenceIds) {
-        return
+    if (-not $hasEvidenceIds) { return }
+    Write-EvidencePayload -Payload ([ordered]@{
+            schema = 'skalary/evidence-test-results@1'
+            selectedCount = 0
+            executedCount = 0
+            results = @($EvidenceTestId | ForEach-Object {
+                    [ordered]@{
+                        marker = "test:$_"
+                        status = 'unrun'
+                        selectedCount = 0
+                        executedCount = 0
+                        outcomes = @()
+                        message = $Message
+                    }
+                })
+        })
+}
+
+if ($hasEvidenceIds) {
+    try {
+        Write-UnrunEvidencePayload -Message 'execution did not complete'
     }
-    $payload = [ordered]@{
-        schema = 'skalary/evidence-test-results@1'
-        selectedCount = 0
-        executedCount = 0
-        results = @($EvidenceTestId | ForEach-Object {
-                [ordered]@{
-                    marker = "test:$_"
-                    status = 'unrun'
-                    selectedCount = 0
-                    executedCount = 0
-                    outcomes = @()
-                    message = $Message
-                }
-            })
+    catch {
+        Write-Host "FocusedScopeRequired: initial evidence result could not be written: $($_.Exception.Message)" -ForegroundColor Red
+        exit 12
     }
-    Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $EvidenceResultPath `
-        -Description "Evidence result path '$EvidenceResultPath'"
-    Set-Content -LiteralPath $EvidenceResultPath `
-        -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
 }
 
 # Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
@@ -272,7 +314,8 @@ if ($null -eq $pesterModule) {
 
 $testRootPath = Join-Path $RepoRoot 'tests'
 if (-not (Test-Path -LiteralPath $testRootPath -PathType Container)) {
-    throw "Unit test path not found: $testRootPath"
+    Write-Host "NoTestsDiscovered: unit test path not found: $testRootPath" -ForegroundColor Red
+    exit 3
 }
 
 $allTestFiles = if ($Tier -ne 'Fast' -or $FullRepository) {
@@ -506,14 +549,28 @@ if ($EvidenceTestId.Count -gt 0) {
         $commands = @($ast.FindAll({
                     param($node)
                     $node -is [System.Management.Automation.Language.CommandAst] -and
-                    $node.GetCommandName() -ceq 'It'
+                    $node.GetCommandName() -ieq 'It'
                 }, $true))
         foreach ($command in $commands) {
-            if ($command.CommandElements.Count -lt 2 -or
-                $command.CommandElements[1] -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) {
+            $nameAst = $null
+            for ($elementIndex = 1; $elementIndex -lt $command.CommandElements.Count; $elementIndex++) {
+                $element = $command.CommandElements[$elementIndex]
+                if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    if ($element.ParameterName -ieq 'Name' -and
+                        $elementIndex + 1 -lt $command.CommandElements.Count) {
+                        $nameAst = $command.CommandElements[$elementIndex + 1]
+                        break
+                    }
+                    continue
+                }
+                $nameAst = $element
+                break
+            }
+            if ($nameAst -isnot [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                $nameAst -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
                 continue
             }
-            $name = [string]$command.CommandElements[1].Value
+            $name = [string]$nameAst.Value
             foreach ($id in $EvidenceTestId) {
                 if ($name -cmatch ('^test:' + [regex]::Escape($id) + '(?:\s|$)')) {
                     $evidenceLines.Add("$($testFile.FullName):$($command.Extent.StartLineNumber)")
@@ -629,14 +686,7 @@ function Write-StructuredEvidenceResult {
         executedCount = $totalExecuted
         results = $records.ToArray()
     }
-    $resultFullPath = [System.IO.Path]::GetFullPath($EvidenceResultPath)
-    $resultDirectory = Split-Path -Parent $resultFullPath
-    if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
-        [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
-    }
-    Assert-PhysicalPathWithinRoot -Root $repoRootFull -Path $resultFullPath `
-        -Description "Evidence result path '$resultFullPath'"
-    Set-Content -LiteralPath $resultFullPath -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
+    Write-EvidencePayload -Payload $payload
     return [pscustomobject]$payload
 }
 

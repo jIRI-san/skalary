@@ -109,7 +109,7 @@ Describe 'Evidence truth' {
                 [string[]]$Path = @('tests/Fixture.Tests.ps1')
             )
 
-            $resultPath = Join-Path $Root 'evidence-results.json'
+            $resultPath = Join-Path $Root '.github/.skalary/evidence-results/evidence-results.json'
             $quotedIds = @($Id | ForEach-Object { "'$_'" }) -join ','
             $quotedPaths = @($Path | ForEach-Object { "'$_'" }) -join ','
             $driver = Join-Path $Root 'driver.ps1'
@@ -127,6 +127,7 @@ exit `$LASTEXITCODE
                 else {
                     $null
                 }
+                ResultPath = $resultPath
             }
         }
     }
@@ -195,12 +196,27 @@ exit `$LASTEXITCODE
                     Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'skipped'
                 }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
             Should -Throw '*expected*abcdef*'
+
+        foreach ($invalidPolicy in @(
+                '{"schema":"skalary/evidence-waivers@1","waivers":{"plan":"abcdef","requirement":"REQ-1","marker":"test:EvidenceTruth.Sample","outcome":"skipped","reason":"seeded"}}',
+                '{"schema":"skalary/evidence-waivers@1","waivers":[{"plan":"abcdef","requirement":"REQ-1","marker":"test:EvidenceTruth.Sample","outcome":"skipped","reason":42}]}',
+                '{"schema":"skalary/evidence-waivers@1","waivers":[{"plan":"abcdef","requirement":"REQ-1","marker":"test:EvidenceTruth.Sample","outcome":"skipped","reason":"seeded","platform":null}]}'
+            )) {
+            Set-Content -LiteralPath (Join-Path $planDir 'evidence-waivers.json') `
+                -Value $invalidPolicy -Encoding utf8NoBOM
+            { & $script:builder -Result @([pscustomobject]@{
+                        Req = 'REQ-1'; Marker = 'test:EvidenceTruth.Sample'; Status = 'skipped'
+                    }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
+                Should -Throw
+        }
     }
 
     It 'test:EvidenceTruth.FocusedStructuredResults reports pass, skip, degraded, missing, and discovery outcomes' {
         $fixture = New-RunnerFixture -Content @'
 Describe 'focused evidence' {
     It 'test:EvidenceTruth.Pass works' { $true | Should -BeTrue }
+    it -Name 'test:EvidenceTruth.Named works' { $true | Should -BeTrue }
+    IT "test:EvidenceTruth.Expandable $($true) works" { $true | Should -BeTrue }
     It 'test:EvidenceTruth.CaseSensitive works' { throw 'wrong-case evidence selector executed' }
     It 'test:EvidenceTruth.Mixed passes' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed skips' { Set-ItResult -Skipped -Because seeded }
@@ -213,6 +229,8 @@ Describe 'focused evidence' {
 '@
         $result = Invoke-EvidenceRunner -Root $fixture -Id @(
             'EvidenceTruth.Pass',
+            'EvidenceTruth.Named',
+            'EvidenceTruth.Expandable',
             'EvidenceTruth.Mixed',
             'EvidenceTruth.Skip',
             'EvidenceTruth.Missing'
@@ -222,11 +240,27 @@ Describe 'focused evidence' {
         $byMarker = @{}
         foreach ($record in $result.Result.results) { $byMarker[[string]$record.marker] = $record }
         $byMarker['test:EvidenceTruth.Pass'].status | Should -Be 'passed'
+        $byMarker['test:EvidenceTruth.Named'].status | Should -Be 'passed'
+        $byMarker['test:EvidenceTruth.Expandable'].status | Should -Be 'passed'
         $byMarker['test:EvidenceTruth.Mixed'].status | Should -Be 'degraded'
         $byMarker['test:EvidenceTruth.Skip'].status | Should -Be 'skipped'
         $byMarker['test:EvidenceTruth.Missing'].status | Should -Be 'unrun'
         $byMarker['test:EvidenceTruth.Mixed'].selectedCount | Should -Be 2
         $byMarker['test:EvidenceTruth.Mixed'].executedCount | Should -Be 1
+
+        $planDir = New-EvidencePlanFixture -Markers @(
+            'test:EvidenceTruth.Pass',
+            'test:EvidenceTruth.Named',
+            'test:EvidenceTruth.Expandable',
+            'test:EvidenceTruth.Mixed',
+            'test:EvidenceTruth.Skip',
+            'test:EvidenceTruth.Missing'
+        )
+        $structuredReceipt = & $script:builder -StructuredTestResultPath $result.ResultPath `
+            -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot
+        @($structuredReceipt.Outcomes).Count | Should -Be 6
+        @($structuredReceipt.Outcomes | Where-Object Status -eq 'passed').Count | Should -Be 3
+        @($structuredReceipt.Outcomes | Where-Object Status -eq 'degraded').Count | Should -Be 1
 
         $passed = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Pass')
         $passed.ExitCode | Should -Be 0 -Because $passed.Output
@@ -307,7 +341,7 @@ Describe 'case-unselected evidence' {
     It 'test:EvidenceTruth.CaseSelected fails' { throw 'case-distinct selection widened' }
 }
 '@ -Encoding utf8NoBOM
-            $caseResultPath = Join-Path $fixture 'case-selection-results.json'
+            $caseResultPath = Join-Path $fixture '.github/.skalary/evidence-results/case-selection-results.json'
             $caseOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
                 -TestPath 'tests/Case.Tests.ps1' -EvidenceTestId 'EvidenceTruth.CaseSelected' `
                 -EvidenceResultPath $caseResultPath 2>&1
@@ -326,16 +360,24 @@ Describe 'external evidence' {
 
         $linkedTestOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
             -TestPath 'tests/Linked.Tests.ps1' -EvidenceTestId 'EvidenceTruth.External' `
-            -EvidenceResultPath 'linked-test-results.json' 2>&1
+            -EvidenceResultPath '.github/.skalary/evidence-results/linked-test-results.json' 2>&1
         $LASTEXITCODE | Should -Be 12 -Because ($linkedTestOutput | Out-String)
         ($linkedTestOutput | Out-String) | Should -Match 'escapes'
 
         $outsideResults = Join-Path $outside 'results'
         [void](New-Item -ItemType Directory -Path $outsideResults)
-        [void](New-Item -ItemType SymbolicLink -Path (Join-Path $fixture 'linked-results') -Target $outsideResults)
-        $linkedOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $fixture `
+        $linkedResultFixture = New-RunnerFixture -Content @'
+Describe 'confined linked result evidence' {
+    It 'test:EvidenceTruth.Confined passes' { $true | Should -BeTrue }
+}
+'@
+        [void](New-Item -ItemType Directory -Path (Join-Path $linkedResultFixture '.github/.skalary') -Force)
+        [void](New-Item -ItemType SymbolicLink `
+                -Path (Join-Path $linkedResultFixture '.github/.skalary/evidence-results') `
+                -Target $outsideResults)
+        $linkedOutput = & pwsh -NoProfile -File $script:runner -RepoRoot $linkedResultFixture `
             -TestPath 'tests/Fixture.Tests.ps1' -EvidenceTestId 'EvidenceTruth.Confined' `
-            -EvidenceResultPath 'linked-results/evidence.json' 2>&1
+            -EvidenceResultPath '.github/.skalary/evidence-results/evidence.json' 2>&1
         $LASTEXITCODE | Should -Be 12 -Because ($linkedOutput | Out-String)
         Test-Path -LiteralPath (Join-Path $outsideResults 'evidence.json') | Should -BeFalse
 

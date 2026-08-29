@@ -6,7 +6,7 @@
 
 At phase and plan crosschecks, verify each requirement's typed markers from Acceptance Criteria:
 
-- `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
+- `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and an `-EvidenceResultPath` that is a direct `.json` child of `.github/.skalary/evidence-results/`; pass that path to the formatter as `-StructuredTestResultPath`. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate).
 
@@ -15,8 +15,8 @@ Use deterministic, pre-approvable commands only. Parse markers into typed variab
 Build the receipt with the shared formatter — do not hand-write receipt lines. `Build-EvidenceReceipt.ps1` is a **pure formatter**: it takes per-marker verifier results as `-Result` objects (each carrying `Req`, `Marker`, one closed `Status`, and an optional `Note`; legacy `Success` remains accepted) plus the current `-Commit`. It returns an object whose `.Text` you write into the receipt and never executes evidence. Pass `-PlanDir` and write to the returned `.ReceiptPath` — it resolves through `Resolve-PlanAssetPath` to `assets/evidence.md` in the current layout and to the plan-folder root `evidence.md` for legacy plans:
 
 ```powershell
-# $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Status='passed'; Note='' } ...
-$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
+# $results contains file/review verifier objects; test REQ mapping is derived from the plan.
+$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -StructuredTestResultPath <runner-json> -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
 Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
