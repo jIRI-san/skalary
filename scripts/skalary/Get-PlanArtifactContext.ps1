@@ -29,7 +29,10 @@ param(
     [int]$MaxArtifactBytes = 128KB,
 
     [ValidateRange(1, 64MB)]
-    [int]$MaxTotalBytes = 512KB
+    [int]$MaxTotalBytes = 512KB,
+
+    [ValidateRange(1, 256)]
+    [int]$MaxCandidates = 32
 )
 
 Set-StrictMode -Version Latest
@@ -48,6 +51,92 @@ $artifactMap = [ordered]@{
     Learnings = 'Learnings'
 }
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+
+if (-not ('SkalaryPlanArtifactHandle' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+public static class SkalaryPlanArtifactHandle
+{
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(
+        SafeFileHandle handle,
+        StringBuilder path,
+        uint pathLength,
+        uint flags);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int fcntl(int fd, int command, byte[] buffer);
+
+    public static string GetPath(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var path = new StringBuilder(512);
+            var length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+            if (length == 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            if (length >= path.Capacity)
+            {
+                path = new StringBuilder((int)length + 1);
+                length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+                if (length == 0 || length >= path.Capacity)
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+            }
+
+            var value = path.ToString();
+            if (value.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"\\" + value.Substring(8);
+            }
+            if (value.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+            {
+                return value.Substring(4);
+            }
+            return value;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var fdPath = "/proc/self/fd/" + handle.DangerousGetHandle().ToInt64();
+            var target = new FileInfo(fdPath).ResolveLinkTarget(true);
+            if (target == null)
+            {
+                throw new IOException("Could not resolve the opened artifact handle.");
+            }
+            return target.FullName;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            const int F_GETPATH = 50;
+            var buffer = new byte[1024];
+            if (fcntl(handle.DangerousGetHandle().ToInt32(), F_GETPATH, buffer) != 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            var length = Array.IndexOf(buffer, (byte)0);
+            if (length < 0)
+            {
+                throw new IOException("Opened artifact handle path exceeds the macOS F_GETPATH buffer.");
+            }
+            return Encoding.UTF8.GetString(buffer, 0, length);
+        }
+
+        throw new PlatformNotSupportedException("Opened artifact handle validation supports Windows, Linux, and macOS.");
+    }
+}
+'@
+}
 
 function ConvertTo-RepoRelativePath {
     param([Parameter(Mandatory)][string]$Path)
@@ -124,6 +213,50 @@ function Test-RegularConfinedFile {
     }
 
     return $item
+}
+
+function Open-ConfinedArtifact {
+    param(
+        [Parameter(Mandatory)][string]$PlanPath,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $initialItem = Test-RegularConfinedFile -PlanPath $PlanPath -Path $Path
+    $expectedPhysicalPath = Resolve-PhysicalRepoPath -Path $initialItem.FullName
+    $stream = [System.IO.File]::Open(
+        $initialItem.FullName,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    try {
+        $handlePath = [SkalaryPlanArtifactHandle]::GetPath($stream.SafeFileHandle)
+        $handlePhysicalPath = Resolve-PhysicalRepoPath -Path $handlePath
+        $physicalPlanPath = Resolve-PhysicalRepoPath -Path $PlanPath
+        $planPrefix = $physicalPlanPath.TrimEnd([char[]]@(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            )) + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $handlePhysicalPath.StartsWith($planPrefix, [System.StringComparison]::Ordinal)) {
+            throw "Opened artifact handle '$handlePath' escapes canonical plan folder '$PlanPath'."
+        }
+        if (-not [string]::Equals($handlePhysicalPath, $expectedPhysicalPath, [System.StringComparison]::Ordinal)) {
+            throw "Opened artifact handle '$handlePath' does not match the confined file that was validated."
+        }
+
+        $openedItem = Test-RegularConfinedFile -PlanPath $PlanPath -Path $Path
+        $openedPhysicalPath = Resolve-PhysicalRepoPath -Path $openedItem.FullName
+        if (-not [string]::Equals($openedPhysicalPath, $handlePhysicalPath, [System.StringComparison]::Ordinal) -or
+            $openedItem.Length -ne $stream.Length) {
+            throw "Artifact '$Path' changed while its stable read handle was opened."
+        }
+
+        return $stream
+    }
+    catch {
+        $stream.Dispose()
+        throw
+    }
 }
 
 function Read-BoundedUtf8Stream {
@@ -255,8 +388,25 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
                 }
 
                 $reviewFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-                foreach ($reviewFile in @(Get-ChildItem -LiteralPath $resolvedPath -File -Filter '*.md' -Force)) {
+                $tooManyReviews = $false
+                foreach ($reviewPath in [System.IO.Directory]::EnumerateFiles(
+                        $resolvedPath,
+                        '*.md',
+                        [System.IO.SearchOption]::TopDirectoryOnly
+                    )) {
+                    $reviewFile = Get-Item -LiteralPath $reviewPath -Force
+                    if ($reviewFile.Name -notmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
+                        continue
+                    }
+                    if ($reviewFiles.Count -eq $MaxCandidates) {
+                        $tooManyReviews = $true
+                        break
+                    }
                     $reviewFiles.Add($reviewFile)
+                }
+                if ($tooManyReviews) {
+                    $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason "Finalized review artifacts exceed the $MaxCandidates-candidate limit."))
+                    continue
                 }
                 $reviewFiles.Sort([System.Comparison[System.IO.FileInfo]] {
                     param($left, $right)
@@ -274,7 +424,13 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
                         $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.'))
                         continue
                     }
-                    $null = Test-RegularConfinedFile -PlanPath $plan.Path -Path $receiptPath
+                    try {
+                        $null = Test-RegularConfinedFile -PlanPath $plan.Path -Path $receiptPath
+                    }
+                    catch {
+                        $candidates.Add((New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason "Finalized review receipt was refused: $($_.Exception.Message)"))
+                        continue
+                    }
                     $candidates.Add((New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null))
                 }
                 if ($finalizedCount -eq 0) {
@@ -305,38 +461,35 @@ foreach ($id in @(Get-OrdinallySortedUnique -Value $PlanId)) {
 
 $eligibleBytes = [int64]0
 try {
-    foreach ($candidate in @($candidates | Where-Object status -eq 'pending')) {
+    $pendingCandidates = @($candidates | Where-Object status -eq 'pending')
+    if ($pendingCandidates.Count -gt $MaxCandidates) {
+        foreach ($candidate in $pendingCandidates) {
+            $candidate.status = 'refused'
+            $candidate.reason = "Selected artifacts exceed the $MaxCandidates-candidate limit."
+        }
+        $pendingCandidates = @()
+    }
+
+    foreach ($candidate in $pendingCandidates) {
         try {
             $fullPath = Join-Path $repoRootPath $candidate.sourcePath
-            $null = Test-RegularConfinedFile -PlanPath $candidate.planPath -Path $fullPath
-            $stream = [System.IO.File]::Open(
-                $fullPath,
-                [System.IO.FileMode]::Open,
-                [System.IO.FileAccess]::Read,
-                [System.IO.FileShare]::Read
-            )
-            try {
-                $openedItem = Test-RegularConfinedFile -PlanPath $candidate.planPath -Path $fullPath
-                if ($openedItem.Length -ne $stream.Length) {
-                    throw "Artifact '$fullPath' changed while its stable read handle was opened."
-                }
-                $candidate.stream = $stream
-                $candidate.byteCount = [int64]$stream.Length
-                if ($stream.Length -eq 0) {
-                    $candidate.status = 'refused'
-                    $candidate.reason = 'Artifact file is empty.'
-                }
-                elseif ($stream.Length -gt $MaxArtifactBytes) {
-                    $candidate.status = 'oversized'
-                    $candidate.reason = "Artifact is $($stream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
-                }
-                else {
-                    $eligibleBytes += $stream.Length
-                }
-            }
-            catch {
+            $stream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $fullPath
+            $candidate.stream = $stream
+            $candidate.byteCount = [int64]$stream.Length
+            if ($stream.Length -eq 0) {
+                $candidate.status = 'refused'
+                $candidate.reason = 'Artifact file is empty.'
                 $stream.Dispose()
-                throw
+                $candidate.stream = $null
+            }
+            elseif ($stream.Length -gt $MaxArtifactBytes) {
+                $candidate.status = 'oversized'
+                $candidate.reason = "Artifact is $($stream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
+                $stream.Dispose()
+                $candidate.stream = $null
+            }
+            else {
+                $eligibleBytes += $stream.Length
             }
         }
         catch {

@@ -77,6 +77,9 @@ Describe 'Get-PlanArtifactContext' {
             $reviewsDir = Join-Path $assetsPlan 'assets/reviews'
             New-Item -ItemType Directory -Path $reviewsDir -Force | Out-Null
             Set-Content -LiteralPath (Join-Path $reviewsDir 'notes.md') -Encoding utf8NoBOM -Value 'not a finalized review'
+            $badReviewId = '00000000-0000-0000-0000-000000000000'
+            Set-Content -LiteralPath (Join-Path $reviewsDir "$badReviewId.review.md") -Encoding utf8NoBOM -Value '# Refused review'
+            New-Item -ItemType Directory -Path (Join-Path $reviewsDir "$badReviewId.receipt.json") | Out-Null
             $reviewId = '12345678-1234-1234-1234-123456789abc'
             Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.review.md") -Encoding utf8NoBOM -Value '# Final review'
             Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.receipt.json") -Encoding utf8NoBOM -Value '{}'
@@ -112,10 +115,11 @@ Describe 'Get-PlanArtifactContext' {
             @($first.authority | Select-Object -Unique) | Should -Be @('historical-context-only')
 
             $reviews = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Reviews -Relationship dependency)
-            $reviews.Count | Should -Be 1
-            $reviews.status | Should -Be 'accepted'
-            $reviews.path | Should -Be "docs/implementation-plans/2026-01-02-a1b2c3-assets/assets/reviews/$reviewId.review.md"
-            $reviews.content | Should -Match 'Final review'
+            $reviews.Count | Should -Be 2
+            @($reviews.status) | Should -Be @('refused', 'accepted')
+            $acceptedReview = $reviews | Where-Object status -eq 'accepted'
+            $acceptedReview.path | Should -Be "docs/implementation-plans/2026-01-02-a1b2c3-assets/assets/reviews/$reviewId.review.md"
+            $acceptedReview.content | Should -Match 'Final review'
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -147,6 +151,10 @@ Describe 'Get-PlanArtifactContext' {
             $overTotal = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxArtifactBytes 4 -MaxTotalBytes 7)
             @($overTotal.status) | Should -Be @('oversized', 'oversized')
             @($overTotal | Where-Object { $_.content }).Count | Should -Be 0
+
+            $overCandidates = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxCandidates 1)
+            @($overCandidates.status) | Should -Be @('refused', 'refused')
+            @($overCandidates | Where-Object { $_.content }).Count | Should -Be 0
 
             $missing = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Evidence -Relationship reuse)
             $missing.status | Should -Be 'missing'
