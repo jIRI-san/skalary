@@ -306,6 +306,28 @@ their nonzero status is retained as the container result. After such a failure, 
 any target that owns finalization (`completion-only` or the actual final phase), so partial progress
 cannot authorize Plan Completion or mask the original failure code.
 
+A zero Copilot exit is not completion proof. The entrypoint re-evaluates target close state after every
+zero exit: non-final phases require all steps `[x]` plus a terminal phase review gate, while targets that
+own finalization require the active plan to have reached its verified archive transition. The canonical
+`Get-PhaseExecutionState.ps1` receipt probe requires the plan and immutable phase receipt to be committed
+and clean before returning `closed`; Phase 0 is valid. The dispatcher additionally requires the complete
+plan folder (including review decisions) to be committed and clean before review-gate or archive closure.
+`execution-required` and `close-pending` remain pending. An archive path alone is not terminal: the
+archived plan must still pass the canonical receipt/gate checks, the complete active-to-archive transition
+must exist in `HEAD`, and an open pull request must already exist for the current branch. The archive-add
+commit must atomically remove the active tree and preserve the exact mode/type/blob identity of every file
+under the archive root; that tree must remain unchanged through `HEAD`. Uncommitted, split, partial,
+lossy, later-mutated, or PR-less moves resume as `close-pending`.
+`close-pending`
+resumes the same Copilot session so a long-running validation can be observed to terminal output and its
+durable receipt/finalization can finish without replaying implementation. Handoffs are capped at three
+per target (the `AUTOPILOT_COMPLETION_HANDOFF_LIMIT` test/operations override must be a positive integer)
+and share the original per-target timeout start; exhausting either bound preserves work and exits
+nonzero. Exit 42, exit 43, invalid-close failure, and timeout 124 retain their existing meanings.
+The agent therefore commits and pushes the `[DONE]` title before a separate pure archive-move commit.
+Preservation failures write a container marker; the launcher retains that stopped container instead of
+deleting the only remaining workspace, and operator-stop exits 125 rather than falsely returning 42.
+
 The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step loops run named evidence and focused targets only. Once phase work settles, phase crosscheck runs one highest-signal changed-surface Fast selection and logs its 60-second advisory target; if it is too broad, scope may be reduced and complete coverage deferred. Slow and full-repository validation are forbidden before true plan finalization. Finalization opts into complete Fast through an explicit repository parameter, then runs Slow once. Runtime observations never trigger an automatic repair/rerun loop. The same cadence applies inside container autopilot because the same per-phase agent owns the boundary.
 
 CR is not dispatched after individual implementation steps. Post-phase dispatch uses only the

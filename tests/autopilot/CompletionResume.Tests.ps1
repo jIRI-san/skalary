@@ -6,6 +6,7 @@ Describe 'Autopilot container completion resume' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
         $script:helperPath = Join-Path $repoRoot 'plugins/autopilot/scripts/plan-dispatch.sh'
         $script:reviewGatePath = Join-Path $repoRoot 'scripts/skalary/ReviewCycleGate.ps1'
+        $script:harvestValidatorPath = Join-Path $repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
         $script:entrypoint = Get-Content -LiteralPath (
             Join-Path $repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
         ) -Raw
@@ -34,6 +35,23 @@ Describe 'Autopilot container completion resume' {
             return ($converted | Select-Object -Last 1).Trim()
         }
 
+        function New-WrappedPhaseReviewLog {
+            param([Parameter(Mandatory)][int[]]$Phase)
+
+            return @(
+                foreach ($phaseNumber in $Phase) {
+                    foreach ($cycle in 1..3) {
+                        "- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-$phaseNumber cycle=$cycle outcome=findings"
+                    }
+                    "- [2026-08-29] [src:note] [sev:Low] review-cycle-decision stage=phase-$phaseNumber after=3 action=wrap"
+                }
+            ) -join "`n"
+        }
+
+        $script:helperBashPath = ConvertTo-BashPath -Path $helperPath
+        $script:reviewGateBashPath = ConvertTo-BashPath -Path $reviewGatePath
+        $script:harvestValidatorBashPath = ConvertTo-BashPath -Path $harvestValidatorPath
+
         function Get-ExecutionTargets {
             param(
                 [Parameter(Mandatory)][string]$PlanText,
@@ -54,13 +72,17 @@ Describe 'Autopilot container completion resume' {
             }
             $planPath = Join-Path $planDir 'plan.md'
             Set-Content -LiteralPath $planPath -Value $PlanText -Encoding utf8NoBOM
-            $helper = ConvertTo-BashPath -Path $helperPath
             $plan = ConvertTo-BashPath -Path $planPath
             $selectedGatePath = if ($GatePath) { $GatePath } else { $reviewGatePath }
-            $gate = ConvertTo-BashPath -Path $selectedGatePath
+            $gate = if ($selectedGatePath -eq $reviewGatePath) {
+                $reviewGateBashPath
+            }
+            else {
+                ConvertTo-BashPath -Path $selectedGatePath
+            }
             $output = @(
                 & bash -c 'source "$1"; autopilot_execution_targets "$2" "$3" "$4"' `
-                    -- $helper $plan $Mode $gate
+                    -- $helperBashPath $plan $Mode $gate
             )
             $exitCode = $LASTEXITCODE
             if ($AllowFailure) {
@@ -110,9 +132,7 @@ Describe 'Autopilot container completion resume' {
 ## Phase 2
 - [ ] 2.1 pending
 '@
-        $crLog = @'
-- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=1 outcome=clean
-'@
+        $crLog = New-WrappedPhaseReviewLog -Phase 1
         $targets = @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $crLog)
 
         $targets | Should -Be @('phase:2')
@@ -142,9 +162,7 @@ Describe 'Autopilot container completion resume' {
 ## Phase 2
 - [x] 2.1 completed
 '@
-        $crLog = @'
-- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-2 cycle=1 outcome=clean
-'@
+        $crLog = New-WrappedPhaseReviewLog -Phase 2
         $targets = @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $crLog)
 
         $targets | Should -Be @('phase:1', 'completion-only')
@@ -239,6 +257,12 @@ Describe 'Autopilot container completion resume' {
         $targets = @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $crLog)
 
         $targets | Should -Be @('operator-stop:1')
+
+        $legacyClean = @'
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=1 outcome=clean
+'@
+        @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $legacyClean) |
+            Should -Be @('operator-stop:1')
     }
 
     It 'distinguishes nonterminal and operator-blocked pre-finalization gates' {
@@ -265,8 +289,8 @@ Describe 'Autopilot container completion resume' {
 '@
         Set-Content -LiteralPath (Join-Path $operatorDir 'assets/logs/cr-log.md') `
             -Encoding utf8NoBOM -NoNewline -Value ($operatorLog -replace "`r`n?", "`n")
-        $helper = ConvertTo-BashPath -Path $helperPath
-        $gate = ConvertTo-BashPath -Path $reviewGatePath
+        $helper = $helperBashPath
+        $gate = $reviewGateBashPath
         $allowPlan = ConvertTo-BashPath -Path (Join-Path $allowDir 'plan.md')
         $operatorPlan = ConvertTo-BashPath -Path (Join-Path $operatorDir 'plan.md')
 
@@ -279,7 +303,7 @@ Describe 'Autopilot container completion resume' {
     }
 
     It 'identifies explicit and final-phase targets that own plan finalization' {
-        $helper = ConvertTo-BashPath -Path $helperPath
+        $helper = $helperBashPath
 
         foreach ($target in @('completion-only', 'phase:3', 'phase-completion:3')) {
             & bash -c 'source "$1"; autopilot_target_owns_finalization "$2" "$3"' `
@@ -289,6 +313,181 @@ Describe 'Autopilot container completion resume' {
         & bash -c 'source "$1"; autopilot_target_owns_finalization "$2" "$3"' `
             -- $helper 'phase:2' 3
         $LASTEXITCODE | Should -Be 1
+    }
+
+    It 'test:AutopilotCompletionResume.ZeroExitClosePending never converts pending close to success' {
+        $helper = $helperBashPath
+
+        $action = & bash -c 'source "$1"; autopilot_completion_handoff_action 0 close-pending 0 3' `
+            -- $helper
+        $LASTEXITCODE | Should -Be 0
+        $action | Should -Be 'resume'
+
+        $exhausted = & bash -c 'source "$1"; autopilot_completion_handoff_action 0 close-pending 3 3' `
+            -- $helper
+        $LASTEXITCODE | Should -Be 0
+        $exhausted | Should -Be 'pending-failed'
+
+        $closed = & bash -c 'source "$1"; autopilot_completion_handoff_action 0 closed 3 3' `
+            -- $helper
+        $closed | Should -Be 'complete'
+    }
+
+    It 'test:AutopilotCompletionResume.LongRunningFinalValidation keeps one session and timeout budget across handoffs' {
+        $plan = @'
+## Phase 1
+- [x] 1.1 completed
+'@
+        $crLog = New-WrappedPhaseReviewLog -Phase 1
+        $repoDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('N'))
+        $planSlug = '2026-08-29-abc123-long-validation'
+        $planDir = Join-Path $repoDir "docs/implementation-plans/$planSlug"
+        $logsDir = Join-Path $planDir 'assets/logs'
+        [void](New-Item -ItemType Directory -Path $logsDir -Force)
+        Set-Content -LiteralPath (Join-Path $planDir 'assets/requirements.md') `
+            -Value '# Requirements' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $planDir 'assets/logs/cr-log.md') `
+            -Value ($crLog -replace "`r`n?", "`n") -Encoding utf8NoBOM -NoNewline
+        $planPath = Join-Path $planDir 'plan.md'
+        Set-Content -LiteralPath $planPath -Value $plan -Encoding utf8NoBOM
+        & git -C $repoDir init --quiet
+        & git -C $repoDir config user.name fixture
+        & git -C $repoDir config user.email fixture@example.invalid
+        & git -C $repoDir add -- .
+        & git -C $repoDir commit --quiet -m initial
+        $initialCommit = (& git -C $repoDir rev-parse HEAD).Trim()
+        $helper = $helperBashPath
+        $bashPlan = ConvertTo-BashPath -Path $planPath
+        $gate = $reviewGateBashPath
+
+        $stateScript = Join-Path $fixtureRoot (
+            'Get-PhaseExecutionState-' + [guid]::NewGuid().ToString('N') + '.ps1'
+        )
+        Set-Content -LiteralPath $stateScript -Encoding utf8NoBOM -Value @'
+param([string]$PlanPath, [int]$Phase, [string]$RepoRoot, [string]$HarvestValidator)
+Write-Output closed
+'@
+        $bashStateScript = ConvertTo-BashPath -Path $stateScript
+        $bashRepo = ConvertTo-BashPath -Path $repoDir
+        $openPrProbe = Join-Path $fixtureRoot ('gh-open-' + [guid]::NewGuid().ToString('N'))
+        Set-Content -LiteralPath $openPrProbe -Encoding utf8NoBOM -Value @'
+#!/bin/bash
+printf '%s\n' '1'
+'@
+        $missingPrProbe = Join-Path $fixtureRoot ('gh-missing-' + [guid]::NewGuid().ToString('N'))
+        Set-Content -LiteralPath $missingPrProbe -Encoding utf8NoBOM -Value @'
+#!/bin/bash
+printf '%s\n' '0'
+'@
+        $bashOpenPrProbe = ConvertTo-BashPath -Path $openPrProbe
+        $bashMissingPrProbe = ConvertTo-BashPath -Path $missingPrProbe
+        & bash -c 'chmod +x "$1" "$2"' -- $bashOpenPrProbe $bashMissingPrProbe
+        $pending = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $pending | Should -Be 'close-pending'
+
+        $archiveRoot = Join-Path $repoDir 'docs/implementation-plans/archived'
+        [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
+        Move-Item -LiteralPath $planDir -Destination $archiveRoot
+        $uncommitted = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $uncommitted | Should -Be 'close-pending'
+
+        $archivedPlan = Join-Path $archiveRoot "$planSlug/plan.md"
+        & git -C $repoDir add -- $archivedPlan
+        & git -C $repoDir commit --quiet -m 'partial archive'
+        $partialCommit = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $partialCommit | Should -Be 'close-pending'
+
+        & git -C $repoDir add -- .
+        & git -C $repoDir commit --quiet -m 'finish partial archive'
+        $splitCommit = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $splitCommit | Should -Be 'close-pending'
+
+        & git -C $repoDir checkout --quiet -b atomic-archive $initialCommit
+        if (Test-Path -LiteralPath $archiveRoot) {
+            Remove-Item -LiteralPath $archiveRoot -Recurse -Force
+        }
+        [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
+        Move-Item -LiteralPath $planDir -Destination $archiveRoot
+        & git -C $repoDir add --all
+        & git -C $repoDir commit --quiet -m archive
+        $missingPr = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashMissingPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $missingPr | Should -Be 'close-pending'
+
+        $closed = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $closed | Should -Be 'closed'
+
+        Add-Content -LiteralPath $archivedPlan -Value "`n<!-- late committed mutation -->" `
+            -Encoding utf8NoBOM
+        & git -C $repoDir add --all
+        & git -C $repoDir commit --quiet -m 'mutate archived tree'
+        $mutated = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
+        $LASTEXITCODE | Should -Be 0
+        $mutated | Should -Be 'close-pending'
+
+        $entrypoint | Should -Match '--session-id "\$\{TARGET_SESSION_ID\}"'
+        $entrypoint | Should -Match 'TARGET_STARTED_AT=\$\(date \+%s\)'
+        $entrypoint | Should -Match '\$\(date \+%s\) - TARGET_STARTED_AT'
+        $entrypoint | Should -Match 'remained ''close-pending'''
+        $agent | Should -Match 'Validation is still running\.'
+        $agent | Should -Match 'Do not report success until'
+    }
+
+    It 'requires a terminal canonical phase-close receipt when its probe is installed' {
+        $plan = @'
+## Phase 1
+- [x] 1.1 completed
+
+## Phase 2
+- [x] 2.1 completed
+'@
+        $crLog = New-WrappedPhaseReviewLog -Phase @(1, 2)
+        $planDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('N'))
+        $logsDir = Join-Path $planDir 'assets/logs'
+        [void](New-Item -ItemType Directory -Path $logsDir -Force)
+        Set-Content -LiteralPath (Join-Path $planDir 'assets/requirements.md') `
+            -Value '# Requirements' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $logsDir 'cr-log.md') `
+            -Value ($crLog -replace "`r`n?", "`n") -Encoding utf8NoBOM -NoNewline
+        $planPath = Join-Path $planDir 'plan.md'
+        Set-Content -LiteralPath $planPath -Value $plan -Encoding utf8NoBOM
+        $stateScript = Join-Path $planDir 'Get-PhaseExecutionState.ps1'
+        Set-Content -LiteralPath $stateScript -Encoding utf8NoBOM -Value @'
+param([string]$PlanPath, [int]$Phase, [string]$RepoRoot, [string]$HarvestValidator)
+Write-Output $env:FAKE_PHASE_CLOSE_STATE
+'@
+        & git -C $planDir init --quiet
+        & git -C $planDir config user.name fixture
+        & git -C $planDir config user.email fixture@example.invalid
+        & git -C $planDir add --all
+        & git -C $planDir commit --quiet -m initial
+        $helper = $helperBashPath
+        $bashPlan = ConvertTo-BashPath -Path $planPath
+        $bashRepo = ConvertTo-BashPath -Path $planDir
+        $gate = $reviewGateBashPath
+        $state = ConvertTo-BashPath -Path $stateScript
+
+        $pending = & bash -c 'source "$1"; FAKE_PHASE_CLOSE_STATE=close-pending AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" autopilot_target_close_state "$2" phase-completion:1 2 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $state $harvestValidatorBashPath
+        $LASTEXITCODE | Should -Be 0
+        $pending | Should -Be 'close-pending'
+
+        $closed = & bash -c 'source "$1"; FAKE_PHASE_CLOSE_STATE=closed AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" autopilot_target_close_state "$2" phase-completion:1 2 "$3"' `
+            -- $helper $bashPlan $gate $bashRepo $state $harvestValidatorBashPath
+        $LASTEXITCODE | Should -Be 0
+        $closed | Should -Be 'closed'
     }
 
     It 'wires the confined prompt and helper into the shipped container payload' {

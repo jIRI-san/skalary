@@ -189,9 +189,20 @@ try {
     $ErrorActionPreference = $prevEAP
 
     # --- Cleanup container ---
-    Write-Host "Removing container: $ContainerName"
+    $preservationMarker = Join-Path ([System.IO.Path]::GetTempPath()) (
+        'autopilot-preservation-' + [guid]::NewGuid().ToString('N')
+    )
     $ErrorActionPreference = 'Continue'
-    docker rm $ContainerName 2>$null
+    docker cp "${ContainerName}:/tmp/autopilot-preservation-failed" $preservationMarker 2>$null
+    $preservationFailed = Test-Path -LiteralPath $preservationMarker -PathType Leaf
+    Remove-Item -LiteralPath $preservationMarker -Force -ErrorAction SilentlyContinue
+    if ($preservationFailed) {
+        Write-Warning "Retaining container '$ContainerName' because work preservation failed."
+    }
+    else {
+        Write-Host "Removing container: $ContainerName"
+        docker rm $ContainerName 2>$null
+    }
     $ErrorActionPreference = $prevEAP
 
     Write-Host ""

@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T14:07:17.9380164Z",
+  "generatedAt": "2026-08-29T20:59:19.3296624Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "ce8e312d951dff701c040c48e5a66902d11d5964909d9542beb1bb421723adf5",
+          "sha256": "6e6bc7950c4e525b56e59ced0740ddda49f2720819480f31fc112b681491f99e",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -187,7 +187,7 @@
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
-          "sha256": "4a050bfbb5f232d90c38079f0143bff84977c340e1c30068a54f6ce96f58fa55",
+          "sha256": "6f2f9b1bfcbbad18a150130cfeb80a78b3c82243d733d68b64033f170ae46f7f",
           "src": "devcontainer/Dockerfile"
         },
         {
@@ -212,8 +212,13 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "7e8b52da5da2344eed9d17f4394e93c1cbd9385e5bff384c51d045c4795f8067",
+          "sha256": "c0ac01eb4a287db4879a4c866bcc586cbab8b1c9f6c860bc7557bab9e426b7c7",
           "src": "schemas/autopilot.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1",
+          "sha256": "e7c36acf001314cf03d02b897f903da1ab63f0fb514c8639e902d0611c68e69d",
+          "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/AtomicStore.psm1",
@@ -221,8 +226,13 @@
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
         },
         {
+          "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
+          "sha256": "d660a52cfa87df081558367c54ff3dc8c23c6a128b8eb7821179f31a36dcee91",
+          "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
+        },
+        {
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "sha256": "384dde82494b767b8ba72a3d74ba3a834194e2b59b84c81cf5089c1d1ebbb6f7",
           "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -237,13 +247,18 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "f0be22882189c09d1ce85577c5fa7e4a1057b6ea6b9bec4b23a802a925cf3c6a",
+          "sha256": "58711c3fcbcc19b294ccbcf7cfe12802fdf43c329923f353042733866dec2886",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/PlanState.psm1",
           "sha256": "e8827841f043a3c5dafcd537d4ff4735ddbec734d70a81184052037a698493ce",
           "src": "skills/autopilot/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1",
+          "sha256": "a69afde8fbbfd48bb483224953c91e7ee21d0ee6ef6557be1d7eeaaa43d9d271",
+          "src": "skills/autopilot/scripts/ReviewCycleGate.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
@@ -267,7 +282,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "5edbc25ecd7d99b2fe8dc0559065e02367ceb04473e3c14dbd0eda81a8923167",
+          "sha256": "eb8ec45270678af31fe533c9afc72517a7da5f2a173fa79a1c42665b8566bceb",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -282,7 +297,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "b69ef2cddef8ebe1c5272e50c4a68b1b66d6463481fe82071a7fc3adb28ebfff",
+          "sha256": "3d65bf55e7d047b8e4c621c1b679f73bd969e856ca21b172442de0a1cc8c7c33",
           "src": "scripts/launch-container.ps1"
         },
         {
@@ -299,6 +314,11 @@
           "dest": "skills/autopilot/scripts/launch.ps1",
           "sha256": "1b12bdd5a1b9c4abc817ffc85d5d228b879f934d1a66b59a8b015b07423464ea",
           "src": "scripts/launch.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/plan-dispatch.sh",
+          "sha256": "6a3ca8897a72ed53cbde561c9757a534fb9ca7ef0c88b4bf55b2655a61c2a743",
+          "src": "scripts/plan-dispatch.sh"
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
@@ -341,7 +361,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.33"
+      "version": "1.2.39"
     },
     {
       "author": "jIRI-san",
@@ -540,7 +560,7 @@
         },
         {
           "dest": "skills/ci/scripts/Add-WorkflowNote.ps1",
-          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
+          "sha256": "e7c36acf001314cf03d02b897f903da1ab63f0fb514c8639e902d0611c68e69d",
           "src": "skills/ci/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -560,7 +580,7 @@
         },
         {
           "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "sha256": "384dde82494b767b8ba72a3d74ba3a834194e2b59b84c81cf5089c1d1ebbb6f7",
           "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -570,7 +590,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "f0be22882189c09d1ce85577c5fa7e4a1057b6ea6b9bec4b23a802a925cf3c6a",
+          "sha256": "58711c3fcbcc19b294ccbcf7cfe12802fdf43c329923f353042733866dec2886",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -680,7 +700,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.60"
+      "version": "1.0.64"
     },
     {
       "author": "jIRI-san",
@@ -724,7 +744,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "f0be22882189c09d1ce85577c5fa7e4a1057b6ea6b9bec4b23a802a925cf3c6a",
+          "sha256": "58711c3fcbcc19b294ccbcf7cfe12802fdf43c329923f353042733866dec2886",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -779,7 +799,7 @@
         },
         {
           "dest": "skills/cip/scripts/Add-WorkflowNote.ps1",
-          "sha256": "acf4f1fc63a5635b38296b99f0215214b458d27a01a9ba02f05f5620ee887dde",
+          "sha256": "e7c36acf001314cf03d02b897f903da1ab63f0fb514c8639e902d0611c68e69d",
           "src": "skills/cip/scripts/Add-WorkflowNote.ps1"
         },
         {
@@ -799,7 +819,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "f0be22882189c09d1ce85577c5fa7e4a1057b6ea6b9bec4b23a802a925cf3c6a",
+          "sha256": "58711c3fcbcc19b294ccbcf7cfe12802fdf43c329923f353042733866dec2886",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -846,7 +866,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.54"
+      "version": "1.0.57"
     },
     {
       "author": "jIRI-san",

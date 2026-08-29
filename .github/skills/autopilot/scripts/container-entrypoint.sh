@@ -81,11 +81,19 @@ preserve_work() {
     # sweeps real in-flight work.
     if [ -n "$(git status --porcelain)" ]; then
         echo "Committing in-flight work before exit..."
-        git add -A
-        git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]" || true
+        if ! git add -A ||
+            ! git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]"; then
+            echo "ERROR: unable to commit in-flight work; retaining the container workspace."
+            touch /tmp/autopilot-preservation-failed
+            return 1
+        fi
     fi
     echo "Pushing ${WORK_BRANCH}..."
-    git push origin "${WORK_BRANCH}" || echo "WARNING: preservation push failed — commits remain only in this container."
+    if ! git push origin "${WORK_BRANCH}"; then
+        echo "ERROR: preservation push failed; retaining the container workspace."
+        touch /tmp/autopilot-preservation-failed
+        return 1
+    fi
 }
 
 on_terminate() {
@@ -178,25 +186,34 @@ fi
 
 PHASE_TIMEOUT_MIN="${AUTOPILOT_PHASE_TIMEOUT_MIN:-0}"
 PHASE_TIMEOUT_SECS=$((PHASE_TIMEOUT_MIN * 60))
+COMPLETION_HANDOFF_LIMIT="${AUTOPILOT_COMPLETION_HANDOFF_LIMIT:-3}"
+if [[ ! "${COMPLETION_HANDOFF_LIMIT}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: AUTOPILOT_COMPLETION_HANDOFF_LIMIT must be a positive integer."
+    exit 1
+fi
 if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
     echo "Per-phase timeout: ${PHASE_TIMEOUT_MIN}m (whole-run cap is enforced by the host)."
 else
     echo "Per-phase timeout: disabled (whole-run cap is enforced by the host)."
 fi
+echo "Completion handoff limit: ${COMPLETION_HANDOFF_LIMIT} same-session resume(s) per target."
 
 # Per-target copilot invocations
 COMPLETION_ALLOWED=1
 RUN_EXIT_CODE=0
 for TARGET in "${EXECUTION_TARGETS[@]}"; do
     echo ""
-    if [ "${COMPLETION_ALLOWED}" -ne 1 ] &&
-        autopilot_target_owns_finalization "${TARGET}" "${FINAL_PHASE_NUM}"; then
-        echo "Skipping ${TARGET}: an earlier target failed, so plan finalization is not eligible."
-        break
+    if [ "${COMPLETION_ALLOWED}" -ne 1 ]; then
+        if autopilot_target_owns_finalization "${TARGET}" "${FINAL_PHASE_NUM}" ||
+            [[ "${TARGET}" == operator-stop:* ]]; then
+            echo "Skipping ${TARGET}: an earlier target failed, so completion is not eligible."
+            break
+        fi
     fi
     if [[ "${TARGET}" == operator-stop:* ]]; then
         PHASE_NUM="${TARGET#operator-stop:}"
         echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
+        preserve_work || exit 125
         git push origin "${WORK_BRANCH}" || true
         exit 42
     elif [ "${TARGET}" = "completion-only" ]; then
@@ -214,6 +231,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             fi
             if [ "${GATE_STATUS}" -eq 42 ]; then
                 echo "Plan completion requires an operator review decision — stopping."
+                preserve_work || exit 125
                 git push origin "${WORK_BRANCH}" || true
                 exit 42
             fi
@@ -236,86 +254,127 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
     fi
     echo "=== ${TARGET_LABEL} ==="
 
-    # Pass --model explicitly when set so model selection is deterministic
-    # (not just implied by COPILOT_MODEL) and visible in logs.
-    MODEL_ARGS=()
-    if [ -n "${COPILOT_MODEL:-}" ]; then
-        MODEL_ARGS=(--model "${COPILOT_MODEL}")
-        echo "Invoking Copilot CLI with model: ${COPILOT_MODEL}"
-    else
-        echo "Invoking Copilot CLI with CLI default model (COPILOT_MODEL unset)"
-    fi
+    TARGET_SESSION_ID=$(cat /proc/sys/kernel/random/uuid)
+    TARGET_STARTED_AT=$(date +%s)
+    TARGET_PROMPT="${PROMPT}"
+    HANDOFF_COUNT=0
+    while true; do
+        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ] &&
+            [ "$(($(date +%s) - TARGET_STARTED_AT))" -ge "${PHASE_TIMEOUT_SECS}" ]; then
+            preserve_work
+            echo "Stopping run after the shared timeout budget expired in ${TARGET_LABEL}."
+            exit 124
+        fi
 
-    copilot -p "${PROMPT}" \
-        "${MODEL_ARGS[@]}" \
-        --context "${COPILOT_CONTEXT}" \
-        --effort "${COPILOT_REASONING_EFFORT}" \
-        --agent autopilot \
-        --no-ask-user \
-        --share="./${TRANSCRIPT}" &
-    COPILOT_PID=$!
+        # Pass --model explicitly when set so model selection is deterministic
+        # (not just implied by COPILOT_MODEL) and visible in logs.
+        MODEL_ARGS=()
+        if [ -n "${COPILOT_MODEL:-}" ]; then
+            MODEL_ARGS=(--model "${COPILOT_MODEL}")
+            echo "Invoking Copilot CLI with model: ${COPILOT_MODEL}"
+        else
+            echo "Invoking Copilot CLI with CLI default model (COPILOT_MODEL unset)"
+        fi
 
-    # Per-phase timeout. The host only enforces the whole-run cap; it cannot see
-    # phase boundaries, so the per-phase budget is enforced here.
-    PHASE_TIMED_OUT=0
-    if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
-        ELAPSED=0
-        while kill -0 "${COPILOT_PID}" 2>/dev/null; do
-            if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
-                echo "${TARGET_LABEL} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating."
-                PHASE_TIMED_OUT=1
-                kill -TERM "${COPILOT_PID}" 2>/dev/null || true
-                for _ in 1 2 3 4 5; do
-                    kill -0 "${COPILOT_PID}" 2>/dev/null || break
-                    sleep 1
-                done
-                kill -KILL "${COPILOT_PID}" 2>/dev/null || true
-                break
+        copilot -p "${TARGET_PROMPT}" \
+            "${MODEL_ARGS[@]}" \
+            --context "${COPILOT_CONTEXT}" \
+            --effort "${COPILOT_REASONING_EFFORT}" \
+            --agent autopilot \
+            --session-id "${TARGET_SESSION_ID}" \
+            --no-ask-user \
+            --share="./${TRANSCRIPT}" &
+        COPILOT_PID=$!
+
+        # Every same-session handoff shares the original target timeout budget.
+        PHASE_TIMED_OUT=0
+        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
+            while kill -0 "${COPILOT_PID}" 2>/dev/null; do
+                ELAPSED=$(($(date +%s) - TARGET_STARTED_AT))
+                if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
+                    echo "${TARGET_LABEL} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating."
+                    PHASE_TIMED_OUT=1
+                    kill -TERM "${COPILOT_PID}" 2>/dev/null || true
+                    for _ in 1 2 3 4 5; do
+                        kill -0 "${COPILOT_PID}" 2>/dev/null || break
+                        sleep 1
+                    done
+                    kill -KILL "${COPILOT_PID}" 2>/dev/null || true
+                    break
+                fi
+                sleep 5
+            done
+        fi
+
+        set +e
+        wait "${COPILOT_PID}"
+        EXIT_CODE=$?
+        set -e
+        COPILOT_PID=""
+
+        if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
+            preserve_work
+            echo "Stopping run after timeout in ${TARGET_LABEL}."
+            exit 124
+        fi
+
+        CLOSE_STATE=""
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+            if ! CLOSE_STATE=$(
+                autopilot_target_close_state \
+                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}"
+            ); then
+                echo "ERROR: Unable to verify terminal close state for ${TARGET_LABEL}."
+                preserve_work
+                exit 1
             fi
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-        done
-    fi
-
-    set +e
-    wait "${COPILOT_PID}"
-    EXIT_CODE=$?
-    set -e
-    COPILOT_PID=""
-
-    if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
-        # Preserve whatever the phase produced, then stop: continuing into the next
-        # phase after a truncated one would build on an unfinished phase.
-        preserve_work
-        echo "Stopping run after timeout in ${TARGET_LABEL}."
-        exit 124
-    fi
-
-    if [ ${EXIT_CODE} -ne 0 ]; then
-        echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
-        if [ ${EXIT_CODE} -eq 42 ]; then
-            echo "@human step encountered — stopping."
-            git push origin "${WORK_BRANCH}" || true
-            exit 42
         fi
-        if [ ${EXIT_CODE} -eq 43 ]; then
-            # Offline rebundle requested: the agent committed the package
-            # manifest (not the lockfile). Push it so the host can regenerate
-            # the lockfile + re-bundle the feed, then signal the launcher.
-            # Exits here, before the unconditional end-of-run push.
-            echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
-            git push origin "${WORK_BRANCH}"
-            exit 43
-        fi
-        # Non-zero but not @human — push what landed, then continue for partial progress
-        COMPLETION_ALLOWED=0
-        if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
-            RUN_EXIT_CODE="${EXIT_CODE}"
-        fi
-        git push origin "${WORK_BRANCH}" || true
-    else
-        echo "${TARGET_LABEL} complete."
-    fi
+        HANDOFF_ACTION=$(
+            autopilot_completion_handoff_action \
+                "${EXIT_CODE}" "${CLOSE_STATE}" "${HANDOFF_COUNT}" "${COMPLETION_HANDOFF_LIMIT}"
+        )
+        case "${HANDOFF_ACTION}" in
+            complete)
+                echo "${TARGET_LABEL} complete."
+                break
+                ;;
+            resume)
+                HANDOFF_COUNT=$((HANDOFF_COUNT + 1))
+                echo "${TARGET_LABEL} exited zero with close state 'close-pending'; resuming session ${TARGET_SESSION_ID} (${HANDOFF_COUNT}/${COMPLETION_HANDOFF_LIMIT})."
+                TARGET_PROMPT="Continue the existing ${TARGET_LABEL} target for ${PLAN_PATH}. The previous response ended while required close work was still pending. Resume any still-running validation through its existing tool session and wait for terminal output; if it is no longer running, rerun the required validation. Do not end or report success until validation, durable close receipts, review, push, PR, and archive work required by the original target are terminal. Do not replay completed implementation. Original target: ${PROMPT}"
+                ;;
+            pending-failed)
+                echo "ERROR: ${TARGET_LABEL} remained 'close-pending' after ${HANDOFF_COUNT} same-session handoffs."
+                preserve_work
+                exit 1
+                ;;
+            human-stop)
+                echo "${TARGET_LABEL} requires operator action — stopping."
+                preserve_work || exit 125
+                git push origin "${WORK_BRANCH}" || true
+                exit 42
+                ;;
+            rebundle)
+                echo "Offline rebundle requested (exit 43) — pushing manifest commit and signaling host."
+                git push origin "${WORK_BRANCH}"
+                exit 43
+                ;;
+            invalid-close)
+                echo "ERROR: ${TARGET_LABEL} returned invalid close state '${CLOSE_STATE}'."
+                preserve_work
+                exit 1
+                ;;
+            target-failed)
+                echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
+                COMPLETION_ALLOWED=0
+                if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
+                    RUN_EXIT_CODE="${EXIT_CODE}"
+                fi
+                git push origin "${WORK_BRANCH}" || true
+                break
+                ;;
+        esac
+    done
 done
 
 echo ""

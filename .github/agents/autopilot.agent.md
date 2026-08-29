@@ -20,6 +20,8 @@ For an On Phase Completion-only prompt, enforce the same read/config/planning ad
 
 For a Plan Completion-only prompt, read the plan and config and enforce the planning-context admission gate below. Verify every implementation step under every `## Phase N` heading is `[x]`; if not, report the mismatch and exit nonzero without changing the plan. When all are complete, skip the Execution Loop and **On Phase Completion** in full, including every `phase-N` ReviewCycleGate call, and begin at **On Plan Completion**. Persisted operator decisions remain authoritative; do not reopen completed steps or replay completed phase crosschecks, harvests, reviews, commits, or pushes.
 
+**Truthful completion handoff:** Never end an invocation with required validation or close work still running. When a tool reports that a command is still running, retain its shell/session identifier and read it until it exits; `Validation is still running.` is progress, not a terminal result. Do not report success until the required validation result is known and the corresponding durable phase-close receipt or final archive state is written and verified. The runtime verifies that receipt through the installed `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` probe. If the runtime resumes this same agent session after detecting `close-pending`, continue the existing target: reconnect to its running tool process when available, otherwise rerun the unfinished validation, then complete only the missing receipt/review/push/PR/archive work. The handoff never authorizes replaying completed implementation or converting pending work into success.
+
 ## Execution Loop
 
 1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Then load only the assets the phase needs (`assets/intent.md` before implementing, plus requirements/risks/decisions/references as referenced); legacy plans keep these at the plan-folder root. Never read the whole `assets/` tree.
@@ -156,7 +158,7 @@ For a Plan Completion-only prompt, read the plan and config and enforce the plan
      - `Written=false` with `Status=complete`: the due is already known. If SI state paths still differ from `HEAD` (for example, retry after a crash before the prior due commit), commit and push that existing due state; otherwise make no due commit.
      - `Status=degraded` carries the wrapper's actual writer failure: report its `Note`, do not claim the reminder persisted, and continue to the plan PR. Any wrapper exception is also non-blocking: report `degraded: SI due enqueue failed` and continue. The enqueue never satisfies or blocks the archival gate.
    - **Branch after append-harvest commit:**
-     - **Autonomous branch:** `git push origin <current-branch>` -> archive commit -> **required post-archive `git push origin <current-branch>`** -> capture complete-source OID -> enqueue/commit/push SI due when written -> `gh pr create`.
+     - **Autonomous branch:** `git push origin <current-branch>` -> `[DONE]` commit + push -> pure archive-move commit -> **required post-archive `git push origin <current-branch>`** -> capture complete-source OID -> enqueue/commit/push SI due when written -> `gh pr create`.
      - **Escalation branch (`@human`):** `git push origin <current-branch>` -> run `/udn` reconciliation first -> derive full-line prune candidates -> run prune -> commit prune/design-note edits -> `git push origin <current-branch>` -> `gh pr create --draft --head <branch> --label "@human"` -> write `.autopilot-finalize-needed` marker -> exit 42. Never archive on this branch.
      - `/udn` contract in autopilot finalization: run deterministic reconciliation prompts/checks; if ambiguity remains, keep the draft PR path + marker + exit 42 instead of autonomous archival.
    - **Prune scope in escalation only:**
@@ -166,10 +168,10 @@ For a Plan Completion-only prompt, read the plan and config and enforce the plan
      - Prune only prior-plan entries flagged obsolete/superseded by `/udn`; retention guards remain enforced by script.
      - Candidate selection must pass full-line matches from active ledger files into `Remove` (`-Match` or `-MatchBase64`), never substring or regex targeting.
 
-4. **Archive plan (autonomous branch only)** — mark the plan done and move it (resolve the folder via `Resolve-Plan`; never reconstruct a legacy, unprefixed-hash, or prefixed-hash folder name):
-   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`
+4. **Archive plan (autonomous branch only)** — mark the plan done, commit that content change, then move it without changing the tree (resolve the folder via `Resolve-Plan`; never reconstruct a legacy, unprefixed-hash, or prefixed-hash folder name):
+   - Edit `plan.md` title to append `[DONE]`: `# <plan-id>: Plan Title [DONE]`; stage, commit, and push this edit before moving the folder.
    - Move folder: `Move-Item docs/implementation-plans/<plan-dir> docs/implementation-plans/archived/<plan-dir>`
-   - Stage and commit: `git commit -m "chore: archive completed plan <plan-id>"`
+   - Stage and commit the move without further content changes: `git commit -m "chore: archive completed plan <plan-id>"`. The runtime verifies that this commit preserves every mode/type/blob identity from the committed active tree.
 
 5. **Create PR (autonomous branch only)** — generate a PR with a structured title and body:
 
