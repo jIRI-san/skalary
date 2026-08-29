@@ -7,6 +7,7 @@
 - [2026-08-28] dr legacy step 4.3 : self-migration requires a host relaunch boundary because the already-running entrypoint cannot consume newly installed exit handling (plan-669ad3, src:autopilot, sev:Critical) #architecture-patterns #phase-2
 - [2026-08-23] Generated explanatory prose must derive mapping differences from the registry rather than hardcode the current policy relationship. (plan-79cfe1, src:ci, sev:Med) #generation #mapping #phase-3 #req-2
 - [2026-08-28] Keep folder-name parsing pure and shared so worktree and pinned-tree inventories cannot drift across naming migrations. (plan-669ad3, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1
+- [2026-08-29] Phase harvest must parse and skip legacy Phase: 0 planning capture before selecting executable phase sections. (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-3
 - [2026-08-28] Pinned SI inventory duplicates the plan-folder grammar instead of consuming a shared PlanState parser leaving future drift risk. (plan-669ad3, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
 - [2026-08-29] Plugin-owned SI modules must resolve shared generated closures in both source-plugin and installed-skill layouts. (plan-2366ad, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-1
 - [2026-08-10] Public lock and CAS parameters allowed values beyond exact 30-second and three-attempt maxima. (plan-1936cb, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-7
@@ -47,3 +48,4 @@
 - [2026-08-28] The autopilot archive instruction still documents only the old unprefixed hash folder grammar. (plan-669ad3, src:autopilot, sev:Low) #maintainability-consistency #phase-3 #req-5
 - [2026-08-09] The autopilot design note retained the obsolete Add-LedgerEntry execution carve-out after installed phase harvest replaced it. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-7
 - [2026-08-09] The harvester rejected writer-valid CrLog sources and the writer accepted hidden kind fields that could not be reconstructed for digest validation. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-3 #req-4
+- [2026-08-29] usable increment=interactive vertical checkpoint; intent fit=ci now admits phases read-only and closes them against confirmed intent; evidence=REQ-1 passed REQ-2 passed REQ-3 passed; decisions=reuse PlanState Build-Evide (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-1 #req-2 #req-3
