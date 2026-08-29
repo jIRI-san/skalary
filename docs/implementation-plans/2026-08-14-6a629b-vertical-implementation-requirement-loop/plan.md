@@ -1,4 +1,4 @@
-# 6a629b: Vertical implementation and requirement loop
+# 6a629b: Vertical implementation and requirement loop [DONE]
 <!-- plan-id: 6a629b -->
 <!-- depends-on: 57cc2c, 863d97 -->
 <!-- epic: bcece1 -->
