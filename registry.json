@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T11:11:50.5126926Z",
+  "generatedAt": "2026-08-29T11:31:13.3097254Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -182,7 +182,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "3baecd73486151e55a798025c17ec15dd061117c1c467f289381d173090cd411",
+          "sha256": "9b30e330667f16df2128fe20a2b1485dff002dec4edbf0244e2bbcaa4691232a",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -222,7 +222,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
-          "sha256": "f8c65e50671c16baa854f58632f722d6d4c35ad8cbf429fbeef41717ff8cd886",
+          "sha256": "d6ee09c3039687ff0d345dcb14855283c21186bf32bdf87319efb9d7a7f2d834",
           "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
         },
         {
@@ -272,7 +272,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "572c5afd004554b646c8a2cd9f92ec44be44a998189b3e5438bf49d2a62aa755",
+          "sha256": "fac711a2f020c06d904fd7a15c4137601a019b625dad6209ee1246831685c63b",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -287,22 +287,22 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "e668d1f4eb8f1fe71a257adeccd0aac803d9a0e04bdc212d261ac59c8587278b",
+          "sha256": "213430724898ebddad1ed4fb5c4ccafc6536e88e19b24abe5e8fe3b12ce78e45",
           "src": "scripts/launch-container.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "e132eff0b204e75b2c75937280993eef4170deb7541ba79367bc738a48976e30",
+          "sha256": "de1e29a26158dde244b8240f5a44fdabff49037d390542b164f572085961dc90",
           "src": "scripts/launch-host.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "d04bbb792a20727a80ceb7c20a815711b1e79cfb82e5af21a1092b2c74bd4cda",
+          "sha256": "a3d89ba6f46d9ef3a4ca500c7b8b2f77fc0db449bbf24d65c6f71fec662d193e",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "0c81116fa685a44d270cd800c36796f53c192c896a775db6bb60b62c2a140e40",
+          "sha256": "8361bea4a131c6fda9d4ef552ae0cb23202c1de92ffaa84c2fb1b105a19a42ba",
           "src": "scripts/launch.ps1"
         },
         {
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.41"
+      "version": "1.2.44"
     },
     {
       "author": "jIRI-san",

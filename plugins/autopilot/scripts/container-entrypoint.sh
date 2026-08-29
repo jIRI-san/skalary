@@ -10,40 +10,6 @@
 #   COPILOT_MODEL — model override
 #   REPO_REMOTE — git remote URL to clone
 
-phase_has_incomplete() {
-    local plan_path="$1"
-    local phase_number="$2"
-
-    awk -v phase="${phase_number}" '
-        $0 ~ ("^## Phase " phase "([^0-9]|$)") {
-            in_phase = 1
-            next
-        }
-        in_phase && /^## Phase [0-9]+/ {
-            exit
-        }
-        in_phase && /^- \[( |~)\]/ {
-            found = 1
-            exit
-        }
-        END {
-            exit(found ? 0 : 1)
-        }
-    ' "${plan_path}"
-}
-
-phase_has_harvest_receipt() {
-    local plan_path="$1"
-    local phase_number="$2"
-    local plan_dir
-    local receipt_name
-
-    plan_dir="$(dirname "${plan_path}")"
-    receipt_name="$(printf 'phase-%03d.json' "${phase_number}")"
-    [ -f "${plan_dir}/assets/harvest-receipts/${receipt_name}" ] ||
-        [ -f "${plan_dir}/harvest-receipts/${receipt_name}" ]
-}
-
 phase_needs_execution() {
     local plan_path="$1"
     local phase_number="$2"
@@ -51,17 +17,25 @@ phase_needs_execution() {
     local validator="${4:-${AUTOPILOT_HARVEST_VALIDATOR:-/usr/local/lib/autopilot/Invoke-PhaseHarvest.ps1}}"
     local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
     local state_output
-    local state
-
+    local invocation_state
     state_output="$(pwsh -NoProfile -File "${state_script}" \
         -PlanPath "${plan_path}" -Phase "${phase_number}" \
         -RepoRoot "${repo_root}" -HarvestValidator "${validator}" 2>&1)"
-    state=$?
-    if [ "${state}" -eq 2 ]; then
+    invocation_state=$?
+    if [ "${invocation_state}" -ne 0 ]; then
         echo "ERROR: Phase ${phase_number} close state is invalid." >&2
         printf '%s\n' "${state_output}" >&2
+        return 2
     fi
-    return "${state}"
+    case "${state_output}" in
+        execution-required|close-pending) return 0 ;;
+        closed) return 1 ;;
+        *)
+            echo "ERROR: Phase ${phase_number} state checker returned an invalid result." >&2
+            printf '%s\n' "${state_output}" >&2
+            return 2
+            ;;
+    esac
 }
 
 phase_dispatch_action() {

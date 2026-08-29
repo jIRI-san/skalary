@@ -109,3 +109,6 @@ Use the installed launcher path and the delivered signature:
 
 The launcher is blocking. After it returns, report its terminal outcome and exit `/ci`; never print
 success-shaped "started" wording for an interrupted or failed run.
+Every runtime adapter delegates admission and close-state interpretation to the installed
+`.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` contract; adapters must not replace it
+with local checkbox or receipt-existence predicates.

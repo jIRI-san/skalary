@@ -48,8 +48,32 @@ try {
         throw "Phase $Phase contains no executable steps."
     }
     if (@($steps | Where-Object { [string]$_.Status -ne 'x' }).Count -gt 0) {
+        $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
+        $markers = Get-PlanHeaderMarkers -Path $planPathFull
+        $plan = Resolve-Plan -Reference $markers.PlanId -RepoRoot $repoRootFull `
+            -Inventory $inventory
+        $gitStatus = & git -C $repoRootFull status --porcelain 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect the repository worktree: $(($gitStatus -join ' ').Trim())"
+        }
+        $next = Get-NextStep -Metadata $metadata `
+            -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
+        $planningContext = Get-PlanningContextState -PlanDir $plan.Path -RepoRoot $repoRootFull `
+            -Inventory $inventory
+        $admission = Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
+            -NextStep $next -PlanningContext $planningContext -Inventory $inventory `
+            -RepoRoot $repoRootFull
+        if (-not $admission.CanProceed -or $admission.PhaseNumber -ne $Phase) {
+            $reason = if ([string]::IsNullOrWhiteSpace([string]$admission.Reason)) {
+                "Canonical admission selected phase $($admission.PhaseNumber)."
+            }
+            else {
+                [string]$admission.Reason
+            }
+            throw "Phase $Phase is not admitted: $reason"
+        }
         Write-Output 'execution-required'
-        exit 0
+        return
     }
 
     $planDir = Split-Path -Parent $planPathFull
@@ -58,7 +82,7 @@ try {
     $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
         Write-Output 'close-pending'
-        exit 0
+        return
     }
 
     $validationOutput = & pwsh -NoProfile -File $HarvestValidator `
@@ -71,7 +95,7 @@ try {
     }
 
     Write-Output 'closed'
-    exit 1
+    return
 }
 catch {
     [Console]::Error.WriteLine($_.Exception.Message)

@@ -140,6 +140,16 @@ flowchart TD
                 }) -join "`n"
         }
 
+        function Initialize-FixtureRepository {
+            param([Parameter(Mandatory)][string]$Root)
+
+            & git -C $Root init --quiet
+            & git -C $Root config user.name fixture
+            & git -C $Root config user.email fixture@example.invalid
+            & git -C $Root add docs
+            & git -C $Root commit --quiet -m 'fixture'
+        }
+
         function Get-FixtureAdmission {
             param(
                 [Parameter(Mandatory)][string]$Root,
@@ -259,6 +269,18 @@ flowchart TD
         $admission.Status | Should -Be 'blocked'
         $admission.UnmetDependencies | Should -Be @('abc111')
         (Get-FixtureSnapshot -Root $blocked.Root) | Should -BeExactly $before
+
+        $blockedByStep = New-AdmissionFixture
+        (Get-Content -LiteralPath $blockedByStep.TargetPlan -Raw).Replace(
+            '(REQ-1, RISK-1) `S`',
+            '(REQ-1, RISK-1) [after: 9.9] `S`'
+        ) | Set-Content -LiteralPath $blockedByStep.TargetPlan -Encoding utf8NoBOM -NoNewline
+        $before = Get-FixtureSnapshot -Root $blockedByStep.Root
+        $stepAdmission = Get-FixtureAdmission -Root $blockedByStep.Root -Reference 'def222'
+        $stepAdmission.Status | Should -Be 'blocked'
+        $stepAdmission.UnmetDependencies | Should -BeNullOrEmpty
+        $stepAdmission.Reason | Should -Match 'unmet prerequisites: 9\.9'
+        (Get-FixtureSnapshot -Root $blockedByStep.Root) | Should -BeExactly $before
 
         $missing = New-AdmissionFixture
         Remove-Item -LiteralPath (Join-Path $missing.TargetDir 'assets/intent.md') -Force
@@ -542,6 +564,7 @@ $($header.TrimEnd())
 
 - [ ] 3.1 Later work (REQ-1) [after: 2.1] `S`
 '@
+        Initialize-FixtureRepository -Root $fixture.Root
 
         foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
             & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir `
@@ -700,6 +723,7 @@ $($header.TrimEnd())
                     Dest = 'skills/autopilot/scripts/Get-PhaseExecutionState.ps1'
                     Tokens = @(
                         'Get-PlanMetadata',
+                        'Get-PhaseAdmission',
                         'Resolve-PlanAssetPath',
                         'execution-required',
                         'close-pending',
@@ -711,7 +735,7 @@ $($header.TrimEnd())
                     Dest = 'skills/autopilot/scripts/launch-host.ps1'
                     Tokens = @(
                         'Get-PhaseExecutionState.ps1',
-                        'invalid phase-close state',
+                        'state check failed',
                         'without a valid phase close'
                     )
                 },
@@ -783,6 +807,7 @@ $($header.TrimEnd())
                 Should -BeExactly 'phase-complete-stop'
 
             $phaseFixture = New-AdmissionFixture
+            Initialize-FixtureRepository -Root $phaseFixture.Root
             $installedPhaseState = Join-Path $consumer.Root (
                 '.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1' -replace
                     '/', [System.IO.Path]::DirectorySeparatorChar
@@ -791,9 +816,11 @@ $($header.TrimEnd())
                 '.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1' -replace
                     '/', [System.IO.Path]::DirectorySeparatorChar
             )
-            & pwsh -NoProfile -File $installedPhaseState -PlanPath $phaseFixture.TargetPlan `
-                -Phase 1 -RepoRoot $phaseFixture.Root -HarvestValidator $installedHarvest | Out-Null
+            $pendingState = & pwsh -NoProfile -File $installedPhaseState `
+                -PlanPath $phaseFixture.TargetPlan -Phase 1 -RepoRoot $phaseFixture.Root `
+                -HarvestValidator $installedHarvest
             $LASTEXITCODE | Should -Be 0
+            $pendingState | Should -BeExactly 'execution-required'
 
             (Get-Content -LiteralPath $phaseFixture.TargetPlan -Raw).Replace(
                 '- [ ] 1.1 Deliver increment',
@@ -805,9 +832,11 @@ $($header.TrimEnd())
             }
             (Invoke-FixtureHarvest -PlanDir $phaseFixture.TargetDir -Root $phaseFixture.Root).ExitCode |
                 Should -Be 0
-            & pwsh -NoProfile -File $installedPhaseState -PlanPath $phaseFixture.TargetPlan `
-                -Phase 1 -RepoRoot $phaseFixture.Root -HarvestValidator $installedHarvest | Out-Null
-            $LASTEXITCODE | Should -Be 1
+            $closedState = & pwsh -NoProfile -File $installedPhaseState `
+                -PlanPath $phaseFixture.TargetPlan -Phase 1 -RepoRoot $phaseFixture.Root `
+                -HarvestValidator $installedHarvest
+            $LASTEXITCODE | Should -Be 0
+            $closedState | Should -BeExactly 'closed'
 
             foreach ($pluginName in @('continue-implementation', 'autopilot')) {
                 $catalogPlugin = @(

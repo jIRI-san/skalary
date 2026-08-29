@@ -33,6 +33,8 @@ param(
 
     [string]$Branch = "feature/$PlanSlug",
 
+    [string]$StartBranch = (git branch --show-current),
+
     # When set, mount this host package-feed read-only at /feed and run the
     # container fully offline (see prepare-packages.ps1).
     [string]$FeedPath
@@ -105,7 +107,7 @@ try {
 
     # --- Prepare env file ---
     Write-Host "Preparing environment file..."
-    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $Branch }
+    $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $StartBranch }
     if ($FeedPath) { $envParams.Offline = $true }
     $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') @envParams
 

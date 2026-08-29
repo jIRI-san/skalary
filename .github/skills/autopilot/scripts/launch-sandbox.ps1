@@ -15,6 +15,8 @@
     GitHub token for Copilot CLI.
 .PARAMETER Branch
     Target branch name.
+.PARAMETER StartBranch
+    Validated branch from which a new target branch is created.
 #>
 param(
     [Parameter(Mandatory)]
@@ -31,6 +33,8 @@ param(
     [string]$Token,
 
     [string]$Branch = "feature/$PlanSlug",
+
+    [string]$StartBranch = (git branch --show-current),
 
     # When set, map this host package-feed read-only at C:\feed so the sandbox
     # bootstrap restores fully offline (see prepare-packages.ps1).
@@ -268,6 +272,7 @@ Log "Remote: `$RepoRemote"
 
 # --- Checkout/create feature branch ---
 `$BranchName = '$Branch'
+`$StartBranchName = '$StartBranch'
 `$remoteRef = git ls-remote --heads origin `$BranchName 2>&1
 if (`$remoteRef -and `$remoteRef -notmatch 'fatal') {
     Log "Remote branch exists - checking out..."
@@ -275,7 +280,11 @@ if (`$remoteRef -and `$remoteRef -notmatch 'fatal') {
     git checkout `$BranchName
 } else {
     Log "Creating new branch..."
-    git checkout -b `$BranchName
+    git fetch origin `$StartBranchName 2>&1 | ForEach-Object { Log `$_ }
+    if (`$LASTEXITCODE -ne 0) {
+        throw "Unable to fetch start branch '`$StartBranchName'."
+    }
+    git checkout -b `$BranchName "origin/`$StartBranchName"
 }
 Log "On branch: `$(git branch --show-current)"
 
@@ -337,20 +346,25 @@ if (-not (Test-Path `$PlanPath)) {
 Log "Plan has `$totalPhases phases (numbers: `$phaseList)."
 
 `$rebundleRequested = `$false
-`$phaseStateScript = '.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1'
-`$harvestValidator = '.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1'
+`$phaseStateScript = 'C:\autopilot-runtime\Get-PhaseExecutionState.ps1'
+`$harvestValidator = 'C:\autopilot-runtime\Invoke-PhaseHarvest.ps1'
 foreach (`$phase in `$phaseNumbers) {
     Log "=== Phase `$phase of `$totalPhases ==="
 
-    & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath -Phase `$phase `
-        -RepoRoot . -HarvestValidator `$harvestValidator | Out-Null
-    `$phaseState = `$LASTEXITCODE
-    if (`$phaseState -eq 1) {
+    `$phaseStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
+        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+    if (`$LASTEXITCODE -ne 0) {
+        Log "Phase `${phase}: state check failed: `$(`$phaseStateOutput -join ' ')"
+        `$runExitCode = 3
+        break
+    }
+    `$phaseState = (`$phaseStateOutput -join '').Trim()
+    if (`$phaseState -eq 'closed') {
         Log "Phase `${phase}: checklist and phase close complete - skipping."
         continue
     }
-    if (`$phaseState -ne 0) {
-        Log "Phase `${phase}: invalid phase-close state. Stopping."
+    if (`$phaseState -notin @('execution-required', 'close-pending')) {
+        Log "Phase `${phase}: invalid state result '`$phaseState'. Stopping."
         `$runExitCode = 3
         break
     }
@@ -369,7 +383,12 @@ foreach (`$phase in `$phaseNumbers) {
     }
     if (`$exitCode -eq 43) {
         Log "Offline rebundle requested in Phase `${phase} - pushing manifest and signaling host."
-        git push origin `$BranchName 2>&1 | ForEach-Object { Log `$_ }
+        `$pushOutput = @(git push origin `$BranchName 2>&1)
+        `$pushExitCode = `$LASTEXITCODE
+        `$pushOutput | ForEach-Object { Log `$_ }
+        if (`$pushExitCode -ne 0) {
+            throw "Rebundle publication failed with exit code `$pushExitCode."
+        }
         New-Item -ItemType File -Path (Join-Path `$SessionPath '.autopilot-rebundle-needed') -Force | Out-Null
         `$rebundleRequested = `$true
         `$runExitCode = 43
@@ -381,12 +400,17 @@ foreach (`$phase in `$phaseNumbers) {
         break
     }
 
-    & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath -Phase `$phase `
-        -RepoRoot . -HarvestValidator `$harvestValidator | Out-Null
-    `$closeState = `$LASTEXITCODE
-    if (`$closeState -ne 1) {
+    `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
+        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+    if (`$LASTEXITCODE -ne 0) {
+        Log "Phase `${phase}: close state check failed: `$(`$closeStateOutput -join ' ')"
+        `$runExitCode = 3
+        break
+    }
+    `$closeState = (`$closeStateOutput -join '').Trim()
+    if (`$closeState -ne 'closed') {
         Log "Phase `${phase} exited zero without a valid phase close. Stopping."
-        `$runExitCode = if (`$closeState -eq 2) { 3 } else { 1 }
+        `$runExitCode = 1
         break
     }
 
@@ -401,11 +425,12 @@ if (`$rebundleRequested) {
     Log '=== Offline rebundle requested - manifest pushed, deferring PR to the post-rebundle run. ==='
 } else {
     Log 'Pushing results...'
-    git push origin `$BranchName 2>&1 | ForEach-Object { Log `$_ }
-
-    Log 'Creating pull request...'
-    `$prOut = gh pr create --title "feat: $PlanSlug" --body "Autonomous implementation of plan $PlanSlug" --head `$BranchName 2>&1
-    if (`$LASTEXITCODE -eq 0) { Log "PR created: `$prOut" } else { Log "PR: `$prOut" }
+    `$pushOutput = @(git push origin `$BranchName 2>&1)
+    `$pushExitCode = `$LASTEXITCODE
+    `$pushOutput | ForEach-Object { Log `$_ }
+    if (`$pushExitCode -ne 0) {
+        throw "Final publication failed with exit code `$pushExitCode."
+    }
 
     Log '=== Sandbox execution complete ==='
 }
@@ -453,6 +478,11 @@ $wsbContent = @"
   <Networking>Enable</Networking>
   <MemoryInMB>8192</MemoryInMB>
   <MappedFolders>
+    <MappedFolder>
+      <HostFolder>$PSScriptRoot</HostFolder>
+      <SandboxFolder>C:\autopilot-runtime</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
     <MappedFolder>
       <HostFolder>$RepoRoot</HostFolder>
       <SandboxFolder>C:\repo</SandboxFolder>
@@ -525,7 +555,8 @@ Write-Host ""
 Write-Host "Close the sandbox window when done (or it will auto-exit after completion)."
 Write-Host ""
 
-Start-Process -FilePath 'C:\Windows\System32\WindowsSandbox.exe' -ArgumentList $wsbPath
+$sandboxProcess = Start-Process -FilePath 'C:\Windows\System32\WindowsSandbox.exe' `
+    -ArgumentList $wsbPath -PassThru
 
 Write-Host "Sandbox launched. Monitor progress in the sandbox window."
 
@@ -538,12 +569,19 @@ Write-Host "Waiting for sandbox bootstrap to complete (timeout ${SandboxTimeoutM
 while (-not (Test-Path $SentinelPath)) {
     if ((Get-Date) -gt $deadline) {
         Write-Warning "Sandbox did not signal completion within $SandboxTimeoutMinutes minutes."
+        if (-not $sandboxProcess.HasExited) {
+            $sandboxProcess.Kill($true)
+            $sandboxProcess.WaitForExit()
+        }
         break
     }
     Start-Sleep -Seconds 5
 }
 
-$exitCode = if (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
+$exitCode = if (-not (Test-Path -LiteralPath $SentinelPath -PathType Leaf)) {
+    124
+}
+elseif (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
     $rawExitCode = (Get-Content -LiteralPath $ExitCodeMarker -Raw).Trim()
     if ($rawExitCode -notmatch '^(?:0|[1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$') {
         Write-Error "Sandbox returned invalid exit marker '$rawExitCode'."

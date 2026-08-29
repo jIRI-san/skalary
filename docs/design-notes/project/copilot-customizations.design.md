@@ -139,9 +139,9 @@ Critical injection finding.
 **`ci` flow:**
 1. Resolve plan via `Resolve-Plan` (date/slug/hash); load relevant design notes.
 2. `Get-PlanState.ps1` yields planning confirmation, progress, and the next incomplete candidate. Enrolled pending/stale/invalid context returns to `/cip` before mutation; marker-less legacy plans retain existing behavior.
-3. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
+3. Choose Approve, Autopilot, or an explicit Autonomous runtime (Host / Container / Sandbox), then choose One phase or Whole plan. `/ci` owns both selections; autopilot consumes the handed-off runtime and extent without a second menu (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
 4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
-5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate.
+5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → explicit commit gate. Code review runs after the complete phase increment rather than after each step.
 6. Commit: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (canonical id, dual-format); plan file updated in same commit.
 7. On all steps `[x]`: plan-level crosscheck (receipt via `Build-EvidenceReceipt`) → mark plan `[DONE]` in title → move folder to `docs/implementation-plans/archived/`.
 8. Validation is script-only: orchestrators delegate to `npm run validate-plan` / `scripts/skalary/Test-Plan.ps1` / `scripts/validate.ps1` and never embed ad-hoc validation logic.
