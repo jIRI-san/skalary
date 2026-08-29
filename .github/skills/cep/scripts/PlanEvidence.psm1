@@ -233,9 +233,15 @@ function Assert-PlanReviewResultReceipt {
     Assert-PlanReviewPropertySet -Node $receipt['attendance'] -Label 'Review attendance' `
         -Required @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')
     Assert-PlanReviewPropertySet -Node $receipt['findings'] -Label 'Review findings' `
-        -Required @('merged', 'raw', 'severity')
+        -Required @('corroboration', 'merged', 'needsReview', 'raw', 'rawSeverity', 'severity', 'similarity')
     Assert-PlanReviewPropertySet -Node $receipt['findings']['severity'] -Label 'Review severity' `
         -Required @('critical', 'high', 'low', 'medium')
+    Assert-PlanReviewPropertySet -Node $receipt['findings']['rawSeverity'] -Label 'Review raw severity' `
+        -Required @('critical', 'high', 'low', 'medium')
+    Assert-PlanReviewPropertySet -Node $receipt['findings']['corroboration'] -Label 'Review corroboration' `
+        -Required @('corroborated', 'degraded', 'single-source', 'suspicious')
+    Assert-PlanReviewPropertySet -Node $receipt['findings']['similarity'] -Label 'Review similarity' `
+        -Required @('exact', 'near-duplicate', 'none')
     Assert-PlanReviewPropertySet -Node $receipt['report'] -Label 'Review report binding' `
         -Required @('bytes', 'digest', 'name')
     Assert-PlanReviewPropertySet -Node $receipt['source'] -Label 'Review source' `
@@ -255,10 +261,25 @@ function Assert-PlanReviewResultReceipt {
     if ([int]$receipt['attendance']['completed'] -lt 1) {
         throw "Review run '$ReviewRunId' has no completed attendance."
     }
-    foreach ($name in @('critical', 'high', 'medium', 'low')) {
-        if ([int]$receipt['findings']['severity'][$name] -ne 0) {
-            throw "Review run '$ReviewRunId' still contains $name findings."
+    foreach ($bucket in @('severity', 'rawSeverity')) {
+        foreach ($name in @('critical', 'high', 'medium', 'low')) {
+            if ([int]$receipt['findings'][$bucket][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name findings in $bucket."
+            }
         }
+    }
+    foreach ($name in @('corroborated', 'single-source', 'suspicious', 'degraded')) {
+        if ([int]$receipt['findings']['corroboration'][$name] -ne 0) {
+            throw "Review run '$ReviewRunId' still contains $name corroboration findings."
+        }
+    }
+    foreach ($name in @('none', 'near-duplicate', 'exact')) {
+        if ([int]$receipt['findings']['similarity'][$name] -ne 0) {
+            throw "Review run '$ReviewRunId' still contains $name similarity findings."
+        }
+    }
+    if ([int]$receipt['findings']['needsReview'] -ne 0) {
+        throw "Review run '$ReviewRunId' still contains findings requiring review."
     }
     foreach ($name in @('failed', 'timed-out', 'omitted', 'cancelled', 'pending')) {
         if ([int]$receipt['attendance'][$name] -ne 0) {

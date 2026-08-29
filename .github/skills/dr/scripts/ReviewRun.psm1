@@ -716,28 +716,32 @@ function ConvertTo-ReviewProjection {
             }
             [void]$exactModels.Add([string]$raw[$index].Model)
         }
-        $tokenPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
+        $tokenModelPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
             [System.StringComparer]::Ordinal
         )
         for ($rightIndex = 0; $models.Count -ge 2 -and $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
             $rightProfile = $similarityProfiles[$rightIndex]
             if ($rightProfile.Content.Length -lt 48 -or $rightProfile.Tokens.Count -lt 8) { continue }
 
+            $rightModel = [string]$raw[$rightIndex].Model
             $intersections = [System.Collections.Generic.Dictionary[int, int]]::new()
             foreach ($token in $rightProfile.Tokens) {
-                if (-not $tokenPostings.ContainsKey($token)) { continue }
-                foreach ($leftIndex in $tokenPostings[$token]) {
-                    if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
-                    $intersections[$leftIndex]++
+                foreach ($candidateModel in $models) {
+                    if ([string]::Equals([string]$candidateModel, $rightModel, [System.StringComparison]::Ordinal)) {
+                        continue
+                    }
+                    $postingKey = Get-ReviewOrdinalTupleKey -Value @([string]$token, [string]$candidateModel)
+                    if (-not $tokenModelPostings.ContainsKey($postingKey)) { continue }
+                    foreach ($leftIndex in $tokenModelPostings[$postingKey]) {
+                        if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
+                        $intersections[$leftIndex]++
+                    }
                 }
             }
 
             $candidateIndexes = [int[]]@($intersections.Keys)
             [array]::Sort($candidateIndexes)
             foreach ($leftIndex in $candidateIndexes) {
-                if ([string]::Equals($raw[$leftIndex].Model, $raw[$rightIndex].Model, [System.StringComparison]::Ordinal)) {
-                    continue
-                }
                 if ((Get-ReviewFindingSimilarity -LeftProfile $similarityProfiles[$leftIndex] `
                             -RightProfile $rightProfile -Intersection $intersections[$leftIndex]) -eq 'near-duplicate') {
                     $similarity = 'near-duplicate'
@@ -745,10 +749,11 @@ function ConvertTo-ReviewProjection {
                 }
             }
             foreach ($token in $rightProfile.Tokens) {
-                if (-not $tokenPostings.ContainsKey($token)) {
-                    $tokenPostings[$token] = [System.Collections.Generic.List[int]]::new()
+                $postingKey = Get-ReviewOrdinalTupleKey -Value @([string]$token, $rightModel)
+                if (-not $tokenModelPostings.ContainsKey($postingKey)) {
+                    $tokenModelPostings[$postingKey] = [System.Collections.Generic.List[int]]::new()
                 }
-                $tokenPostings[$token].Add($rightIndex)
+                $tokenModelPostings[$postingKey].Add($rightIndex)
             }
         }
 
