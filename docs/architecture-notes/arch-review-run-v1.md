@@ -35,6 +35,10 @@ report and receipt verify as an exact pair.
   and verdict before rename, allowing partial deletion to converge without changing the verdict.
 - Generic published cleanup emits verified full bytes; force cleanup applies only to unpublished
   abandoned runs.
+- A wrapped review remains non-clean historical evidence. Reopening it requires an explicit,
+  append-only operator authorization in the plan CR log; only a later clean cycle bound to a verified
+  `skalary/review-result-receipt@1` pair for the reviewed commit can satisfy `review:cr`.
+  Plan-finalization evidence additionally requires Git-derived whole-branch scope.
 
 ## Depends On / Depended On By
 

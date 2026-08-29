@@ -144,6 +144,19 @@ function Test-PlanEvidenceReceipt {
         }
 
         if ($entry.Status -eq 'passed') {
+            if ($entry.Marker -ceq 'review:cr') {
+                if ($entry.Note -cnotmatch '^review-run:(?<runId>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
+                    $errors.Add("Evidence receipt marker '$key' has no qualifying review-run id.")
+                    continue
+                }
+                try {
+                    [void](Assert-PlanCleanReviewEvidence -PlanDir $Metadata.PlanDir -Stage 'plan-finalization' `
+                            -Commit $entry.Commit -ReviewRunId $Matches.runId -RepoRoot $Metadata.RepoRoot)
+                }
+                catch {
+                    $errors.Add("Evidence receipt marker '$key' is not qualifying clean review evidence: $($_.Exception.Message)")
+                }
+            }
             continue
         }
         if ($entry.Status -eq 'waived') {

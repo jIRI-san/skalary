@@ -528,6 +528,17 @@ live bundles were compacted during migration, so production finalization now acc
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical
 evidence and require no production legacy verifier. Reader and cleanup exits remain `0`, `2`, or `4`.
 
+Wrapped plan review cycles are also immutable historical evidence. `ReviewCycleGate Reopen` is an
+operator-authorized append-only remediation, not a rewrite: it records the authorization id and reason
+after Wrap and permits a subsequent cycle. Recording that cycle as clean requires the retained
+review-run UUID. Evidence receipt construction and PlanCrosscheck both reverify the retained pair,
+`code`/`clean`/`approved` state, zero findings and non-completed attendance, the durable clean-cycle
+binding, and the reviewed commit. A wrapped/degraded result or a hand-written passed line cannot satisfy
+`review:cr`. Plan-finalization accepts only Git-derived whole-branch scope from the canonical
+`origin/HEAD` merge base and matching changed-path count; a selected-path, narrowed-base, or uncommitted
+review cannot be promoted into whole-plan evidence by copying the current head value. Historical clean
+cycle lines without a review-run UUID remain non-qualifying and can only advance through authorized Reopen.
+
 ### Locations and the handshake (D14/D16)
 
 A plan run resolves through the `ReviewRuns` kind of `Resolve-PlanAssetPath`

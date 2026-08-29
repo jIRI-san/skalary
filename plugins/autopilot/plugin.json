@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.29",
+  "version": "1.2.39",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -25,8 +25,16 @@
       "dest": "skills/autopilot/SKILL.md"
     },
     {
+      "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1",
+      "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1"
+    },
+    {
       "src": "skills/autopilot/scripts/AtomicStore.psm1",
       "dest": "skills/autopilot/scripts/AtomicStore.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
+      "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
     },
     {
       "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
@@ -41,12 +49,20 @@
       "dest": "skills/autopilot/scripts/PlanState.psm1"
     },
     {
+      "src": "skills/autopilot/scripts/ReviewCycleGate.ps1",
+      "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1"
+    },
+    {
       "src": "scripts/clean-sandbox-cache.ps1",
       "dest": "skills/autopilot/scripts/clean-sandbox-cache.ps1"
     },
     {
       "src": "scripts/container-entrypoint.sh",
       "dest": "skills/autopilot/scripts/container-entrypoint.sh"
+    },
+    {
+      "src": "scripts/plan-dispatch.sh",
+      "dest": "skills/autopilot/scripts/plan-dispatch.sh"
     },
     {
       "src": "scripts/get-credential.ps1",
