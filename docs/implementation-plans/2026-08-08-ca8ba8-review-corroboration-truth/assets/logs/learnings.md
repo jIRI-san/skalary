@@ -11,4 +11,4 @@ Phase: 2
 ## Learnings Capture
 Phase: 3
 
-No entries for this phase.
+- [3.1] [trigger:plan-contradiction] [concern:operability-observability] [req:REQ-4] [review:cr] [source-record:a855da51f0705cfbdbe69295e898b3f883e0a161bd03a3d7ba688efcc5f6300b] Pair-level similarity witnesses remain outside the approved group-level observable contract; preserved raw records and task mapping provide the retained audit trail without a new witness schema.
