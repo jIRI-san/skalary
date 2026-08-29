@@ -3881,7 +3881,8 @@ function Finalize-ReviewPlanRun {
             }
             if (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath) {
                 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20
-                if ($receipt['runId'] -ne $RunId -or $receipt['verdict'] -ne $Verdict) {
+                if (-not [string]::Equals([string]$receipt['runId'], $RunId, [System.StringComparison]::Ordinal) -or
+                    -not [string]::Equals([string]$receipt['verdict'], $Verdict, [System.StringComparison]::Ordinal)) {
                     throw "Finalized review result '$RunId' has a different verdict or identity."
                 }
                 $cleanupPending = Test-Path -LiteralPath $cleanupDir -PathType Container
@@ -3922,7 +3923,9 @@ function Finalize-ReviewPlanRun {
                 if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
                     $existing = $null
                     try { $existing = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -AsHashtable -Depth 20 } catch { }
-                    if ($null -ne $existing -and $existing['runId'] -eq $RunId -and $existing['verdict'] -ne $Verdict) {
+                    if ($null -ne $existing -and
+                        [string]::Equals([string]$existing['runId'], $RunId, [System.StringComparison]::Ordinal) -and
+                        -not [string]::Equals([string]$existing['verdict'], $Verdict, [System.StringComparison]::Ordinal)) {
                         throw "Finalized review result '$RunId' has a different verdict."
                     }
                 }

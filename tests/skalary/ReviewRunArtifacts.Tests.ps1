@@ -601,6 +601,8 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $retainedReceiptBefore = [System.IO.File]::ReadAllBytes($final.Receipt)
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
                 Should -Throw -ExpectedMessage '*different verdict*'
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict Blocked -RepoRoot $scratch } |
+                Should -Throw -ExpectedMessage '*different verdict*'
             [System.IO.File]::ReadAllBytes($final.Report) | Should -Be $retainedReportBefore
             [System.IO.File]::ReadAllBytes($final.Receipt) | Should -Be $retainedReceiptBefore
 
