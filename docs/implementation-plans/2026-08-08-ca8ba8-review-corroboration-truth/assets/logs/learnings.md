@@ -7,6 +7,7 @@ Phase: 1
 Phase: 2
 
 - [2.1] [trigger:rework>1] [concern:performance] [req:REQ-5] [review:none] [source-record:604b81d45679daf164c2cb7515b4097a817524cb28bdacc25c7d39009527cee1] Repeated per-finding reason prose exceeded the fixed summary budget; render compact evidence and reason codes with one lossless legend while keeping full and retained views descriptive.
+- [2.1] [trigger:reusable-pattern] [concern:performance] [req:REQ-1] [review:cr] [source-record:afb9c7b38cf540dc26b7854d6180c8b596148aa9814912d147d6be4beff0f768] Partition inverted-index postings by eligibility dimensions before accumulating pairwise candidates so impossible same-partition pairs do not consume quadratic work.
 
 ## Learnings Capture
 Phase: 3

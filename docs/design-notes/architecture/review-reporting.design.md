@@ -383,6 +383,8 @@ fixed content guard prevents short shared boilerplate from suppressing valid cor
 uses the projection's deterministic raw-record order, preserves every raw field unchanged, and records
 only `none`, `near-duplicate`, or `exact` on the derived merged entry. Each raw record is normalized
 once; exact tuples are indexed by declared model label before lexical comparison, and the near-match
+token postings are partitioned by declared model label before intersection counts are accumulated.
+Same-label records therefore never enter work that can only affect cross-label corroboration, and the
 pass stops at its first qualifying pair because group-level suspicion is already established.
 
 The merged entry then derives one support state with fixed precedence: any exact or near-duplicate

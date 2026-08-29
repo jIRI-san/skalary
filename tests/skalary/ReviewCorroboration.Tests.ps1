@@ -161,6 +161,33 @@ Describe 'review finding corroboration derivation' {
             -Right (New-CorroborationProfile -ExactKey right -Token (1..8 | ForEach-Object { "t$_" }) -ContentLength 48) |
             Should -Be 'none' -Because 'Jaccard similarity below 0.90 does not flag'
 
+        $maximumSkewed = @(
+            1..255 | ForEach-Object {
+                New-CorroborationFinding -TaskId 'security-a' -Title "Skewed majority finding $_" `
+                    -Body "alpha bravo charlie delta echo foxtrot golf hotel item $_" `
+                    -Action "Inspect majority item $_." -RootCause 'maximum skewed models'
+            }
+            New-CorroborationFinding -TaskId 'security-b' -Title 'Distinct minority report' `
+                -Body 'alpha bravo charlie delta echo foxtrot golf quartz whiskey xray' `
+                -Action 'Handle the minority report separately.' -RootCause 'maximum skewed models'
+        )
+        $skewedRun = New-CorroborationRun -Findings $maximumSkewed -Roster @('model-a', 'model-b') -Tasks @(
+            @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+            @{ taskId = 'security-b'; concern = 'security'; model = 'model-b'; outcome = 'completed' }
+        )
+        $skewedProjection = InModuleScope $script:reviewModule.Name -Parameters @{ Run = $skewedRun } {
+            param($Run)
+            Mock Get-ReviewFindingSimilarity { return 'none' }
+            $result = ConvertTo-ReviewProjection -Run $Run
+            Should -Invoke Get-ReviewFindingSimilarity -Times 255 -Exactly `
+                -Because 'same-model postings must not become near-match candidates'
+            return $result
+        }
+        $skewedProjection.Findings | Should -HaveCount 1
+        $skewedProjection.Findings[0].RawCount | Should -Be 256
+        $skewedProjection.Findings[0].CorroborationState | Should -Be 'corroborated'
+        $skewedProjection.Findings[0].Similarity | Should -Be 'none'
+
         $maximumSingleModel = @(
             1..256 | ForEach-Object {
                 New-CorroborationFinding -TaskId 'security-a' -Title "Single model finding $_" `
