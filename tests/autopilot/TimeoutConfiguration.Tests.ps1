@@ -61,6 +61,7 @@ Describe 'Autopilot work preservation' {
     BeforeAll {
         $script:pluginRoot = Join-Path $PSScriptRoot '../../plugins/autopilot'
         $script:entrypoint = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/container-entrypoint.sh') -Raw
+        $script:containerLauncher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch-container.ps1') -Raw
         $script:agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
     }
 
@@ -84,5 +85,12 @@ Describe 'Autopilot work preservation' {
     It 'still forbids force-push everywhere' {
         $agent | Should -Match 'never force-push'
         $entrypoint | Should -Not -Match 'push --force'
+    }
+
+    It 'retains the container when preservation cannot commit or push' {
+        $entrypoint | Should -Match 'autopilot-preservation-failed'
+        $entrypoint | Should -Match 'preserve_work \|\| exit 125'
+        $containerLauncher | Should -Match 'Retaining container'
+        $containerLauncher | Should -Match 'autopilot-preservation-failed'
     }
 }

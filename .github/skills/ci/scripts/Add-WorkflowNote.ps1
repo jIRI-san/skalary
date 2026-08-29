@@ -9,7 +9,7 @@ param(
     [string]$PlanDir,
 
     [Parameter(Mandatory)]
-    [ValidateRange(1, 999)]
+    [ValidateRange(0, 999)]
     [int]$Phase,
 
     [string]$Step,

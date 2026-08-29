@@ -103,6 +103,7 @@ function Get-PlanReviewCycleState {
     else {
         ''
     }
+    $raw = $raw -replace "`r`n?", "`n"
     $stagePattern = [regex]::Escape($Stage)
     $provenancePattern = '(?: \[[^\]]+\])*'
     $cycleMatches = [regex]::Matches(
@@ -471,7 +472,7 @@ function Get-PlanEvidenceWaiver {
             })
     }
 
-    return , $waivers.ToArray()
+    return $waivers.ToArray()
 }
 
 function Read-PlanEvidenceReceipt {
@@ -514,7 +515,7 @@ function Read-PlanEvidenceReceipt {
             })
     }
 
-    return , $entries.ToArray()
+    return $entries.ToArray()
 }
 
 function Resolve-PlanEvidencePath {
