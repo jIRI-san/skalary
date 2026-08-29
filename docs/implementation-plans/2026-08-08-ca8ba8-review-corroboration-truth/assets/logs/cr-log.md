@@ -62,6 +62,7 @@ Phase: 2
 - [2.1] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-5] [review:cr] [source-record:ffc5a066f8ab5dd96825ab9bc3b17dcd938e285480063f8c2551d09e29a81b8e] Replacement cycle 5 finding 2 triage=rejected-pre-existing: generic native schema diagnostics predate plan ca8ba8; this plan preserves rather than redesigns review-run v1 admission.
 - [2.1] [src:code-review] [sev:Med] [concern:performance] [req:REQ-1] [review:cr] [source-record:8bf81a6e14e2fe9c9bbaedfe671daa1b29c65a7cda511c719ed10f1653bc5813] Replacement cycle 5 finding 3 triage=fix: partition near-match token postings by declared model label before intersection accumulation and cover a maximum skewed mixed-label group.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:bd594faf3d420e80d0f11f8879a7dbbe467412134a4084747becdb83f1266b45] review-cycle stage=phase-2 cycle=5 outcome=findings run=849bbcd7-9813-4499-972c-cf364cb04ed9 summary=replacement run degraded-2-failed; findings=3; fixed=1; rejected-pre-existing=2
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:fdc34c84c6b73cd46c57605314ee7c18f74920c42d3d3ca2678c01e806d839e8] review-cycle-decision stage=phase-2 after=5 action=wrap
 
 ## CR Capture
 Phase: 3
