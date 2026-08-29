@@ -424,35 +424,48 @@ Describe 'broken' {
         $mutations = @(
             @{
                 Name = 'nonzero raw severity'
+                Expected = '*still contains medium findings in rawSeverity*'
                 Apply = { param($Receipt) $Receipt['findings']['rawSeverity']['medium'] = 1 }
             }
             @{
                 Name = 'nonzero corroboration'
+                Expected = '*still contains corroborated corroboration findings*'
                 Apply = { param($Receipt) $Receipt['findings']['corroboration']['corroborated'] = 1 }
             }
             @{
                 Name = 'nonzero similarity'
+                Expected = '*still contains none similarity findings*'
                 Apply = { param($Receipt) $Receipt['findings']['similarity']['none'] = 1 }
             }
             @{
                 Name = 'nonzero needs-review'
+                Expected = '*still contains findings requiring review*'
                 Apply = { param($Receipt) $Receipt['findings']['needsReview'] = 1 }
             }
             @{
                 Name = 'missing raw severity'
+                Expected = '*partial extended v1 property set*'
                 Apply = { param($Receipt) [void]$Receipt['findings'].Remove('rawSeverity') }
             }
             @{
                 Name = 'missing corroboration'
+                Expected = '*partial extended v1 property set*'
                 Apply = { param($Receipt) [void]$Receipt['findings'].Remove('corroboration') }
             }
             @{
                 Name = 'missing similarity'
+                Expected = '*partial extended v1 property set*'
                 Apply = { param($Receipt) [void]$Receipt['findings'].Remove('similarity') }
             }
             @{
                 Name = 'missing needs-review'
+                Expected = '*partial extended v1 property set*'
                 Apply = { param($Receipt) [void]$Receipt['findings'].Remove('needsReview') }
+            }
+            @{
+                Name = 'extra finding field'
+                Expected = '*extra=unexpected*'
+                Apply = { param($Receipt) $Receipt['findings']['unexpected'] = 0 }
             }
         )
         $applyMutation = {
@@ -476,7 +489,8 @@ Describe 'broken' {
                 & $script:cycleGate -Action Record -PlanDir $cyclePlan -Phase 1 `
                     -Stage plan-finalization -Outcome clean -ReviewRunId $cycleRunId `
                     -RepoRoot $script:repoRoot
-            } | Should -Throw -Because "review-cycle recording must reject $($mutation.Name)"
+            } | Should -Throw -ExpectedMessage $mutation.Expected `
+                -Because "review-cycle recording must reject $($mutation.Name) through its intended guard"
 
             $crosscheckPlan = New-EvidencePlanFixture -Markers @('review:cr')
             $crosscheckRunId = Write-CleanReviewResult -PlanDir $crosscheckPlan
@@ -492,7 +506,8 @@ Describe 'broken' {
                         Status = 'passed'
                         ReviewRunId = $crosscheckRunId
                     }) -Commit $script:head -PlanDir $crosscheckPlan -RepoRoot $script:repoRoot
-            } | Should -Throw -Because "plan crosscheck must reject $($mutation.Name)"
+            } | Should -Throw -ExpectedMessage $mutation.Expected `
+                -Because "plan crosscheck must reject $($mutation.Name) through its intended guard"
         }
 
         $legacyPlan = New-EvidencePlanFixture -Markers @('review:cr')

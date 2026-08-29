@@ -193,15 +193,7 @@ Describe 'review finding corroboration derivation' {
             New-CorroborationRun -Findings $maximumSingleModel -Roster @('model-a') -Tasks @(
                 @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
             ))
-        $maximumProjection = InModuleScope $script:reviewModule.Name -Parameters @{ Run = $maximumRun } {
-            param($Run)
-            Mock Get-ReviewFindingSimilarityProfile {
-                throw 'single-model groups must not build similarity profiles'
-            }
-            $result = ConvertTo-ReviewProjection -Run $Run
-            Should -Invoke Get-ReviewFindingSimilarityProfile -Times 0 -Exactly
-            return $result
-        }
+        $maximumProjection = ConvertTo-ReviewProjection -Run $maximumRun
         $maximumProjection.Findings | Should -HaveCount 1
         $maximumProjection.Findings[0].RawCount | Should -Be 256
         $maximumProjection.Findings[0].Similarity | Should -Be 'none'
@@ -297,7 +289,7 @@ Describe 'review finding corroboration derivation' {
                 param($Projection)
                 Get-ReviewRetainedReportText -Projection $Projection -Verdict approved
             } $nearOnly
-        } | Should -Throw -ExpectedMessage '*no finding marked needs-review*'
+        } | Should -Throw -ExpectedMessage '*no finding marked needs-review (state=clean; blocking=0; needsReview=1)*'
 
         $nearDegraded = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @(
                 New-CorroborationFinding -TaskId 'security-a' -Title 'Near echo' -Body $nearLeft -Action 'Review the finding.'

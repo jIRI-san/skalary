@@ -51,6 +51,8 @@ $script:SeverityRank = @{ 'Critical' = 4; 'High' = 3; 'Medium' = 2; 'Low' = 1 }
 $script:SeverityByRank = @{ 4 = 'Critical'; 3 = 'High'; 2 = 'Medium'; 1 = 'Low' }
 $script:Outcomes = @('completed', 'failed', 'timed-out', 'omitted', 'cancelled', 'pending')
 $script:Unit = [string][char]1
+$script:SimilarityMinimumCharacters = 48
+$script:SimilarityMinimumTokens = 8
 
 # Run-directory names. The caller controls only the two fixed `.input.json` handshakes (D16).
 # Generations are content-addressed; fixed engine-owned markers commit frozen, admitted and published
@@ -522,8 +524,10 @@ function Get-ReviewFindingSimilarity {
     if ([string]::Equals($LeftProfile.ExactKey, $RightProfile.ExactKey, [System.StringComparison]::Ordinal)) {
         return 'exact'
     }
-    if ($LeftProfile.Content.Length -lt 48 -or $RightProfile.Content.Length -lt 48 -or
-        $LeftProfile.Tokens.Count -lt 8 -or $RightProfile.Tokens.Count -lt 8) {
+    if ($LeftProfile.Content.Length -lt $script:SimilarityMinimumCharacters -or
+        $RightProfile.Content.Length -lt $script:SimilarityMinimumCharacters -or
+        $LeftProfile.Tokens.Count -lt $script:SimilarityMinimumTokens -or
+        $RightProfile.Tokens.Count -lt $script:SimilarityMinimumTokens) {
         return 'none'
     }
 
@@ -695,61 +699,74 @@ function ConvertTo-ReviewProjection {
             })
 
         $similarity = 'none'
-        $similarityProfiles = if ($models.Count -ge 2) {
-            @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
-        }
-        else {
-            @()
-        }
-        $modelsByExactKey = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new(
-            [System.StringComparer]::Ordinal
-        )
-        for ($index = 0; $models.Count -ge 2 -and $index -lt $raw.Count; $index++) {
-            $exactKey = [string]$similarityProfiles[$index].ExactKey
-            if (-not $modelsByExactKey.ContainsKey($exactKey)) {
-                $modelsByExactKey[$exactKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-            }
-            $exactModels = $modelsByExactKey[$exactKey]
-            if ($exactModels.Count -gt 0 -and -not $exactModels.Contains([string]$raw[$index].Model)) {
-                $similarity = 'exact'
-                break
-            }
-            [void]$exactModels.Add([string]$raw[$index].Model)
-        }
-        $tokenPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
-            [System.StringComparer]::Ordinal
-        )
-        for ($rightIndex = 0; $models.Count -ge 2 -and $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
-            $rightProfile = $similarityProfiles[$rightIndex]
-            if ($rightProfile.Content.Length -lt 48 -or $rightProfile.Tokens.Count -lt 8) { continue }
-
-            $rightModel = [string]$raw[$rightIndex].Model
-            $intersections = [System.Collections.Generic.Dictionary[int, int]]::new()
-            foreach ($token in $rightProfile.Tokens) {
-                if (-not $tokenPostings.ContainsKey([string]$token)) { continue }
-                foreach ($leftIndex in $tokenPostings[[string]$token]) {
-                    if ([string]::Equals([string]$raw[$leftIndex].Model, $rightModel, [System.StringComparison]::Ordinal)) {
-                        continue
-                    }
-                    if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
-                    $intersections[$leftIndex]++
+        if ($models.Count -ge 2) {
+            $similarityProfiles = @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
+            $modelsByExactKey = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new(
+                [System.StringComparer]::Ordinal
+            )
+            for ($index = 0; $index -lt $raw.Count; $index++) {
+                $exactKey = [string]$similarityProfiles[$index].ExactKey
+                if (-not $modelsByExactKey.ContainsKey($exactKey)) {
+                    $modelsByExactKey[$exactKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
                 }
-            }
-
-            $candidateIndexes = [int[]]@($intersections.Keys)
-            [array]::Sort($candidateIndexes)
-            foreach ($leftIndex in $candidateIndexes) {
-                if ((Get-ReviewFindingSimilarity -LeftProfile $similarityProfiles[$leftIndex] `
-                            -RightProfile $rightProfile -Intersection $intersections[$leftIndex]) -eq 'near-duplicate') {
-                    $similarity = 'near-duplicate'
+                $exactModels = $modelsByExactKey[$exactKey]
+                if ($exactModels.Count -gt 0 -and -not $exactModels.Contains([string]$raw[$index].Model)) {
+                    $similarity = 'exact'
                     break
                 }
+                [void]$exactModels.Add([string]$raw[$index].Model)
             }
-            foreach ($token in $rightProfile.Tokens) {
-                if (-not $tokenPostings.ContainsKey([string]$token)) {
-                    $tokenPostings[[string]$token] = [System.Collections.Generic.List[int]]::new()
+
+            $tokenPostings = [System.Collections.Generic.Dictionary[
+                string,
+                System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]
+            ]]::new([System.StringComparer]::Ordinal)
+            for ($rightIndex = 0; $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
+                $rightProfile = $similarityProfiles[$rightIndex]
+                if ($rightProfile.Content.Length -lt $script:SimilarityMinimumCharacters -or
+                    $rightProfile.Tokens.Count -lt $script:SimilarityMinimumTokens) {
+                    continue
                 }
-                $tokenPostings[[string]$token].Add($rightIndex)
+
+                $rightModel = [string]$raw[$rightIndex].Model
+                $intersections = [System.Collections.Generic.Dictionary[int, int]]::new()
+                foreach ($token in $rightProfile.Tokens) {
+                    $tokenKey = [string]$token
+                    if (-not $tokenPostings.ContainsKey($tokenKey)) { continue }
+                    foreach ($modelPosting in $tokenPostings[$tokenKey].GetEnumerator()) {
+                        if ([string]::Equals([string]$modelPosting.Key, $rightModel, [System.StringComparison]::Ordinal)) {
+                            continue
+                        }
+                        foreach ($leftIndex in $modelPosting.Value) {
+                            if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
+                            $intersections[$leftIndex]++
+                        }
+                    }
+                }
+
+                $candidateIndexes = [int[]]@($intersections.Keys)
+                [array]::Sort($candidateIndexes)
+                foreach ($leftIndex in $candidateIndexes) {
+                    if ((Get-ReviewFindingSimilarity -LeftProfile $similarityProfiles[$leftIndex] `
+                                -RightProfile $rightProfile -Intersection $intersections[$leftIndex]) -eq 'near-duplicate') {
+                        $similarity = 'near-duplicate'
+                        break
+                    }
+                }
+                foreach ($token in $rightProfile.Tokens) {
+                    $tokenKey = [string]$token
+                    if (-not $tokenPostings.ContainsKey($tokenKey)) {
+                        $tokenPostings[$tokenKey] = [System.Collections.Generic.Dictionary[
+                            string,
+                            System.Collections.Generic.List[int]
+                        ]]::new([System.StringComparer]::Ordinal)
+                    }
+                    $postingsByModel = $tokenPostings[$tokenKey]
+                    if (-not $postingsByModel.ContainsKey($rightModel)) {
+                        $postingsByModel[$rightModel] = [System.Collections.Generic.List[int]]::new()
+                    }
+                    $postingsByModel[$rightModel].Add($rightIndex)
+                }
             }
         }
 

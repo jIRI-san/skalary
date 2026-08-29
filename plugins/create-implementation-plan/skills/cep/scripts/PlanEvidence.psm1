@@ -337,9 +337,14 @@ function Assert-PlanReviewResultReceipt {
         if ($receipt['source']['base'] -cne $mergeBase) {
             throw "Review run '$ReviewRunId' used base '$($receipt['source']['base'])', not canonical merge base '$mergeBase'."
         }
-        $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2>$null)
-        if ($LASTEXITCODE -ne 0 -or [int]$receipt['source']['pathCount'] -ne $changedPaths.Count) {
-            throw "Review run '$ReviewRunId' does not cover the canonical whole-branch path count."
+        $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            $diagnostic = (@($changedPaths | Select-Object -Last 1) -join '').Trim()
+            throw "Review run '$ReviewRunId' could not enumerate canonical whole-branch paths for '$mergeBase..$Commit': $diagnostic"
+        }
+        $expectedPathCount = [int]$receipt['source']['pathCount']
+        if ($expectedPathCount -ne $changedPaths.Count) {
+            throw "Review run '$ReviewRunId' claims $expectedPathCount canonical whole-branch paths, but Git found $($changedPaths.Count) for '$mergeBase..$Commit'."
         }
     }
     foreach ($digest in @(

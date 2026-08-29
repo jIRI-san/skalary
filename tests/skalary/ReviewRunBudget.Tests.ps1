@@ -73,6 +73,8 @@ Describe 'review report maximum envelope budget' {
             [int]$result.tasks | Should -Be 128
             [int]$result.findings | Should -Be 256
             [int]$result.inputBytes | Should -BeLessOrEqual ([int]$script:limits.maxEnvelopeBytes)
+            [int]$result.suspiciousFindings | Should -BeGreaterThan 0 `
+                -Because 'the maximum envelope must execute and observe the distinct-model near-duplicate path'
 
             # Render-budget behavior of the structural maximum: the summary fits, but the full view
             # overflows the 1 MiB budget because 256 findings carry 1 MiB of bodies alone, so the

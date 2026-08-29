@@ -32,6 +32,7 @@ function New-Filler {
 
 $spec = Get-Content -LiteralPath $SpecPath -Raw | ConvertFrom-Json -AsHashtable -Depth 40
 $g = $spec.generation
+$similaritySeed = 'alpha-bravo-charlie-delta-echo-foxtrot-golf-hotel-india-juliet-kilo-lima-mike-november-oscar-papa-quebec-romeo-sierra-tango'
 
 $roster = @(1..$g.rosterModels | ForEach-Object { New-Filler -Length $g.modelLength -Seed "model-$_" })
 
@@ -54,14 +55,14 @@ $findings = @(1..$g.findings | ForEach-Object {
         $groupOccurrence = [Math]::Floor(($index - 1) / $g.mergedGroups)
         $taskOrdinal = [int]($g.diagnosticTasks + 1 + ($groupOccurrence % 2))
         [ordered]@{
-            action = New-Filler -Length $g.actionLength -Seed "action-$index"
-            body = New-Filler -Length $g.bodyLength -Seed "body-$index"
+            action = New-Filler -Length $g.actionLength -Seed "$similaritySeed-action-$index"
+            body = New-Filler -Length $g.bodyLength -Seed "$similaritySeed-body-$index"
             component = New-Filler -Length $g.componentLength -Seed "component-$group"
             references = @(1..$g.references | ForEach-Object { New-Filler -Length $g.referenceLength -Seed "ref-$index-$_" })
             rootCause = New-Filler -Length $g.rootCauseLength -Seed "root-$group"
             severity = 'Critical'
             taskId = ('t{0:d3}' -f $taskOrdinal)
-            title = New-Filler -Length $g.titleLength -Seed "title-$index"
+            title = New-Filler -Length $g.titleLength -Seed "$similaritySeed-title-$index"
         }
     })
 
@@ -106,6 +107,8 @@ $resultJson = $null
 
 # Record the summary size (it fits, D5) directly; the full view size comes back from the admission
 # diagnostic so we do not hold a second 1.8 MiB string alongside the publish allocations.
+$projection = ConvertTo-ReviewProjection -Run $run
+$suspiciousFindings = @($projection.Findings | Where-Object { $_.CorroborationState -eq 'suspicious' }).Count
 $summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryView -Run $run))
 
 # Free the in-memory envelope the harness built so the sampled growth is the publication's own cost —
@@ -165,6 +168,7 @@ $result = [ordered]@{
     findings = $g.findings
     inputBytes = $inputBytes
     summaryBytes = $summaryBytes
+    suspiciousFindings = $suspiciousFindings
     fullBytes = $fullBytes
     baselinePrivateBytes = $baseline
     peakPrivateBytes = $peak
