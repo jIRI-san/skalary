@@ -72,8 +72,14 @@ Describe 'Get-PlanArtifactContext' {
     It 'test:PlanArtifactContext.Resolution resolves selected active and archived plans deterministically across layouts' {
         $root = & $newTempRoot
         try {
-            $null = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'assets'
+            $assetsPlan = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'assets'
             $null = & $newLegacyPlan -Root $root -Id '001' -Slug 'legacy'
+            $reviewsDir = Join-Path $assetsPlan 'assets/reviews'
+            New-Item -ItemType Directory -Path $reviewsDir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $reviewsDir 'notes.md') -Encoding utf8NoBOM -Value 'not a finalized review'
+            $reviewId = '12345678-1234-1234-1234-123456789abc'
+            Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.review.md") -Encoding utf8NoBOM -Value '# Final review'
+            Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.receipt.json") -Encoding utf8NoBOM -Value '{}'
 
             $arguments = @{
                 RepoRoot     = $root
@@ -104,6 +110,12 @@ Describe 'Get-PlanArtifactContext' {
             @($first.relationship | Select-Object -Unique) | Should -Be @('dependency')
             @($first.isUntrusted | Select-Object -Unique) | Should -Be @($true)
             @($first.authority | Select-Object -Unique) | Should -Be @('historical-context-only')
+
+            $reviews = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Reviews -Relationship dependency)
+            $reviews.Count | Should -Be 1
+            $reviews.status | Should -Be 'accepted'
+            $reviews.path | Should -Be "docs/implementation-plans/2026-01-02-a1b2c3-assets/assets/reviews/$reviewId.review.md"
+            $reviews.content | Should -Match 'Final review'
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -165,6 +177,12 @@ Describe 'Get-PlanArtifactContext' {
             $invalidUtf8 = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
             $invalidUtf8.status | Should -Be 'refused'
             $invalidUtf8.content | Should -BeNullOrEmpty
+
+            Remove-Item -LiteralPath $intentPath -Force
+            [System.IO.File]::WriteAllBytes($intentPath, [byte[]]::new(0))
+            $empty = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $empty.status | Should -Be 'refused'
+            $empty.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $intentPath -Force
             $outsidePath = Join-Path $root 'outside.md'
