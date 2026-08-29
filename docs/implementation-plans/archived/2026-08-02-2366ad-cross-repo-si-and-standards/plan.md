@@ -1,4 +1,4 @@
-# 2366ad: Cross-repo si and review standards
+# 2366ad: Cross-repo si and review standards [DONE]
 <!-- plan-id: 2366ad -->
 <!-- cip-stage: done -->
 <!-- depends-on: 1936cb, 79cfe1 -->
