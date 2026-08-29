@@ -22,9 +22,9 @@
 - Evidence receipt - `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
 
 ## Phase 1: Interactive vertical checkpoint
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: feature/2026-08-14-6a629b-vertical-implementation-requirement-loop -->
 
-- [ ] 1.1 Add read-only phase admission to `/ci` using existing plan metadata/state: dependencies complete, phase prerequisites satisfied, confirmed intent available, and applicable requirements identified before mutation (REQ-1, RISK-1) `M`
+- [x] 1.1 Add read-only phase admission to `/ci` using existing plan metadata/state: dependencies complete, phase prerequisites satisfied, confirmed intent available, and applicable requirements identified before mutation (REQ-1, RISK-1) `M`
 - [ ] 1.2 At phase close, reread confirmed intent, crosscheck applicable requirements through existing evidence results, record the usable increment, and stop for the operator when evidence or high-impact uncertainty is unresolved (REQ-2, REQ-3, RISK-2, RISK-3) [after: 1.1] `M`
 
 ## Phase 2: Capture and one-phase autonomy

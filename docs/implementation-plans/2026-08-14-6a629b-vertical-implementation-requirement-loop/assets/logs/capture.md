@@ -8,3 +8,8 @@ Phase: 0
 - [0.5] [src:note] [sev:Med] prior-art: extend 57cc2c; reuse 006 REQ-7, b0c0d3 layout, ca8ba8 review separation, and 863d97 evidence truth; old 768d7b v1 skipped-receipt limitation is superseded by 863d97
 - [0.6] [src:note] [sev:High] dr round 1: keep one checkpoint parser/gate and one Capture writer; bind operator resolutions to exact blocker state; consume 863d97 evidence APIs; synchronize every payload-changing commit
 - [0.7] [src:note] [sev:High] dr round 2: reserve blocker capacity; separate evaluated state from persistence commit; aggregate review and checkpoint stops; default-deny operator resolution; commit and push blocked headless state before exit 42
+
+## Capture
+Phase: 1
+
+No entries for this phase.
