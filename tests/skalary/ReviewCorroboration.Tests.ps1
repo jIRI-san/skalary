@@ -55,9 +55,38 @@ Describe 'review finding corroboration derivation' {
                 component = $Component
             }
         }
+
+        function Script:New-CorroborationProfile {
+            param(
+                [Parameter(Mandatory)][string]$ExactKey,
+                [Parameter(Mandatory)][string[]]$Token,
+                [Parameter(Mandatory)][int]$ContentLength
+            )
+
+            return [pscustomobject]@{
+                ExactKey = $ExactKey
+                Content = 'x' * $ContentLength
+                Tokens = [System.Collections.Generic.HashSet[string]]::new(
+                    $Token,
+                    [System.StringComparer]::Ordinal
+                )
+            }
+        }
+
+        function Script:Get-CorroborationSimilarity {
+            param(
+                [Parameter(Mandatory)][object]$Left,
+                [Parameter(Mandatory)][object]$Right
+            )
+
+            return & $script:reviewModule {
+                param($LeftProfile, $RightProfile)
+                Get-ReviewFindingSimilarity -LeftProfile $LeftProfile -RightProfile $RightProfile
+            } $Left $Right
+        }
     }
 
-    It 'test:ReviewReport.CorroborationNormalizationAndSimilarity flags only conservative cross-reviewer matches without changing raw findings' {
+    It 'test:ReviewReport.CorroborationNormalizationAndSimilarity flags only conservative cross-declared-model matches without changing raw findings' {
         $nearLeft = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango'
         $nearRight = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra uniform'
         $findings = @(
@@ -73,7 +102,10 @@ Describe 'review finding corroboration derivation' {
             New-CorroborationFinding -TaskId 'security-b' -Title 'Separate group' -Body 'identical across a merge boundary' -Action 'Keep separate.' -RootCause 'group two'
         )
 
+        $rawBefore = ConvertTo-Json -InputObject $findings -Depth 10 -Compress
         $projection = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings $findings)
+        (ConvertTo-Json -InputObject $findings -Depth 10 -Compress) |
+            Should -BeExactly $rawBefore -Because 'collation must not mutate any caller-owned raw finding field'
         $byKey = @{}
         foreach ($entry in $projection.Findings) { $byKey[$entry.Key] = $entry }
 
@@ -92,6 +124,33 @@ Describe 'review finding corroboration derivation' {
         $reversed = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @($findings[($findings.Count - 1)..0]))
         @($reversed.Findings | ForEach-Object { "$($_.Key):$($_.Similarity)" }) |
             Should -Be @($projection.Findings | ForEach-Object { "$($_.Key):$($_.Similarity)" })
+
+        $seven = 1..7 | ForEach-Object { "t$_" }
+        $eight = 1..8 | ForEach-Object { "t$_" }
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token $seven -ContentLength 48) `
+            -Right (New-CorroborationProfile -ExactKey right -Token $seven -ContentLength 48) |
+            Should -Be 'none' -Because 'seven tokens are below the minimum-content guard'
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token $eight -ContentLength 48) `
+            -Right (New-CorroborationProfile -ExactKey right -Token $eight -ContentLength 48) |
+            Should -Be 'near-duplicate' -Because 'eight tokens meet the inclusive token boundary'
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token $eight -ContentLength 47) `
+            -Right (New-CorroborationProfile -ExactKey right -Token $eight -ContentLength 47) |
+            Should -Be 'none' -Because '47 characters are below the minimum-content guard'
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token $eight -ContentLength 48) `
+            -Right (New-CorroborationProfile -ExactKey right -Token $eight -ContentLength 48) |
+            Should -Be 'near-duplicate' -Because '48 characters meet the inclusive length boundary'
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token (1..10 | ForEach-Object { "t$_" }) -ContentLength 48) `
+            -Right (New-CorroborationProfile -ExactKey right -Token (1..9 | ForEach-Object { "t$_" }) -ContentLength 48) |
+            Should -Be 'near-duplicate' -Because 'Jaccard similarity exactly 0.90 meets the threshold'
+        Get-CorroborationSimilarity `
+            -Left (New-CorroborationProfile -ExactKey left -Token (1..10 | ForEach-Object { "t$_" }) -ContentLength 48) `
+            -Right (New-CorroborationProfile -ExactKey right -Token (1..8 | ForEach-Object { "t$_" }) -ContentLength 48) |
+            Should -Be 'none' -Because 'Jaccard similarity below 0.90 does not flag'
     }
 
     It 'test:ReviewReport.CorroborationSeverityAndVerdict derives support conservatively and forces suspicious findings to needs-review' {
@@ -169,15 +228,30 @@ Describe 'review finding corroboration derivation' {
         $degraded.Findings[0].EffectiveSeverity | Should -Be 'Medium'
         $degraded.Findings[0].Elevated | Should -BeFalse
 
-        $suspiciousOnly = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @(
-                New-CorroborationFinding -TaskId 'security-a' -Title 'Echo' -Body 'Same text.' -Action 'Review.'
-                New-CorroborationFinding -TaskId 'security-b' -Title 'Echo' -Body 'Same text.' -Action 'Review.'
+        $nearLeft = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango'
+        $nearRight = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra uniform'
+        $nearOnly = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @(
+                New-CorroborationFinding -TaskId 'security-a' -Title 'Near echo' -Body $nearLeft -Action 'Review the finding.'
+                New-CorroborationFinding -TaskId 'security-b' -Title 'Near echo' -Body $nearRight -Action 'Review the finding.'
             ))
+        $nearOnly.Findings[0].Support | Should -Be 'suspicious'
+        $nearOnly.Findings[0].Similarity | Should -Be 'near-duplicate'
+        $nearOnly.Findings[0].Elevated | Should -BeFalse
+        $nearOnly.Findings[0].NeedsReview | Should -BeTrue
         {
             & $script:reviewModule {
                 param($Projection)
                 Get-ReviewRetainedReportText -Projection $Projection -Verdict approved
-            } $suspiciousOnly
+            } $nearOnly
         } | Should -Throw -ExpectedMessage '*no finding marked needs-review*'
+
+        $nearDegraded = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @(
+                New-CorroborationFinding -TaskId 'security-a' -Title 'Near echo' -Body $nearLeft -Action 'Review the finding.'
+                New-CorroborationFinding -TaskId 'security-b' -Title 'Near echo' -Body $nearRight -Action 'Review the finding.'
+            ) -Roster @('model-a', 'model-b', 'model-c') -Tasks $degradedTasks)
+        $nearDegraded.Findings[0].AttendanceState | Should -Be 'degraded'
+        $nearDegraded.Findings[0].Support | Should -Be 'suspicious' -Because 'suspicion takes precedence over degraded attendance'
+        $nearDegraded.Findings[0].EffectiveSeverity | Should -Be 'Medium'
+        $nearDegraded.Findings[0].NeedsReview | Should -BeTrue
     }
 }

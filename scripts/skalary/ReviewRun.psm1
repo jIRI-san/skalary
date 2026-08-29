@@ -693,7 +693,22 @@ function ConvertTo-ReviewProjection {
 
         $similarityProfiles = @($raw | ForEach-Object { Get-ReviewFindingSimilarityProfile -Finding $_ })
         $similarity = 'none'
-        for ($leftIndex = 0; $leftIndex -lt $raw.Count -and $similarity -ne 'exact'; $leftIndex++) {
+        $modelsByExactKey = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        for ($index = 0; $index -lt $raw.Count; $index++) {
+            $exactKey = [string]$similarityProfiles[$index].ExactKey
+            if (-not $modelsByExactKey.ContainsKey($exactKey)) {
+                $modelsByExactKey[$exactKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            }
+            $exactModels = $modelsByExactKey[$exactKey]
+            if ($exactModels.Count -gt 0 -and -not $exactModels.Contains([string]$raw[$index].Model)) {
+                $similarity = 'exact'
+                break
+            }
+            [void]$exactModels.Add([string]$raw[$index].Model)
+        }
+        for ($leftIndex = 0; $leftIndex -lt $raw.Count -and $similarity -eq 'none'; $leftIndex++) {
             for ($rightIndex = $leftIndex + 1; $rightIndex -lt $raw.Count; $rightIndex++) {
                 if ([string]::Equals($raw[$leftIndex].Model, $raw[$rightIndex].Model, [System.StringComparison]::Ordinal)) {
                     continue
@@ -701,8 +716,10 @@ function ConvertTo-ReviewProjection {
                 $pairSimilarity = Get-ReviewFindingSimilarity `
                     -LeftProfile $similarityProfiles[$leftIndex] `
                     -RightProfile $similarityProfiles[$rightIndex]
-                if ($pairSimilarity -eq 'exact') { $similarity = 'exact'; break }
-                if ($pairSimilarity -eq 'near-duplicate') { $similarity = 'near-duplicate' }
+                if ($pairSimilarity -eq 'near-duplicate') {
+                    $similarity = 'near-duplicate'
+                    break
+                }
             }
         }
 

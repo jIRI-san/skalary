@@ -10,6 +10,7 @@ globs:
   - scripts/skalary/Resolve-ReviewStandards.ps1
   - tests/skalary/ReviewStandards.Tests.ps1
   - tests/skalary/fixtures/review-run/**
+  - tests/skalary/ReviewCorroboration.Tests.ps1
   - tests/skalary/ReviewReport*.Tests.ps1
   - tests/skalary/ReviewRun*.Tests.ps1
   - tests/skalary/ReviewConsumerInstall.Tests.ps1
@@ -381,7 +382,9 @@ Otherwise, a pair is a clearly near duplicate only when both combined normalized
 8 distinct tokens and 48 characters and their token-set Jaccard similarity is at least `0.90`. The
 fixed content guard prevents short shared boilerplate from suppressing valid corroboration. Comparison
 uses the projection's deterministic raw-record order, preserves every raw field unchanged, and records
-only `none`, `near-duplicate`, or `exact` on the derived merged entry.
+only `none`, `near-duplicate`, or `exact` on the derived merged entry. Each raw record is normalized
+once; exact tuples are indexed by declared model label before lexical comparison, and the near-match
+pass stops at its first qualifying pair because group-level suspicion is already established.
 
 The merged entry then derives one support state with fixed precedence: any exact or near-duplicate
 cross-label pair is `suspicious`; otherwise incomplete task attendance is `degraded`; otherwise two or
