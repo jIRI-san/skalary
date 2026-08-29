@@ -311,7 +311,7 @@ function ConvertFrom-StructuredTestEvidenceResult {
         }
 
         $matchingRequirements = @(
-            foreach ($requirement in $PlanMetadata.Requirements.Values) {
+            foreach ($requirement in @($PlanMetadata.Requirements.Values | Sort-Object Number)) {
                 $declaredMarkers = @(
                     Get-TypedEvidenceMarkers -AcceptanceCriteria ([string]$requirement.AcceptanceCriteria) |
                         ForEach-Object { $_ }
