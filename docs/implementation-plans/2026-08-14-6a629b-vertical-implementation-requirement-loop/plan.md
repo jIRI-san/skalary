@@ -36,5 +36,5 @@
 ## Phase 3: Complete-plan integration and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Integrate the loop into `/ci` and autopilot while preserving normal whole-plan progression after operator continuation; synchronize changed payloads through existing plugin generators and notes (REQ-1, REQ-4, REQ-5, REQ-6, RISK-1, RISK-4, RISK-5) [after: 2.2] `M`
+- [x] 3.1 Integrate the loop into `/ci` and autopilot while preserving normal whole-plan progression after operator continuation; synchronize changed payloads through existing plugin generators and notes (REQ-1, REQ-4, REQ-5, REQ-6, RISK-1, RISK-4, RISK-5) [after: 2.2] `M`
 - [ ] 3.2 Run focused admission, evidence, capture, operator-stop, next-phase resume, installed-consumer, and generated-drift checks; rebuild the existing evidence receipt and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `M`

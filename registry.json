@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T10:36:44.9076873Z",
+  "generatedAt": "2026-08-29T10:44:07.7310603Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -182,7 +182,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "a84041eef64a9bef87eec9e4eb9468aa59eeb2882bf95f8856fd3f5d54e3c428",
+          "sha256": "62b3fb8c912197d716750a5de30ccab73fa562be5cb406c8d82d7784e20dd7f8",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -341,7 +341,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.37"
+      "version": "1.2.38"
     },
     {
       "author": "jIRI-san",
@@ -520,7 +520,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "98541b34e93e3163f70c02147e66610cc2a78cf8f9367ad14844e0484c816d73",
+          "sha256": "9946d2f833d77ea2aa3358c1e3b74cc6cc5c305718817275489de20e31255f76",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -680,7 +680,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.62"
+      "version": "1.0.63"
     },
     {
       "author": "jIRI-san",

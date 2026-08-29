@@ -35,7 +35,9 @@ Container and Sandbox carry the "Start from which branch? (Current / main)" foll
 
 Launcher-mode selection follows the one-phase autonomy contract in
 [plan-workflow.design.md](plan-workflow.design.md); this skill owns only the user-facing mode
-selection and invocation arguments.
+selection and invocation arguments. `next-phase` returns after one successful phase close, while
+`whole-plan` repeats the same admitted-phase and close flow and advances only after the current gate
+passes. Either mode preserves checklist progress when an operator or evidence stop interrupts the run.
 
 **First-run bootstrap is in-editor only.** When the user picks Autonomous, the skill checks for repo-root `.autopilot.json`; if absent it interviews (runtime, auth target, git provider/auth, build/test, model, context tier, reasoning effort, timeout), writes from `.autopilot.json.example`, then **structurally validates** required fields/types — mirroring `launch.ps1`'s hand-rolled checks. PowerShell 7.6+ can validate draft 2020-12 through `Test-Json -SchemaFile`, but autopilot deliberately retains its hand-rolled config checks because the launcher supports PowerShell 7.0 and must fail consistently before dispatch on every supported host. Headless `launch.ps1` never interviews; it fails loud if the file is missing.
 

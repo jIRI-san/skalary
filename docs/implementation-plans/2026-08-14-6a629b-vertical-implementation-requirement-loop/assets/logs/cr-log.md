@@ -76,3 +76,8 @@ Phase: 2
 - [-] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-3] [review:cr] [source-record:0a2721e229a48f832d0bfa426ce828a66ef06ba1fdc0456a12cf6f783816650e] review 08da90ae finding 17 fixed: execution documentation now names capture.md rather than the superseded evolution log.
 - [-] [src:code-review] [sev:Med] [concern:performance] [req:REQ-5] [review:cr] [source-record:c887833122c2a4ec1dec281d9d21d8205c927f3501e2875ce3bfb1d7274522eb] review 08da90ae finding 18 fixed: recovery sends all NUL-delimited explicit paths through one pathspec-from-file git add invocation.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:9b6c70aa14940162f26ab35eb428c13614313b6ebd8973e5d3fd844203f7a6dd] review-cycle stage=phase-2 cycle=3 outcome=findings summary=run-08da90ae-18-findings-13-fixed-or-hardened-5-deferred
+
+## CR Capture
+Phase: 3
+
+No entries for this phase.

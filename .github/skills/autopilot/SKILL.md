@@ -88,6 +88,10 @@ Derive `<launcher-mode>` from the selected plan's header before invoking the lau
 agent. The launcher stops only after that one phase succeeds; a later invocation resumes from the
 existing checklist without another checkpoint format.
 
+`whole-plan` uses the same admitted-phase and phase-close loop but continues to the next incomplete
+phase after each successful gate. Operator and evidence stops end the run without discarding completed
+checklist progress, so a later whole-plan launch resumes rather than repeating closed work.
+
 Use the installed launcher path and the delivered signature:
 
 - Host:
