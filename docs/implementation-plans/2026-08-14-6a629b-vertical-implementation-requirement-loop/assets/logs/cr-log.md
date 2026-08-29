@@ -37,3 +37,8 @@ Phase: 1
 - [-] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-6] [review:cr] [source-record:e0ea2a949df06097e021804e3e5824cd81fb2cd3f7c584265918352d9406c697] SI Git fail-closed behavior was checked only as source text; fixed with a missing pinned-object behavioral test.
 - [-] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:022a4e396b8a3b9c7f55ab5e278b679c5021c1e7f116abfff82ec6feb68f4006] Continue-only harvest ordering allowed an earlier invocation; fixed by asserting the checkpoint-to-Continue interval contains no harvest call.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:78f47f9715bb4eae57880d60d5052c3234b6c57b6c03a73e25656b3e727db14a] review-cycle stage=phase-1 cycle=3 outcome=findings summary=cycle-3 findings fixed; changed-surface gate green
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.

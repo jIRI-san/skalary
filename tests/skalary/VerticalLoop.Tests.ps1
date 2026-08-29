@@ -431,6 +431,62 @@ $($header.TrimEnd())
         }
     }
 
+    It 'test:VerticalLoop.WorkflowNoteCapture keeps decisions, uncertainty, and checkpoint outcomes in the closed writer kinds' {
+        $fixture = New-AdmissionFixture
+        $capturePath = Join-Path $fixture.TargetDir 'assets/logs/capture.md'
+        $learningPath = Join-Path $fixture.TargetDir 'assets/logs/learnings.md'
+        $crLogPath = Join-Path $fixture.TargetDir 'assets/logs/cr-log.md'
+
+        $decision = & $script:workflowNote -Kind Capture -PlanDir $fixture.TargetDir `
+            -RepoRoot $fixture.Root -Phase 1 -Step 1.1 -Src note `
+            -Concern architecture-patterns -Requirement REQ-1 -ReviewType none `
+            -Message 'decision=reuse the existing workflow-note writer'
+        $uncertainty = & $script:workflowNote -Kind Capture -PlanDir $fixture.TargetDir `
+            -RepoRoot $fixture.Root -Phase 1 -Step 1.1 -Src note `
+            -Concern maintainability-consistency -Requirement REQ-1 -ReviewType none `
+            -Message 'uncertainty=wording may be refined later; impact=lower'
+        $outcome = & $script:workflowNote -Kind Capture -PlanDir $fixture.TargetDir `
+            -RepoRoot $fixture.Root -Phase 1 -Step 1.1 -Src note `
+            -Concern testing-evidence -Requirement REQ-1 -ReviewType none `
+            -Message 'checkpoint outcome=continue; evidence=REQ-1 passed'
+        $learning = & $script:workflowNote -Kind Learnings -PlanDir $fixture.TargetDir `
+            -RepoRoot $fixture.Root -Phase 1 -Step 1.1 -Trigger reusable-pattern `
+            -Concern architecture-patterns -Requirement REQ-1 -ReviewType none `
+            -Message 'Reusable phase capture stays on the existing writer.'
+        $review = & $script:workflowNote -Kind CrLog -PlanDir $fixture.TargetDir `
+            -RepoRoot $fixture.Root -Phase 1 -Step 1.1 -Src code-review -Sev Low `
+            -Concern testing-evidence -Requirement REQ-1 -ReviewType cr `
+            -Message 'Capture contract reviewed.'
+
+        foreach ($result in @($decision, $uncertainty, $outcome)) {
+            $result.Status | Should -Be 'complete'
+            $result.File | Should -BeExactly $capturePath
+        }
+        $learning.File | Should -BeExactly $learningPath
+        $review.File | Should -BeExactly $crLogPath
+
+        $capture = Get-Content -LiteralPath $capturePath -Raw
+        $capture | Should -Match 'decision=reuse the existing workflow-note writer'
+        $capture | Should -Match 'uncertainty=wording may be refined later; impact=lower'
+        $capture | Should -Match 'checkpoint outcome=continue; evidence=REQ-1 passed'
+        @([regex]::Matches($capture, '\[source-record:[0-9a-f]{64}\]')).Count | Should -Be 3
+
+        (Get-Content -LiteralPath $learningPath -Raw) | Should -Match '\[trigger:reusable-pattern\]'
+        (Get-Content -LiteralPath $crLogPath -Raw) | Should -Match '\[src:code-review\].+\[review:cr\]'
+        {
+            & $script:workflowNote -Kind Checkpoint -PlanDir $fixture.TargetDir `
+                -RepoRoot $fixture.Root -Phase 1
+        } | Should -Throw '*Checkpoint*'
+        Test-Path -LiteralPath (Join-Path $fixture.TargetDir 'assets/logs/checkpoint.md') |
+            Should -BeFalse
+
+        $guide = Get-Content -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+        ) -Raw
+        $guide | Should -Match 'Capturing uncertainty never resolves it or changes its impact class'
+        $guide | Should -Match 'Do not add a checkpoint kind, checkpoint file, parser, or parallel'
+    }
+
     It 'allows phase-one harvest after legacy phase-zero planning capture' {
         $fixture = New-AdmissionFixture
         $logs = Join-Path $fixture.TargetDir 'assets/logs'

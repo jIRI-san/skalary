@@ -13,3 +13,8 @@ Phase: 0
 Phase: 1
 
 - [1.2] [src:note] [concern:architecture-patterns] [req:REQ-1,REQ-2,REQ-3] [review:none] [source-record:22292b0f5c04b1740dc81cdd3a8ba3ebe801b5459dedfee39b6b513ef914b976] usable increment=interactive vertical checkpoint; intent fit=ci now admits phases read-only and closes them against confirmed intent; evidence=REQ-1 passed, REQ-2 passed, REQ-3 passed; decisions=reuse PlanState, Build-EvidenceReceipt, and Add-WorkflowNote; uncertainty=none high-impact; disposition=phase complete
+
+## Capture
+Phase: 2
+
+- [2.1] [src:note] [concern:architecture-patterns] [req:REQ-3,REQ-4] [review:none] [source-record:77931f35afda64af1d54681979d346664a413d68ca8df0bb094cb364ed77dfd2] decision=reuse the closed Add-WorkflowNote kinds; lower-impact uncertainty=checkpoint wording may evolve within the existing Capture grammar; high-impact uncertainty=none; checkpoint outcome=REQ-3 and REQ-4 focused evidence passed

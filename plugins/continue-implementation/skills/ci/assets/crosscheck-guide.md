@@ -72,6 +72,10 @@ typed concern/requirement provenance. Do not add a checkpoint schema or parser. 
 answers, write a second Capture note containing the disposition plus the same intent and evidence
 context so a resumed session does not have to infer what was reviewed.
 
+Capturing uncertainty never resolves it or changes its impact class. A lower-impact uncertainty may
+remain recorded when evidence is green; a high-impact uncertainty still removes Continue until the
+operator resolves it through Revise or Stop.
+
 Pass the normalized receipt outcome statuses and high-impact-uncertainty flag to
 `Get-PhaseCheckpointOptions`, then use `vscode_askQuestions` with exactly the returned dispositions:
 
@@ -228,5 +232,8 @@ Capture is mid-run, plan-folder-local, and **script-only** via `Add-WorkflowNote
 - `learnings.md` (`-Kind Learnings`): append only on `rework>1`, `plan-contradiction`, or `reusable-pattern` triggers, with typed concern/REQ/review provenance. The script keeps 10 active entries and writes older records to layout-resolved content-addressed overflow batches before replacing the active file. Old `overflow-summary` lines return explicit `legacy-loss` degradation.
 - `capture.md` (`-Kind Capture`): record the usable increment, decisions, uncertainty, and operator checkpoint disposition as bounded prose. Keep the intent and evidence summary in the disposition record so stop/resume retains the reviewed context.
 - Stage and commit the changed log by explicit filename.
+
+These are the only capture kinds. Do not add a checkpoint kind, checkpoint file, parser, or parallel
+authority for decisions or uncertainty.
 
 Fail-loud: missing required sections/placeholders fail; an intentionally empty `No entries for this phase.` section stays valid.
