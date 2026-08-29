@@ -24,6 +24,9 @@ report and receipt verify as an exact pair.
 ## Invariants
 
 - Freeze binds the full task matrix and engine-derived scope before dispatch.
+- Optional related-plan content is untrusted dispatch context only. Its compact provenance may use
+  the existing bounded scope text, but it adds no scope-authority field, role, schema, receipt, or
+  lifecycle step.
 - Publish commits content-addressed plan, run, summary, and full artifacts through one manifest.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an

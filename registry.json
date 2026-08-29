@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T09:39:48.3414190Z",
+  "generatedAt": "2026-08-29T09:46:04.8512898Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -403,7 +403,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "4d5e3465a1be69480c6fc12b716f02984dea7a6f046c83d3f4678d0959de0363",
+          "sha256": "82525f94f2eeed7f7b5360ded932dea61ae893fd034a01553394ce1f9ee43578",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -433,13 +433,18 @@
         },
         {
           "dest": "skills/cr/assets/scope-guide.md",
-          "sha256": "359acedcbda3badbd038bb95ffcccdc8abbacd661c212fd299223a94632d0214",
+          "sha256": "8e67f65782487d0dc711cea6d141a1cf25ac568e6ba39043712f28a16c25d0e5",
           "src": "skills/cr/assets/scope-guide.md"
         },
         {
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/Get-PlanArtifactContext.ps1",
+          "sha256": "09ca82ecc496a2b2e496b7bcb212153fb2b927731ef044a745499ac1b03d96c9",
+          "src": "skills/cr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
           "dest": "skills/cr/scripts/Get-ReviewRun.ps1",
@@ -505,7 +510,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.39"
+      "version": "1.0.40"
     },
     {
       "author": "jIRI-san",
@@ -988,7 +993,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "d9fb205f335e5a9df4c8756dd52151157e9cec1588fd2ce191f18f624c608481",
+          "sha256": "3b8298a08202d67458c313c8647d5b2297e3d351f18570fb187c86dc41b18087",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1008,7 +1013,7 @@
         },
         {
           "dest": "skills/dr/assets/plan-scope-guide.md",
-          "sha256": "30b19693c280fa5bfa2c54c53e8a198ef9d54d46e26dbc5e825a814b518dc0ff",
+          "sha256": "113b4b0b0539c2980f741643bf54bce516360938cfa24e4e2514ee0bd8959a10",
           "src": "skills/dr/assets/plan-scope-guide.md"
         },
         {
@@ -1020,6 +1025,11 @@
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/Get-PlanArtifactContext.ps1",
+          "sha256": "09ca82ecc496a2b2e496b7bcb212153fb2b927731ef044a745499ac1b03d96c9",
+          "src": "skills/dr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
           "dest": "skills/dr/scripts/Get-ReviewRun.ps1",
@@ -1085,7 +1095,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.38"
+      "version": "1.0.39"
     },
     {
       "author": "jIRI-san",
