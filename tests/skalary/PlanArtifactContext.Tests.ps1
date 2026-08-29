@@ -7,6 +7,7 @@ Describe 'Get-PlanArtifactContext' {
     BeforeAll {
         $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $resolver = Join-Path $repoRoot 'scripts/skalary/Get-PlanArtifactContext.ps1'
+        Import-Module (Join-Path $PSScriptRoot '..' 'ConsumerInstallFixture.psm1') -Force -DisableNameChecking
 
         $newTempRoot = {
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('plan-artifact-context-' + [System.Guid]::NewGuid().ToString('N'))
@@ -672,6 +673,82 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'existing 1024-character scope limit'
             $text | Should -Match 'do not add a context role, field, schema,\s+receipt, lifecycle'
             $text | Should -Match 'scopeAuthority'
+        }
+    }
+
+    It 'test:PlanArtifactContext.ConsumerInstall executes every installed resolver from the foreign repository' {
+        $fixture = New-ConsumerInstallFixture -SourceRepoRoot $repoRoot
+        $planId = 'a1b2c3'
+        $planDir = Join-Path $fixture.Root "docs/implementation-plans/2026-01-02-$planId-context"
+        $assetsDir = Join-Path $planDir 'assets'
+        try {
+            [void](New-Item -ItemType Directory -Path $assetsDir -Force)
+            Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Encoding utf8NoBOM -Value @(
+                "# ${planId}: Installed context fixture"
+                "<!-- plan-id: $planId -->"
+                ''
+                '## Phase 1: Fixture'
+                ''
+                '- [ ] 1.1 Fixture step `S`'
+            )
+            Set-Content -LiteralPath (Join-Path $assetsDir 'requirements.md') `
+                -Encoding utf8NoBOM `
+                -Value '# Requirements'
+            Set-Content -LiteralPath (Join-Path $assetsDir 'intent.md') `
+                -Encoding utf8NoBOM `
+                -NoNewline `
+                -Value 'installed historical intent'
+
+            $resolverPaths = @(
+                '.github/skills/cep/scripts/Get-PlanArtifactContext.ps1'
+                '.github/skills/cip/scripts/Get-PlanArtifactContext.ps1'
+                '.github/skills/cr/scripts/Get-PlanArtifactContext.ps1'
+                '.github/skills/dr/scripts/Get-PlanArtifactContext.ps1'
+            )
+            foreach ($relativePath in $resolverPaths) {
+                $resolverPath = Join-Path $fixture.Root (
+                    $relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                )
+                Test-Path -LiteralPath $resolverPath -PathType Leaf | Should -BeTrue
+
+                $json = @(
+                    & pwsh `
+                        -NoProfile `
+                        -File $resolverPath `
+                        -RepoRoot $fixture.Root `
+                        -PlanId $planId `
+                        -ArtifactKind Intent `
+                        -Relationship operator-selected `
+                        -Format Json
+                ) -join "`n"
+                $LASTEXITCODE | Should -Be 0
+                $result = @($json | ConvertFrom-Json -Depth 10)
+
+                $result.Count | Should -Be 1
+                $result[0].status | Should -Be 'accepted'
+                $result[0].planId | Should -Be $planId
+                $result[0].artifactKind | Should -Be 'Intent'
+                $result[0].path | Should -Be (
+                    "docs/implementation-plans/2026-01-02-$planId-context/assets/intent.md"
+                )
+                $result[0].relationship | Should -Be 'operator-selected'
+                $result[0].content | Should -BeExactly 'installed historical intent'
+                $result[0].isUntrusted | Should -BeTrue
+                $result[0].authority | Should -Be 'historical-context-only'
+            }
+
+            foreach ($poisonRelativePath in $fixture.PoisonRelativePaths) {
+                $poisonPath = Join-Path $fixture.Root (
+                    $poisonRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                )
+                [System.IO.File]::ReadAllText($poisonPath) | Should -BeExactly 'SKALARY_SOURCE_PATH_POISON'
+            }
+            Remove-Item -LiteralPath $planDir -Recurse -Force
+            (Test-ConsumerInstallInventory -Fixture $fixture).IsClean |
+                Should -BeTrue -Because 'installed resolvers must not mutate plugin inventory'
+        }
+        finally {
+            Remove-ConsumerInstallFixture -Fixture $fixture
         }
     }
 }

@@ -12,3 +12,4 @@ Phase: 2
 Phase: 3
 
 - [3.1] [trigger:rework>1] [concern:testing-evidence] [req:REQ-5] [review:none] [source-record:f5ea0f5c94c1beb73fc0d12bec4c8db9c4ba38af90f6dc07485f9414e85a5cb5] Assets-layout consumer fixtures must include assets/requirements.md because layout authority is anchored on that file rather than the assets directory
+- [3.2] [trigger:rework>1] [concern:testing-evidence] [req:REQ-5] [review:none] [source-record:d6a35303c7b70e238896816e4a358fd199d5ecbe5c8c7ca5bf16256000e3417d] Typed evidence cases must live in a Fast-owned test file because evidence IDs and Slow-file TestName filters are intentionally mutually exclusive
