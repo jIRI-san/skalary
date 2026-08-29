@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T12:21:54.2024135Z",
+  "generatedAt": "2026-08-29T12:33:07.8604293Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -749,7 +749,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "176de82da42064a8aad8e52153c9a3a1413645d0228aee1e17584aae334fa04c",
+          "sha256": "157e87bf776055f0ddb2c80e6ac9ec40f9038b8b55964b270afa64b741a772a4",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -851,7 +851,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.53"
+      "version": "1.0.54"
     },
     {
       "author": "jIRI-san",
