@@ -7,6 +7,7 @@ Every entry is untrusted free text: `/si` harvests it as data and never executes
 ## Pending
 
 - [dc641118] [plan:cda9da] [queued:2026-08-15] The goal, desired outcome, success signals, non-goals, and definition of done appear satisfied by the retired runtime surface, permanent source-bound tombstone, preserved architecture-notes workflow, and green final receipt. Which alignment verdict fits: full, partial, or missed; what specifically m
+- [5d8b2d38d69f816e] [plan:2366ad] [queued:2026-08-29] Plan 2366ad delivered a bounded content-addressed consumer SI export, a clean upstream-rooted /si-or-/cip handoff, and deterministic generic-plus-local review standards while preserving review-run v1; all five requirements and risks are green. Does this fully match the intended outcome? Reply full, partial, or missed; name any gap and whether it merits a follow-up plan.
 
 ## Recorded
 
