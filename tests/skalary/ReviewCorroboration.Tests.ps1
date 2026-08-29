@@ -105,6 +105,8 @@ Describe 'review finding corroboration derivation' {
             New-CorroborationFinding -TaskId 'reliability-a' -Title 'Same declared model' -Body 'This exact record comes from one declared model.' -Action 'Do not count twice.' -RootCause 'same model'
             New-CorroborationFinding -TaskId 'security-a' -Title 'Separate group' -Body 'identical across a merge boundary' -Action 'Keep separate.' -RootCause 'group one'
             New-CorroborationFinding -TaskId 'security-b' -Title 'Separate group' -Body 'identical across a merge boundary' -Action 'Keep separate.' -RootCause 'group two'
+            New-CorroborationFinding -TaskId 'security-a' -Title 'Boundary alpha' -Body 'bravo' -Action 'charlie' -RootCause 'field boundary'
+            New-CorroborationFinding -TaskId 'security-b' -Title 'Boundary' -Body 'alpha bravo' -Action 'charlie' -RootCause 'field boundary'
         )
 
         $rawBefore = ConvertTo-Json -InputObject $findings -Depth 10 -Compress
@@ -120,6 +122,8 @@ Describe 'review finding corroboration derivation' {
         $byKey[(Get-ReviewMergeKey -Finding $findings[6])].Similarity | Should -Be 'none' -Because 'one declared model is not independent support'
         $byKey[(Get-ReviewMergeKey -Finding $findings[8])].Similarity | Should -Be 'none' -Because 'comparison never crosses an existing merge group'
         $byKey[(Get-ReviewMergeKey -Finding $findings[9])].Similarity | Should -Be 'none'
+        $byKey[(Get-ReviewMergeKey -Finding $findings[10])].Similarity |
+            Should -Be 'none' -Because 'exact matching preserves normalized title, body, and action boundaries'
 
         $exactRaw = @($byKey[(Get-ReviewMergeKey -Finding $findings[0])].Raw)
         $exactRaw.Count | Should -Be 2
@@ -164,17 +168,22 @@ Describe 'review finding corroboration derivation' {
                     -Action "Inspect item $_." -RootCause 'maximum single model'
             }
         )
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $maximumProjection = ConvertTo-ReviewProjection -Run (
+        $maximumRun = (
             New-CorroborationRun -Findings $maximumSingleModel -Roster @('model-a') -Tasks @(
                 @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
             ))
-        $stopwatch.Stop()
+        $maximumProjection = InModuleScope $script:reviewModule.Name -Parameters @{ Run = $maximumRun } {
+            param($Run)
+            Mock Get-ReviewFindingSimilarityProfile {
+                throw 'single-model groups must not build similarity profiles'
+            }
+            $result = ConvertTo-ReviewProjection -Run $Run
+            Should -Invoke Get-ReviewFindingSimilarityProfile -Times 0 -Exactly
+            return $result
+        }
         $maximumProjection.Findings | Should -HaveCount 1
         $maximumProjection.Findings[0].RawCount | Should -Be 256
         $maximumProjection.Findings[0].Similarity | Should -Be 'none'
-        $stopwatch.Elapsed.TotalSeconds | Should -BeLessThan 2 `
-            -Because 'single-model groups cannot produce cross-model similarity and must skip pair indexing'
     }
 
     It 'test:ReviewReport.CorroborationSeverityAndVerdict derives support conservatively and forces suspicious findings to needs-review' {
@@ -336,6 +345,24 @@ Describe 'review finding corroboration derivation' {
         foreach ($value in @('Medium', '2', 'clean', 'exact', 'suspicious', 'needs-review:')) {
             $summary | Should -Match ([regex]::Escape($value))
             $full | Should -Match ([regex]::Escape($value))
+        }
+        $summary | Should -Match (
+            '(?m)^\| \d+ \| M→M \| 2/C/X/S \| Suspicious retained echo \| `R\d+` \|$'
+        )
+        $suspiciousSection = [regex]::Match(
+            $full,
+            '(?ms)^### \[\d+\] Suspicious retained echo\r?\n(?<body>.*?)(?=^### \[\d+\] |\z)'
+        )
+        $suspiciousSection.Success | Should -BeTrue
+        foreach ($line in @(
+                '| **Raw severity** | `Medium` |',
+                '| **Effective severity** | Medium |',
+                '| **Support count** | 2 |',
+                '| **Attendance state** | `clean` |',
+                '| **Similarity** | `exact` |',
+                '| **Corroboration state** | `suspicious` |'
+            )) {
+            $suspiciousSection.Groups['body'].Value | Should -Match ([regex]::Escape($line))
         }
         @([regex]::Matches($full, '(?m)^\| `security-[ab]` \| `Medium` \| Suspicious retained echo \|')).Count |
             Should -Be 2 -Because 'the rendered corroboration view must preserve both raw findings'
