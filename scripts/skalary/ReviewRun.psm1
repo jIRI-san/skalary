@@ -612,7 +612,7 @@ function ConvertTo-ReviewProjection {
         if (-not [string]::IsNullOrWhiteSpace($body)) { $group.Bodies.Add($body.Trim()) }
         if (-not [string]::IsNullOrWhiteSpace($action)) { $group.Actions.Add($action.Trim()) }
         [void]$group.Concerns.Add(([string](Get-ReviewValue -Node $task -Name 'concern')).Trim())
-        [void]$group.Models.Add(([string](Get-ReviewValue -Node $task -Name 'model')).Trim())
+        [void]$group.Models.Add([string](Get-ReviewValue -Node $task -Name 'model'))
         foreach ($reference in $references) { [void]$group.References.Add($reference) }
         if ($script:SeverityRank[$severity] -gt $group.Rank) { $group.Rank = $script:SeverityRank[$severity] }
         $group.Raw.Add([pscustomobject]@{

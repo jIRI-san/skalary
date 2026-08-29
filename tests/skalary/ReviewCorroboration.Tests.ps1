@@ -140,6 +140,18 @@ Describe 'review finding corroboration derivation' {
         $byRoot.partial.SupportCount | Should -Be 2
         $byRoot.partial.Elevated | Should -BeFalse -Because 'severity elevation requires every declared model label'
 
+        $spacedModel = ' model-a'
+        $whitespaceSensitive = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Roster @('model-a', $spacedModel) -Tasks @(
+                @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
+                @{ taskId = 'security-b'; concern = 'security'; model = $spacedModel; outcome = 'completed' }
+            ) -Findings @(
+                New-CorroborationFinding -TaskId 'security-a' -Title 'Exact label A' -Body 'First independent account.' -Action 'Fix first.'
+                New-CorroborationFinding -TaskId 'security-b' -Title 'Exact label B' -Body 'Second separate account.' -Action 'Fix second.'
+            ))
+        $whitespaceSensitive.Findings[0].SupportCount | Should -Be 2
+        $whitespaceSensitive.Findings[0].Models | Should -Contain $spacedModel
+        $whitespaceSensitive.Findings[0].Elevated | Should -BeTrue
+
         $reversed = ConvertTo-ReviewProjection -Run (New-CorroborationRun -Findings @($findings[($findings.Count - 1)..0]) `
                 -Roster @('model-a', 'model-b', 'model-c') -Tasks @($tasks[($tasks.Count - 1)..0]))
         @($reversed.Findings | ForEach-Object { "$($_.Key):$($_.Support):$($_.EffectiveSeverity):$($_.NeedsReview)" }) |
