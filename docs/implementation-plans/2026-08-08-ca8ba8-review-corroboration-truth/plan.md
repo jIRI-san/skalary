@@ -35,7 +35,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
 - [x] 1.1 Add one deterministic normalization helper for each raw finding's title, body, and action. Within an existing merge group and across distinct declared reviewers, flag exact normalized matches and clearly near-duplicate text using one documented conservative lexical rule with a minimum-content guard. Keep raw findings unchanged and add `test:ReviewReport.CorroborationNormalizationAndSimilarity` (REQ-1, REQ-5, RISK-1, RISK-2, RISK-5) `L`
-- [ ] 1.2 Extend current report collation to derive `corroborated`, `single-source`, `suspicious`, or `degraded` support for each finding from attendance and similarity. Suspicious or degraded support cannot elevate severity and suspicious support forces `needs-review`; add `test:ReviewReport.CorroborationSeverityAndVerdict` (REQ-2, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.1] `L`
+- [x] 1.2 Extend current report collation to derive `corroborated`, `single-source`, `suspicious`, or `degraded` support for each finding from attendance and similarity. Suspicious or degraded support cannot elevate severity and suspicious support forces `needs-review`; add `test:ReviewReport.CorroborationSeverityAndVerdict` (REQ-2, REQ-5, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.1] `L`
 
 ## Phase 2: Existing report and retained evidence
 <!-- worktree: (recorded by /ci when worktree is created) -->

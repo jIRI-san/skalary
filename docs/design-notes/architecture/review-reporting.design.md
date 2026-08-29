@@ -383,6 +383,16 @@ fixed content guard prevents short shared boilerplate from suppressing valid cor
 uses the projection's deterministic raw-record order, preserves every raw field unchanged, and records
 only `none`, `near-duplicate`, or `exact` on the derived merged entry.
 
+The merged entry then derives one support state with fixed precedence: any exact or near-duplicate
+cross-label pair is `suspicious`; otherwise incomplete task attendance is `degraded`; otherwise two or
+more distinct declared model labels are `corroborated`; the remainder is `single-source`. The entry
+keeps raw and effective severity separately. A one-rank elevation is allowed only when support is
+corroborated, attendance is complete, every declared model label reported the merge group, no
+suspicious similarity was observed, and raw severity is below Critical. Suspicious and degraded
+support never elevate. Suspicious support sets `NeedsReview`, carries a `needs-review` reason, and makes
+an `approved` retained-result verdict invalid even when its effective severity is otherwise
+non-blocking.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a

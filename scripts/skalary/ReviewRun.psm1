@@ -650,8 +650,6 @@ function ConvertTo-ReviewProjection {
         )
         $unanimous = $roster.Count -ge 2 -and
         @($roster | Where-Object { -not $observedModels.Contains([string]$_) }).Count -eq 0
-        $rank = $group.Rank
-        if ($unanimous -and $rank -lt 4) { $rank++ }
 
         # Longest body first, then ordinal — decided on records, so the value that survives is the
         # original body rather than a substring of a packed key.
@@ -708,12 +706,46 @@ function ConvertTo-ReviewProjection {
             }
         }
 
+        $support = if ($similarity -ne 'none') {
+            'suspicious'
+        }
+        elseif ($state -ne 'clean') {
+            'degraded'
+        }
+        elseif ($models.Count -ge 2) {
+            'corroborated'
+        }
+        else {
+            'single-source'
+        }
+        $elevated = $support -eq 'corroborated' -and $unanimous -and $group.Rank -lt 4
+        $rank = $group.Rank + $(if ($elevated) { 1 } else { 0 })
+        $reason = switch ($support) {
+            'suspicious' {
+                "needs-review: $similarity normalized finding text appears under distinct declared model labels; severity elevation suppressed"
+            }
+            'degraded' {
+                'review attendance is degraded; severity elevation suppressed'
+            }
+            'corroborated' {
+                if ($unanimous) {
+                    'every declared model label reported this finding with complete attendance; no suspicious similarity observed'
+                }
+                else {
+                    'multiple declared model labels reported this finding with complete attendance; no suspicious similarity observed'
+                }
+            }
+            default {
+                'one declared model label reported this finding with complete attendance'
+            }
+        }
+
         $entries.Add([pscustomobject]@{
                 Key        = $group.Key
                 Title      = $title
                 Rank       = $rank
                 Severity   = $script:SeverityByRank[$rank]
-                Elevated   = $unanimous
+                Elevated   = $elevated
                 Concerns   = $concerns
                 Models     = $models
                 Bodies     = @($distinctBodies)
@@ -722,6 +754,14 @@ function ConvertTo-ReviewProjection {
                 Raw        = @($raw)
                 RawCount   = $group.Raw.Count
                 Similarity = $similarity
+                Support    = $support
+                SupportCount = $models.Count
+                AttendanceState = $state
+                RawRank    = $group.Rank
+                RawSeverity = $script:SeverityByRank[$group.Rank]
+                EffectiveSeverity = $script:SeverityByRank[$rank]
+                NeedsReview = $support -eq 'suspicious'
+                Reason     = $reason
             })
     }
 
@@ -3375,8 +3415,9 @@ function Get-ReviewRetainedReportText {
     $severity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
     foreach ($finding in @($Projection.Findings)) { $severity[[string]$finding.Severity]++ }
     $blocking = @($Projection.Findings | Where-Object { $_.Severity -in @('Critical', 'High') })
-    if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0)) {
-        throw 'An approved review result requires a clean run with no Critical or High findings.'
+    $needsReview = @($Projection.Findings | Where-Object { $_.NeedsReview })
+    if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0 -or $needsReview.Count -gt 0)) {
+        throw 'An approved review result requires a clean run with no Critical or High findings and no finding marked needs-review.'
     }
 
     $authority = $Projection.ScopeAuthority
