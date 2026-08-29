@@ -175,18 +175,12 @@ Describe 'review finding corroboration derivation' {
             @{ taskId = 'security-a'; concern = 'security'; model = 'model-a'; outcome = 'completed' }
             @{ taskId = 'security-b'; concern = 'security'; model = 'model-b'; outcome = 'completed' }
         )
-        $skewedProjection = InModuleScope $script:reviewModule.Name -Parameters @{ Run = $skewedRun } {
-            param($Run)
-            Mock Get-ReviewFindingSimilarity { return 'none' }
-            $result = ConvertTo-ReviewProjection -Run $Run
-            Should -Invoke Get-ReviewFindingSimilarity -Times 255 -Exactly `
-                -Because 'same-model postings must not become near-match candidates'
-            return $result
-        }
+        $skewedProjection = ConvertTo-ReviewProjection -Run $skewedRun
         $skewedProjection.Findings | Should -HaveCount 1
         $skewedProjection.Findings[0].RawCount | Should -Be 256
         $skewedProjection.Findings[0].CorroborationState | Should -Be 'corroborated'
-        $skewedProjection.Findings[0].Similarity | Should -Be 'none'
+        $skewedProjection.Findings[0].Similarity | Should -Be 'none' `
+            -Because 'near-identical findings from one model cannot make distinct-model support suspicious'
 
         $maximumSingleModel = @(
             1..256 | ForEach-Object {

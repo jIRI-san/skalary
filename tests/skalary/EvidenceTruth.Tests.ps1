@@ -420,7 +420,7 @@ Describe 'broken' {
         (Invoke-TestPlanFixture -PlanDir $planDir).ExitCode | Should -Be 0
     }
 
-    It 'test:EvidenceTruth.CleanReviewReceiptVetoes rejects missing or nonzero corroboration aggregates at every evidence entry point' {
+    It 'test:EvidenceTruth.CleanReviewReceiptVetoes rejects partial or nonzero corroboration aggregates at every evidence entry point' {
         $mutations = @(
             @{
                 Name = 'nonzero raw severity'
@@ -494,6 +494,25 @@ Describe 'broken' {
                     }) -Commit $script:head -PlanDir $crosscheckPlan -RepoRoot $script:repoRoot
             } | Should -Throw -Because "plan crosscheck must reject $($mutation.Name)"
         }
+
+        $legacyPlan = New-EvidencePlanFixture -Markers @('review:cr')
+        $legacyRunId = Write-CleanReviewResult -PlanDir $legacyPlan
+        & $applyMutation -Path (Join-Path $legacyPlan "reviews/$legacyRunId.receipt.json") -Apply {
+            param($Receipt)
+            foreach ($field in @('rawSeverity', 'corroboration', 'similarity', 'needsReview')) {
+                [void]$Receipt['findings'].Remove($field)
+            }
+        }
+        [void](& $script:cycleGate -Action Record -PlanDir $legacyPlan -Phase 1 `
+                -Stage plan-finalization -Outcome clean -ReviewRunId $legacyRunId `
+                -RepoRoot $script:repoRoot)
+        $legacyResult = & $script:builder -Result @([pscustomobject]@{
+                Req = 'REQ-1'
+                Marker = 'review:cr'
+                Status = 'passed'
+                ReviewRunId = $legacyRunId
+            }) -Commit $script:head -PlanDir $legacyPlan -RepoRoot $script:repoRoot
+        $legacyResult.Lines[0] | Should -Match "passed: review-run:$legacyRunId"
     }
 
     It 'test:EvidenceTruth.InstalledParityAndDrift keeps canonical, bundled, and dogfood evidence code identical' {

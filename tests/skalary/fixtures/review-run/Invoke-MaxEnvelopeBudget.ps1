@@ -51,6 +51,8 @@ $resultTasks = @(1..$g.tasks | ForEach-Object {
 $findings = @(1..$g.findings | ForEach-Object {
         $index = $_
         $group = ('{0:d3}' -f ((($index - 1) % $g.mergedGroups) + 1))
+        $groupOccurrence = [Math]::Floor(($index - 1) / $g.mergedGroups)
+        $taskOrdinal = [int]($g.diagnosticTasks + 1 + ($groupOccurrence % 2))
         [ordered]@{
             action = New-Filler -Length $g.actionLength -Seed "action-$index"
             body = New-Filler -Length $g.bodyLength -Seed "body-$index"
@@ -58,7 +60,7 @@ $findings = @(1..$g.findings | ForEach-Object {
             references = @(1..$g.references | ForEach-Object { New-Filler -Length $g.referenceLength -Seed "ref-$index-$_" })
             rootCause = New-Filler -Length $g.rootCauseLength -Seed "root-$group"
             severity = 'Critical'
-            taskId = ('t{0:d3}' -f ((($index - 1) % ($g.tasks - $g.diagnosticTasks)) + $g.diagnosticTasks + 1))
+            taskId = ('t{0:d3}' -f $taskOrdinal)
             title = New-Filler -Length $g.titleLength -Seed "title-$index"
         }
     })

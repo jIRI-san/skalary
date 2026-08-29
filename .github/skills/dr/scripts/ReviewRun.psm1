@@ -519,21 +519,21 @@ function Get-ReviewFindingSimilarity {
         [Nullable[int]]$Intersection
     )
 
-    if ([string]::Equals($leftProfile.ExactKey, $rightProfile.ExactKey, [System.StringComparison]::Ordinal)) {
+    if ([string]::Equals($LeftProfile.ExactKey, $RightProfile.ExactKey, [System.StringComparison]::Ordinal)) {
         return 'exact'
     }
-    if ($leftProfile.Content.Length -lt 48 -or $rightProfile.Content.Length -lt 48 -or
-        $leftProfile.Tokens.Count -lt 8 -or $rightProfile.Tokens.Count -lt 8) {
+    if ($LeftProfile.Content.Length -lt 48 -or $RightProfile.Content.Length -lt 48 -or
+        $LeftProfile.Tokens.Count -lt 8 -or $RightProfile.Tokens.Count -lt 8) {
         return 'none'
     }
 
     if ($null -eq $Intersection) {
         $Intersection = 0
-        foreach ($token in $leftProfile.Tokens) {
-            if ($rightProfile.Tokens.Contains($token)) { $Intersection++ }
+        foreach ($token in $LeftProfile.Tokens) {
+            if ($RightProfile.Tokens.Contains($token)) { $Intersection++ }
         }
     }
-    $union = $leftProfile.Tokens.Count + $rightProfile.Tokens.Count - $Intersection
+    $union = $LeftProfile.Tokens.Count + $RightProfile.Tokens.Count - $Intersection
     if ($union -gt 0 -and ($Intersection * 10) -ge ($union * 9)) { return 'near-duplicate' }
     return 'none'
 }
@@ -716,7 +716,7 @@ function ConvertTo-ReviewProjection {
             }
             [void]$exactModels.Add([string]$raw[$index].Model)
         }
-        $tokenModelPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
+        $tokenPostings = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new(
             [System.StringComparer]::Ordinal
         )
         for ($rightIndex = 0; $models.Count -ge 2 -and $rightIndex -lt $raw.Count -and $similarity -eq 'none'; $rightIndex++) {
@@ -726,16 +726,13 @@ function ConvertTo-ReviewProjection {
             $rightModel = [string]$raw[$rightIndex].Model
             $intersections = [System.Collections.Generic.Dictionary[int, int]]::new()
             foreach ($token in $rightProfile.Tokens) {
-                foreach ($candidateModel in $models) {
-                    if ([string]::Equals([string]$candidateModel, $rightModel, [System.StringComparison]::Ordinal)) {
+                if (-not $tokenPostings.ContainsKey([string]$token)) { continue }
+                foreach ($leftIndex in $tokenPostings[[string]$token]) {
+                    if ([string]::Equals([string]$raw[$leftIndex].Model, $rightModel, [System.StringComparison]::Ordinal)) {
                         continue
                     }
-                    $postingKey = Get-ReviewOrdinalTupleKey -Value @([string]$token, [string]$candidateModel)
-                    if (-not $tokenModelPostings.ContainsKey($postingKey)) { continue }
-                    foreach ($leftIndex in $tokenModelPostings[$postingKey]) {
-                        if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
-                        $intersections[$leftIndex]++
-                    }
+                    if (-not $intersections.ContainsKey($leftIndex)) { $intersections[$leftIndex] = 0 }
+                    $intersections[$leftIndex]++
                 }
             }
 
@@ -749,11 +746,10 @@ function ConvertTo-ReviewProjection {
                 }
             }
             foreach ($token in $rightProfile.Tokens) {
-                $postingKey = Get-ReviewOrdinalTupleKey -Value @([string]$token, $rightModel)
-                if (-not $tokenModelPostings.ContainsKey($postingKey)) {
-                    $tokenModelPostings[$postingKey] = [System.Collections.Generic.List[int]]::new()
+                if (-not $tokenPostings.ContainsKey([string]$token)) {
+                    $tokenPostings[[string]$token] = [System.Collections.Generic.List[int]]::new()
                 }
-                $tokenModelPostings[$postingKey].Add($rightIndex)
+                $tokenPostings[[string]$token].Add($rightIndex)
             }
         }
 
@@ -920,7 +916,7 @@ function Get-ReviewRunSummaryView {
 
     $lines.Add("# $(Get-ReviewReportTitle -ReviewType $projection.ReviewType) — summary")
     $lines.Add('')
-    $lines.Add('<!-- skalary/review-summary@1 -->')
+    $lines.Add("<!-- $script:SummaryDiscriminator -->")
     $lines.Add('')
     foreach ($row in (Get-ReviewHeaderTable -Projection $projection)) { $lines.Add($row) }
     $lines.Add('')
@@ -3498,26 +3494,42 @@ function Limit-ReviewRetainedInlineText {
     return $builder.ToString() + '...'
 }
 
+function Get-ReviewFindingDistributions {
+    param([Parameter(Mandatory)][object]$Projection)
+
+    $rawSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    $effectiveSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+    $corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
+    $similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
+    $needsReview = 0
+    foreach ($finding in @($Projection.Findings)) {
+        $rawSeverity[[string]$finding.RawSeverity.ToLowerInvariant()]++
+        $effectiveSeverity[[string]$finding.EffectiveSeverity.ToLowerInvariant()]++
+        $corroboration[[string]$finding.CorroborationState]++
+        $similarity[[string]$finding.Similarity]++
+        if ($finding.NeedsReview) { $needsReview++ }
+    }
+    return [pscustomobject]@{
+        RawSeverity = $rawSeverity
+        EffectiveSeverity = $effectiveSeverity
+        Corroboration = $corroboration
+        Similarity = $similarity
+        NeedsReview = $needsReview
+    }
+}
+
 function Get-ReviewRetainedReportText {
     param(
         [Parameter(Mandatory)][object]$Projection,
         [ValidateSet('approved', 'blocked')][string]$Verdict
     )
 
-    $rawSeverity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
-    $effectiveSeverity = [ordered]@{ Critical = 0; High = 0; Medium = 0; Low = 0 }
-    $corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
-    $similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
-    foreach ($finding in @($Projection.Findings)) {
-        $rawSeverity[[string]$finding.RawSeverity]++
-        $effectiveSeverity[[string]$finding.EffectiveSeverity]++
-        $corroboration[[string]$finding.CorroborationState]++
-        $similarity[[string]$finding.Similarity]++
-    }
+    $distribution = Get-ReviewFindingDistributions -Projection $Projection
     $blocking = @($Projection.Findings | Where-Object { $_.EffectiveSeverity -in @('Critical', 'High') })
     $needsReview = @($Projection.Findings | Where-Object { $_.NeedsReview })
     if ($Verdict -eq 'approved' -and ($Projection.State -ne 'clean' -or $blocking.Count -gt 0 -or $needsReview.Count -gt 0)) {
-        throw 'An approved review result requires a clean run with no Critical or High findings and no finding marked needs-review.'
+        throw "An approved review result requires a clean run with no Critical or High findings and no finding marked needs-review " +
+        "(state=$($Projection.State); blocking=$($blocking.Count); needsReview=$($needsReview.Count))."
     }
     $maximum = [int](Get-ReviewLimits)['maxRetainedReportBytes']
 
@@ -3554,15 +3566,15 @@ function Get-ReviewRetainedReportText {
     $lines.Add('')
     $lines.Add('| Severity basis | Critical | High | Medium | Low | Merged | Raw |')
     $lines.Add('|---|---:|---:|---:|---:|---:|---:|')
-    $lines.Add("| Raw | $($rawSeverity.Critical) | $($rawSeverity.High) | $($rawSeverity.Medium) | $($rawSeverity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
-    $lines.Add("| Effective | $($effectiveSeverity.Critical) | $($effectiveSeverity.High) | $($effectiveSeverity.Medium) | $($effectiveSeverity.Low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add("| Raw | $($distribution.RawSeverity.critical) | $($distribution.RawSeverity.high) | $($distribution.RawSeverity.medium) | $($distribution.RawSeverity.low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
+    $lines.Add("| Effective | $($distribution.EffectiveSeverity.critical) | $($distribution.EffectiveSeverity.high) | $($distribution.EffectiveSeverity.medium) | $($distribution.EffectiveSeverity.low) | $($Projection.Findings.Count) | $($Projection.RawFindingCount) |")
     $lines.Add('')
     $lines.Add('## Corroboration')
     $lines.Add('')
     $lines.Add('| Corroborated | Single source | Suspicious | Degraded | Similarity none | Near duplicate | Exact | Needs review |')
     $lines.Add('|---:|---:|---:|---:|---:|---:|---:|---:|')
-    $lines.Add("| $($corroboration.corroborated) | $($corroboration.'single-source') | $($corroboration.suspicious) | " +
-        "$($corroboration.degraded) | $($similarity.none) | $($similarity.'near-duplicate') | $($similarity.exact) | $($needsReview.Count) |")
+    $lines.Add("| $($distribution.Corroboration.corroborated) | $($distribution.Corroboration.'single-source') | $($distribution.Corroboration.suspicious) | " +
+        "$($distribution.Corroboration.degraded) | $($distribution.Similarity.none) | $($distribution.Similarity.'near-duplicate') | $($distribution.Similarity.exact) | $($distribution.NeedsReview) |")
     $nonBlockingNeedsReview = @($needsReview | Where-Object { $_.EffectiveSeverity -notin @('Critical', 'High') })
 
     $formatFinding = {
@@ -3653,18 +3665,7 @@ function Get-ReviewFinalizationMaterial {
     $projection = ConvertTo-ReviewProjection -Run $Verified.Run
     $reportBytes = $script:Utf8NoBom.GetBytes((Get-ReviewRetainedReportText -Projection $projection -Verdict $Verdict))
     $authority = $projection.ScopeAuthority
-    $rawSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
-    $effectiveSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
-    $corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
-    $similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
-    $needsReview = 0
-    foreach ($finding in @($projection.Findings)) {
-        $rawSeverity[[string]$finding.RawSeverity.ToLowerInvariant()]++
-        $effectiveSeverity[[string]$finding.EffectiveSeverity.ToLowerInvariant()]++
-        $corroboration[[string]$finding.CorroborationState]++
-        $similarity[[string]$finding.Similarity]++
-        if ($finding.NeedsReview) { $needsReview++ }
-    }
+    $distribution = Get-ReviewFindingDistributions -Projection $projection
     $source = [ordered]@{
         mode = [string](Get-ReviewValue -Node $authority -Name 'mode')
         pathCount = @((Get-ReviewValue -Node $authority -Name 'paths')).Count
@@ -3689,11 +3690,11 @@ function Get-ReviewFinalizationMaterial {
         findings = [ordered]@{
             merged = $projection.Findings.Count
             raw = $projection.RawFindingCount
-            severity = $effectiveSeverity
-            rawSeverity = $rawSeverity
-            corroboration = $corroboration
-            similarity = $similarity
-            needsReview = $needsReview
+            severity = $distribution.EffectiveSeverity
+            rawSeverity = $distribution.RawSeverity
+            corroboration = $distribution.Corroboration
+            similarity = $distribution.Similarity
+            needsReview = $distribution.NeedsReview
         }
         report = [ordered]@{
             name = [System.IO.Path]::GetFileName($ReportPath)

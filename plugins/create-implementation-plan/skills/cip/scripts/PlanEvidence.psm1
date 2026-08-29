@@ -192,9 +192,14 @@ function Assert-PlanReviewPropertySet {
 
     $actual = @($Node.Keys | ForEach-Object { [string]$_ } | Sort-Object)
     $allowed = @($Required + $Optional | Sort-Object)
-    if (@($actual | Where-Object { $_ -cnotin $allowed }).Count -gt 0 -or
-        @($Required | Where-Object { $_ -cnotin $actual }).Count -gt 0) {
-        throw "$Label has an unexpected or incomplete property set."
+    $extra = @($actual | Where-Object { $_ -cnotin $allowed })
+    $missing = @($Required | Where-Object { $_ -cnotin $actual })
+    if ($extra.Count -gt 0 -or $missing.Count -gt 0) {
+        $detail = @(
+            if ($missing.Count -gt 0) { "missing=$($missing -join ',')" }
+            if ($extra.Count -gt 0) { "extra=$($extra -join ',')" }
+        ) -join '; '
+        throw "$Label has an unexpected or incomplete property set ($detail)."
     }
 }
 
@@ -217,6 +222,12 @@ function Assert-PlanReviewResultReceipt {
         -not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
         throw "Clean review evidence for run '$ReviewRunId' is missing its retained report/receipt pair."
     }
+    foreach ($evidencePath in @($receiptPath, $reportPath)) {
+        $item = Get-Item -LiteralPath $evidencePath -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Clean review evidence for run '$ReviewRunId' cannot use a reparse-point file: '$evidencePath'."
+        }
+    }
     if ((Get-Item -LiteralPath $receiptPath -Force).Length -gt 65536) {
         throw "Review result receipt for run '$ReviewRunId' exceeds 65536 bytes."
     }
@@ -233,16 +244,24 @@ function Assert-PlanReviewResultReceipt {
     )
     Assert-PlanReviewPropertySet -Node $receipt['attendance'] -Label 'Review attendance' `
         -Required @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')
+    $extendedFindingFields = @('corroboration', 'needsReview', 'rawSeverity', 'similarity')
     Assert-PlanReviewPropertySet -Node $receipt['findings'] -Label 'Review findings' `
-        -Required @('corroboration', 'merged', 'needsReview', 'raw', 'rawSeverity', 'severity', 'similarity')
+        -Required @('merged', 'raw', 'severity') -Optional $extendedFindingFields
     Assert-PlanReviewPropertySet -Node $receipt['findings']['severity'] -Label 'Review severity' `
         -Required @('critical', 'high', 'low', 'medium')
-    Assert-PlanReviewPropertySet -Node $receipt['findings']['rawSeverity'] -Label 'Review raw severity' `
-        -Required @('critical', 'high', 'low', 'medium')
-    Assert-PlanReviewPropertySet -Node $receipt['findings']['corroboration'] -Label 'Review corroboration' `
-        -Required @('corroborated', 'degraded', 'single-source', 'suspicious')
-    Assert-PlanReviewPropertySet -Node $receipt['findings']['similarity'] -Label 'Review similarity' `
-        -Required @('exact', 'near-duplicate', 'none')
+    $presentExtendedFindingFields = @($extendedFindingFields | Where-Object { $receipt['findings'].Contains($_) })
+    if ($presentExtendedFindingFields.Count -notin @(0, $extendedFindingFields.Count)) {
+        throw "Review findings has a partial extended v1 property set (present=$($presentExtendedFindingFields -join ','))."
+    }
+    $hasExtendedFindings = $presentExtendedFindingFields.Count -eq $extendedFindingFields.Count
+    if ($hasExtendedFindings) {
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['rawSeverity'] -Label 'Review raw severity' `
+            -Required @('critical', 'high', 'low', 'medium')
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['corroboration'] -Label 'Review corroboration' `
+            -Required @('corroborated', 'degraded', 'single-source', 'suspicious')
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['similarity'] -Label 'Review similarity' `
+            -Required @('exact', 'near-duplicate', 'none')
+    }
     Assert-PlanReviewPropertySet -Node $receipt['report'] -Label 'Review report binding' `
         -Required @('bytes', 'digest', 'name')
     Assert-PlanReviewPropertySet -Node $receipt['source'] -Label 'Review source' `
@@ -262,25 +281,28 @@ function Assert-PlanReviewResultReceipt {
     if ([int]$receipt['attendance']['completed'] -lt 1) {
         throw "Review run '$ReviewRunId' has no completed attendance."
     }
-    foreach ($bucket in @('severity', 'rawSeverity')) {
+    $severityBuckets = @('severity') + $(if ($hasExtendedFindings) { @('rawSeverity') } else { @() })
+    foreach ($bucket in $severityBuckets) {
         foreach ($name in @('critical', 'high', 'medium', 'low')) {
             if ([int]$receipt['findings'][$bucket][$name] -ne 0) {
                 throw "Review run '$ReviewRunId' still contains $name findings in $bucket."
             }
         }
     }
-    foreach ($name in @('corroborated', 'single-source', 'suspicious', 'degraded')) {
-        if ([int]$receipt['findings']['corroboration'][$name] -ne 0) {
-            throw "Review run '$ReviewRunId' still contains $name corroboration findings."
+    if ($hasExtendedFindings) {
+        foreach ($name in @('corroborated', 'single-source', 'suspicious', 'degraded')) {
+            if ([int]$receipt['findings']['corroboration'][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name corroboration findings."
+            }
         }
-    }
-    foreach ($name in @('none', 'near-duplicate', 'exact')) {
-        if ([int]$receipt['findings']['similarity'][$name] -ne 0) {
-            throw "Review run '$ReviewRunId' still contains $name similarity findings."
+        foreach ($name in @('none', 'near-duplicate', 'exact')) {
+            if ([int]$receipt['findings']['similarity'][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name similarity findings."
+            }
         }
-    }
-    if ([int]$receipt['findings']['needsReview'] -ne 0) {
-        throw "Review run '$ReviewRunId' still contains findings requiring review."
+        if ([int]$receipt['findings']['needsReview'] -ne 0) {
+            throw "Review run '$ReviewRunId' still contains findings requiring review."
+        }
     }
     foreach ($name in @('failed', 'timed-out', 'omitted', 'cancelled', 'pending')) {
         if ([int]$receipt['attendance'][$name] -ne 0) {
@@ -315,7 +337,7 @@ function Assert-PlanReviewResultReceipt {
         if ($receipt['source']['base'] -cne $mergeBase) {
             throw "Review run '$ReviewRunId' used base '$($receipt['source']['base'])', not canonical merge base '$mergeBase'."
         }
-        $changedPaths = @(& git -C $repoFull diff --name-only "$mergeBase..$Commit" 2>$null)
+        $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2>$null)
         if ($LASTEXITCODE -ne 0 -or [int]$receipt['source']['pathCount'] -ne $changedPaths.Count) {
             throw "Review run '$ReviewRunId' does not cover the canonical whole-branch path count."
         }
