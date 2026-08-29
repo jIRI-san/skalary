@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T05:33:23.6437960Z",
+  "generatedAt": "2026-08-29T08:41:14.5144509Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -222,7 +222,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "sha256": "dc2fcf771b8c37c1aed9b47b53779cbac59d83f9104d30ecb23a6bb1da9b3187",
           "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -341,7 +341,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.29"
+      "version": "1.2.30"
     },
     {
       "author": "jIRI-san",
@@ -520,12 +520,12 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "d564f27fee551b4ad19499a47c858d02b5f21c8767b62ae1ad3098ce15cc1939",
+          "sha256": "275fdbb7c8cfd62c1f015f57dbdc9fdeff2dfc8f73deadbdeb733b7129d1b812",
           "src": "skills/ci/SKILL.md"
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "fe0fcc130d60efdc266682f06f654d5beee46dd348ec30866c062b0c174848b9",
+          "sha256": "4f95a8e9fe70f5d5958eb987b7e22acd94a0d4153267fba95b898dd5fa36bbe1",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -560,7 +560,7 @@
         },
         {
           "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "c9f6a88fbcf0a5c0d37d2589be12773829267b5cbac800e14f970e1670aae526",
+          "sha256": "dc2fcf771b8c37c1aed9b47b53779cbac59d83f9104d30ecb23a6bb1da9b3187",
           "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -680,7 +680,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.56"
+      "version": "1.0.57"
     },
     {
       "author": "jIRI-san",

@@ -316,7 +316,9 @@ function Get-PhaseSectionRecords {
     $ranges = [System.Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i].Trim() -ne $header) { continue }
-        if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>[1-9][0-9]*)\s*$') {
+        # Planning capture predates executable phases and legitimately uses Phase: 0. Parse it so
+        # later phase sections remain reachable, but never select it because TargetPhase starts at 1.
+        if (($i + 1) -ge $lines.Count -or $lines[$i + 1] -notmatch '^\s*Phase:\s*(?<phase>0|[1-9][0-9]*)\s*$') {
             throw "Malformed phase header after '$header' in '$Path'."
         }
         $sectionPhase = [int]$Matches.phase

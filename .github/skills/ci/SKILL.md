@@ -36,7 +36,7 @@ context: fork
 
    **Intent is the one non-optional read.** The plan's intent asset states the operator's goal, desired outcome, success signals, non-goals, and definition of done. Read it before implementing any step and re-anchor against it at every phase crosscheck — requirements say what to build, intent says what the operator is trying to achieve, and only intent can tell you a technically-green step missed the point. If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder, the plan did not clear the `/cip` `intent` gate: surface that to the user instead of guessing the intent yourself.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-4. If legacy loose plan files exist, migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
+4. If legacy loose plan files exist, detect them now but defer migration until the read-only phase admission in Step 2 returns `ready`. Then migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
@@ -63,6 +63,16 @@ For a plan reference, `Get-PlanState` reports progress (done/total, current phas
 - **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
 - **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.
 - **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute. For `@human`, print the step's full `Handoff:` block from `Get-PlanState` verbatim (**Steps**, **Verify**, **Rollback**), not just the step title: that block is what makes the operator round-trip single-pass. If the block is missing or incomplete, say so — the plan did not clear the `human-step-detail` gate.
+
+### Phase admission (read-only hard gate)
+
+Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization, build one read-only admission snapshot from the installed `PlanState.psm1` APIs. Do not infer or repair a missing value during this pass:
+
+1. Take one `Get-PlanInventory` snapshot and resolve the selected plan and every header `depends-on` token through `Resolve-Plan` against that same inventory. A dependency is complete only when its `Get-PlanProgress` state is complete or its resolved inventory entry is archived. Missing or ambiguous resolution blocks admission.
+2. Use `Get-PlanState.ps1 -Json`, `Get-PlanMetadata`, and `Get-NextStep` as the progress authorities. Admit only the first incomplete phase, require every earlier phase step to be `[x]`, and require `NextStep.BlockedByAfter` to be false. Never skip a blocked candidate to start later work.
+3. Require `PlanningContext.CanProceed`. Enrolled plans must be `confirmed`; `pending`, `stale`, `missing`, and `invalid` return to `/cip`. Marker-less `legacy` plans retain compatibility, but their layout-resolved intent must still exist, contain all five required sections, and contain no `TBD`.
+4. From `Metadata.PhaseSteps` for the admitted phase, collect the distinct `REQ-N` values already parsed into each step's `Refs`. Require at least one applicable requirement, require every collected id to exist in `Metadata.Requirements`, and report the ids before execution.
+5. Classify the snapshot as `ready`, `blocked`, `missing`, `ambiguous`, or `stale-input`. Only `ready` permits deferred repair, branch/worktree mutation, `[~]`, or log initialization. Every other result stops with the parser-owned reason and leaves the plan tree byte-for-byte unchanged.
 
 ## Step 3: Determine execution mode and branch/worktree
 

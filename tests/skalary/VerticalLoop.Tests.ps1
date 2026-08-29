@@ -10,6 +10,7 @@ Describe 'Vertical implementation requirement loop' {
         $script:tempRoots = [System.Collections.Generic.List[string]]::new()
         $script:evidenceBuilder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $script:workflowNote = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
+        $script:phaseHarvest = Join-Path $script:repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
 
         function Set-AdmissionAssets {
             param(
@@ -360,5 +361,31 @@ flowchart TD
             $capture | Should -Match 'evidence=REQ-1 passed'
             $capture | Should -Match "disposition=$disposition"
         }
+    }
+
+    It 'allows phase-one harvest after legacy phase-zero planning capture' {
+        $fixture = New-AdmissionFixture
+        $logs = Join-Path $fixture.TargetDir 'assets/logs'
+        New-Item -ItemType Directory -Path $logs -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $logs 'capture.md') -Encoding utf8NoBOM -Value @'
+## Capture
+Phase: 0
+
+- [0.1] [src:note] planning: operator confirmed intent
+'@
+        foreach ($kind in @('CrLog', 'Learnings', 'Capture')) {
+            & $script:workflowNote -Kind $kind -PlanDir $fixture.TargetDir -RepoRoot $fixture.Root -Phase 1 |
+                Out-Null
+        }
+        & $script:workflowNote -Kind Capture -PlanDir $fixture.TargetDir -RepoRoot $fixture.Root `
+            -Phase 1 -Step 1.1 -Src note -Concern architecture-patterns -Requirement REQ-1 `
+            -ReviewType none -Message 'usable increment retained after planning capture' | Out-Null
+
+        $result = & $script:phaseHarvest -PlanDir $fixture.TargetDir -RepoRoot $fixture.Root `
+            -Phase 1 -Src autopilot
+
+        $result.Status | Should -Be 'complete'
+        $result.Candidates | Should -Be 1
+        $result.Added | Should -Be 1
     }
 }
