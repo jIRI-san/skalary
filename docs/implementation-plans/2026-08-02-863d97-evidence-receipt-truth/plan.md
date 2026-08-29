@@ -48,12 +48,12 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 3.1 Synchronize affected CI/CIP/autopilot bundles and dogfood through existing writers, update the plan-workflow and CI-gates notes, and run focused outcome/waiver/finalization tests plus existing structural eval and repository validation paths. Add `test:EvidenceTruth.InstalledParityAndDrift` (REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.2] `M`
 
-## Phase 4: Approved finalization
+## Finalization (conditional)
 
 <!-- Every @human step needs a <details> block carrying **Steps**, **Verify**, and **Rollback** —
      Test-Plan.ps1 fails the plan without it, and /ci prints the block verbatim at the handoff. -->
 
-- [ ] 4.1 Review outcome mapping, waiver exactness, focused structured output, receipt rendering, installed parity, and finalization blocking before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `S`
+- [x] 4.1 Review outcome mapping, waiver exactness, focused structured output, receipt rendering, installed parity, and finalization blocking before archival (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) @human [after: 3.1] `S`
   <details><summary>Details</summary>
 
   **Steps:**
