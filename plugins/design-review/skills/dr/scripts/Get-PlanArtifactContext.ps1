@@ -21,9 +21,11 @@ param(
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string]$Relationship,
+    [string[]]$Relationship,
 
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+    [Parameter(Mandatory)]
+    [ValidateNotNullOrEmpty()]
+    [string]$RepoRoot,
 
     [ValidateRange(1, 16MB)]
     [int]$MaxArtifactBytes = 128KB,
@@ -234,6 +236,7 @@ function New-ArtifactCandidate {
         [AllowNull()][object]$Plan,
         [AllowNull()][string]$Path,
         [AllowNull()][string]$Reason,
+        [Parameter(Mandatory)][string]$Relationship,
         [ValidateSet('Raw', 'LegacyDecisions')]
         [string]$ReadMode = 'Raw',
         [AllowNull()][string]$CompanionPath = $null
@@ -368,10 +371,10 @@ function Read-BoundedUtf8Stream {
     )
 
     if ($Stream.Length -eq 0) {
-        return [pscustomobject]@{ Status = 'refused'; ByteCount = 0; Content = $null }
+        return [pscustomobject]@{ Status = 'refused'; ByteCount = 0; Content = $null; Bytes = $null }
     }
     if ($Stream.Length -gt $MaxArtifactBytes) {
-        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $Stream.Length; Content = $null }
+        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $Stream.Length; Content = $null; Bytes = $null }
     }
 
     $Stream.Position = 0
@@ -386,13 +389,14 @@ function Read-BoundedUtf8Stream {
         $offset += $read
     }
     if ($Stream.ReadByte() -ne -1) {
-        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $MaxArtifactBytes + 1; Content = $null }
+        return [pscustomobject]@{ Status = 'oversized'; ByteCount = $MaxArtifactBytes + 1; Content = $null; Bytes = $null }
     }
 
     return [pscustomobject]@{
         Status    = 'accepted'
         ByteCount = $length
         Content   = $utf8.GetString($bytes)
+        Bytes     = $bytes
     }
 }
 
@@ -422,26 +426,195 @@ function Get-LegacyDecisions {
     return ($section.ToArray() -join "`n").Trim()
 }
 
+function Assert-ExactObjectKeys {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Value,
+        [Parameter(Mandatory)][string[]]$Expected,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    $actualKeys = [System.Collections.Generic.List[string]]::new()
+    foreach ($key in $Value.Keys) {
+        $actualKeys.Add([string]$key)
+    }
+    $actualKeys.Sort([System.Comparison[string]] {
+        param($left, $right)
+        [string]::CompareOrdinal($left, $right)
+    })
+    $expectedKeys = [System.Collections.Generic.List[string]]::new()
+    $expectedKeys.AddRange($Expected)
+    $expectedKeys.Sort([System.Comparison[string]] {
+        param($left, $right)
+        [string]::CompareOrdinal($left, $right)
+    })
+    if (($actualKeys -join "`n") -cne ($expectedKeys -join "`n")) {
+        throw "$Name does not match the closed finalized-review receipt shape."
+    }
+}
+
+function Get-ArtifactSha256Digest {
+    param([Parameter(Mandatory)][byte[]]$Bytes)
+
+    return 'sha256:' + [System.Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($Bytes)
+    ).ToLowerInvariant()
+}
+
+function Assert-FinalizedReviewReceipt {
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ReportName,
+        [Parameter(Mandatory)][byte[]]$ReportBytes,
+        [Parameter(Mandatory)][string]$ReceiptContent
+    )
+
+    try {
+        $receipt = $ReceiptContent | ConvertFrom-Json -AsHashtable -Depth 20
+    }
+    catch {
+        throw "Finalized review receipt is not valid JSON: $($_.Exception.Message)"
+    }
+    if ($receipt -isnot [System.Collections.IDictionary]) {
+        throw 'Finalized review receipt is not an object.'
+    }
+
+    Assert-ExactObjectKeys -Value $receipt -Name 'Finalized review receipt' -Expected @(
+        'schema', 'runId', 'reviewType', 'verdict', 'state', 'source', 'planDigest', 'runDigest',
+        'manifestDigest', 'legacySource', 'attendance', 'findings', 'report'
+    )
+    if ($receipt['schema'] -cne 'skalary/review-result-receipt@1') {
+        throw 'Finalized review receipt has an unsupported schema.'
+    }
+    if ($receipt['runId'] -cne $RunId) {
+        throw 'Finalized review receipt run identity does not match its file name.'
+    }
+    if ([string]$receipt['reviewType'] -notin @('code', 'design') -or
+        [string]$receipt['verdict'] -notin @('approved', 'blocked') -or
+        [string]$receipt['state'] -notin @('clean', 'degraded') -or
+        $receipt['legacySource'] -isnot [bool]) {
+        throw 'Finalized review receipt has invalid review state metadata.'
+    }
+    foreach ($field in @('planDigest', 'runDigest', 'manifestDigest')) {
+        if ([string]$receipt[$field] -cnotmatch '^sha256:[0-9a-f]{64}$') {
+            throw "Finalized review receipt field '$field' is not a canonical digest."
+        }
+    }
+
+    $report = $receipt['report']
+    if ($report -isnot [System.Collections.IDictionary]) {
+        throw 'Finalized review receipt report binding is not an object.'
+    }
+    Assert-ExactObjectKeys -Value $report -Name 'Finalized review report binding' -Expected @(
+        'name', 'bytes', 'digest'
+    )
+    $expectedDigest = Get-ArtifactSha256Digest -Bytes $ReportBytes
+    if ([string]$report['name'] -cne $ReportName -or
+        [int64]$report['bytes'] -ne $ReportBytes.Length -or
+        [string]$report['digest'] -cne $expectedDigest) {
+        throw 'Finalized review receipt does not match the report name, byte count, and digest.'
+    }
+
+    $source = $receipt['source']
+    if ($source -isnot [System.Collections.IDictionary]) {
+        throw 'Finalized review receipt source binding is not an object.'
+    }
+    $sourceKeys = @('mode', 'pathCount', 'digest')
+    if ($source.Contains('base')) { $sourceKeys += 'base' }
+    if ($source.Contains('head')) { $sourceKeys += 'head' }
+    Assert-ExactObjectKeys -Value $source -Name 'Finalized review source binding' -Expected $sourceKeys
+    if ([string]$source['digest'] -cnotmatch '^sha256:[0-9a-f]{64}$' -or
+        [int64]$source['pathCount'] -lt 0) {
+        throw 'Finalized review receipt has invalid source metadata.'
+    }
+
+    $attendance = $receipt['attendance']
+    if ($attendance -isnot [System.Collections.IDictionary]) {
+        throw 'Finalized review receipt attendance is not an object.'
+    }
+    Assert-ExactObjectKeys -Value $attendance -Name 'Finalized review attendance' -Expected @(
+        'completed', 'failed', 'timed-out', 'omitted', 'cancelled', 'pending'
+    )
+    foreach ($value in $attendance.Values) {
+        if ([int64]$value -lt 0) {
+            throw 'Finalized review receipt attendance contains a negative count.'
+        }
+    }
+
+    $findings = $receipt['findings']
+    if ($findings -isnot [System.Collections.IDictionary] -or
+        $findings['severity'] -isnot [System.Collections.IDictionary]) {
+        throw 'Finalized review receipt findings are not an object.'
+    }
+    Assert-ExactObjectKeys -Value $findings -Name 'Finalized review findings' -Expected @(
+        'merged', 'raw', 'severity'
+    )
+    Assert-ExactObjectKeys -Value $findings['severity'] -Name 'Finalized review severity counts' -Expected @(
+        'critical', 'high', 'medium', 'low'
+    )
+    foreach ($value in @($findings['merged'], $findings['raw']) + @($findings['severity'].Values)) {
+        if ([int64]$value -lt 0) {
+            throw 'Finalized review receipt findings contain a negative count.'
+        }
+    }
+}
+
+$relationshipValues = @(
+    'reuses', 'extends', 'supersedes', 'conflicts', 'dependency', 'sibling', 'operator-selected'
+)
+$relationshipSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]$relationshipValues,
+    [System.StringComparer]::Ordinal
+)
+$relationshipByPlan = [System.Collections.Generic.Dictionary[string, string]]::new(
+    [System.StringComparer]::Ordinal
+)
+$relationshipError = $null
+if ($Relationship.Count -ne 1 -and $Relationship.Count -ne $PlanId.Count) {
+    $relationshipError = 'Relationship must contain one value for all plans or one value aligned with each PlanId.'
+}
+else {
+    for ($index = 0; $index -lt $PlanId.Count; $index++) {
+        $id = [string]$PlanId[$index]
+        $mappedRelationship = [string]$(if ($Relationship.Count -eq 1) { $Relationship[0] } else { $Relationship[$index] })
+        if (-not $relationshipSet.Contains($mappedRelationship)) {
+            $relationshipError = "Relationship '$mappedRelationship' is not supported."
+            break
+        }
+        if ($relationshipByPlan.ContainsKey($id) -and
+            -not [string]::Equals($relationshipByPlan[$id], $mappedRelationship, [System.StringComparison]::Ordinal)) {
+            $relationshipError = "Plan ID '$id' has conflicting relationship values."
+            break
+        }
+        $relationshipByPlan[$id] = $mappedRelationship
+    }
+}
+
 $ids = @(Get-OrdinallySortedUnique -Value $PlanId)
 $kinds = @(Get-OrdinallySortedUnique -Value $ArtifactKind)
 $invalidInput = @($ids + $kinds + @($Relationship) | Where-Object {
         [string]::IsNullOrWhiteSpace($_) -or $_.Length -gt 64
     })
 $combinationCount = [int64]$ids.Count * [int64]$kinds.Count
-if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or $combinationCount -gt $MaxCandidates) {
+if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or
+    $relationshipError -or $combinationCount -gt $MaxCandidates) {
     [pscustomobject][ordered]@{
         status       = 'refused'
         planId       = if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { $null }
         artifactKind = if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { $null }
         path         = $null
-        relationship = if ($Relationship.Length -le 64) { $Relationship } else { $null }
+        relationship = if ($Relationship.Count -eq 1 -and $Relationship[0].Length -le 64) { $Relationship[0] } else { $null }
         layout       = $null
         isArchived   = $null
         isUntrusted  = $true
         authority    = 'historical-context-only'
         byteCount    = $null
         content      = $null
-        reason       = "Selection exceeds the $MaxCandidates-candidate limit or contains an empty or overlong input."
+        reason       = if ($relationshipError) {
+            $relationshipError
+        }
+        else {
+            "Selection exceeds the $MaxCandidates-candidate limit or contains an empty or overlong input."
+        }
     }
     return
 }
@@ -461,6 +634,7 @@ function Add-ArtifactCandidate {
 }
 
 foreach ($id in $ids) {
+    $planRelationship = $relationshipByPlan[$id]
     $plan = $null
     $planRefusal = $null
     if ($id -notmatch '^(?:[0-9a-f]{6}|\d{3})$') {
@@ -495,11 +669,11 @@ foreach ($id in $ids) {
 
     foreach ($kind in $kinds) {
         if ($planRefusal) {
-        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $null -Path $null -Reason $planRefusal)
+        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $null -Path $null -Reason $planRefusal)
             continue
         }
         if ($artifactMap.Keys -cnotcontains $kind) {
-        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
+        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
             continue
         }
 
@@ -514,7 +688,7 @@ foreach ($id in $ids) {
             if ($kind -eq 'Reviews') {
                 $relativeRoot = ConvertTo-RepoRelativePath $resolvedPath
                 if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
                     continue
                 }
 
@@ -526,6 +700,7 @@ foreach ($id in $ids) {
 
                 $reviewPaths = [System.Collections.Generic.List[string]]::new()
                 $scannedEntries = 0
+                $reviewOverflow = $false
                 foreach ($reviewPath in [System.IO.Directory]::EnumerateFiles(
                         $resolvedPath,
                         '*.md',
@@ -533,13 +708,17 @@ foreach ($id in $ids) {
                     )) {
                     $scannedEntries++
                     if ($scannedEntries -gt $MaxCandidates) {
-                        $selectionOverflow = $true
+                        $reviewOverflow = $true
                         break
                     }
                     if ([System.IO.Path]::GetFileName($reviewPath) -notmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.review\.md$') {
                         continue
                     }
                     $reviewPaths.Add($reviewPath)
+                }
+                if ($reviewOverflow) {
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason "Review directory exceeds the $MaxCandidates-entry scan limit.")
+                    continue
                 }
                 $reviewPaths.Sort([System.Comparison[string]] {
                     param($left, $right)
@@ -555,7 +734,7 @@ foreach ($id in $ids) {
                     $relativePath = ConvertTo-RepoRelativePath $reviewPath
                     $receiptPath = Join-Path $resolvedPath "$($Matches.id).receipt.json"
                     if (-not (Test-Path -LiteralPath $receiptPath)) {
-                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.')
+                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.')
                         continue
                     }
                     try {
@@ -569,33 +748,33 @@ foreach ($id in $ids) {
                         }
                     }
                     catch {
-                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason "Finalized review pair was refused: $($_.Exception.Message)")
+                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason "Finalized review pair was refused: $($_.Exception.Message)")
                         continue
                     }
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath))
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath))
                 }
                 if ($finalizedCount -eq 0) {
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
+                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
                 }
                 continue
             }
 
             if ($kind -eq 'Decisions' -and -not (Test-Path -LiteralPath $resolvedPath)) {
                 $planFile = Join-Path $plan.Path 'plan.md'
-                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
+                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
                 continue
             }
 
             $relativePath = ConvertTo-RepoRelativePath $resolvedPath
             if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason 'Artifact file does not exist.')
+                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason 'Artifact file does not exist.')
                 continue
             }
 
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $relativePath -Reason $null)
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null)
         }
         catch {
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Plan $plan -Path $null -Reason $_.Exception.Message)
+            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason $_.Exception.Message)
         }
     }
 }
@@ -622,6 +801,13 @@ try {
                 $candidate.companionStream = Open-ConfinedArtifact -PlanPath $candidate.planPath -Path $companionFullPath
                 if ($candidate.companionStream.Length -eq 0) {
                     throw "Finalized review receipt '$($candidate.companionPath)' is empty."
+                }
+                if ($candidate.companionStream.Length -gt $MaxArtifactBytes) {
+                    $candidate.status = 'oversized'
+                    $candidate.reason = "Finalized review receipt is $($candidate.companionStream.Length) bytes; the per-artifact limit is $MaxArtifactBytes bytes."
+                    $candidate.companionStream.Dispose()
+                    $candidate.companionStream = $null
+                    continue
                 }
             }
 
@@ -651,6 +837,9 @@ try {
             }
             else {
                 $eligibleBytes += $stream.Length
+                if ($null -ne $candidate.companionStream) {
+                    $eligibleBytes += $candidate.companionStream.Length
+                }
             }
         }
         catch {
@@ -690,6 +879,29 @@ try {
                     continue
                 }
 
+                $companionRead = $null
+                if ($null -ne $candidate.companionStream) {
+                    $companionRead = Read-BoundedUtf8Stream -Stream $candidate.companionStream -Path $candidate.companionPath
+                    if ($companionRead.Status -ne 'accepted') {
+                        $candidate.status = $companionRead.Status
+                        $candidate.reason = if ($companionRead.Status -eq 'oversized') {
+                            "Finalized review receipt exceeded the per-artifact limit of $MaxArtifactBytes bytes while being read."
+                        }
+                        else {
+                            'Finalized review receipt is empty.'
+                        }
+                        continue
+                    }
+                    Assert-FinalizedReviewReceipt `
+                        -RunId ([System.IO.Path]::GetFileName($candidate.sourcePath).Substring(
+                            0,
+                            [System.IO.Path]::GetFileName($candidate.sourcePath).Length - '.review.md'.Length
+                        )) `
+                        -ReportName ([System.IO.Path]::GetFileName($candidate.sourcePath)) `
+                        -ReportBytes $read.Bytes `
+                        -ReceiptContent $companionRead.Content
+                }
+
                 $content = if ($candidate.readMode -eq 'LegacyDecisions') {
                     Get-LegacyDecisions -Content $read.Content
                 }
@@ -704,7 +916,11 @@ try {
 
                 $candidate.status = 'accepted'
                 $candidate.content = $content
-                $actualBytes += $read.ByteCount
+                $candidate.byteCount = [int64]$read.ByteCount
+                if ($null -ne $companionRead) {
+                    $candidate.byteCount += [int64]$companionRead.ByteCount
+                }
+                $actualBytes += $candidate.byteCount
             }
             catch {
                 $candidate.status = 'refused'

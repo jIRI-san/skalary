@@ -67,6 +67,69 @@ Describe 'Get-PlanArtifactContext' {
             Set-Content -LiteralPath (Join-Path $planDir 'intent.md') -Encoding utf8NoBOM -NoNewline -Value 'legacy-intent'
             return $planDir
         }
+
+        $newFinalizedReview = {
+            param(
+                [Parameter(Mandatory)][string]$ReviewsDir,
+                [Parameter(Mandatory)][string]$RunId,
+                [string]$Content = '# Final review'
+            )
+
+            New-Item -ItemType Directory -Path $ReviewsDir -Force | Out-Null
+            $reportName = "$RunId.review.md"
+            $reportPath = Join-Path $ReviewsDir $reportName
+            $receiptPath = Join-Path $ReviewsDir "$RunId.receipt.json"
+            $reportBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Content)
+            [System.IO.File]::WriteAllBytes($reportPath, $reportBytes)
+            $reportDigest = 'sha256:' + [System.Convert]::ToHexString(
+                [System.Security.Cryptography.SHA256]::HashData($reportBytes)
+            ).ToLowerInvariant()
+            $receipt = [ordered]@{
+                schema         = 'skalary/review-result-receipt@1'
+                runId          = $RunId
+                reviewType     = 'code'
+                verdict        = 'approved'
+                state          = 'clean'
+                source         = [ordered]@{
+                    mode      = 'paths'
+                    pathCount = 1
+                    digest    = 'sha256:' + ('1' * 64)
+                }
+                planDigest     = 'sha256:' + ('2' * 64)
+                runDigest      = 'sha256:' + ('3' * 64)
+                manifestDigest = 'sha256:' + ('4' * 64)
+                legacySource   = $false
+                attendance     = [ordered]@{
+                    completed   = 1
+                    failed      = 0
+                    'timed-out' = 0
+                    omitted     = 0
+                    cancelled   = 0
+                    pending     = 0
+                }
+                findings       = [ordered]@{
+                    merged   = 0
+                    raw      = 0
+                    severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+                }
+                report         = [ordered]@{
+                    name   = $reportName
+                    bytes  = $reportBytes.Length
+                    digest = $reportDigest
+                }
+            }
+            $receiptText = $receipt | ConvertTo-Json -Depth 10 -Compress
+            [System.IO.File]::WriteAllBytes(
+                $receiptPath,
+                [System.Text.UTF8Encoding]::new($false).GetBytes($receiptText)
+            )
+            return [pscustomobject]@{
+                ReportPath  = $reportPath
+                ReceiptPath = $receiptPath
+                Receipt     = $receipt
+                PairBytes   = $reportBytes.Length + ([System.IO.FileInfo]$receiptPath).Length
+            }
+        }
     }
 
     It 'test:PlanArtifactContext.Resolution resolves selected active and archived plans deterministically across layouts' {
@@ -81,8 +144,7 @@ Describe 'Get-PlanArtifactContext' {
             Set-Content -LiteralPath (Join-Path $reviewsDir "$badReviewId.review.md") -Encoding utf8NoBOM -Value '# Refused review'
             New-Item -ItemType Directory -Path (Join-Path $reviewsDir "$badReviewId.receipt.json") | Out-Null
             $reviewId = '12345678-1234-1234-1234-123456789abc'
-            Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.review.md") -Encoding utf8NoBOM -Value '# Final review'
-            Set-Content -LiteralPath (Join-Path $reviewsDir "$reviewId.receipt.json") -Encoding utf8NoBOM -Value '{}'
+            $reviewPair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
 
             $arguments = @{
                 RepoRoot     = $root
@@ -120,14 +182,155 @@ Describe 'Get-PlanArtifactContext' {
             $acceptedReview = $reviews | Where-Object status -eq 'accepted'
             $acceptedReview.path | Should -Be "docs/implementation-plans/2026-01-02-a1b2c3-assets/assets/reviews/$reviewId.review.md"
             $acceptedReview.content | Should -Match 'Final review'
+            $acceptedReview.byteCount | Should -Be $reviewPair.PairBytes
+
+            $mixedRelationships = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3, '001' `
+                    -ArtifactKind Intent `
+                    -Relationship extends, dependency)
+            @($mixedRelationships | ForEach-Object { "$($_.planId)|$($_.relationship)" }) |
+                Should -Be @('001|dependency', 'a1b2c3|extends')
+
+            $relationshipMismatch = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3, '001' `
+                    -ArtifactKind Intent `
+                    -Relationship extends, dependency, sibling)
+            $relationshipMismatch.status | Should -Be 'refused'
+            $relationshipMismatch.content | Should -BeNullOrEmpty
+
+            $relationshipConflict = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3, a1b2c3 `
+                    -ArtifactKind Intent `
+                    -Relationship extends, conflicts)
+            $relationshipConflict.status | Should -Be 'refused'
+            $relationshipConflict.content | Should -BeNullOrEmpty
+
+            $unsupportedRelationship = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Intent `
+                    -Relationship reuse)
+            $unsupportedRelationship.status | Should -Be 'refused'
+            $unsupportedRelationship.content | Should -BeNullOrEmpty
 
             $mixedOverflow = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Reviews -Relationship dependency -MaxCandidates 2)
             $mixedOverflow.Count | Should -BeLessOrEqual 2
-            @($mixedOverflow | Where-Object { $_.status -eq 'accepted' -or $_.content }).Count | Should -Be 0
+            @($mixedOverflow.status) | Should -Contain 'refused'
+            @($mixedOverflow | Where-Object status -eq 'accepted').artifactKind | Should -Be @('Intent')
 
             [System.IO.File]::WriteAllBytes((Join-Path $reviewsDir "$reviewId.receipt.json"), [byte[]]::new(0))
             $emptyReceipt = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Reviews -Relationship dependency)
             @($emptyReceipt | Where-Object status -eq 'accepted').Count | Should -Be 0
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'accepts only bounded finalized review pairs with exact receipt bindings' {
+        $root = & $newTempRoot
+        try {
+            $planDir = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'reviews'
+            $reviewsDir = Join-Path $planDir 'assets/reviews'
+            $reviewId = '12345678-1234-1234-1234-123456789abc'
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+
+            $exactTotal = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses `
+                    -MaxTotalBytes $pair.PairBytes)
+            $exactTotal.status | Should -Be 'accepted'
+            $exactTotal.byteCount | Should -Be $pair.PairBytes
+
+            $overTotal = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses `
+                    -MaxTotalBytes ($pair.PairBytes - 1))
+            $overTotal.status | Should -Be 'oversized'
+            $overTotal.content | Should -BeNullOrEmpty
+
+            $receiptLength = ([System.IO.FileInfo]$pair.ReceiptPath).Length
+            $oversizedReceipt = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses `
+                    -MaxArtifactBytes ($receiptLength - 1))
+            $oversizedReceipt.status | Should -Be 'oversized'
+            $oversizedReceipt.content | Should -BeNullOrEmpty
+
+            foreach ($mutation in @('run-id', 'report-name', 'report-bytes', 'report-digest', 'extra-field')) {
+                $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+                $receipt = Get-Content -LiteralPath $pair.ReceiptPath -Raw | ConvertFrom-Json -AsHashtable
+                switch ($mutation) {
+                    'run-id' { $receipt['runId'] = '00000000-0000-0000-0000-000000000000' }
+                    'report-name' { $receipt['report']['name'] = 'other.review.md' }
+                    'report-bytes' { $receipt['report']['bytes']++ }
+                    'report-digest' { $receipt['report']['digest'] = 'sha256:' + ('0' * 64) }
+                    'extra-field' { $receipt['extra'] = $true }
+                }
+                Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value (
+                    $receipt | ConvertTo-Json -Depth 10 -Compress
+                )
+
+                $result = @(& $resolver `
+                        -RepoRoot $root `
+                        -PlanId a1b2c3 `
+                        -ArtifactKind Reviews `
+                        -Relationship reuses)
+                $result.status | Should -Be 'refused'
+                $result.content | Should -BeNullOrEmpty
+            }
+
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+            Set-Content -LiteralPath $pair.ReportPath -Encoding utf8NoBOM -NoNewline -Value '# Tampered report'
+            $tamperedReport = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses)
+            $tamperedReport.status | Should -Be 'refused'
+            $tamperedReport.content | Should -BeNullOrEmpty
+
+            Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value '{'
+            $malformedReceipt = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses)
+            $malformedReceipt.status | Should -Be 'refused'
+            $malformedReceipt.content | Should -BeNullOrEmpty
+
+            $overflowPlan = & $newAssetsPlan -Root $root -Id 'ddeeff' -Slug 'review-overflow'
+            $overflowDir = Join-Path $overflowPlan 'assets/reviews'
+            New-Item -ItemType Directory -Path $overflowDir -Force | Out-Null
+            foreach ($name in @('z.md', 'a.md', 'm.md')) {
+                Set-Content -LiteralPath (Join-Path $overflowDir $name) -Encoding utf8NoBOM -Value '# Not retained'
+            }
+            $firstOverflow = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId ddeeff `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses `
+                    -MaxCandidates 2)
+            $secondOverflow = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId ddeeff `
+                    -ArtifactKind Reviews `
+                    -Relationship reuses `
+                    -MaxCandidates 2)
+            ($firstOverflow | ConvertTo-Json -Compress) |
+                Should -BeExactly ($secondOverflow | ConvertTo-Json -Compress)
+            $firstOverflow.status | Should -Be 'refused'
+            $firstOverflow.path | Should -Be 'docs/implementation-plans/2026-01-02-ddeeff-review-overflow/assets/reviews'
+            $firstOverflow.content | Should -BeNullOrEmpty
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -144,60 +347,60 @@ Describe 'Get-PlanArtifactContext' {
             Set-Content -LiteralPath $intentPath -Encoding utf8NoBOM -NoNewline -Value '1234'
             Set-Content -LiteralPath $designPath -Encoding utf8NoBOM -NoNewline -Value '5678'
 
-            $exactFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse -MaxArtifactBytes 4 -MaxTotalBytes 4)
+            $exactFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -MaxArtifactBytes 4 -MaxTotalBytes 4)
             $exactFile.status | Should -Be 'accepted'
             $exactFile.byteCount | Should -Be 4
             $exactFile.content | Should -BeExactly '1234'
 
-            $overFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse -MaxArtifactBytes 3)
+            $overFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -MaxArtifactBytes 3)
             $overFile.status | Should -Be 'oversized'
             $overFile.content | Should -BeNullOrEmpty
 
-            $exactTotal = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxArtifactBytes 4 -MaxTotalBytes 8)
+            $exactTotal = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuses -MaxArtifactBytes 4 -MaxTotalBytes 8)
             @($exactTotal.status) | Should -Be @('accepted', 'accepted')
 
-            $overTotal = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxArtifactBytes 4 -MaxTotalBytes 7)
+            $overTotal = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuses -MaxArtifactBytes 4 -MaxTotalBytes 7)
             @($overTotal.status) | Should -Be @('oversized', 'oversized')
             @($overTotal | Where-Object { $_.content }).Count | Should -Be 0
 
-            $overCandidates = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuse -MaxCandidates 1)
+            $overCandidates = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuses -MaxCandidates 1)
             $overCandidates.Count | Should -Be 1
             $overCandidates.status | Should -Be 'refused'
             @($overCandidates | Where-Object { $_.content }).Count | Should -Be 0
 
-            $missing = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Evidence -Relationship reuse)
+            $missing = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Evidence -Relationship reuses)
             $missing.status | Should -Be 'missing'
             $missing.content | Should -BeNullOrEmpty
 
-            $unsupported = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind '../Intent' -Relationship reuse)
+            $unsupported = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind '../Intent' -Relationship reuses)
             $unsupported.status | Should -Be 'refused'
             $unsupported.content | Should -BeNullOrEmpty
 
-            $badId = @(& $resolver -RepoRoot $root -PlanId bad-id -ArtifactKind Intent -Relationship reuse)
+            $badId = @(& $resolver -RepoRoot $root -PlanId bad-id -ArtifactKind Intent -Relationship reuses)
             $badId.status | Should -Be 'refused'
             $badId.content | Should -BeNullOrEmpty
 
             $malformedDir = Join-Path $root 'docs/implementation-plans/2026-01-02-ddeeff-malformed'
             New-Item -ItemType Directory -Path $malformedDir -Force | Out-Null
-            $malformed = @(& $resolver -RepoRoot $root -PlanId ddeeff -ArtifactKind Intent -Relationship reuse)
+            $malformed = @(& $resolver -RepoRoot $root -PlanId ddeeff -ArtifactKind Intent -Relationship reuses)
             $malformed.status | Should -Be 'refused'
             $malformed.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $intentPath -Force
             New-Item -ItemType Directory -Path $intentPath | Out-Null
-            $notFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $notFile = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $notFile.status | Should -Be 'refused'
             $notFile.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $intentPath -Recurse -Force
             [System.IO.File]::WriteAllBytes($intentPath, [byte[]]@(0xC3, 0x28))
-            $invalidUtf8 = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $invalidUtf8 = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $invalidUtf8.status | Should -Be 'refused'
             $invalidUtf8.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $intentPath -Force
             [System.IO.File]::WriteAllBytes($intentPath, [byte[]]::new(0))
-            $empty = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $empty = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $empty.status | Should -Be 'refused'
             $empty.content | Should -BeNullOrEmpty
 
@@ -205,13 +408,13 @@ Describe 'Get-PlanArtifactContext' {
             $outsidePath = Join-Path $root 'outside.md'
             Set-Content -LiteralPath $outsidePath -Encoding utf8NoBOM -NoNewline -Value 'outside'
             New-Item -ItemType SymbolicLink -Path $intentPath -Target $outsidePath | Out-Null
-            $linked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $linked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $linked.status | Should -Be 'refused'
             $linked.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $intentPath -Force
             New-Item -ItemType HardLink -Path $intentPath -Target $outsidePath | Out-Null
-            $hardLinked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse)
+            $hardLinked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $hardLinked.status | Should -Be 'refused'
             $hardLinked.content | Should -BeNullOrEmpty
         }
@@ -241,6 +444,7 @@ Describe 'Get-PlanArtifactContext' {
 
         $cipGuide = Get-Content -LiteralPath (Join-Path $repoRoot $planningGuides[0]) -Raw
         $cepGuide = Get-Content -LiteralPath (Join-Path $repoRoot $planningGuides[1]) -Raw
+        $cipGuide | Should -Match '^# Interview Guide \(`cip` Step 2\)'
         $cipGuide | Should -Match 'Write rows only for `accepted` results'
         $cepGuide | Should -Match 'without recording provenance'
 
@@ -252,6 +456,38 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'historical-context\[planId=<id>;artifactKind=<kind>;path=<path>;relationship=<relationship>\]'
             $text | Should -Match 'Sort accepted metadata by `planId`, `artifactKind`, `path`, then `relationship`'
             $text | Should -Match 'never truncate metadata or consume unrecorded content'
+            $text | Should -Match 'one bounded invocation'
+            $text | Should -Match 'Align each\s+`Relationship` value with the `PlanId`'
+        }
+
+        $root = & $newTempRoot
+        try {
+            $null = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'provenance-a'
+            $null = & $newAssetsPlan -Root $root -Id 'ddeeff' -Slug 'provenance-b'
+            $results = @(& $resolver `
+                    -RepoRoot $root `
+                    -PlanId ddeeff, a1b2c3 `
+                    -ArtifactKind Intent, Evidence `
+                    -Relationship sibling, extends)
+
+            @($results.status) | Should -Be @('missing', 'accepted', 'missing', 'accepted')
+            $recorded = @(
+                $results |
+                    Where-Object status -eq 'accepted' |
+                    ForEach-Object {
+                        "$($_.planId)|$($_.artifactKind)|$($_.path)|$($_.relationship)"
+                    }
+            )
+            $recorded | Should -Be @(
+                'a1b2c3|Intent|docs/implementation-plans/2026-01-02-a1b2c3-provenance-a/assets/intent.md|extends'
+                'ddeeff|Intent|docs/implementation-plans/2026-01-02-ddeeff-provenance-b/assets/intent.md|sibling'
+            )
+            @($recorded | Where-Object { $_ -match 'Evidence' }).Count | Should -Be 0
+            Test-Path -LiteralPath (Join-Path $root 'docs/implementation-plans/provenance-receipts') |
+                Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
@@ -299,6 +535,8 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'untrusted'
             $text | Should -Match 'architecture\s+contracts'
             $text | Should -Match 'remain\s+authoritative|cannot\s+override'
+            $text | Should -Match 'one bounded invocation'
+            $text | Should -Match 'align(?:ing)? each\s+`Relationship` value with the `PlanId`'
         }
 
         foreach ($schemaName in @('review-plan.schema.json', 'review-run.schema.json')) {

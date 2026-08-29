@@ -21,4 +21,12 @@ Phase: 1
 ## CR Capture
 Phase: 2
 
-No entries for this phase.
+- [2.2] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-3] [review:cr] [source-record:28e08198d967957320d3f3ba9d228a92836be83a12cd5ceabcbf91814bbe2a3a] round 1 finding 1 triage=fix: enforce the documented relationship vocabulary at the resolver boundary
+- [2.2] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-4] [review:cr] [source-record:ad28fa14a71b16e2e2d8fa92177a2a58f2e10a7a0569571628500bee26d0b853] round 1 finding 2 triage=phase3: installed-consumer dispatch scenarios remain required by step 3.1
+- [2.2] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:ee029ae362ef3694cd3e4d463c75bd4c0c13e39942ba989d4d155d8d59fa4408] round 1 finding 3 triage=fix: validate finalized review receipt bindings before returning review content
+- [2.2] [src:code-review] [sev:Med] [concern:performance] [req:REQ-4] [review:cr] [source-record:46b02205b305bc49e0bacd4a1a0f361f2c990a96fcda82203046d608cb718070] round 1 finding 4 triage=fix: support mixed relationships in one bounded resolver call
+- [2.2] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-3] [review:cr] [source-record:6f01d71a6bbb7d99e78c6e31a6d91766bffc891a69c94d9a5284a29770f9bb3e] round 1 finding 5 triage=fix: strengthen provenance tests beyond documentation keyword presence
+- [2.2] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-4] [review:cr] [source-record:77a97ea7ac924d195e19966da3702c0d778251a127e66590b1c6dfc2d4e3227a] round 1 finding 6 triage=fix: require RepoRoot so bundled copies cannot derive the wrong root
+- [2.2] [src:code-review] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:908cfa12ffe644275ae73161b59da5602adddf962644c95bc075dcc1439e09fc] round 1 finding 7 triage=fix: align interview guide heading with cip Step 2
+- [2.2] [src:code-review] [sev:Low] [concern:correctness-reliability] [req:REQ-1] [review:cr] [source-record:ff9f25f829f99121a167239bb3fd8469d3c4201aa21ed9637f9f57ed53b6349e] round 1 finding 8 triage=fix: make review-directory overflow refusal deterministic
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:ad0a658aac77a60c6bcd6cce74c4e57132a1470b00344e251d0e29e5467d96de] review-cycle stage=phase-2 cycle=1 outcome=findings summary=fixed closed relationships, mixed mapping, receipt verification, mandatory root, provenance evidence, title, and deterministic overflow; installed dispatch remains phase 3
