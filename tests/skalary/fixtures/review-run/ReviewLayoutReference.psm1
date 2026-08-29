@@ -363,6 +363,21 @@ function ConvertTo-ReviewProjection {
 
         $profiles = @($rawRecords | ForEach-Object { Get-FindingSimilarityProfile -Finding $_ })
         $similarity = 'none'
+        $modelsByExactKey = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        for ($index = 0; $index -lt $rawRecords.Count; $index++) {
+            $exactKey = [string]$profiles[$index].ExactKey
+            if (-not $modelsByExactKey.ContainsKey($exactKey)) {
+                $modelsByExactKey[$exactKey] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            }
+            $exactModels = $modelsByExactKey[$exactKey]
+            if ($exactModels.Count -gt 0 -and -not $exactModels.Contains([string]$rawRecords[$index].Model)) {
+                $similarity = 'exact'
+                break
+            }
+            [void]$exactModels.Add([string]$rawRecords[$index].Model)
+        }
         for ($leftIndex = 0; $leftIndex -lt $rawRecords.Count -and $similarity -eq 'none'; $leftIndex++) {
             for ($rightIndex = $leftIndex + 1; $rightIndex -lt $rawRecords.Count; $rightIndex++) {
                 if ([string]::Equals($rawRecords[$leftIndex].Model, $rawRecords[$rightIndex].Model, [System.StringComparison]::Ordinal)) {

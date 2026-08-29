@@ -774,7 +774,6 @@ function ConvertTo-ReviewProjection {
                 CorroborationState = $corroborationState
                 SupportCount = $models.Count
                 AttendanceState = $state
-                RawRank = $group.Rank
                 RawSeverity = $script:SeverityByRank[$group.Rank]
                 EffectiveSeverity = $script:SeverityByRank[$rank]
                 NeedsReview = $corroborationState -eq 'suspicious'

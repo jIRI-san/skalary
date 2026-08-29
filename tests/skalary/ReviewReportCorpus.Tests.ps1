@@ -542,6 +542,31 @@ Describe 'review report corpus' {
         $referenceWhitespace.Findings[0].CorroborationState |
             Should -Be $productionWhitespace.Findings[0].CorroborationState
 
+        $nearLeft = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango'
+        $nearRight = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra uniform'
+        $exactPrecedence = @{
+            findings = @(
+                @{ action = 'Review manually.'; body = $nearLeft; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'a'; title = 'Echo' }
+                @{ action = 'Review manually.'; body = $nearRight; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'b'; title = 'Echo' }
+                @{ action = 'Review manually.'; body = $nearLeft; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'c'; title = 'Echo' }
+            )
+            invocationBudget = 3
+            planDigest = 'sha256:' + ('0' * 64)
+            reviewType = 'code'
+            roster = @('model-a', 'model-b', 'model-c')
+            runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+            schema = 'skalary/review-run@1'
+            scope = 'exact similarity precedence'
+            tasks = @(
+                @{ concern = 'security'; model = 'model-a'; outcome = 'completed'; taskId = 'a' }
+                @{ concern = 'security'; model = 'model-b'; outcome = 'completed'; taskId = 'b' }
+                @{ concern = 'security'; model = 'model-c'; outcome = 'completed'; taskId = 'c' }
+            )
+        }
+        (ConvertTo-ReviewProjection -Run $exactPrecedence).Findings[0].Similarity |
+            Should -Be 'exact' -Because 'an exact pair takes precedence over an earlier near pair'
+        (ConvertTo-ProdReviewProjection -Run $exactPrecedence).Findings[0].Similarity | Should -Be 'exact'
+
         $caseDistinctModels.findings = @(
             @{ body = 'same'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'upper'; title = 'Alpha' }
             @{ body = 'same'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'upper'; title = 'alpha' }
