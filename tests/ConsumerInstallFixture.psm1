@@ -794,12 +794,16 @@ function Invoke-ConsumerInstalledSmokeMatrix {
 
 function Invoke-ConsumerFirstUseScaffoldLifecycle {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Fixture)
+    param(
+        [Parameter(Mandatory)]$Fixture,
+        [string[]]$ExcludedOwner = @()
+    )
 
     $owners = @(
         $Fixture.Catalog.Plugins |
             ForEach-Object { @($_.Scaffolds) } |
             ForEach-Object { [string]$_.owner } |
+            Where-Object { $_ -notin $ExcludedOwner } |
             Sort-Object -Unique
     )
     $results = [System.Collections.Generic.List[object]]::new()

@@ -324,13 +324,38 @@ Describe 'foreign consumer plugin installation' {
     }
 
     It 'test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo' {
-        $expectedOwners = @(
+        # Transactional state writers intentionally do not leave every declared path present:
+        # archive journals are removed after commit, while parameterized run/receipt paths depend
+        # on a selected durable record. Their dedicated SI/harvest suites exercise confinement,
+        # recovery, and idempotence. This generic starter-content harness owns only persistent
+        # first-use scaffolds whose complete declared shape exists after one invocation.
+        $transactionalOwners = @(
+            'Archive-SiState.ps1',
+            'Export-CrossRepoSi.ps1',
+            'Get-SiHarvest.ps1',
+            'Invoke-PhaseHarvest.ps1',
+            'Repair-SiState.ps1',
+            'SiStateStore.psm1'
+        )
+        $allDeclaredOwners = @(
             $script:fixture.Catalog.Plugins |
                 ForEach-Object { @($_.Scaffolds) } |
                 ForEach-Object { [string]$_.owner } |
                 Sort-Object -Unique
         )
-        $lifecycles = @(Invoke-ConsumerFirstUseScaffoldLifecycle -Fixture $script:fixture)
+        foreach ($owner in $transactionalOwners) {
+            $allDeclaredOwners | Should -Contain $owner
+        }
+        $expectedOwners = @(
+            $allDeclaredOwners |
+                Where-Object { $_ -notin $transactionalOwners } |
+                Sort-Object -Unique
+        )
+        $lifecycles = @(
+            Invoke-ConsumerFirstUseScaffoldLifecycle `
+                -Fixture $script:fixture `
+                -ExcludedOwner $transactionalOwners
+        )
 
         @($lifecycles.Owner | Sort-Object) | Should -Be $expectedOwners
         foreach ($lifecycle in $lifecycles) {

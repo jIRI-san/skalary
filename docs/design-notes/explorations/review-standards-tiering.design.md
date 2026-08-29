@@ -1,5 +1,5 @@
 ---
-description: Deferred exploration — two-tier code and design review standards (generic in this repo, per-consumer-repo overrides), unified with the review ledger and fed by cr/dr logs, with promotion from consumer repo to generic via the self-improvement loop. Load before changing review agent concerns or review-ledger structure.
+description: Resolved exploration — plan 2366ad shipped bounded generic standards and optional repository-local extensions/replacements; automated ledger promotion remains intentionally deferred. Load before changing review agent standards or review-ledger promotion.
 globs:
   - plugins/code-review/**
   - plugins/design-review/**
@@ -8,7 +8,14 @@ globs:
 
 # Review Standards Tiering
 
-Operator note captured 2026-07-31 during `b0c0d3` execution. **Not yet analysed** — recorded for the align phase.
+> **Resolved by plan `2366ad`.** Generic entries now live in the closed concern registry and ship
+> with both review plugins. A bounded optional `docs/review-standards.md` may extend or replace only
+> entries explicitly marked localizable. Resolved entries retain concern ownership, and dispatch
+> sends each reviewer only its matching entries inside untrusted-input fences. Automated promotion
+> from review logs or the ledger remains deferred rather than silently changing review policy.
+
+Operator note captured 2026-07-31 during `b0c0d3` execution. The implemented subset is recorded
+above; the remaining text preserves the broader promotion ideas and open questions as history.
 
 ## Proposal
 
@@ -64,4 +71,3 @@ Consequences for the sequencing above:
 - This is no longer a speculative enhancement to `b0c0d3`. It is the **unstated requirement** `b0c0d3` was a partial implementation of, which raises its priority in the following plan.
 - The seven-agent split is not wasted — a per-concern standard needs a per-concern reviewer to consume it. But the split shipped without the thing that gives it leverage, so the drift risk noted under *Why this matters* is live now, not hypothetical.
 - Use this case as the **test case for rephrase-and-confirm** in [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md). The concrete bar: would the mechanism have asked *why* the split was wanted, and would that question have surfaced declared standards before the plan was drafted? A mechanism that only echoes back "you want reviewers split by concern and two models" restates the request faithfully and still misses the intent — that is the standard to beat, not a passing grade.
-

@@ -82,4 +82,15 @@ Describe 'Set-PlanStage' {
             Remove-Item -LiteralPath (Split-Path $file) -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'test:set-planstage keeps marker-less legacy plans compatible' {
+        $file = New-PlanFile -Body "# x: Plan`n<!-- plan-id: abc123 -->`n<!-- cip-stage: drafted -->`n`n## Phase 1`n"
+        try {
+            & $scriptPath -PlanFile $file -Stage 'dr-round-1' | Out-Null
+            (Get-Content -LiteralPath $file -Raw) | Should -Not -Match 'planning-confirmed'
+        }
+        finally {
+            Remove-Item -LiteralPath (Split-Path $file) -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }

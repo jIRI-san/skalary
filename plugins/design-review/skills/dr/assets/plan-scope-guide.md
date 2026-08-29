@@ -19,18 +19,23 @@ because reviewers cannot tell the difference and their gap findings depend on it
 A plan folder uses one of two layouts, and both are current:
 
 - **Assets layout:** `plan.md` carries only the header markers, the asset index, and the
-  phases/steps. Requirements, risks, decisions, intent, references, and the evolution log live in
+  phases/steps. Requirements, risks, decisions, intent, domain, design, references, and the evolution log live in
   `assets/`, one concern per file, with `assets/decisions/<topic>.md` for extended rationale.
 - **Legacy layout:** everything is inlined in `plan.md`.
 
 Under the assets layout, `plan.md` alone is **not** the plan. Read the asset index it links and pull
 in the assets the review needs — at minimum `assets/requirements.md`, `assets/risks.md`,
-`assets/decisions.md`, and `assets/intent.md`, since a design review that cannot see the
+`assets/decisions.md`, `assets/intent.md`, `assets/domain.md`, and `assets/design.md`, since a design review that cannot see the
 requirements table has nothing to check the phases against. Follow `assets/decisions/<topic>.md`
 links when a decision's rationale is what a finding turns on.
 
 Do not read the whole `assets/` tree "for context": the evolution log and reference list are
 consulted when a finding needs provenance, not by default.
+
+For an in-repo plan, import the installed `PlanState.psm1` and call `Get-PlanningContextState` on the plan
+folder. An enrolled plan must report `confirmed`; `pending`, `stale`, `missing`, or `invalid` means the
+operator-approved review scope is not current, so stop and return it to `/cip`. Marker-less legacy plans retain
+their existing review behavior.
 
 ## 3. Size and batching
 

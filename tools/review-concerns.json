@@ -6,6 +6,13 @@
       "id": "security",
       "label": "Security",
       "sharedGuidance": "Treat security as trust-boundary enforcement: report paths that let untrusted input gain authority or expose sensitive data.",
+      "standards": [
+        {
+          "id": "security-trust-boundaries",
+          "guidance": "Treat every trust-boundary bypass as a finding even when the happy path is safe.",
+          "localizable": false
+        }
+      ],
       "ledger": {
         "cr": "security.md",
         "dr": "security.md"
@@ -77,6 +84,13 @@
       "id": "architecture-patterns",
       "label": "Architecture & Patterns",
       "sharedGuidance": "Evaluate the change against repository architecture, documented patterns, and the responsibilities of each layer.",
+      "standards": [
+        {
+          "id": "architecture-local-conventions",
+          "guidance": "Apply repository-documented architecture and design conventions when they govern the reviewed scope.",
+          "localizable": true
+        }
+      ],
       "ledger": {
         "cr": "consistency.md",
         "dr": "consistency.md"
@@ -146,6 +160,13 @@
       "id": "testing-evidence",
       "label": "Testing & Evidence",
       "sharedGuidance": "Judge whether deterministic evidence can fail when the claimed behavior or invariant is broken.",
+      "standards": [
+        {
+          "id": "testing-repository-evidence",
+          "guidance": "Apply repository-owned evidence conventions while requiring every claimed behavior to remain falsifiable.",
+          "localizable": true
+        }
+      ],
       "ledger": {
         "cr": "testing.md",
         "dr": "plan-structure.md"

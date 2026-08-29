@@ -276,7 +276,7 @@ The in-editor autopilot skill — not the launcher — owns first-run config. On
 ## Agent Definition (`.github/agents/autopilot.agent.md`)
 
 Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
-1. Read plan → find next `[ ]` step → mark `[~]`
+1. Read plan → require shared planning context `confirmed` for enrolled plans → find next `[ ]` step → mark `[~]`
 2. Implement → focused build/test of the affected surface → format
 3. `git add <specific-files>` → commit (atomic with plan mark)
 4. Loop until phase complete → primary-only `/cr post-phase` review → push
@@ -315,6 +315,7 @@ Absolute rules enforced:
 | Harvest branch split | Append-harvest executes and commits before branch selection; autonomous branch archives + real PR, escalation branch runs `/udn` + prune + draft PR + marker + exit 42 (never archive). |
 | Script invocation safety | Installed `Invoke-PhaseHarvest.ps1`, autopilot-owned `Invoke-SiDueEnqueue.ps1`, `Remove-LedgerEntry.ps1`, `Update-FeedbackQueue.ps1`, and dependency-installed `Enqueue-SiDue.ps1` are the Rule-5 carve-out and must be invoked with argument arrays, never shell-interpolated command strings. |
 | Durable writer closure | Root-canonical capture/ledger writers import `AtomicStore.psm1`; `Invoke-PhaseHarvest.ps1` imports the shared `LedgerStore.psm1` scalar/batch engine. Autopilot carries both generated modules plus `PlanState.psm1` under `.github/skills/autopilot/scripts/`, so installed phase harvest uses the same confinement, lock/CAS/status, bounds, and atomic-replace contracts. |
+| Planning admission | Before any step/log mutation, autopilot calls shared `Get-PlanningContextState`. Enrolled `pending`, `stale`, `missing`, or `invalid` plans exit `42` for operator confirmation; marker-less legacy plans proceed. |
 | Phase-harvest execution | Phase crosscheck invokes the bound installed autopilot copy with `-Phase`, commits the receipt plus changed ledger categories before phase teardown, and finalization invokes `-FinalSweep`; only `complete`/`empty` permit phase completion or archival. Degraded phases are retried at the phase boundary because final sweep only replays existing receipts; unresolved degradation stops completion. The exact installed script is in autopilot's closed execution carve-out, and both current/legacy receipt trees are declared first-use scaffolds. |
 | Ephemeral capture durability | Each phase initializes and commits `cr-log.md`, `learnings.md`, and `evolution-log.md` sections by explicit filename with `No entries for this phase.` placeholders; harvest fails loud only on missing required sections. |
 | Headless SI due | Autopilot explicitly depends on `self-improvement` but never runs `/si`. Only after the autonomous archive commit is successfully pushed does its installed `Invoke-SiDueEnqueue.ps1` wrapper invoke dependency-installed `Enqueue-SiDue.ps1` with bound plan/source arguments. The due binds the complete-source OID, duplicate enqueue is a byte-stable no-op, and any retry-visible SI state delta is still committed/pushed before the plan PR. The wrapper converts writer exceptions/non-complete statuses into an explicit `degraded` result, so failure reporting and continuation are executable rather than prompt-only. |

@@ -82,6 +82,14 @@ Describe 'Plan dependency start-gate' {
         $result.ExitCode | Should -Be 0
     }
 
+    It 'test:validate-all keeps the committed full validation gate explicitly repository-wide' {
+        $package = Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw |
+            ConvertFrom-Json -Depth 20
+        [string]$package.scripts.test | Should -Match 'npm run validate-plan'
+        [string]$package.scripts.test | Should -Match 'npm run test:unit'
+        [string]$package.scripts.'test:unit' | Should -Match '(?i)-FullRepository'
+    }
+
     It 'fails when the test:unit gate is missing' {
         $fixture = New-DependencyFixture
         $planPath = Join-Path $fixture 'docs/implementation-plans/007-workflow-memory-ledger/plan.md'

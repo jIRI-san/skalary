@@ -5,7 +5,9 @@ param(
     [string]$PlanFile,
 
     [Parameter(Mandatory)]
-    [string]$Stage
+    [string]$Stage,
+
+    [switch]$ConfirmPlanningContext
 )
 
 Set-StrictMode -Version Latest
@@ -26,6 +28,7 @@ if ($stageValue -match '[>\r\n]') {
 $stageValue = (Resolve-PlanStage -Stage $stageValue).Stage
 
 $fullPath = (Resolve-Path -LiteralPath $PlanFile).Path
+$planDir = Split-Path -Parent $fullPath
 $raw = Get-Content -LiteralPath $fullPath -Raw
 $normalized = $raw -replace "`r`n", "`n"
 
@@ -62,6 +65,36 @@ else {
         $lines.Insert(0, $anchor)
     }
     $header = $lines -join "`n"
+}
+
+$planningPattern = '<!--\s*planning-confirmed\s*:\s*[^\r\n]*?-->'
+$malformedPlanningPattern = '(?m)^[ \t]*<!--\s*planning-confirmed(?![\w-])[^\r\n]*$'
+$planningMarkers = Get-PlanHeaderMarkers -Content $normalized
+$planningMarker = $planningMarkers.PlanningConfirmed
+$hasPlanningMarker = $planningMarkers.All.Contains('planning-confirmed')
+if ($ConfirmPlanningContext) {
+    Assert-PlanningContextReady -PlanDir $planDir
+    $planningAnchor = "<!-- planning-confirmed: sha256:$(Get-PlanningContextDigest -PlanDir $planDir) -->"
+    if ([regex]::IsMatch($header, $planningPattern)) {
+        $header = [regex]::Replace($header, $planningPattern, $planningAnchor, 1)
+    }
+    elseif ([regex]::IsMatch($header, $malformedPlanningPattern)) {
+        $header = [regex]::Replace($header, $malformedPlanningPattern, $planningAnchor, 1)
+    }
+    else {
+        throw "Plan '$fullPath' is not enrolled for planning confirmation."
+    }
+}
+elseif ($stageValue -eq 'scaffolded' -and -not $hasPlanningMarker) {
+    $planningAnchor = '<!-- planning-confirmed: pending -->'
+    $header = [regex]::Replace($header, $pattern, "`$0`n$planningAnchor", 1)
+}
+elseif ($hasPlanningMarker -and
+    (Test-PlanStageAtLeast -Stage $stageValue -Minimum 'drafted')) {
+    $planningState = Get-PlanningContextState -PlanDir $planDir
+    if (-not $planningState.CanProceed) {
+        throw "Planning context is '$($planningState.Status)'. Reconfirm intent and design with -ConfirmPlanningContext before advancing to '$stageValue'."
+    }
 }
 
 $updated = if ($split.HasBody) { @($header, $split.Body) -join "`n" } else { $header }

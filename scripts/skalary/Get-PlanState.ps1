@@ -149,6 +149,7 @@ else {
 }
 
 $next = Get-NextStep -Metadata $metadata -HasUncommittedChanges:$dirty
+$planningContext = Get-PlanningContextState -PlanDir $plan.Path
 
 $state = [pscustomobject]@{
     Kind                  = 'plan'
@@ -164,8 +165,10 @@ $state = [pscustomobject]@{
         ExecutionMode = $markers.ExecutionMode
         Scope         = $markers.Scope
         CipStage      = $markers.CipStage
+        PlanningConfirmed = $markers.PlanningConfirmed
         DependsOn     = @($markers.DependsOn)
     }
+    PlanningContext       = $planningContext
     Progress              = [pscustomobject]@{
         Total         = $progress.Total
         Completed     = $progress.Completed
@@ -196,6 +199,7 @@ $lines = [System.Collections.Generic.List[string]]::new()
 $lines.Add("Plan:       $($state.PlanId)  ($($state.FolderName))")
 $lines.Add("Scheme:     $($state.Scheme)$(if ($state.IsArchived) { ' (archived)' } else { '' })")
 $lines.Add("Mode:       $($state.Markers.ExecutionMode)   Scope: $($state.Markers.Scope)   Stage: $($state.Markers.CipStage)")
+$lines.Add("Context:    $($state.PlanningContext.Status)")
 if ($state.Markers.EpicId) {
     $lines.Add("Epic:       $($state.Markers.EpicId)  (run Get-PlanState $($state.Markers.EpicId) for the rollup)")
 }

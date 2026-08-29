@@ -8,6 +8,8 @@ These gates are blocking. The orchestrator enforces them before drafting.
 
 ### `intent` gate
 
+**Checkpoint 1.**
+
 **Intent is captured first and confirmed before anything else.** Requirements answer *what to build*; intent
 answers *what the operator is trying to achieve* — the anchor `/ci` re-reads before every step and at every
 phase crosscheck, and the yardstick `/pfb` measures the delivered work against.
@@ -28,10 +30,14 @@ than assuming either location. All five sections are required:
 
 The gate **blocks drafting** until:
 1. the resolved `intent.md` exists and carries no `TBD` placeholder in any of the five sections, and
-2. the operator has been read the captured intent back and has explicitly confirmed it.
+2. `/cip` has rephrased all five sections, read them back together, and the operator has explicitly confirmed the wording.
 
 Never infer intent from the requirements and proceed silently — an unconfirmed intent is a blocked plan.
 Re-run this gate when a resumed plan's intent is still placeholder-only.
+
+Preserve meaningful original wording, settled decisions, uncertainty, and rejected alternatives in the
+layout-resolved intent, decisions, risks, domain, design, and references assets. Do not preserve chat
+transcripts or secrets.
 
 ### `prior-art` gate
 
@@ -79,9 +85,39 @@ Every requirement must have **at least one acceptance criterion carrying at leas
 
 A requirement whose acceptance criteria contain **no** typed marker fails this gate. Prose-only criteria ("works correctly") are not acceptable — they are not machine-checkable and cannot be verified under autopilot.
 
+### `domain-design` gate
+
+**Checkpoint 2.**
+
+After the intent checkpoint, capture project-specific terms, actors, invariants, and boundaries in the
+layout-resolved `domain.md`. Then produce a concise design from `./assets/design-template.md` in the
+layout-resolved `design.md`:
+
+- `## Components and boundaries` names the program pieces and ownership seams.
+- `## Program flow` contains a non-empty Mermaid diagram of the important control flow.
+- `## Optional call stacks` contains call stacks only when they clarify important control flow; otherwise
+  state that the Mermaid flow is sufficient.
+
+Rephrase the domain/design context and important uncertainty to the operator. Revise until they explicitly
+approve it. Design is an agreed high-level program shape, not a substitute for requirements or typed evidence.
+If intent or design changes later, the planning confirmation becomes stale and the affected checkpoint must be
+repeated.
+
 ### `pre-draft` gate
 
-Before drafting, enumerate every unresolved item (unconfirmed or placeholder intent, unreconciled prior-plan records, open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed evidence marker). If the list is non-empty, **refuse to draft**: present the list, resolve each item with the user (or convert it to a `RISK-N`), then re-check. Only when the list is empty — including passing `intent` and `prior-art` gates — may drafting begin.
+**Checkpoint 3.**
+
+Before detailed drafting, create a provisional outline whose first phase is a usable end-to-end MVP and whose
+later phases remain vertical increments through the complete desired outcome. Map every requirement to at least
+one prospective step; do not use component-layer phases or stop at the MVP.
+
+Then enumerate every unresolved item (unconfirmed or placeholder intent/design, unreconciled prior-plan
+records, open questions, undecided architecture, missing acceptance criteria, requirements lacking a typed
+evidence marker). Present one final rephrased summary containing confirmed intent, approved design, decisions,
+uncertainty, rejected alternatives, and the provisional outline. If the operator corrects it, update the
+affected Markdown asset and repeat the affected earlier checkpoint. If unresolved items remain, **refuse to
+draft**. Only after explicit final confirmation may `/cip` persist the lifecycle confirmation marker through
+`Set-PlanStage.ps1 -ConfirmPlanningContext`.
 
 ## Question Bank
 
@@ -111,6 +147,12 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 **Affected subsystems**
 - Which source files, services, or components need to change?
 - Are there data model changes (schema, EF migrations)?
+
+**Domain and design context** (feeds checkpoint 2)
+- Which project-specific terms, actors, invariants, and ownership boundaries affect implementation?
+- What are the high-level components and the important control flow between them?
+- Draw the concise Mermaid program flow. Would an optional call stack clarify any important path?
+- Rephrase the domain/design context, uncertainty, and rejected alternatives; obtain explicit approval.
 
 **API surface**
 - New endpoints, messages, or events? Request/response shape?
@@ -213,4 +255,8 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 
 ## Closing the interview
 
-Once all areas are covered, run the `intent` gate (intent captured in `assets/intent.md`, no `TBD` left, operator confirmed), the `prior-art` gate (index consulted, every prior record reused/extended/superseded/resolved), and then the `pre-draft` gate. When they pass, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
+Once all areas are covered, verify checkpoint 1 (the `intent` gate), the `prior-art` gate, checkpoint 2
+(`domain-design`), and the objective `no-tbd`/`evidence` gates. Build the provisional MVP-first vertical outline,
+then run checkpoint 3 (`pre-draft`) by asking: **"Does this capture everything? Anything to add or correct?"**
+Wait for explicit confirmation. Persist the marker through `Set-PlanStage.ps1 -ConfirmPlanningContext`, verify
+`Get-PlanState` reports `Context: confirmed`, and only then begin detailed drafting.

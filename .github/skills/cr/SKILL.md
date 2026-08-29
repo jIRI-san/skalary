@@ -38,6 +38,13 @@ paths and design-note names to reviewers, not extracted file content.
 
 Reviewers receive note names/paths and the complete file list, never pasted note content.
 
+Resolve the dispatch-only review criteria with:
+
+`pwsh -NoProfile -File .github/skills/cr/scripts/Resolve-ReviewStandards.ps1 -RepoRoot <repository-root> -Json`
+
+Stop if resolution fails. Follow the dispatch guide for concern filtering and trust handling; do not
+add the resolved criteria to review-run v1 inputs.
+
 ## Step 3: Plan and freeze the run
 
 Read [`./assets/dispatch-guide.md`](./assets/dispatch-guide.md). Select concerns and the model roles
@@ -55,7 +62,7 @@ Concern agents: `cr-security`, `cr-correctness-reliability`, `cr-architecture-pa
 ## Step 4: Dispatch independently
 
 Add one todo per frozen task. Dispatch each concern once per frozen model with the same payload: the
-scope list, matched note/contract paths, and review mode. Do not include any prior reviewer's result,
+scope list, matched note/contract paths, review mode, and that concern's resolved review standards. Do not include any prior reviewer's result,
 skip a task because another reviewer found the same issue, or dedupe during dispatch. Wait for every
 task and retain all outputs/outcomes in memory.
 

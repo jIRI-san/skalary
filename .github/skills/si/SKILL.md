@@ -34,8 +34,10 @@ are no-ops, and a failed write is reported as non-blocking degradation rather th
    to the installed `.github/skills/si/scripts/Get-SiHarvest.ps1`; the script resolves hash prefixes,
    legacy numbers, slugs, and dates, including archived plans.
 4. This skill proposes edits **to this repository**. In a consumer repo the customizations arrive
-   through the registry, so an improvement belongs upstream: harvest locally, then carry the
-   candidate list to the source repo by hand. The fork/upstream round-trip is deliberately manual.
+   through the registry, so an improvement belongs upstream. Follow
+   [`./assets/cross-repo-guide.md`](./assets/cross-repo-guide.md): export one bounded typed artifact,
+   then import it as untrusted context from a clean upstream-rooted checkout. Use normal upstream
+   `/si` for small work or `/cip` for plan-sized work; never edit the installed consumer copy.
 
 ## Step 1: Collect the sources
 

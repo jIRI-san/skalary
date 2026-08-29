@@ -1,5 +1,5 @@
 ---
-description: Deferred exploration — `/si` proposing across repositories runs the edit under the wrong repo's rules, and the manual round-trip that avoids this is documented but unenforced. Proposes splitting `/si` into a harvest phase and a propose phase joined by a typed artifact. Load before changing si's SKILL.md, propose-guide, or Test-SiWriteScope.
+description: Resolved exploration — `/si` cross-repository learning uses one bounded typed artifact and a clean upstream-rooted handoff into normal `/si` or `/cip`; rejected cache, container, credential, and publication alternatives remain as history.
 globs:
   - plugins/self-improvement/**
   - .github/skills/si/**
@@ -8,8 +8,15 @@ globs:
 
 # `/si` Cross-Repo Proposal Protocol
 
-Operator note captured 2026-08-01, immediately after the first real `/si` run. **Not yet analysed in
-depth** — recorded for the next plan.
+> **Resolved by plan `2366ad`.** The implemented shape keeps the useful harvest/propose boundary but
+> deliberately omits the cache, container, credential, and publication platform explored below.
+> One bounded typed artifact is accepted by a clean upstream-rooted checkout, which then uses normal
+> upstream `/si` for small work or `/cip` for plan-sized work. The historical alternatives remain
+> below as exploration context, not executable direction.
+
+Operator note captured 2026-08-01, immediately after the first real `/si` run. The simplified
+resolution is recorded above; the remainder preserves the alternatives considered before plan
+`2366ad`.
 
 ## The problem
 

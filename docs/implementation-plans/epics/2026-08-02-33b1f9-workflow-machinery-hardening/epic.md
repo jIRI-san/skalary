@@ -31,15 +31,15 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 <!-- child-plans:start -->
 | Plan | Slug | Depends on |
 |---|---|---|
-| `1936cb` | learning-loop-durability | — |
-| `2366ad` | cross-repo-si-and-standards | `1936cb`, `79cfe1` |
-| `34088e` | consumer-install-correctness | — |
+| `1936cb` | learning-loop-durability _(archived)_ | — |
+| `2366ad` | cross-repo-si-and-standards _(archived)_ | `1936cb`, `79cfe1` |
+| `34088e` | consumer-install-correctness _(archived)_ | — |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
 | `863d97` | evidence-receipt-truth | — |
-| `c21cdc` | review-report-as-data | — |
-| `79cfe1` | concern-registry-and-generated-agents | — |
+| `c21cdc` | review-report-as-data _(archived)_ | — |
+| `79cfe1` | concern-registry-and-generated-agents _(archived)_ | — |
 | `ca8ba8` | review-corroboration-truth | `c21cdc` |
-| `583308` | autopilot-container-toolchain | — |
+| `583308` | autopilot-container-toolchain _(archived)_ | — |
 <!-- child-plans:end -->
 
 Membership is the `<!-- epic: 33b1f9 -->` marker in each child `plan.md`; the table above is a generated

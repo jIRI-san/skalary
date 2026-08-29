@@ -78,7 +78,7 @@ Describe 'Autopilot work preservation' {
     }
 
     It 'pushes after every step, not only at phase end' {
-        $agent | Should -Match '(?m)^21\. \*\*Push\*\* — `git push origin <current-branch>` immediately after the step commit'
+        $agent | Should -Match '(?m)^\d+\. \*\*Push\*\* — `git push origin <current-branch>` immediately after the step commit'
     }
 
     It 'still forbids force-push everywhere' {

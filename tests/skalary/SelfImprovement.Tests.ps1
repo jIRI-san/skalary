@@ -217,20 +217,21 @@ Describe 'Self-improvement harvest contract' {
             }
         }
 
-        It 'test:si-offered-at-completion documents the consumer-repo flow as manual' {
-            # Scoped to the sections that own the claim: si/SKILL.md says "not manually" in an
-            # unrelated never-merge rule, which a whole-file match would happily accept.
+        It 'test:si-offered-at-completion documents the bounded consumer-to-upstream handoff' {
             foreach ($path in @('plugins/self-improvement/skills/si/SKILL.md', '.github/skills/si/SKILL.md')) {
                 $section = Get-SectionText -RelativePath $path -HeadingPattern 'Step 0'
-                $section | Should -Match '(?i)deliberately manual' -Because "$path must state the upstream round-trip is manual"
-                $section | Should -Match '(?i)by hand' -Because "$path must say the candidate list is carried by hand"
+                $section | Should -Match 'cross-repo-guide\.md' -Because "$path must route through the bounded transport guide"
+                $section | Should -Match '(?i)clean upstream-rooted checkout' -Because "$path must preserve the upstream instruction boundary"
+                $section | Should -Match '(?i)normal upstream `/si`.*`/cip`' -Because "$path must use the existing upstream workflows"
+                $section | Should -Match '(?i)never edit the installed consumer copy' -Because "$path must not treat installed payloads as source"
             }
 
             foreach ($path in $script:ciGuidePaths) {
                 $section = Get-SectionText -RelativePath $path -HeadingPattern 'Self-improvement'
-                $section | Should -Match '(?i)Consumer repos are manual' -Because "$path must state the consumer-repo flow is manual"
-                $section | Should -Match '(?i)fork .skalary.' -Because "$path must name the fork/upstream round-trip"
-                $section | Should -Match '(?i)not automated' -Because "$path must say the round-trip is not automated"
+                $section | Should -Match '(?i)Consumer repos use the bounded upstream handoff' -Because "$path must name the consumer flow"
+                $section | Should -Match 'cross-repo-guide\.md' -Because "$path must route through the transport contract"
+                $section | Should -Match '(?i)clean\s+upstream checkout' -Because "$path must preserve the upstream instruction boundary"
+                $section | Should -Match '(?i)never the upstream source' -Because "$path must not treat installed payloads as source"
             }
         }
     }
