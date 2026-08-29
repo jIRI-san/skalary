@@ -80,6 +80,171 @@ function ConvertTo-StableJson {
     return $Value | ConvertTo-Json -Depth 100 -Compress
 }
 
+function Get-SiSha256Hex {
+    param([Parameter(Mandatory)][byte[]]$Bytes)
+
+    return [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($Bytes)
+    ).ToLowerInvariant()
+}
+
+function ConvertTo-SiReceiptLedgerText {
+    param([Parameter(Mandatory)][string]$Text)
+
+    $sanitized = [regex]::Replace($Text, '[\u000A-\u000D\u0085\u2028\u2029\u000B\u000C]', ' ')
+    $sanitized = [regex]::Replace($sanitized, '[\u0000-\u001F\u007F]', ' ')
+    $sanitized = [regex]::Replace($sanitized, '(?i)src\s*:', 'src-')
+    $sanitized = [regex]::Replace($sanitized, '(?i)sev\s*:', 'sev-')
+    $sanitized = [regex]::Replace($sanitized, '(?i)\[recurrence\s*:\s*\d+\]', ' recurrence- ')
+    $sanitized = [regex]::Replace($sanitized, '[(),#\[\]|]', ' ')
+    $sanitized = [regex]::Replace($sanitized, '\s+', ' ').Trim()
+    if ([string]::IsNullOrWhiteSpace($sanitized)) {
+        throw 'Phase receipt candidate entry is empty after sanitization.'
+    }
+    if ($sanitized.Length -gt 220) {
+        $sanitized = $sanitized.Substring(0, 220).Trim()
+    }
+    return $sanitized
+}
+
+function Assert-SiPhaseReceiptV2 {
+    param(
+        [Parameter(Mandatory)][object]$Receipt,
+        [Parameter(Mandatory)][string]$SourcePath
+    )
+
+    $payload = $Receipt.payload
+    $phase = 0
+    if (-not [int]::TryParse([string]$payload.phase, [ref]$phase) -or
+        $phase -lt 1 -or $phase -gt 999 -or
+        [string]::IsNullOrWhiteSpace([string]$payload.repo)) {
+        throw "Phase receipt '$SourcePath' has invalid v2 identity fields."
+    }
+
+    $sources = @($payload.sources)
+    $candidates = @($payload.candidates)
+    if ($sources.Count -lt 3 -or $candidates.Count -gt 64) {
+        throw "Phase receipt '$SourcePath' exceeds v2 source or candidate bounds."
+    }
+    $sourcePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($source in $sources) {
+        $sourceNames = @($source.PSObject.Properties.Name)
+        if ($sourceNames.Count -ne 4 -or
+            @('Kind', 'Path', 'Sha256', 'Bytes' | Where-Object { $sourceNames -notcontains $_ }).Count -gt 0 -or
+            $source.Kind -notin @('CrLog', 'Learnings', 'Capture', 'LearningOverflow') -or
+            [string]::IsNullOrWhiteSpace([string]$source.Path) -or
+            [System.IO.Path]::IsPathRooted([string]$source.Path) -or
+            ([string]$source.Path).Split('/') -contains '..' -or
+            $source.Sha256 -notmatch '^[0-9a-f]{64}$' -or
+            $source.Bytes -isnot [ValueType] -or [long]$source.Bytes -lt 0 -or
+            -not $sourcePaths.Add([string]$source.Path)) {
+            throw "Phase receipt '$SourcePath' contains a malformed v2 source."
+        }
+    }
+
+    $categoryMap = @{
+        security = @{ cr = 'security'; dr = 'security' }
+        'correctness-reliability' = @{ cr = 'error-handling'; dr = 'error-handling' }
+        'architecture-patterns' = @{ cr = 'consistency'; dr = 'consistency' }
+        performance = @{ cr = 'performance'; dr = 'performance' }
+        'testing-evidence' = @{ cr = 'testing'; dr = 'plan-structure' }
+        'maintainability-consistency' = @{ cr = 'consistency'; dr = 'consistency' }
+        'operability-observability' = @{ cr = 'observability'; dr = 'observability' }
+    }
+    $candidateBytes = [long]0
+    foreach ($candidate in $candidates) {
+        $candidateNames = @($candidate.PSObject.Properties.Name)
+        $requiredNames = @(
+            'SourceRecord', 'SourceId', 'WorkflowSourceRecordId', 'SourceKind', 'SourcePath',
+            'SourceBytesSha256', 'ReviewType', 'Concern', 'Requirements', 'Category',
+            'Severity', 'Entry', 'Tags'
+        )
+        if ($candidateNames.Count -ne $requiredNames.Count -or
+            @($requiredNames | Where-Object { $candidateNames -notcontains $_ }).Count -gt 0 -or
+            -not $sourcePaths.Contains([string]$candidate.SourcePath) -or
+            $candidate.SourceKind -notin @('CrLog', 'Learnings', 'Capture')) {
+            throw "Phase receipt '$SourcePath' contains a malformed v2 candidate."
+        }
+
+        $common = '\[concern:(?<concern>security|correctness-reliability|architecture-patterns|performance|testing-evidence|maintainability-consistency|operability-observability)\] \[req:(?<req>-|REQ-[1-9][0-9]*(?:,REQ-[1-9][0-9]*)*)\] \[review:(?<review>cr|dr|none)\] \[source-record:(?<record>[0-9a-f]{64})\] (?<body>.+)$'
+        $pattern = switch ([string]$candidate.SourceKind) {
+            'CrLog' { '^- \[(?<step>-|[0-9]+\.[0-9]+[a-z]?)\] \[src:(?<src>code-review|discovery|note)\] \[sev:(?<sev>Critical|High|Med|Low)\] ' + $common }
+            'Learnings' { '^- \[(?<step>-|[0-9]+\.[0-9]+[a-z]?)\] \[trigger:(?<trigger>rework>1|plan-contradiction|reusable-pattern)\] ' + $common }
+            'Capture' { '^- \[(?<step>-|[0-9]+\.[0-9]+[a-z]?)\](?: \[src:(?<src>code-review|discovery|note)\])?(?: \[sev:(?<sev>Critical|High|Med|Low)\])? ' + $common }
+        }
+        $match = [regex]::Match([string]$candidate.SourceRecord, $pattern)
+        if (-not $match.Success) {
+            throw "Phase receipt '$SourcePath' contains a malformed v2 source record."
+        }
+        $step = $match.Groups['step'].Value
+        if ($step -ne '-' -and [int]($step.Split('.')[0]) -ne $phase) {
+            throw "Phase receipt '$SourcePath' contains a source record for another phase."
+        }
+        $requirements = [string[]]@(
+            if ($match.Groups['req'].Value -ne '-') {
+                $match.Groups['req'].Value.Split(',') | Sort-Object -Unique
+            }
+        )
+        $reviewType = $match.Groups['review'].Value
+        if ($candidate.SourceKind -eq 'CrLog' -and $reviewType -eq 'none') {
+            throw "Phase receipt '$SourcePath' contains CR data without review provenance."
+        }
+        $source = if ($match.Groups['src'].Success) { $match.Groups['src'].Value } else { '-' }
+        $severity = if ($match.Groups['sev'].Success) { $match.Groups['sev'].Value } else { '-' }
+        $trigger = if ($match.Groups['trigger'].Success) { $match.Groups['trigger'].Value } else { '-' }
+        $requirementToken = if ($requirements.Count -eq 0) { '-' } else { $requirements -join ',' }
+        $workflowId = Get-SiHarvestDigest `
+            -Domain "workflow-note/$(([string]$candidate.SourceKind).ToLowerInvariant())/source-record/v1" `
+            -Field @(
+                [string]$payload.plan, [string]$phase, $step, $match.Groups['concern'].Value,
+                $requirementToken, $reviewType, $source, $severity, $trigger,
+                $match.Groups['body'].Value
+            )
+        $recordBytes = [System.Text.Encoding]::UTF8.GetBytes([string]$candidate.SourceRecord)
+        if ($recordBytes.Length -gt 16KB) {
+            throw "Phase receipt '$SourcePath' contains an oversized v2 source record."
+        }
+        $sourceId = Get-SiHarvestDigest -Domain 'phase-harvest/source-record/v1' -Field @(
+            [string]$payload.repo, [string]$payload.plan, [string]$phase,
+            ([string]$candidate.SourceKind).ToLowerInvariant(), $reviewType,
+            [string]$candidate.SourcePath, [Convert]::ToBase64String($recordBytes)
+        )
+        $mapReview = if ($reviewType -eq 'dr') { 'dr' } else { 'cr' }
+        $tags = [string[]]@(
+            @("phase-$phase", $match.Groups['concern'].Value) +
+                @($requirements | ForEach-Object { $_.ToLowerInvariant() }) |
+                Sort-Object -Unique
+        )
+        $expected = [pscustomobject][ordered]@{
+            SourceRecord = [string]$candidate.SourceRecord
+            SourceId = $sourceId
+            WorkflowSourceRecordId = $workflowId
+            SourceKind = [string]$candidate.SourceKind
+            SourcePath = [string]$candidate.SourcePath
+            SourceBytesSha256 = Get-SiSha256Hex -Bytes $recordBytes
+            ReviewType = $reviewType
+            Concern = $match.Groups['concern'].Value
+            Requirements = $requirements
+            Category = $categoryMap[$match.Groups['concern'].Value][$mapReview]
+            Severity = if ($severity -eq '-') { 'Med' } else { $severity }
+            Entry = ConvertTo-SiReceiptLedgerText -Text $match.Groups['body'].Value
+            Tags = $tags
+        }
+        if (-not [string]::Equals(
+                (ConvertTo-StableJson -Value $expected),
+                (ConvertTo-StableJson -Value $candidate),
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Phase receipt '$SourcePath' failed v2 candidate derivation."
+        }
+        $candidateBytes += [System.Text.Encoding]::UTF8.GetByteCount([string]$candidate.Entry)
+    }
+    if ($candidateBytes -gt 512KB -or
+        ($payload.status -eq 'empty') -ne ($candidates.Count -eq 0)) {
+        throw "Phase receipt '$SourcePath' has inconsistent v2 candidate state."
+    }
+}
+
 function Get-RemainingScanMilliseconds {
     $remaining = $maxScanSeconds - $stopwatch.Elapsed.TotalSeconds
     if ($remaining -le 0) {
@@ -364,21 +529,20 @@ function Get-PinnedPlanInventory {
     }
 
     $inventory = [System.Collections.Generic.List[object]]::new()
-    foreach ($rootPath in @('docs/implementation-plans/', 'docs/implementation-plans/archived/')) {
-        $treeLines = @(Invoke-GitLines -Root $Root -Argument @(
-            '-c', 'core.quotePath=false', 'ls-tree', '-d', '--full-tree', $CommitOid, '--', $rootPath
-        ) -MaximumLines $maxFiles)
-        foreach ($line in $treeLines) {
-            if ($line -notmatch '^040000 tree [0-9a-f]{40,64}\t(?<path>.+)$') {
-                throw "Pinned plan inventory contains a malformed tree result '$line'."
-            }
-            $relativePath = $Matches.path
+    $planFiles = @(Invoke-GitLines -Root $Root -Argument @(
+        '-c', 'core.quotePath=false', 'ls-tree', '-r', '--name-only', '--full-tree',
+        $CommitOid, '--', 'docs/implementation-plans'
+    ) -MaximumLines $maxFiles)
+    foreach ($planPath in $planFiles) {
+        if ($planPath -notmatch '^docs/implementation-plans/(?:(?:archived)/)?[^/]+/plan\.md$') {
+            continue
+        }
+            $relativePath = Split-Path -Parent $planPath
             $name = [System.IO.Path]::GetFileName($relativePath)
             $parsedFolder = ConvertFrom-PlanFolderName -FolderName $name
             if ($null -eq $parsedFolder) {
                 continue
             }
-            $planPath = "$relativePath/plan.md"
             $anchorId = if ($anchors.ContainsKey($planPath)) { $anchors[$planPath] } else { $null }
             $inventory.Add([pscustomobject]@{
                     Id           = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
@@ -399,7 +563,6 @@ function Get-PinnedPlanInventory {
             if ($inventory.Count -gt $maxFiles) {
                 throw "capacity-blocked: pinned plan inventory exceeds $maxFiles plans."
             }
-        }
     }
     return $inventory.ToArray()
 }
@@ -591,6 +754,9 @@ function ConvertTo-HarvestRecords {
             )
             if ($expected -ne [string]$receipt.receiptId) {
                 throw "Phase receipt '$SourcePath' failed its content-address check."
+            }
+            if ($receiptSchema -eq 'phase-harvest-receipt/v2') {
+                Assert-SiPhaseReceiptV2 -Receipt $receipt -SourcePath $SourcePath
             }
         }
         'ledger' {
@@ -1097,8 +1263,6 @@ foreach ($entry in $receiptEntries) {
         -MaxBytes 64KB -Entry $entry
 }
 
-$runsRoot = Resolve-SiStatePath -RepoRoot $repoRootFull `
-    -Segments @([string]$stateContract.Topology.ActiveRunsSegments[0])
 $stateRootRelative = (
     Get-RelativeHarvestPath -Root $repoRootFull -Path (Split-Path -Parent $manifestPath)
 ).TrimEnd('/') + '/'

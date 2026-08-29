@@ -1203,6 +1203,28 @@ function Get-PlanValidationDecision {
     }
 }
 
+function Assert-IntentReady {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Planning context asset not found: $Path"
+    }
+    $intent = (Get-Content -LiteralPath $Path -Raw) -replace "`r`n", "`n"
+    foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
+        $body = [regex]::Match(
+            $intent,
+            "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+        ).Groups['body'].Value
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+            throw "Intent section '$section' is missing or still contains a TBD placeholder."
+        }
+    }
+}
+
 function Get-PlanningContextDigest {
         <#
         .SYNOPSIS
@@ -1211,11 +1233,18 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        $assetArgs = @{ PlanDir = $PlanDir }
+        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
         foreach ($path in @($intentPath, $designPath)) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Planning context asset not found: $path"
@@ -1239,27 +1268,25 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
-        $intentPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Intent
-        $designPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind Design
+        $assetArgs = @{ PlanDir = $PlanDir }
+        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
         foreach ($path in @($intentPath, $designPath)) {
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Planning context asset not found: $path"
             }
         }
 
-        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-        foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
-            $body = [regex]::Match(
-                $intent,
-                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-            ).Groups['body'].Value
-            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                throw "Intent section '$section' is missing or still contains a TBD placeholder."
-            }
-        }
+        Assert-IntentReady -Path $intentPath
 
         $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
         foreach ($section in @('Components and boundaries', 'Program flow')) {
@@ -1288,7 +1315,11 @@ function Get-PlanningContextDigest {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [string]$PlanDir
+            [string]$PlanDir,
+
+            [string]$RepoRoot,
+
+            [object[]]$Inventory
         )
 
         $planFile = Join-Path $PlanDir 'plan.md'
@@ -1306,6 +1337,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $true
                 Marker      = $null
                 Digest      = $null
+                Reason      = $null
             }
         }
 
@@ -1317,6 +1349,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $marker
                 Digest      = $null
+                Reason      = 'The planning-confirmed marker is empty.'
             }
         }
 
@@ -1329,6 +1362,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = 'Planning confirmation is pending.'
             }
         }
 
@@ -1340,12 +1374,16 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = 'The planning-confirmed marker is malformed.'
             }
         }
         $expectedDigest = $Matches['digest']
 
         try {
-            $digest = Get-PlanningContextDigest -PlanDir $PlanDir
+            $assetArgs = @{ PlanDir = $PlanDir }
+            if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+            if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+            $digest = Get-PlanningContextDigest @assetArgs
         }
         catch {
             return [pscustomobject]@{
@@ -1355,6 +1393,7 @@ function Get-PlanningContextDigest {
                 CanProceed  = $false
                 Marker      = $normalized
                 Digest      = $null
+                Reason      = $_.Exception.Message
             }
         }
 
@@ -1366,6 +1405,7 @@ function Get-PlanningContextDigest {
             CanProceed  = $confirmed
             Marker      = $normalized
             Digest      = $digest
+            Reason      = if ($confirmed) { $null } else { 'Planning context changed after confirmation.' }
         }
     }
 
@@ -1653,28 +1693,23 @@ function Get-PhaseAdmission {
 
     if ($status -eq 'ready' -and -not $PlanningContext.CanProceed) {
         $status = if ($PlanningContext.Status -eq 'stale') { 'stale-input' } else { 'missing' }
-        $reason = "Planning context is '$($PlanningContext.Status)'."
+        $contextReason = if ($PlanningContext.PSObject.Properties['Reason'] -and
+            -not [string]::IsNullOrWhiteSpace([string]$PlanningContext.Reason)) {
+            " $($PlanningContext.Reason)"
+        }
+        else { '' }
+        $reason = "Planning context is '$($PlanningContext.Status)'.$contextReason"
     }
 
     if ($status -eq 'ready' -and $PlanningContext.Status -eq 'legacy') {
-        $intentPath = Resolve-PlanAssetPath -PlanDir $Plan.Path -Kind Intent
-        if (-not (Test-Path -LiteralPath $intentPath -PathType Leaf)) {
-            $status = 'missing'
-            $reason = "Intent asset not found: $intentPath"
+        try {
+            $intentPath = Resolve-PlanAssetPath -PlanDir $Plan.Path -Kind Intent `
+                -RepoRoot $RepoRoot -Inventory $Inventory
+            Assert-IntentReady -Path $intentPath
         }
-        else {
-            $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-            foreach ($section in @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done')) {
-                $body = [regex]::Match(
-                    $intent,
-                    "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-                ).Groups['body'].Value
-                if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                    $status = 'missing'
-                    $reason = "Intent section '$section' is missing or still contains a TBD placeholder."
-                    break
-                }
-            }
+        catch {
+            $status = 'missing'
+            $reason = $_.Exception.Message
         }
     }
 

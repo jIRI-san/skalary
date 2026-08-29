@@ -51,8 +51,9 @@ engine and is not a second harvest implementation.
 6. Run the review loop below with stage `phase-<N>` and invoke `@cr post-phase <phase-paths-or-branch>`. The profile is primary-model only; apply clear findings and re-run the focused phase checks before the next round.
 7. Rebuild the evidence receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
 8. Run the operator checkpoint below. Do not publish the immutable phase-harvest receipt until the
-   final Continue disposition has been captured; Revise returns to evidence and checkpoint work first.
-9. Invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
+   final Continue disposition has been captured; Revise returns to evidence and checkpoint work first,
+   and Stop ends the phase flow without invoking harvest.
+9. Only after recording **Continue**, invoke the installed `.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1` through a bound argument array with `-PlanDir <plan-folder> -Phase <N> -Src ci -RepoRoot .`. `complete` and `empty` are the only completion outcomes. Re-run the phase harvest when it returns `degraded` or `capacity-blocked`; if it remains unresolved, surface that status explicitly and stop phase completion. Finalization only replays receipts that already exist.
 10. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
 11. Fail phase completion if blocking criteria are unsatisfied.
 

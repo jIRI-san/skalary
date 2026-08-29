@@ -47,10 +47,12 @@ If it exits non-zero, stop immediately.
 
 ## Step 2: Plan state and next step (always)
 
-Surface deterministic state before any work:
+Surface deterministic state before any work. Invoke the production state command once in JSON mode,
+then render its progress, next-step, planning-context, and admission fields for the operator from that
+single result:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot .
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot . -Json
 ```
 
 **Epic references** return `Kind = epic`: child-plan rollup (complete/blocked counts, step totals) plus `NextChild` — the first child, in date/id order, that is neither complete nor blocked by an unmet `depends-on`. A child counts as complete when every step is `[x]` or its plan is archived, and dependency resolution is fail-closed: a `depends-on` token that resolves to no plan (or to several) blocks the child and is reported. If `NextChild` is empty, either every child is complete or a dependency is unresolvable — surface that to the user instead of starting arbitrary work. Re-run against the returned child id to get its plan state, then proceed.
@@ -66,8 +68,8 @@ For a plan reference, `Get-PlanState` reports progress (done/total, current phas
 
 ### Phase admission (read-only hard gate)
 
-Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization, invoke
-`Get-PlanState.ps1 -Json` exactly once and consume its `Admission` result. The CLI builds one
+Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization,
+consume the `Admission` result from the single state invocation above. The CLI builds one
 `Get-PlanInventory` snapshot and delegates the complete policy to `Get-PhaseAdmission`: dependency
 completion and resolution, first-incomplete-phase and `[after:]` eligibility, confirmed/legacy intent
 availability, and phase requirement mapping. Do not reconstruct any part of that policy in the skill.

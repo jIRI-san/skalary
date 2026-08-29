@@ -11,6 +11,7 @@ Describe 'Vertical implementation requirement loop' {
         $script:evidenceBuilder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $script:workflowNote = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
         $script:phaseHarvest = Join-Path $script:repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
+        $script:getPlanState = Join-Path $script:repoRoot 'scripts/skalary/Get-PlanState.ps1'
 
         function Set-AdmissionAssets {
             param(
@@ -144,15 +145,9 @@ flowchart TD
                 [Parameter(Mandatory)][string]$Reference
             )
 
-            $inventory = @(Get-PlanInventory -RepoRoot $Root)
-            $plan = Resolve-Plan -Reference $Reference -RepoRoot $Root -Inventory $inventory
-            $planFile = Join-Path $plan.Path 'plan.md'
-            $metadata = Get-PlanMetadata -Path $planFile -RepoRoot $Root
-            $markers = Get-PlanHeaderMarkers -Path $planFile
-            $next = Get-NextStep -Metadata $metadata
-            $planning = Get-PlanningContextState -PlanDir $plan.Path
-            return Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
-                -NextStep $next -PlanningContext $planning -Inventory $inventory -RepoRoot $Root
+            $json = & $script:getPlanState $Reference -RepoRoot $Root `
+                -HasUncommittedChanges:$false -Json
+            return $json | ConvertFrom-Json -Depth 10 | Select-Object -ExpandProperty Admission
         }
     }
 
@@ -175,7 +170,6 @@ flowchart TD
         $mutationStart | Should -BeGreaterThan $admissionStart
         $admissionText = $skill.Substring($admissionStart, $mutationStart - $admissionStart)
         foreach ($token in @(
-                'Get-PlanState.ps1 -Json',
                 'Get-PhaseAdmission',
                 'Admission.ApplicableRequirements',
                 'Admission.Reason',
@@ -187,7 +181,10 @@ flowchart TD
             )) {
             $admissionText | Should -Match ([regex]::Escape($token))
         }
+        $skill | Should -Match 'Get-PlanState\.ps1 <plan-or-epic-reference> -RepoRoot \. -Json'
         $admissionText | Should -Match 'Only `ready` permits'
+        @([regex]::Matches($skill, 'Get-PlanState\.ps1 <plan-or-epic-reference>')).Count |
+            Should -Be 1
 
         $ready = New-AdmissionFixture
         $before = Get-FixtureSnapshot -Root $ready.Root
@@ -272,6 +269,23 @@ $($header.TrimEnd())
         $earlier = Get-FixtureAdmission -Root $earlierPhase.Root -Reference 'def222'
         $earlier.Status | Should -Be 'blocked'
         $earlier.Reason | Should -Match 'Earlier phase step'
+
+        $notRepository = New-AdmissionFixture
+        {
+            & $script:getPlanState def222 -RepoRoot $notRepository.Root -Json
+        } | Should -Throw '*Unable to inspect the repository worktree*'
+
+        if (-not $IsWindows) {
+            $linked = New-AdmissionFixture
+            $externalIntent = Join-Path $linked.Root 'external-intent.md'
+            Move-Item -LiteralPath (Join-Path $linked.TargetDir 'assets/intent.md') `
+                -Destination $externalIntent
+            New-Item -ItemType SymbolicLink -Path (Join-Path $linked.TargetDir 'assets/intent.md') `
+                -Target $externalIntent | Out-Null
+            $confined = Get-FixtureAdmission -Root $linked.Root -Reference 'def222'
+            $confined.Status | Should -Be 'missing'
+            $confined.Reason | Should -Match 'escapes'
+        }
     }
 
     It 'test:VerticalLoop.EvidenceCrosscheck preserves truthful phase outcomes and blocks every unresolved result' {
@@ -344,6 +358,13 @@ $($header.TrimEnd())
         }
         $guide | Should -Match '(?s)Continue.+only when.+AllPassed.+no high-impact uncertainty'
         $guide | Should -Match '(?s)failed.+skipped.+stale.+unrun.+degraded.+offer Revise and Stop only'
+        $checkpoint = $guide.IndexOf('8. Run the operator checkpoint below.', [System.StringComparison]::Ordinal)
+        $continue = $guide.IndexOf('Only after recording **Continue**', [System.StringComparison]::Ordinal)
+        $harvest = $guide.IndexOf('Invoke-PhaseHarvest.ps1', $continue, [System.StringComparison]::Ordinal)
+        $checkpoint | Should -BeGreaterThan -1
+        $continue | Should -BeGreaterThan $checkpoint
+        $harvest | Should -BeGreaterThan $continue
+        $guide | Should -Match 'Stop ends the phase flow without invoking harvest'
 
         foreach ($status in @('failed', 'skipped', 'stale', 'unrun', 'degraded')) {
             $options = Get-PhaseCheckpointOptions -EvidenceStatus $status
@@ -398,10 +419,31 @@ Phase: 0
         $result.Status | Should -Be 'complete'
         $result.Candidates | Should -Be 1
         $result.Added | Should -Be 1
-        $receipt = Get-Content -LiteralPath (
-            Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-001.json'
-        ) -Raw | ConvertFrom-Json -Depth 12
+        $receiptPath = Join-Path $fixture.TargetDir 'assets/harvest-receipts/phase-001.json'
+        $receiptText = Get-Content -LiteralPath $receiptPath -Raw
+        $receipt = $receiptText |
+            ConvertFrom-Json -Depth 12
+        $receipt.schema | Should -Be 'phase-harvest-receipt/v2'
+        $receiptText | Should -Not -Match ([regex]::Escape($fixture.Root))
         $receipt.payload.repo | Should -Match '^path-sha256:[0-9a-f]{64}$'
         $receipt.payload.repo | Should -Not -Match ([regex]::Escape($fixture.Root))
+
+        $invalid = New-AdmissionFixture
+        $invalidLogs = Join-Path $invalid.TargetDir 'assets/logs'
+        New-Item -ItemType Directory -Path $invalidLogs -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $invalidLogs 'cr-log.md') -Encoding utf8NoBOM -Value @'
+## CR Capture
+Phase: 0
+
+No entries for this phase.
+'@
+        foreach ($kind in @('Learnings', 'Capture')) {
+            & $script:workflowNote -Kind $kind -PlanDir $invalid.TargetDir -RepoRoot $invalid.Root `
+                -Phase 1 | Out-Null
+        }
+        $refused = & $script:phaseHarvest -PlanDir $invalid.TargetDir -RepoRoot $invalid.Root `
+            -Phase 1 -Src autopilot
+        $refused.Status | Should -Be 'degraded'
+        $refused.Note | Should -Match 'Phase 0 is valid only for planning Capture'
     }
 }

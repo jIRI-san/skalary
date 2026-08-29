@@ -137,20 +137,21 @@ if ($PSBoundParameters.ContainsKey('HasUncommittedChanges')) {
     $dirty = [bool]$HasUncommittedChanges
 }
 else {
-    $dirty = $false
     try {
-        $status = & git -C $repoRootPath status --porcelain 2>$null
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace(($status -join ''))) {
-            $dirty = $true
+        $status = & git -C $repoRootPath status --porcelain 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "git status failed: $(($status -join ' ').Trim())"
         }
+        $dirty = -not [string]::IsNullOrWhiteSpace(($status -join ''))
     }
     catch {
-        $dirty = $false
+        throw "Unable to inspect the repository worktree: $($_.Exception.Message)"
     }
 }
 
 $next = Get-NextStep -Metadata $metadata -HasUncommittedChanges:$dirty
-$planningContext = Get-PlanningContextState -PlanDir $plan.Path
+$planningContext = Get-PlanningContextState -PlanDir $plan.Path -RepoRoot $repoRootPath `
+    -Inventory $inventory
 $admission = Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
     -NextStep $next -PlanningContext $planningContext -Inventory $inventory -RepoRoot $repoRootPath
 
