@@ -118,6 +118,21 @@
       ]
     },
     {
+      "id": "low-severity-elevation",
+      "roster": ["model-a", "model-b"],
+      "tasks": [
+        { "taskId": "security-a", "concern": "security", "model": "model-a", "outcome": "completed" },
+        { "taskId": "security-b", "concern": "security", "model": "model-b", "outcome": "completed" }
+      ],
+      "findings": [
+        { "taskId": "security-a", "severity": "Low", "title": "Low boundary first report", "body": "The first reviewer found the shared low-severity defect.", "action": "Repair the first low-severity path.", "rootCause": "low-boundary", "component": "src/low.ps1" },
+        { "taskId": "security-b", "severity": "Low", "title": "Low boundary second report", "body": "The second reviewer independently found the shared low-severity defect.", "action": "Repair the second low-severity path.", "rootCause": "low-boundary", "component": "src/low.ps1" }
+      ],
+      "expected": [
+        { "rootCause": "low-boundary", "supportCount": 2, "attendanceState": "clean", "similarity": "none", "corroborationState": "corroborated", "rawSeverity": "Low", "effectiveSeverity": "Medium", "needsReview": false, "elevated": true }
+      ]
+    },
+    {
       "id": "merged-severity-boundaries",
       "roster": ["model-a", "model-b"],
       "tasks": [

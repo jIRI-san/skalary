@@ -533,6 +533,7 @@ Describe 'review finding corroboration derivation' {
             'single-source',
             'incomplete-attendance',
             'malicious-echo',
+            'low-severity-elevation',
             'merged-severity-boundaries',
             'input-order-stability',
             'unchanged-clean-elevation'

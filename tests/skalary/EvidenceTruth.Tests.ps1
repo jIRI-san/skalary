@@ -420,6 +420,82 @@ Describe 'broken' {
         (Invoke-TestPlanFixture -PlanDir $planDir).ExitCode | Should -Be 0
     }
 
+    It 'test:EvidenceTruth.CleanReviewReceiptVetoes rejects missing or nonzero corroboration aggregates at every evidence entry point' {
+        $mutations = @(
+            @{
+                Name = 'nonzero raw severity'
+                Apply = { param($Receipt) $Receipt['findings']['rawSeverity']['medium'] = 1 }
+            }
+            @{
+                Name = 'nonzero corroboration'
+                Apply = { param($Receipt) $Receipt['findings']['corroboration']['corroborated'] = 1 }
+            }
+            @{
+                Name = 'nonzero similarity'
+                Apply = { param($Receipt) $Receipt['findings']['similarity']['none'] = 1 }
+            }
+            @{
+                Name = 'nonzero needs-review'
+                Apply = { param($Receipt) $Receipt['findings']['needsReview'] = 1 }
+            }
+            @{
+                Name = 'missing raw severity'
+                Apply = { param($Receipt) [void]$Receipt['findings'].Remove('rawSeverity') }
+            }
+            @{
+                Name = 'missing corroboration'
+                Apply = { param($Receipt) [void]$Receipt['findings'].Remove('corroboration') }
+            }
+            @{
+                Name = 'missing similarity'
+                Apply = { param($Receipt) [void]$Receipt['findings'].Remove('similarity') }
+            }
+            @{
+                Name = 'missing needs-review'
+                Apply = { param($Receipt) [void]$Receipt['findings'].Remove('needsReview') }
+            }
+        )
+        $applyMutation = {
+            param(
+                [Parameter(Mandatory)][string]$Path,
+                [Parameter(Mandatory)][scriptblock]$Apply
+            )
+
+            $receipt = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+            & $Apply $receipt
+            $receipt | ConvertTo-Json -Depth 10 -Compress |
+                Set-Content -LiteralPath $Path -Encoding utf8NoBOM
+        }
+
+        foreach ($mutation in $mutations) {
+            $cyclePlan = New-EvidencePlanFixture -Markers @('review:cr')
+            $cycleRunId = Write-CleanReviewResult -PlanDir $cyclePlan
+            & $applyMutation -Path (Join-Path $cyclePlan "reviews/$cycleRunId.receipt.json") `
+                -Apply $mutation.Apply
+            {
+                & $script:cycleGate -Action Record -PlanDir $cyclePlan -Phase 1 `
+                    -Stage plan-finalization -Outcome clean -ReviewRunId $cycleRunId `
+                    -RepoRoot $script:repoRoot
+            } | Should -Throw -Because "review-cycle recording must reject $($mutation.Name)"
+
+            $crosscheckPlan = New-EvidencePlanFixture -Markers @('review:cr')
+            $crosscheckRunId = Write-CleanReviewResult -PlanDir $crosscheckPlan
+            [void](& $script:cycleGate -Action Record -PlanDir $crosscheckPlan -Phase 1 `
+                    -Stage plan-finalization -Outcome clean -ReviewRunId $crosscheckRunId `
+                    -RepoRoot $script:repoRoot)
+            & $applyMutation -Path (Join-Path $crosscheckPlan "reviews/$crosscheckRunId.receipt.json") `
+                -Apply $mutation.Apply
+            {
+                & $script:builder -Result @([pscustomobject]@{
+                        Req = 'REQ-1'
+                        Marker = 'review:cr'
+                        Status = 'passed'
+                        ReviewRunId = $crosscheckRunId
+                    }) -Commit $script:head -PlanDir $crosscheckPlan -RepoRoot $script:repoRoot
+            } | Should -Throw -Because "plan crosscheck must reject $($mutation.Name)"
+        }
+    }
+
     It 'test:EvidenceTruth.InstalledParityAndDrift keeps canonical, bundled, and dogfood evidence code identical' {
         $comparisons = @(
             @('scripts/skalary/Build-EvidenceReceipt.ps1', 'plugins/continue-implementation/skills/ci/scripts/Build-EvidenceReceipt.ps1'),
