@@ -58,12 +58,14 @@ Describe 'Autopilot.ContainerOffline' {
             $entrypoint | Should -Match 'AUTOPILOT_OFFLINE'
         }
         It 'translates copilot exit 43 into a push then exit 43' {
-            $entrypoint | Should -Match 'EXIT_CODE\} -eq 43'
+            $entrypoint | Should -Match 'exit_code\}" -eq 43'
+            $entrypoint | Should -Match 'phase_dispatch_action "\$\{MODE\}" "\$\{EXIT_CODE\}" "\$\{CLOSE_STATE\}"'
             $entrypoint | Should -Match 'git push origin "\$\{WORK_BRANCH\}"'
             $entrypoint | Should -Match 'exit 43'
         }
         It 'keeps the existing exit-42 @human branch' {
-            $entrypoint | Should -Match 'EXIT_CODE\} -eq 42'
+            $entrypoint | Should -Match 'exit_code\}" -eq 42'
+            $entrypoint | Should -Match 'human-stop\|phase-failed'
         }
     }
 }

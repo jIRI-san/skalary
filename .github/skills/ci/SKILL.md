@@ -17,7 +17,7 @@ as `<canonical-id> <slug>`; commands may use only the id.
 
 1. Resolve a non-archived plan by hash prefix, legacy number, slug, or date through
    `Resolve-Plan`, then read `plan.md`. An epic id/slug is also valid: `Get-PlanState` (Step 2)
-   returns its rollup and `NextChild`. Use that child; never select one independently.
+   returns its rollup and `NextChild`. Do not pick a child yourself; use that result.
    `<!-- epic: <id> -->` is membership authority, while `epic.md` is generated.
 2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
 
@@ -33,8 +33,8 @@ as `<canonical-id> <slug>`; commands may use only the id.
 
    Never load the whole tree. Resolve every current or legacy asset with
    `Resolve-PlanAssetPath`. Intent is mandatory before each step and again at phase crosscheck.
-   If it is missing or any of its five sections remains `TBD`, stop and return the plan to
-   `/cip` instead of guessing.
+   If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder,
+   stop and return the plan to `/cip` instead of guessing.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
 4. If legacy loose plan files exist, detect them now but defer migration until the read-only phase admission in Step 2 returns `ready`. Then migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
