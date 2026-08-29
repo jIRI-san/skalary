@@ -224,6 +224,20 @@ Describe 'focused evidence' {
         $passed.ExitCode | Should -Be 0 -Because $passed.Output
         $passed.Result.results[0].status | Should -Be 'passed'
 
+        @'
+@{
+    Schema = 'skalary/suite-tier@1'
+    FastFocusedHardCeilingSeconds = 60
+    SlowHardCeilingSeconds = 600
+    CiSetupAllowanceSeconds = 60
+    DedicatedFiles = @()
+    SlowFiles = @('tests/Fixture.Tests.ps1')
+}
+'@ | Set-Content -LiteralPath (Join-Path $fixture 'tools/suite-tier.psd1') -Encoding utf8NoBOM
+        $slowOwned = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Pass')
+        $slowOwned.ExitCode | Should -Be 0 -Because $slowOwned.Output
+        $slowOwned.Result.results[0].status | Should -Be 'passed'
+
         Set-Content -LiteralPath (Join-Path $fixture 'tests/Fixture.Tests.ps1') -Value @'
 Describe 'broken' {
     It 'test:EvidenceTruth.Broken never loads' { $true | Should -BeTrue }

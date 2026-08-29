@@ -352,7 +352,7 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
                 if ($dedicatedSet.Contains($fullPath)) {
                     throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
                 }
-                if ($slowSet.Contains($fullPath) -and $TestName.Count -eq 0) {
+                if ($slowSet.Contains($fullPath) -and $TestName.Count -eq 0 -and -not $hasEvidenceIds) {
                     throw "Focused Fast requires -TestName when selecting a Slow-tier file: '$relativePath'."
                 }
                 $fullPath
