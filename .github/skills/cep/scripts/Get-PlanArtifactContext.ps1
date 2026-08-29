@@ -27,6 +27,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$RepoRoot,
 
+    [ValidateSet('Object', 'Json')]
+    [string]$Format = 'Object',
+
     [ValidateRange(1, 16MB)]
     [int]$MaxArtifactBytes = 128KB,
 
@@ -460,6 +463,40 @@ function Get-ArtifactSha256Digest {
     ).ToLowerInvariant()
 }
 
+function Get-NonNegativeReceiptInteger {
+    param(
+        [AllowNull()][object]$Value,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if ($null -eq $Value) {
+        throw "Finalized review receipt field '$Name' must be a non-negative integer."
+    }
+    $integerTypes = @(
+        [System.TypeCode]::Byte,
+        [System.TypeCode]::SByte,
+        [System.TypeCode]::Int16,
+        [System.TypeCode]::UInt16,
+        [System.TypeCode]::Int32,
+        [System.TypeCode]::UInt32,
+        [System.TypeCode]::Int64,
+        [System.TypeCode]::UInt64
+    )
+    if ([System.Type]::GetTypeCode($Value.GetType()) -notin $integerTypes) {
+        throw "Finalized review receipt field '$Name' must be a non-negative integer."
+    }
+    try {
+        $integer = [System.Convert]::ToInt64($Value, [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    catch {
+        throw "Finalized review receipt field '$Name' exceeds the supported integer range."
+    }
+    if ($integer -lt 0) {
+        throw "Finalized review receipt field '$Name' must be a non-negative integer."
+    }
+    return $integer
+}
+
 function Assert-FinalizedReviewReceipt {
     param(
         [Parameter(Mandatory)][string]$RunId,
@@ -508,8 +545,9 @@ function Assert-FinalizedReviewReceipt {
         'name', 'bytes', 'digest'
     )
     $expectedDigest = Get-ArtifactSha256Digest -Bytes $ReportBytes
+    $reportByteCount = Get-NonNegativeReceiptInteger -Value $report['bytes'] -Name 'report.bytes'
     if ([string]$report['name'] -cne $ReportName -or
-        [int64]$report['bytes'] -ne $ReportBytes.Length -or
+        $reportByteCount -ne $ReportBytes.Length -or
         [string]$report['digest'] -cne $expectedDigest) {
         throw 'Finalized review receipt does not match the report name, byte count, and digest.'
     }
@@ -522,8 +560,8 @@ function Assert-FinalizedReviewReceipt {
     if ($source.Contains('base')) { $sourceKeys += 'base' }
     if ($source.Contains('head')) { $sourceKeys += 'head' }
     Assert-ExactObjectKeys -Value $source -Name 'Finalized review source binding' -Expected $sourceKeys
-    if ([string]$source['digest'] -cnotmatch '^sha256:[0-9a-f]{64}$' -or
-        [int64]$source['pathCount'] -lt 0) {
+    $null = Get-NonNegativeReceiptInteger -Value $source['pathCount'] -Name 'source.pathCount'
+    if ([string]$source['digest'] -cnotmatch '^sha256:[0-9a-f]{64}$') {
         throw 'Finalized review receipt has invalid source metadata.'
     }
 
@@ -534,10 +572,8 @@ function Assert-FinalizedReviewReceipt {
     Assert-ExactObjectKeys -Value $attendance -Name 'Finalized review attendance' -Expected @(
         'completed', 'failed', 'timed-out', 'omitted', 'cancelled', 'pending'
     )
-    foreach ($value in $attendance.Values) {
-        if ([int64]$value -lt 0) {
-            throw 'Finalized review receipt attendance contains a negative count.'
-        }
+    foreach ($key in $attendance.Keys) {
+        $null = Get-NonNegativeReceiptInteger -Value $attendance[$key] -Name "attendance.$key"
     }
 
     $findings = $receipt['findings']
@@ -551,10 +587,13 @@ function Assert-FinalizedReviewReceipt {
     Assert-ExactObjectKeys -Value $findings['severity'] -Name 'Finalized review severity counts' -Expected @(
         'critical', 'high', 'medium', 'low'
     )
-    foreach ($value in @($findings['merged'], $findings['raw']) + @($findings['severity'].Values)) {
-        if ([int64]$value -lt 0) {
-            throw 'Finalized review receipt findings contain a negative count.'
-        }
+    foreach ($key in @('merged', 'raw')) {
+        $null = Get-NonNegativeReceiptInteger -Value $findings[$key] -Name "findings.$key"
+    }
+    foreach ($key in $findings['severity'].Keys) {
+        $null = Get-NonNegativeReceiptInteger `
+            -Value $findings['severity'][$key] `
+            -Name "findings.severity.$key"
     }
 }
 
@@ -597,7 +636,7 @@ $invalidInput = @($ids + $kinds + @($Relationship) | Where-Object {
 $combinationCount = [int64]$ids.Count * [int64]$kinds.Count
 if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or
     $relationshipError -or $combinationCount -gt $MaxCandidates) {
-    [pscustomobject][ordered]@{
+    $refusal = [pscustomobject][ordered]@{
         status       = 'refused'
         planId       = if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { $null }
         artifactKind = if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { $null }
@@ -615,6 +654,12 @@ if ($ids.Count -eq 0 -or $kinds.Count -eq 0 -or $invalidInput.Count -gt 0 -or
         else {
             "Selection exceeds the $MaxCandidates-candidate limit or contains an empty or overlong input."
         }
+    }
+    if ($Format -eq 'Json') {
+        ConvertTo-Json -InputObject @($refusal) -Depth 5
+    }
+    else {
+        $refusal
     }
     return
 }
@@ -659,6 +704,7 @@ foreach ($id in $ids) {
                     Path       = $entry.Path
                     IsArchived = [bool]$entry.IsArchived
                     Layout     = Get-PlanLayout -PlanDir $entry.Path
+                    InventoryEntry = $entry
                 }
             }
             catch {
@@ -683,7 +729,7 @@ foreach ($id in $ids) {
                 -Kind $artifactMap[$kind] `
                 -Layout $plan.Layout `
                 -RepoRoot $repoRootPath `
-                -Inventory $inventory
+                -Inventory @($plan.InventoryEntry)
 
             if ($kind -eq 'Reviews') {
                 $relativeRoot = ConvertTo-RepoRelativePath $resolvedPath
@@ -948,6 +994,7 @@ finally {
     }
 }
 
+$output = [System.Collections.Generic.List[object]]::new()
 foreach ($candidate in $candidates) {
     $candidate.PSObject.Properties.Remove('sourcePath')
     $candidate.PSObject.Properties.Remove('planPath')
@@ -955,5 +1002,11 @@ foreach ($candidate in $candidates) {
     $candidate.PSObject.Properties.Remove('stream')
     $candidate.PSObject.Properties.Remove('companionPath')
     $candidate.PSObject.Properties.Remove('companionStream')
-    $candidate
+    $output.Add($candidate)
+}
+if ($Format -eq 'Json') {
+    ConvertTo-Json -InputObject $output.ToArray() -Depth 5
+}
+else {
+    $output.ToArray()
 }

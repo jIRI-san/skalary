@@ -216,6 +216,20 @@ Describe 'Get-PlanArtifactContext' {
             $unsupportedRelationship.status | Should -Be 'refused'
             $unsupportedRelationship.content | Should -BeNullOrEmpty
 
+            $nativeJsonText = @(& pwsh `
+                    -NoProfile `
+                    -File $resolver `
+                    -RepoRoot $root `
+                    -PlanId a1b2c3 `
+                    -ArtifactKind Intent `
+                    -Relationship reuses `
+                    -Format Json) -join "`n"
+            $LASTEXITCODE | Should -Be 0
+            $nativeJson = @($nativeJsonText | ConvertFrom-Json -Depth 10)
+            $nativeJson.Count | Should -Be 1
+            $nativeJson[0].status | Should -Be 'accepted'
+            $nativeJson[0].content | Should -BeExactly 'asset-intent'
+
             $mixedOverflow = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Reviews -Relationship dependency -MaxCandidates 2)
             $mixedOverflow.Count | Should -BeLessOrEqual 2
             @($mixedOverflow.status) | Should -Contain 'refused'
@@ -266,7 +280,18 @@ Describe 'Get-PlanArtifactContext' {
             $oversizedReceipt.status | Should -Be 'oversized'
             $oversizedReceipt.content | Should -BeNullOrEmpty
 
-            foreach ($mutation in @('run-id', 'report-name', 'report-bytes', 'report-digest', 'extra-field')) {
+            foreach ($mutation in @(
+                    'run-id',
+                    'report-name',
+                    'report-bytes',
+                    'report-digest',
+                    'extra-field',
+                    'report-bytes-string',
+                    'source-count-fraction',
+                    'attendance-boolean',
+                    'findings-null',
+                    'severity-overflow'
+                )) {
                 $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
                 $receipt = Get-Content -LiteralPath $pair.ReceiptPath -Raw | ConvertFrom-Json -AsHashtable
                 switch ($mutation) {
@@ -275,6 +300,11 @@ Describe 'Get-PlanArtifactContext' {
                     'report-bytes' { $receipt['report']['bytes']++ }
                     'report-digest' { $receipt['report']['digest'] = 'sha256:' + ('0' * 64) }
                     'extra-field' { $receipt['extra'] = $true }
+                    'report-bytes-string' { $receipt['report']['bytes'] = [string]$receipt['report']['bytes'] }
+                    'source-count-fraction' { $receipt['source']['pathCount'] = 1.5 }
+                    'attendance-boolean' { $receipt['attendance']['completed'] = $true }
+                    'findings-null' { $receipt['findings']['merged'] = $null }
+                    'severity-overflow' { $receipt['findings']['severity']['low'] = 1e30 }
                 }
                 Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value (
                     $receipt | ConvertTo-Json -Depth 10 -Compress
@@ -512,6 +542,10 @@ Describe 'Get-PlanArtifactContext' {
 
         $consumerContracts = @(
             [pscustomobject]@{
+                Path = 'plugins/create-implementation-plan/skills/cip/SKILL.md'
+                InstalledResolver = '.github/skills/cip/scripts/Get-PlanArtifactContext.ps1'
+            }
+            [pscustomobject]@{
                 Path = 'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md'
                 InstalledResolver = '.github/skills/cip/scripts/Get-PlanArtifactContext.ps1'
             }
@@ -528,6 +562,9 @@ Describe 'Get-PlanArtifactContext' {
                 InstalledResolver = '.github/skills/dr/scripts/Get-PlanArtifactContext.ps1'
             }
         )
+        $closedRelationships = @(
+            'reuses', 'extends', 'supersedes', 'conflicts', 'dependency', 'sibling', 'operator-selected'
+        )
         foreach ($contract in $consumerContracts) {
             $text = Get-Content -LiteralPath (Join-Path $repoRoot $contract.Path) -Raw
             $text | Should -Match ([regex]::Escape($contract.InstalledResolver))
@@ -536,7 +573,17 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'architecture\s+contracts'
             $text | Should -Match 'remain\s+authoritative|cannot\s+override'
             $text | Should -Match 'one bounded invocation'
-            $text | Should -Match 'align(?:ing)? each\s+`Relationship` value with the `PlanId`'
+            $text | Should -Match 'align(?:ing)?\s+each\s+`Relationship`\s+value\s+with\s+the\s+`PlanId`'
+            $text | Should -Match '(?i)-Format Json'
+            $text | Should -Match '(?i)parse the returned JSON array'
+            foreach ($relationship in $closedRelationships) {
+                $text | Should -Match ([regex]::Escape($relationship))
+            }
+        }
+
+        $resolverText = Get-Content -LiteralPath $canonicalResolver -Raw
+        foreach ($relationship in $closedRelationships) {
+            $resolverText | Should -Match ("'" + [regex]::Escape($relationship) + "'")
         }
 
         foreach ($schemaName in @('review-plan.schema.json', 'review-run.schema.json')) {
