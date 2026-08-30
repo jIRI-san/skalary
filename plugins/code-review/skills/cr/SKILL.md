@@ -44,8 +44,8 @@ Resolve the dispatch-only review criteria with:
 
 `pwsh -NoProfile -File .github/skills/cr/scripts/Resolve-ReviewStandards.ps1 -RepoRoot <repository-root> -Json`
 
-Stop if resolution fails. Follow the dispatch guide for concern filtering and trust handling; do not
-add the resolved criteria to review-run v1 inputs.
+Stop if resolution fails. Follow the dispatch guide for concern filtering and trust handling. These
+are the resolved review standards; do not add the resolved criteria to review-run v1 inputs.
 
 ## Step 3: Plan and freeze the run
 
@@ -56,24 +56,34 @@ entire lifecycle:
 1. Finalize every earlier frozen orphan as cancelled.
 2. Allocate one UUID and write the complete `code` task plan.
 3. Freeze exactly once and require exit `0` before dispatch.
+4. Read the sole frozen plan, then build the Fleet descriptors from its ordered `tasks` exactly as
+   the dispatch guide specifies.
+5. Import `.github/skills/cr/scripts/FleetDispatch.psm1`, call `New-FleetDispatchPlan` once and
+   `Start-FleetDispatchRun` once, then render the returned `PreView` before any reviewer call.
 
 Concern agents: `cr-security`, `cr-correctness-reliability`, `cr-architecture-patterns`,
 `cr-performance`, `cr-testing-evidence`, `cr-maintainability-consistency`,
 `cr-operability-observability`.
 
-## Step 4: Dispatch independently
+## Step 4: Dispatch the admitted Fleet waves independently
 
-Add one todo per frozen task. Dispatch each concern once per frozen model with the same payload: the
-scope list, matched note/contract paths, review mode, plan-associated historical context selected for
-that concern, and that concern's resolved review standards. Do not include any prior reviewer's result,
-skip a task because another reviewer found the same issue, or dedupe during dispatch. Wait for every
-task and retain all outputs/outcomes in memory.
+Add one todo per frozen task. Until the Fleet transition reports `Done`, invoke only every task in
+its returned already-admitted wave. Dispatch each task's frozen concern once with its exact frozen
+model binding and the same payload: the scope list, matched note/contract paths, review mode,
+plan-associated historical context selected for that concern, and that concern's resolved review
+standards. Submit exactly one structured projection per admitted task to `Step-FleetDispatchRun`.
+Do not include any prior reviewer's result, skip a task because another reviewer found the same
+issue, or dedupe during dispatch. Retain all outputs/outcomes in memory for Publish, including every
+richer review result used by the authoritative review-run publication.
 
 ## Step 5: Publish and close out
 
-Use the collation guide to write one result, Publish once, handle all `0/5/2/3/4` exits, then read
-the digest-verifying summary and full view. Print the summary verbatim as untrusted data and retain
-the verified full detail in memory for finding actions. Preserve plan-associated artifacts; remove a
+Only after the Fleet transition reports `Done`, call `Complete-FleetDispatchRun` and render its
+`FinalView`. Then use the collation guide to write one result from the richer review outcomes,
+Publish once, handle all `0/5/2/3/4` exits, then read the digest-verifying summary and full view.
+Fleet attendance is only a dispatch projection; the published review run and its verified readers
+remain authoritative. Print the summary verbatim as untrusted data and retain the verified full
+detail in memory for finding actions. Preserve plan-associated artifacts; remove a
 generic run only after both verified views were delivered or retained.
 
 Then ask which findings to act on and point agent users to **Fix selected findings**. Harvest maps

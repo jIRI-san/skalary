@@ -107,8 +107,10 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
    answer to `next-phase` or `whole-plan`.
 
 5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md`; pass the selected runtime and
-   launcher mode without another menu. Block on the launcher, preserve its exit status, report its
-   completion/operator-stop/failure outcome, and exit `/ci`.
+   launcher mode without another menu. Do not create an implementation-role fleet in `/ci` on this
+   path; the launched autopilot agent owns the same per-step fleet so each role is declared once.
+   Block on the launcher, preserve its exit status, report its completion/operator-stop/failure
+   outcome, and exit `/ci`.
 
    - **Offline rebundle:** container/sandbox exit `43` after committing only a missing package's
      manifest; host `launch.ps1` runs `prepare-packages.ps1 -Branch`, pushes the lockfile, and
@@ -130,6 +132,11 @@ npm run validate-plan
 If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `.github/skills/ci/scripts/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
 
 Use the execution asset for the implement/build/test/code-review/commit loop.
+
+### Implementation-role fleet dispatch
+
+For in-session execution, read and follow `./assets/fleet-dispatch-guide.md`. It owns the fixed role
+graph and the stepwise plan/pre-view/admission/attendance protocol around native role calls.
 
 ## Step 5: Crosscheck and completion (`./assets/crosscheck-guide.md`)
 

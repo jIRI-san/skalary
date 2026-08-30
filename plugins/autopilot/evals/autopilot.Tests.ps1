@@ -50,4 +50,57 @@ Describe 'autopilot structural evals' {
             @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
         }
     }
+
+    It 'proves the autopilot Fleet source, installed payload, registry, and marketplace stay aligned' {
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'autopilot' `
+            -RelativePath @(
+            'agents/autopilot.agent.md',
+            'skills/autopilot/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/autopilot/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
+    }
+
+    It 'eval:FleetDispatch.Autopilot.ConsumerContract keeps the plan before calls and conserves the four-role graph and boundaries' {
+        $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
+
+        $relations = @(
+            @('Create the fleet only after', 'New-FleetDispatchPlan'),
+            @('Start-FleetDispatchRun', 'PreView'),
+            @('PreView', 'first native role call'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun')
+        )
+        foreach ($relation in $relations) {
+            Assert-EvalMarkerOrder -Text $agent -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($relations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerAgent = $agent.Replace($marker, '')
+            {
+                foreach ($relation in $relations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerAgent `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+
+        foreach ($id in @('ci-designer', 'ci-validator', 'ci-implementor', 'ci-judge')) {
+            @([regex]::Matches($agent, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |
+                Should -Be 1 -Because "$id must have one descriptor"
+        }
+        $agent | Should -Match 'Implementor owns the existing implementation, focused'
+        $agent | Should -Match 'Judge owns item 17 and starts only after Implementor completes'
+        $agent |
+            Should -Match 'Commit, push, phase review, harvest, and final promotion remain\s+authoritative outside'
+        $agent | Should -Match 'record attendance through the existing phase Capture path'
+        $agent | Should -Match 'Capture only closed task outcomes and counts'
+        $agent | Should -Match 'never copy task `Detail` or other host diagnostics'
+        $agent |
+            Should -Match 'adds no clone,\s+credential,\s+worktree,\s+container,\s+promotion,\s+review,\s+or persistence mechanism'
+    }
 }

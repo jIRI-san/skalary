@@ -16,3 +16,26 @@ Phase: 0
 - [0.13] [src:note] dr: round 5 collapsed 102 duplicate-heavy findings into nine blocker groups and repaired ABI, write, ledger, map, activation, evidence, clone, host, and review authorities; injection finding dismissed as wrapper false positive
 - [0.14] [src:note] dr: round 6 resolved shared transaction ownership, atomic admission, derived clone escrow, terminal global-budget split, compact capture pointers, bounded activation recovery, and human Active-receipt finalization
 - [0.15] [src:note] operator: stopped the review loop and reset plan 8a0644 to a simple run-scoped dispatcher; signing, host attestation, durable ledgers, clone quarantine, and activation infrastructure are explicit non-goals
+
+## Capture
+Phase: 1
+
+No entries for this phase.
+
+## Capture
+Phase: 2
+
+No entries for this phase.
+
+## Capture
+Phase: 3
+
+- [3.1] [src:note] [concern:testing-evidence] [req:REQ-6,REQ-8] [review:none] [source-record:fc84cec170887a44a8582204690081ad8c3e4af7af1e6301f08fec63c500601d] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0.
+- [3.2] [src:note] [concern:testing-evidence] [req:REQ-7,REQ-8] [review:none] [source-record:7d8041287b8dde3f54a6ab7259200736004b9cd4aee7654e34c7d421c33b8f3a] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0.
+
+## Capture
+Phase: 4
+
+- [4.1] [src:note] [concern:testing-evidence] [req:REQ-4,REQ-5,REQ-6,REQ-7,REQ-8] [review:none] [source-record:51fd81415a1e0f815de93c950f49b0a78bcdfb8fad8495908bc060835446de99] Fleet attendance degraded: planned=4; started=4; completed=3; failed=1; retried=0; cancelled=0. Judge blocked REQ-8 and RISK-5 because the create-implementation-plan payload changed without a plugin version bump and regenerated catalog metadata.
+- [4.1] [src:note] [concern:testing-evidence] [req:REQ-4,REQ-5,REQ-6,REQ-7,REQ-8] [review:none] [source-record:15dc21b6ecdcc241cc8f397e4321ec503437073a30e8052d35f668587bea3e6b] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0.
+- [4.2] [src:note] [concern:testing-evidence] [req:REQ-1,REQ-2,REQ-3,REQ-4,REQ-5,REQ-6,REQ-7,REQ-8] [review:none] [source-record:a4341df0e2ac3c18387df7d6e6d431c51014f0432ff3e156cf3a4afa892d09c4] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0. Focused Fleet evidence passed 8/8, structural evals 105/105, and dedicated review-consumer checks 2/2.

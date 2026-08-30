@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T19:04:12.4826847Z",
+  "generatedAt": "2026-08-30T20:12:13.7059911Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "b99232cbfe85df1370b4f08ccd1da6f9642f4636a3f760451d65520dc834b8ff",
+          "sha256": "b79fd5885ad37193accb20f08a5a0482f116b639546cdabf87adb44e375561e6",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -226,6 +226,11 @@
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
         },
         {
+          "dest": "skills/autopilot/scripts/FleetDispatch.psm1",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
+          "src": "skills/autopilot/scripts/FleetDispatch.psm1"
+        },
+        {
           "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
           "sha256": "592ed31becda3f8720e6a2797d0cbe92af65420180dd3cb60b96e090f9af30b9",
           "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
@@ -264,6 +269,11 @@
           "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
           "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
           "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/autopilot/scripts/SecretGuard.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
@@ -366,7 +376,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.61"
+      "version": "1.2.70"
     },
     {
       "author": "jIRI-san",
@@ -428,7 +438,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "82525f94f2eeed7f7b5360ded932dea61ae893fd034a01553394ce1f9ee43578",
+          "sha256": "2e73e189260fb78fac96fdd428421b64e7e777f33fbb7b184b93a7068328b2c4",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -443,7 +453,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
+          "sha256": "73716b553abd574d2c6eed0ce7472ff6379df26f0015a3a9b108927deca439b5",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -470,6 +480,11 @@
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/FleetDispatch.psm1",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
+          "src": "skills/cr/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -518,7 +533,7 @@
         },
         {
           "dest": "skills/cr/scripts/SecretGuard.psm1",
-          "sha256": "8909210ed9934e27a095320ee1f48dd51eaca432b63685bc1fc083e165898d3e",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cr/scripts/SecretGuard.psm1"
         },
         {
@@ -560,7 +575,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.55"
+      "version": "1.0.62"
     },
     {
       "author": "jIRI-san",
@@ -575,7 +590,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "55d9e2c24683925509d1cc2e6104443d1f31cb6d803346c2ecb1967c185e6f9b",
+          "sha256": "8bb5ccaec47fd66cf264d3e9a6aebd346a5e279ff1762e00e03d03b87ec9f3f6",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -587,6 +602,11 @@
           "dest": "skills/ci/assets/execution-guide.md",
           "sha256": "a5fed3f16b17cedd2c26fca272a23ee474778f7a2bc3436b4da7788f9b868d0f",
           "src": "skills/ci/assets/execution-guide.md"
+        },
+        {
+          "dest": "skills/ci/assets/fleet-dispatch-guide.md",
+          "sha256": "098fb288a012c1edf56c4a8283041e285521726377ec87f7eab8afd8425525c7",
+          "src": "skills/ci/assets/fleet-dispatch-guide.md"
         },
         {
           "dest": "skills/ci/scripts/Add-LedgerEntry.ps1",
@@ -607,6 +627,11 @@
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
           "sha256": "ab1bb0fbea4724d192cdebdd17b58150f1db3f3d47ff5b0b195c45f3e6ce0111",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/FleetDispatch.psm1",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
+          "src": "skills/ci/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/ci/scripts/Get-PlanState.ps1",
@@ -652,6 +677,11 @@
           "dest": "skills/ci/scripts/ReviewResultReceipt.psm1",
           "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
           "src": "skills/ci/scripts/ReviewResultReceipt.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/ci/scripts/SecretGuard.psm1"
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
@@ -740,7 +770,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.84"
+      "version": "1.0.93"
     },
     {
       "author": "jIRI-san",
@@ -759,7 +789,7 @@
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "2acaff0a25856971c2576611815e595fcaa149006db6e5c6aec8e7035fa0ed77",
+          "sha256": "ebb7c1255b2fb9edb4c83bd0a70a590d0af607d3b1b9f638e4be254915cef46f",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -814,7 +844,7 @@
         },
         {
           "dest": "skills/cep/scripts/SecretGuard.psm1",
-          "sha256": "8909210ed9934e27a095320ee1f48dd51eaca432b63685bc1fc083e165898d3e",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cep/scripts/SecretGuard.psm1"
         },
         {
@@ -829,7 +859,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "e2fbfd5355c981712e1784a25130a2d21b87c7415f84e9f7426b73ea85b8c976",
+          "sha256": "95d47d505a6652b0cb587e79ec2674bdf02b4680782d82d960bcba4cd6fb2a94",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -846,6 +876,11 @@
           "dest": "skills/cip/assets/drafting-guide.md",
           "sha256": "8f848fe368fb6b717126b21cd1049edd2da54e1cc471764f1256366fcbfa2f4d",
           "src": "skills/cip/assets/drafting-guide.md"
+        },
+        {
+          "dest": "skills/cip/assets/fleet-dispatch-guide.md",
+          "sha256": "7c0eec091636e4ee2c7b34cad73a0ae140de5203b46b8a3755d69f1d3f1e343e",
+          "src": "skills/cip/assets/fleet-dispatch-guide.md"
         },
         {
           "dest": "skills/cip/assets/intent-template.md",
@@ -876,6 +911,11 @@
           "dest": "skills/cip/scripts/AtomicStore.psm1",
           "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/cip/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/FleetDispatch.psm1",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
+          "src": "skills/cip/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -919,7 +959,7 @@
         },
         {
           "dest": "skills/cip/scripts/SecretGuard.psm1",
-          "sha256": "8909210ed9934e27a095320ee1f48dd51eaca432b63685bc1fc083e165898d3e",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cip/scripts/SecretGuard.psm1"
         },
         {
@@ -956,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.68"
+      "version": "1.0.78"
     },
     {
       "author": "jIRI-san",
@@ -1088,7 +1128,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3b8298a08202d67458c313c8647d5b2297e3d351f18570fb187c86dc41b18087",
+          "sha256": "4565e193ee99b7969df193407f294dd735464313e49c72dba3d320a9833b0a4c",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1103,7 +1143,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
+          "sha256": "73716b553abd574d2c6eed0ce7472ff6379df26f0015a3a9b108927deca439b5",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -1125,6 +1165,11 @@
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/FleetDispatch.psm1",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
+          "src": "skills/dr/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -1173,7 +1218,7 @@
         },
         {
           "dest": "skills/dr/scripts/SecretGuard.psm1",
-          "sha256": "8909210ed9934e27a095320ee1f48dd51eaca432b63685bc1fc083e165898d3e",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/dr/scripts/SecretGuard.psm1"
         },
         {
@@ -1215,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.54"
+      "version": "1.0.61"
     },
     {
       "author": "jIRI-san",

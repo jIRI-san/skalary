@@ -18,7 +18,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 | Runtime and execution-extent selection | `/ci` | Presents the runtime menu, then explicit One phase / Whole plan |
 | Autonomous handoff | skill | Accepts the selected runtime/mode; asks only for container/sandbox start branch |
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
-| Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop |
+| Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 

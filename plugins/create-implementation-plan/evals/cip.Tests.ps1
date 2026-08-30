@@ -58,4 +58,94 @@ Describe 'cip structural evals' {
             }
         }
     }
+
+    It 'proves the CIP Fleet source, installed payload, registry, and marketplace stay aligned' {
+        $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw |
+            ConvertFrom-Json -Depth 50
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'create-implementation-plan' `
+            -RelativePath @(
+            'skills/cip/SKILL.md',
+            'skills/cip/assets/fleet-dispatch-guide.md',
+            'skills/cip/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/cip/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
+    }
+
+    It 'eval:FleetDispatch.CIP.ConsumerContract keeps the plan before native calls and conserves each declared role' {
+        $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/SKILL.md') -Raw
+        $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/assets/fleet-dispatch-guide.md') -Raw
+
+        $skillRelations = @(, @('After the intent checkpoint is confirmed', 'Planning-role fleet dispatch'))
+        $guideRelations = @(
+            @('New-FleetDispatchPlan', 'Start-FleetDispatchRun'),
+            @('PreView', 'Invoke only'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun'),
+            @('Complete-FleetDispatchRun', 'FinalView')
+        )
+        foreach ($relation in $skillRelations) {
+            Assert-EvalMarkerOrder -Text $skill -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($relation in $guideRelations) {
+            Assert-EvalMarkerOrder -Text $guide -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($skillRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '')
+            {
+                foreach ($relation in $skillRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+        foreach ($marker in @($guideRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerGuide = $guide.Replace($marker, '')
+            {
+                foreach ($relation in $guideRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerGuide `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+
+        foreach ($id in @('cip-designer', 'cip-requirements-validator', 'cip-judge')) {
+            @([regex]::Matches($guide, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |
+                Should -Be 1 -Because "$id must have one descriptor"
+        }
+        $guide | Should -Match 'Judge completed'
+        $guide | Should -Match 'explicit-throttle retry'
+        $guide | Should -Match 'does not replace a role prompt, change its tool set, or select another model'
+        $guide | Should -Match 'record attendance\s+through the existing Capture writer'
+        $guide | Should -Match 'Capture only\s+closed task outcomes and counts'
+        $guide | Should -Match 'never copy task `Detail` or other host diagnostics'
+    }
+
+    It 'keeps the CEP epic-review handoff installed but explicitly inactive' {
+        $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw |
+            ConvertFrom-Json -Depth 50
+        $source = Join-Path $pluginRoot 'skills/cep/assets/decomposition-guide.md'
+        $installed = Join-Path $script:repoRoot '.github/skills/cep/assets/decomposition-guide.md'
+        $guide = Get-Content -LiteralPath $source -Raw
+
+        (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
+            Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+        @($manifest.files | Where-Object {
+                [string]$_.dest -eq 'skills/cep/scripts/FleetDispatch.psm1'
+            }).Count | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $script:repoRoot '.github/skills/cep/scripts/FleetDispatch.psm1') |
+            Should -BeFalse
+        $guide | Should -Match 'Epic-review extension handoff \(inactive\)'
+        $guide | Should -Match 'activates\s+nothing in the current `/cep`'
+        $guide | Should -Match '25aa23 epic-coherency-review'
+        $guide | Should -Match 'remains the owner'
+        $guide | Should -Not -Match 'Import\s+.*FleetDispatch\.psm1'
+    }
 }

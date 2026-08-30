@@ -90,6 +90,13 @@ module owns validation, attendance, canonical JSON, rendering, and manifest-last
 after verified summary delivery. Exit `3` is terminal for its UUID and starts a narrower-scope run,
 never a lossy same-ID retry.
 
+After Freeze, each review skill imports its own installed
+`skills/<review>/scripts/FleetDispatch.psm1` sibling and projects the frozen tasks without changing
+their ids, order, model bindings, or review-run authority. The shared CR/DR dispatch guide therefore
+names only the active skill's sibling; the owning `SKILL.md` supplies the exact `cr` or `dr` path so
+the bundler cannot infer a cross-plugin payload. Structural evals pin source/dogfood bytes, manifest,
+registry, and marketplace parity together with Freeze-before-call and Publish-after-attendance order.
+
 The installed writer requires consumer-provisioned PowerShell 7.6+ for native draft-2020-12
 `Test-Json -SchemaFile`; there is no vendored validator fallback. Structural `eval:ReviewReport.*`
 cases prove the installed caller contract, ordinary `test:ReviewReport.*` cases prove deterministic
@@ -125,6 +132,13 @@ steer the active review remains a Critical injection finding.
 - `Repair-Plans.ps1` — on-demand legacy loose-file migration (`-WhatIf`, idempotent, preserves `depends-on`/worktree/`plan-id`).
 
 **Script distribution:** `scripts/skalary/` is the single source of truth and a dogfood/dev convenience (npm aliases run it in-repo), but installed skills cannot rely on it being present in a foreign repo. `Sync-PluginScripts.ps1` bundles each script a `ci`/`cip` skill invokes (plus its `PlanState.psm1`/`PlanEvidence.psm1` module closure) into that plugin's payload, so install copies them under `.github/skills/<skill>/scripts/` and the skills reference that installed path. Duplication across plugins is intentional (independent install + versioning); a shared script edit therefore patch-bumps every bundling plugin's version automatically when `Sync-PluginScripts.ps1` re-copies the bundle, and a stale bundle fails the `-WhatIf` drift gate in `scripts/validate.ps1`. (The autopilot agent still invokes these scripts from the repo-root `scripts/skalary/` path — it runs inside a checked-out repo — and bundling it is a tracked follow-up.) See plugin-registry.design.md → Skill Script Bundling.
+
+`FleetDispatch.psm1` follows that same root-canonical rule for CIP, CI, autopilot, CR, and DR.
+Each consumer imports only its installed sibling. Their structural evals prove the plan/pre-view
+precedes native role or reviewer calls, descriptor ids are conserved, and existing operator,
+implementation, promotion, review publication, and inactive CEP handoff boundaries remain outside
+the adapter. CEP receives only the installed decomposition-guide handoff: it has no Fleet module
+mapping or activation.
 
 **Plan naming + identity:** new plans live in `docs/implementation-plans/<epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug>/`; existing unprefixed hash folders remain readable. The `<!-- plan-id: <6hex> -->` anchor is the canonical handle — date, slug, and hash-prefix all resolve to it via `Resolve-Plan`, so the navigational prefix never becomes identity. Legacy `NNN-<slug>` folders still resolve (dual-format) everywhere.
 
@@ -181,8 +195,19 @@ The writing-style template mirrors this repo's `docs/design-notes/project/design
 
 ## Plugin Eval Workflow
 
-Plugin payload checks are run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`. Structural checks always run; LLM checks require `-IncludeLlm` and are intentionally out of the CI gate (`npm test`/`validate.ps1`).
+Plugin payload checks run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`.
+This always-on Tier-1 structural gate is separate from `npm test` / `validate.ps1`.
 
-Tier-2 (`-IncludeLlm`) reads a gitignored `.eval.config.json`. On the first run, a missing config is **bootstrapped** from the committed `.eval.config.json.example`; the scaffolded copy keeps the `<slug>` placeholder, so that run skips (stays green) with a note to fill in `judgeModel` (and optional `credentialTarget`) and re-run. Auth follows the autopilot pattern: set `credentialTarget` to a Windows Credential Manager target holding a dedicated eval PAT (e.g. `copilot-eval`, kept separate from `copilot-autopilot`), or leave it unset to use ambient `copilot` auth. Missing config/auth/credential is always a skip, never a failure.
+Tier-2 is the opt-in waza workflow: `npm run eval:llm` calls
+`scripts/skalary/Invoke-WazaEvals.ps1`, provisions the checksum-pinned toolchain through
+`Ensure-EvalTools.ps1`, discovers `plugins/<name>/evals/waza/eval.yaml`, and runs functional and
+declared adversarial modes as separate signals. Optional `-Plugin`, `-Case`, `-ChangedOnly`,
+`-Quick`, and `-Approve` switches are available when invoking the script directly. Models, judges,
+trials, and timeouts come from each waza spec; legacy `.eval.config.json` tuning fields do not
+configure waza.
 
-Each run writes a timestamped folder under `tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/` (gitignored) holding `report.json`, a human-readable `report.md`, and any Tier-2 transcripts. Override the parent with `-OutputRoot`.
+`Resolve-EvalToken.ps1` resolves auth in the order `gh auth token` → ambient token →
+Credential Manager fallback. Adversarial mode accepts only the short-lived `gh` OAuth source;
+durable ambient or Credential Manager PATs are excluded. A requested run that executes zero evals
+is non-green. Output is report-only under the gitignored
+`tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/`; no registry, manifest, or receipt writeback occurs.

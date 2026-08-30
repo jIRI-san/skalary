@@ -50,4 +50,77 @@ Describe 'ci structural evals' {
             @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
         }
     }
+
+    It 'proves the CI Fleet source, installed payload, registry, and marketplace stay aligned' {
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'continue-implementation' `
+            -RelativePath @(
+            'skills/ci/SKILL.md',
+            'skills/ci/assets/fleet-dispatch-guide.md',
+            'skills/ci/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/ci/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
+    }
+
+    It 'eval:FleetDispatch.CI.ConsumerContract keeps the in-session plan before calls and conserves the four-role graph' {
+        $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/SKILL.md') -Raw
+        $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/assets/fleet-dispatch-guide.md') -Raw
+
+        $skillRelations = @(, @('phase admission', 'Implementation-role fleet dispatch'))
+        $guideRelations = @(
+            @('New-FleetDispatchPlan', 'Start-FleetDispatchRun'),
+            @('PreView', 'Invoke only'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun')
+        )
+        foreach ($relation in $skillRelations) {
+            Assert-EvalMarkerOrder `
+                -Text $skill `
+                -BeforeMarker $relation[0] `
+                -AfterMarker $relation[1] `
+                -Comparison OrdinalIgnoreCase
+        }
+        foreach ($relation in $guideRelations) {
+            Assert-EvalMarkerOrder -Text $guide -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($skillRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '', [System.StringComparison]::OrdinalIgnoreCase)
+            {
+                foreach ($relation in $skillRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1] `
+                        -Comparison OrdinalIgnoreCase
+                }
+            } | Should -Throw
+        }
+        foreach ($marker in @($guideRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerGuide = $guide.Replace($marker, '')
+            {
+                foreach ($relation in $guideRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerGuide `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+
+        foreach ($id in @('ci-designer', 'ci-validator', 'ci-implementor', 'ci-judge')) {
+            @([regex]::Matches($guide, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |
+                Should -Be 1 -Because "$id must have one descriptor"
+        }
+        $guide | Should -Match 'Implementor runs the existing edit, focused build/test, formatting, design-note, and fix loop only'
+        $guide | Should -Match 'Judge validates acceptance only after Implementor completes'
+        $guide | Should -Match 'Commit and phase promotion remain outside dispatch'
+        $guide | Should -Match 'adds no clone,\s+credential,\s+worktree,\s+container'
+        $guide | Should -Match 'record attendance\s+through the existing Capture path'
+        $guide | Should -Match 'Capture only closed task outcomes and counts'
+        $guide | Should -Match 'other host diagnostics into model-facing workflow context'
+        $skill | Should -Match 'Do not create an implementation-role fleet in `/ci` on this\s+path'
+    }
 }

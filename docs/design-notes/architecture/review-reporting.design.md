@@ -716,8 +716,10 @@ known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1`
 low-level resolver is auto-approved because the adapter cannot bind the installed sibling closure's
 bytes. The adapter bounds and terminates its isolated resolver process, requires exit zero and
 top-level array JSON, validates the closed public shape, and applies the shared secret guard before it
-emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. Accepted metadata
-outside the frame omits content, so historical bytes occur only once in adapter output. A detected
+emits accepted complete-result JSON inside the standard untrusted-content framing. Direct plan excerpts
+and repository-local standards instead use a compact `skalary/untrusted-review-content@1` JSON object
+with serializer-owned string escaping and no raw duplicate or fixed sentinel delimiter. Accepted metadata
+outside the structured content omits content, so historical bytes occur only once in adapter output. A detected
 artifact becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
 interpolated into instructions. Deterministic
 plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`
@@ -741,6 +743,23 @@ CR and DR share one lifecycle asset: finalize frozen orphans as cancelled, Freez
 matrix before dispatch, dispatch independently with no prior-result priming or suppression, retain
 results in memory, Publish once, then read through the digest-verifying reader. Plan runs preserve
 their manifest and generations; generic runs use the cleanup helper only after summary delivery.
+
+After successful Freeze, the callers project the exact ordered frozen task set into Fleet dispatch:
+every task is selected, keeps its frozen id and model binding, and has no dependency. New and Start
+run once; the pre-view precedes reviewer calls, only returned already-admitted waves run, each task
+submits one structured dispatch outcome, and Complete/final-view precede Publish. Explicit structured
+throttling alone retries once as the same task. Other review terminals project to Fleet failure while
+their richer outcomes remain the Publish inputs. Fleet attendance is invocation-local projection,
+never a review schema or persisted authority; Publish and verified Summary/Full rendering remain
+authoritative.
+
+Both review plugin manifests include their own generated Fleet module. The byte-identical shared
+dispatch guides refer only to the active installed skill's sibling, while each owning `SKILL.md`
+names its exact `cr` or `dr` path. This keeps `Sync-PluginScripts.ps1` from discovering a foreign
+review root and producing cross-plugin bundles. CR/DR structural evals require the source, dogfood,
+manifest, registry, and marketplace representations to agree; they also pin Freeze before Fleet
+planning, pre-view before reviewer calls, exact frozen id/count conservation, Complete before
+Publish, and the unchanged review-run publication boundary.
 
 The lifecycle remains shared while model policy differs by review type. DR dispatches its two-model
 roster on every round; iterative DR callers stop after three rounds by default. CR reads its role

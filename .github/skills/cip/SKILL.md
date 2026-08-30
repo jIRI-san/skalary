@@ -68,17 +68,25 @@ context: fork
 
 1. Follow the full question bank and the three ordered confirmation checkpoints from the interview asset, beginning with the `intent` gate.
 2. **Intent checkpoint:** capture operator intent first in the layout-resolved `assets/intent.md` (or legacy root `intent.md`). Rephrase all five sections, read them back together, and revise until the operator confirms them. Preserve preliminary `/cep` wording across authored assets and preserve their **Epic discussion provenance** while refining them; never reset them to scaffold templates. `/cip` owns child requirements, risks, evidence, and steps; `/cep` never writes those sections.
-3. **Domain/design checkpoint:** write the layout-resolved domain and design assets, rephrase the important boundaries and uncertainty, and revise until the operator approves the concise Mermaid-backed design. Use `./assets/design-template.md`; call stacks are optional and included only when they clarify control flow.
-4. Build a provisional MVP-first vertical outline that routes every requirement through usable increments to the complete outcome. This outline is interview material, not the detailed plan.
-5. **Final pre-draft checkpoint:** present the confirmed intent, approved design, decisions, uncertainty, rejected alternatives, and provisional vertical outline. Revise the affected asset and repeat the affected checkpoint on correction.
-6. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
+3. After the intent checkpoint is confirmed, run the planning-role dispatch below. Apply its accepted
+   advice through the existing checkpoints and script-owned mutations; role tasks do not bypass
+   operator confirmation or write lifecycle markers.
+4. **Domain/design checkpoint:** write the layout-resolved domain and design assets, rephrase the important boundaries and uncertainty, and revise until the operator approves the concise Mermaid-backed design. Use `./assets/design-template.md`; call stacks are optional and included only when they clarify control flow.
+5. Build a provisional MVP-first vertical outline that routes every requirement through usable increments to the complete outcome. This outline is interview material, not the detailed plan.
+6. **Final pre-draft checkpoint:** present the confirmed intent, approved design, decisions, uncertainty, rejected alternatives, and provisional vertical outline. Revise the affected asset and repeat the affected checkpoint on correction.
+7. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage scaffolded -ConfirmPlanningContext
    ```
 
    On resume, pass the plan's current stage instead of `scaffolded`. The marker binds the current intent and design; either asset changing makes `Get-PlanState` report `stale` until the affected checkpoint is repeated and the marker is refreshed.
-7. Do not allow unresolved architecture, placeholder context, or evidence-less requirements.
+8. Do not allow unresolved architecture, placeholder context, or evidence-less requirements.
+
+### Planning-role fleet dispatch
+
+Read and follow `./assets/fleet-dispatch-guide.md`. It owns the fixed role graph and the stepwise
+plan/pre-view/admission/attendance protocol used around native role calls.
 
 ## Step 3: Draft plan (`./assets/drafting-guide.md` + template)
 

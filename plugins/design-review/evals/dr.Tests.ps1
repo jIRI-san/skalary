@@ -121,4 +121,54 @@ Describe 'dr structural evals' {
     It 'eval:ReviewReport.DR.BoundedRetry permits only corrected exit-4 retry and terminal exit-3 restart' {
         Test-ReviewRunStructuralInvariant -Context $script:reviewRun -Invariant BoundedRetry | Should -BeTrue
     }
+
+    It 'proves the DR Fleet source, installed payload, registry, and marketplace stay aligned' {
+        $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
+            ConvertFrom-Json -Depth 50
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $script:pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'design-review' `
+            -RelativePath @(
+            'skills/dr/SKILL.md',
+            'skills/dr/assets/dispatch-guide.md',
+            'skills/dr/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/dr/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
+    }
+
+    It 'eval:FleetDispatch.DR.ConsumerContract keeps Freeze and planning before calls while conserving frozen task authority' {
+        $skill = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/dr/SKILL.md') -Raw
+        $guide = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/dr/assets/dispatch-guide.md') -Raw
+
+        $relations = @(
+            @('Freeze exactly once', 'New-FleetDispatchPlan'),
+            @('PreView', 'reviewer call'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun'),
+            @('Complete-FleetDispatchRun', 'Publish once')
+        )
+        foreach ($relation in $relations) {
+            Assert-EvalMarkerOrder -Text $skill -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($relations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '')
+            {
+                foreach ($relation in $relations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+
+        $skill | Should -Match '\.github/skills/dr/scripts/FleetDispatch\.psm1'
+        $guide | Should -Not -Match '\.github/skills/(?:cr|dr)/scripts/FleetDispatch\.psm1'
+        $guide | Should -Match 'selected Fleet ids to equal the frozen task ids exactly and uniquely'
+        $guide | Should -Match 'Fleet planned count to equal the frozen count'
+        $guide | Should -Match 'Do not add Fleet attendance to review-run schemas'
+        $guide | Should -Match 'Publish, persistence, verified Summary and\s+Full reading'
+    }
 }
