@@ -14,3 +14,10 @@
 ## Simplification decision
 
 The accepted cut is a thin workflow loop over existing plan state, evidence, and capture writers. New mechanics are limited to phase admission, the operator checkpoint, and one-phase stop/resume orchestration.
+
+## Pre-child proportionality review (2026-08-29)
+
+- **Verdict: keep.** The confirmed intent still requires one vertical phase loop, and the current six-step cut remains proportionate.
+- Both behavioral dependencies, `57cc2c` and `863d97`, are archived and complete; no infrastructure-only edge remains.
+- Ownership stays narrow: existing plan state, truthful evidence, and `Add-WorkflowNote` remain authoritative. This plan does not duplicate `4dd933` artifact context, `8a0644` dispatch, or `25aa23` coherency-review machinery.
+- Blocking simplification findings: none.

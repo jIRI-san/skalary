@@ -27,7 +27,9 @@ param(
     [Parameter(Mandatory)]
     [string]$Token,
 
-    [string]$Branch
+    [string]$Branch,
+
+    [string]$StartBranch = (git branch --show-current)
 )
 
 Set-StrictMode -Version Latest
@@ -47,6 +49,11 @@ if (-not (Test-Path $WorktreeRoot)) {
     New-Item -ItemType Directory -Path $WorktreeRoot -Force | Out-Null
 }
 
+$remoteBranch = "refs/remotes/origin/$BranchName"
+& git fetch origin $BranchName 2>$null
+$remoteBranchExists = $LASTEXITCODE -eq 0 -and
+    $null -ne (& git show-ref --verify --hash $remoteBranch 2>$null)
+
 if (Test-Path $WorktreePath) {
     Write-Host "Worktree already exists at $WorktreePath - resuming."
 }
@@ -57,8 +64,11 @@ else {
     if ($branchExists) {
         git worktree add $WorktreePath $BranchName
     }
+    elseif ($remoteBranchExists) {
+        git worktree add $WorktreePath -b $BranchName $remoteBranch
+    }
     else {
-        git worktree add $WorktreePath -b $BranchName
+        git worktree add $WorktreePath -b $BranchName $StartBranch
     }
 }
 
@@ -97,6 +107,27 @@ function ConvertTo-CmdQuotedToken {
     )
 
     '"' + ($Token -replace '"', '""') + '"'
+}
+
+function Get-CanonicalPhaseState {
+    param(
+        [Parameter(Mandatory)][string]$StateScript,
+        [Parameter(Mandatory)][string]$Plan,
+        [Parameter(Mandatory)][int]$PhaseNumber,
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Validator
+    )
+
+    $output = & pwsh -NoProfile -File $StateScript -PlanPath $Plan -Phase $PhaseNumber `
+        -RepoRoot $Root -HarvestValidator $Validator 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase $PhaseNumber state check failed: $(($output -join ' ').Trim())"
+    }
+    $state = (($output | ForEach-Object { $_.ToString() }) -join '').Trim()
+    if ($state -notin @('execution-required', 'close-pending', 'closed')) {
+        throw "Phase $PhaseNumber state checker returned invalid result '$state'."
+    }
+    return $state
 }
 
 function ConvertTo-PowerShellQuotedToken {
@@ -254,28 +285,28 @@ function Invoke-CopilotPhase {
 # --- Main execution ---
 $hostCommand = Resolve-HostCommand
 Write-Host "Using Copilot launcher: $($hostCommand.Path) [$($hostCommand.Type)]"
+$phaseStateScript = Join-Path $PSScriptRoot 'Get-PhaseExecutionState.ps1'
+$harvestValidator = Join-Path $PSScriptRoot 'Invoke-PhaseHarvest.ps1'
 
 $phasesExecuted = 0
+$executionExitCode = 0
 foreach ($phase in $phaseNumbers) {
-    # Re-read plan to check current phase status
-    $currentPlan = Get-Content $fullPlanPath -Raw
-
-    # Simple heuristic: check if phase has uncompleted steps
-    # Look for "- [ ]" or "- [~]" between this phase heading and the next.
-    # The \b after the number prevents "Phase 1" matching "Phase 12"; the
-    # generic "## Phase \d+" boundary handles non-contiguous numbering.
-    $phasePattern = "## Phase ${phase}\b" + '.*?(?=## Phase \d+|## Known Constraints|$)'
-    $phaseSection = [regex]::Match($currentPlan, $phasePattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
-
-    if (-not $phaseSection.Success) { continue }
-
-    $hasIncomplete = $phaseSection.Value -match '\- \[ \]|\- \[~\]'
-    if (-not $hasIncomplete) {
-        Write-Host "Phase ${phase}: all steps complete - skipping."
+    try {
+        $phaseState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
+            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath `
+            -Validator $harvestValidator
+    }
+    catch {
+        Write-Warning $_
+        $executionExitCode = 3
+        break
+    }
+    if ($phaseState -eq 'closed') {
+        Write-Host "Phase ${phase}: checklist and phase close complete - skipping."
         continue
     }
 
-    Write-Host "Phase ${phase}: has uncompleted steps - executing."
+    Write-Host "Phase ${phase}: $phaseState."
     $result = Invoke-CopilotPhase `
         -PhaseNumber $phase `
         -CopilotToken $Token `
@@ -293,14 +324,33 @@ foreach ($phase in $phaseNumbers) {
 
     if ($result.TimedOut) {
         Write-Warning "Execution stopped due to timeout in Phase $phase."
+        $executionExitCode = 124
         break
     }
     if ($result.ExitCode -eq 42) {
         Write-Host "@human step encountered in Phase $phase. Stopping."
+        $executionExitCode = 42
         break
     }
     if ($result.ExitCode -ne 0) {
         Write-Warning "Phase $phase exited with code $($result.ExitCode). Stopping."
+        $executionExitCode = $result.ExitCode
+        break
+    }
+
+    try {
+        $closeState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
+            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath `
+            -Validator $harvestValidator
+    }
+    catch {
+        Write-Warning $_
+        $executionExitCode = 3
+        break
+    }
+    if ($closeState -ne 'closed') {
+        Write-Warning "Phase $phase exited zero without a valid phase close ($closeState). Stopping."
+        $executionExitCode = 1
         break
     }
 
@@ -324,3 +374,4 @@ Write-Host "=== Host-mode execution complete ==="
 Write-Host "Phases executed: $phasesExecuted"
 Write-Host "Worktree: $WorktreePath"
 Write-Host "Transcripts: $transcriptsDir"
+exit $executionExitCode

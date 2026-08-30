@@ -650,8 +650,8 @@ Describe 'Epic rollup for /ci' {
                 & $newEpic -Title 'Payments rework' -Slug 'payments-rework' -RepoRoot $tmp -EpicId 'ab12cd' -Date '2026-08-01' -ChildPlan '222bbb' | Out-Null
 
                 # A date or slug that both a plan and an epic answer to must keep resolving to the plan.
-                (& $planState '2026-08-01' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
-                (& $planState 'payments' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
+                (& $planState '2026-08-01' -RepoRoot $tmp -HasUncommittedChanges:$false -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
+                (& $planState 'payments' -RepoRoot $tmp -HasUncommittedChanges:$false -Json | ConvertFrom-Json).Kind | Should -Be 'plan'
                 (& $planState 'payments-rework' -RepoRoot $tmp -Epic -Json | ConvertFrom-Json).Kind | Should -Be 'epic'
                 (& $planState 'ab12cd' -RepoRoot $tmp -Json | ConvertFrom-Json).Kind | Should -Be 'epic'
             }
@@ -699,7 +699,7 @@ Describe 'Epic rollup for /ci' {
                 $text | Should -Match 'Next child:\s+222bbb'
 
                 # A plan reference must keep returning plan state, and surface its epic membership.
-                $childState = & $planState '222bbb' -RepoRoot $tmp -Json | ConvertFrom-Json
+                $childState = & $planState '222bbb' -RepoRoot $tmp -HasUncommittedChanges:$false -Json | ConvertFrom-Json
                 $childState.Kind | Should -Be 'plan'
                 $childState.Markers.EpicId | Should -Be 'ab12cd'
                 $childState.NextStep.Id | Should -Be '1.1'

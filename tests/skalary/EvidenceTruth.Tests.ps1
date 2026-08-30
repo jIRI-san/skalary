@@ -10,39 +10,11 @@ Describe 'Evidence truth' {
         $script:testPlan = Join-Path $script:repoRoot 'scripts/skalary/Test-Plan.ps1'
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
         $script:cycleGate = Join-Path $script:repoRoot 'scripts/skalary/ReviewCycleGate.ps1'
-        $script:tempRoots = [System.Collections.Generic.List[string]]::new()
-        $script:createdDefaultRef = $false
         $script:head = (& git -C $script:repoRoot rev-parse HEAD).Trim()
-        $defaultRef = & git -C $script:repoRoot symbolic-ref --quiet refs/remotes/origin/HEAD 2>$null
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($defaultRef)) {
-            $candidates = @(
-                if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_BASE_REF)) {
-                    "refs/remotes/origin/$env:GITHUB_BASE_REF"
-                }
-                'refs/remotes/origin/main'
-                'refs/remotes/origin/master'
-            )
-            $target = $null
-            foreach ($candidate in $candidates) {
-                & git -C $script:repoRoot rev-parse --verify --quiet "$candidate^{commit}" >$null 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    $target = $candidate
-                    break
-                }
-            }
-            if (-not $target) {
-                throw 'Evidence truth tests could not resolve the remote default branch.'
-            }
-            & git -C $script:repoRoot symbolic-ref refs/remotes/origin/HEAD $target
-            if ($LASTEXITCODE -ne 0) {
-                throw "Evidence truth tests could not create refs/remotes/origin/HEAD for '$target'."
-            }
-            $script:createdDefaultRef = $true
-            $defaultRef = $target
-        }
-        $script:defaultRef = ([string]$defaultRef).Trim()
+        $script:defaultRef = (& git -C $script:repoRoot symbolic-ref --quiet refs/remotes/origin/HEAD).Trim()
         $script:base = (& git -C $script:repoRoot merge-base $script:head $script:defaultRef).Trim()
-        $script:pathCount = @(& git -C $script:repoRoot diff --name-only "$script:base..$script:head").Count
+        $script:pathCount = @(& git -C $script:repoRoot diff --no-renames --name-only "$script:base..$script:head").Count
+        $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
         function New-EvidencePlanFixture {
             param([string[]]$Markers = @('test:EvidenceTruth.Sample'))
@@ -206,12 +178,6 @@ exit `$LASTEXITCODE
     AfterAll {
         foreach ($root in $script:tempRoots) {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if ($script:createdDefaultRef) {
-            & git -C $script:repoRoot symbolic-ref --delete refs/remotes/origin/HEAD
-            if ($LASTEXITCODE -ne 0) {
-                throw 'Evidence truth tests could not remove the temporary refs/remotes/origin/HEAD.'
-            }
         }
     }
 

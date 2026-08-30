@@ -29,6 +29,7 @@ try {
     if (-not (Test-Path -LiteralPath $planPathFull -PathType Leaf)) {
         throw "Plan file not found: $planPathFull"
     }
+    $planDirFull = Split-Path -Parent $planPathFull
     if (-not (Test-Path -LiteralPath $HarvestValidator -PathType Leaf)) {
         throw "Phase-harvest validator not found: $HarvestValidator"
     }
@@ -48,11 +49,49 @@ try {
         throw "Phase $Phase contains no executable steps."
     }
     if (@($steps | Where-Object { [string]$_.Status -ne 'x' }).Count -gt 0) {
+        $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
+        $markers = Get-PlanHeaderMarkers -Path $planPathFull
+        $pathComparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
+        $planMatches = @($inventory | Where-Object {
+                $_.Path -and [string]::Equals(
+                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    $planDirFull,
+                    $pathComparison
+                )
+            })
+        if ($planMatches.Count -ne 1) {
+            throw "Plan path '$planDirFull' is not a unique member of the repository plan inventory."
+        }
+        $plan = $planMatches[0]
+        $gitStatus = & git -C $repoRootFull status --porcelain 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect the repository worktree: $(($gitStatus -join ' ').Trim())"
+        }
+        $next = Get-NextStep -Metadata $metadata `
+            -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
+        $planningContext = Get-PlanningContextState -PlanDir $plan.Path -RepoRoot $repoRootFull `
+            -Inventory $inventory
+        $admission = Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
+            -NextStep $next -PlanningContext $planningContext -Inventory $inventory `
+            -RepoRoot $repoRootFull
+        if (-not $admission.CanProceed -or $admission.PhaseNumber -ne $Phase) {
+            $reason = if ([string]::IsNullOrWhiteSpace([string]$admission.Reason)) {
+                "Canonical admission selected phase $($admission.PhaseNumber)."
+            }
+            else {
+                [string]$admission.Reason
+            }
+            throw "Phase $Phase is not admitted: $reason"
+        }
         Write-Output 'execution-required'
         return
     }
 
-    $planDirFull = Split-Path -Parent $planPathFull
     $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind HarvestReceiptRoot `
         -RepoRoot $repoRootFull
     $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
@@ -87,6 +126,7 @@ try {
     }
 
     Write-Output 'closed'
+    return
 }
 catch {
     [Console]::Error.WriteLine($_.Exception.Message)

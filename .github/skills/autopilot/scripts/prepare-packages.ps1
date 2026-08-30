@@ -149,7 +149,7 @@ function Invoke-NpmRestore {
         # package-lock.json lands there and can be committed.
         Push-Location $Root
         try {
-            & npm install --cache $NpmCache --no-audit --no-fund
+            & npm install --cache $NpmCache --no-audit --no-fund --ignore-scripts
             if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)." }
         }
         finally {
@@ -169,10 +169,10 @@ function Invoke-NpmRestore {
         Push-Location $tmp
         try {
             if ($Locked) {
-                & npm ci --cache $NpmCache --no-audit --no-fund
+                & npm ci --cache $NpmCache --no-audit --no-fund --ignore-scripts
             }
             else {
-                & npm install --cache $NpmCache --no-audit --no-fund
+                & npm install --cache $NpmCache --no-audit --no-fund --ignore-scripts
             }
             if ($LASTEXITCODE -ne 0) { throw "npm restore failed (exit $LASTEXITCODE)." }
         }

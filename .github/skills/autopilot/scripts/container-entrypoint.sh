@@ -12,6 +12,50 @@
 
 set -euo pipefail
 
+stage_recoverable_work() {
+    local repo_path="$1"
+
+    {
+        git -C "${repo_path}" diff --name-only -z
+        git -C "${repo_path}" ls-files --others --exclude-standard -z
+    } | git -C "${repo_path}" add --pathspec-from-file=- --pathspec-file-nul ||
+        return 70
+}
+
+phase_needs_execution() {
+    local plan_path="$1"
+    local phase_number="$2"
+    local repo_root="${3:-.}"
+    local validator="${4:-${AUTOPILOT_HARVEST_VALIDATOR:-/usr/local/lib/autopilot/Invoke-PhaseHarvest.ps1}}"
+    local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
+    local state_output
+    local invocation_state
+
+    state_output="$(pwsh -NoProfile -File "${state_script}" \
+        -PlanPath "${plan_path}" -Phase "${phase_number}" \
+        -RepoRoot "${repo_root}" -HarvestValidator "${validator}" 2>&1)"
+    invocation_state=$?
+    if [ "${invocation_state}" -ne 0 ]; then
+        echo "ERROR: Phase ${phase_number} close state is invalid." >&2
+        printf '%s\n' "${state_output}" >&2
+        return 2
+    fi
+    case "${state_output}" in
+        execution-required|close-pending) return 0 ;;
+        closed) return 1 ;;
+        *)
+            echo "ERROR: Phase ${phase_number} state checker returned an invalid result." >&2
+            printf '%s\n' "${state_output}" >&2
+            return 2
+            ;;
+    esac
+}
+
+# Expose the pure phase-progress and recovery probes to focused tests.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+fi
+
 PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
@@ -57,8 +101,8 @@ elif [ "${BRANCH}" != "${WORK_BRANCH}" ] && git ls-remote --exit-code origin "re
     echo "Creating work branch ${WORK_BRANCH} from ${BRANCH}..."
     git checkout -b "${WORK_BRANCH}"
 else
-    echo "Creating new branch ${WORK_BRANCH} from $(git branch --show-current)..."
-    git checkout -b "${WORK_BRANCH}"
+    echo "ERROR: Selected start branch '${BRANCH}' is not available on origin." >&2
+    exit 1
 fi
 
 # --- Configure git identity ---
@@ -75,14 +119,13 @@ COPILOT_PID=""
 TERMINATING=0
 
 preserve_work() {
-    cd /work 2>/dev/null || return 0
-    git rev-parse --git-dir >/dev/null 2>&1 || return 0
-    # Untracked build/session noise is ignored via .gitignore, so -A here only
-    # sweeps real in-flight work.
+    cd /work 2>/dev/null || return 70
+    git rev-parse --git-dir >/dev/null 2>&1 || return 70
     if [ -n "$(git status --porcelain)" ]; then
         echo "Committing in-flight work before exit..."
-        if ! git add -A ||
-            ! git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]"; then
+        if ! stage_recoverable_work /work ||
+            { ! git diff --cached --quiet &&
+                ! git commit -q -m "chore(autopilot): preserve in-flight work on termination [plan-${PLAN_SLUG}]"; }; then
             echo "ERROR: unable to commit in-flight work; retaining the container workspace."
             touch /tmp/autopilot-preservation-failed
             return 1
@@ -109,7 +152,10 @@ on_terminate() {
         done
         kill -KILL "${COPILOT_PID}" 2>/dev/null || true
     fi
-    preserve_work
+    if ! preserve_work; then
+        echo "ERROR: Failed to preserve in-flight work; container recovery is required."
+        exit 70
+    fi
     exit 143
 }
 
@@ -248,6 +294,17 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         PROMPT="Resume ${PLAN_PATH}, phase ${PHASE_NUM}, at On Phase Completion only. Every implementation step in the phase is already [x]. Do not reopen or replay completed implementation steps."
     else
         PHASE_NUM="${TARGET#phase:}"
+        set +e
+        phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
+        PHASE_STATE=$?
+        set -e
+        if [ "${PHASE_STATE}" -eq 1 ]; then
+            echo "Phase ${PHASE_NUM}: checklist and phase close complete — skipping."
+            continue
+        elif [ "${PHASE_STATE}" -eq 2 ]; then
+            preserve_work || exit 70
+            exit 3
+        fi
         TARGET_LABEL="Phase ${PHASE_NUM}"
         TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
         PROMPT="Execute ${PLAN_PATH}, phase ${PHASE_NUM}"
@@ -380,7 +437,11 @@ done
 echo ""
 echo "=== Execution finished ==="
 echo "Pushing branch ${WORK_BRANCH}..."
-git push origin "${WORK_BRANCH}"
+if ! git push origin "${WORK_BRANCH}"; then
+    echo "ERROR: Failed to publish completed work; container recovery is required."
+    touch /tmp/autopilot-preservation-failed
+    exit 70
+fi
 
 # Note: PR creation is handled by the autopilot agent in its Plan Completion step
 # with a structured title and body. The entrypoint only ensures the branch is pushed.

@@ -19,6 +19,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
+$inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
 
 # A plan reference keeps winning: `Resolve-Plan` and `Resolve-Epic` both accept fuzzy date and slug
 # forms, so preferring the epic side would break references that used to resolve to a plan. Hex ids are
@@ -31,7 +32,7 @@ if ($Epic) {
 }
 else {
     try {
-        $plan = Resolve-Plan -Reference $Reference -RepoRoot $repoRootPath
+        $plan = Resolve-Plan -Reference $Reference -RepoRoot $repoRootPath -Inventory $inventory
     }
     catch {
         # An ambiguous plan reference is a real error and must not fall through to epic resolution.
@@ -136,20 +137,23 @@ if ($PSBoundParameters.ContainsKey('HasUncommittedChanges')) {
     $dirty = [bool]$HasUncommittedChanges
 }
 else {
-    $dirty = $false
     try {
-        $status = & git -C $repoRootPath status --porcelain 2>$null
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace(($status -join ''))) {
-            $dirty = $true
+        $status = & git -C $repoRootPath status --porcelain 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "git status failed: $(($status -join ' ').Trim())"
         }
+        $dirty = -not [string]::IsNullOrWhiteSpace(($status -join ''))
     }
     catch {
-        $dirty = $false
+        throw "Unable to inspect the repository worktree: $($_.Exception.Message)"
     }
 }
 
 $next = Get-NextStep -Metadata $metadata -HasUncommittedChanges:$dirty
-$planningContext = Get-PlanningContextState -PlanDir $plan.Path
+$planningContext = Get-PlanningContextState -PlanDir $plan.Path -RepoRoot $repoRootPath `
+    -Inventory $inventory
+$admission = Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
+    -NextStep $next -PlanningContext $planningContext -Inventory $inventory -RepoRoot $repoRootPath
 
 $state = [pscustomobject]@{
     Kind                  = 'plan'
@@ -169,6 +173,7 @@ $state = [pscustomobject]@{
         DependsOn     = @($markers.DependsOn)
     }
     PlanningContext       = $planningContext
+    Admission             = $admission
     Progress              = [pscustomobject]@{
         Total         = $progress.Total
         Completed     = $progress.Completed
@@ -200,6 +205,10 @@ $lines.Add("Plan:       $($state.PlanId)  ($($state.FolderName))")
 $lines.Add("Scheme:     $($state.Scheme)$(if ($state.IsArchived) { ' (archived)' } else { '' })")
 $lines.Add("Mode:       $($state.Markers.ExecutionMode)   Scope: $($state.Markers.Scope)   Stage: $($state.Markers.CipStage)")
 $lines.Add("Context:    $($state.PlanningContext.Status)")
+$lines.Add("Admission:  $($state.Admission.Status)$(if ($state.Admission.Reason) { " — $($state.Admission.Reason)" } else { '' })")
+if ($state.Admission.ApplicableRequirements.Count -gt 0) {
+    $lines.Add("Phase REQs: $($state.Admission.ApplicableRequirements -join ', ')")
+}
 if ($state.Markers.EpicId) {
     $lines.Add("Epic:       $($state.Markers.EpicId)  (run Get-PlanState $($state.Markers.EpicId) for the rollup)")
 }

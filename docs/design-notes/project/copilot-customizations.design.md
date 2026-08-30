@@ -31,7 +31,7 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/agents/cr.agent.md` | Agent (`cr`) | Code review orchestrator — resolves a changed-file list and dispatches the seven concern reviewers once per configured model |
 | `.github/agents/cr-<concern>.agent.md` | Subagents (hidden) | The same seven concerns for code review — invoked by `cr` only |
 | `.github/agents/autopilot.agent.md` | Agent (`autopilot`) | Autonomous plan execution — implements one phase per invocation, builds/tests/commits each step, runs primary-only CR after the phase, and primary + secondary whole-plan CR once at finalization |
-| `.github/skills/autopilot/SKILL.md` | Skill (`autopilot`, internal) | `/ci` Autonomous-mode handoff — first-run config bootstrap, Host/Container/Sandbox sub-menu, custom host command; read-by-path, not invoked. Co-ships with the autopilot scripts/schemas/devcontainer under `.github/skills/autopilot/**` |
+| `.github/skills/autopilot/SKILL.md` | Skill (`autopilot`, internal) | `/ci` Autonomous-mode handoff — accepts `/ci`'s runtime and extent selection, performs first-run config bootstrap, and documents the custom host command; read-by-path, not invoked. Co-ships with the autopilot scripts/schemas/devcontainer under `.github/skills/autopilot/**` |
 | `.github/agents/scripts/Get-ReviewScope.ps1` | Helper script | Single review-scope emitter used by `cr` — prints the repo-relative file list for `smart`/`uncommitted`/`branch`/`commits`/`paths`; reviewers read the files themselves, so no diff is extracted |
 | `.github/skills/cip/SKILL.md` | Skill (`/cip`) | Create Implementation Plan — requirements interview, phased plan with step tracking, iterative `dr` review, saves to `docs/implementation-plans/` |
 | `.github/skills/ci/SKILL.md` | Skill (`/ci`) | Continue Implementation — executes a plan step-by-step, manages git worktrees, build/test iteration, `cr` review, explicit commit gate |
@@ -139,9 +139,9 @@ Critical injection finding.
 **`ci` flow:**
 1. Resolve plan via `Resolve-Plan` (date/slug/hash); load relevant design notes.
 2. `Get-PlanState.ps1` yields planning confirmation, progress, and the next incomplete candidate. Enrolled pending/stale/invalid context returns to `/cip` before mutation; marker-less legacy plans retain existing behavior.
-3. Choose execution mode (Approve / Autopilot / Autonomous) — Autonomous reads `.github/skills/autopilot/SKILL.md` by path for the Host/Container/Sandbox sub-menu + first-run config bootstrap (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
+3. Choose Approve, Autopilot, or an explicit Autonomous runtime (Host / Container / Sandbox), then choose One phase or Whole plan. `/ci` owns both selections; autopilot consumes the handed-off runtime and extent without a second menu (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
 4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
-5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → `@cr` review → explicit commit gate.
+5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → explicit commit gate. Code review runs after the complete phase increment rather than after each step.
 6. Commit: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (canonical id, dual-format); plan file updated in same commit.
 7. On all steps `[x]`: plan-level crosscheck (receipt via `Build-EvidenceReceipt`) → mark plan `[DONE]` in title → move folder to `docs/implementation-plans/archived/`.
 8. Validation is script-only: orchestrators delegate to `npm run validate-plan` / `scripts/skalary/Test-Plan.ps1` / `scripts/validate.ps1` and never embed ad-hoc validation logic.

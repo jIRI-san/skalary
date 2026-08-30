@@ -3,13 +3,13 @@
     Entry point for autonomous plan execution.
 .DESCRIPTION
     Validates inputs, runs pre-flight checks, and dispatches to
-    host or container mode orchestrator.
+    the host, container, or sandbox orchestrator.
 .PARAMETER PlanSlug
     Plan folder name (e.g. '002-persistent-storage-for-job-data').
 .PARAMETER Mode
     Execution scope: 'whole-plan' or 'next-phase'.
 .PARAMETER Runtime
-    Override runtime from config: 'host' or 'container'. Uses config value if omitted.
+    Override runtime from config: 'host', 'container', or 'sandbox'. Uses config value if omitted.
 #>
 param(
     [Parameter(Mandatory)]
@@ -34,6 +34,15 @@ $ScriptDir = $PSScriptRoot
 # --- Validate slug ---
 if ($PlanSlug -notmatch '^[a-z0-9-]+$') {
     Write-Error "Invalid plan slug '$PlanSlug'. Must match ^[a-z0-9-]+$."
+    exit 1
+}
+if ($Branch -and (
+        $Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $Branch.Contains('..') -or $Branch.Contains('//') -or
+        $Branch.EndsWith('/') -or $Branch.EndsWith('.') -or
+        $Branch.EndsWith('.lock', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $Branch.Contains('@{'))) {
+    Write-Error "Invalid branch '$Branch'. Use a simple Git ref containing only letters, digits, '.', '_', '/', and '-'."
     exit 1
 }
 
@@ -161,7 +170,7 @@ if ($effectiveRuntime -eq 'sandbox') {
 }
 
 # --- Detect partial state ---
-$branchName = if ($Branch) { $Branch } else { "feature/$PlanSlug" }
+$branchName = "feature/$PlanSlug"
 if ($effectiveRuntime -eq 'host') {
     $worktreeRoot = Join-Path (Split-Path $RepoRoot -Parent) "$((Split-Path $RepoRoot -Leaf)).worktrees"
     $worktreePath = Join-Path $worktreeRoot $branchName.Replace('/', '-')
@@ -237,7 +246,8 @@ $dispatchParams = @{
     Mode = $Mode
     Config = $Config
     Token = $Token
-    Branch = if ($Branch) { $Branch } else { "feature/$PlanSlug" }
+    Branch = "feature/$PlanSlug"
+    StartBranch = if ($Branch) { $Branch } else { git branch --show-current }
 }
 # Host mode runs locally and authenticates to git via ambient credentials, so it
 # does not accept -AdoToken; only forward the token to container/sandbox runtimes.
@@ -262,7 +272,7 @@ $orchestratorScript = switch ($effectiveRuntime) {
     'container' { 'launch-container.ps1' }
     'sandbox' { 'launch-sandbox.ps1' }
 }
-$WorkBranch = $dispatchParams.Branch
+$WorkBranch = "feature/$PlanSlug"
 $offlineEcosystems = $offline.Ecosystems
 
 $Launch = {
