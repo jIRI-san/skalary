@@ -147,3 +147,8 @@ Phase: 4
 - [4.2] [src:code-review] [sev:Low] [concern:architecture-patterns] [req:REQ-5] [review:cr] [source-record:ef3c1645a9e55be6f345f7d8511b179c2f15eadcd3a2bc0fd097ccb153b95e7b] Round 3 finding 21 triage=pending-operator: The four-role CI fleet graph is duplicated without a cross-artifact parity gate.
 - [4.2] [src:code-review] [sev:Low] [concern:security] [req:REQ-2] [review:cr] [source-record:43589b1d63404ccea6b68ee7832a65ea7ebe17fb9a2d867836b2450b707cfb5b] Round 3 finding 22 triage=pending-operator: Wave-result TaskId and Outcome bypass diagnostic redaction and quoting.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:8cb2ec7aac5adf4d5a0fe34ce988172814400d988957060e3b23126592075ee5] review-cycle stage=plan-finalization cycle=3 outcome=findings run=2b6f4539-73d1-4de5-853c-8e8445a781b2 summary=22 findings after cycle 3; one High evidence gap and 21 lower-severity findings require operator Continue or Wrap decision
+
+## CR Capture
+Phase: 0
+
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:83134e53dcb438b1d2a48e250abac7122913ec8b3e36beb1f20702c37653dc45] review-cycle-decision stage=plan-finalization after=3 action=wrap
