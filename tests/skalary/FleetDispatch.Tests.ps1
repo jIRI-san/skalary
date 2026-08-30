@@ -473,6 +473,9 @@ Ready order: design -> validate -> implement
             $stepIndex | Should -BeGreaterThan $startIndex
             $completeIndex | Should -BeGreaterThan $stepIndex
             $publishIndex | Should -BeGreaterThan $completeIndex
+            ([regex]::Matches($text, '\bNew-FleetDispatchPlan\b')).Count | Should -Be 1
+            ([regex]::Matches($text, '\bStart-FleetDispatchRun\b')).Count | Should -Be 1
+            ([regex]::Matches($text, '\bComplete-FleetDispatchRun\b')).Count | Should -Be 1
             $text | Should -Match 'render the returned `PreView` before any reviewer call'
             $text | Should -Match 'render its\s+`FinalView`'
             $text | Should -Match 'published review run and its verified readers\s+remain authoritative'
@@ -715,10 +718,13 @@ Ready order: design -> validate -> implement
         $completeIndex | Should -BeGreaterThan $doneIndex
         $finalViewIndex | Should -BeGreaterThan $completeIndex
         $publishIndex | Should -BeGreaterThan $finalViewIndex
+        ([regex]::Matches($handoff, '\bNew-FleetDispatchPlan\b')).Count | Should -Be 1
+        ([regex]::Matches($handoff, '\bStart-FleetDispatchRun\b')).Count | Should -Be 1
+        ([regex]::Matches($handoff, '\bComplete-FleetDispatchRun\b')).Count | Should -Be 1
         $handoff | Should -Match 'explicitly inactive'
         $handoff | Should -Match 'activates\s+nothing in the current `/cep`'
         $handoff | Should -Match 'neither edits nor otherwise mutates that dependent plan'
-        $handoff | Should -Match 'Plan\s+`25aa23` remains the owner'
+        $handoff | Should -Match 'Plan\s+`25aa23 epic-coherency-review` remains the owner'
         $handoff | Should -Match 'Review-run `Freeze`,\s+`Publish`, persistence, and rendering remain authoritative'
         $handoff | Should -Match 'Fleet attendance is invocation-local and non-authoritative'
         $handoff | Should -Match 'provider-global concurrency is\s+unobserved'
@@ -784,10 +790,7 @@ Ready order: design -> validate -> implement
                 }
             })
 
-        $newCount = 0
-        $newCount++
         $plan = New-FleetDispatchPlan -Task $descriptors
-        $newCount | Should -Be 1
         $plan.AdmissionCap | Should -Be 4
         @($plan.Waves | ForEach-Object { $_.TaskIds.Count }) | Should -Be @(4, 1)
         @($plan.Selected.Id) | Should -Be @($frozenTasks.TaskId)
@@ -807,10 +810,7 @@ Ready order: design -> validate -> implement
         $events = [System.Collections.Generic.List[string]]::new()
         $admittedIds = [System.Collections.Generic.List[string]]::new()
         $invokedIds = [System.Collections.Generic.List[string]]::new()
-        $startCount = 0
         $stepCount = 0
-        $completeCount = 0
-        $startCount++
         $transition = Start-FleetDispatchRun -Plan $plan
         $events.Add('PreView')
         $transition.PreView | Should -Match 'Fleet dispatch plan'
@@ -835,12 +835,9 @@ Ready order: design -> validate -> implement
         }
 
         $transition.Done | Should -BeTrue
-        $completeCount++
         $result = Complete-FleetDispatchRun -Run $transition.Run
         $events.Add('FinalView')
-        $startCount | Should -Be 1
         $stepCount | Should -Be 2
-        $completeCount | Should -Be 1
         $events[0] | Should -BeExactly 'PreView'
         $events[$events.Count - 1] | Should -BeExactly 'FinalView'
         $events.ToArray() | Should -Be @(

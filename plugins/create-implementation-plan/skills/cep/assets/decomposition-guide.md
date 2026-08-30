@@ -136,9 +136,10 @@ never scaffold folders to "show" a cut.
 
 ## Epic-review extension handoff (inactive)
 
-This is an explicitly inactive conformance shape for the later consumer, plan `25aa23`. It activates
+This is an explicitly inactive conformance shape for the later consumer, plan
+`25aa23 epic-coherency-review`. It activates
 nothing in the current `/cep`, and it neither edits nor otherwise mutates that dependent plan. Plan
-`25aa23` remains the owner of the fixed epic-coherency scope, frozen task selection, reviewer prompts
+`25aa23 epic-coherency-review` remains the owner of the fixed epic-coherency scope, frozen task selection, reviewer prompts
 and rubric, richer outcomes and findings, compact verdict, operator-resolution and blocking behavior,
 and activation timing.
 
