@@ -20,6 +20,8 @@ omitted tasks, projected waves, stable ready order, retry policy, and empty atte
 | Validation | Reject duplicates, malformed or unknown ids, duplicate/self dependencies, cycles, and selected tasks whose prerequisite is omitted |
 | Projection | Stable caller order; each wave admits at most four tasks whose selected prerequisites are in earlier waves |
 | Rendering | `Format-FleetDispatchPlan` prints all selected and omitted tasks, cap, waves, ready order, retry policy, and that provider-global concurrency is unobserved |
+| Execution | `Invoke-FleetDispatchPlan` renders first, passes only the next ready `{ Tasks, TaskIds, Attempt }` wave to a caller-owned launcher, validates one structured result per admitted task, and renders final attendance |
+| Result | Closed per-attempt outcomes are `completed`, `failed`, or explicit `throttled`; task terminals are `completed`, `failed`, or `cancelled` |
 | State | The plan is pure run-local data. It creates no files, locks, leases, scheduler records, or recovery state |
 
 The returned plan is the sole admission source for the orchestration adapter. Callers must not
@@ -41,3 +43,15 @@ are different: the adapter records cancellation of only transitive selected depe
 
 The retry policy is declared in the plan but enforced by the adapter: one retry is permitted only
 for an explicit structured throttle outcome. Error text and timing never imply throttling.
+
+The caller-owned `InvokeWave` callback receives one wave object containing at most four ready
+descriptors, their ids, and an attempt number. It may launch them concurrently or serially according
+to its existing host boundary, but must return exactly one `{ TaskId, Outcome, Detail }` record for
+every admitted task. Unknown, duplicate, missing, or non-closed outcomes fail loud rather than
+producing success-shaped attendance.
+
+An ordinary failure becomes terminal immediately. The adapter cancels only still-pending transitive
+dependents, continues unrelated ready work, and never retries based on status-code prose. An explicit
+throttle outcome admits the same task once more before later work; a second throttle is terminal.
+Attendance conserves every selected task across completed, failed, and cancelled states while
+reporting started and retried counts separately.

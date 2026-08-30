@@ -147,3 +147,223 @@ Ready order: design -> validate -> implement
 '@
     }
 }
+
+Describe 'Fleet dispatch execution adapter' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $modulePath = Join-Path $repoRoot 'scripts/skalary/FleetDispatch.psm1'
+        Import-Module $modulePath -Force -DisableNameChecking
+
+        function New-FleetTask {
+            param(
+                [Parameter(Mandatory)]
+                [string]$Id,
+                [string[]]$DependsOn = @(),
+                [bool]$Selected = $true,
+                [string]$OmissionReason = ''
+            )
+
+            return [pscustomobject]@{
+                Id             = $Id
+                Label          = "Task $Id"
+                Key            = "role.$Id"
+                Selected       = $Selected
+                OmissionReason = $OmissionReason
+                DependsOn      = $DependsOn
+            }
+        }
+
+        function New-WaveResult {
+            param(
+                [Parameter(Mandatory)]
+                [string]$TaskId,
+                [ValidateSet('completed', 'failed', 'throttled')]
+                [string]$Outcome = 'completed',
+                [string]$Detail = ''
+            )
+
+            return [pscustomobject]@{
+                TaskId = $TaskId
+                Outcome = $Outcome
+                Detail = $Detail
+            }
+        }
+    }
+
+    AfterAll {
+        Remove-Module FleetDispatch -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'test:FleetDispatch.Execution admits only ready planned tasks and handles failure and explicit throttle once' {
+        $plan = New-FleetDispatchPlan -Task @(
+            1..5 | ForEach-Object { New-FleetTask -Id "task-$_" }
+        )
+        $calls = [System.Collections.Generic.List[string]]::new()
+        $views = [System.Collections.Generic.List[string]]::new()
+        $result = Invoke-FleetDispatchPlan -Plan $plan -Render {
+            param($Text, $Stage)
+            $views.Add($Stage)
+        } -InvokeWave {
+            param($Wave)
+            $calls.Add("$($Wave.Attempt)`:$($Wave.TaskIds -join ',')")
+            @($Wave.Tasks | ForEach-Object { New-WaveResult -TaskId $_.Id })
+        }
+
+        $views.ToArray() | Should -Be @('plan', 'attendance')
+        $calls.ToArray() | Should -Be @('1:task-1,task-2,task-3,task-4', '1:task-5')
+        $result.State | Should -Be clean
+        $result.Attendance.Planned | Should -Be 5
+        $result.Attendance.Started | Should -Be 5
+        $result.Attendance.Completed | Should -Be 5
+        $result.Attendance.Failed | Should -Be 0
+        $result.Attendance.Retried | Should -Be 0
+        $result.Attendance.Cancelled | Should -Be 0
+
+        $throttlePlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id first
+            New-FleetTask -Id second
+        )
+        $throttleCalls = [System.Collections.Generic.List[string]]::new()
+        $throttleResult = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            param($Wave)
+            $throttleCalls.Add("$($Wave.Attempt)`:$($Wave.TaskIds -join ',')")
+            @($Wave.Tasks | ForEach-Object {
+                    if ($_.Id -ceq 'first' -and $Wave.Attempt -eq 1) {
+                        New-WaveResult -TaskId $_.Id -Outcome throttled -Detail 'host throttle flag'
+                    }
+                    else {
+                        New-WaveResult -TaskId $_.Id
+                    }
+                })
+        }
+        $throttleCalls.ToArray() | Should -Be @('1:first,second', '2:first')
+        $throttleResult.State | Should -Be degraded
+        $throttleResult.Attendance.Completed | Should -Be 2
+        $throttleResult.Attendance.Retried | Should -Be 1
+        @($throttleResult.Tasks | Where-Object Id -CEQ first)[0].Attempts.Outcome |
+            Should -Be @('throttled', 'completed')
+
+        $failurePlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id root
+            New-FleetTask -Id dependent -DependsOn root
+            New-FleetTask -Id transitive -DependsOn dependent
+            New-FleetTask -Id independent
+        )
+        $failureCalls = [System.Collections.Generic.List[string]]::new()
+        $failureResult = Invoke-FleetDispatchPlan -Plan $failurePlan -Render {} -InvokeWave {
+            param($Wave)
+            $failureCalls.Add("$($Wave.Attempt)`:$($Wave.TaskIds -join ',')")
+            @($Wave.Tasks | ForEach-Object {
+                    if ($_.Id -ceq 'root') {
+                        New-WaveResult -TaskId $_.Id -Outcome failed -Detail 'HTTP 429 text without explicit throttle outcome'
+                    }
+                    else {
+                        New-WaveResult -TaskId $_.Id
+                    }
+                })
+        }
+        $failureCalls.ToArray() | Should -Be @('1:root,independent')
+        $failureResult.Attendance.Started | Should -Be 2
+        $failureResult.Attendance.Completed | Should -Be 1
+        $failureResult.Attendance.Failed | Should -Be 1
+        $failureResult.Attendance.Retried | Should -Be 0
+        $failureResult.Attendance.Cancelled | Should -Be 2
+        @($failureResult.Tasks | Where-Object Status -eq cancelled).Id |
+            Should -Be @('dependent', 'transitive')
+        $failureResult.Attendance.Completed +
+            $failureResult.Attendance.Failed +
+            $failureResult.Attendance.Cancelled |
+            Should -Be $failureResult.Attendance.Planned
+
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                New-WaveResult -TaskId undeclared
+            }
+        } | Should -Throw '*undeclared task*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                New-WaveResult -TaskId first
+            }
+        } | Should -Throw '*omitted result*'
+    }
+
+    It 'renders complete success, omission, dependency-failure, and throttle-degradation attendance' {
+        $successPlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id first
+            New-FleetTask -Id omitted -Selected $false -OmissionReason 'outside scope'
+        )
+        $success = Invoke-FleetDispatchPlan -Plan $successPlan -Render {} -InvokeWave {
+            param($Wave)
+            @($Wave.Tasks | ForEach-Object { New-WaveResult -TaskId $_.Id })
+        }
+        $success.FinalView | Should -BeExactly @'
+Fleet dispatch attendance
+State: clean
+Provider-global concurrency is unobserved.
+Attendance: planned=1; started=1; completed=1; failed=0; retried=0; cancelled=0
+
+Selected tasks:
+- first | completed | attempts: 1:completed
+
+Omitted tasks:
+- omitted | omitted | reason: outside scope
+
+Degradation:
+- (none)
+'@
+
+        $failedPlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id root
+            New-FleetTask -Id dependent -DependsOn root
+        )
+        $failed = Invoke-FleetDispatchPlan -Plan $failedPlan -Render {} -InvokeWave {
+            param($Wave)
+            New-WaveResult -TaskId root -Outcome failed -Detail 'ordinary failure'
+        }
+        $failed.FinalView | Should -BeExactly @'
+Fleet dispatch attendance
+State: degraded
+Provider-global concurrency is unobserved.
+Attendance: planned=2; started=1; completed=0; failed=1; retried=0; cancelled=1
+
+Selected tasks:
+- root | failed | attempts: 1:failed | detail: ordinary failure
+- dependent | cancelled | attempts: none | detail: dependency 'root' did not complete
+
+Omitted tasks:
+- (none)
+
+Degradation:
+- root | failed: ordinary failure
+- dependent | cancelled: dependency 'root' did not complete
+'@
+
+        $throttledPlan = New-FleetDispatchPlan -Task @(New-FleetTask -Id throttled)
+        $throttled = Invoke-FleetDispatchPlan -Plan $throttledPlan -Render {} -InvokeWave {
+            param($Wave)
+            if ($Wave.Attempt -eq 1) {
+                New-WaveResult -TaskId throttled -Outcome throttled -Detail 'explicit throttle'
+            }
+            else {
+                New-WaveResult -TaskId throttled
+            }
+        }
+        $throttled.FinalView | Should -BeExactly @'
+Fleet dispatch attendance
+State: degraded
+Provider-global concurrency is unobserved.
+Attendance: planned=1; started=1; completed=1; failed=0; retried=1; cancelled=0
+
+Selected tasks:
+- throttled | completed | attempts: 1:throttled, 2:completed
+
+Omitted tasks:
+- (none)
+
+Degradation:
+- throttled | recovered after one explicit throttle retry
+'@
+    }
+}
