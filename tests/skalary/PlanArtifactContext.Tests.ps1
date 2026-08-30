@@ -9,7 +9,7 @@ Describe 'Get-PlanArtifactContext' {
         $resolver = Join-Path $repoRoot 'scripts/skalary/Get-PlanArtifactContext.ps1'
         $planState = Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
         Import-Module (Join-Path $PSScriptRoot '..' 'ConsumerInstallFixture.psm1') -Force -DisableNameChecking
-        Import-Module $planState -Force -DisableNameChecking
+        $planStateModule = Import-Module $planState -Force -DisableNameChecking -PassThru
 
         $newTempRoot = {
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('plan-artifact-context-' + [System.Guid]::NewGuid().ToString('N'))
@@ -552,9 +552,12 @@ Describe 'Get-PlanArtifactContext' {
             @($overTotal | Where-Object { $_.content }).Count | Should -Be 0
 
             $overCandidates = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent, Design -Relationship reuses -MaxCandidates 1)
-            $overCandidates.Count | Should -Be 1
-            $overCandidates.status | Should -Be 'refused'
-            $overCandidates.reason | Should -Be 'Selection expands to 2 candidates, exceeding the 1-candidate limit.'
+            $overCandidates.Count | Should -Be 2
+            @($overCandidates.status | Select-Object -Unique) | Should -Be @('refused')
+            @($overCandidates | ForEach-Object { "$($_.planId)|$($_.artifactKind)" }) |
+                Should -Be @('a1b2c3|Design', 'a1b2c3|Intent')
+            @($overCandidates.reason | Select-Object -Unique) |
+                Should -Be @('Selection expands to 2 candidates, exceeding the 1-candidate limit.')
             @($overCandidates | Where-Object { $_.content }).Count | Should -Be 0
 
             $overlong = 'x' * 65
@@ -805,7 +808,7 @@ Describe 'Get-PlanArtifactContext' {
         try {
             $planDir = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'native-host'
             $intentPath = Join-Path $planDir 'assets/intent.md'
-            $context = New-PlanConfinementContext -PlanDir $planDir
+            $context = New-PlanConfinementContext -RepoRoot $root -PlanDir $planDir
             $stream = Open-ConfinedPlanFile -Context $context -Path $intentPath
             try {
                 $reader = [System.IO.StreamReader]::new(
@@ -851,6 +854,18 @@ Describe 'Get-PlanArtifactContext' {
                     )
                 )
             } | Should -Throw '*not supported*'
+            {
+                $supportGuard.Invoke(
+                    $null,
+                    @(
+                        [System.Runtime.InteropServices.OSPlatform]::OSX,
+                        [System.Runtime.InteropServices.Architecture]::Arm64
+                    )
+                )
+            } | Should -Throw '*not supported*'
+            $planStateSource = [System.IO.File]::ReadAllText($planState)
+            $planStateSource | Should -Not -Match 'extern int fcntl'
+            $planStateSource | Should -Match 'variadic F_GETPATH interop is not ABI-safe'
         }
         finally {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -865,20 +880,37 @@ Describe 'Get-PlanArtifactContext' {
                 $intentPath = Join-Path $planDir 'assets/intent.md'
                 $outsidePath = Join-Path $root 'outside-race.md'
                 Set-Content -LiteralPath $outsidePath -Encoding utf8NoBOM -NoNewline -Value 'escaped-race-content'
-                $context = New-PlanConfinementContext -PlanDir $planDir
+                $context = New-PlanConfinementContext -RepoRoot $root -PlanDir $planDir
                 $replace = {
                     Remove-Item -LiteralPath $intentPath -Force
                     New-Item -ItemType HardLink -Path $intentPath -Target $outsidePath | Out-Null
                 }
-                $arguments = @{
-                    Context = $context
-                    Path = $intentPath
-                    $seam = $replace
+                $action = {
+                    & $planStateModule {
+                        param($Context, $Path, $Seam, $Replace)
+
+                        $arguments = @{ Context = $Context; Path = $Path; $Seam = $Replace }
+                        $opened = Open-ConfinedPlanFileCore @arguments
+                        $opened.Dispose()
+                    } $context $intentPath $seam $replace
                 }
+                $expectedMessage = if ($seam -eq 'BeforeFirstOpen') {
+                    '*single-link regular file*'
+                }
+                elseif ($IsWindows) {
+                    '*Internal before-verification-open test seam failed*'
+                }
+                else {
+                    '*changed while its stable read handle was opened*'
+                }
+                $action | Should -Throw -ExpectedMessage $expectedMessage
+
                 {
-                    $opened = Open-ConfinedPlanFile @arguments
-                    $opened.Dispose()
-                } | Should -Throw
+                    Open-ConfinedPlanFile `
+                        -Context $context `
+                        -Path $intentPath `
+                        -BeforeFirstOpen $replace
+                } | Should -Throw -ExpectedMessage '*parameter name ''BeforeFirstOpen''*'
 
                 {
                     Resolve-ConfinedPlanPath `
@@ -906,6 +938,72 @@ Describe 'Get-PlanArtifactContext' {
         }
     }
 
+    It 'anchors plans inside the physical repository and rejects linked corpus ancestors' {
+        $root = & $newTempRoot
+        $outside = & $newTempRoot
+        try {
+            $outsidePlan = & $newAssetsPlan -Root $outside -Id 'a1b2c3' -Slug 'outside'
+            {
+                New-PlanConfinementContext -RepoRoot $root -PlanDir $outsidePlan
+            } | Should -Throw -ExpectedMessage '*escapes repository plan corpus*'
+
+            foreach ($ancestor in @('docs', 'implementation-plans')) {
+                $linkedRoot = & $newTempRoot
+                try {
+                    if ($ancestor -eq 'docs') {
+                        Remove-Item -LiteralPath (Join-Path $linkedRoot 'docs') -Recurse -Force
+                        New-Item -ItemType SymbolicLink `
+                            -Path (Join-Path $linkedRoot 'docs') `
+                            -Target (Join-Path $outside 'docs') | Out-Null
+                    }
+                    else {
+                        $linkedPlans = Join-Path $linkedRoot 'docs/implementation-plans'
+                        Remove-Item -LiteralPath $linkedPlans -Recurse -Force
+                        New-Item -ItemType SymbolicLink `
+                            -Path $linkedPlans `
+                            -Target (Join-Path $outside 'docs/implementation-plans') | Out-Null
+                    }
+
+                    {
+                        & $resolver -RepoRoot $linkedRoot -PlanId a1b2c3 `
+                            -ArtifactKind Intent -Relationship reuses
+                    } | Should -Throw -ExpectedMessage "*Plan corpus ancestor*not a regular directory*"
+                }
+                finally {
+                    Remove-Item -LiteralPath $linkedRoot -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $outside -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'reads plan metadata only for requested canonical folder IDs and sanitizes diagnostics' {
+        $root = & $newTempRoot
+        try {
+            $null = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'selected'
+            $unselected = Join-Path $root 'docs/implementation-plans/2026-01-02-ddeeff-unselected'
+            New-Item -ItemType Directory -Path (Join-Path $unselected 'plan.md') -Force | Out-Null
+
+            $selected = @(& $resolver -RepoRoot $root -PlanId a1b2c3 `
+                    -ArtifactKind Intent -Relationship reuses)
+            $selected.status | Should -Be 'accepted'
+            $selected.content | Should -BeExactly 'asset-intent'
+
+            $unsafeId = "bad`n`tID$([char]0)"
+            $diagnostic = @(& $resolver -RepoRoot $root -PlanId $unsafeId `
+                    -ArtifactKind Intent -Relationship reuses)
+            $diagnostic.status | Should -Be 'refused'
+            $diagnostic.reason | Should -Not -Match '[\r\n\t\0]'
+            $diagnostic.reason.Length | Should -BeLessOrEqual 513
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'test:PlanArtifactContext.Provenance records complete deterministic metadata only for consumed artifacts' {
         $planningContracts = @(
             [pscustomobject]@{
@@ -924,8 +1022,7 @@ Describe 'Get-PlanArtifactContext' {
             $sectionMatch = [regex]::Match($text, $contract.Section)
             $sectionMatch.Success | Should -BeTrue -Because "$($contract.Path) must retain its prior-art contract"
             $section = $sectionMatch.Value
-            $section | Should -Match 'Consume only the adapter''s `accepted` results'
-            $section | Should -Match 'diagnostics` \(`missing`, `refused`, and\s+`oversized`\)'
+            $section | Should -Match '\./assets/plan-artifact-consumer-protocol\.md'
             $section | Should -Match '\| Plan ID \| Artifact kind \| Path \| Relationship \|'
             $section | Should -Match 'sorted by plan ID, artifact kind, path, then\s+relationship'
             $section | Should -Match 'Get-PlanArtifactConsumerContext\.ps1 -PlanId .+ -RepoRoot \.'
@@ -953,8 +1050,7 @@ Describe 'Get-PlanArtifactContext' {
             $section | Should -Match 'historical-context\[planId=<id>;artifactKind=<kind>;path=<path>;relationship=<relationship>\]'
             $section | Should -Match 'Sort accepted metadata by `planId`, `artifactKind`, `path`, then `relationship`'
             $section | Should -Match 'never truncate metadata or consume unrecorded content'
-            $section | Should -Match 'one bounded invocation'
-            $section | Should -Match 'Align each\s+`Relationship` value with the `PlanId`'
+            $section | Should -Match '\./assets/plan-artifact-consumer-protocol\.md'
             $section | Should -Match 'Get-PlanArtifactConsumerContext\.ps1 -PlanId .+ -RepoRoot \.'
         }
 
@@ -1032,7 +1128,7 @@ Describe 'Get-PlanArtifactContext' {
         }
         $settingsText = Get-Content -LiteralPath (Join-Path $repoRoot '.vscode/settings.json') -Raw
         foreach ($skill in @('cip', 'cep', 'cr', 'dr')) {
-            $settingsText | Should -Match (
+            $settingsText | Should -Not -Match (
                 "skills\\\\/$skill\\\\/scripts\\\\/Get-PlanArtifactConsumerContext"
             )
             $settingsText | Should -Not -Match (
@@ -1079,18 +1175,39 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match ([regex]::Escape(
                     "$($contract.InstalledResolver) -PlanId "
                 ))
-            $text | Should -Match 'accepted'
-            $text | Should -Match 'untrusted'
-            $text | Should -Match 'architecture\s+contracts'
-            $text | Should -Match 'remain\s+authoritative|cannot\s+override'
-            $text | Should -Match 'one bounded invocation'
-            $text | Should -Match 'align(?:ing)?\s+each\s+`Relationship`\s+value\s+with\s+the\s+`PlanId`'
-            $text | Should -Match '(?i)-Format Json'
-            $text | Should -Match '(?i)requires?.{0,20}exit\s+zero'
-            $text | Should -Match '(?i)top-level.{0,10}(?:JSON.{0,10}array|array.{0,10}JSON)'
-            $text | Should -Match '(?is)(?:failure|malformed JSON).*?(?:fatal|stop)'
-            $text | Should -Match 'adapter''s\s+closed\s+`Relationship`'
+            $text | Should -Match '\./assets/plan-artifact-consumer-protocol\.md'
             $text | Should -Not -Match 'pwsh\s+-NoProfile\s+-File\s+[^\r\n]*Get-PlanArtifactConsumerContext'
+        }
+
+        $protocolMappings = @(
+            $catalog.Files |
+                Where-Object {
+                    $_.Install -and
+                    [System.IO.Path]::GetFileName([string]$_.SourcePath) -eq
+                    'plan-artifact-consumer-protocol.md'
+                }
+        )
+        $protocolMappings.Count | Should -Be 4
+        $protocolHash = (Get-FileHash -LiteralPath $protocolMappings[0].SourcePath -Algorithm SHA256).Hash
+        foreach ($mapping in $protocolMappings) {
+            (Get-FileHash -LiteralPath $mapping.SourcePath -Algorithm SHA256).Hash |
+                Should -BeExactly $protocolHash
+            $protocol = [System.IO.File]::ReadAllText($mapping.SourcePath)
+            $protocol | Should -Match 'one bounded\s+invocation'
+            $protocol | Should -Match 'aligned `-Relationship`'
+            $protocol | Should -Match '`accepted` contains metadata only'
+            $protocol | Should -Match 'content appears exactly once'
+            $protocol | Should -Match 'malformed/non-array JSON'
+            $protocol | Should -Match 'not terminal-auto-approved'
+            $protocol | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
+            $protocol | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
+            $protocol | Should -Not -Match 'HISTORICAL_CONTEXT_DATA'
+
+            $dogfoodPath = Join-Path (Join-Path $repoRoot '.github') (
+                ([string]$mapping.Dest) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            (Get-FileHash -LiteralPath $dogfoodPath -Algorithm SHA256).Hash |
+                Should -BeExactly $protocolHash
         }
 
         $cipGuide = Get-Content -LiteralPath (
@@ -1134,19 +1251,11 @@ Describe 'Get-PlanArtifactContext' {
             $text | Should -Match 'do not add a context role, field, schema,\s+receipt, lifecycle'
             $text | Should -Match 'scopeAuthority'
         }
-        foreach ($framingContract in @($consumerContracts | Where-Object {
-                    $_.Path -notmatch '/cip/SKILL\.md$'
-                })) {
-            $fullText = Get-Content -LiteralPath (Join-Path $repoRoot $framingContract.Path) -Raw
-            $text = [regex]::Match($fullText, $framingContract.Section).Value
-            $text | Should -Match 'complete accepted result object'
-            $text | Should -Match 'serialized as JSON'
-            $text | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
-            $text | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
-            $text | Should -Not -Match 'HISTORICAL_CONTEXT_DATA'
-            $text | Should -Match 'Never\s+interpolate the raw `content`'
-            $text | Should -Match '(?i)content-controlled text\s+cannot close'
-        }
+        $customizationNote = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'docs/design-notes/project/copilot-customizations.design.md')
+        )
+        $customizationNote | Should -Match 'adapter-framed, secret-screened'
+        $customizationNote | Should -Not -Match 'For CR''s path-only payload'
     }
 
     It 'test:PlanArtifactContext.ConsumerInstall executes accepted-only handling, provenance, framing, and fatal parsing from the foreign repository' {
@@ -1214,7 +1323,7 @@ Describe 'Get-PlanArtifactContext' {
                 "docs/implementation-plans/2026-01-02-$planId-context/assets/intent.md"
             )
             $result.accepted[0].relationship | Should -Be 'operator-selected'
-            $result.accepted[0].content | Should -BeExactly $historicalContent
+            $result.accepted[0].PSObject.Properties.Name | Should -Not -Contain 'content'
             @($result.diagnostics).Count | Should -Be 1
             $result.diagnostics[0].artifactKind | Should -Be 'Evidence'
             $result.diagnostics[0].status | Should -Be 'missing'
@@ -1225,6 +1334,45 @@ Describe 'Get-PlanArtifactContext' {
             @([regex]::Matches($result.untrustedInput, '(?m)^<<<UNTRUSTED_INPUT_END>>>$')).Count |
                 Should -Be 1
             $result.untrustedInput | Should -Match '\\n<<<UNTRUSTED_INPUT_END>>>\\n'
+            $framedJson = ($result.untrustedInput -split "`n")[1]
+            $framedResults = @($framedJson | ConvertFrom-Json -Depth 20)
+            $framedResults.Count | Should -Be 1
+            $framedResults[0].content | Should -BeExactly $historicalContent
+            @([regex]::Matches($json, [regex]::Escape('historical line'))).Count |
+                Should -Be 1 -Because 'accepted artifact bytes occur only in the framed model input'
+
+            $artifactBytes = [System.Text.UTF8Encoding]::new($false).GetByteCount($historicalContent)
+            $exactBounded = (
+                @(& $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent -Relationship reuses `
+                        -MaxArtifactBytes $artifactBytes -MaxTotalBytes $artifactBytes) -join "`n"
+            ) | ConvertFrom-Json -Depth 20
+            @($exactBounded.accepted).Count | Should -Be 1
+
+            $artifactOversized = (
+                @(& $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent -Relationship reuses `
+                        -MaxArtifactBytes ($artifactBytes - 1)) -join "`n"
+            ) | ConvertFrom-Json -Depth 20
+            @($artifactOversized.accepted).Count | Should -Be 0
+            @($artifactOversized.diagnostics).Count | Should -Be 1
+            $artifactOversized.diagnostics[0].status | Should -Be 'oversized'
+
+            $aggregateOversized = (
+                @(& $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent -Relationship reuses `
+                        -MaxTotalBytes ($artifactBytes - 1)) -join "`n"
+            ) | ConvertFrom-Json -Depth 20
+            $aggregateOversized.diagnostics[0].status | Should -Be 'oversized'
+
+            $candidateOverflow = (
+                @(& $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent, Evidence -Relationship reuses `
+                        -MaxCandidates 1) -join "`n"
+            ) | ConvertFrom-Json -Depth 20
+            @($candidateOverflow.accepted).Count | Should -Be 0
+            @($candidateOverflow.diagnostics).Count | Should -Be 2
+            @($candidateOverflow.diagnostics.artifactKind) | Should -Be @('Evidence', 'Intent')
 
             Set-Content -LiteralPath (Join-Path $assetsDir 'design.md') `
                 -Encoding utf8NoBOM `
@@ -1373,6 +1521,39 @@ Describe 'Get-PlanArtifactContext' {
                 $emptyResult = $emptyResultJson | ConvertFrom-Json -Depth 20
                 @($emptyResult.accepted).Count | Should -Be 0
                 @($warnings).Message | Should -Match 'successful exit: successful diagnostic'
+
+                Set-Content -LiteralPath $resolverPath -Encoding utf8NoBOM -Value @(
+                    "[Console]::Error.WriteLine(('failure ' + ('x' * 700) + [char]0 + `"`tsecond line`"))"
+                    'exit 7'
+                )
+                $boundedFailure = try {
+                    & $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent -Relationship reuses
+                    $null
+                }
+                catch {
+                    $_
+                }
+                $boundedFailure | Should -Not -BeNullOrEmpty
+                $boundedFailure.Exception.Message | Should -Not -Match '[\r\n\t\0]'
+                $boundedFailure.Exception.Message | Should -Match 'exited 1: failure x+…$'
+                $boundedFailure.Exception.Message.Length | Should -BeLessThan 800
+
+                $stderrSecret = 'gh' + 'p_' + ('zyxwvutsrqponmlkjihgfedcba9876543210'.Substring(0, 36))
+                Set-Content -LiteralPath $resolverPath -Encoding utf8NoBOM -Value @(
+                    "[Console]::Error.WriteLine('failed $stderrSecret')"
+                    'exit 9'
+                )
+                $redactedFailure = try {
+                    & $consumerPath -RepoRoot $fixture.Root -PlanId $planId `
+                        -ArtifactKind Intent -Relationship reuses
+                    $null
+                }
+                catch {
+                    $_
+                }
+                $redactedFailure.Exception.Message | Should -Match 'redacted high-confidence credential'
+                $redactedFailure.Exception.Message | Should -Not -Match ([regex]::Escape($stderrSecret))
             }
             finally {
                 [System.IO.File]::WriteAllBytes($resolverPath, $resolverBytes)

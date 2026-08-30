@@ -192,9 +192,6 @@ public static class SkalaryPlanFileHandle
         out ByHandleFileInformation information);
 
     [DllImport("libc", SetLastError = true)]
-    private static extern int fcntl(int fd, int command, byte[] buffer);
-
-    [DllImport("libc", SetLastError = true)]
     private static extern int fstat(int fd, byte[] buffer);
 
     private static void AssertSupportedArchitecture(OSPlatform platform, Architecture architecture)
@@ -203,7 +200,8 @@ public static class SkalaryPlanFileHandle
             ? architecture == Architecture.X86 ||
                 architecture == Architecture.X64 ||
                 architecture == Architecture.Arm64
-            : architecture == Architecture.X64 || architecture == Architecture.Arm64;
+            : platform == OSPlatform.Linux &&
+                (architecture == Architecture.X64 || architecture == Architecture.Arm64);
         if (!BitConverter.IsLittleEndian || !supported)
         {
             throw new PlatformNotSupportedException(
@@ -239,29 +237,6 @@ public static class SkalaryPlanFileHandle
         return new Identity
         {
             Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
-            LinkCount = links,
-            IsRegular = (mode & 0xF000) == 0x8000
-        };
-    }
-
-    private static Identity ParseMacIdentity(byte[] stat, Architecture architecture)
-    {
-        if (architecture != Architecture.X64 && architecture != Architecture.Arm64)
-        {
-            throw new PlatformNotSupportedException("macOS fstat layout is unsupported on " + architecture + ".");
-        }
-        if (stat == null || stat.Length < 16)
-        {
-            throw new IOException("macOS fstat buffer is shorter than the supported layout.");
-        }
-
-        var device = BitConverter.ToUInt32(stat, 0);
-        var mode = BitConverter.ToUInt16(stat, 4);
-        var links = BitConverter.ToUInt16(stat, 6);
-        var inode = BitConverter.ToUInt64(stat, 8);
-        return new Identity
-        {
-            Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
             LinkCount = links,
             IsRegular = (mode & 0xF000) == 0x8000
         };
@@ -312,22 +287,12 @@ public static class SkalaryPlanFileHandle
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            const int F_GETPATH = 50;
-            var buffer = new byte[1024];
-            if (fcntl(handle.DangerousGetHandle().ToInt32(), F_GETPATH, buffer) != 0)
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-            var length = Array.IndexOf(buffer, (byte)0);
-            if (length < 0)
-            {
-                throw new IOException("Opened plan-file handle path exceeds the macOS F_GETPATH buffer.");
-            }
-            return Encoding.UTF8.GetString(buffer, 0, length);
+            throw new PlatformNotSupportedException(
+                "Opened plan-file handle validation is disabled on macOS because variadic F_GETPATH interop is not ABI-safe.");
         }
 
         throw new PlatformNotSupportedException(
-            "Opened plan-file handle validation supports Windows, Linux, and macOS only.");
+            "Opened plan-file handle validation supports Windows and Linux only.");
     }
 
     public static Identity GetIdentity(SafeFileHandle handle)
@@ -353,14 +318,10 @@ public static class SkalaryPlanFileHandle
         {
             AssertSupportedArchitecture(OSPlatform.Linux, RuntimeInformation.ProcessArchitecture);
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            AssertSupportedArchitecture(OSPlatform.OSX, RuntimeInformation.ProcessArchitecture);
-        }
         else
         {
             throw new PlatformNotSupportedException(
-                "Opened plan-file identity supports Windows, Linux, and macOS only.");
+                "Opened plan-file identity supports Windows and Linux only.");
         }
 
         var stat = new byte[256];
@@ -372,26 +333,157 @@ public static class SkalaryPlanFileHandle
         {
             return ParseLinuxIdentity(stat, RuntimeInformation.ProcessArchitecture);
         }
-        return ParseMacIdentity(stat, RuntimeInformation.ProcessArchitecture);
+        throw new PlatformNotSupportedException(
+            "Opened plan-file identity supports Windows and Linux only.");
     }
 }
 '@
 }
 
-function New-PlanConfinementContext {
-    [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$PlanDir)
+function Test-PhysicalPathWithin {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$AllowEqual
+    )
 
-    $logicalPath = Normalize-PhysicalPathRoot -Path $PlanDir
-    $item = Get-Item -LiteralPath $logicalPath -Force -ErrorAction Stop
-    if ($item -isnot [System.IO.DirectoryInfo] -or
-        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "Inventoried plan folder '$logicalPath' is not a regular directory."
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if ($AllowEqual -and [string]::Equals($Root, $Path, $comparison)) {
+        return $true
+    }
+    $prefix = $Root.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    return $Path.StartsWith($prefix, $comparison)
+}
+
+function New-PlanCorpusConfinementContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $logicalRepoPath = Normalize-PhysicalPathRoot -Path $RepoRoot
+    $repoItem = Get-Item -LiteralPath $logicalRepoPath -Force -ErrorAction Stop
+    if ($repoItem -isnot [System.IO.DirectoryInfo]) {
+        throw "Repository root '$logicalRepoPath' is not a directory."
+    }
+
+    $physicalRepoPath = Resolve-PhysicalRepoPath -Path $logicalRepoPath
+    $logicalPlansPath = Join-Path $logicalRepoPath 'docs/implementation-plans'
+    $current = $logicalRepoPath
+    foreach ($segment in @('docs', 'implementation-plans')) {
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        if ($item -isnot [System.IO.DirectoryInfo] -or
+            ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Plan corpus ancestor '$current' is not a regular directory."
+        }
+    }
+
+    $physicalPlansPath = Resolve-PhysicalRepoPath -Path $logicalPlansPath
+    if (-not (Test-PhysicalPathWithin `
+                -Root $physicalRepoPath `
+                -Path $physicalPlansPath)) {
+        throw "Physical plan corpus '$physicalPlansPath' escapes physical repository root '$physicalRepoPath'."
     }
 
     $context = [pscustomobject]@{
+        RepoPath = $logicalRepoPath
+        PhysicalRepoPath = $physicalRepoPath
+        PlansPath = $logicalPlansPath
+        PhysicalPlansPath = $physicalPlansPath
+    }
+    $context.PSObject.TypeNames.Insert(0, 'Skalary.PlanCorpusConfinementContext')
+    return $context
+}
+
+function Assert-PlanCorpusConfinementContext {
+    param([Parameter(Mandatory)][object]$Context)
+
+    if ($Context.PSObject.TypeNames -cnotcontains 'Skalary.PlanCorpusConfinementContext' -or
+        [string]::IsNullOrWhiteSpace([string]$Context.RepoPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalRepoPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PlansPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlansPath)) {
+        throw 'A PlanState-created plan corpus confinement context is required.'
+    }
+    if (-not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalRepoPath `
+                -Path $Context.PhysicalPlansPath)) {
+        throw 'Plan corpus confinement context contains a physical plan root outside its physical repository root.'
+    }
+    $expectedPlansPath = Normalize-PhysicalPathRoot -Path (
+        Join-Path $Context.RepoPath 'docs/implementation-plans'
+    )
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not [string]::Equals($expectedPlansPath, $Context.PlansPath, $comparison)) {
+        throw 'Plan corpus confinement context contains an invalid logical plan root.'
+    }
+}
+
+function New-PlanConfinementContext {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [string]$RepoRoot,
+        [object]$CorpusContext
+    )
+
+    $logicalPath = Normalize-PhysicalPathRoot -Path $PlanDir
+    if ($null -eq $CorpusContext) {
+        if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+            throw 'RepoRoot or a PlanState-created plan corpus confinement context is required.'
+        }
+        $CorpusContext = New-PlanCorpusConfinementContext -RepoRoot $RepoRoot
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        throw 'Specify RepoRoot or CorpusContext, not both.'
+    }
+    Assert-PlanCorpusConfinementContext -Context $CorpusContext
+
+    $relativePath = [System.IO.Path]::GetRelativePath($CorpusContext.PlansPath, $logicalPath)
+    if ($relativePath -eq '..' -or
+        $relativePath.StartsWith(
+            '..' + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::Ordinal
+        ) -or
+        [System.IO.Path]::IsPathRooted($relativePath)) {
+        throw "Plan folder '$logicalPath' escapes repository plan corpus '$($CorpusContext.PlansPath)'."
+    }
+
+    $current = $CorpusContext.PlansPath
+    foreach ($segment in @($relativePath -split '[\\/]' | Where-Object { $_.Length -gt 0 })) {
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        if ($item -isnot [System.IO.DirectoryInfo] -or
+            ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Plan corpus ancestor '$current' is not a regular directory."
+        }
+    }
+
+    $physicalPlanPath = Resolve-PhysicalRepoPath -Path $logicalPath
+    if (-not (Test-PhysicalPathWithin `
+                -Root $CorpusContext.PhysicalPlansPath `
+                -Path $physicalPlanPath)) {
+        throw "Physical plan folder '$physicalPlanPath' escapes physical plan corpus '$($CorpusContext.PhysicalPlansPath)'."
+    }
+    $context = [pscustomobject]@{
         PlanPath = $logicalPath
-        PhysicalPlanPath = Resolve-PhysicalRepoPath -Path $logicalPath
+        PhysicalPlanPath = $physicalPlanPath
+        PlansPath = $CorpusContext.PlansPath
+        PhysicalPlansPath = $CorpusContext.PhysicalPlansPath
+        RepoPath = $CorpusContext.RepoPath
+        PhysicalRepoPath = $CorpusContext.PhysicalRepoPath
     }
     $context.PSObject.TypeNames.Insert(0, 'Skalary.PlanConfinementContext')
     return $context
@@ -402,8 +494,18 @@ function Assert-PlanConfinementContext {
 
     if ($Context.PSObject.TypeNames -cnotcontains 'Skalary.PlanConfinementContext' -or
         [string]::IsNullOrWhiteSpace([string]$Context.PlanPath) -or
-        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlanPath)) {
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlanPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlansPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalRepoPath)) {
         throw 'A PlanState-created plan confinement context is required.'
+    }
+    if (-not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalRepoPath `
+                -Path $Context.PhysicalPlansPath) -or
+        -not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalPlansPath `
+                -Path $Context.PhysicalPlanPath)) {
+        throw 'Plan confinement context contains a physical plan root outside its repository corpus.'
     }
 }
 
@@ -501,8 +603,7 @@ function Resolve-ConfinedPlanPath {
     }
 }
 
-function Open-ConfinedPlanFile {
-    [CmdletBinding()]
+function Open-ConfinedPlanFileCore {
     param(
         [Parameter(Mandatory)][object]$Context,
         [Parameter(Mandatory)][string]$Path,
@@ -511,7 +612,14 @@ function Open-ConfinedPlanFile {
     )
 
     $validated = Resolve-ConfinedPlanPath -Context $Context -Path $Path -PathType Leaf
-    if ($BeforeFirstOpen) { & $BeforeFirstOpen }
+    if ($BeforeFirstOpen) {
+        try {
+            & $BeforeFirstOpen
+        }
+        catch {
+            throw "Internal before-first-open test seam failed: $($_.Exception.Message)"
+        }
+    }
 
     Initialize-PlanFileHandle
     $stream = [System.IO.File]::Open(
@@ -540,7 +648,14 @@ function Open-ConfinedPlanFile {
             throw "Opened plan file '$Path' is not a single-link regular file."
         }
 
-        if ($BeforeVerificationOpen) { & $BeforeVerificationOpen }
+        if ($BeforeVerificationOpen) {
+            try {
+                & $BeforeVerificationOpen
+            }
+            catch {
+                throw "Internal before-verification-open test seam failed: $($_.Exception.Message)"
+            }
+        }
         $verification = [System.IO.File]::Open(
             $Path,
             [System.IO.FileMode]::Open,
@@ -578,6 +693,16 @@ function Open-ConfinedPlanFile {
         $stream.Dispose()
         throw
     }
+}
+
+function Open-ConfinedPlanFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    return Open-ConfinedPlanFileCore -Context $Context -Path $Path
 }
 
 function Get-PlanLayout {
@@ -635,44 +760,34 @@ function Resolve-PlanAssetPath {
     )
 
     $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
+    $planConfinementContext = $null
     if ($RepoRoot) {
         $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-        $physicalRepoRoot = Resolve-PhysicalRepoPath -Path $repoRootFull
-        $plansRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/implementation-plans'))
-        $physicalPlansRoot = Resolve-PhysicalRepoPath -Path $plansRoot
-        $physicalPlanDir = Resolve-PhysicalRepoPath -Path $planDirFull
-        $plansPrefix = $physicalPlansRoot.TrimEnd([char[]]@(
-                [System.IO.Path]::DirectorySeparatorChar,
-                [System.IO.Path]::AltDirectorySeparatorChar
-            )) + [System.IO.Path]::DirectorySeparatorChar
-        if (-not $physicalPlanDir.StartsWith($plansPrefix, [System.StringComparison]::Ordinal)) {
-            throw "Plan folder '$planDirFull' escapes repository plan root '$plansRoot'."
-        }
-        Assert-PhysicalPlanConfinement -PlanDir $plansRoot -Path $planDirFull
+        $corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootFull
+        $planConfinementContext = New-PlanConfinementContext `
+            -PlanDir $planDirFull `
+            -CorpusContext $corpusContext
+        $planDirFull = $planConfinementContext.PlanPath
 
         if (-not $PSBoundParameters.ContainsKey('Inventory')) {
             $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         }
+        $comparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparison]::Ordinal
+        }
         $inventoryMatch = @($Inventory | Where-Object {
                 $_.Path -and [string]::Equals(
-                    (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
-                    $physicalPlanDir,
-                    [System.StringComparison]::Ordinal
+                    (Normalize-PhysicalPathRoot -Path ([string]$_.Path)),
+                    $planDirFull,
+                    $comparison
                 )
             })
         if ($inventoryMatch.Count -ne 1) {
             throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
         }
-
-        $planRelativePath = [System.IO.Path]::GetRelativePath($physicalRepoRoot, $physicalPlanDir)
-        if ($planRelativePath -eq '..' -or
-            $planRelativePath.StartsWith(
-                '..' + [System.IO.Path]::DirectorySeparatorChar,
-                [System.StringComparison]::Ordinal
-            )) {
-            throw "Plan folder '$planDirFull' escapes physical repository root '$physicalRepoRoot'."
-        }
-        $planDirFull = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $planRelativePath))
     }
 
     if (-not $Layout) {
@@ -684,7 +799,13 @@ function Resolve-PlanAssetPath {
         # Section assets have no sibling-file legacy form — their legacy home is inside plan.md.
         $resolvedPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
         if ($RepoRoot) {
-            Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
+            $physicalPath = Resolve-PhysicalPlanChildPath `
+                -Context $planConfinementContext `
+                -Path $resolvedPath
+            Assert-PhysicalPlanChildPath `
+                -Context $planConfinementContext `
+                -PhysicalPath $physicalPath `
+                -DisplayPath $resolvedPath
         }
         return $resolvedPath
     }
@@ -700,7 +821,13 @@ function Resolve-PlanAssetPath {
 
     $resolvedPath = if ($Layout -eq 'assets') { $assetPath } else { $legacyPath }
     if ($RepoRoot) {
-        Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
+        $physicalPath = Resolve-PhysicalPlanChildPath `
+            -Context $planConfinementContext `
+            -Path $resolvedPath
+        Assert-PhysicalPlanChildPath `
+            -Context $planConfinementContext `
+            -PhysicalPath $physicalPath `
+            -DisplayPath $resolvedPath
     }
     return $resolvedPath
 }
@@ -1241,7 +1368,9 @@ function Get-PlanInventory {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$RepoRoot
+        [string]$RepoRoot,
+
+        [string[]]$CanonicalIdFilter
     )
 
     $root = [System.IO.Path]::GetFullPath($RepoRoot)
@@ -1261,10 +1390,20 @@ function Get-PlanInventory {
             ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $true } }
     }
 
+    $requestedIds = $null
+    if ($PSBoundParameters.ContainsKey('CanonicalIdFilter')) {
+        $requestedIds = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]$CanonicalIdFilter,
+            [System.StringComparer]::Ordinal
+        )
+    }
     foreach ($entry in $folders) {
         $name = $entry.Dir.Name
         $parsedFolder = ConvertFrom-PlanFolderName -FolderName $name
         if ($null -eq $parsedFolder) {
+            continue
+        }
+        if ($null -ne $requestedIds -and -not $requestedIds.Contains($parsedFolder.FolderId)) {
             continue
         }
 
@@ -2307,4 +2446,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState, New-PlanConfinementContext, Resolve-ConfinedPlanPath, Open-ConfinedPlanFile
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState, New-PlanCorpusConfinementContext, New-PlanConfinementContext, Resolve-ConfinedPlanPath, Open-ConfinedPlanFile

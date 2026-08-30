@@ -565,6 +565,11 @@ a `.tmp` still being written, or abandoned half-written by a crashed caller, is 
 is neither read nor removed. Input is destroyed after use: removed on success, and overwritten before
 unlinking whenever it was rejected.
 
+Finalization replay keeps cleanup failure observability separate from retained-evidence success.
+`CleanupPending` remains true and `CleanupDiagnostic` carries the deletion failure for both live
+tombstone cleanup and marker-only replay; a compact pair is never reported as fully cleaned when its
+marker removal failed.
+
 **The input leaf is confined too, not just its ancestors.** Those two fixed names are the one path
 inside a run directory whose content an untrusted caller supplies, and the engine both parses that leaf
 and destroys it *in place* — `Remove-ReviewInputSecurely` overwrites the bytes before unlinking. The
@@ -642,12 +647,13 @@ dispatch-only data: they never enter the review-plan/result handshake, publicati
 review-run v1 evidence.
 
 Plan-associated CR/DR may also select related plan artifacts after their primary code/design scope is
-known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1` in its anchored,
-current-repository-only command form; the low-level resolver is internal and receives no independent
-approval. The adapter bounds and terminates its isolated resolver process, requires exit zero and
+known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1`; neither it nor the
+low-level resolver is auto-approved because the adapter cannot bind the installed sibling closure's
+bytes. The adapter bounds and terminates its isolated resolver process, requires exit zero and
 top-level array JSON, validates the closed public shape, and applies the shared secret guard before it
-emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. A detected artifact
-becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
+emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. Accepted metadata
+outside the frame omits content, so historical bytes occur only once in adapter output. A detected
+artifact becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
 interpolated into instructions. Deterministic
 plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`
 string. Only consumer-authored marker lines have structural meaning; marker-like content remains data.

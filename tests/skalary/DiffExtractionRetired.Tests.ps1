@@ -19,8 +19,22 @@ Describe 'cr diff extraction retirement' {
         # The cr orchestration surface moved into the skill (plan b0c0d3 step 6.1/6.3); the agent is
         # a shim. Both installed trees are checked because Sync-Dogfood never prunes.
         $script:crSurfaces = @(
-            [pscustomobject]@{ Tree = 'plugins'; Files = @('plugins/code-review/skills/cr/SKILL.md', 'plugins/code-review/skills/cr/assets/scope-guide.md') }
-            [pscustomobject]@{ Tree = 'dogfood'; Files = @('.github/skills/cr/SKILL.md', '.github/skills/cr/assets/scope-guide.md') }
+            [pscustomobject]@{
+                Tree = 'plugins'
+                Files = @(
+                    'plugins/code-review/skills/cr/SKILL.md'
+                    'plugins/code-review/skills/cr/assets/scope-guide.md'
+                    'plugins/code-review/skills/cr/assets/plan-artifact-consumer-protocol.md'
+                )
+            }
+            [pscustomobject]@{
+                Tree = 'dogfood'
+                Files = @(
+                    '.github/skills/cr/SKILL.md'
+                    '.github/skills/cr/assets/scope-guide.md'
+                    '.github/skills/cr/assets/plan-artifact-consumer-protocol.md'
+                )
+            }
         )
 
         $script:crShims = @(

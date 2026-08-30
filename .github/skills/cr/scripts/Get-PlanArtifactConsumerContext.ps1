@@ -2,13 +2,16 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
+    [ValidateCount(1, 32)]
     [string[]]$PlanId,
 
     [Parameter(Mandatory)]
+    [ValidateCount(1, 6)]
     [string[]]$ArtifactKind,
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
+    [ValidateCount(1, 32)]
     [string[]]$Relationship,
 
     [Parameter(Mandatory)]
@@ -55,7 +58,7 @@ function Get-BoundedResolverDiagnostic {
     if ($secretTypes.Count -gt 0) {
         return "redacted high-confidence credential type(s): $($secretTypes -join ', ')"
     }
-    $singleLine = ($Value -replace '[\r\n\t]+', ' ').Trim()
+    $singleLine = ($Value -replace '[\p{Cc}\p{Cf}\p{Cs}]+', ' ').Trim()
     if ($singleLine.Length -le $Limit) {
         return $singleLine
     }
@@ -249,6 +252,26 @@ foreach ($result in $results) {
 
 $accepted = @($results | Where-Object { $_['status'] -ceq 'accepted' })
 $diagnostics = @($results | Where-Object { $_['status'] -cne 'accepted' })
+$untrustedInput = $null
+if ($accepted.Count -gt 0) {
+    $acceptedJson = ConvertTo-Json -InputObject @($accepted) -Depth 20 -Compress
+    $untrustedInput = "<<<UNTRUSTED_INPUT_START>>>`n$acceptedJson`n<<<UNTRUSTED_INPUT_END>>>"
+}
+$acceptedMetadata = @($accepted | ForEach-Object {
+        [ordered]@{
+            status = $_['status']
+            planId = $_['planId']
+            artifactKind = $_['artifactKind']
+            path = $_['path']
+            relationship = $_['relationship']
+            layout = $_['layout']
+            isArchived = $_['isArchived']
+            isUntrusted = $_['isUntrusted']
+            authority = $_['authority']
+            byteCount = $_['byteCount']
+            reason = $_['reason']
+        }
+    })
 $provenance = @($accepted | ForEach-Object {
         [ordered]@{
             planId = $_['planId']
@@ -257,14 +280,9 @@ $provenance = @($accepted | ForEach-Object {
             relationship = $_['relationship']
         }
     })
-$untrustedInput = $null
-if ($accepted.Count -gt 0) {
-    $acceptedJson = ConvertTo-Json -InputObject @($accepted) -Depth 20 -Compress
-    $untrustedInput = "<<<UNTRUSTED_INPUT_START>>>`n$acceptedJson`n<<<UNTRUSTED_INPUT_END>>>"
-}
 
 [pscustomobject][ordered]@{
-    accepted = $accepted
+    accepted = $acceptedMetadata
     diagnostics = $diagnostics
     provenance = $provenance
     untrustedInput = $untrustedInput

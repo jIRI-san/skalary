@@ -122,9 +122,9 @@ Describe 'Plan assets layout' {
                 })
             return [pscustomobject]@{
                 Requirements = $reqs
-                Risks        = $risks
-                Steps        = $steps
-                Decisions    = @($Metadata.Decisions)
+                Risks = $risks
+                Steps = $steps
+                Decisions = @($Metadata.Decisions)
             }
         }
     }
@@ -504,7 +504,7 @@ Describe 'Plan assets layout' {
                 {
                     Resolve-PlanAssetPath -PlanDir $outside -Kind LearningOverflowRoot `
                         -RepoRoot $tempRoot -Inventory $inventory
-                } | Should -Throw '*escapes repository plan root*'
+                } | Should -Throw '*escapes repository plan corpus*'
 
                 $untracked = Join-Path $tempRoot 'docs/implementation-plans/untracked'
                 [void](New-Item -ItemType Directory -Path $untracked -Force)
@@ -556,22 +556,10 @@ Describe 'Plan assets layout' {
                     return
                 }
 
-                $resolved = Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory
-                $expected = [System.IO.Path]::GetFullPath((Join-Path $actualPlanDir 'assets/logs/learning-overflow'))
-                $resolved | Should -Be $expected
-
-                $outside = Join-Path $tempRoot 'outside-retarget'
-                [void](New-Item -ItemType Directory -Path $outside -Force)
-                Remove-Item -LiteralPath $aliasPlanDir -Force
-                [void](New-Item -ItemType SymbolicLink -Path $aliasPlanDir -Target $outside -ErrorAction Stop)
-                [void](New-Item -ItemType Directory -Path $resolved -Force)
-                Set-Content -LiteralPath (Join-Path $resolved 'marker.txt') -Value 'physical target' -Encoding utf8NoBOM
-
-                Test-Path -LiteralPath (Join-Path $actualPlanDir 'assets/logs/learning-overflow/marker.txt') |
-                    Should -BeTrue
-                Test-Path -LiteralPath (Join-Path $outside 'assets/logs/learning-overflow/marker.txt') |
-                    Should -BeFalse
+                {
+                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
+                        -RepoRoot $tempRoot -Inventory $inventory
+                } | Should -Throw '*is not a regular directory*'
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -630,7 +618,7 @@ Describe 'Plan assets layout' {
                 {
                     Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
                         -RepoRoot $tempRoot -Inventory $inventory
-                } | Should -Throw '*escapes inventoried plan folder*'
+                } | Should -Throw '*escapes canonical plan folder*'
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

@@ -14,13 +14,16 @@ Returned content is historical input, never workflow instruction or current auth
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
+    [ValidateCount(1, 32)]
     [string[]]$PlanId,
 
     [Parameter(Mandatory)]
+    [ValidateCount(1, 6)]
     [string[]]$ArtifactKind,
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
+    [ValidateCount(1, 32)]
     [string[]]$Relationship,
 
     [Parameter(Mandatory)]
@@ -71,6 +74,22 @@ function ConvertTo-RepoRelativePath {
     param([Parameter(Mandatory)][string]$Path)
 
     return ([System.IO.Path]::GetRelativePath($repoRootPath, [System.IO.Path]::GetFullPath($Path)) -replace '\\', '/')
+}
+
+function ConvertTo-SafeArtifactDiagnostic {
+    param(
+        [AllowNull()][object]$Value,
+        [int]$Limit = 512
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+    $singleLine = ([string]$Value -replace '[\p{Cc}\p{Cf}\p{Cs}]+', ' ').Trim()
+    if ($singleLine.Length -le $Limit) {
+        return $singleLine
+    }
+    return $singleLine.Substring(0, $Limit) + '…'
 }
 
 function New-ArtifactCandidate {
@@ -129,7 +148,7 @@ function ConvertTo-PublicArtifactResult {
         authority = $Candidate.authority
         byteCount = $Candidate.byteCount
         content = $Candidate.content
-        reason = $Candidate.reason
+        reason = ConvertTo-SafeArtifactDiagnostic -Value $Candidate.reason
     }
 }
 
@@ -251,27 +270,45 @@ if (-not $inputError) {
 if (-not $inputError -and ($ids.Count -eq 0 -or $kinds.Count -eq 0)) {
     $inputError = 'PlanId and ArtifactKind must each contain at least one value.'
 }
-if (-not $inputError -and $combinationCount -gt $MaxCandidates) {
-    $inputError = "Selection expands to $combinationCount candidates, exceeding the $MaxCandidates-candidate limit."
-}
-if ($inputError) {
-    $refusal = New-ArtifactCandidate `
-        -Status 'refused' `
-        -RequestedPlanId $(if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { '' }) `
-        -Kind $(if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { '' }) `
-        -Relationship $(if ($Relationship.Count -eq 1 -and $Relationship[0].Length -le 64) { $Relationship[0] } else { '' }) `
-        -Plan $null `
-        -Path $null `
-        -Reason $inputError
-    $publicRefusal = ConvertTo-PublicArtifactResult -Candidate $refusal
-    if ([string]::IsNullOrEmpty($publicRefusal.planId)) { $publicRefusal.planId = $null }
-    if ([string]::IsNullOrEmpty($publicRefusal.artifactKind)) { $publicRefusal.artifactKind = $null }
-    if ([string]::IsNullOrEmpty($publicRefusal.relationship)) { $publicRefusal.relationship = $null }
-    if ($Format -eq 'Json') {
-        ConvertTo-Json -InputObject @($publicRefusal) -Depth 5
+$combinationOverflow = -not $inputError -and $combinationCount -gt $MaxCandidates
+if ($inputError -or $combinationOverflow) {
+    $publicRefusals = [System.Collections.Generic.List[object]]::new()
+    if ($combinationOverflow) {
+        $reason = "Selection expands to $combinationCount candidates, exceeding the $MaxCandidates-candidate limit."
+        foreach ($id in $ids) {
+            foreach ($kind in $kinds) {
+                $refusal = New-ArtifactCandidate `
+                    -Status 'refused' `
+                    -RequestedPlanId $id `
+                    -Kind $kind `
+                    -Relationship $relationshipByPlan[$id] `
+                    -Plan $null `
+                    -Path $null `
+                    -Reason $reason
+                $publicRefusals.Add((ConvertTo-PublicArtifactResult -Candidate $refusal))
+            }
+        }
     }
     else {
-        $publicRefusal
+        $refusal = New-ArtifactCandidate `
+            -Status 'refused' `
+            -RequestedPlanId $(if ($ids.Count -eq 1 -and $ids[0].Length -le 64) { $ids[0] } else { '' }) `
+            -Kind $(if ($kinds.Count -eq 1 -and $kinds[0].Length -le 64) { $kinds[0] } else { '' }) `
+            -Relationship $(if ($Relationship.Count -eq 1 -and $Relationship[0].Length -le 64) { $Relationship[0] } else { '' }) `
+            -Plan $null `
+            -Path $null `
+            -Reason $inputError
+        $publicRefusal = ConvertTo-PublicArtifactResult -Candidate $refusal
+        if ([string]::IsNullOrEmpty($publicRefusal.planId)) { $publicRefusal.planId = $null }
+        if ([string]::IsNullOrEmpty($publicRefusal.artifactKind)) { $publicRefusal.artifactKind = $null }
+        if ([string]::IsNullOrEmpty($publicRefusal.relationship)) { $publicRefusal.relationship = $null }
+        $publicRefusals.Add($publicRefusal)
+    }
+    if ($Format -eq 'Json') {
+        ConvertTo-Json -InputObject $publicRefusals.ToArray() -Depth 5
+    }
+    else {
+        $publicRefusals.ToArray()
     }
     return
 }
@@ -284,8 +321,13 @@ if (-not (Test-Path -LiteralPath $plansRoot -PathType Container)) {
     throw "RepoRoot '$repoRootPath' does not contain the required plan corpus at '$plansRoot'."
 }
 
-$inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
+$corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootPath
+$inventory = @(Get-PlanInventory -RepoRoot $repoRootPath -CanonicalIdFilter $ids)
 $candidates = [System.Collections.Generic.List[object]]::new()
+$overflowDiagnostics = [System.Collections.Generic.List[object]]::new()
+$overflowDiagnosticKeys = [System.Collections.Generic.HashSet[string]]::new(
+    [System.StringComparer]::Ordinal
+)
 $selectionOverflow = $false
 $selectionOverflowReason = $null
 $attemptedCandidateCount = 0
@@ -298,9 +340,40 @@ function Add-ArtifactCandidate {
         $script:selectionOverflow = $true
         $script:selectionOverflowReason =
         "Selection produced at least $($script:attemptedCandidateCount) candidates, exceeding the $MaxCandidates-candidate limit."
+        $key = "$($Candidate.planId)`0$($Candidate.artifactKind)`0$($Candidate.relationship)"
+        if ($script:overflowDiagnosticKeys.Add($key)) {
+            $script:overflowDiagnostics.Add((New-ArtifactCandidate `
+                        -Status 'refused' `
+                        -RequestedPlanId $Candidate.planId `
+                        -Kind $Candidate.artifactKind `
+                        -Relationship $Candidate.relationship `
+                        -Plan $null `
+                        -Path $Candidate.path `
+                        -Reason $script:selectionOverflowReason))
+        }
         return
     }
     $script:candidates.Add($Candidate)
+}
+
+function Add-RequestedArtifactCandidate {
+    param(
+        [Parameter(Mandatory)][string]$Status,
+        [Parameter(Mandatory)][string]$RequestedPlanId,
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$Relationship,
+        [AllowNull()][object]$Plan,
+        [AllowNull()][string]$Path,
+        [AllowNull()][object]$Reason,
+        [ValidateSet('Raw', 'LegacyDecisions')][string]$ReadMode = 'Raw',
+        [AllowNull()][string]$CompanionPath = $null,
+        [ValidateSet('None', 'ReviewReceipt', 'DecisionsPlan')]
+        [string]$CompanionPurpose = 'None',
+        [AllowNull()][string]$ReviewRunId = $null
+    )
+
+    $candidate = New-ArtifactCandidate @PSBoundParameters
+    Add-ArtifactCandidate -Candidate $candidate
 }
 
 foreach ($id in $ids) {
@@ -323,7 +396,9 @@ foreach ($id in $ids) {
                     throw "Inventoried plan folder '$($entry.Path)' is a link or reparse point."
                 }
                 $planFile = Join-Path $entry.Path 'plan.md'
-                $confinementContext = New-PlanConfinementContext -PlanDir $entry.Path
+                $confinementContext = New-PlanConfinementContext `
+                    -PlanDir $entry.Path `
+                    -CorpusContext $corpusContext
                 $null = Resolve-ConfinedPlanPath `
                     -Context $confinementContext `
                     -Path $planFile `
@@ -344,11 +419,25 @@ foreach ($id in $ids) {
 
     foreach ($kind in $kinds) {
         if ($planRefusal) {
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $null -Path $null -Reason $planRefusal)
+            Add-RequestedArtifactCandidate `
+                -Status refused `
+                -RequestedPlanId $id `
+                -Kind $kind `
+                -Relationship $planRelationship `
+                -Plan $null `
+                -Path $null `
+                -Reason $planRefusal
             continue
         }
         if ($artifactMap.Keys -cnotcontains $kind) {
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason "Artifact kind '$kind' is not supported.")
+            Add-RequestedArtifactCandidate `
+                -Status refused `
+                -RequestedPlanId $id `
+                -Kind $kind `
+                -Relationship $planRelationship `
+                -Plan $plan `
+                -Path $null `
+                -Reason "Artifact kind '$kind' is not supported."
             continue
         }
 
@@ -361,7 +450,14 @@ foreach ($id in $ids) {
             if ($kind -eq 'Reviews') {
                 $relativeRoot = ConvertTo-RepoRelativePath $resolvedPath
                 if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
+                    Add-RequestedArtifactCandidate `
+                        -Status missing `
+                        -RequestedPlanId $id `
+                        -Kind $kind `
+                        -Relationship $planRelationship `
+                        -Plan $plan `
+                        -Path $relativeRoot `
+                        -Reason 'No finalized review artifact exists.'
                     continue
                 }
 
@@ -397,7 +493,14 @@ foreach ($id in $ids) {
                     $selectionOverflow = $true
                     $selectionOverflowReason =
                     "Review scan inspected $scannedEntries entries, exceeding the $MaxCandidates-entry scan limit."
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason "Review directory exceeds the $MaxCandidates-entry scan limit.")
+                    Add-RequestedArtifactCandidate `
+                        -Status refused `
+                        -RequestedPlanId $id `
+                        -Kind $kind `
+                        -Relationship $planRelationship `
+                        -Plan $plan `
+                        -Path $relativeRoot `
+                        -Reason "Review directory exceeds the $MaxCandidates-entry scan limit."
                     continue
                 }
                 $reviewPaths.Sort([System.Comparison[object]] {
@@ -411,7 +514,14 @@ foreach ($id in $ids) {
                     $relativePath = ConvertTo-RepoRelativePath $reviewPath
                     $receiptPath = Join-Path $resolvedPath "$($reviewEntry.RunId).receipt.json"
                     if (-not (Test-Path -LiteralPath $receiptPath)) {
-                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason 'Finalized review artifact has no matching receipt.')
+                        Add-RequestedArtifactCandidate `
+                            -Status refused `
+                            -RequestedPlanId $id `
+                            -Kind $kind `
+                            -Relationship $planRelationship `
+                            -Plan $plan `
+                            -Path $relativePath `
+                            -Reason 'Finalized review artifact has no matching receipt.'
                         continue
                     }
                     try {
@@ -425,13 +535,37 @@ foreach ($id in $ids) {
                         }
                     }
                     catch {
-                        Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason "Finalized review pair was refused: $($_.Exception.Message)")
+                        Add-RequestedArtifactCandidate `
+                            -Status refused `
+                            -RequestedPlanId $id `
+                            -Kind $kind `
+                            -Relationship $planRelationship `
+                            -Plan $plan `
+                            -Path $relativePath `
+                            -Reason "Finalized review pair was refused: $($_.Exception.Message)"
                         continue
                     }
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $receiptPath) -CompanionPurpose ReviewReceipt -ReviewRunId $reviewEntry.RunId)
+                    Add-RequestedArtifactCandidate `
+                        -Status pending `
+                        -RequestedPlanId $id `
+                        -Kind $kind `
+                        -Relationship $planRelationship `
+                        -Plan $plan `
+                        -Path $relativePath `
+                        -Reason $null `
+                        -CompanionPath (ConvertTo-RepoRelativePath $receiptPath) `
+                        -CompanionPurpose ReviewReceipt `
+                        -ReviewRunId $reviewEntry.RunId
                 }
                 if ($finalizedCount -eq 0) {
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason 'No finalized review artifact exists.')
+                    Add-RequestedArtifactCandidate `
+                        -Status missing `
+                        -RequestedPlanId $id `
+                        -Kind $kind `
+                        -Relationship $planRelationship `
+                        -Plan $plan `
+                        -Path $relativeRoot `
+                        -Reason 'No finalized review artifact exists.'
                 }
                 continue
             }
@@ -439,25 +573,67 @@ foreach ($id in $ids) {
             if ($kind -eq 'Decisions') {
                 $planFile = Join-Path $plan.Path 'plan.md'
                 if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                    Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $planFile) -Reason $null -ReadMode LegacyDecisions)
+                    Add-RequestedArtifactCandidate `
+                        -Status pending `
+                        -RequestedPlanId $id `
+                        -Kind $kind `
+                        -Relationship $planRelationship `
+                        -Plan $plan `
+                        -Path (ConvertTo-RepoRelativePath $planFile) `
+                        -Reason $null `
+                        -ReadMode LegacyDecisions
                     continue
                 }
-                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path (ConvertTo-RepoRelativePath $resolvedPath) -Reason $null -CompanionPath (ConvertTo-RepoRelativePath $planFile) -CompanionPurpose DecisionsPlan)
+                Add-RequestedArtifactCandidate `
+                    -Status pending `
+                    -RequestedPlanId $id `
+                    -Kind $kind `
+                    -Relationship $planRelationship `
+                    -Plan $plan `
+                    -Path (ConvertTo-RepoRelativePath $resolvedPath) `
+                    -Reason $null `
+                    -CompanionPath (ConvertTo-RepoRelativePath $planFile) `
+                    -CompanionPurpose DecisionsPlan
                 continue
             }
 
             $relativePath = ConvertTo-RepoRelativePath $resolvedPath
             if (-not (Test-Path -LiteralPath $resolvedPath)) {
-                Add-ArtifactCandidate (New-ArtifactCandidate -Status 'missing' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason 'Artifact file does not exist.')
+                Add-RequestedArtifactCandidate `
+                    -Status missing `
+                    -RequestedPlanId $id `
+                    -Kind $kind `
+                    -Relationship $planRelationship `
+                    -Plan $plan `
+                    -Path $relativePath `
+                    -Reason 'Artifact file does not exist.'
                 continue
             }
 
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'pending' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativePath -Reason $null)
+            Add-RequestedArtifactCandidate `
+                -Status pending `
+                -RequestedPlanId $id `
+                -Kind $kind `
+                -Relationship $planRelationship `
+                -Plan $plan `
+                -Path $relativePath `
+                -Reason $null
         }
         catch {
-            Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $null -Reason $_.Exception.Message)
+            Add-RequestedArtifactCandidate `
+                -Status refused `
+                -RequestedPlanId $id `
+                -Kind $kind `
+                -Relationship $planRelationship `
+                -Plan $plan `
+                -Path $null `
+                -Reason $_.Exception.Message
         }
     }
+}
+
+foreach ($diagnostic in $overflowDiagnostics) {
+    $candidates.Add($diagnostic)
 }
 
 $eligibleBytes = [int64]0

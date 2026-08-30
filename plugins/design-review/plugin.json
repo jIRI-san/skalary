@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "description": "Design review orchestrator with model-agnostic concern reviewers.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -23,6 +23,10 @@
     {
       "src": "skills/dr/assets/plan-scope-guide.md",
       "dest": "skills/dr/assets/plan-scope-guide.md"
+    },
+    {
+      "src": "skills/dr/assets/plan-artifact-consumer-protocol.md",
+      "dest": "skills/dr/assets/plan-artifact-consumer-protocol.md"
     },
     {
       "src": "skills/dr/assets/dispatch-guide.md",

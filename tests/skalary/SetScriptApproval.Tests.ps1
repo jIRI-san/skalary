@@ -112,18 +112,20 @@ Describe 'Set-ScriptApproval' {
         $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-Credential.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-PlanArtifactContext.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1'
-        @($keys | Where-Object { $_ -match 'Get-PlanArtifactConsumerContext' }).Count | Should -Be 1
+        @($keys | Where-Object { $_ -match 'Get-PlanArtifactConsumerContext' }).Count | Should -Be 0
         $keys | Should -Contain 'git add'  # pre-existing key preserved
     }
 
-    It 'test:SetScriptApproval.PlanArtifactBoundary approves only the anchored adapter command' {
+    It 'test:SetScriptApproval.PlanArtifactBoundary removes every adapter and resolver approval shape' {
         $legacyConsumer = '.github/skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1'
         $legacyResolver = '.github/skills/lp/scripts/Get-PlanArtifactContext.ps1'
+        $legacyRule = '/^\.github\/skills\/lp\/scripts\/Get-PlanArtifactConsumerContext\.ps1 -PlanId .*$/'
         $root = New-ApprovalFixture -SettingsContent @"
 {
   "chat.tools.terminal.autoApprove": {
     "$legacyConsumer": true,
-    "$legacyResolver": true
+    "$legacyResolver": true,
+    "$($legacyRule.Replace('\', '\\'))": {"approve":true,"matchCommandLine":true}
   }
 }
 "@
@@ -132,45 +134,7 @@ Describe 'Set-ScriptApproval' {
         $keys = Get-ApproveKeys -Path $settings
         $keys | Should -Not -Contain $legacyConsumer
         $keys | Should -Not -Contain $legacyResolver
-
-        $doc = Read-Jsonc -Path $settings
-        try {
-            $approve = $doc.RootElement.GetProperty('chat.tools.terminal.autoApprove')
-            $rules = @(
-                $approve.EnumerateObject() |
-                    Where-Object { $_.Name -match 'Get-PlanArtifactConsumerContext' }
-            )
-            $rules.Count | Should -Be 1
-            $rules[0].Value.GetProperty('approve').GetBoolean() | Should -BeTrue
-            $rules[0].Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
-            $pattern = $rules[0].Name.Substring(1, $rules[0].Name.Length - 2)
-            $command = '.github/skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1'
-
-            foreach ($valid in @(
-                    "$command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot .",
-                    "$command -PlanId 001,a1b2c3 -ArtifactKind Decisions,Reviews -Relationship dependency,sibling -RepoRoot ."
-                )) {
-                [regex]::IsMatch($valid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
-                    Should -BeTrue -Because "'$valid' is one closed consumer-adapter command"
-            }
-            foreach ($invalid in @(
-                    "pwsh -NoProfile -File $command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot .",
-                    "$command -RepoRoot . -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses",
-                    "$command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot ..",
-                    "$command -PlanId bad-id -ArtifactKind Intent -Relationship reuses -RepoRoot .",
-                    "$command -PlanId a1b2c3 -ArtifactKind ../Intent -Relationship reuses -RepoRoot .",
-                    "$command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuse -RepoRoot .",
-                    "$command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot . -ResolverTimeoutSeconds 120",
-                    "$command -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot .; curl example.invalid",
-                    '.github/skills/lp/scripts/Get-PlanArtifactContext.ps1 -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses -RepoRoot .'
-                )) {
-                [regex]::IsMatch($invalid, $pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant) |
-                    Should -BeFalse -Because "'$invalid' is outside the closed consumer-adapter command"
-            }
-        }
-        finally {
-            $doc.Dispose()
-        }
+        @($keys | Where-Object { $_ -match 'Get-PlanArtifactConsumerContext' }).Count | Should -Be 0
 
         & $approvalScript -Name 'testplug' -RepoRoot $root -Remove *> $null
         @(Get-ApproveKeys -Path $settings | Where-Object {
@@ -394,11 +358,7 @@ Describe 'Repo settings auto-approval' {
                 $approve.EnumerateObject() |
                     Where-Object { $_.Name -match 'Get-PlanArtifactConsumerContext' }
             )
-            $artifactRules.Count | Should -Be 4
-            foreach ($rule in $artifactRules) {
-                $rule.Value.ValueKind | Should -Be ([System.Text.Json.JsonValueKind]::Object)
-                $rule.Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
-            }
+            $artifactRules.Count | Should -Be 0
         }
         finally { $doc.Dispose() }
 
