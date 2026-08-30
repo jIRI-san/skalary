@@ -127,6 +127,38 @@ Describe 'Fleet dispatch planner' {
                 New-FleetTask -Id oversized -Label ('x' * 257)
             )
         } | Should -Throw '*256-character limit*'
+        $unsafeKey = New-FleetTask -Id unsafe-key
+        $unsafeKey.Key = "role$([char]0x202e)key"
+        { New-FleetDispatchPlan -Task @($unsafeKey) } |
+            Should -Throw '*prohibited control or formatting character*'
+        $unsafeOmission = New-FleetTask `
+            -Id unsafe-omission `
+            -Selected $false `
+            -OmissionReason "scope$([char]0x1b)[31m"
+        { New-FleetDispatchPlan -Task @($unsafeOmission) } |
+            Should -Throw '*prohibited control or formatting character*'
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id oversized-key -Key ('k' * 257)
+            )
+        } | Should -Throw '*256-character limit*'
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id oversized-reason -Selected $false -OmissionReason ('r' * 513)
+            )
+        } | Should -Throw '*512-character limit*'
+        {
+            New-FleetDispatchPlan -Task @(
+                1..65 | ForEach-Object { New-FleetTask -Id "task-$_" }
+            )
+        } | Should -Throw '*at most 64 task descriptors*'
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id excessive-dependencies -DependsOn @(
+                    1..65 | ForEach-Object { "dependency-$_" }
+                )
+            )
+        } | Should -Throw '*64-dependency limit*'
 
         $source = @(New-FleetTask -Id stable)
         $before = $source | ConvertTo-Json -Depth 5 -Compress
@@ -153,12 +185,12 @@ Provider-global concurrency is unobserved.
 Retry policy: Retry once only when the host or tool explicitly reports throttling.
 
 Selected tasks:
-- design | Task design | key: role.design | depends on: none
-- validate | Task validate | key: role.validate | depends on: none
-- implement | Task implement | key: role.implement | depends on: design, validate
+- design | "Task design" | key: "role.design" | depends on: none
+- validate | "Task validate" | key: "role.validate" | depends on: none
+- implement | "Task implement" | key: "role.implement" | depends on: design, validate
 
 Omitted tasks:
-- optional | Task optional | key: role.optional | reason: not needed for this run
+- optional | "Task optional" | key: "role.optional" | reason: "not needed for this run"
 
 Projected waves:
 - Wave 1 (2): design, validate
@@ -171,9 +203,9 @@ Ready order: design -> validate -> implement
             New-FleetTask -Id omitted -Selected $false -OmissionReason 'not | selected'
         )
         $escapedView = Format-FleetDispatchPlan -Plan $escaped
-        $escapedView | Should -Match ([regex]::Escape('Task \| label'))
-        $escapedView | Should -Match ([regex]::Escape('role\\key'))
-        $escapedView | Should -Match ([regex]::Escape('not \| selected'))
+        $escapedView | Should -Match ([regex]::Escape('"Task | label"'))
+        $escapedView | Should -Match ([regex]::Escape('"role\\key"'))
+        $escapedView | Should -Match ([regex]::Escape('"not | selected"'))
     }
 }
 
@@ -274,6 +306,20 @@ Describe 'Fleet dispatch execution adapter' {
         @($throttleResult.Tasks | Where-Object Id -CEQ first)[0].Attempts.Outcome |
             Should -Be @('throttled', 'completed')
 
+        $exhaustedCalls = [System.Collections.Generic.List[int]]::new()
+        $exhausted = Invoke-FleetDispatchPlan -Plan (
+            New-FleetDispatchPlan -Task @(New-FleetTask -Id exhausted)
+        ) -Render {} -InvokeWave {
+            param($Wave)
+            $exhaustedCalls.Add($Wave.Attempt)
+            New-WaveResult -TaskId exhausted -Outcome throttled -Detail 'explicit throttle'
+        }
+        $exhaustedCalls.ToArray() | Should -Be @(1, 2)
+        $exhausted.Attendance.Failed | Should -Be 1
+        $exhausted.Attendance.Retried | Should -Be 1
+        $exhausted.Tasks[0].Attempts.Outcome | Should -Be @('throttled', 'throttled')
+        @($exhausted.Events | Where-Object Outcome -eq failed).Count | Should -Be 1
+
         $failurePlan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id root
             New-FleetTask -Id dependent -DependsOn root
@@ -328,6 +374,22 @@ Describe 'Fleet dispatch execution adapter' {
         $mutators = @(
             {
                 param($Candidate)
+                $Candidate.Schema = 'skalary/fleet-dispatch-plan@2'
+            },
+            {
+                param($Candidate)
+                $Candidate.AdmissionCap = 3
+            },
+            {
+                param($Candidate)
+                $Candidate.ProviderConcurrencyObserved = $true
+            },
+            {
+                param($Candidate)
+                $Candidate.ProviderConcurrencyNote = 'provider state known'
+            },
+            {
+                param($Candidate)
                 $Candidate.Selected = @($Candidate.Selected | Select-Object -First 1)
             },
             {
@@ -344,6 +406,10 @@ Describe 'Fleet dispatch execution adapter' {
             },
             {
                 param($Candidate)
+                $Candidate.Waves[0].Number = 2
+            },
+            {
+                param($Candidate)
                 $Candidate.ReadyOrder = @('dependent', 'root')
             },
             {
@@ -353,6 +419,22 @@ Describe 'Fleet dispatch execution adapter' {
             {
                 param($Candidate)
                 $Candidate.RetryPolicy.MaximumRetryCount = 2
+            },
+            {
+                param($Candidate)
+                $Candidate.RetryPolicy.Trigger = 'any-failure'
+            },
+            {
+                param($Candidate)
+                $Candidate.RetryPolicy.Description = 'retry forever'
+            },
+            {
+                param($Candidate)
+                $Candidate.Attendance = @([pscustomobject]@{ Outcome = 'started' })
+            },
+            {
+                param($Candidate)
+                $Candidate.Tasks[0].Order = 5
             }
         )
         foreach ($mutator in $mutators) {
@@ -384,6 +466,41 @@ Describe 'Fleet dispatch execution adapter' {
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
                 param($Wave)
+                @(
+                    New-WaveResult -TaskId first
+                    New-WaveResult -TaskId first
+                )
+            }
+        } | Should -Throw '*duplicate result*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                @(
+                    [pscustomobject]@{ TaskId = 'first'; Outcome = 'unknown'; Detail = 'bad outcome' }
+                    New-WaveResult -TaskId second
+                )
+            }
+        } | Should -Throw '*unsupported Outcome*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                @(
+                    $null
+                    New-WaveResult -TaskId second
+                )
+            }
+        } | Should -Throw '*null task result*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                @($Wave.Tasks | ForEach-Object {
+                        [pscustomobject]@{ TaskId = $_.Id; Outcome = 'failed'; Detail = '' }
+                    })
+            }
+        } | Should -Throw '*requires Detail*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
                 @($Wave.Tasks | ForEach-Object {
                         New-WaveResult `
                             -TaskId $_.Id `
@@ -392,6 +509,22 @@ Describe 'Fleet dispatch execution adapter' {
                     })
             }
         } | Should -Throw '*prohibited control or formatting character*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                @($Wave.Tasks | ForEach-Object {
+                        New-WaveResult -TaskId $_.Id -Outcome failed -Detail ('d' * 513)
+                    })
+            }
+        } | Should -Throw '*512-character limit*'
+
+        $launcherFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            throw 'host transport failed'
+        }
+        $launcherFailure.State | Should -Be degraded
+        $launcherFailure.Attendance.Failed | Should -Be 2
+        $launcherFailure.FinalView | Should -Match 'wave launcher raised'
+        Get-Command Format-FleetDispatchResult -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
     }
 
     It 'renders complete success, omission, dependency-failure, and throttle-degradation attendance' {
@@ -413,7 +546,7 @@ Selected tasks:
 - first | completed | attempts: 1:completed
 
 Omitted tasks:
-- omitted | omitted | reason: outside scope
+- omitted | omitted | reason: "outside scope"
 
 Degradation:
 - (none)
@@ -434,15 +567,15 @@ Provider-global concurrency is unobserved.
 Attendance: planned=2; started=1; completed=0; failed=1; retried=0; cancelled=1
 
 Selected tasks:
-- root | failed | attempts: 1:failed | detail: ordinary failure
-- dependent | cancelled | attempts: none | detail: dependency 'root' did not complete
+- root | failed | attempts: 1:failed | detail: "ordinary failure"
+- dependent | cancelled | attempts: none | detail: "dependency 'root' did not complete"
 
 Omitted tasks:
 - (none)
 
 Degradation:
-- root | failed: ordinary failure
-- dependent | cancelled: dependency 'root' did not complete
+- root | "failed: ordinary failure"
+- dependent | "cancelled: dependency 'root' did not complete"
 '@
 
         $throttledPlan = New-FleetDispatchPlan -Task @(New-FleetTask -Id throttled)
@@ -468,7 +601,7 @@ Omitted tasks:
 - (none)
 
 Degradation:
-- throttled | recovered after one explicit throttle retry
+- throttled | "recovered after one explicit throttle retry"
 '@
     }
 }

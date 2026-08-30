@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:FleetDispatchAdmissionCap = 4
+$script:FleetDispatchMaximumTaskCount = 64
 $script:FleetDispatchIdPattern = '^[a-z0-9][a-z0-9._:-]{0,127}$'
 $script:FleetDispatchProviderNote = 'Provider-global concurrency is unobserved.'
 $script:FleetDispatchRetryTrigger = 'explicit-throttle-only'
@@ -82,7 +83,7 @@ function ConvertTo-FleetDispatchDisplayText {
         [string]$Value
     )
 
-    return $Value.Replace('\', '\\').Replace('|', '\|')
+    return ConvertTo-Json -InputObject $Value -Compress
 }
 
 function ConvertTo-FleetDispatchTask {
@@ -121,7 +122,7 @@ function ConvertTo-FleetDispatchTask {
         -Value $reasonValue `
         -Label "Fleet task '$id' omission reason" `
         -AllowEmpty `
-        -MaximumLength 1024
+        -MaximumLength 512
     if (-not $selectedValue -and [string]::IsNullOrWhiteSpace($omissionReason)) {
         throw "Omitted fleet task '$id' requires an explicit OmissionReason."
     }
@@ -147,6 +148,9 @@ function ConvertTo-FleetDispatchTask {
             throw "Fleet task '$id' declares duplicate dependency '$dependencyId'."
         }
         $dependencies.Add($dependencyId)
+        if ($dependencies.Count -gt $script:FleetDispatchMaximumTaskCount) {
+            throw "Fleet task '$id' exceeds the $script:FleetDispatchMaximumTaskCount-dependency limit."
+        }
     }
 
     return [pscustomobject]@{
@@ -271,6 +275,10 @@ function New-FleetDispatchPlan {
         [AllowEmptyCollection()]
         [object[]]$Task
     )
+
+    if (@($Task).Count -gt $script:FleetDispatchMaximumTaskCount) {
+        throw "Fleet dispatch plans support at most $script:FleetDispatchMaximumTaskCount task descriptors."
+    }
 
     $normalized = [System.Collections.Generic.List[object]]::new()
     $taskById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
@@ -475,9 +483,14 @@ function ConvertTo-FleetDispatchWaveResults {
         [object[]]$ExpectedTask,
 
         [Parameter(Mandatory)]
+        [AllowNull()]
         [AllowEmptyCollection()]
         [object[]]$Result
     )
+
+    if ($null -eq $Result) {
+        throw 'Fleet dispatch wave returned a null task result.'
+    }
 
     $expectedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($task in $ExpectedTask) {
@@ -511,7 +524,10 @@ function ConvertTo-FleetDispatchWaveResults {
             -Value (Get-FleetDispatchProperty -InputObject $item -Name Detail) `
             -Label "Fleet dispatch wave result '$taskId' Detail" `
             -AllowEmpty `
-            -MaximumLength 2048
+            -MaximumLength 512
+        if ($outcome -in @('failed', 'throttled') -and [string]::IsNullOrWhiteSpace($detail)) {
+            throw "Fleet dispatch wave result '$taskId' requires Detail for Outcome '$outcome'."
+        }
 
         $resultById.Add($taskId, [pscustomobject]@{
                 TaskId = $taskId
@@ -593,7 +609,19 @@ function Invoke-FleetDispatchWave {
         TaskIds = @($Wave.TaskIds)
         Attempt = $Wave.Attempt
     }
-    $rawResults = @(& $InvokeWave $launchWave)
+    try {
+        $rawResults = @(& $InvokeWave $launchWave)
+    }
+    catch {
+        $exceptionType = $_.Exception.GetType().FullName
+        $rawResults = @($Wave.Tasks | ForEach-Object {
+                [pscustomobject]@{
+                    TaskId = $_.Id
+                    Outcome = 'failed'
+                    Detail = "wave launcher raised $exceptionType"
+                }
+            })
+    }
     $results = @(ConvertTo-FleetDispatchWaveResults -ExpectedTask $Wave.Tasks -Result $rawResults)
     foreach ($result in $results) {
         $state = $TaskState[$result.TaskId]
@@ -750,90 +778,60 @@ function Invoke-FleetDispatchPlan {
             throw 'Fleet dispatch execution reached an invalid dependency state.'
         }
 
-        $firstWave = [pscustomobject]@{
-            Tasks   = $ready
-            TaskIds = @($ready | ForEach-Object { $_.Id })
-            Attempt = 1
-        }
-        $firstResults = @(Invoke-FleetDispatchWave `
-                -Wave $firstWave `
-                -InvokeWave $InvokeWave `
-                -TaskState $taskState `
-                -Event $events)
-        $retryTasks = [System.Collections.Generic.List[object]]::new()
-        foreach ($result in $firstResults) {
-            $state = $taskState[$result.TaskId]
-            switch ($result.Outcome) {
-                completed {
-                    $state.Status = 'completed'
-                    $state.Detail = $result.Detail
-                }
-                failed {
-                    $state.Status = 'failed'
-                    $state.Detail = $result.Detail
-                }
-                throttled {
-                    if ($Plan.RetryPolicy.Trigger -ceq $script:FleetDispatchRetryTrigger -and
-                        $state.RetryCount -lt $Plan.RetryPolicy.MaximumRetryCount) {
-                        $state.Retried = $true
-                        $state.RetryCount++
-                        $retryTasks.Add(@($ready | Where-Object Id -CEQ $result.TaskId)[0])
-                        Add-FleetDispatchEvent `
-                            -Event $events `
-                            -TaskId $result.TaskId `
-                            -Outcome retried `
-                            -Attempt ($firstWave.Attempt + 1) `
-                            -Detail $Plan.RetryPolicy.Description
-                    }
-                    else {
-                        $state.Status = 'failed'
-                        $state.Detail = 'explicit throttle retry policy exhausted'
-                        Add-FleetDispatchEvent `
-                            -Event $events `
-                            -TaskId $result.TaskId `
-                            -Outcome failed `
-                            -Attempt $firstWave.Attempt `
-                            -Detail $state.Detail
-                    }
-                }
+        $attemptTasks = @($ready)
+        $attempt = 1
+        while ($attemptTasks.Count -gt 0) {
+            $wave = [pscustomobject]@{
+                Tasks   = $attemptTasks
+                TaskIds = @($attemptTasks | ForEach-Object { $_.Id })
+                Attempt = $attempt
             }
-        }
-
-        if ($retryTasks.Count -gt 0) {
-            $retryWave = [pscustomobject]@{
-                Tasks   = $retryTasks.ToArray()
-                TaskIds = @($retryTasks | ForEach-Object { $_.Id })
-                Attempt = $firstWave.Attempt + 1
-            }
-            $retryResults = @(Invoke-FleetDispatchWave `
-                    -Wave $retryWave `
+            $waveResults = @(Invoke-FleetDispatchWave `
+                    -Wave $wave `
                     -InvokeWave $InvokeWave `
                     -TaskState $taskState `
                     -Event $events)
-            foreach ($result in $retryResults) {
+            $nextAttempt = [System.Collections.Generic.List[object]]::new()
+            foreach ($result in $waveResults) {
                 $state = $taskState[$result.TaskId]
-                if ($result.Outcome -ceq 'completed') {
-                    $state.Status = 'completed'
-                    $state.Detail = $result.Detail
-                }
-                else {
-                    $state.Status = 'failed'
-                    $state.Detail = if ($result.Outcome -ceq 'throttled') {
-                        "explicit throttle persisted after $($Plan.RetryPolicy.MaximumRetryCount) permitted retry"
+                switch ($result.Outcome) {
+                    completed {
+                        $state.Status = 'completed'
+                        $state.Detail = $result.Detail
                     }
-                    else {
-                        $result.Detail
+                    failed {
+                        $state.Status = 'failed'
+                        $state.Detail = $result.Detail
                     }
-                    if ($result.Outcome -ceq 'throttled') {
-                        Add-FleetDispatchEvent `
-                            -Event $events `
-                            -TaskId $result.TaskId `
-                            -Outcome failed `
-                            -Attempt 2 `
-                            -Detail $state.Detail
+                    throttled {
+                        $retryAllowed = $Plan.RetryPolicy.Trigger -ceq $script:FleetDispatchRetryTrigger -and
+                            $state.RetryCount -lt $Plan.RetryPolicy.MaximumRetryCount
+                        if ($retryAllowed) {
+                            $state.Retried = $true
+                            $state.RetryCount++
+                            $nextAttempt.Add(@($attemptTasks | Where-Object Id -CEQ $result.TaskId)[0])
+                            Add-FleetDispatchEvent `
+                                -Event $events `
+                                -TaskId $result.TaskId `
+                                -Outcome retried `
+                                -Attempt ($attempt + 1) `
+                                -Detail $Plan.RetryPolicy.Description
+                        }
+                        else {
+                            $state.Status = 'failed'
+                            $state.Detail = "explicit throttle persisted after $($state.RetryCount) permitted retry"
+                            Add-FleetDispatchEvent `
+                                -Event $events `
+                                -TaskId $result.TaskId `
+                                -Outcome failed `
+                                -Attempt $attempt `
+                                -Detail $state.Detail
+                        }
                     }
                 }
             }
+            $attemptTasks = $nextAttempt.ToArray()
+            $attempt++
         }
     }
 
@@ -891,5 +889,4 @@ function Invoke-FleetDispatchPlan {
 Export-ModuleMember -Function `
     New-FleetDispatchPlan, `
     Format-FleetDispatchPlan, `
-    Invoke-FleetDispatchPlan, `
-    Format-FleetDispatchResult
+    Invoke-FleetDispatchPlan

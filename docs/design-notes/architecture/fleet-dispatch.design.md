@@ -53,12 +53,17 @@ The caller-owned `InvokeWave` callback receives one wave object containing at mo
 descriptors, their ids, and an attempt number. It may launch them concurrently or serially according
 to its existing host boundary, but must return exactly one `{ TaskId, Outcome, Detail }` record for
 every admitted task. Unknown, duplicate, missing, or non-closed outcomes fail loud rather than
-producing success-shaped attendance.
+producing success-shaped attendance. `failed` and `throttled` outcomes require a non-empty diagnostic.
+A launcher exception is scoped to that admitted wave and becomes an explicit failed outcome for each
+wave task, preserving degraded final attendance instead of discarding the run result.
 
 All caller-controlled display fields are bounded single-line strings. Control characters, Unicode
-format/bidirectional controls, and line/paragraph separators are rejected; output delimiters and
-backslashes are escaped before rendering. Result details use the same boundary, preventing task
-labels or host diagnostics from injecting terminal control sequences or new attendance records.
+format/bidirectional controls, and line/paragraph separators are rejected; free text is JSON-quoted
+before rendering. Result details use the same boundary, preventing task labels or host diagnostics
+from injecting terminal control sequences or new attendance records. A plan contains at most 64
+tasks and each task at most 64 dependencies, bounding projection work and rendered output.
+Post-run formatting stays internal to `Invoke-FleetDispatchPlan`; callers cannot pass fabricated
+attendance to a public formatter.
 
 An ordinary failure becomes terminal immediately. The adapter cancels only still-pending transitive
 dependents, continues unrelated ready work, and never retries based on status-code prose. An explicit
