@@ -36,7 +36,7 @@ Describe 'Get-PlanState CLI' {
     It 'test:get-planstate-text prints a human text block with plan, progress and next step' {
         $repo = New-PlanRepo -Body $planBody
         try {
-            $text = & $scriptPath -Reference '7645b1' -RepoRoot $repo
+            $text = & $scriptPath -Reference '7645b1' -RepoRoot $repo -HasUncommittedChanges:$false
             $text | Should -Match 'Plan:\s+7645b1'
             $text | Should -Match 'Progress:\s+1/3 done'
             $text | Should -Match 'Next step:\s+1\.2'

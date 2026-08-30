@@ -1,6 +1,6 @@
 {
   "name": "work-hierarchy-sync",
-  "version": "1.0.15",
+  "version": "1.0.19",
   "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
   "author": "jIRI-san",
   "license": "MIT",

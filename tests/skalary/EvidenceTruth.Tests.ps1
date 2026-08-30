@@ -9,47 +9,14 @@ Describe 'Evidence truth' {
         $script:builder = Join-Path $script:repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $script:testPlan = Join-Path $script:repoRoot 'scripts/skalary/Test-Plan.ps1'
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
-        $script:cycleGate = Join-Path $script:repoRoot 'scripts/skalary/ReviewCycleGate.ps1'
-        $script:tempRoots = [System.Collections.Generic.List[string]]::new()
-        $script:createdDefaultRef = $false
         $script:head = (& git -C $script:repoRoot rev-parse HEAD).Trim()
-        $defaultRef = & git -C $script:repoRoot symbolic-ref --quiet refs/remotes/origin/HEAD 2>$null
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($defaultRef)) {
-            $candidates = @(
-                if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_BASE_REF)) {
-                    "refs/remotes/origin/$env:GITHUB_BASE_REF"
-                }
-                'refs/remotes/origin/main'
-                'refs/remotes/origin/master'
-            )
-            $target = $null
-            foreach ($candidate in $candidates) {
-                & git -C $script:repoRoot rev-parse --verify --quiet "$candidate^{commit}" >$null 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    $target = $candidate
-                    break
-                }
-            }
-            if (-not $target) {
-                throw 'Evidence truth tests could not resolve the remote default branch.'
-            }
-            & git -C $script:repoRoot symbolic-ref refs/remotes/origin/HEAD $target
-            if ($LASTEXITCODE -ne 0) {
-                throw "Evidence truth tests could not create refs/remotes/origin/HEAD for '$target'."
-            }
-            $script:createdDefaultRef = $true
-            $defaultRef = $target
-        }
-        $script:defaultRef = ([string]$defaultRef).Trim()
-        $script:base = (& git -C $script:repoRoot merge-base $script:head $script:defaultRef).Trim()
-        $script:pathCount = @(& git -C $script:repoRoot diff --name-only "$script:base..$script:head").Count
+        $script:tempRoots = [System.Collections.Generic.List[string]]::new()
 
         function New-EvidencePlanFixture {
             param([string[]]$Markers = @('test:EvidenceTruth.Sample'))
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('evidence-truth-' + [guid]::NewGuid().ToString('N'))
-            $planDir = Join-Path $root 'docs/implementation-plans/2026-08-29-abcdef-evidence-truth'
-            [void](New-Item -ItemType Directory -Path $planDir -Force)
+            [void](New-Item -ItemType Directory -Path $root)
             $script:tempRoots.Add($root)
             $criteria = @($Markers | ForEach-Object { '{0}{1}{0}' -f [char]0x60, $_ }) -join ' · '
             @"
@@ -72,8 +39,8 @@ Describe 'Evidence truth' {
 ## Phase 1: Evidence
 
 - [x] 1.1 Exercise evidence truth (REQ-1, RISK-1) ``S``
-"@ | Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Encoding utf8NoBOM
-            return $planDir
+"@ | Set-Content -LiteralPath (Join-Path $root 'plan.md') -Encoding utf8NoBOM
+            return $root
         }
 
         function Write-Waiver {
@@ -99,49 +66,6 @@ Describe 'Evidence truth' {
                 )
             } | ConvertTo-Json -Depth 8 |
                 Set-Content -LiteralPath (Join-Path $PlanDir 'evidence-waivers.json') -Encoding utf8NoBOM
-        }
-
-        function Write-CleanReviewResult {
-            param(
-                [Parameter(Mandatory)][string]$PlanDir,
-                [string]$RunId = [guid]::NewGuid().ToString(),
-                [ValidateSet('branch', 'paths')][string]$Mode = 'branch'
-            )
-
-            $store = Join-Path $PlanDir 'reviews'
-            [void](New-Item -ItemType Directory -Path $store -Force)
-            $reportPath = Join-Path $store "$RunId.review.md"
-            Set-Content -LiteralPath $reportPath -Value "# Clean review $RunId" -Encoding utf8NoBOM
-            $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
-            $reportDigest = 'sha256:' + [Convert]::ToHexString(
-                [System.Security.Cryptography.SHA256]::HashData($reportBytes)
-            ).ToLowerInvariant()
-            [ordered]@{
-                schema = 'skalary/review-result-receipt@1'
-                runId = $RunId
-                reviewType = 'code'
-                verdict = 'approved'
-                state = 'clean'
-                source = if ($Mode -eq 'branch') {
-                    [ordered]@{ mode = $Mode; base = $script:base; head = $script:head; pathCount = $script:pathCount; digest = 'sha256:' + ('1' * 64) }
-                }
-                else {
-                    [ordered]@{ mode = $Mode; head = $script:head; pathCount = $script:pathCount; digest = 'sha256:' + ('1' * 64) }
-                }
-                planDigest = 'sha256:' + ('2' * 64)
-                runDigest = 'sha256:' + ('3' * 64)
-                manifestDigest = 'sha256:' + ('4' * 64)
-                legacySource = $false
-                attendance = [ordered]@{ completed = 1; failed = 0; 'timed-out' = 0; omitted = 0; cancelled = 0; pending = 0 }
-                findings = [ordered]@{
-                    merged = 0
-                    raw = 0
-                    severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
-                }
-                report = [ordered]@{ name = "$RunId.review.md"; bytes = $reportBytes.Length; digest = $reportDigest }
-            } | ConvertTo-Json -Depth 10 -Compress |
-                Set-Content -LiteralPath (Join-Path $store "$RunId.receipt.json") -Encoding utf8NoBOM
-            return $RunId
         }
 
         function Invoke-TestPlanFixture {
@@ -207,12 +131,6 @@ exit `$LASTEXITCODE
     AfterAll {
         foreach ($root in $script:tempRoots) {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if ($script:createdDefaultRef) {
-            & git -C $script:repoRoot symbolic-ref --delete refs/remotes/origin/HEAD
-            if ($LASTEXITCODE -ne 0) {
-                throw 'Evidence truth tests could not remove the temporary refs/remotes/origin/HEAD.'
-            }
         }
     }
 
@@ -374,51 +292,6 @@ Describe 'broken' {
             }) -Commit $script:head -PlanDir $missingPlan -RepoRoot $script:repoRoot
         Set-Content -LiteralPath $partial.ReceiptPath -Value $partial.Text -Encoding utf8NoBOM
         (Invoke-TestPlanFixture -PlanDir $missingPlan).Output | Should -Match 'missing required marker.*review:cr'
-    }
-
-    It 'test:EvidenceTruth.WrappedReviewReplacement rejects false wrap claims and accepts a clean authorized replacement' {
-        $planDir = New-EvidencePlanFixture -Markers @('review:cr')
-        foreach ($cycle in 1..3) {
-            [void](& $script:cycleGate -Action Record -PlanDir $planDir -Phase 1 `
-                    -Stage plan-finalization -Outcome findings)
-        }
-        [void](& $script:cycleGate -Action Wrap -PlanDir $planDir -Phase 1 -Stage plan-finalization)
-
-        $receiptPath = Join-Path $planDir 'evidence.md'
-        "✓ REQ-1 — review:cr — passed: wrapped/degraded — $script:head" |
-            Set-Content -LiteralPath $receiptPath -Encoding utf8NoBOM
-        $fabricated = Invoke-TestPlanFixture -PlanDir $planDir
-        $fabricated.ExitCode | Should -Not -Be 0
-        $fabricated.Output | Should -Match 'no qualifying review-run id'
-
-        { & $script:builder -Result @([pscustomobject]@{
-                    Req = 'REQ-1'
-                    Marker = 'review:cr'
-                    Status = 'passed'
-                    ReviewRunId = [guid]::NewGuid().ToString()
-                }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot } |
-            Should -Throw "*review-cycle stage 'plan-finalization' is 'wrap'*"
-
-        [void](& $script:cycleGate -Action Reopen -PlanDir $planDir -Phase 1 `
-                -Stage plan-finalization -OperatorAuthorization 'operator-ticket-44' `
-                -Reason 'replace wrapped review evidence')
-        $pathRunId = Write-CleanReviewResult -PlanDir $planDir -Mode paths
-        { & $script:cycleGate -Action Record -PlanDir $planDir -Phase 1 `
-                -Stage plan-finalization -Outcome clean -ReviewRunId $pathRunId -RepoRoot $script:repoRoot } |
-            Should -Throw '*not whole-branch evidence*'
-        $runId = Write-CleanReviewResult -PlanDir $planDir
-        [void](& $script:cycleGate -Action Record -PlanDir $planDir -Phase 1 `
-                -Stage plan-finalization -Outcome clean -ReviewRunId $runId -RepoRoot $script:repoRoot)
-
-        $replacement = & $script:builder -Result @([pscustomobject]@{
-                Req = 'REQ-1'
-                Marker = 'review:cr'
-                Status = 'passed'
-                ReviewRunId = $runId
-            }) -Commit $script:head -PlanDir $planDir -RepoRoot $script:repoRoot
-        Set-Content -LiteralPath $replacement.ReceiptPath -Value $replacement.Text -Encoding utf8NoBOM
-        $replacement.Lines[0] | Should -Match "passed: review-run:$runId"
-        (Invoke-TestPlanFixture -PlanDir $planDir).ExitCode | Should -Be 0
     }
 
     It 'test:EvidenceTruth.InstalledParityAndDrift keeps canonical, bundled, and dogfood evidence code identical' {

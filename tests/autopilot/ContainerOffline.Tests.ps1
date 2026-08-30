@@ -17,6 +17,11 @@ Describe 'Autopilot.ContainerOffline' {
     }
 
     Context 'launch-container.ps1' {
+        It 'passes the validated start branch to the container environment' {
+            $launcher | Should -Match '\[string\]\$StartBranch'
+            $launcher | Should -Match 'Branch = \$StartBranch'
+        }
+
         It 'exposes a -FeedPath parameter' {
             $launcher | Should -Match '\[string\]\$FeedPath'
         }
@@ -66,6 +71,10 @@ Describe 'Autopilot.ContainerOffline' {
         It 'keeps the existing exit-42 @human branch' {
             $entrypoint | Should -Match 'human-stop\)'
             $entrypoint | Should -Match 'exit 42'
+        }
+        It 'fails when the selected start branch is unavailable instead of using the clone default' {
+            $entrypoint | Should -Match "Selected start branch '\$\{BRANCH\}' is not available on origin"
+            $entrypoint | Should -Not -Match 'Creating new branch \$\{WORK_BRANCH\} from \$\(git branch --show-current\)'
         }
     }
 }

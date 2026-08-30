@@ -26,7 +26,8 @@ Describe 'review cycle gate' {
                 [string]$Summary,
                 [string]$ReviewRunId,
                 [string]$OperatorAuthorization,
-                [string]$Reason
+                [string]$Reason,
+                [string]$GatePath = $script:gate
             )
             $arguments = @{
                 Action = $Action
@@ -40,7 +41,7 @@ Describe 'review cycle gate' {
             if ($ReviewRunId) { $arguments.ReviewRunId = $ReviewRunId }
             if ($OperatorAuthorization) { $arguments.OperatorAuthorization = $OperatorAuthorization }
             if ($Reason) { $arguments.Reason = $Reason }
-            return & $script:gate @arguments
+            return & $GatePath @arguments
         }
 
         function Script:Write-CleanReviewResult {
@@ -111,6 +112,149 @@ Describe 'review cycle gate' {
         finally { Remove-Item -LiteralPath $plan -Recurse -Force }
     }
 
+        It 'test:ReviewCycleGate invalidates only the latest Continue append-only and permits truthful Wrap' {
+            $plan = New-CyclePlan
+            try {
+                foreach ($cycle in 1..3) { [void](Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings) }
+                $continued = Invoke-CycleGate -PlanDir $plan -Action Continue
+                $before = Get-Content -LiteralPath $continued.logPath -Raw
+
+                { Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue -Reason 'unauthorized continuation' } |
+                    Should -Throw '*explicit -OperatorAuthorization*'
+                (Get-Content -LiteralPath $continued.logPath -Raw) | Should -BeExactly $before
+
+                $invalidated = Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                    -OperatorAuthorization 'operator-ticket-continue-4' -Reason 'continuation exceeded the approved cap'
+                $invalidated.state | Should -Be 'operator-decision'
+                $invalidated.cycles | Should -Be 3
+                $invalidated.canReview | Should -BeFalse
+                $invalidated.operatorDecisionRequired | Should -BeTrue
+                $invalidated.remediation.action | Should -Be 'invalidate-continue'
+                $invalidated.remediation.targetEventId | Should -Match '^sha256:[0-9a-f]{64}$'
+                $invalidated.remediation.timestamp | Should -Match 'Z$'
+
+                $afterInvalidation = Get-Content -LiteralPath $invalidated.logPath -Raw
+                { Invoke-CycleGate -PlanDir $plan -Action Continue } |
+                    Should -Throw '*cannot be re-recorded*invalidated*'
+                (Get-Content -LiteralPath $invalidated.logPath -Raw) | Should -BeExactly $afterInvalidation
+
+                $wrapped = Invoke-CycleGate -PlanDir $plan -Action Wrap
+                $wrapped.state | Should -Be 'wrap'
+                $text = Get-Content -LiteralPath $wrapped.logPath -Raw
+                $text | Should -Match 'review-cycle-decision stage=step-1\.1 after=3 action=continue'
+                $text | Should -Match ('action=invalidate-continue target=' +
+                    [regex]::Escape($invalidated.remediation.targetEventId) +
+                    ' authorization=operator-ticket-continue-4 timestamp=[^ ]+ reason=continuation exceeded the approved cap')
+                $text | Should -Match 'review-cycle-decision stage=step-1\.1 after=3 action=wrap'
+                ($text.IndexOf('action=continue') -lt $text.IndexOf('action=invalidate-continue')) | Should -BeTrue
+                ($text.IndexOf('action=invalidate-continue') -lt $text.IndexOf('action=wrap')) | Should -BeTrue
+            }
+            finally { Remove-Item -LiteralPath $plan -Recurse -Force }
+        }
+
+        It 'test:ReviewCycleGate rejects duplicate, wrong-stage, and missing Continue invalidations without mutation' {
+            $plan = New-CyclePlan
+            try {
+                foreach ($cycle in 1..3) { [void](Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings) }
+                $logPath = (Invoke-CycleGate -PlanDir $plan -Action Check).logPath
+                $before = Get-Content -LiteralPath $logPath -Raw
+
+                { Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-none' -Reason 'no target' } |
+                    Should -Throw '*latest event*Continue*'
+                { Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue -Stage 'phase-1' `
+                        -OperatorAuthorization 'operator-ticket-stage' -Reason 'wrong stage' } |
+                    Should -Throw '*latest event*Continue*'
+                (Get-Content -LiteralPath $logPath -Raw) | Should -BeExactly $before
+
+                [void](Invoke-CycleGate -PlanDir $plan -Action Continue)
+                [void](Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-once' -Reason 'void once')
+                $afterFirst = Get-Content -LiteralPath $logPath -Raw
+                { Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-twice' -Reason 'void twice' } |
+                    Should -Throw '*already invalidated*'
+                (Get-Content -LiteralPath $logPath -Raw) | Should -BeExactly $afterFirst
+            }
+            finally { Remove-Item -LiteralPath $plan -Recurse -Force }
+        }
+
+        It 'test:ReviewCycleGate rejects stale and ambiguous Continue targets without mutation' {
+            $stalePlan = New-CyclePlan
+            $ambiguousPlan = New-CyclePlan
+            try {
+                foreach ($plan in @($stalePlan, $ambiguousPlan)) {
+                    foreach ($cycle in 1..3) { [void](Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings) }
+                    [void](Invoke-CycleGate -PlanDir $plan -Action Continue)
+                }
+
+                $staleLog = (Invoke-CycleGate -PlanDir $stalePlan -Action Check).logPath
+                $staleText = (Get-Content -LiteralPath $staleLog -Raw).
+                    Replace('after=3 action=continue', 'after=2 action=continue')
+                Set-Content -LiteralPath $staleLog -Value $staleText -Encoding utf8NoBOM
+                $staleBefore = Get-Content -LiteralPath $staleLog -Raw
+                { Invoke-CycleGate -PlanDir $stalePlan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-stale' -Reason 'stale target' } |
+                    Should -Throw '*stale Continue*'
+                (Get-Content -LiteralPath $staleLog -Raw) | Should -BeExactly $staleBefore
+
+                $ambiguousLog = (Invoke-CycleGate -PlanDir $ambiguousPlan -Action Check).logPath
+                $continueLine = @(Get-Content -LiteralPath $ambiguousLog |
+                        Where-Object { $_ -match 'after=3 action=continue$' })[0]
+                Add-Content -LiteralPath $ambiguousLog -Value $continueLine -Encoding utf8NoBOM
+                $ambiguousBefore = Get-Content -LiteralPath $ambiguousLog -Raw
+                { Invoke-CycleGate -PlanDir $ambiguousPlan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-ambiguous' -Reason 'ambiguous target' } |
+                    Should -Throw '*ambiguous Continue target*'
+                (Get-Content -LiteralPath $ambiguousLog -Raw) | Should -BeExactly $ambiguousBefore
+            }
+            finally {
+                Remove-Item -LiteralPath $stalePlan -Recurse -Force
+                Remove-Item -LiteralPath $ambiguousPlan -Recurse -Force
+            }
+        }
+
+        It 'test:ReviewCycleGate rejects invalidation after a later review result' {
+            $plan = New-CyclePlan
+            try {
+                foreach ($cycle in 1..3) { [void](Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings) }
+                [void](Invoke-CycleGate -PlanDir $plan -Action Continue)
+                $fourth = Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings
+                $before = Get-Content -LiteralPath $fourth.logPath -Raw
+
+                { Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-late' -Reason 'review already ran' } |
+                    Should -Throw '*later review result*'
+                (Get-Content -LiteralPath $fourth.logPath -Raw) | Should -BeExactly $before
+            }
+            finally { Remove-Item -LiteralPath $plan -Recurse -Force }
+        }
+
+        It 'test:ReviewCycleGate keeps generated and installed consumer behavior in parity' {
+            $gatePaths = @(
+                'scripts/skalary/ReviewCycleGate.ps1',
+                'plugins/continue-implementation/skills/ci/scripts/ReviewCycleGate.ps1',
+                'plugins/autopilot/skills/autopilot/scripts/ReviewCycleGate.ps1',
+                '.github/skills/ci/scripts/ReviewCycleGate.ps1',
+                '.github/skills/autopilot/scripts/ReviewCycleGate.ps1'
+            )
+            foreach ($relativeGate in $gatePaths) {
+                $plan = New-CyclePlan
+                try {
+                    $gatePath = Join-Path $script:repoRoot $relativeGate
+                    foreach ($cycle in 1..3) {
+                        [void](Invoke-CycleGate -PlanDir $plan -Action Record -Outcome findings -GatePath $gatePath)
+                    }
+                    [void](Invoke-CycleGate -PlanDir $plan -Action Continue -GatePath $gatePath)
+                    $invalidated = Invoke-CycleGate -PlanDir $plan -Action InvalidateContinue `
+                        -OperatorAuthorization 'operator-ticket-parity' -Reason 'consumer parity' -GatePath $gatePath
+                    $invalidated.state | Should -Be 'operator-decision' -Because $relativeGate
+                    (Invoke-CycleGate -PlanDir $plan -Action Wrap -GatePath $gatePath).state |
+                        Should -Be 'wrap' -Because $relativeGate
+                }
+                finally { Remove-Item -LiteralPath $plan -Recurse -Force }
+            }
+        }
     It 'test:ReviewCycleGate records wrap and isolates independent stages' {
         $plan = New-CyclePlan
         try {

@@ -541,7 +541,7 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:planstate-capture-roots returns an immutable physical path through a plan alias' {
+        It 'test:planstate-capture-roots refuses a logical alias to an inventoried plan' {
             $tempRoot = & $newTempDir
             try {
                 $actualPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-actual-plan'
@@ -559,7 +559,7 @@ Describe 'Plan assets layout' {
                 {
                     Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
                         -RepoRoot $tempRoot -Inventory $inventory
-                } | Should -Throw '*is not a regular directory*'
+                } | Should -Throw '*not a unique member*'
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
