@@ -1,6 +1,6 @@
 Phase 1 Crosscheck:
-✓ REQ-1 — test:EpicCoherency.FixedScope — passed — 7e273e17464a20531f3927ed9483308a9cba6516
-✗ REQ-1 — review:dr — unrun: automatic review cap exhausted after finding-bearing run 81be21ce-4b53-44e2-9976-d42f391fad7f; current fixes require operator-authorized review — 7e273e17464a20531f3927ed9483308a9cba6516
-✓ REQ-2 — test:EpicCoherency.IntentAndOwnership — passed — 7e273e17464a20531f3927ed9483308a9cba6516
-✓ REQ-3 — test:EpicCoherency.ProportionalityGuardrail — passed — 7e273e17464a20531f3927ed9483308a9cba6516
-✓ REQ-5 — test:EpicCoherency.ExistingReviewPath — passed — 7e273e17464a20531f3927ed9483308a9cba6516
+✓ REQ-1 — test:EpicCoherency.FixedScope — passed — 5c7db4b3f3c58ce3e744aeeafd081591131b4a55
+✗ REQ-1 — review:dr — failed: review-run:e3dfdf97-4d7c-4247-9529-43c6cec16cf9 blocked with 72 findings (35 High, 36 Medium, 1 Low) — 5c7db4b3f3c58ce3e744aeeafd081591131b4a55
+✓ REQ-2 — test:EpicCoherency.IntentAndOwnership — passed — 5c7db4b3f3c58ce3e744aeeafd081591131b4a55
+✓ REQ-3 — test:EpicCoherency.ProportionalityGuardrail — passed — 5c7db4b3f3c58ce3e744aeeafd081591131b4a55
+✓ REQ-5 — test:EpicCoherency.ExistingReviewPath — passed — 5c7db4b3f3c58ce3e744aeeafd081591131b4a55
