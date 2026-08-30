@@ -131,6 +131,7 @@ Describe 'Plugin script bundling' {
             $schemaDir = Join-Path $repo 'schemas/review'
             New-Item -ItemType Directory -Path $moduleDir, $schemaDir -Force | Out-Null
             Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/ReviewRun.psm1') -Destination $moduleDir
+            Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/SecretGuard.psm1') -Destination $moduleDir
             Copy-Item -Path (Join-Path $repoRoot 'schemas/review/*.json') -Destination $schemaDir
 
             Import-Module (Join-Path $moduleDir 'ReviewRun.psm1') -Force -Prefix Canonical -DisableNameChecking

@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.61",
+  "version": "1.0.66",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -20,6 +20,10 @@
     {
       "src": "skills/cip/assets/interview-guide.md",
       "dest": "skills/cip/assets/interview-guide.md"
+    },
+    {
+      "src": "skills/cip/assets/plan-artifact-consumer-protocol.md",
+      "dest": "skills/cip/assets/plan-artifact-consumer-protocol.md"
     },
     {
       "src": "skills/cip/assets/drafting-guide.md",
@@ -54,12 +58,24 @@
       "dest": "skills/cip/scripts/Get-PlanIndex.ps1"
     },
     {
+      "src": "skills/cip/scripts/Get-PlanArtifactContext.ps1",
+      "dest": "skills/cip/scripts/Get-PlanArtifactContext.ps1"
+    },
+    {
+      "src": "skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1",
+      "dest": "skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1"
+    },
+    {
       "src": "skills/cip/scripts/New-Plan.ps1",
       "dest": "skills/cip/scripts/New-Plan.ps1"
     },
     {
       "src": "skills/cip/scripts/PlanEvidence.psm1",
       "dest": "skills/cip/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/cip/scripts/SecretGuard.psm1",
+      "dest": "skills/cip/scripts/SecretGuard.psm1"
     },
     {
       "src": "skills/cip/scripts/PlanState.psm1",
@@ -86,12 +102,24 @@
       "dest": "skills/cep/assets/decomposition-guide.md"
     },
     {
+      "src": "skills/cep/assets/plan-artifact-consumer-protocol.md",
+      "dest": "skills/cep/assets/plan-artifact-consumer-protocol.md"
+    },
+    {
       "src": "skills/cip/assets/plan-template.md",
       "dest": "skills/cep/assets/plan-template.md"
     },
     {
       "src": "skills/cep/scripts/Get-PlanIndex.ps1",
       "dest": "skills/cep/scripts/Get-PlanIndex.ps1"
+    },
+    {
+      "src": "skills/cep/scripts/Get-PlanArtifactContext.ps1",
+      "dest": "skills/cep/scripts/Get-PlanArtifactContext.ps1"
+    },
+    {
+      "src": "skills/cep/scripts/Get-PlanArtifactConsumerContext.ps1",
+      "dest": "skills/cep/scripts/Get-PlanArtifactConsumerContext.ps1"
     },
     {
       "src": "skills/cep/scripts/New-Epic.ps1",
@@ -104,6 +132,10 @@
     {
       "src": "skills/cep/scripts/PlanEvidence.psm1",
       "dest": "skills/cep/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/SecretGuard.psm1",
+      "dest": "skills/cep/scripts/SecretGuard.psm1"
     },
     {
       "src": "skills/cep/scripts/PlanState.psm1",

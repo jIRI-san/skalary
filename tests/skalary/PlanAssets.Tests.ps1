@@ -122,9 +122,9 @@ Describe 'Plan assets layout' {
                 })
             return [pscustomobject]@{
                 Requirements = $reqs
-                Risks        = $risks
-                Steps        = $steps
-                Decisions    = @($Metadata.Decisions)
+                Risks = $risks
+                Steps = $steps
+                Decisions = @($Metadata.Decisions)
             }
         }
     }
@@ -504,7 +504,7 @@ Describe 'Plan assets layout' {
                 {
                     Resolve-PlanAssetPath -PlanDir $outside -Kind LearningOverflowRoot `
                         -RepoRoot $tempRoot -Inventory $inventory
-                } | Should -Throw '*escapes repository plan root*'
+                } | Should -Throw '*escapes repository plan corpus*'
 
                 $untracked = Join-Path $tempRoot 'docs/implementation-plans/untracked'
                 [void](New-Item -ItemType Directory -Path $untracked -Force)
@@ -618,7 +618,7 @@ Describe 'Plan assets layout' {
                 {
                     Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
                         -RepoRoot $tempRoot -Inventory $inventory
-                } | Should -Throw '*escapes inventoried plan folder*'
+                } | Should -Throw '*escapes canonical plan folder*'
             }
             finally {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

@@ -2,7 +2,8 @@
 description: Architecture note for review-run v1 execution authority, verified delivery, and compact durable evidence.
 globs:
   - "schemas/review/**"
-  - "scripts/skalary/{Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun,ReviewRun}.ps*1"
+  - "scripts/skalary/{Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun,ReviewRun,SecretGuard}.ps*1"
+  - "scripts/skalary/Get-PlanArtifactConsumerContext.ps1"
   - "plugins/{code-review,design-review}/**"
 ---
 
@@ -24,12 +25,22 @@ report and receipt verify as an exact pair.
 ## Invariants
 
 - Freeze binds the full task matrix and engine-derived scope before dispatch.
+- Optional related-plan content is untrusted dispatch context only. Its compact provenance may use
+  the existing bounded scope text, but it adds no scope-authority field, role, schema, receipt, or
+  lifecycle step. The shared consumer adapter requires successful resolver execution and array JSON,
+  bounds and terminates the resolver process, applies the same high-confidence secret guard as the
+  review engine, admits accepted results only, emits historical bytes once inside the standard
+  `UNTRUSTED_INPUT` fence, and exposes content-free accepted metadata for provenance. The adapter and
+  replaceable sibling closure are not terminal-auto-approved. This dispatch-only screening does not
+  alter review-run v1 execution or publication authority.
 - Publish commits content-addressed plan, run, summary, and full artifacts through one manifest.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an
   interrupted pair before cleanup; cleanup atomically renames authority under `.cleanup/<uuid>` so a
   partial delete cannot be republished as an interrupted run. A stable marker binds the retained pair
   and verdict before rename, allowing partial deletion to converge without changing the verdict.
+  A replay that cannot remove remaining cleanup state returns `CleanupPending` with the exact bounded
+  `CleanupDiagnostic`; it never drops the deletion failure while reporting retained evidence.
 - Generic published cleanup emits verified full bytes; force cleanup applies only to unpublished
   abandoned runs.
 - A wrapped review remains non-clean historical evidence. Reopening it requires an explicit,

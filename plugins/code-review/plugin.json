@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.46",
+  "version": "1.0.53",
   "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -23,6 +23,10 @@
     {
       "src": "skills/cr/assets/scope-guide.md",
       "dest": "skills/cr/assets/scope-guide.md"
+    },
+    {
+      "src": "skills/cr/assets/plan-artifact-consumer-protocol.md",
+      "dest": "skills/cr/assets/plan-artifact-consumer-protocol.md"
     },
     {
       "src": "skills/cr/assets/dispatch-guide.md",
@@ -49,8 +53,20 @@
       "dest": "skills/cr/scripts/Get-ReviewRun.ps1"
     },
     {
+      "src": "skills/cr/scripts/Get-PlanArtifactContext.ps1",
+      "dest": "skills/cr/scripts/Get-PlanArtifactContext.ps1"
+    },
+    {
+      "src": "skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1",
+      "dest": "skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1"
+    },
+    {
       "src": "skills/cr/scripts/Remove-ReviewRun.ps1",
       "dest": "skills/cr/scripts/Remove-ReviewRun.ps1"
+    },
+    {
+      "src": "skills/cr/scripts/PlanEvidence.psm1",
+      "dest": "skills/cr/scripts/PlanEvidence.psm1"
     },
     {
       "src": "skills/cr/scripts/PlanState.psm1",
@@ -59,6 +75,10 @@
     {
       "src": "skills/cr/scripts/ReviewRun.psm1",
       "dest": "skills/cr/scripts/ReviewRun.psm1"
+    },
+    {
+      "src": "skills/cr/scripts/SecretGuard.psm1",
+      "dest": "skills/cr/scripts/SecretGuard.psm1"
     },
     {
       "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1",

@@ -16,7 +16,8 @@ context: fork
 ## non-negotiable planning summary
 
 - Rephrase and confirm operator **intent**, domain/design context, and the final pre-draft summary; the plan's `intent.md` is the anchor `/ci` re-reads and `/pfb` measures against.
-- Reconcile against prior plans through `Get-PlanIndex.ps1`, not by reading the plan corpus.
+- Discover prior plans through `Get-PlanIndex.ps1`, then load selected artifacts only through the
+  fail-loud `Get-PlanArtifactConsumerContext.ps1` adapter.
 - Resolve architecture decisions before drafting; no silent TBDs.
 - Keep steps checklist-style, specific, and implementation-oriented.
 - Every requirement needs machine-checkable evidence markers in acceptance criteria.
@@ -35,14 +36,26 @@ context: fork
 
 ## Step 1: Load context and resolve the plan folder
 
-1. Read `docs/design-notes/.design-notes.md` and load relevant design notes for touched subsystems.
-2. **Consult the cross-plan index, never the plan corpus.** Prior requirements, risks, and decisions are read from the generated index — reading the plans themselves does not scale with the archive and misses archived ones:
+1. Read `docs/architecture-notes/.architecture-notes.md` when present and load touched contracts,
+   then read `docs/design-notes/.design-notes.md` and load relevant design notes.
+2. **Consult the cross-plan index, never the plan corpus.** Use the generated index only to discover
+   bounded candidates across active and archived plans:
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
    ```
 
-   It covers active **and** archived plans in both layouts, and is deterministic (no timestamps, repo-relative paths). Drop `-Filter` for the whole corpus, add `-Format Json` when you need the records structured. Feed what it returns into the `prior-art` gate in `./assets/interview-guide.md`.
+   It covers both layouts and is deterministic (no timestamps, repo-relative paths). Drop `-Filter`
+   only for a genuinely repo-wide topic and use `-Format Json` when selecting canonical plan IDs.
+   After topic, epic/dependency, or operator selection has narrowed the candidates, load only the
+   artifact kinds needed for the current question:
+
+   ```powershell
+   .github/skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1 -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan> -RepoRoot .
+   ```
+
+   Read and follow `./assets/plan-artifact-consumer-protocol.md`, then follow the planning-specific
+   provenance contract in `./assets/interview-guide.md`.
 3. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `standalone-<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
 
    ```powershell

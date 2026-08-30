@@ -50,23 +50,23 @@ function Split-MarkdownTableCells {
 }
 
 $script:PlanAssetMap = [ordered]@{
-    Intent          = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
-    Domain          = [pscustomobject]@{ Asset = 'domain.md'; Legacy = 'domain.md' }
-    Design          = [pscustomobject]@{ Asset = 'design.md'; Legacy = 'design.md' }
-    Requirements    = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
-    Risks           = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
-    Decisions       = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
-    References      = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
-    Evidence        = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
+    Intent = [pscustomobject]@{ Asset = 'intent.md'; Legacy = 'intent.md' }
+    Domain = [pscustomobject]@{ Asset = 'domain.md'; Legacy = 'domain.md' }
+    Design = [pscustomobject]@{ Asset = 'design.md'; Legacy = 'design.md' }
+    Requirements = [pscustomobject]@{ Asset = 'requirements.md'; Legacy = $null }
+    Risks = [pscustomobject]@{ Asset = 'risks.md'; Legacy = $null }
+    Decisions = [pscustomobject]@{ Asset = 'decisions.md'; Legacy = $null }
+    References = [pscustomobject]@{ Asset = 'references.md'; Legacy = $null }
+    Evidence = [pscustomobject]@{ Asset = 'evidence.md'; Legacy = 'evidence.md' }
     EvidenceWaivers = [pscustomobject]@{ Asset = 'evidence-waivers.json'; Legacy = 'evidence-waivers.json' }
-    EvolutionLog    = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
+    EvolutionLog = [pscustomobject]@{ Asset = 'evolution-log.md'; Legacy = 'evolution-log.md' }
     DecisionRecords = [pscustomobject]@{ Asset = 'decisions'; Legacy = 'decisions' }
-    CrLog           = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
-    Learnings       = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
-    Capture         = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
+    CrLog = [pscustomobject]@{ Asset = 'logs/cr-log.md'; Legacy = 'cr-log.md' }
+    Learnings = [pscustomobject]@{ Asset = 'logs/learnings.md'; Legacy = 'learnings.md' }
+    Capture = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
     LearningOverflowRoot = [pscustomobject]@{ Asset = 'logs/learning-overflow'; Legacy = 'learning-overflow' }
-    HarvestReceiptRoot   = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
-    ReviewRuns           = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
+    HarvestReceiptRoot = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
+    ReviewRuns = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
 }
 
 function Normalize-PhysicalPathRoot {
@@ -142,6 +142,569 @@ function Assert-PhysicalPlanConfinement {
     }
 }
 
+function Initialize-PlanFileHandle {
+    if ('SkalaryPlanFileHandle' -as [type]) {
+        return
+    }
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+public static class SkalaryPlanFileHandle
+{
+    public sealed class Identity
+    {
+        public string Value { get; set; }
+        public ulong LinkCount { get; set; }
+        public bool IsRegular { get; set; }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
+        public uint VolumeSerialNumber;
+        public uint FileSizeHigh;
+        public uint FileSizeLow;
+        public uint NumberOfLinks;
+        public uint FileIndexHigh;
+        public uint FileIndexLow;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(
+        SafeFileHandle handle,
+        StringBuilder path,
+        uint pathLength,
+        uint flags);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileInformationByHandle(
+        SafeFileHandle handle,
+        out ByHandleFileInformation information);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int fstat(int fd, byte[] buffer);
+
+    private static void AssertSupportedArchitecture(OSPlatform platform, Architecture architecture)
+    {
+        var supported = platform == OSPlatform.Windows
+            ? architecture == Architecture.X86 ||
+                architecture == Architecture.X64 ||
+                architecture == Architecture.Arm64
+            : platform == OSPlatform.Linux &&
+                (architecture == Architecture.X64 || architecture == Architecture.Arm64);
+        if (!BitConverter.IsLittleEndian || !supported)
+        {
+            throw new PlatformNotSupportedException(
+                "Opened plan-file identity is not supported on " + platform + "/" + architecture + ".");
+        }
+    }
+
+    private static Identity ParseLinuxIdentity(byte[] stat, Architecture architecture)
+    {
+        if (stat == null || stat.Length < 28)
+        {
+            throw new IOException("Linux fstat buffer is shorter than the supported layout.");
+        }
+
+        var device = BitConverter.ToUInt64(stat, 0);
+        var inode = BitConverter.ToUInt64(stat, 8);
+        ulong links;
+        uint mode;
+        if (architecture == Architecture.X64)
+        {
+            links = BitConverter.ToUInt64(stat, 16);
+            mode = BitConverter.ToUInt32(stat, 24);
+        }
+        else if (architecture == Architecture.Arm64)
+        {
+            mode = BitConverter.ToUInt32(stat, 16);
+            links = BitConverter.ToUInt32(stat, 20);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException("Linux fstat layout is unsupported on " + architecture + ".");
+        }
+        return new Identity
+        {
+            Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
+            LinkCount = links,
+            IsRegular = (mode & 0xF000) == 0x8000
+        };
+    }
+
+    public static string GetPath(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var path = new StringBuilder(512);
+            var length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+            if (length == 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            if (length >= path.Capacity)
+            {
+                path = new StringBuilder((int)length + 1);
+                length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+                if (length == 0 || length >= path.Capacity)
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+            }
+
+            var value = path.ToString();
+            if (value.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"\\" + value.Substring(8);
+            }
+            if (value.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+            {
+                return value.Substring(4);
+            }
+            return value;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var fdPath = "/proc/self/fd/" + handle.DangerousGetHandle().ToInt64();
+            var target = new FileInfo(fdPath).ResolveLinkTarget(true);
+            if (target == null)
+            {
+                throw new IOException("Could not resolve the opened plan-file handle.");
+            }
+            return target.FullName;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            throw new PlatformNotSupportedException(
+                "Opened plan-file handle validation is disabled on macOS because variadic F_GETPATH interop is not ABI-safe.");
+        }
+
+        throw new PlatformNotSupportedException(
+            "Opened plan-file handle validation supports Windows and Linux only.");
+    }
+
+    public static Identity GetIdentity(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            AssertSupportedArchitecture(OSPlatform.Windows, RuntimeInformation.ProcessArchitecture);
+            ByHandleFileInformation information;
+            if (!GetFileInformationByHandle(handle, out information))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            var fileIndex = ((ulong)information.FileIndexHigh << 32) | information.FileIndexLow;
+            return new Identity
+            {
+                Value = "windows:" + information.VolumeSerialNumber.ToString("x") + ":" + fileIndex.ToString("x"),
+                LinkCount = information.NumberOfLinks,
+                IsRegular = (information.FileAttributes & 0x10) == 0
+            };
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            AssertSupportedArchitecture(OSPlatform.Linux, RuntimeInformation.ProcessArchitecture);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException(
+                "Opened plan-file identity supports Windows and Linux only.");
+        }
+
+        var stat = new byte[256];
+        if (fstat(handle.DangerousGetHandle().ToInt32(), stat) != 0)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return ParseLinuxIdentity(stat, RuntimeInformation.ProcessArchitecture);
+        }
+        throw new PlatformNotSupportedException(
+            "Opened plan-file identity supports Windows and Linux only.");
+    }
+}
+'@
+}
+
+function Test-PhysicalPathWithin {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$AllowEqual
+    )
+
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if ($AllowEqual -and [string]::Equals($Root, $Path, $comparison)) {
+        return $true
+    }
+    $prefix = $Root.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    return $Path.StartsWith($prefix, $comparison)
+}
+
+function New-PlanCorpusConfinementContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $logicalRepoPath = Normalize-PhysicalPathRoot -Path $RepoRoot
+    $repoItem = Get-Item -LiteralPath $logicalRepoPath -Force -ErrorAction Stop
+    if ($repoItem -isnot [System.IO.DirectoryInfo]) {
+        throw "Repository root '$logicalRepoPath' is not a directory."
+    }
+
+    $physicalRepoPath = Resolve-PhysicalRepoPath -Path $logicalRepoPath
+    $logicalPlansPath = Join-Path $logicalRepoPath 'docs/implementation-plans'
+    $current = $logicalRepoPath
+    foreach ($segment in @('docs', 'implementation-plans')) {
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        if ($item -isnot [System.IO.DirectoryInfo] -or
+            ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Plan corpus ancestor '$current' is not a regular directory."
+        }
+    }
+
+    $physicalPlansPath = Resolve-PhysicalRepoPath -Path $logicalPlansPath
+    if (-not (Test-PhysicalPathWithin `
+                -Root $physicalRepoPath `
+                -Path $physicalPlansPath)) {
+        throw "Physical plan corpus '$physicalPlansPath' escapes physical repository root '$physicalRepoPath'."
+    }
+
+    $context = [pscustomobject]@{
+        RepoPath = $logicalRepoPath
+        PhysicalRepoPath = $physicalRepoPath
+        PlansPath = $logicalPlansPath
+        PhysicalPlansPath = $physicalPlansPath
+    }
+    $context.PSObject.TypeNames.Insert(0, 'Skalary.PlanCorpusConfinementContext')
+    return $context
+}
+
+function Assert-PlanCorpusConfinementContext {
+    param([Parameter(Mandatory)][object]$Context)
+
+    if ($Context.PSObject.TypeNames -cnotcontains 'Skalary.PlanCorpusConfinementContext' -or
+        [string]::IsNullOrWhiteSpace([string]$Context.RepoPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalRepoPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PlansPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlansPath)) {
+        throw 'A PlanState-created plan corpus confinement context is required.'
+    }
+    if (-not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalRepoPath `
+                -Path $Context.PhysicalPlansPath)) {
+        throw 'Plan corpus confinement context contains a physical plan root outside its physical repository root.'
+    }
+    $expectedPlansPath = Normalize-PhysicalPathRoot -Path (
+        Join-Path $Context.RepoPath 'docs/implementation-plans'
+    )
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    if (-not [string]::Equals($expectedPlansPath, $Context.PlansPath, $comparison)) {
+        throw 'Plan corpus confinement context contains an invalid logical plan root.'
+    }
+}
+
+function New-PlanConfinementContext {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PlanDir,
+        [string]$RepoRoot,
+        [object]$CorpusContext
+    )
+
+    $logicalPath = Normalize-PhysicalPathRoot -Path $PlanDir
+    if ($null -eq $CorpusContext) {
+        if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+            throw 'RepoRoot or a PlanState-created plan corpus confinement context is required.'
+        }
+        $CorpusContext = New-PlanCorpusConfinementContext -RepoRoot $RepoRoot
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        throw 'Specify RepoRoot or CorpusContext, not both.'
+    }
+    Assert-PlanCorpusConfinementContext -Context $CorpusContext
+
+    $relativePath = [System.IO.Path]::GetRelativePath($CorpusContext.PlansPath, $logicalPath)
+    if ($relativePath -eq '..' -or
+        $relativePath.StartsWith(
+            '..' + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::Ordinal
+        ) -or
+        [System.IO.Path]::IsPathRooted($relativePath)) {
+        throw "Plan folder '$logicalPath' escapes repository plan corpus '$($CorpusContext.PlansPath)'."
+    }
+
+    $current = $CorpusContext.PlansPath
+    foreach ($segment in @($relativePath -split '[\\/]' | Where-Object { $_.Length -gt 0 })) {
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        if ($item -isnot [System.IO.DirectoryInfo] -or
+            ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Plan corpus ancestor '$current' is not a regular directory."
+        }
+    }
+
+    $physicalPlanPath = Resolve-PhysicalRepoPath -Path $logicalPath
+    if (-not (Test-PhysicalPathWithin `
+                -Root $CorpusContext.PhysicalPlansPath `
+                -Path $physicalPlanPath)) {
+        throw "Physical plan folder '$physicalPlanPath' escapes physical plan corpus '$($CorpusContext.PhysicalPlansPath)'."
+    }
+    $context = [pscustomobject]@{
+        PlanPath = $logicalPath
+        PhysicalPlanPath = $physicalPlanPath
+        PlansPath = $CorpusContext.PlansPath
+        PhysicalPlansPath = $CorpusContext.PhysicalPlansPath
+        RepoPath = $CorpusContext.RepoPath
+        PhysicalRepoPath = $CorpusContext.PhysicalRepoPath
+    }
+    $context.PSObject.TypeNames.Insert(0, 'Skalary.PlanConfinementContext')
+    return $context
+}
+
+function Assert-PlanConfinementContext {
+    param([Parameter(Mandatory)][object]$Context)
+
+    if ($Context.PSObject.TypeNames -cnotcontains 'Skalary.PlanConfinementContext' -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PlanPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlanPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlansPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalRepoPath)) {
+        throw 'A PlanState-created plan confinement context is required.'
+    }
+    if (-not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalRepoPath `
+                -Path $Context.PhysicalPlansPath) -or
+        -not (Test-PhysicalPathWithin `
+                -Root $Context.PhysicalPlansPath `
+                -Path $Context.PhysicalPlanPath)) {
+        throw 'Plan confinement context contains a physical plan root outside its repository corpus.'
+    }
+}
+
+function Assert-PhysicalPlanChildPath {
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$PhysicalPath,
+        [Parameter(Mandatory)][string]$DisplayPath
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $prefix = $Context.PhysicalPlanPath.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $PhysicalPath.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+        throw "Resolved plan path '$DisplayPath' escapes canonical plan folder '$($Context.PlanPath)'."
+    }
+}
+
+function Resolve-PhysicalPlanChildPath {
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $fullPath = Normalize-PhysicalPathRoot -Path $Path
+    $relativePath = [System.IO.Path]::GetRelativePath($Context.PlanPath, $fullPath)
+    if ($relativePath -eq '..' -or
+        $relativePath.StartsWith(
+            '..' + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "Resolved plan path '$Path' escapes canonical plan folder '$($Context.PlanPath)'."
+    }
+
+    $segments = @($relativePath -split '[\\/]' | Where-Object { $_.Length -gt 0 })
+    $current = $Context.PhysicalPlanPath
+    foreach ($segment in $segments) {
+        $candidate = Join-Path $current $segment
+        if (-not (Test-Path -LiteralPath $candidate)) {
+            $current = Normalize-PhysicalPathRoot -Path $candidate
+            continue
+        }
+
+        $children = @(Get-ChildItem -LiteralPath $current -Force)
+        $matches = @($children | Where-Object {
+                [string]::Equals($_.Name, $segment, [System.StringComparison]::Ordinal)
+            })
+        if ($matches.Count -eq 0) {
+            $matches = @($children | Where-Object {
+                    [string]::Equals($_.Name, $segment, [System.StringComparison]::OrdinalIgnoreCase)
+                })
+        }
+        if ($matches.Count -ne 1) {
+            throw "Cannot resolve a unique physical plan path component '$segment' under '$current'."
+        }
+
+        $item = $matches[0]
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            $target = $item.ResolveLinkTarget($true)
+            if ($null -eq $target) {
+                throw "Cannot resolve reparse-point target '$candidate'."
+            }
+            $current = Normalize-PhysicalPathRoot -Path $target.FullName
+            continue
+        }
+        $current = Normalize-PhysicalPathRoot -Path $item.FullName
+    }
+    return $current
+}
+
+function Resolve-ConfinedPlanPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path,
+        [ValidateSet('Leaf', 'Container')][string]$PathType = 'Leaf'
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    $expectedType = if ($PathType -eq 'Leaf') { [System.IO.FileInfo] } else { [System.IO.DirectoryInfo] }
+    if ($item -isnot $expectedType -or
+        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Resolved plan path '$Path' is not a regular $($PathType.ToLowerInvariant())."
+    }
+
+    $physicalPath = Resolve-PhysicalPlanChildPath -Context $Context -Path $item.FullName
+    Assert-PhysicalPlanChildPath -Context $Context -PhysicalPath $physicalPath -DisplayPath $Path
+    return [pscustomobject]@{
+        Item = $item
+        PhysicalPath = $physicalPath
+    }
+}
+
+function Open-ConfinedPlanFileCore {
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path,
+        [scriptblock]$BeforeFirstOpen,
+        [scriptblock]$BeforeVerificationOpen
+    )
+
+    $validated = Resolve-ConfinedPlanPath -Context $Context -Path $Path -PathType Leaf
+    if ($BeforeFirstOpen) {
+        try {
+            & $BeforeFirstOpen
+        }
+        catch {
+            throw "Internal before-first-open test seam failed: $($_.Exception.Message)"
+        }
+    }
+
+    Initialize-PlanFileHandle
+    $stream = [System.IO.File]::Open(
+        $validated.Item.FullName,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    try {
+        $handlePath = [SkalaryPlanFileHandle]::GetPath($stream.SafeFileHandle)
+        $handlePhysicalPath = Normalize-PhysicalPathRoot -Path $handlePath
+        Assert-PhysicalPlanChildPath `
+            -Context $Context `
+            -PhysicalPath $handlePhysicalPath `
+            -DisplayPath $handlePath
+        if (-not [string]::Equals(
+                $handlePhysicalPath,
+                $validated.PhysicalPath,
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Opened plan-file handle '$handlePath' does not match the confined file that was validated."
+        }
+
+        $identity = [SkalaryPlanFileHandle]::GetIdentity($stream.SafeFileHandle)
+        if (-not $identity.IsRegular -or $identity.LinkCount -ne 1) {
+            throw "Opened plan file '$Path' is not a single-link regular file."
+        }
+
+        if ($BeforeVerificationOpen) {
+            try {
+                & $BeforeVerificationOpen
+            }
+            catch {
+                throw "Internal before-verification-open test seam failed: $($_.Exception.Message)"
+            }
+        }
+        $verification = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read
+        )
+        try {
+            $verificationPath = Normalize-PhysicalPathRoot -Path (
+                [SkalaryPlanFileHandle]::GetPath($verification.SafeFileHandle)
+            )
+            $verificationIdentity = [SkalaryPlanFileHandle]::GetIdentity($verification.SafeFileHandle)
+            if (-not $verificationIdentity.IsRegular -or
+                $verificationIdentity.LinkCount -ne 1 -or
+                -not [string]::Equals(
+                    $verificationPath,
+                    $handlePhysicalPath,
+                    [System.StringComparison]::Ordinal
+                ) -or
+                -not [string]::Equals(
+                    $verificationIdentity.Value,
+                    $identity.Value,
+                    [System.StringComparison]::Ordinal
+                ) -or
+                $verification.Length -ne $stream.Length) {
+                throw "Plan file '$Path' changed while its stable read handle was opened."
+            }
+        }
+        finally {
+            $verification.Dispose()
+        }
+
+        return $stream
+    }
+    catch {
+        $stream.Dispose()
+        throw
+    }
+}
+
+function Open-ConfinedPlanFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    return Open-ConfinedPlanFileCore -Context $Context -Path $Path
+}
+
 function Get-PlanLayout {
     <#
     .SYNOPSIS
@@ -197,57 +760,40 @@ function Resolve-PlanAssetPath {
     )
 
     $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
+    $planConfinementContext = $null
     if ($RepoRoot) {
         $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-        $physicalRepoRoot = Resolve-PhysicalRepoPath -Path $repoRootFull
-        $plansRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull 'docs/implementation-plans'))
-        $physicalPlansRoot = Resolve-PhysicalRepoPath -Path $plansRoot
-        $physicalPlanDir = Resolve-PhysicalRepoPath -Path $planDirFull
-        $plansPrefix = $physicalPlansRoot.TrimEnd([char[]]@(
-                [System.IO.Path]::DirectorySeparatorChar,
-                [System.IO.Path]::AltDirectorySeparatorChar
-            )) + [System.IO.Path]::DirectorySeparatorChar
-        if (-not $physicalPlanDir.StartsWith($plansPrefix, [System.StringComparison]::Ordinal)) {
-            throw "Plan folder '$planDirFull' escapes repository plan root '$plansRoot'."
+        $corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootFull
+        if (-not (Test-PhysicalPathWithin `
+                    -Root $corpusContext.PlansPath `
+                    -Path $planDirFull)) {
+            throw "Plan folder '$planDirFull' escapes repository plan corpus '$($corpusContext.PlansPath)'."
         }
-        Assert-PhysicalPlanConfinement -PlanDir $plansRoot -Path $planDirFull
 
         if (-not $PSBoundParameters.ContainsKey('Inventory')) {
             $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
         }
-        $pathComparison = if ($IsWindows) {
+        $comparison = if ($IsWindows) {
             [System.StringComparison]::OrdinalIgnoreCase
         }
         else {
             [System.StringComparison]::Ordinal
         }
-        $logicalInventoryMatch = @($Inventory | Where-Object {
+        $inventoryMatch = @($Inventory | Where-Object {
                 $_.Path -and [string]::Equals(
-                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    (Normalize-PhysicalPathRoot -Path ([string]$_.Path)),
                     $planDirFull,
-                    $pathComparison
-                )
-            })
-        $inventoryMatch = @($logicalInventoryMatch | Where-Object {
-                [string]::Equals(
-                    (Resolve-PhysicalRepoPath -Path ([string]$_.Path)),
-                    $physicalPlanDir,
-                    $pathComparison
+                    $comparison
                 )
             })
         if ($inventoryMatch.Count -ne 1) {
             throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
         }
 
-        $planRelativePath = [System.IO.Path]::GetRelativePath($physicalRepoRoot, $physicalPlanDir)
-        if ($planRelativePath -eq '..' -or
-            $planRelativePath.StartsWith(
-                '..' + [System.IO.Path]::DirectorySeparatorChar,
-                [System.StringComparison]::Ordinal
-            )) {
-            throw "Plan folder '$planDirFull' escapes physical repository root '$physicalRepoRoot'."
-        }
-        $planDirFull = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $planRelativePath))
+        $planConfinementContext = New-PlanConfinementContext `
+            -PlanDir $planDirFull `
+            -CorpusContext $corpusContext
+        $planDirFull = $planConfinementContext.PlanPath
     }
 
     if (-not $Layout) {
@@ -259,7 +805,13 @@ function Resolve-PlanAssetPath {
         # Section assets have no sibling-file legacy form — their legacy home is inside plan.md.
         $resolvedPath = [System.IO.Path]::GetFullPath((Join-Path $planDirFull (Join-Path 'assets' $entry.Asset)))
         if ($RepoRoot) {
-            Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
+            $physicalPath = Resolve-PhysicalPlanChildPath `
+                -Context $planConfinementContext `
+                -Path $resolvedPath
+            Assert-PhysicalPlanChildPath `
+                -Context $planConfinementContext `
+                -PhysicalPath $physicalPath `
+                -DisplayPath $resolvedPath
         }
         return $resolvedPath
     }
@@ -275,7 +827,13 @@ function Resolve-PlanAssetPath {
 
     $resolvedPath = if ($Layout -eq 'assets') { $assetPath } else { $legacyPath }
     if ($RepoRoot) {
-        Assert-PhysicalPlanConfinement -PlanDir $planDirFull -Path $resolvedPath
+        $physicalPath = Resolve-PhysicalPlanChildPath `
+            -Context $planConfinementContext `
+            -Path $resolvedPath
+        Assert-PhysicalPlanChildPath `
+            -Context $planConfinementContext `
+            -PhysicalPath $physicalPath `
+            -DisplayPath $resolvedPath
     }
     return $resolvedPath
 }
@@ -330,6 +888,40 @@ function Get-PlanSectionRecord {
     return , $records.ToArray()
 }
 
+function Get-PlanInlineSectionLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Content,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Requirements', 'Risks', 'Decisions')]
+        [string]$Section,
+
+        [switch]$PreserveFencedContent
+    )
+
+    $rawLines = ($Content -replace "`r`n", "`n").Split("`n")
+    $lines = Remove-FencedCodeBlocks -Lines $rawLines
+    $sectionLines = [System.Collections.Generic.List[string]]::new()
+    $inSection = $false
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if ($line -match "^\s*##\s+$([regex]::Escape($Section))\b") {
+            $inSection = $true
+            continue
+        }
+        if ($inSection -and $line -match '^\s*##\s+') {
+            break
+        }
+        if ($inSection) {
+            $sectionLines.Add($(if ($PreserveFencedContent) { $rawLines[$index] } else { $line }))
+        }
+    }
+    return , $sectionLines.ToArray()
+}
+
 function Resolve-PlanSection {
     <#
     .SYNOPSIS
@@ -356,7 +948,20 @@ function Resolve-PlanSection {
         [AllowEmptyCollection()]
         [AllowEmptyString()]
         [AllowNull()]
-        [string[]]$LegacyLine
+        [string[]]$LegacyLine,
+
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$LegacyContent,
+
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$AssetContent,
+
+        [AllowNull()]
+        [string]$AssetPath,
+
+        [switch]$AssetAbsent
     )
 
     $kind = if ($Section -eq 'Decisions') { 'List' } else { 'Table' }
@@ -371,22 +976,52 @@ function Resolve-PlanSection {
         default { 2 }
     }
 
-    $legacyLines = @($LegacyLine)
+    if ($PSBoundParameters.ContainsKey('LegacyLine') -and $PSBoundParameters.ContainsKey('LegacyContent')) {
+        throw 'Resolve-PlanSection accepts LegacyLine or LegacyContent, not both.'
+    }
+    $legacyLines = if ($PSBoundParameters.ContainsKey('LegacyContent')) {
+        @(Get-PlanInlineSectionLine -Content $LegacyContent -Section $Section)
+    }
+    else {
+        @($LegacyLine)
+    }
     $legacyRecords = Get-PlanSectionRecord -Lines $legacyLines -Kind $kind -IdPattern $idPattern -MinCell $minCell
 
-    $assetPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind $Section
-    if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+    if ($PSBoundParameters.ContainsKey('AssetContent') -and $AssetAbsent) {
+        throw 'Resolve-PlanSection accepts AssetContent or AssetAbsent, not both.'
+    }
+    $assetPath = if ($PSBoundParameters.ContainsKey('AssetPath')) {
+        $AssetPath
+    }
+    else {
+        Resolve-PlanAssetPath -PlanDir $PlanDir -Kind $Section
+    }
+    $assetPresent = if ($PSBoundParameters.ContainsKey('AssetContent')) {
+        $true
+    }
+    elseif ($AssetAbsent) {
+        $false
+    }
+    else {
+        Test-Path -LiteralPath $assetPath -PathType Leaf
+    }
+    if (-not $assetPresent) {
         $source = if ($legacyRecords.Count -gt 0) { 'legacy' } else { 'none' }
         return [pscustomobject]@{
             Section = $Section
-            Source  = $source
-            Path    = $null
-            Lines   = $legacyLines
+            Source = $source
+            Path = $null
+            Lines = $legacyLines
             Records = $legacyRecords
         }
     }
 
-    $raw = Get-Content -LiteralPath $assetPath -Raw
+    $raw = if ($PSBoundParameters.ContainsKey('AssetContent')) {
+        $AssetContent
+    }
+    else {
+        Get-Content -LiteralPath $assetPath -Raw
+    }
     if ([string]::IsNullOrWhiteSpace($raw)) {
         throw "Plan asset '$assetPath' is present but empty; $Section must never silently resolve to zero records. Author the file or delete it to fall back to plan.md."
     }
@@ -408,9 +1043,9 @@ function Resolve-PlanSection {
 
     return [pscustomobject]@{
         Section = $Section
-        Source  = 'asset'
-        Path    = $assetPath
-        Lines   = $assetLines
+        Source = 'asset'
+        Path = $assetPath
+        Lines = $assetLines
         Records = $assetRecords
     }
 }
@@ -496,8 +1131,8 @@ function Get-PlanMetadata {
     $phaseSteps = @{}
     $sectionLines = @{
         Requirements = [System.Collections.Generic.List[string]]::new()
-        Risks        = [System.Collections.Generic.List[string]]::new()
-        Decisions    = [System.Collections.Generic.List[string]]::new()
+        Risks = [System.Collections.Generic.List[string]]::new()
+        Decisions = [System.Collections.Generic.List[string]]::new()
     }
     $steps = [System.Collections.Generic.List[object]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
@@ -713,25 +1348,25 @@ function ConvertFrom-PlanFolderName {
 
     if ($FolderName -match '^(?:(?<prefix>standalone|[0-9a-f]{6})-)?(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
         return [pscustomobject]@{
-            Scheme       = 'new'
-            FolderId     = $Matches.hash
+            Scheme = 'new'
+            FolderId = $Matches.hash
             FolderPrefix = if ($Matches.ContainsKey('prefix')) {
                 $Matches.prefix.ToLowerInvariant()
             }
             else {
                 $null
             }
-            Slug         = $Matches.slug
-            Date         = $Matches.date
+            Slug = $Matches.slug
+            Date = $Matches.date
         }
     }
     if ($FolderName -match '^(?<num>\d{3})-(?<slug>.+)$') {
         return [pscustomobject]@{
-            Scheme       = 'legacy'
-            FolderId     = $Matches.num
+            Scheme = 'legacy'
+            FolderId = $Matches.num
             FolderPrefix = $null
-            Slug         = $Matches.slug
-            Date         = $null
+            Slug = $Matches.slug
+            Date = $null
         }
     }
     return $null
@@ -741,7 +1376,9 @@ function Get-PlanInventory {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$RepoRoot
+        [string]$RepoRoot,
+
+        [string[]]$CanonicalIdFilter
     )
 
     $root = [System.IO.Path]::GetFullPath($RepoRoot)
@@ -761,10 +1398,20 @@ function Get-PlanInventory {
             ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $true } }
     }
 
+    $requestedIds = $null
+    if ($PSBoundParameters.ContainsKey('CanonicalIdFilter')) {
+        $requestedIds = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]$CanonicalIdFilter,
+            [System.StringComparer]::Ordinal
+        )
+    }
     foreach ($entry in $folders) {
         $name = $entry.Dir.Name
         $parsedFolder = ConvertFrom-PlanFolderName -FolderName $name
         if ($null -eq $parsedFolder) {
+            continue
+        }
+        if ($null -ne $requestedIds -and -not $requestedIds.Contains($parsedFolder.FolderId)) {
             continue
         }
 
@@ -789,18 +1436,18 @@ function Get-PlanInventory {
         $canonicalId = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
 
         $inventory.Add([pscustomobject]@{
-            Id = $canonicalId
-            FolderId = $parsedFolder.FolderId
-            FolderPrefix = $parsedFolder.FolderPrefix
-            AnchorId = $anchorId
-            EpicId = $epicId
-            Scheme = $parsedFolder.Scheme
-            Slug = $parsedFolder.Slug
-            Date = $parsedFolder.Date
-            FolderName = $name
-            Path = $entry.Dir.FullName
-            IsArchived = $entry.IsArchived
-        })
+                Id = $canonicalId
+                FolderId = $parsedFolder.FolderId
+                FolderPrefix = $parsedFolder.FolderPrefix
+                AnchorId = $anchorId
+                EpicId = $epicId
+                Scheme = $parsedFolder.Scheme
+                Slug = $parsedFolder.Slug
+                Date = $parsedFolder.Date
+                FolderName = $name
+                Path = $entry.Dir.FullName
+                IsArchived = $entry.IsArchived
+            })
     }
 
     return $inventory.ToArray()
@@ -979,16 +1626,16 @@ function Get-EpicInventory {
         }
 
         $inventory.Add([pscustomobject]@{
-            Id         = if ($anchorId) { $anchorId } else { $folderId }
-            FolderId   = $folderId
-            AnchorId   = $anchorId
-            Slug       = $slug
-            Date       = $date
-            Title      = $title
-            FolderName = $dir.Name
-            Path       = $dir.FullName
-            EpicFile   = $epicFile
-        })
+                Id = if ($anchorId) { $anchorId } else { $folderId }
+                FolderId = $folderId
+                AnchorId = $anchorId
+                Slug = $slug
+                Date = $date
+                Title = $title
+                FolderName = $dir.Name
+                Path = $dir.FullName
+                EpicFile = $epicFile
+            })
     }
 
     return $inventory.ToArray()
@@ -1129,10 +1776,10 @@ function Resolve-PlanStage {
     }
 
     return [pscustomobject]@{
-        Stage       = $value
-        Family      = $family
-        Round       = $round
-        Rank        = $rank
+        Stage = $value
+        Family = $family
+        Round = $round
+        Rank = $rank
         IsDefaulted = $isDefaulted
     }
 }
@@ -1210,11 +1857,11 @@ function Get-PlanValidationDecision {
     }
 
     return [pscustomobject]@{
-        Path           = $Path
-        Stage          = $stage.Stage
-        Floor          = $script:PlanValidationFloor
+        Path = $Path
+        Stage = $stage.Stage
+        Floor = $script:PlanValidationFloor
         ShouldValidate = $shouldValidate
-        Signal         = $signal
+        Signal = $signal
     }
 }
 
@@ -1241,106 +1888,106 @@ function Assert-IntentReady {
 }
 
 function Get-PlanningContextDigest {
-        <#
+    <#
         .SYNOPSIS
         Returns the digest bound to an operator confirmation of a plan's intent and design.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir,
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir,
 
-            [string]$RepoRoot,
+        [string]$RepoRoot,
 
-            [object[]]$Inventory
-        )
+        [object[]]$Inventory
+    )
 
-        $assetArgs = @{ PlanDir = $PlanDir }
-        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
-        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
-        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
-        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
-        foreach ($path in @($intentPath, $designPath)) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Planning context asset not found: $path"
-            }
+    $assetArgs = @{ PlanDir = $PlanDir }
+    if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+    if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+    $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+    $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
+    foreach ($path in @($intentPath, $designPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Planning context asset not found: $path"
         }
-
-        $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
-        $payload = "intent.md`n$intent`n--design.md--`n$design"
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-        return [System.Convert]::ToHexString(
-            [System.Security.Cryptography.SHA256]::HashData($bytes)
-        ).ToLowerInvariant()
     }
 
-    function Assert-PlanningContextReady {
-        <#
+    $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
+    $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+    $payload = "intent.md`n$intent`n--design.md--`n$design"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    return [System.Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($bytes)
+    ).ToLowerInvariant()
+}
+
+function Assert-PlanningContextReady {
+    <#
         .SYNOPSIS
         Fails when the Markdown context is still a scaffold rather than confirmable planning input.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir,
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir,
 
-            [string]$RepoRoot,
+        [string]$RepoRoot,
 
-            [object[]]$Inventory
-        )
+        [object[]]$Inventory
+    )
 
-        $assetArgs = @{ PlanDir = $PlanDir }
-        if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
-        if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
-        $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
-        $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
-        foreach ($path in @($intentPath, $designPath)) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Planning context asset not found: $path"
-            }
-        }
-
-        Assert-IntentReady -Path $intentPath
-
-        $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
-        foreach ($section in @('Components and boundaries', 'Program flow')) {
-            $body = [regex]::Match(
-                $design,
-                "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
-            ).Groups['body'].Value
-            if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
-                throw "Design section '$section' is missing or still contains a TBD placeholder."
-            }
-            if ($section -eq 'Program flow') {
-                $diagram = [regex]::Match($body, '(?ms)```mermaid[^\S\r\n]*\r?\n(?<body>.*?)```')
-                if (-not $diagram.Success -or
-                    [string]::IsNullOrWhiteSpace($diagram.Groups['body'].Value)) {
-                    throw "Design section 'Program flow' must contain a non-empty Mermaid diagram."
-                }
-            }
+    $assetArgs = @{ PlanDir = $PlanDir }
+    if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
+    if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
+    $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
+    $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
+    foreach ($path in @($intentPath, $designPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Planning context asset not found: $path"
         }
     }
 
-    function Get-PlanningContextState {
-        <#
+    Assert-IntentReady -Path $intentPath
+
+    $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
+    foreach ($section in @('Components and boundaries', 'Program flow')) {
+        $body = [regex]::Match(
+            $design,
+            "(?ms)^##\s+$([regex]::Escape($section))\s*`$(?<body>.*?)(?=^##\s|\z)"
+        ).Groups['body'].Value
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -match '(?i)\bTBD\b') {
+            throw "Design section '$section' is missing or still contains a TBD placeholder."
+        }
+        if ($section -eq 'Program flow') {
+            $diagram = [regex]::Match($body, '(?ms)```mermaid[^\S\r\n]*\r?\n(?<body>.*?)```')
+            if (-not $diagram.Success -or
+                [string]::IsNullOrWhiteSpace($diagram.Groups['body'].Value)) {
+                throw "Design section 'Program flow' must contain a non-empty Mermaid diagram."
+            }
+        }
+    }
+}
+
+function Get-PlanningContextState {
+    <#
         .SYNOPSIS
         Reports whether an enrolled plan's operator confirmation still matches its intent and design.
         #>
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$PlanDir,
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PlanDir,
 
-            [string]$RepoRoot,
+        [string]$RepoRoot,
 
-            [object[]]$Inventory
-        )
+        [object[]]$Inventory
+    )
 
-        $planFile = Join-Path $PlanDir 'plan.md'
-        if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
-            throw "Plan file not found: $planFile"
-        }
+    $planFile = Join-Path $PlanDir 'plan.md'
+    if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
+        throw "Plan file not found: $planFile"
+    }
 
         $markers = Get-PlanHeaderMarkers -Path $planFile
         $marker = $markers.PlanningConfirmed
@@ -1456,10 +2103,10 @@ function Split-PlanHeader {
     $bodyLines = if ($boundary -lt $lines.Count) { $lines[$boundary..($lines.Count - 1)] } else { @() }
 
     return [pscustomobject]@{
-        Header          = (@($headerLines) -join "`n")
-        Body            = (@($bodyLines) -join "`n")
+        Header = (@($headerLines) -join "`n")
+        Body = (@($bodyLines) -join "`n")
         HeaderLineCount = @($headerLines).Count
-        HasBody         = @($bodyLines).Count -gt 0
+        HasBody = @($bodyLines).Count -gt 0
     }
 }
 
@@ -1501,14 +2148,14 @@ function Get-PlanHeaderMarkers {
     }
 
     return [pscustomobject]@{
-        PlanId        = & $getValue 'plan-id'
-        EpicId        = & $getValue 'epic'
+        PlanId = & $getValue 'plan-id'
+        EpicId = & $getValue 'epic'
         ExecutionMode = & $getValue 'execution-mode'
-        Scope         = & $getValue 'scope'
-        CipStage      = & $getValue 'cip-stage'
+        Scope = & $getValue 'scope'
+        CipStage = & $getValue 'cip-stage'
         PlanningConfirmed = & $getValue 'planning-confirmed'
-        DependsOn     = $dependsOn
-        All           = $all
+        DependsOn = $dependsOn
+        All = $all
     }
 }
 
@@ -1551,14 +2198,14 @@ function Get-PlanProgress {
     $percent = if ($total -gt 0) { [math]::Round(($completed / $total) * 100, 1) } else { 0 }
 
     return [pscustomobject]@{
-        Total         = $total
-        Completed     = $completed
-        InProgress    = $inProgress
-        Pending       = $pending
-        Percent       = $percent
-        CurrentPhase  = $currentPhase
+        Total = $total
+        Completed = $completed
+        InProgress = $inProgress
+        Pending = $pending
+        Percent = $percent
+        CurrentPhase = $currentPhase
         LastCompleted = $lastCompleted
-        IsComplete    = ($total -gt 0 -and $completed -eq $total)
+        IsComplete = ($total -gt 0 -and $completed -eq $total)
     }
 }
 
@@ -1594,16 +2241,16 @@ function Get-NextStep {
 
     if (-not $next) {
         return [pscustomobject]@{
-            Step                  = $null
-            Id                    = $null
-            Status                = $null
-            IsHuman               = $false
-            IsDiscovery           = $false
-            Detail                = ''
+            Step = $null
+            Id = $null
+            Status = $null
+            IsHuman = $false
+            IsDiscovery = $false
+            Detail = ''
             HasUncommittedChanges = [bool]$HasUncommittedChanges
-            BlockedByAfter        = $false
-            UnmetAfter            = @()
-            IsComplete            = $true
+            BlockedByAfter = $false
+            UnmetAfter = @()
+            IsComplete = $true
         }
     }
 
@@ -1616,16 +2263,16 @@ function Get-NextStep {
     $detail = if ($next.PSObject.Properties['Detail']) { [string]$next.Detail } else { '' }
 
     return [pscustomobject]@{
-        Step                  = $next
-        Id                    = $next.Id
-        Status                = $next.Status
-        IsHuman               = ($next.Role -eq 'human')
-        IsDiscovery           = [bool]$isDiscovery
-        Detail                = $detail
+        Step = $next
+        Id = $next.Id
+        Status = $next.Status
+        IsHuman = ($next.Role -eq 'human')
+        IsDiscovery = [bool]$isDiscovery
+        Detail = $detail
         HasUncommittedChanges = [bool]$HasUncommittedChanges
-        BlockedByAfter        = ($unmet.Count -gt 0)
-        UnmetAfter            = $unmet
-        IsComplete            = $false
+        BlockedByAfter = ($unmet.Count -gt 0)
+        UnmetAfter = $unmet
+        IsComplete = $false
     }
 }
 
@@ -1813,8 +2460,8 @@ function Get-EpicRollup {
 
     $epicIdLower = $EpicId.Trim().ToLowerInvariant()
     $members = @($Inventory |
-        Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $epicIdLower } |
-        Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
+            Where-Object { $_.EpicId -and $_.EpicId.ToLowerInvariant() -eq $epicIdLower } |
+            Sort-Object @{ Expression = { $_.Date } }, @{ Expression = { $_.Id } })
 
     $records = [System.Collections.Generic.List[object]]::new()
     # Completion is cached per plan id because a `depends-on` may point at a plan outside the epic; the
@@ -1831,18 +2478,18 @@ function Get-EpicRollup {
         $completionCache[$member.Id.ToLowerInvariant()] = $isComplete
 
         $records.Add([pscustomobject]@{
-            Id            = $member.Id
-            Slug          = $member.Slug
-            FolderName    = $member.FolderName
-            Path          = $member.Path
-            PlanFile      = $planFile
-            IsArchived    = $member.IsArchived
-            IsComplete    = $isComplete
-            DependsOn     = @($markers.DependsOn)
-            Progress      = $progress
-            NextStepId    = $next.Id
-            NextStepHuman = $next.IsHuman
-        })
+                Id = $member.Id
+                Slug = $member.Slug
+                FolderName = $member.FolderName
+                Path = $member.Path
+                PlanFile = $planFile
+                IsArchived = $member.IsArchived
+                IsComplete = $isComplete
+                DependsOn = @($markers.DependsOn)
+                Progress = $progress
+                NextStepId = $next.Id
+                NextStepHuman = $next.IsHuman
+            })
     }
 
     $resolved = [System.Collections.Generic.List[object]]::new()
@@ -1874,21 +2521,21 @@ function Get-EpicRollup {
         }
 
         $resolved.Add([pscustomobject]@{
-            Id             = $record.Id
-            Slug           = $record.Slug
-            FolderName     = $record.FolderName
-            Path           = $record.Path
-            PlanFile       = $record.PlanFile
-            IsArchived     = $record.IsArchived
-            IsComplete     = $record.IsComplete
-            DependsOn      = @($record.DependsOn)
-            UnmetDependsOn = $unmet.ToArray()
-            UnknownDependsOn = $unknown.ToArray()
-            IsBlocked      = (-not $record.IsComplete -and ($unmet.Count -gt 0 -or $unknown.Count -gt 0))
-            Progress       = $record.Progress
-            NextStepId     = $record.NextStepId
-            NextStepHuman  = $record.NextStepHuman
-        })
+                Id = $record.Id
+                Slug = $record.Slug
+                FolderName = $record.FolderName
+                Path = $record.Path
+                PlanFile = $record.PlanFile
+                IsArchived = $record.IsArchived
+                IsComplete = $record.IsComplete
+                DependsOn = @($record.DependsOn)
+                UnmetDependsOn = $unmet.ToArray()
+                UnknownDependsOn = $unknown.ToArray()
+                IsBlocked = (-not $record.IsComplete -and ($unmet.Count -gt 0 -or $unknown.Count -gt 0))
+                Progress = $record.Progress
+                NextStepId = $record.NextStepId
+                NextStepHuman = $record.NextStepHuman
+            })
     }
 
     $nextChild = $null
@@ -1904,16 +2551,16 @@ function Get-EpicRollup {
     }
 
     return [pscustomobject]@{
-        EpicId          = $epicIdLower
-        Children        = $resolved.ToArray()
-        ChildCount      = $resolved.Count
-        CompleteCount   = @($resolved | Where-Object { $_.IsComplete }).Count
-        BlockedCount    = @($resolved | Where-Object { $_.IsBlocked }).Count
-        TotalSteps      = $totalSteps
-        CompletedSteps  = $completedSteps
-        Percent         = if ($totalSteps -gt 0) { [math]::Round(($completedSteps / $totalSteps) * 100, 1) } else { 0 }
-        NextChild       = $nextChild
-        IsComplete      = ($resolved.Count -gt 0 -and @($resolved | Where-Object { $_.IsComplete }).Count -eq $resolved.Count)
+        EpicId = $epicIdLower
+        Children = $resolved.ToArray()
+        ChildCount = $resolved.Count
+        CompleteCount = @($resolved | Where-Object { $_.IsComplete }).Count
+        BlockedCount = @($resolved | Where-Object { $_.IsBlocked }).Count
+        TotalSteps = $totalSteps
+        CompletedSteps = $completedSteps
+        Percent = if ($totalSteps -gt 0) { [math]::Round(($completedSteps / $totalSteps) * 100, 1) } else { 0 }
+        NextChild = $nextChild
+        IsComplete = ($resolved.Count -gt 0 -and @($resolved | Where-Object { $_.IsComplete }).Count -eq $resolved.Count)
     }
 }
 
@@ -1999,4 +2646,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-PhaseAdmission, Get-PhaseCheckpointOptions, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-PhaseAdmission, Get-PhaseCheckpointOptions, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState, New-PlanCorpusConfinementContext, New-PlanConfinementContext, Resolve-ConfinedPlanPath, Open-ConfinedPlanFile
