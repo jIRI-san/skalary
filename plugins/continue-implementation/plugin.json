@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.83",
+  "version": "1.0.84",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -22,6 +22,10 @@
     {
       "src": "skills/ci/assets/execution-guide.md",
       "dest": "skills/ci/assets/execution-guide.md"
+    },
+    {
+      "src": "skills/ci/assets/fleet-dispatch-guide.md",
+      "dest": "skills/ci/assets/fleet-dispatch-guide.md"
     },
     {
       "src": "skills/ci/assets/crosscheck-guide.md",

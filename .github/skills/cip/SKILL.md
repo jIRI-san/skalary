@@ -85,32 +85,8 @@ context: fork
 
 ### Planning-role fleet dispatch
 
-Import `.github/skills/cip/scripts/FleetDispatch.psm1` and create one
-`New-FleetDispatchPlan` from these ordered descriptors after the intent checkpoint succeeds:
-
-| Id | Label | Key | DependsOn |
-|---|---|---|---|
-| `cip-designer` | `CIP Designer` | the existing Designer role/model binding | none |
-| `cip-requirements-validator` | `CIP Requirements Validator` | the existing Requirements Validator role/model binding | none |
-| `cip-judge` | `CIP Judge` | the existing Judge role/model binding | `cip-designer`, `cip-requirements-validator` |
-
-All three tasks are selected. The descriptor `Key` records the role/model binding already resolved by
-the caller; dispatch does not replace a role prompt, change its tool set, or select a different model.
-The caller retains all questions, plan-file writes, `Add-WorkflowNote` capture, stage transitions, and
-DR handoff.
-
-Render the complete `Format-FleetDispatchPlan` pre-view before the first role invocation, including
-the cap, projected waves, ready order, retry policy, omissions, and the statement that
-provider-global concurrency is unobserved. Then pass that exact plan to
-`Invoke-FleetDispatchPlan`; its caller-owned wave launcher invokes only the roles admitted in the
-current wave and returns one structured outcome per admitted id. The Designer and Requirements
-Validator may run together; Judge runs only after both complete. An ordinary role failure cancels
-Judge without cancelling unrelated ready work. Retry a role once only when the host or tool returns
-the explicit `throttled` outcome; never infer throttling from diagnostic text.
-
-Render final attendance after every selected role is completed, failed, or cancelled. Record the
-same selected/omitted roles, attempts, explicit throttle retry, and degradation through the existing
-Capture writer; do not add a second log or scheduler. Continue drafting only when Judge completes.
+Read and follow `./assets/fleet-dispatch-guide.md`. It owns the fixed role graph and the stepwise
+plan/pre-view/admission/attendance protocol used around native role calls.
 
 ## Step 3: Draft plan (`./assets/drafting-guide.md` + template)
 

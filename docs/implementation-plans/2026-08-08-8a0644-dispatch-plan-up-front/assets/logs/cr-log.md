@@ -37,4 +37,7 @@ Phase: 1
 ## CR Capture
 Phase: 2
 
-No entries for this phase.
+- [-] [src:code-review] [sev:High] [concern:architecture-patterns] [req:REQ-4,REQ-5] [review:cr] [source-record:0e182b666c514082182eaf0d045e13ca02af978fbdf76f7752374c26afffe3d3] Round 1 finding 1 triage=fix: callback-only execution could not surround native agent tool calls; add caller-held Start, Step, and Complete boundaries with atomic wave admission.
+- [-] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-8] [review:cr] [source-record:881c5937f3f4243c63fae1da780aab0a21730f0d97ba97a66a685dc3fdf1bee9] Round 1 finding 2 triage=dismiss-mitigated: canonical generation, manifest registration, registry hashes, dogfood sync, and byte-parity tests prevent the six distributed module copies from drifting silently.
+- [-] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-4,REQ-5] [review:cr] [source-record:b2354258bf5bb9be7d90a77db4560fb0d249ade37db18717b84559d8f5043fe6] Round 1 finding 3 triage=fix: launcher exceptions discarded actionable context; preserve bounded sanitized type and message details with GitHub and authorization-token redaction.
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:e3cfa94fe96b3243998e1721b707ced94d303bb69eb4d782f3b0566f62596864] review-cycle stage=phase-2 cycle=1 outcome=findings run=789432df-6af7-41f0-b1fc-02c825aaee9c summary=three findings; native host boundary and exception diagnostics fixed, generated-copy drift mitigated

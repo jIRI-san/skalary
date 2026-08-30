@@ -135,35 +135,8 @@ Use the execution asset for the implement/build/test/code-review/commit loop.
 
 ### Implementation-role fleet dispatch
 
-For in-session execution, create the fleet only after phase admission, execution-mode selection,
-branch/worktree setup, active-step marking, and the plan reconcile gate have succeeded. Import
-`.github/skills/ci/scripts/FleetDispatch.psm1` and create one `New-FleetDispatchPlan` per active step
-from these ordered descriptors:
-
-| Id | Label | Key | DependsOn |
-|---|---|---|---|
-| `ci-designer` | `CI Designer` | the existing Designer role/model binding | none |
-| `ci-validator` | `CI Validator` | the existing Validator role/model binding | none |
-| `ci-implementor` | `CI Implementor` | the existing Implementor role/model binding | `ci-designer`, `ci-validator` |
-| `ci-judge` | `CI Judge` | the existing Judge role/model binding | `ci-implementor` |
-
-All four tasks are selected. Descriptor keys record the caller-resolved role/model bindings; the
-adapter does not change role prompts, tool sets, model selection, or the execution guide. Render the
-complete `Format-FleetDispatchPlan` pre-view before the first role invocation, including the
-four-task admission cap, waves, ready order, retry policy, omissions, and the statement that
-provider-global concurrency is unobserved. Pass that exact plan to `Invoke-FleetDispatchPlan` and
-launch only its current ready wave.
-
-Designer and Validator may run together. Implementor runs the existing file-edit, focused
-build/test, formatting, design-note, and fix loop only after both complete. Judge runs only after
-Implementor completes and validates the active step's acceptance criteria. Retry once only for the
-explicit structured `throttled` outcome; diagnostic text and ordinary failures never trigger a
-retry. A failed prerequisite cancels only its transitive dependents.
-
-Render final attendance and write it through the existing Capture path. Commit and phase promotion
-remain outside the adapter and occur only after Judge completes. Any failed or cancelled role leaves
-the step `[~]` for a later run-scoped plan. The adapter adds no clone, credential, worktree,
-container, promotion, review, or persistence mechanism.
+For in-session execution, read and follow `./assets/fleet-dispatch-guide.md`. It owns the fixed role
+graph and the stepwise plan/pre-view/admission/attendance protocol around native role calls.
 
 ## Step 5: Crosscheck and completion (`./assets/crosscheck-guide.md`)
 

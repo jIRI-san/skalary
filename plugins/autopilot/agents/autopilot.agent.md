@@ -100,11 +100,11 @@ active step from these ordered descriptors:
 
 All four tasks are selected. The descriptor `Key` records the role/model binding already resolved by
 the caller; the adapter does not replace role prompts, alter tool access, or override the model from
-`.autopilot.json`. Render the complete `Format-FleetDispatchPlan` pre-view before the first role
-invocation, including the cap, projected waves, ready order, retry policy, omissions, and the
-statement that provider-global concurrency is unobserved. Then pass that exact plan to
-`Invoke-FleetDispatchPlan`; its caller-owned wave launcher invokes only the current ready roles and
-returns one structured outcome per admitted id.
+`.autopilot.json`. Call `Start-FleetDispatchRun` once and render its complete `PreView` before the
+first native role call; provider-global concurrency is unobserved. The returned wave is already
+admitted. Invoke only its task ids, then pass
+exactly one structured outcome per id to `Step-FleetDispatchRun`; never call Start again after a
+native call. Submit a timeout, tool crash, or missing result as `failed` with a short diagnostic.
 
 Designer and Validator may run together. Implementor owns the existing implementation, focused
 build/test, format, design-note, and fix boundaries in items 11-16 and starts only after both
@@ -112,9 +112,12 @@ prerequisites complete. Judge owns item 17 and starts only after Implementor com
 failure cancels only transitive dependents. Retry a role once only when the host or tool returns the
 explicit `throttled` outcome; never infer throttling from error prose.
 
-Render final attendance and record it through the existing phase Capture path before item 18. Commit,
-push, phase review, harvest, and final promotion remain authoritative outside the adapter and require
-Judge completion. A failed or cancelled role leaves the step `[~]` for a later invocation. This
+Repeat native invocation followed by Step until `Done`; an explicit-throttle retry is admitted as its
+own attempt-2 wave before newly ready work. Call `Complete-FleetDispatchRun` only after `Done`, render
+its `FinalView`, and record attendance through the existing phase Capture path before item 18.
+Commit, push, phase review, harvest, and final promotion remain authoritative outside the adapter
+and require Judge completion. A failed or cancelled role leaves the step `[~]` for a later
+invocation. The caller-held run is not persisted and does not authenticate host results. This
 run-scoped fleet adds no clone, credential, worktree, container, promotion, review, or persistence
 mechanism.
 

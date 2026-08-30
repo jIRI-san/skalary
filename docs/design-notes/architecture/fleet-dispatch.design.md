@@ -20,7 +20,8 @@ omitted tasks, projected waves, stable ready order, retry policy, and empty atte
 | Validation | Reject duplicates, malformed or unknown ids, duplicate/self dependencies, cycles, and selected tasks whose prerequisite is omitted |
 | Projection | Stable caller order; each wave admits at most four tasks whose selected prerequisites are in earlier waves |
 | Rendering | `Format-FleetDispatchPlan` prints all selected and omitted tasks, cap, waves, ready order, retry policy, and that provider-global concurrency is unobserved |
-| Execution | `Invoke-FleetDispatchPlan` rebuilds and validates one private snapshot, renders it first, passes only cloned descriptors in the next ready `{ Tasks, TaskIds, Attempt }` wave to a caller-owned launcher, validates one structured result per admitted task, and renders final attendance |
+| Execution | `Start-FleetDispatchRun` validates one private snapshot and atomically admits the first ready wave; native hosts settle that wave through `Step-FleetDispatchRun`, which validates one structured result per admitted task and admits the next wave; `Complete-FleetDispatchRun` refuses incomplete state and renders final attendance |
+| Callback compatibility | `Invoke-FleetDispatchPlan` is a wrapper over the stepwise core for PowerShell callers; it maps launcher exceptions to bounded, control-sanitized, token-redacted failed outcomes |
 | Result | Closed per-attempt outcomes are `completed`, `failed`, or explicit `throttled`; task terminals are `completed`, `failed`, or `cancelled` |
 | State | The plan is pure run-local data. It creates no files, locks, leases, scheduler records, or recovery state |
 
@@ -28,8 +29,15 @@ The returned plan is the sole admission source for the orchestration adapter. Ca
 recompute task selection or waves after rendering the plan. Before rendering, execution reconstructs
 the canonical projection from `Tasks` and compares the schema, cap, provider note, retry policy,
 selected/omitted ids, wave task membership, ready order, and empty attendance. Any mismatch fails
-before the first callback. Rendering and dispatch then use the private reconstruction, so callbacks
-cannot mutate the declared plan through caller-held references.
+before admission.
+
+The stepwise protocol is the native-agent boundary: Start returns the pre-view plus an already
+admitted cloned wave, Step requires exactly one result for each admitted id before it admits anything
+else, and Complete rejects pending or admitted work. A native timeout, crash, or missing result is
+submitted as an explicit failed outcome rather than restarting the run and duplicating a lease.
+Retry waves contain only explicitly throttled tasks and run before newly ready work. The caller-held
+run is invocation-local state, not an authentication or attestation mechanism, and is never written
+by the module.
 
 `/cip` creates its fleet only after operator intent confirmation. Its ordered descriptors admit
 Designer and Requirements Validator together, then Judge after both complete. Descriptor keys carry
@@ -65,13 +73,13 @@ The retry trigger, maximum, and description have one module-owned definition cop
 Rendering and execution consume that validated plan policy: one retry is permitted only for an
 explicit structured throttle outcome. Error text and timing never imply throttling.
 
-The caller-owned `InvokeWave` callback receives one wave object containing at most four ready
-descriptors, their ids, and an attempt number. It may launch them concurrently or serially according
-to its existing host boundary, but must return exactly one `{ TaskId, Outcome, Detail }` record for
-every admitted task. Unknown, duplicate, missing, or non-closed outcomes fail loud rather than
-producing success-shaped attendance. `failed` and `throttled` outcomes require a non-empty diagnostic.
-A launcher exception is scoped to that admitted wave and becomes an explicit failed outcome for each
-wave task, preserving degraded final attendance instead of discarding the run result.
+Each admitted wave contains at most four cloned ready descriptors, their ids, and an attempt number.
+The native host may launch them concurrently or serially through its existing tool boundary, but
+must submit exactly one `{ TaskId, Outcome, Detail }` record for every admitted task. Unknown,
+duplicate, missing, or non-closed outcomes fail loud rather than producing success-shaped
+attendance. `failed` and `throttled` outcomes require a non-empty diagnostic. The compatibility
+callback scopes a launcher exception to that admitted wave and submits an explicit failed outcome
+for each wave task, preserving bounded sanitized failure context and degraded attendance.
 
 All caller-controlled display fields must be actual strings and are bounded to one line. Values are
 never accepted through implicit object-to-string conversion. Control characters, Unicode

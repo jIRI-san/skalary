@@ -661,21 +661,8 @@ function Invoke-FleetDispatchWave {
         [object]$Wave,
 
         [Parameter(Mandatory)]
-        [scriptblock]$InvokeWave,
-
-        [Parameter(Mandatory)]
-        [System.Collections.Generic.Dictionary[string, object]]$TaskState,
-
-        [Parameter(Mandatory)]
-        [AllowEmptyCollection()]
-        [System.Collections.Generic.List[object]]$Event
+        [scriptblock]$InvokeWave
     )
-
-    foreach ($task in $Wave.Tasks) {
-        $state = $TaskState[$task.Id]
-        $state.Started = $true
-        Add-FleetDispatchEvent -Event $Event -TaskId $task.Id -Outcome started -Attempt $Wave.Attempt
-    }
 
     $launchTasks = @($Wave.Tasks | ForEach-Object {
             [pscustomobject]@{
@@ -712,34 +699,49 @@ function Invoke-FleetDispatchWave {
             throw $_.Exception
         }
         $exceptionType = $_.Exception.GetType().FullName
+        $exceptionMessage = [string]$_.Exception.Message
+        $exceptionMessage = [regex]::Replace(
+            $exceptionMessage,
+            '(?i)(?:gh[pousr]_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|Bearer\s+\S+)',
+            '[REDACTED]'
+        )
+        $safeMessage = [System.Text.StringBuilder]::new()
+        foreach ($character in $exceptionMessage.ToCharArray()) {
+            $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($character)
+            if ($category -in @(
+                    [Globalization.UnicodeCategory]::Control,
+                    [Globalization.UnicodeCategory]::Format,
+                    [Globalization.UnicodeCategory]::LineSeparator,
+                    [Globalization.UnicodeCategory]::ParagraphSeparator
+                )) {
+                [void]$safeMessage.Append(' ')
+            }
+            else {
+                [void]$safeMessage.Append($character)
+            }
+        }
+        $exceptionMessage = [regex]::Replace($safeMessage.ToString(), '\s+', ' ').Trim()
+        if ($exceptionMessage.Length -gt 240) {
+            $exceptionMessage = $exceptionMessage.Substring(0, 240)
+        }
+        $failureDetail = "wave launcher raised $exceptionType"
+        if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
+            $failureDetail += ": $exceptionMessage"
+        }
         $rawResultList.Clear()
         foreach ($task in $Wave.Tasks) {
             $rawResultList.Add(
                 [pscustomobject]@{
                     TaskId = $task.Id
                     Outcome = 'failed'
-                    Detail = "wave launcher raised $exceptionType"
+                    Detail = $failureDetail
                 }
             )
         }
     }
-    $rawResults = $rawResultList.ToArray()
-    $results = @(ConvertTo-FleetDispatchWaveResults -ExpectedTask $Wave.Tasks -Result $rawResults)
-    foreach ($result in $results) {
-        $state = $TaskState[$result.TaskId]
-        $state.Attempts.Add([pscustomobject]@{
-                Number  = $Wave.Attempt
-                Outcome = $result.Outcome
-                Detail  = $result.Detail
-            })
-        Add-FleetDispatchEvent `
-            -Event $Event `
-            -TaskId $result.TaskId `
-            -Outcome $result.Outcome `
-            -Attempt $Wave.Attempt `
-            -Detail $result.Detail
+    return [pscustomobject]@{
+        Results = $rawResultList.ToArray()
     }
-    return $results
 }
 
 function Format-FleetDispatchResult {
@@ -811,134 +813,269 @@ function Format-FleetDispatchResult {
     return $lines -join "`n"
 }
 
-function Invoke-FleetDispatchPlan {
+function Assert-FleetDispatchRun {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run
+    )
+
+    if ($Run.Schema -cne 'skalary/fleet-dispatch-run@1') {
+        throw "Unsupported fleet dispatch run schema '$($Run.Schema)'."
+    }
+    [void](Get-FleetDispatchPlanSnapshot -Plan $Run.Plan)
+    if ($Run.TaskState -isnot [System.Collections.Generic.Dictionary[string, object]] -or
+        $Run.Events -isnot [System.Collections.Generic.List[object]] -or
+        $Run.RetryTasks -isnot [System.Collections.Generic.List[object]]) {
+        throw 'Fleet dispatch run state was not created by Start-FleetDispatchRun.'
+    }
+    if ($Run.Done -and $null -ne $Run.CurrentWave) {
+        throw 'Fleet dispatch run cannot be done while a wave is admitted.'
+    }
+}
+
+function Update-FleetDispatchCancellations {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run
+    )
+
+    do {
+        $cancelledAny = $false
+        foreach ($task in $Run.Plan.Selected) {
+            $state = $Run.TaskState[$task.Id]
+            if ($state.Status -cne 'pending') { continue }
+            $blockingId = @($task.DependsOn | Where-Object {
+                    $Run.TaskState[$_].Status -in @('failed', 'cancelled')
+                } | Select-Object -First 1)
+            if ($blockingId.Count -eq 0) { continue }
+
+            $state.Status = 'cancelled'
+            $state.Detail = "dependency '$($blockingId[0])' did not complete"
+            Add-FleetDispatchEvent `
+                -Event $Run.Events `
+                -TaskId $task.Id `
+                -Outcome cancelled `
+                -Detail $state.Detail
+            $cancelledAny = $true
+        }
+    } while ($cancelledAny)
+}
+
+function Open-FleetDispatchWave {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run
+    )
+
+    if ($null -ne $Run.CurrentWave) {
+        throw "Fleet dispatch wave $($Run.CurrentWave.Number) is already admitted; submit its results instead of dispatching it again."
+    }
+
+    $attempt = 1
+    if ($Run.RetryTasks.Count -gt 0) {
+        $ready = $Run.RetryTasks.ToArray()
+        $Run.RetryTasks.Clear()
+        $attempt = 2
+    }
+    else {
+        Update-FleetDispatchCancellations -Run $Run
+        $pending = @($Run.TaskState.Values | Where-Object Status -eq pending)
+        if ($pending.Count -eq 0) {
+            $Run.Done = $true
+            return $null
+        }
+
+        $ready = @($Run.Plan.Selected | Where-Object {
+                $state = $Run.TaskState[$_.Id]
+                if ($state.Status -cne 'pending') { return $false }
+                foreach ($dependencyId in $_.DependsOn) {
+                    if ($Run.TaskState[$dependencyId].Status -cne 'completed') { return $false }
+                }
+                return $true
+            } | Select-Object -First $Run.Plan.AdmissionCap)
+        if ($ready.Count -eq 0) {
+            throw 'Fleet dispatch execution reached an invalid dependency state.'
+        }
+    }
+
+    $Run.WaveNumber++
+    foreach ($task in $ready) {
+        $state = $Run.TaskState[$task.Id]
+        $state.Started = $true
+        Add-FleetDispatchEvent `
+            -Event $Run.Events `
+            -TaskId $task.Id `
+            -Outcome started `
+            -Attempt $attempt
+    }
+    $Run.CurrentWave = [pscustomobject]@{
+        Number  = $Run.WaveNumber
+        Tasks   = @($ready | ForEach-Object {
+                [pscustomobject]@{
+                    Id             = $_.Id
+                    Label          = $_.Label
+                    Key            = $_.Key
+                    Selected       = $_.Selected
+                    OmissionReason = $_.OmissionReason
+                    DependsOn      = @($_.DependsOn)
+                    Order          = $_.Order
+                }
+            })
+        TaskIds = @($ready | ForEach-Object { $_.Id })
+        Attempt = $attempt
+    }
+    return $Run.CurrentWave
+}
+
+function New-FleetDispatchTransition {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run,
+
+        [AllowNull()]
+        [object]$Wave
+    )
+
+    return [pscustomobject]@{
+        Schema  = 'skalary/fleet-dispatch-transition@1'
+        Run     = $Run
+        Wave    = $Wave
+        Done    = $Run.Done
+        PreView = $Run.PreView
+    }
+}
+
+function Start-FleetDispatchRun {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [object]$Plan,
-
-        [Parameter(Mandatory)]
-        [scriptblock]$InvokeWave,
-
-        [scriptblock]$Render = {
-            param([string]$Text, [string]$Stage)
-            Write-Host $Text
-        }
+        [object]$Plan
     )
 
-    $Plan = Get-FleetDispatchPlanSnapshot -Plan $Plan
-
-    $preView = Format-FleetDispatchPlanSnapshot -Plan $Plan
-    [void](& $Render $preView 'plan')
-
+    $snapshot = Get-FleetDispatchPlanSnapshot -Plan $Plan
     $taskState = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
-    foreach ($task in $Plan.Selected) {
+    foreach ($task in $snapshot.Selected) {
         $taskState.Add($task.Id, [pscustomobject]@{
-                Id       = $task.Id
-                Status   = 'pending'
-                Started  = $false
-                Retried  = $false
+                Id         = $task.Id
+                Status     = 'pending'
+                Started    = $false
+                Retried    = $false
                 RetryCount = 0
-                Attempts = [System.Collections.Generic.List[object]]::new()
-                Detail   = ''
+                Attempts   = [System.Collections.Generic.List[object]]::new()
+                Detail     = ''
             })
     }
-    $events = [System.Collections.Generic.List[object]]::new()
+    $run = [pscustomobject]@{
+        Schema      = 'skalary/fleet-dispatch-run@1'
+        Plan        = $snapshot
+        PreView     = Format-FleetDispatchPlanSnapshot -Plan $snapshot
+        TaskState   = $taskState
+        Events      = [System.Collections.Generic.List[object]]::new()
+        RetryTasks  = [System.Collections.Generic.List[object]]::new()
+        CurrentWave = $null
+        WaveNumber  = 0
+        Done        = $false
+    }
 
-    while (@($taskState.Values | Where-Object Status -eq pending).Count -gt 0) {
-        do {
-            $cancelledAny = $false
-            foreach ($task in $Plan.Selected) {
-                $state = $taskState[$task.Id]
-                if ($state.Status -cne 'pending') { continue }
-                $blockingId = @($task.DependsOn | Where-Object {
-                        $taskState[$_].Status -in @('failed', 'cancelled')
-                    } | Select-Object -First 1)
-                if ($blockingId.Count -eq 0) { continue }
+    $wave = Open-FleetDispatchWave -Run $run
+    return New-FleetDispatchTransition -Run $run -Wave $wave
+}
 
-                $state.Status = 'cancelled'
-                $state.Detail = "dependency '$($blockingId[0])' did not complete"
-                Add-FleetDispatchEvent `
-                    -Event $events `
-                    -TaskId $task.Id `
-                    -Outcome cancelled `
-                    -Detail $state.Detail
-                $cancelledAny = $true
+function Step-FleetDispatchRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run,
+
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [object[]]$Result
+    )
+
+    Assert-FleetDispatchRun -Run $Run
+    if ($Run.Done) {
+        throw 'Fleet dispatch run is already complete; no further results are accepted.'
+    }
+    if ($null -eq $Run.CurrentWave) {
+        throw 'Fleet dispatch run has no admitted wave to settle.'
+    }
+
+    $wave = $Run.CurrentWave
+    $results = @(ConvertTo-FleetDispatchWaveResults -ExpectedTask $wave.Tasks -Result $Result)
+    foreach ($result in $results) {
+        $state = $Run.TaskState[$result.TaskId]
+        $state.Attempts.Add([pscustomobject]@{
+                Number  = $wave.Attempt
+                Outcome = $result.Outcome
+                Detail  = $result.Detail
+            })
+        Add-FleetDispatchEvent `
+            -Event $Run.Events `
+            -TaskId $result.TaskId `
+            -Outcome $result.Outcome `
+            -Attempt $wave.Attempt `
+            -Detail $result.Detail
+
+        switch ($result.Outcome) {
+            completed {
+                $state.Status = 'completed'
+                $state.Detail = $result.Detail
             }
-        } while ($cancelledAny)
-
-        $ready = @($Plan.Selected | Where-Object {
-                $state = $taskState[$_.Id]
-                if ($state.Status -cne 'pending') { return $false }
-                foreach ($dependencyId in $_.DependsOn) {
-                    if ($taskState[$dependencyId].Status -cne 'completed') { return $false }
+            failed {
+                $state.Status = 'failed'
+                $state.Detail = $result.Detail
+            }
+            throttled {
+                $retryAllowed = $Run.Plan.RetryPolicy.Trigger -ceq $script:FleetDispatchRetryTrigger -and
+                    $state.RetryCount -lt $Run.Plan.RetryPolicy.MaximumRetryCount
+                if ($retryAllowed) {
+                    $state.Retried = $true
+                    $state.RetryCount++
+                    $retryTask = @($Run.Plan.Selected | Where-Object Id -CEQ $result.TaskId)[0]
+                    $Run.RetryTasks.Add($retryTask)
+                    Add-FleetDispatchEvent `
+                        -Event $Run.Events `
+                        -TaskId $result.TaskId `
+                        -Outcome retried `
+                        -Attempt 2 `
+                        -Detail $Run.Plan.RetryPolicy.Description
                 }
-                return $true
-            } | Select-Object -First $Plan.AdmissionCap)
-        if ($ready.Count -eq 0) {
-            if (@($taskState.Values | Where-Object Status -eq pending).Count -eq 0) { break }
-            throw 'Fleet dispatch execution reached an invalid dependency state.'
-        }
-
-        $attemptTasks = @($ready)
-        $attempt = 1
-        while ($attemptTasks.Count -gt 0) {
-            $wave = [pscustomobject]@{
-                Tasks   = $attemptTasks
-                TaskIds = @($attemptTasks | ForEach-Object { $_.Id })
-                Attempt = $attempt
-            }
-            $waveResults = @(Invoke-FleetDispatchWave `
-                    -Wave $wave `
-                    -InvokeWave $InvokeWave `
-                    -TaskState $taskState `
-                    -Event $events)
-            $nextAttempt = [System.Collections.Generic.List[object]]::new()
-            foreach ($result in $waveResults) {
-                $state = $taskState[$result.TaskId]
-                switch ($result.Outcome) {
-                    completed {
-                        $state.Status = 'completed'
-                        $state.Detail = $result.Detail
-                    }
-                    failed {
-                        $state.Status = 'failed'
-                        $state.Detail = $result.Detail
-                    }
-                    throttled {
-                        $retryAllowed = $Plan.RetryPolicy.Trigger -ceq $script:FleetDispatchRetryTrigger -and
-                            $state.RetryCount -lt $Plan.RetryPolicy.MaximumRetryCount
-                        if ($retryAllowed) {
-                            $state.Retried = $true
-                            $state.RetryCount++
-                            $nextAttempt.Add(@($attemptTasks | Where-Object Id -CEQ $result.TaskId)[0])
-                            Add-FleetDispatchEvent `
-                                -Event $events `
-                                -TaskId $result.TaskId `
-                                -Outcome retried `
-                                -Attempt ($attempt + 1) `
-                                -Detail $Plan.RetryPolicy.Description
-                        }
-                        else {
-                            $state.Status = 'failed'
-                            $state.Detail = "explicit throttle persisted after $($state.RetryCount) permitted retry"
-                            Add-FleetDispatchEvent `
-                                -Event $events `
-                                -TaskId $result.TaskId `
-                                -Outcome failed `
-                                -Attempt $attempt `
-                                -Detail $state.Detail
-                        }
-                    }
+                else {
+                    $state.Status = 'failed'
+                    $state.Detail = "explicit throttle persisted after $($state.RetryCount) permitted retry"
+                    Add-FleetDispatchEvent `
+                        -Event $Run.Events `
+                        -TaskId $result.TaskId `
+                        -Outcome failed `
+                        -Attempt $wave.Attempt `
+                        -Detail $state.Detail
                 }
             }
-            $attemptTasks = $nextAttempt.ToArray()
-            $attempt++
         }
     }
 
-    $taskResults = @($Plan.Selected | ForEach-Object {
-            $state = $taskState[$_.Id]
+    $Run.CurrentWave = $null
+    $nextWave = Open-FleetDispatchWave -Run $Run
+    return New-FleetDispatchTransition -Run $Run -Wave $nextWave
+}
+
+function Complete-FleetDispatchRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Run
+    )
+
+    Assert-FleetDispatchRun -Run $Run
+    if (-not $Run.Done -or $null -ne $Run.CurrentWave -or
+        @($Run.TaskState.Values | Where-Object Status -eq pending).Count -gt 0) {
+        $wave = if ($null -eq $Run.CurrentWave) { 'none' } else { $Run.CurrentWave.Number }
+        throw "Fleet dispatch run is incomplete; admitted wave: $wave. Submit its results before rendering attendance."
+    }
+
+    $taskResults = @($Run.Plan.Selected | ForEach-Object {
+            $state = $Run.TaskState[$_.Id]
             [pscustomobject]@{
                 Id       = $state.Id
                 Status   = $state.Status
@@ -974,16 +1111,46 @@ function Invoke-FleetDispatchPlan {
 
     $result = [pscustomobject]@{
         Schema      = 'skalary/fleet-dispatch-result@1'
-        Plan        = $Plan
+        Plan        = $Run.Plan
         State       = if ($degradation.Count -eq 0) { 'clean' } else { 'degraded' }
         Attendance  = $attendance
         Tasks       = $taskResults
-        Events      = $events.ToArray()
+        Events      = $Run.Events.ToArray()
         Degradation = $degradation.ToArray()
-        PreView     = $preView
+        PreView     = $Run.PreView
         FinalView   = ''
     }
     $result.FinalView = Format-FleetDispatchResult -Result $result
+    return $result
+}
+
+function Invoke-FleetDispatchPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$InvokeWave,
+
+        [scriptblock]$Render = {
+            param([string]$Text, [string]$Stage)
+            Write-Host $Text
+        }
+    )
+
+    $transition = Start-FleetDispatchRun -Plan $Plan
+    [void](& $Render $transition.PreView 'plan')
+    while (-not $transition.Done) {
+        $waveOutput = Invoke-FleetDispatchWave `
+                -Wave $transition.Wave `
+                -InvokeWave $InvokeWave
+        $transition = Step-FleetDispatchRun `
+            -Run $transition.Run `
+            -Result $waveOutput.Results
+    }
+
+    $result = Complete-FleetDispatchRun -Run $transition.Run
     [void](& $Render $result.FinalView 'attendance')
     return $result
 }
@@ -991,4 +1158,7 @@ function Invoke-FleetDispatchPlan {
 Export-ModuleMember -Function `
     New-FleetDispatchPlan, `
     Format-FleetDispatchPlan, `
+    Start-FleetDispatchRun, `
+    Step-FleetDispatchRun, `
+    Complete-FleetDispatchRun, `
     Invoke-FleetDispatchPlan

@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.67",
+  "version": "1.0.68",
   "description": "Implementation plan generation skill for coding workflows.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -20,6 +20,10 @@
     {
       "src": "skills/cip/assets/interview-guide.md",
       "dest": "skills/cip/assets/interview-guide.md"
+    },
+    {
+      "src": "skills/cip/assets/fleet-dispatch-guide.md",
+      "dest": "skills/cip/assets/fleet-dispatch-guide.md"
     },
     {
       "src": "skills/cip/assets/plan-artifact-consumer-protocol.md",

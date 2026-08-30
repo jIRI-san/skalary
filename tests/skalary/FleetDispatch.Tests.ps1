@@ -229,28 +229,46 @@ Ready order: design -> validate -> implement
 
     It 'test:FleetDispatch.CipContract preserves the installed plan-first planning-role contract' {
         $skillPaths = @(
-            'plugins/create-implementation-plan/skills/cip/SKILL.md',
-            '.github/skills/cip/SKILL.md'
+            @(
+                'plugins/create-implementation-plan/skills/cip/SKILL.md',
+                'plugins/create-implementation-plan/skills/cip/assets/fleet-dispatch-guide.md'
+            ),
+            @(
+                '.github/skills/cip/SKILL.md',
+                '.github/skills/cip/assets/fleet-dispatch-guide.md'
+            )
         )
-        foreach ($relativePath in $skillPaths) {
-            $text = [System.IO.File]::ReadAllText((Join-Path $repoRoot $relativePath))
+        foreach ($relativePaths in $skillPaths) {
+            $text = @($relativePaths | ForEach-Object {
+                    [System.IO.File]::ReadAllText((Join-Path $repoRoot $_))
+                }) -join "`n"
             $intentIndex = $text.IndexOf('After the intent checkpoint is confirmed', [System.StringComparison]::Ordinal)
             $planIndex = $text.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-            $preViewIndex = $text.IndexOf('Format-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-            $invokeIndex = $text.IndexOf('Invoke-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $startIndex = $text.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $stepIndex = $text.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $completeIndex = $text.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
 
             $intentIndex | Should -BeGreaterOrEqual 0
             $planIndex | Should -BeGreaterThan $intentIndex
-            $preViewIndex | Should -BeGreaterThan $planIndex
-            $invokeIndex | Should -BeGreaterThan $preViewIndex
+            $startIndex | Should -BeGreaterThan $planIndex
+            $stepIndex | Should -BeGreaterThan $startIndex
+            $completeIndex | Should -BeGreaterThan $stepIndex
             $text | Should -Match '\| `cip-designer` \| `CIP Designer` \|'
             $text | Should -Match '\| `cip-requirements-validator` \| `CIP Requirements Validator` \|'
             $text | Should -Match '\| `cip-judge` \| `CIP Judge` \|.*`cip-designer`, `cip-requirements-validator`'
-            $text | Should -Match 'does not replace a role prompt, change its tool set, or select a different model'
+            $text | Should -Match 'does not replace a role prompt, change its tool set, or select another model'
             $text | Should -Match 'provider-global concurrency is unobserved'
-            $text | Should -Match 'Retry a role once only when the host or tool returns\s+the explicit `throttled` outcome'
+            $text | Should -Match 'explicit-throttle retry'
             $text | Should -Match 'existing\s+Capture writer'
+            $text | Should -Match 'returned wave is already admitted'
         }
+        [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/fleet-dispatch-guide.md')
+        ) | Should -BeExactly (
+            [System.IO.File]::ReadAllText(
+                (Join-Path $repoRoot '.github/skills/cip/assets/fleet-dispatch-guide.md')
+            )
+        )
 
         $plan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id cip-designer -Label 'CIP Designer' -Key 'role.designer'
@@ -306,39 +324,56 @@ Ready order: design -> validate -> implement
     It 'test:FleetDispatch.CiContract preserves CI and autopilot execution boundaries' {
         $contracts = @(
             @{
-                Source = 'plugins/continue-implementation/skills/ci/SKILL.md'
-                Installed = '.github/skills/ci/SKILL.md'
+                Source = @(
+                    'plugins/continue-implementation/skills/ci/SKILL.md',
+                    'plugins/continue-implementation/skills/ci/assets/fleet-dispatch-guide.md'
+                )
+                Installed = @(
+                    '.github/skills/ci/SKILL.md',
+                    '.github/skills/ci/assets/fleet-dispatch-guide.md'
+                )
             },
             @{
-                Source = 'plugins/autopilot/agents/autopilot.agent.md'
-                Installed = '.github/agents/autopilot.agent.md'
+                Source = @('plugins/autopilot/agents/autopilot.agent.md')
+                Installed = @('.github/agents/autopilot.agent.md')
             }
         )
         foreach ($contract in $contracts) {
-            $sourceText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $contract.Source))
-            $installedText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $contract.Installed))
+            $sourceText = @($contract.Source | ForEach-Object {
+                    [System.IO.File]::ReadAllText((Join-Path $repoRoot $_))
+                }) -join "`n"
+            $installedText = @($contract.Installed | ForEach-Object {
+                    [System.IO.File]::ReadAllText((Join-Path $repoRoot $_))
+                }) -join "`n"
             $installedText | Should -BeExactly $sourceText
 
             $planIndex = $sourceText.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-            $preViewIndex = $sourceText.IndexOf('Format-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-            $invokeIndex = $sourceText.IndexOf('Invoke-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $startIndex = $sourceText.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $stepIndex = $sourceText.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $completeIndex = $sourceText.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
             $planIndex | Should -BeGreaterOrEqual 0
-            $preViewIndex | Should -BeGreaterThan $planIndex
-            $invokeIndex | Should -BeGreaterThan $preViewIndex
+            $startIndex | Should -BeGreaterThan $planIndex
+            $stepIndex | Should -BeGreaterThan $startIndex
+            $completeIndex | Should -BeGreaterThan $stepIndex
             $sourceText | Should -Match '\| `ci-designer` \| `CI Designer` \|'
             $sourceText | Should -Match '\| `ci-validator` \| `CI Validator` \|'
             $sourceText | Should -Match '\| `ci-implementor` \| `CI Implementor` \|.*`ci-designer`, `ci-validator`'
             $sourceText | Should -Match '\| `ci-judge` \| `CI Judge` \|.*`ci-implementor`'
             $sourceText | Should -Match 'provider-global concurrency is unobserved'
-            $sourceText | Should -Match 'Retry(?: a role)? once only'
-            $sourceText | Should -Match 'adds no clone, credential, worktree,\s+container, promotion, review, or persistence'
+            $sourceText | Should -Match 'attempt-2 wave'
+            $sourceText | Should -Match 'returned wave is already\s+admitted'
+            $sourceText | Should -Match 'adds no clone,\s+credential, worktree,\s+container, promotion, review, or persistence'
         }
 
         $ciSkill = [System.IO.File]::ReadAllText(
             (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md')
         )
+        $ciGuide = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/assets/fleet-dispatch-guide.md')
+        )
         $ciSkill | Should -Match 'Do not create an implementation-role fleet in `/ci` on this\s+path'
-        $ciSkill | Should -Match 'Commit and phase promotion\s+remain outside the adapter'
+        $ciSkill | Should -Match 'read and follow `\./assets/fleet-dispatch-guide\.md`'
+        $ciGuide | Should -Match 'Commit and phase promotion remain outside dispatch'
 
         $autopilot = [System.IO.File]::ReadAllText(
             (Join-Path $repoRoot 'plugins/autopilot/agents/autopilot.agent.md')
@@ -406,12 +441,12 @@ Ready order: design -> validate -> implement
             @{
                 Plugin = 'create-implementation-plan'
                 ModuleDest = 'skills/cip/scripts/FleetDispatch.psm1'
-                OwnerDest = 'skills/cip/SKILL.md'
+                OwnerDest = 'skills/cip/assets/fleet-dispatch-guide.md'
             },
             @{
                 Plugin = 'continue-implementation'
                 ModuleDest = 'skills/ci/scripts/FleetDispatch.psm1'
-                OwnerDest = 'skills/ci/SKILL.md'
+                OwnerDest = 'skills/ci/assets/fleet-dispatch-guide.md'
             },
             @{
                 Plugin = 'autopilot'
@@ -509,6 +544,75 @@ Describe 'Fleet dispatch execution adapter' {
 
     AfterAll {
         Remove-Module FleetDispatch -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'supports native stepwise admission without duplicate wave launch' {
+        $plan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id designer
+            New-FleetTask -Id validator
+            New-FleetTask -Id judge -DependsOn designer, validator
+        )
+        $transition = Start-FleetDispatchRun -Plan $plan
+
+        $transition.Done | Should -BeFalse
+        @($transition.Wave.TaskIds) | Should -Be @('designer', 'validator')
+        $transition.Wave.Attempt | Should -Be 1
+        $transition.PreView | Should -Match 'Fleet dispatch plan'
+        { Complete-FleetDispatchRun -Run $transition.Run } |
+            Should -Throw '*incomplete*admitted wave: 1*'
+        {
+            Step-FleetDispatchRun -Run $transition.Run -Result @(
+                New-WaveResult -TaskId designer
+            )
+        } | Should -Throw '*omitted result*'
+        @($transition.Run.CurrentWave.TaskIds) | Should -Be @('designer', 'validator')
+
+        $transition = Step-FleetDispatchRun -Run $transition.Run -Result @(
+            New-WaveResult -TaskId designer -Outcome throttled -Detail 'explicit throttle'
+            New-WaveResult -TaskId validator
+        )
+        @($transition.Wave.TaskIds) | Should -Be @('designer')
+        $transition.Wave.Attempt | Should -Be 2
+
+        $transition = Step-FleetDispatchRun -Run $transition.Run -Result @(
+            New-WaveResult -TaskId designer
+        )
+        @($transition.Wave.TaskIds) | Should -Be @('judge')
+        $transition.Wave.Attempt | Should -Be 1
+
+        $transition = Step-FleetDispatchRun -Run $transition.Run -Result @(
+            New-WaveResult -TaskId judge
+        )
+        $transition.Done | Should -BeTrue
+        $transition.Wave | Should -BeNullOrEmpty
+
+        $result = Complete-FleetDispatchRun -Run $transition.Run
+        $result.Attendance.Planned | Should -Be 3
+        $result.Attendance.Completed | Should -Be 3
+        $result.Attendance.Retried | Should -Be 1
+        $result.Events.Outcome |
+            Should -Be @(
+                'started',
+                'started',
+                'throttled',
+                'retried',
+                'completed',
+                'started',
+                'completed',
+                'started',
+                'completed'
+            )
+        { Step-FleetDispatchRun -Run $transition.Run -Result @() } |
+            Should -Throw '*already complete*'
+
+        $tampered = Start-FleetDispatchRun -Plan $plan
+        $tampered.Run.Plan.AdmissionCap = 3
+        {
+            Step-FleetDispatchRun -Run $tampered.Run -Result @(
+                New-WaveResult -TaskId designer
+                New-WaveResult -TaskId validator
+            )
+        } | Should -Throw
     }
 
     It 'test:FleetDispatch.Execution admits only ready planned tasks and handles failure and explicit throttle once' {
@@ -801,11 +905,12 @@ Describe 'Fleet dispatch execution adapter' {
         } | Should -Throw '*must be a string*'
 
         $launcherFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
-            throw 'host transport failed'
+            throw 'host transport failed github_pat_secret-value'
         }
         $launcherFailure.State | Should -Be degraded
         $launcherFailure.Attendance.Failed | Should -Be 2
-        $launcherFailure.FinalView | Should -Match 'wave launcher raised'
+        $launcherFailure.FinalView | Should -Match 'wave launcher raised.*host transport failed.*\[REDACTED\]'
+        $launcherFailure.FinalView | Should -Not -Match 'github_pat_secret-value'
         $forgedViolation = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
             $exception = [InvalidOperationException]::new('caller exception')
             $exception.Data['FleetDispatchContractViolation'] = $true
