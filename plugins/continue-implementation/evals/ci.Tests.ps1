@@ -52,35 +52,18 @@ Describe 'ci structural evals' {
     }
 
     It 'proves the CI Fleet source, installed payload, registry, and marketplace stay aligned' {
-        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
-            ConvertFrom-Json -Depth 100
-        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
-            ConvertFrom-Json -Depth 50
-
-        foreach ($relative in @(
-                'skills/ci/SKILL.md',
-                'skills/ci/assets/fleet-dispatch-guide.md',
-                'skills/ci/scripts/FleetDispatch.psm1'
-            )) {
-            $entries = @($manifest.files | Where-Object { [string]$_.dest -eq $relative })
-            $entries.Count | Should -Be 1
-            $source = Join-Path $pluginRoot ([string]$entries[0].src)
-            $installed = Join-Path (Join-Path $script:repoRoot '.github') $relative
-            (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
-                Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-        }
-
-        $catalog = @($registry.plugins | Where-Object { [string]$_.name -eq 'continue-implementation' })
-        $catalog.Count | Should -Be 1
-        [string]$catalog[0].version | Should -Be ([string]$manifest.version)
-        $fleetCatalog = @($catalog[0].files | Where-Object { [string]$_.dest -eq 'skills/ci/scripts/FleetDispatch.psm1' })
-        $fleetCatalog.Count | Should -Be 1
-        [string]$fleetCatalog[0].sha256 | Should -Be (
-            (Get-FileHash -LiteralPath (Join-Path $pluginRoot 'skills/ci/scripts/FleetDispatch.psm1') -Algorithm SHA256).Hash.ToLowerInvariant()
-        )
-        $market = @($marketplace.plugins | Where-Object { [string]$_.name -eq 'continue-implementation' })
-        $market.Count | Should -Be 1
-        [string]$market[0].version | Should -Be ([string]$manifest.version)
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'continue-implementation' `
+            -RelativePath @(
+            'skills/ci/SKILL.md',
+            'skills/ci/assets/fleet-dispatch-guide.md',
+            'skills/ci/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/ci/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
     }
 
     It 'keeps the in-session CI plan before calls and conserves the four-role graph' {

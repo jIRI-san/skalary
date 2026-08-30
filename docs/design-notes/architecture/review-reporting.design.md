@@ -651,8 +651,10 @@ known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1`
 low-level resolver is auto-approved because the adapter cannot bind the installed sibling closure's
 bytes. The adapter bounds and terminates its isolated resolver process, requires exit zero and
 top-level array JSON, validates the closed public shape, and applies the shared secret guard before it
-emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. Accepted metadata
-outside the frame omits content, so historical bytes occur only once in adapter output. A detected
+emits accepted complete-result JSON inside the standard untrusted-content framing. Direct plan excerpts
+and repository-local standards instead use a compact `skalary/untrusted-review-content@1` JSON object
+with serializer-owned string escaping and no raw duplicate or fixed sentinel delimiter. Accepted metadata
+outside the structured content omits content, so historical bytes occur only once in adapter output. A detected
 artifact becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
 interpolated into instructions. Deterministic
 plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`

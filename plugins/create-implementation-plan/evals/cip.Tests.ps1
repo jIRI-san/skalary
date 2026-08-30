@@ -62,51 +62,59 @@ Describe 'cip structural evals' {
     It 'proves the CIP Fleet source, installed payload, registry, and marketplace stay aligned' {
         $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw |
             ConvertFrom-Json -Depth 50
-        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
-            ConvertFrom-Json -Depth 100
-        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
-            ConvertFrom-Json -Depth 50
-
-        foreach ($relative in @(
-                'skills/cip/SKILL.md',
-                'skills/cip/assets/fleet-dispatch-guide.md',
-                'skills/cip/scripts/FleetDispatch.psm1'
-            )) {
-            $entries = @($manifest.files | Where-Object { [string]$_.dest -eq $relative })
-            $entries.Count | Should -Be 1
-            $source = Join-Path $pluginRoot ([string]$entries[0].src)
-            $installed = Join-Path (Join-Path $script:repoRoot '.github') $relative
-            (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
-                Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-        }
-
-        $catalog = @($registry.plugins | Where-Object { [string]$_.name -eq 'create-implementation-plan' })
-        $catalog.Count | Should -Be 1
-        [string]$catalog[0].version | Should -Be ([string]$manifest.version)
-        $fleetCatalog = @($catalog[0].files | Where-Object { [string]$_.dest -eq 'skills/cip/scripts/FleetDispatch.psm1' })
-        $fleetCatalog.Count | Should -Be 1
-        [string]$fleetCatalog[0].sha256 | Should -Be (
-            (Get-FileHash -LiteralPath (Join-Path $pluginRoot 'skills/cip/scripts/FleetDispatch.psm1') -Algorithm SHA256).Hash.ToLowerInvariant()
-        )
-        $market = @($marketplace.plugins | Where-Object { [string]$_.name -eq 'create-implementation-plan' })
-        $market.Count | Should -Be 1
-        [string]$market[0].version | Should -Be ([string]$manifest.version)
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'create-implementation-plan' `
+            -RelativePath @(
+            'skills/cip/SKILL.md',
+            'skills/cip/assets/fleet-dispatch-guide.md',
+            'skills/cip/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/cip/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
     }
 
     It 'keeps the CIP plan before native calls and conserves each declared role' {
         $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/assets/fleet-dispatch-guide.md') -Raw
 
-        $skill.IndexOf('After the intent checkpoint is confirmed', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $skill.IndexOf('Planning-role fleet dispatch', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('PreView', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Invoke only', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('FinalView', [System.StringComparison]::Ordinal)
+        $skillRelations = @(, @('After the intent checkpoint is confirmed', 'Planning-role fleet dispatch'))
+        $guideRelations = @(
+            @('New-FleetDispatchPlan', 'Start-FleetDispatchRun'),
+            @('PreView', 'Invoke only'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun'),
+            @('Complete-FleetDispatchRun', 'FinalView')
+        )
+        foreach ($relation in $skillRelations) {
+            Assert-EvalMarkerOrder -Text $skill -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($relation in $guideRelations) {
+            Assert-EvalMarkerOrder -Text $guide -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($skillRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '')
+            {
+                foreach ($relation in $skillRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
+        foreach ($marker in @($guideRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerGuide = $guide.Replace($marker, '')
+            {
+                foreach ($relation in $guideRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerGuide `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
 
         foreach ($id in @('cip-designer', 'cip-requirements-validator', 'cip-judge')) {
             @([regex]::Matches($guide, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |

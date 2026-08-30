@@ -125,49 +125,44 @@ Describe 'dr structural evals' {
     It 'proves the DR Fleet source, installed payload, registry, and marketplace stay aligned' {
         $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw |
             ConvertFrom-Json -Depth 50
-        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
-            ConvertFrom-Json -Depth 100
-        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
-            ConvertFrom-Json -Depth 50
-
-        foreach ($relative in @(
-                'skills/dr/SKILL.md',
-                'skills/dr/assets/dispatch-guide.md',
-                'skills/dr/scripts/FleetDispatch.psm1'
-            )) {
-            $entries = @($manifest.files | Where-Object { [string]$_.dest -eq $relative })
-            $entries.Count | Should -Be 1
-            $source = Join-Path $script:pluginRoot ([string]$entries[0].src)
-            $installed = Join-Path (Join-Path $script:repoRoot '.github') $relative
-            (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
-                Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-        }
-
-        $catalog = @($registry.plugins | Where-Object { [string]$_.name -eq 'design-review' })
-        $catalog.Count | Should -Be 1
-        [string]$catalog[0].version | Should -Be ([string]$manifest.version)
-        $fleetCatalog = @($catalog[0].files | Where-Object { [string]$_.dest -eq 'skills/dr/scripts/FleetDispatch.psm1' })
-        $fleetCatalog.Count | Should -Be 1
-        [string]$fleetCatalog[0].sha256 | Should -Be (
-            (Get-FileHash -LiteralPath (Join-Path $script:pluginRoot 'skills/dr/scripts/FleetDispatch.psm1') -Algorithm SHA256).Hash.ToLowerInvariant()
-        )
-        $market = @($marketplace.plugins | Where-Object { [string]$_.name -eq 'design-review' })
-        $market.Count | Should -Be 1
-        [string]$market[0].version | Should -Be ([string]$manifest.version)
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $script:pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'design-review' `
+            -RelativePath @(
+            'skills/dr/SKILL.md',
+            'skills/dr/assets/dispatch-guide.md',
+            'skills/dr/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/dr/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
     }
 
     It 'keeps DR Freeze and Fleet planning before calls while conserving frozen task authority' {
         $skill = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/dr/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/dr/assets/dispatch-guide.md') -Raw
 
-        $skill.IndexOf('Freeze exactly once', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $skill.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-        $skill.IndexOf('PreView', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $skill.IndexOf('reviewer call', [System.StringComparison]::Ordinal)
-        $skill.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $skill.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
-        $skill.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $skill.IndexOf('Publish once', [System.StringComparison]::Ordinal)
+        $relations = @(
+            @('Freeze exactly once', 'New-FleetDispatchPlan'),
+            @('PreView', 'reviewer call'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun'),
+            @('Complete-FleetDispatchRun', 'Publish once')
+        )
+        foreach ($relation in $relations) {
+            Assert-EvalMarkerOrder -Text $skill -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($relations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '')
+            {
+                foreach ($relation in $relations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
 
         $skill | Should -Match '\.github/skills/dr/scripts/FleetDispatch\.psm1'
         $guide | Should -Not -Match '\.github/skills/(?:cr|dr)/scripts/FleetDispatch\.psm1'

@@ -1219,10 +1219,13 @@ Describe 'Fleet dispatch execution adapter' {
             $renderFailure = $_.Exception
         }
         $renderFailure | Should -Not -BeNullOrEmpty
-        $renderFailure.Message | Should -BeLike (
-            'Fleet dispatch completed, but attendance rendering failed: *attendance sink unavailable*'
+        $renderFailure.Message | Should -BeExactly (
+            'Fleet dispatch completed, but attendance rendering failed. ' +
+            'Retry attendance rendering with the attached completed result; do not redispatch.'
         )
         $renderFailure.Data['FleetDispatchRenderStage'] | Should -BeExactly 'attendance'
+        $renderFailure.Data['FleetDispatchRenderDiagnostic'] |
+            Should -BeExactly 'attendance sink unavailable'
         $completedRenderResult = $renderFailure.Data['FleetDispatchResult']
         $completedRenderResult.Schema | Should -BeExactly 'skalary/fleet-dispatch-result@1'
         $completedRenderResult.Attendance.Completed | Should -Be 1
@@ -1252,9 +1255,11 @@ Describe 'Fleet dispatch execution adapter' {
                 $unsafeFailure = $_.Exception
             }
             $unsafeFailure | Should -Not -BeNullOrEmpty
-            $unsafeFailure.Message | Should -BeLike (
-                'Fleet dispatch completed, but attendance rendering failed: *violated the diagnostic boundary*'
-            )
+            $unsafeFailure.Message | Should -BeExactly $renderFailure.Message
+            $unsafeFailure.Data['FleetDispatchRenderDiagnostic'] |
+                Should -BeExactly (
+                    'Fleet dispatch attendance renderer failure was unavailable because it violated the diagnostic boundary.'
+                )
             $unsafeFailure.Data['FleetDispatchResult'].Attendance.Completed | Should -Be 1
             $unsafeFailure.Data['FleetDispatchRenderStage'] | Should -BeExactly 'attendance'
         }

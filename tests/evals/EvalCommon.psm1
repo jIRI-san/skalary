@@ -166,6 +166,56 @@ function Assert-EvalMarkerOrder {
     $beforeIndex | Should -BeLessThan $afterIndex -Because "'$BeforeMarker' must precede '$AfterMarker'"
 }
 
+function Assert-FleetConsumerParity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$PluginRoot,
+
+        [Parameter(Mandatory)]
+        [object]$Manifest,
+
+        [Parameter(Mandatory)]
+        [string]$PluginName,
+
+        [Parameter(Mandatory)]
+        [string[]]$RelativePath,
+
+        [Parameter(Mandatory)]
+        [string]$FleetModuleDest
+    )
+
+    $registry = Get-Content -LiteralPath (Join-Path $RepoRoot 'registry.json') -Raw |
+        ConvertFrom-Json -Depth 100
+    $marketplace = Get-Content -LiteralPath (Join-Path $RepoRoot '.github/plugin/marketplace.json') -Raw |
+        ConvertFrom-Json -Depth 50
+
+    foreach ($relative in $RelativePath) {
+        $entries = @($Manifest.files | Where-Object { [string]$_.dest -ceq $relative })
+        $entries.Count | Should -Be 1
+        $source = Join-Path $PluginRoot ([string]$entries[0].src)
+        $installed = Join-Path (Join-Path $RepoRoot '.github') $relative
+        (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
+            Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+    }
+
+    $catalog = @($registry.plugins | Where-Object { [string]$_.name -ceq $PluginName })
+    $catalog.Count | Should -Be 1
+    [string]$catalog[0].version | Should -Be ([string]$Manifest.version)
+    $fleetCatalog = @($catalog[0].files | Where-Object { [string]$_.dest -ceq $FleetModuleDest })
+    $fleetCatalog.Count | Should -Be 1
+    [string]$fleetCatalog[0].sha256 | Should -Be (
+        (Get-FileHash -LiteralPath (Join-Path $PluginRoot ([string]$fleetCatalog[0].src)) -Algorithm SHA256).Hash.ToLowerInvariant()
+    )
+    $market = @($marketplace.plugins | Where-Object { [string]$_.name -ceq $PluginName })
+    $market.Count | Should -Be 1
+    [string]$market[0].version | Should -Be ([string]$Manifest.version)
+    return $true
+}
+
 function Test-ReferencedFile {
     [CmdletBinding()]
     param(
@@ -457,6 +507,7 @@ Export-ModuleMember -Function @(
     'Get-ArtifactType',
     'Test-ReferencedFile',
     'Assert-EvalMarkerOrder',
+    'Assert-FleetConsumerParity',
     'Resolve-MarkdownLink',
     'Test-BodySection',
     'Get-ReviewRunEvalContext',

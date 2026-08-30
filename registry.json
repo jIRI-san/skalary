@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T12:02:56.3674042Z",
+  "generatedAt": "2026-08-30T12:21:49.7293117Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -227,7 +227,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/FleetDispatch.psm1",
-          "sha256": "6946bd7eeef838c4b2c3cd4d12921550d73c07666722990ec35eeccc7dcb1c65",
+          "sha256": "17722d9c7369d4bb2ea49dd7a737ab4bbde8c61ce92b9f895c1854f70e56bebf",
           "src": "skills/autopilot/scripts/FleetDispatch.psm1"
         },
         {
@@ -371,7 +371,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.66"
+      "version": "1.2.67"
     },
     {
       "author": "jIRI-san",
@@ -448,7 +448,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "f6c77f1222c8494585ce382feb8a4fcd89b5b1a5379f45092f9f29a61a6436a1",
+          "sha256": "73716b553abd574d2c6eed0ce7472ff6379df26f0015a3a9b108927deca439b5",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -478,7 +478,7 @@
         },
         {
           "dest": "skills/cr/scripts/FleetDispatch.psm1",
-          "sha256": "6946bd7eeef838c4b2c3cd4d12921550d73c07666722990ec35eeccc7dcb1c65",
+          "sha256": "17722d9c7369d4bb2ea49dd7a737ab4bbde8c61ce92b9f895c1854f70e56bebf",
           "src": "skills/cr/scripts/FleetDispatch.psm1"
         },
         {
@@ -565,7 +565,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.57"
+      "version": "1.0.58"
     },
     {
       "author": "jIRI-san",
@@ -620,7 +620,7 @@
         },
         {
           "dest": "skills/ci/scripts/FleetDispatch.psm1",
-          "sha256": "6946bd7eeef838c4b2c3cd4d12921550d73c07666722990ec35eeccc7dcb1c65",
+          "sha256": "17722d9c7369d4bb2ea49dd7a737ab4bbde8c61ce92b9f895c1854f70e56bebf",
           "src": "skills/ci/scripts/FleetDispatch.psm1"
         },
         {
@@ -755,7 +755,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.89"
+      "version": "1.0.90"
     },
     {
       "author": "jIRI-san",
@@ -894,7 +894,7 @@
         },
         {
           "dest": "skills/cip/scripts/FleetDispatch.psm1",
-          "sha256": "6946bd7eeef838c4b2c3cd4d12921550d73c07666722990ec35eeccc7dcb1c65",
+          "sha256": "17722d9c7369d4bb2ea49dd7a737ab4bbde8c61ce92b9f895c1854f70e56bebf",
           "src": "skills/cip/scripts/FleetDispatch.psm1"
         },
         {
@@ -971,7 +971,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.74"
+      "version": "1.0.75"
     },
     {
       "author": "jIRI-san",
@@ -1103,7 +1103,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "9bf1ee046bc11be00eddf2c18715ba99aecf330d02c3ba0c6dc550328640cbcb",
+          "sha256": "c56cac361e81973af1b9b4008ef3fd26234f69ff2b383146307d207e14c58c0f",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1118,7 +1118,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "f6c77f1222c8494585ce382feb8a4fcd89b5b1a5379f45092f9f29a61a6436a1",
+          "sha256": "73716b553abd574d2c6eed0ce7472ff6379df26f0015a3a9b108927deca439b5",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -1143,7 +1143,7 @@
         },
         {
           "dest": "skills/dr/scripts/FleetDispatch.psm1",
-          "sha256": "6946bd7eeef838c4b2c3cd4d12921550d73c07666722990ec35eeccc7dcb1c65",
+          "sha256": "17722d9c7369d4bb2ea49dd7a737ab4bbde8c61ce92b9f895c1854f70e56bebf",
           "src": "skills/dr/scripts/FleetDispatch.psm1"
         },
         {
@@ -1230,7 +1230,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.56"
+      "version": "1.0.57"
     },
     {
       "author": "jIRI-san",

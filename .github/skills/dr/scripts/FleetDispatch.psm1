@@ -1365,14 +1365,21 @@ function Invoke-FleetDispatchPlan {
         [void](& $Render $result.FinalView 'attendance')
     }
     catch {
-        $detail = ConvertTo-FleetDispatchSafeDiagnosticText `
-            -Value ([string]$_.Exception.Message) `
-            -Label 'Fleet dispatch attendance renderer failure'
         $exception = [InvalidOperationException]::new(
-            "Fleet dispatch completed, but attendance rendering failed: $detail"
+            'Fleet dispatch completed, but attendance rendering failed. Retry attendance rendering with the attached completed result; do not redispatch.'
         )
         $exception.Data['FleetDispatchResult'] = $result
         $exception.Data['FleetDispatchRenderStage'] = 'attendance'
+        try {
+            $exception.Data['FleetDispatchRenderDiagnostic'] = ConvertTo-FleetDispatchSafeDiagnosticText `
+                -Value ([string]$_.Exception.Message) `
+                -Label 'Fleet dispatch attendance renderer failure'
+        }
+        catch {
+            $exception.Data['FleetDispatchRenderDiagnostic'] = (
+                'Fleet dispatch attendance renderer failure was unavailable.'
+            )
+        }
         throw $exception
     }
     return $result

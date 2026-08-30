@@ -52,36 +52,17 @@ Describe 'autopilot structural evals' {
     }
 
     It 'proves the autopilot Fleet source, installed payload, registry, and marketplace stay aligned' {
-        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
-            ConvertFrom-Json -Depth 100
-        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
-            ConvertFrom-Json -Depth 50
-
-        foreach ($relative in @(
-                'agents/autopilot.agent.md',
-                'skills/autopilot/scripts/FleetDispatch.psm1'
-            )) {
-            $entries = @($manifest.files | Where-Object { [string]$_.dest -eq $relative })
-            $entries.Count | Should -Be 1
-            $source = Join-Path $pluginRoot ([string]$entries[0].src)
-            $installed = Join-Path (Join-Path $script:repoRoot '.github') $relative
-            (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
-                Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-        }
-
-        $catalog = @($registry.plugins | Where-Object { [string]$_.name -eq 'autopilot' })
-        $catalog.Count | Should -Be 1
-        [string]$catalog[0].version | Should -Be ([string]$manifest.version)
-        $fleetCatalog = @($catalog[0].files | Where-Object {
-                [string]$_.dest -eq 'skills/autopilot/scripts/FleetDispatch.psm1'
-            })
-        $fleetCatalog.Count | Should -Be 1
-        [string]$fleetCatalog[0].sha256 | Should -Be (
-            (Get-FileHash -LiteralPath (Join-Path $pluginRoot 'skills/autopilot/scripts/FleetDispatch.psm1') -Algorithm SHA256).Hash.ToLowerInvariant()
-        )
-        $market = @($marketplace.plugins | Where-Object { [string]$_.name -eq 'autopilot' })
-        $market.Count | Should -Be 1
-        [string]$market[0].version | Should -Be ([string]$manifest.version)
+        Assert-FleetConsumerParity `
+            -RepoRoot $script:repoRoot `
+            -PluginRoot $pluginRoot `
+            -Manifest $manifest `
+            -PluginName 'autopilot' `
+            -RelativePath @(
+            'agents/autopilot.agent.md',
+            'skills/autopilot/scripts/FleetDispatch.psm1'
+        ) `
+            -FleetModuleDest 'skills/autopilot/scripts/FleetDispatch.psm1' |
+            Should -BeTrue
     }
 
     It 'keeps the autopilot plan before calls and conserves the four-role graph and boundaries' {
