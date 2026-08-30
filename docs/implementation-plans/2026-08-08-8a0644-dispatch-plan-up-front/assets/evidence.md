@@ -1,4 +1,4 @@
 Phase 1 Crosscheck:
-✓ REQ-1 — test:FleetDispatch.Planning — passed — 8a79616a0d4776037d731c5a6c5113b1cca3e204
-✓ REQ-2 — test:FleetDispatch.Rendering — passed — 8a79616a0d4776037d731c5a6c5113b1cca3e204
-✓ REQ-3 — test:FleetDispatch.Execution — passed — 8a79616a0d4776037d731c5a6c5113b1cca3e204
+✓ REQ-1 — test:FleetDispatch.Planning — passed — 28f12d56edc7d38ee84cc9eaa3ba322a7eb47d9d
+✓ REQ-2 — test:FleetDispatch.Rendering — passed — 28f12d56edc7d38ee84cc9eaa3ba322a7eb47d9d
+✓ REQ-3 — test:FleetDispatch.Execution — passed — 28f12d56edc7d38ee84cc9eaa3ba322a7eb47d9d
