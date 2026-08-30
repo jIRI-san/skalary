@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T14:49:21.0457874Z",
+  "generatedAt": "2026-08-30T19:04:56.1361615Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -252,7 +252,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -264,6 +264,11 @@
           "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1",
           "sha256": "746a1b8ba5ce0a416a5ba9d8aa11dee1679316b02bbde04717cb96196dff7afe",
           "src": "skills/autopilot/scripts/ReviewCycleGate.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/SecretGuard.psm1",
@@ -488,7 +493,7 @@
         },
         {
           "dest": "skills/cr/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "ca0a4e8aa64b5f278862a807617ee33e209f2960031638bfbb932832f5dc8ddd",
+          "sha256": "8cdbb867776089dc7fe060068af4048c6385d71f7f6c33ab7129a3fff9f2c1c2",
           "src": "skills/cr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -498,7 +503,7 @@
         },
         {
           "dest": "skills/cr/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/cr/scripts/PlanEvidence.psm1"
         },
         {
@@ -515,6 +520,11 @@
           "dest": "skills/cr/scripts/Resolve-ReviewStandards.ps1",
           "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
           "src": "skills/cr/scripts/Resolve-ReviewStandards.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/cr/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
@@ -640,7 +650,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -662,6 +672,11 @@
           "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
           "sha256": "746a1b8ba5ce0a416a5ba9d8aa11dee1679316b02bbde04717cb96196dff7afe",
           "src": "skills/ci/scripts/ReviewCycleGate.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/ci/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/ci/scripts/SecretGuard.psm1",
@@ -794,7 +809,7 @@
         },
         {
           "dest": "skills/cep/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "ca0a4e8aa64b5f278862a807617ee33e209f2960031638bfbb932832f5dc8ddd",
+          "sha256": "8cdbb867776089dc7fe060068af4048c6385d71f7f6c33ab7129a3fff9f2c1c2",
           "src": "skills/cep/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -814,13 +829,18 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
           "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
           "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/cep/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/cep/scripts/SecretGuard.psm1",
@@ -904,7 +924,7 @@
         },
         {
           "dest": "skills/cip/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "ca0a4e8aa64b5f278862a807617ee33e209f2960031638bfbb932832f5dc8ddd",
+          "sha256": "8cdbb867776089dc7fe060068af4048c6385d71f7f6c33ab7129a3fff9f2c1c2",
           "src": "skills/cip/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -919,7 +939,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -931,6 +951,11 @@
           "dest": "skills/cip/scripts/Repair-Plans.ps1",
           "sha256": "18454a1051df0329ce76488fa866d46e9aacdc585fafdb23ccdc01c007ebc398",
           "src": "skills/cip/scripts/Repair-Plans.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/cip/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/cip/scripts/SecretGuard.psm1",
@@ -1153,7 +1178,7 @@
         },
         {
           "dest": "skills/dr/scripts/Get-PlanArtifactContext.ps1",
-          "sha256": "ca0a4e8aa64b5f278862a807617ee33e209f2960031638bfbb932832f5dc8ddd",
+          "sha256": "8cdbb867776089dc7fe060068af4048c6385d71f7f6c33ab7129a3fff9f2c1c2",
           "src": "skills/dr/scripts/Get-PlanArtifactContext.ps1"
         },
         {
@@ -1163,7 +1188,7 @@
         },
         {
           "dest": "skills/dr/scripts/PlanEvidence.psm1",
-          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
+          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
           "src": "skills/dr/scripts/PlanEvidence.psm1"
         },
         {
@@ -1180,6 +1205,11 @@
           "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
           "sha256": "23c7016d4c1d5952df4939827664017643764a5cbbf72d2d19436406644034c7",
           "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/ReviewResultReceipt.psm1",
+          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "src": "skills/dr/scripts/ReviewResultReceipt.psm1"
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",

@@ -82,6 +82,10 @@
       "dest": "skills/cip/scripts/PlanEvidence.psm1"
     },
     {
+      "src": "skills/cip/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/cip/scripts/ReviewResultReceipt.psm1"
+    },
+    {
       "src": "skills/cip/scripts/SecretGuard.psm1",
       "dest": "skills/cip/scripts/SecretGuard.psm1"
     },
@@ -140,6 +144,10 @@
     {
       "src": "skills/cep/scripts/PlanEvidence.psm1",
       "dest": "skills/cep/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/cep/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/cep/scripts/ReviewResultReceipt.psm1"
     },
     {
       "src": "skills/cep/scripts/SecretGuard.psm1",

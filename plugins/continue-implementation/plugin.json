@@ -72,6 +72,10 @@
       "dest": "skills/ci/scripts/PlanEvidence.psm1"
     },
     {
+      "src": "skills/ci/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/ci/scripts/ReviewResultReceipt.psm1"
+    },
+    {
       "src": "skills/ci/scripts/PlanState.psm1",
       "dest": "skills/ci/scripts/PlanState.psm1"
     },

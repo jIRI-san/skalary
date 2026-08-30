@@ -121,6 +121,10 @@
       "dest": "skills/autopilot/scripts/PlanEvidence.psm1"
     },
     {
+      "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
+    },
+    {
       "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
       "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
     },
