@@ -56,7 +56,7 @@ returns `closed`; any degraded migration is a hard stop.
 
    Each kind writes its own file (`cr-log.md` / `learnings.md` / `capture.md`) with a stable header and an explicit `No entries for this phase.` placeholder; for `learnings.md` the script appends a new phase section if missing and never truncates prior phases. Stage/commit these files by explicit name when changed (never wildcard staging). Mid-run capture is ephemeral only; do not write `docs/review-ledger/*` here.
 10. **Pre-execution reconcile** — validate plan structure and evidence integrity through the repository's committed plan-validation entry point (`npm run validate-plan` in this repo, or the installed `Test-Plan.ps1` when no wrapper exists). Do not run complete project validation before writing code. If reconciliation fails, stop and fix the plan integrity issue first.
-11. **Implement** — write the code/files for this step. Follow design notes in `docs/design-notes/`. Make only changes necessary for this step.
+11. **Implement through the step-role fleet** — use the dispatch contract below, then write the code/files for this step through its admitted Implementor. Follow design notes in `docs/design-notes/`. Make only changes necessary for this step.
    - **Try the simplest approach first.** If the plan specifies a complex solution but a simpler one might work, try the simple one. Only escalate to complexity when the simple approach demonstrably fails.
    - **Tests must encode invariants, not snapshots.** Assert the meaningful property (e.g. "cells grow outward from center") not an incidental observation (e.g. "all center-row cells have height 42px"). If a test would break from a valid future change to an unrelated aspect, it's asserting the wrong thing.
    - **Learning capture trigger:** append to `learnings.md` **only** through `Add-WorkflowNote.ps1 -Kind Learnings` (the script replaces the phase placeholder and persists content-addressed overflow before reducing the active file to 10 entries). Append only when one trigger fires — `rework>1`, `plan-contradiction`, or `reusable-pattern`:
@@ -76,13 +76,47 @@ returns `closed`; any degraded migration is a hard stop.
      - `exit 43` immediately. Do **not** fetch from the network, do **not** push, do **not** write the `.autopilot-rebundle-needed` marker, and do **not** emit offline restore config — the runtime entrypoint owns the push + signal, and the host launcher owns lockfile regeneration.
      - Exit 43 is distinct from the `@human` exit 42. **Resume contract:** the host re-bundles (regenerates + commits + pushes the lockfile) and relaunches; the resumed run sees the committed manifest + host-regenerated lock + the `[~]` step, and continues that step from a clean offline restore.
 14. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
-15. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
-16. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
+15. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
    - Durable writers use the shared modules installed at `.github/skills/autopilot/scripts/{AtomicStore,LedgerStore}.psm1`; the root-canonical phase engine is distributed as `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` with the same closure.
-17. **Fix loop** — if focused build/test or acceptance fails, fix and retry the same affected surface up to the configured maximum. Code review is not dispatched per implementation step.
+16. **Fix loop** — if focused build/test fails, fix and retry the same affected surface up to the configured maximum before Judge runs. Code review is not dispatched per implementation step.
+17. **Judge acceptance criteria** — look up the REQ-N IDs referenced by this step. The admitted Judge verifies each acceptance criterion after the Implementor loop converges. A failed judgment leaves the step `[~]`; it does not trigger an undeclared replacement call.
 18. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (use the resolved canonical plan id, not a raw `NNN`).
 19. **Push** — `git push origin <current-branch>` immediately after the step commit (regular push, never force-push). A run killed by a timeout or crash keeps everything already pushed, so pushing per step bounds the loss to the step in flight rather than the whole phase. A rejected or failed push is not fatal to the step: report it and continue — the phase-end push and the entrypoint's termination handler retry.
 20. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
+
+### Step-role fleet dispatch
+
+Create the fleet only after the existing planning admission, branch/worktree or container setup,
+active-step marking, and pre-execution reconcile have succeeded. Import
+`.github/skills/autopilot/scripts/FleetDispatch.psm1` and create one `New-FleetDispatchPlan` for the
+active step from these ordered descriptors:
+
+| Id | Label | Key | DependsOn |
+|---|---|---|---|
+| `ci-designer` | `CI Designer` | the existing Designer role/model binding | none |
+| `ci-validator` | `CI Validator` | the existing Validator role/model binding | none |
+| `ci-implementor` | `CI Implementor` | the existing Implementor role/model binding | `ci-designer`, `ci-validator` |
+| `ci-judge` | `CI Judge` | the existing Judge role/model binding | `ci-implementor` |
+
+All four tasks are selected. The descriptor `Key` records the role/model binding already resolved by
+the caller; the adapter does not replace role prompts, alter tool access, or override the model from
+`.autopilot.json`. Render the complete `Format-FleetDispatchPlan` pre-view before the first role
+invocation, including the cap, projected waves, ready order, retry policy, omissions, and the
+statement that provider-global concurrency is unobserved. Then pass that exact plan to
+`Invoke-FleetDispatchPlan`; its caller-owned wave launcher invokes only the current ready roles and
+returns one structured outcome per admitted id.
+
+Designer and Validator may run together. Implementor owns the existing implementation, focused
+build/test, format, design-note, and fix boundaries in items 11-16 and starts only after both
+prerequisites complete. Judge owns item 17 and starts only after Implementor completes. An ordinary
+failure cancels only transitive dependents. Retry a role once only when the host or tool returns the
+explicit `throttled` outcome; never infer throttling from error prose.
+
+Render final attendance and record it through the existing phase Capture path before item 18. Commit,
+push, phase review, harvest, and final promotion remain authoritative outside the adapter and require
+Judge completion. A failed or cancelled role leaves the step `[~]` for a later invocation. This
+run-scoped fleet adds no clone, credential, worktree, container, promotion, review, or persistence
+mechanism.
 
 ## On Phase Completion
 

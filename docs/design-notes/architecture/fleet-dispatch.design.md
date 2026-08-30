@@ -39,6 +39,14 @@ handoff. The complete plan view precedes every role call, and the final attendan
 the existing Capture writer. Judge is cancelled when either prerequisite fails, while an explicit
 throttle result permits only the module-owned single retry.
 
+`/ci` and autopilot use the same four-role graph per active implementation step: Designer and
+Validator are initially ready, Implementor depends on both, and Judge depends on Implementor.
+In-session `/ci` creates the fleet only after phase admission and worktree setup; autonomous `/ci`
+hands off without creating a duplicate because the launched autopilot agent owns it. Implementor
+retains the existing edit/build/test/format/design-note/fix loop, Judge retains acceptance judgment,
+and commit, push, promotion, phase review, and harvest remain outside dispatch. Failed runs leave the
+step in progress for a new invocation-local plan rather than issuing undeclared replacement calls.
+
 ## Design Decisions
 
 The helper is canonical under `scripts/skalary/` because multiple independently installed plugins

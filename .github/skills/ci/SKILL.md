@@ -107,8 +107,10 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
    answer to `next-phase` or `whole-plan`.
 
 5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md`; pass the selected runtime and
-   launcher mode without another menu. Block on the launcher, preserve its exit status, report its
-   completion/operator-stop/failure outcome, and exit `/ci`.
+   launcher mode without another menu. Do not create an implementation-role fleet in `/ci` on this
+   path; the launched autopilot agent owns the same per-step fleet so each role is declared once.
+   Block on the launcher, preserve its exit status, report its completion/operator-stop/failure
+   outcome, and exit `/ci`.
 
    - **Offline rebundle:** container/sandbox exit `43` after committing only a missing package's
      manifest; host `launch.ps1` runs `prepare-packages.ps1 -Branch`, pushes the lockfile, and
@@ -130,6 +132,38 @@ npm run validate-plan
 If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `.github/skills/ci/scripts/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
 
 Use the execution asset for the implement/build/test/code-review/commit loop.
+
+### Implementation-role fleet dispatch
+
+For in-session execution, create the fleet only after phase admission, execution-mode selection,
+branch/worktree setup, active-step marking, and the plan reconcile gate have succeeded. Import
+`.github/skills/ci/scripts/FleetDispatch.psm1` and create one `New-FleetDispatchPlan` per active step
+from these ordered descriptors:
+
+| Id | Label | Key | DependsOn |
+|---|---|---|---|
+| `ci-designer` | `CI Designer` | the existing Designer role/model binding | none |
+| `ci-validator` | `CI Validator` | the existing Validator role/model binding | none |
+| `ci-implementor` | `CI Implementor` | the existing Implementor role/model binding | `ci-designer`, `ci-validator` |
+| `ci-judge` | `CI Judge` | the existing Judge role/model binding | `ci-implementor` |
+
+All four tasks are selected. Descriptor keys record the caller-resolved role/model bindings; the
+adapter does not change role prompts, tool sets, model selection, or the execution guide. Render the
+complete `Format-FleetDispatchPlan` pre-view before the first role invocation, including the
+four-task admission cap, waves, ready order, retry policy, omissions, and the statement that
+provider-global concurrency is unobserved. Pass that exact plan to `Invoke-FleetDispatchPlan` and
+launch only its current ready wave.
+
+Designer and Validator may run together. Implementor runs the existing file-edit, focused
+build/test, formatting, design-note, and fix loop only after both complete. Judge runs only after
+Implementor completes and validates the active step's acceptance criteria. Retry once only for the
+explicit structured `throttled` outcome; diagnostic text and ordinary failures never trigger a
+retry. A failed prerequisite cancels only its transitive dependents.
+
+Render final attendance and write it through the existing Capture path. Commit and phase promotion
+remain outside the adapter and occur only after Judge completes. Any failed or cancelled role leaves
+the step `[~]` for a later run-scoped plan. The adapter adds no clone, credential, worktree,
+container, promotion, review, or persistence mechanism.
 
 ## Step 5: Crosscheck and completion (`./assets/crosscheck-guide.md`)
 

@@ -302,6 +302,100 @@ Ready order: design -> validate -> implement
         $result.Attendance.Retried | Should -Be 1
         @($result.Tasks.Id | Select-Object -Unique).Count | Should -Be 3
     }
+
+    It 'test:FleetDispatch.CiContract preserves CI and autopilot execution boundaries' {
+        $contracts = @(
+            @{
+                Source = 'plugins/continue-implementation/skills/ci/SKILL.md'
+                Installed = '.github/skills/ci/SKILL.md'
+            },
+            @{
+                Source = 'plugins/autopilot/agents/autopilot.agent.md'
+                Installed = '.github/agents/autopilot.agent.md'
+            }
+        )
+        foreach ($contract in $contracts) {
+            $sourceText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $contract.Source))
+            $installedText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $contract.Installed))
+            $installedText | Should -BeExactly $sourceText
+
+            $planIndex = $sourceText.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $preViewIndex = $sourceText.IndexOf('Format-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $invokeIndex = $sourceText.IndexOf('Invoke-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $planIndex | Should -BeGreaterOrEqual 0
+            $preViewIndex | Should -BeGreaterThan $planIndex
+            $invokeIndex | Should -BeGreaterThan $preViewIndex
+            $sourceText | Should -Match '\| `ci-designer` \| `CI Designer` \|'
+            $sourceText | Should -Match '\| `ci-validator` \| `CI Validator` \|'
+            $sourceText | Should -Match '\| `ci-implementor` \| `CI Implementor` \|.*`ci-designer`, `ci-validator`'
+            $sourceText | Should -Match '\| `ci-judge` \| `CI Judge` \|.*`ci-implementor`'
+            $sourceText | Should -Match 'provider-global concurrency is unobserved'
+            $sourceText | Should -Match 'Retry(?: a role)? once only'
+            $sourceText | Should -Match 'adds no clone, credential, worktree,\s+container, promotion, review, or persistence'
+        }
+
+        $ciSkill = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md')
+        )
+        $ciSkill | Should -Match 'Do not create an implementation-role fleet in `/ci` on this\s+path'
+        $ciSkill | Should -Match 'Commit and phase promotion\s+remain outside the adapter'
+
+        $autopilot = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/autopilot/agents/autopilot.agent.md')
+        )
+        $autopilot | Should -Match 'planning admission, branch/worktree or container setup'
+        $autopilot | Should -Match 'Commit,\s+push, phase review, harvest, and final promotion remain authoritative outside the adapter'
+
+        $plan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id ci-designer -Label 'CI Designer' -Key 'role.designer'
+            New-FleetTask -Id ci-validator -Label 'CI Validator' -Key 'role.validator'
+            New-FleetTask `
+                -Id ci-implementor `
+                -Label 'CI Implementor' `
+                -Key 'role.implementor' `
+                -DependsOn ci-designer, ci-validator
+            New-FleetTask `
+                -Id ci-judge `
+                -Label 'CI Judge' `
+                -Key 'role.judge' `
+                -DependsOn ci-implementor
+        )
+
+        $plan.AdmissionCap | Should -Be 4
+        @($plan.Waves[0].TaskIds) | Should -Be @('ci-designer', 'ci-validator')
+        @($plan.Waves[1].TaskIds) | Should -Be @('ci-implementor')
+        @($plan.Waves[2].TaskIds) | Should -Be @('ci-judge')
+
+        $calls = [System.Collections.Generic.List[string]]::new()
+        $result = Invoke-FleetDispatchPlan -Plan $plan -Render {} -InvokeWave {
+            param($Wave)
+            $calls.Add("$($Wave.Attempt)`:$($Wave.TaskIds -join ',')")
+            foreach ($taskId in $Wave.TaskIds) {
+                if ($taskId -ceq 'ci-implementor') {
+                    [pscustomobject]@{
+                        TaskId = $taskId
+                        Outcome = 'failed'
+                        Detail = 'implementation did not satisfy focused checks'
+                    }
+                }
+                else {
+                    [pscustomobject]@{
+                        TaskId = $taskId
+                        Outcome = 'completed'
+                        Detail = ''
+                    }
+                }
+            }
+        }
+
+        $calls.ToArray() | Should -Be @('1:ci-designer,ci-validator', '1:ci-implementor')
+        $result.Attendance.Planned | Should -Be 4
+        $result.Attendance.Started | Should -Be 3
+        $result.Attendance.Completed | Should -Be 2
+        $result.Attendance.Failed | Should -Be 1
+        $result.Attendance.Cancelled | Should -Be 1
+        @($result.Tasks | Where-Object Id -CEQ ci-judge)[0].Status | Should -Be cancelled
+    }
 }
 
 Describe 'Fleet dispatch execution adapter' {
