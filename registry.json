@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T10:07:54.6396895Z",
+  "generatedAt": "2026-08-30T11:25:08.2990027Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -433,7 +433,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "82525f94f2eeed7f7b5360ded932dea61ae893fd034a01553394ce1f9ee43578",
+          "sha256": "79ec3e353480d3ebbbd516121eb55eed8cd5429158e90c729bfdc93d0d85a3b3",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -448,7 +448,7 @@
         },
         {
           "dest": "skills/cr/assets/dispatch-guide.md",
-          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
+          "sha256": "f6c77f1222c8494585ce382feb8a4fcd89b5b1a5379f45092f9f29a61a6436a1",
           "src": "skills/cr/assets/dispatch-guide.md"
         },
         {
@@ -475,6 +475,11 @@
           "dest": "skills/cr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/cr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/FleetDispatch.psm1",
+          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "src": "skills/cr/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -560,7 +565,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.54"
+      "version": "1.0.55"
     },
     {
       "author": "jIRI-san",
@@ -769,7 +774,7 @@
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "2acaff0a25856971c2576611815e595fcaa149006db6e5c6aec8e7035fa0ed77",
+          "sha256": "ebb7c1255b2fb9edb4c83bd0a70a590d0af607d3b1b9f638e4be254915cef46f",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -966,7 +971,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.71"
+      "version": "1.0.72"
     },
     {
       "author": "jIRI-san",
@@ -1098,7 +1103,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3b8298a08202d67458c313c8647d5b2297e3d351f18570fb187c86dc41b18087",
+          "sha256": "9bf1ee046bc11be00eddf2c18715ba99aecf330d02c3ba0c6dc550328640cbcb",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1113,7 +1118,7 @@
         },
         {
           "dest": "skills/dr/assets/dispatch-guide.md",
-          "sha256": "04d19331c2396415f0f3ce38713ff8919a3b8f4e72737e364ea974e27578f3b4",
+          "sha256": "f6c77f1222c8494585ce382feb8a4fcd89b5b1a5379f45092f9f29a61a6436a1",
           "src": "skills/dr/assets/dispatch-guide.md"
         },
         {
@@ -1135,6 +1140,11 @@
           "dest": "skills/dr/scripts/Build-ReviewReport.ps1",
           "sha256": "4bbbba6a864129aa5064d3559a982d8ca5aa7409a11b645f2c38e12b9f33b904",
           "src": "skills/dr/scripts/Build-ReviewReport.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/FleetDispatch.psm1",
+          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "src": "skills/dr/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -1220,7 +1230,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.53"
+      "version": "1.0.54"
     },
     {
       "author": "jIRI-san",

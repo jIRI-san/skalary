@@ -44,8 +44,8 @@ Resolve the dispatch-only review criteria with:
 
 `pwsh -NoProfile -File .github/skills/cr/scripts/Resolve-ReviewStandards.ps1 -RepoRoot <repository-root> -Json`
 
-Stop if resolution fails. Follow the dispatch guide for concern filtering and trust handling; do not
-add the resolved criteria to review-run v1 inputs.
+Stop if resolution fails. Follow the dispatch guide for concern filtering and trust handling. These
+are the resolved review standards; do not add the resolved criteria to review-run v1 inputs.
 
 ## Step 3: Plan and freeze the run
 

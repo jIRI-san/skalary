@@ -97,9 +97,9 @@ function Test-RequiredFrontmatter {
     )
 
     $requiredKeysByType = @{
-        agent = @('name', 'description')
+        agent  = @('name', 'description')
         prompt = @('name', 'description', 'agent')
-        skill = @('name', 'description', 'user-invocable', 'disable-model-invocation')
+        skill  = @('name', 'description', 'user-invocable', 'disable-model-invocation')
     }
 
     foreach ($key in $requiredKeysByType[$ArtifactType]) {
@@ -294,12 +294,12 @@ function Get-ReviewRunEvalContext {
 
     $skillRoot = Join-Path $PluginRoot "skills/$ReviewId"
     return [pscustomobject]@{
-        Id = $ReviewId
-        Skill = Get-Content -LiteralPath (Join-Path $skillRoot 'SKILL.md') -Raw
-        Agent = Get-Content -LiteralPath (Join-Path $PluginRoot "agents/$ReviewId.agent.md") -Raw
-        Collation = Get-Content -LiteralPath (Join-Path $skillRoot 'assets/collation-guide.md') -Raw
-        Dispatch = Get-Content -LiteralPath (Join-Path $skillRoot 'assets/dispatch-guide.md') -Raw
-        Writer = Join-Path $skillRoot 'scripts/Build-ReviewReport.ps1'
+        Id         = $ReviewId
+        Skill      = Get-Content -LiteralPath (Join-Path $skillRoot 'SKILL.md') -Raw
+        Agent      = Get-Content -LiteralPath (Join-Path $PluginRoot "agents/$ReviewId.agent.md") -Raw
+        Collation  = Get-Content -LiteralPath (Join-Path $skillRoot 'assets/collation-guide.md') -Raw
+        Dispatch   = Get-Content -LiteralPath (Join-Path $skillRoot 'assets/dispatch-guide.md') -Raw
+        Writer     = Join-Path $skillRoot 'scripts/Build-ReviewReport.ps1'
         PlanSchema = Join-Path $skillRoot 'scripts/schemas/review/review-plan.schema.json'
     }
 }
@@ -365,7 +365,7 @@ function Test-ReviewRunStructuralInvariant {
             $step = if ($Context.Id -eq 'cr') { 3 } else { 4 }
             Assert-ReviewEvalOrder $Context.Skill @(
                 "## Step ${step}: Plan and freeze the run"
-                "## Step $($step + 1): Dispatch independently"
+                "## Step $($step + 1): Dispatch the admitted Fleet waves independently"
                 "## Step $($step + 2): Publish and close out"
             )
             Assert-ReviewEvalOrder $Context.Collation @(
@@ -375,15 +375,15 @@ function Test-ReviewRunStructuralInvariant {
             )
         }
         'IndependentDispatch' {
-            Assert-ReviewEvalMatch $Context.Skill 'Do not include any prior reviewer''s result' 'Prior-result input is not forbidden.'
-            Assert-ReviewEvalMatch $Context.Skill 'skip a task because\s+another reviewer found the same issue' 'Dispatch suppression is not forbidden.'
+            Assert-ReviewEvalMatch $Context.Skill 'Do not include any\s+prior reviewer''s result' 'Prior-result input is not forbidden.'
+            Assert-ReviewEvalMatch $Context.Skill 'skip a task because\s+another reviewer found the same\s+issue' 'Dispatch suppression is not forbidden.'
             Assert-ReviewEvalMatch $Context.Collation 'Do not show one reviewer''s output to another reviewer' 'Cross-reviewer priming is not forbidden.'
             Assert-ReviewEvalMatch $Context.Dispatch 'Never prime one reviewer with another result' 'The dispatch guide permits priming.'
         }
         'CompleteDispatch' {
             Assert-ReviewEvalMatch $Context.Collation 'Dispatch every frozen task exactly once' 'The frozen task set is not dispatched exactly once.'
-            Assert-ReviewEvalMatch $Context.Skill 'Dispatch each concern once per frozen model' 'Concern/model slots are not dispatched once.'
-            Assert-ReviewEvalMatch $Context.Skill 'Wait for every\s+task' 'The caller need not wait for every task.'
+            Assert-ReviewEvalMatch $Context.Skill 'Dispatch each task''s frozen concern once with its exact frozen\s+model binding' 'Concern/model slots are not dispatched once.'
+            Assert-ReviewEvalMatch $Context.Skill 'Submit\s+exactly one structured projection per admitted task' 'The caller need not settle every admitted task.'
         }
         'NonzeroTaskPlan' {
             $schema = Get-Content -LiteralPath $Context.PlanSchema -Raw | ConvertFrom-Json -Depth 30

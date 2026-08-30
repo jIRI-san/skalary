@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.53",
+  "version": "1.0.54",
   "description": "Design review orchestrator with model-agnostic concern reviewers.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -43,6 +43,10 @@
     {
       "src": "skills/dr/scripts/Build-ReviewReport.ps1",
       "dest": "skills/dr/scripts/Build-ReviewReport.ps1"
+    },
+    {
+      "src": "skills/dr/scripts/FleetDispatch.psm1",
+      "dest": "skills/dr/scripts/FleetDispatch.psm1"
     },
     {
       "src": "skills/dr/scripts/Get-ReviewRun.ps1",

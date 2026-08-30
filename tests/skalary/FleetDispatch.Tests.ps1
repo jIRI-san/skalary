@@ -21,12 +21,12 @@ Describe 'Fleet dispatch planner' {
             )
 
             return [pscustomobject]@{
-                Id = $Id
-                Label = $Label
-                Key = $Key
-                Selected = $Selected
+                Id             = $Id
+                Label          = $Label
+                Key            = $Key
+                Selected       = $Selected
                 OmissionReason = $OmissionReason
-                DependsOn = $DependsOn
+                DependsOn      = $DependsOn
             }
         }
     }
@@ -298,16 +298,16 @@ Ready order: design -> validate -> implement
             foreach ($taskId in $Wave.TaskIds) {
                 if ($taskId -ceq 'cip-requirements-validator' -and $Wave.Attempt -eq 1) {
                     [pscustomobject]@{
-                        TaskId = $taskId
+                        TaskId  = $taskId
                         Outcome = 'throttled'
-                        Detail = 'explicit host throttle'
+                        Detail  = 'explicit host throttle'
                     }
                 }
                 else {
                     [pscustomobject]@{
-                        TaskId = $taskId
+                        TaskId  = $taskId
                         Outcome = 'completed'
-                        Detail = ''
+                        Detail  = ''
                     }
                 }
             }
@@ -329,7 +329,7 @@ Ready order: design -> validate -> implement
     It 'test:FleetDispatch.CiContract preserves CI and autopilot execution boundaries' {
         $contracts = @(
             @{
-                Source = @(
+                Source    = @(
                     'plugins/continue-implementation/skills/ci/SKILL.md',
                     'plugins/continue-implementation/skills/ci/assets/fleet-dispatch-guide.md'
                 )
@@ -339,7 +339,7 @@ Ready order: design -> validate -> implement
                 )
             },
             @{
-                Source = @('plugins/autopilot/agents/autopilot.agent.md')
+                Source    = @('plugins/autopilot/agents/autopilot.agent.md')
                 Installed = @('.github/agents/autopilot.agent.md')
             }
         )
@@ -413,16 +413,16 @@ Ready order: design -> validate -> implement
             foreach ($taskId in $Wave.TaskIds) {
                 if ($taskId -ceq 'ci-implementor') {
                     [pscustomobject]@{
-                        TaskId = $taskId
+                        TaskId  = $taskId
                         Outcome = 'failed'
-                        Detail = 'implementation did not satisfy focused checks'
+                        Detail  = 'implementation did not satisfy focused checks'
                     }
                 }
                 else {
                     [pscustomobject]@{
-                        TaskId = $taskId
+                        TaskId  = $taskId
                         Outcome = 'completed'
-                        Detail = ''
+                        Detail  = ''
                     }
                 }
             }
@@ -448,9 +448,9 @@ Ready order: design -> validate -> implement
             )
 
             return [pscustomobject]@{
-                TaskId = $TaskId
+                TaskId  = $TaskId
                 Outcome = $Outcome
-                Detail = $Detail
+                Detail  = $Detail
             }
         }
 
@@ -516,9 +516,9 @@ Ready order: design -> validate -> implement
             foreach ($concernId in $Concern) {
                 for ($modelIndex = 0; $modelIndex -lt $Model.Count; $modelIndex++) {
                     $tasks.Add([pscustomobject]@{
-                            TaskId = "$concernId-m$($modelIndex + 1)"
+                            TaskId  = "$concernId-m$($modelIndex + 1)"
                             Concern = $concernId
-                            Model = $Model[$modelIndex]
+                            Model   = $Model[$modelIndex]
                         })
                 }
             }
@@ -533,12 +533,12 @@ Ready order: design -> validate -> implement
 
             $descriptors = @($FrozenTask | ForEach-Object {
                     [pscustomobject]@{
-                        Id = $_.TaskId
-                        Label = "$($_.Concern) review"
-                        Key = $_.Model
-                        Selected = $true
+                        Id             = $_.TaskId
+                        Label          = "$($_.Concern) review"
+                        Key            = $_.Model
+                        Selected       = $true
                         OmissionReason = ''
-                        DependsOn = @()
+                        DependsOn      = @()
                     }
                 })
             return New-FleetDispatchPlan -Task $descriptors
@@ -767,39 +767,39 @@ Ready order: design -> validate -> implement
 
         $frozenTasks = @(
             [pscustomobject]@{
-                TaskId = 'epic-goal'
+                TaskId  = 'epic-goal'
                 Concern = 'Goal coverage'
-                Model = 'Claude Opus 5 (copilot)'
+                Model   = 'Claude Opus 5 (copilot)'
             }
             [pscustomobject]@{
-                TaskId = 'epic-done'
+                TaskId  = 'epic-done'
                 Concern = 'Done coverage'
-                Model = 'GPT-5.6 Sol (copilot)'
+                Model   = 'GPT-5.6 Sol (copilot)'
             }
             [pscustomobject]@{
-                TaskId = 'child-independence'
+                TaskId  = 'child-independence'
                 Concern = 'Child independence'
-                Model = 'Claude Opus 5 (copilot)'
+                Model   = 'Claude Opus 5 (copilot)'
             }
             [pscustomobject]@{
-                TaskId = 'dependency-graph'
+                TaskId  = 'dependency-graph'
                 Concern = 'Dependency graph'
-                Model = 'GPT-5.6 Sol (copilot)'
+                Model   = 'GPT-5.6 Sol (copilot)'
             }
             [pscustomobject]@{
-                TaskId = 'prior-art'
+                TaskId  = 'prior-art'
                 Concern = 'Prior-art reuse'
-                Model = 'Claude Opus 5 (copilot)'
+                Model   = 'Claude Opus 5 (copilot)'
             }
         )
         $descriptors = @($frozenTasks | ForEach-Object {
                 [pscustomobject]@{
-                    Id = $_.TaskId
-                    Label = $_.Concern
-                    Key = $_.Model
-                    Selected = $true
+                    Id             = $_.TaskId
+                    Label          = $_.Concern
+                    Key            = $_.Model
+                    Selected       = $true
                     OmissionReason = ''
-                    DependsOn = @()
+                    DependsOn      = @()
                 }
             })
 
@@ -837,9 +837,9 @@ Ready order: design -> validate -> implement
             $waveResults = @($wave.Tasks | ForEach-Object {
                     $invokedIds.Add($_.Id)
                     [pscustomobject]@{
-                        TaskId = $_.Id
+                        TaskId  = $_.Id
                         Outcome = 'completed'
-                        Detail = ''
+                        Detail  = ''
                     }
                 })
             $waveResults.Count | Should -Be $wave.TaskIds.Count
@@ -881,22 +881,34 @@ Ready order: design -> validate -> implement
             ConvertFrom-Json -Depth 100
         $expected = @(
             @{
-                Plugin = 'create-implementation-plan'
+                Plugin     = 'create-implementation-plan'
                 ModuleDest = 'skills/cip/scripts/FleetDispatch.psm1'
-                GuardDest = 'skills/cip/scripts/SecretGuard.psm1'
-                OwnerDest = 'skills/cip/assets/fleet-dispatch-guide.md'
+                GuardDest  = 'skills/cip/scripts/SecretGuard.psm1'
+                OwnerDest  = 'skills/cip/assets/fleet-dispatch-guide.md'
             },
             @{
-                Plugin = 'continue-implementation'
+                Plugin     = 'continue-implementation'
                 ModuleDest = 'skills/ci/scripts/FleetDispatch.psm1'
-                GuardDest = 'skills/ci/scripts/SecretGuard.psm1'
-                OwnerDest = 'skills/ci/assets/fleet-dispatch-guide.md'
+                GuardDest  = 'skills/ci/scripts/SecretGuard.psm1'
+                OwnerDest  = 'skills/ci/assets/fleet-dispatch-guide.md'
             },
             @{
-                Plugin = 'autopilot'
+                Plugin     = 'autopilot'
                 ModuleDest = 'skills/autopilot/scripts/FleetDispatch.psm1'
-                GuardDest = 'skills/autopilot/scripts/SecretGuard.psm1'
-                OwnerDest = 'agents/autopilot.agent.md'
+                GuardDest  = 'skills/autopilot/scripts/SecretGuard.psm1'
+                OwnerDest  = 'agents/autopilot.agent.md'
+            },
+            @{
+                Plugin     = 'code-review'
+                ModuleDest = 'skills/cr/scripts/FleetDispatch.psm1'
+                GuardDest  = 'skills/cr/scripts/SecretGuard.psm1'
+                OwnerDest  = 'skills/cr/SKILL.md'
+            },
+            @{
+                Plugin     = 'design-review'
+                ModuleDest = 'skills/dr/scripts/FleetDispatch.psm1'
+                GuardDest  = 'skills/dr/scripts/SecretGuard.psm1'
+                OwnerDest  = 'skills/dr/SKILL.md'
             }
         )
         $canonicalHash = (
@@ -1003,12 +1015,12 @@ Describe 'Fleet dispatch execution adapter' {
             )
 
             return [pscustomobject]@{
-                Id = $Id
-                Label = $Label
-                Key = $Key
-                Selected = $Selected
+                Id             = $Id
+                Label          = $Label
+                Key            = $Key
+                Selected       = $Selected
                 OmissionReason = $OmissionReason
-                DependsOn = $DependsOn
+                DependsOn      = $DependsOn
             }
         }
 
@@ -1022,9 +1034,9 @@ Describe 'Fleet dispatch execution adapter' {
             )
 
             return [pscustomobject]@{
-                TaskId = $TaskId
+                TaskId  = $TaskId
                 Outcome = $Outcome
-                Detail = $Detail
+                Detail  = $Detail
             }
         }
     }
@@ -1219,7 +1231,7 @@ Describe 'Fleet dispatch execution adapter' {
         $exhausted.Attendance.Failed | Should -Be 1
         $exhausted.Attendance.Retried | Should -Be 1
         $exhausted.Tasks[0].Attempts.Outcome | Should -Be @('throttled', 'throttled')
-        @($exhausted.Events | Where-Object Outcome -eq failed).Count | Should -Be 1
+        @($exhausted.Events | Where-Object Outcome -EQ failed).Count | Should -Be 1
 
         $failurePlan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id root
@@ -1246,7 +1258,7 @@ Describe 'Fleet dispatch execution adapter' {
         $failureResult.Attendance.Failed | Should -Be 1
         $failureResult.Attendance.Retried | Should -Be 0
         $failureResult.Attendance.Cancelled | Should -Be 2
-        @($failureResult.Tasks | Where-Object Status -eq cancelled).Id |
+        @($failureResult.Tasks | Where-Object Status -EQ cancelled).Id |
             Should -Be @('dependent', 'transitive')
         $failureResult.Attendance.Completed +
         $failureResult.Attendance.Failed +

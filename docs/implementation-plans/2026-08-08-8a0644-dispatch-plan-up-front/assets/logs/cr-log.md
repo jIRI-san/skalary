@@ -72,3 +72,8 @@ Phase: 3
 - [-] [src:code-review] [sev:High] [concern:security] [req:REQ-6,REQ-8] [review:cr] [source-record:fa7f08d7a1882ae42d16636533b1227bcde770d21640f6a988b8dda3d36c6d54] Round 3 finding 2 triage=dismiss-architecture: immutable out-of-checkout skill installation is outside the repository-local customization trust model and would add rejected installation/authentication infrastructure.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:2b57e6355197f7003e72983d39dfa75ef30aa744a586ea08ab5737cac2dc6ac1] review-cycle stage=phase-3 cycle=3 outcome=findings run=9a9ea67a-6817-4e23-a4a0-660bdc035b7e summary=two findings: bounded Fleet-only diagnostic projection fixed; immutable out-of-checkout installation dismissed as outside repository-local trust model
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:0f7d5847c2758534edb29e889543726de19369ecb840b8d32c3643b7c04f009c] review-cycle-decision stage=phase-3 after=3 action=wrap
+
+## CR Capture
+Phase: 4
+
+No entries for this phase.

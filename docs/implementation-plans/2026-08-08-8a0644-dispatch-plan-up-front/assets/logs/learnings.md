@@ -12,3 +12,8 @@ Phase: 2
 Phase: 3
 
 No entries for this phase.
+
+## Learnings Capture
+Phase: 4
+
+- [4.1] [trigger:rework>1] [concern:maintainability-consistency] [req:REQ-8] [review:none] [source-record:699e0dce5acd55d4d880257a6b94435691e08211ea3c6d41b17742c91e108869] A generated payload edit outside Sync-PluginScripts still requires an explicit owning-plugin version bump before catalog regeneration.

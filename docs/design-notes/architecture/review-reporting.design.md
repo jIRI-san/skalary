@@ -686,6 +686,14 @@ their richer outcomes remain the Publish inputs. Fleet attendance is invocation-
 never a review schema or persisted authority; Publish and verified Summary/Full rendering remain
 authoritative.
 
+Both review plugin manifests include their own generated Fleet module. The byte-identical shared
+dispatch guides refer only to the active installed skill's sibling, while each owning `SKILL.md`
+names its exact `cr` or `dr` path. This keeps `Sync-PluginScripts.ps1` from discovering a foreign
+review root and producing cross-plugin bundles. CR/DR structural evals require the source, dogfood,
+manifest, registry, and marketplace representations to agree; they also pin Freeze before Fleet
+planning, pre-view before reviewer calls, exact frozen id/count conservation, Complete before
+Publish, and the unchanged review-run publication boundary.
+
 The lifecycle remains shared while model policy differs by review type. DR dispatches its two-model
 roster on every round; iterative DR callers stop after three rounds by default. CR reads its role
 bindings from `skills/cr/assets/model-preferences.md`: post-phase runs freeze primary-only tasks,

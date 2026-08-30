@@ -50,4 +50,60 @@ Describe 'ci structural evals' {
             @($resolvedTargets | Where-Object { $_ -match '/docs/design-notes/' }).Count | Should -BeGreaterThan 0
         }
     }
+
+    It 'proves the CI Fleet source, installed payload, registry, and marketplace stay aligned' {
+        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
+            ConvertFrom-Json -Depth 50
+
+        foreach ($relative in @(
+                'skills/ci/SKILL.md',
+                'skills/ci/assets/fleet-dispatch-guide.md',
+                'skills/ci/scripts/FleetDispatch.psm1'
+            )) {
+            $entries = @($manifest.files | Where-Object { [string]$_.dest -eq $relative })
+            $entries.Count | Should -Be 1
+            $source = Join-Path $pluginRoot ([string]$entries[0].src)
+            $installed = Join-Path (Join-Path $script:repoRoot '.github') $relative
+            (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash |
+                Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+        }
+
+        $catalog = @($registry.plugins | Where-Object { [string]$_.name -eq 'continue-implementation' })
+        $catalog.Count | Should -Be 1
+        [string]$catalog[0].version | Should -Be ([string]$manifest.version)
+        $fleetCatalog = @($catalog[0].files | Where-Object { [string]$_.dest -eq 'skills/ci/scripts/FleetDispatch.psm1' })
+        $fleetCatalog.Count | Should -Be 1
+        [string]$fleetCatalog[0].sha256 | Should -Be (
+            (Get-FileHash -LiteralPath (Join-Path $pluginRoot 'skills/ci/scripts/FleetDispatch.psm1') -Algorithm SHA256).Hash.ToLowerInvariant()
+        )
+        $market = @($marketplace.plugins | Where-Object { [string]$_.name -eq 'continue-implementation' })
+        $market.Count | Should -Be 1
+        [string]$market[0].version | Should -Be ([string]$manifest.version)
+    }
+
+    It 'keeps the in-session CI plan before calls and conserves the four-role graph' {
+        $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/SKILL.md') -Raw
+        $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/assets/fleet-dispatch-guide.md') -Raw
+
+        $skill.IndexOf('phase admission', [System.StringComparison]::OrdinalIgnoreCase) |
+            Should -BeLessThan $skill.IndexOf('Implementation-role fleet dispatch', [System.StringComparison]::Ordinal)
+        $guide.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal) |
+            Should -BeLessThan $guide.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+        $guide.IndexOf('PreView', [System.StringComparison]::Ordinal) |
+            Should -BeLessThan $guide.IndexOf('Invoke only', [System.StringComparison]::Ordinal)
+        $guide.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal) |
+            Should -BeLessThan $guide.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
+
+        foreach ($id in @('ci-designer', 'ci-validator', 'ci-implementor', 'ci-judge')) {
+            @([regex]::Matches($guide, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |
+                Should -Be 1 -Because "$id must have one descriptor"
+        }
+        $guide | Should -Match 'Implementor runs the existing edit, focused build/test, formatting, design-note, and fix loop only'
+        $guide | Should -Match 'Judge validates acceptance only after Implementor completes'
+        $guide | Should -Match 'Commit and phase promotion remain outside dispatch'
+        $guide | Should -Match 'adds no clone, credential, worktree, container'
+        $skill | Should -Match 'Do not create an implementation-role fleet in `/ci` on this\s+path'
+    }
 }
