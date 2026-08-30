@@ -1195,6 +1195,33 @@ Describe 'Fleet dispatch execution adapter' {
         $result.Attendance.Retried | Should -Be 0
         $result.Attendance.Cancelled | Should -Be 0
 
+        $renderFailure = $null
+        try {
+            [void](Invoke-FleetDispatchPlan -Plan (
+                    New-FleetDispatchPlan -Task @(New-FleetTask -Id rendered)
+                ) -Render {
+                    param($Text, $Stage)
+                    if ($Stage -ceq 'attendance') {
+                        throw 'attendance sink unavailable'
+                    }
+                } -InvokeWave {
+                    param($Wave)
+                    New-WaveResult -TaskId $Wave.TaskIds[0]
+                })
+        }
+        catch {
+            $renderFailure = $_.Exception
+        }
+        $renderFailure | Should -Not -BeNullOrEmpty
+        $renderFailure.Message | Should -BeLike (
+            'Fleet dispatch completed, but attendance rendering failed: *attendance sink unavailable*'
+        )
+        $renderFailure.Data['FleetDispatchRenderStage'] | Should -BeExactly 'attendance'
+        $completedRenderResult = $renderFailure.Data['FleetDispatchResult']
+        $completedRenderResult.Schema | Should -BeExactly 'skalary/fleet-dispatch-result@1'
+        $completedRenderResult.Attendance.Completed | Should -Be 1
+        $completedRenderResult.Tasks[0].Status | Should -BeExactly 'completed'
+
         $throttlePlan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id first
             New-FleetTask -Id second

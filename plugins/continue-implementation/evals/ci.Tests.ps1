@@ -87,8 +87,11 @@ Describe 'ci structural evals' {
         $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/assets/fleet-dispatch-guide.md') -Raw
 
-        $skill.IndexOf('phase admission', [System.StringComparison]::OrdinalIgnoreCase) |
-            Should -BeLessThan $skill.IndexOf('Implementation-role fleet dispatch', [System.StringComparison]::Ordinal)
+        $phaseAdmissionIndex = $skill.IndexOf('phase admission', [System.StringComparison]::OrdinalIgnoreCase)
+        $fleetSectionIndex = $skill.IndexOf('Implementation-role fleet dispatch', [System.StringComparison]::Ordinal)
+        $phaseAdmissionIndex | Should -BeGreaterOrEqual 0
+        $fleetSectionIndex | Should -BeGreaterOrEqual 0
+        $phaseAdmissionIndex | Should -BeLessThan $fleetSectionIndex
         $guide.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal) |
             Should -BeLessThan $guide.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
         $guide.IndexOf('PreView', [System.StringComparison]::Ordinal) |

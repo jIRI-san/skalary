@@ -76,4 +76,5 @@ Phase: 3
 ## CR Capture
 Phase: 4
 
-No entries for this phase.
+- [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2,REQ-3] [review:cr] [source-record:7ba75aa77e8d4d6f5ff38017bec122ee91c0166785f7f0c2471448239e26b385] Round 1 finding 1 triage=fix: attendance-rendering failures hide the completed run result and can invite duplicate dispatch on retry.
+- [-] [src:code-review] [sev:Med] [concern:testing-evidence] [req:REQ-5,REQ-8] [review:cr] [source-record:14b82984f949bc4255aa490413f8f12f79fa518dfbee19fb1b35569c9f733bc0] Round 1 finding 2 triage=fix: CI/autopilot ordering assertions can pass when prerequisite markers are absent because IndexOf returns -1.

@@ -21,7 +21,7 @@ omitted tasks, projected waves, stable ready order, retry policy, and empty atte
 | Projection | Stable caller order; each wave admits at most four tasks whose selected prerequisites are in earlier waves |
 | Rendering | `Format-FleetDispatchPlan` prints all selected and omitted tasks, cap, waves, ready order, retry policy, and that provider-global concurrency is unobserved |
 | Execution | `Start-FleetDispatchRun` validates one private snapshot and atomically admits the first ready wave; native hosts settle that wave through `Step-FleetDispatchRun`, which validates one structured result per admitted task and admits the next wave; `Complete-FleetDispatchRun` refuses incomplete state and renders final attendance |
-| Callback compatibility | `Invoke-FleetDispatchPlan` is a wrapper over the stepwise core for PowerShell callers; it maps launcher exceptions to bounded, control-sanitized, token-redacted failed outcomes |
+| Callback compatibility | `Invoke-FleetDispatchPlan` is a wrapper over the stepwise core for PowerShell callers; it maps launcher exceptions to bounded, control-sanitized, token-redacted failed outcomes. If only final attendance delivery fails, its contextual exception exposes the completed result and `attendance` stage so callers retry rendering rather than dispatch |
 | Result | Closed per-attempt outcomes are `completed`, `failed`, or explicit `throttled`; task terminals are `completed`, `failed`, or `cancelled` |
 | State | The plan is pure run-local data. It creates no files, locks, leases, scheduler records, or recovery state |
 

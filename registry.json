@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T11:25:08.2990027Z",
+  "generatedAt": "2026-08-30T11:48:37.0156519Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -227,7 +227,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/FleetDispatch.psm1",
-          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "sha256": "8614461937be4328618b9ffcdf52049c5f5dda886e2ed0fdad6cc5596d324856",
           "src": "skills/autopilot/scripts/FleetDispatch.psm1"
         },
         {
@@ -371,7 +371,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.64"
+      "version": "1.2.65"
     },
     {
       "author": "jIRI-san",
@@ -478,7 +478,7 @@
         },
         {
           "dest": "skills/cr/scripts/FleetDispatch.psm1",
-          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "sha256": "8614461937be4328618b9ffcdf52049c5f5dda886e2ed0fdad6cc5596d324856",
           "src": "skills/cr/scripts/FleetDispatch.psm1"
         },
         {
@@ -565,7 +565,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.55"
+      "version": "1.0.56"
     },
     {
       "author": "jIRI-san",
@@ -620,7 +620,7 @@
         },
         {
           "dest": "skills/ci/scripts/FleetDispatch.psm1",
-          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "sha256": "8614461937be4328618b9ffcdf52049c5f5dda886e2ed0fdad6cc5596d324856",
           "src": "skills/ci/scripts/FleetDispatch.psm1"
         },
         {
@@ -755,7 +755,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.87"
+      "version": "1.0.88"
     },
     {
       "author": "jIRI-san",
@@ -894,7 +894,7 @@
         },
         {
           "dest": "skills/cip/scripts/FleetDispatch.psm1",
-          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "sha256": "8614461937be4328618b9ffcdf52049c5f5dda886e2ed0fdad6cc5596d324856",
           "src": "skills/cip/scripts/FleetDispatch.psm1"
         },
         {
@@ -971,7 +971,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.72"
+      "version": "1.0.73"
     },
     {
       "author": "jIRI-san",
@@ -1143,7 +1143,7 @@
         },
         {
           "dest": "skills/dr/scripts/FleetDispatch.psm1",
-          "sha256": "cac499423985fddac8738b1813cc3e893c4e1ca645967ded2bd9cfe116472c38",
+          "sha256": "8614461937be4328618b9ffcdf52049c5f5dda886e2ed0fdad6cc5596d324856",
           "src": "skills/dr/scripts/FleetDispatch.psm1"
         },
         {
@@ -1230,7 +1230,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.54"
+      "version": "1.0.55"
     },
     {
       "author": "jIRI-san",

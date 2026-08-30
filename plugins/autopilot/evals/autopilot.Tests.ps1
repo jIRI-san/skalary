@@ -87,8 +87,11 @@ Describe 'autopilot structural evals' {
     It 'keeps the autopilot plan before calls and conserves the four-role graph and boundaries' {
         $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
 
-        $agent.IndexOf('Create the fleet only after', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $agent.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+        $fleetAdmissionIndex = $agent.IndexOf('Create the fleet only after', [System.StringComparison]::Ordinal)
+        $planCallIndex = $agent.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+        $fleetAdmissionIndex | Should -BeGreaterOrEqual 0
+        $planCallIndex | Should -BeGreaterOrEqual 0
+        $fleetAdmissionIndex | Should -BeLessThan $planCallIndex
         $agent.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal) |
             Should -BeLessThan $agent.IndexOf('PreView', [System.StringComparison]::Ordinal)
         $agent.IndexOf('PreView', [System.StringComparison]::Ordinal) |
