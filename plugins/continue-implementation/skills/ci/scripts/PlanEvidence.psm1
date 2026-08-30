@@ -122,12 +122,20 @@ function Get-PlanReviewCycleState {
         "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-decision stage=$stagePattern after=(?<after>[0-9]+) action=(?<action>continue|wrap)$"
     )
     foreach ($match in $decisionMatches) {
+        $eventId = 'sha256:' + [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData(
+                [System.Text.Encoding]::UTF8.GetBytes($match.Value)
+            )
+        ).ToLowerInvariant()
         $events.Add([pscustomobject]@{
                 Index = $match.Index
                 After = [int]$match.Groups['after'].Value
                 Action = [string]$match.Groups['action'].Value
                 Authorization = ''
+                EventId = $eventId
                 Reason = ''
+                TargetEventId = ''
+                Timestamp = ''
             })
     }
     $remediationMatches = [regex]::Matches(
@@ -140,13 +148,61 @@ function Get-PlanReviewCycleState {
                 After = [int]$match.Groups['after'].Value
                 Action = 'reopen'
                 Authorization = [string]$match.Groups['authorization'].Value
+                EventId = ''
                 Reason = [string]$match.Groups['reason'].Value
+                TargetEventId = ''
+                Timestamp = ''
             })
     }
-    $latestEvent = @($events | Sort-Object Index | Select-Object -Last 1)
+    $invalidationMatches = [regex]::Matches(
+        $raw,
+        "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-remediation stage=$stagePattern after=(?<after>[0-9]+) action=invalidate-continue target=(?<target>sha256:[0-9a-f]{64}) authorization=(?<authorization>[A-Za-z0-9][A-Za-z0-9._:-]{0,127}) timestamp=(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{7}Z) reason=(?<reason>.+)$"
+    )
+    foreach ($match in $invalidationMatches) {
+        $events.Add([pscustomobject]@{
+                Index = $match.Index
+                After = [int]$match.Groups['after'].Value
+                Action = 'invalidate-continue'
+                Authorization = [string]$match.Groups['authorization'].Value
+                EventId = ''
+                Reason = [string]$match.Groups['reason'].Value
+                TargetEventId = [string]$match.Groups['target'].Value
+                Timestamp = [string]$match.Groups['timestamp'].Value
+            })
+    }
+    $orderedEvents = @($events | Sort-Object Index)
+    foreach ($invalidation in @($orderedEvents | Where-Object Action -eq 'invalidate-continue')) {
+        $priorEvents = @($orderedEvents | Where-Object Index -lt $invalidation.Index)
+        $priorEvent = @($priorEvents | Select-Object -Last 1)
+        $targets = @($orderedEvents | Where-Object {
+                $_.Action -eq 'continue' -and $_.EventId -ceq $invalidation.TargetEventId
+            })
+        if ($targets.Count -ne 1) {
+            throw "Review-cycle invalidation for '$Stage' has an ambiguous or missing Continue target '$($invalidation.TargetEventId)'."
+        }
+        if ($priorEvent.Count -ne 1 -or
+            $priorEvent[0].Action -ne 'continue' -or
+            $priorEvent[0].Index -ne $targets[0].Index) {
+            throw "Review-cycle invalidation for '$Stage' does not target the latest event."
+        }
+        $cyclesBeforeInvalidation = @($cycleMatches | Where-Object Index -lt $invalidation.Index)
+        $interveningCycles = @($cycleMatches | Where-Object {
+                $_.Index -gt $targets[0].Index -and $_.Index -lt $invalidation.Index
+            })
+        if ($targets[0].After -ne $invalidation.After -or
+            $cyclesBeforeInvalidation.Count -ne $invalidation.After -or
+            $interveningCycles.Count -gt 0) {
+            throw "Review-cycle invalidation for '$Stage' is stale or follows a later review result."
+        }
+    }
+    $latestEvent = @($orderedEvents | Select-Object -Last 1)
     $latestEvent = if ($latestEvent.Count -eq 1) { $latestEvent[0] } else { $null }
 
     $latestCycle = if ($cycleMatches.Count -gt 0) { $cycleMatches[$cycleMatches.Count - 1] } else { $null }
+    $latestCycleIndex = if ($null -ne $latestCycle) { $latestCycle.Index } else { -1 }
+    $currentContinueCount = @($orderedEvents | Where-Object {
+            $_.Action -eq 'continue' -and $_.After -eq $count -and $_.Index -gt $latestCycleIndex
+        }).Count
     $latestOutcome = if ($null -ne $latestCycle) { [string]$latestCycle.Groups['outcome'].Value } else { '' }
     $reviewRunId = if ($null -ne $latestCycle -and $latestCycle.Groups['runId'].Success) {
         [string]$latestCycle.Groups['runId'].Value
@@ -166,7 +222,15 @@ function Get-PlanReviewCycleState {
         'allow'
     }
     elseif ($null -ne $latestEvent -and $latestEvent.After -eq $count) {
-        if ($latestEvent.Action -in @('continue', 'reopen')) { 'allow' } else { 'wrap' }
+        if ($latestEvent.Action -in @('continue', 'reopen')) {
+            'allow'
+        }
+        elseif ($latestEvent.Action -eq 'invalidate-continue') {
+            'operator-decision'
+        }
+        else {
+            'wrap'
+        }
     }
     else {
         'operator-decision'
@@ -176,6 +240,8 @@ function Get-PlanReviewCycleState {
         State = $state
         Cycles = $count
         LatestEvent = $latestEvent
+        LatestCycleIndex = $latestCycleIndex
+        CurrentContinueCount = $currentContinueCount
         LatestOutcome = $latestOutcome
         ReviewRunId = $reviewRunId
         LogPath = $logPath
