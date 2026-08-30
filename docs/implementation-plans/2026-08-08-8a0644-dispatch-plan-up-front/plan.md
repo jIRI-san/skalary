@@ -34,7 +34,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min - 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add a small pure dispatch planner that accepts ordered task descriptors, validates ids/dependencies/omissions, and returns selected tasks plus deterministic ready waves of at most four; add focused unit tests and the fleet design note (REQ-1, REQ-2, REQ-8, RISK-1, RISK-4) `M`
+- [x] 1.1 Add a small pure dispatch planner that accepts ordered task descriptors, validates ids/dependencies/omissions, and returns selected tasks plus deterministic ready waves of at most four; add focused unit tests and the fleet design note (REQ-1, REQ-2, REQ-8, RISK-1, RISK-4) `M`
 - [ ] 1.2 Add a run-scoped orchestration adapter that renders the plan before dispatch, launches only planned ready tasks, retries once only on an explicit throttle result, cancels transitive dependents after failure, and renders final attendance/degradation (REQ-2, REQ-3, REQ-8, RISK-1, RISK-2, RISK-3) [after: 1.1] `M`
 
 ## Phase 2: Planning and implementation skills

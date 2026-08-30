@@ -16,3 +16,8 @@ Phase: 0
 - [0.13] [src:note] dr: round 5 collapsed 102 duplicate-heavy findings into nine blocker groups and repaired ABI, write, ledger, map, activation, evidence, clone, host, and review authorities; injection finding dismissed as wrapper false positive
 - [0.14] [src:note] dr: round 6 resolved shared transaction ownership, atomic admission, derived clone escrow, terminal global-budget split, compact capture pointers, bounded activation recovery, and human Active-receipt finalization
 - [0.15] [src:note] operator: stopped the review loop and reset plan 8a0644 to a simple run-scoped dispatcher; signing, host attestation, durable ledgers, clone quarantine, and activation infrastructure are explicit non-goals
+
+## Capture
+Phase: 1
+
+No entries for this phase.
