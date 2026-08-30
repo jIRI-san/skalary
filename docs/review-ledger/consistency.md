@@ -2,6 +2,7 @@
 
 - [2026-08-01] A constant restated in prose needs either a pointer to the gated source or a test tying the two; an ungated third copy goes stale the moment the gated one moves. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-17
 - [2026-08-01] A gate whose scope is derived from what is already declared is self-referential; root the closed set in the grammar or state the residual bound where a reader will find it. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
+- [2026-08-30] A generated payload edit outside Sync-PluginScripts still requires an explicit owning-plugin version bump before catalog regeneration. (plan-8a0644, src:autopilot, sev:Med) #maintainability-consistency #phase-4 #req-8
 - [2026-08-01] A plugin payload edit must regenerate marketplace.json and registry.json in the same commit; the unit suite passes while the generated catalogs go stale. (plan-b0c0d3, src:autopilot, sev:Critical) #phase-10 #req-17
 - [2026-08-29] An obsolete active-runs path assignment remained in the SI scanner; removed. (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1 #req-6
 - [2026-08-29] decision=keep one admitted-phase and phase-close contract for next-phase and whole-plan; integration=installed CI and autopilot payloads now state progression and resume semantics explicitly; distribution=dogfood registr (plan-6a629b, src:autopilot, sev:Med) #architecture-patterns #phase-3 #req-1 #req-4 #req-5 #req-6
