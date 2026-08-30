@@ -245,6 +245,86 @@ function Assert-SiPhaseReceiptV2 {
     }
 }
 
+function Assert-SiPhaseReceiptMigration {
+    param(
+        [Parameter(Mandatory)][object]$Migration,
+        [Parameter(Mandatory)][string]$SourcePath
+    )
+
+    $names = @($Migration.PSObject.Properties.Name)
+    $sourceNames = @($Migration.source.PSObject.Properties.Name)
+    $validationNames = @($Migration.validation.PSObject.Properties.Name)
+    if ($names.Count -ne 6 -or
+        @('schema', 'migrationId', 'migratedAt', 'tool', 'source', 'validation' |
+                Where-Object { $names -cnotcontains $_ }).Count -gt 0 -or
+        $sourceNames.Count -ne 9 -or
+        @('schema', 'receiptId', 'sha256', 'payloadSha256', 'blob', 'commit', 'tree', 'ref', 'path' |
+                Where-Object { $sourceNames -cnotcontains $_ }).Count -gt 0 -or
+        $validationNames.Count -ne 5 -or
+        @('sourceReceipt', 'sourceCommit', 'sourceSnapshots', 'candidates', 'identity' |
+                Where-Object { $validationNames -cnotcontains $_ }).Count -gt 0) {
+        throw "Phase receipt '$SourcePath' contains malformed migration provenance."
+    }
+    $migratedAt = if ($Migration.migratedAt -is [datetime]) {
+        ([datetime]$Migration.migratedAt).ToUniversalTime().ToString('o')
+    }
+    elseif ($Migration.migratedAt -is [datetimeoffset]) {
+        ([datetimeoffset]$Migration.migratedAt).UtcDateTime.ToString('o')
+    }
+    else {
+        [string]$Migration.migratedAt
+    }
+    $activeSourcePath = if ($SourcePath.StartsWith(
+            'docs/implementation-plans/archived/',
+            [System.StringComparison]::Ordinal
+        )) {
+        'docs/implementation-plans/' + $SourcePath.Substring(
+            'docs/implementation-plans/archived/'.Length
+        )
+    }
+    else {
+        $SourcePath
+    }
+    $parsedTimestamp = [datetimeoffset]::MinValue
+    if ($Migration.schema -cne 'phase-harvest-receipt-migration/v1' -or
+        [string]$Migration.migrationId -cnotmatch '^[0-9a-f]{64}$' -or
+        -not [datetimeoffset]::TryParseExact(
+            $migratedAt,
+            'o',
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::RoundtripKind,
+            [ref]$parsedTimestamp
+        ) -or
+        $Migration.tool -cne 'skalary/Invoke-PhaseHarvest.ps1@phase-receipt-migration/v1' -or
+        $Migration.source.schema -cne 'phase-harvest-receipt/v1' -or
+        $Migration.source.receiptId -cnotmatch '^[0-9a-f]{64}$' -or
+        $Migration.source.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $Migration.source.payloadSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $Migration.source.blob -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' -or
+        $Migration.source.commit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' -or
+        $Migration.source.tree -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' -or
+        $Migration.source.path -cne $activeSourcePath -or
+        $Migration.validation.sourceReceipt -cne 'digest-verified' -or
+        $Migration.validation.sourceCommit -cne 'reachable-and-matched' -or
+        $Migration.validation.sourceSnapshots -cne 'blob-verified' -or
+        $Migration.validation.candidates -cne 'rederived' -or
+        $Migration.validation.identity -cne 'repo-plan-phase-matched') {
+        throw "Phase receipt '$SourcePath' contains invalid migration provenance."
+    }
+    $body = [pscustomobject][ordered]@{
+        schema = [string]$Migration.schema
+        migratedAt = $migratedAt
+        tool = [string]$Migration.tool
+        source = $Migration.source
+        validation = $Migration.validation
+    }
+    $expectedId = Get-SiHarvestDigest -Domain 'phase-harvest-receipt-migration/v1' `
+        -Field @((ConvertTo-StableJson -Value $body))
+    if ($expectedId -cne [string]$Migration.migrationId) {
+        throw "Phase receipt '$SourcePath' migration provenance failed its content-address check."
+    }
+}
+
 function Get-RemainingScanMilliseconds {
     $remaining = $maxScanSeconds - $stopwatch.Elapsed.TotalSeconds
     if ($remaining -le 0) {
@@ -733,9 +813,17 @@ function ConvertTo-HarvestRecords {
             $payloadNames = @($receipt.payload.PSObject.Properties.Name)
             $receiptSchema = [string]$receipt.schema
             $expectedPayloadNames = if ($receiptSchema -eq 'phase-harvest-receipt/v2') { 8 } else { 7 }
-            if ($names.Count -ne 3 -or
-                @('schema', 'receiptId', 'payload' | Where-Object { $names -notcontains $_ }).Count -gt 0 -or
+            $hasMigration = $names -ccontains 'migration'
+            $expectedNames = if ($hasMigration) {
+                @('schema', 'receiptId', 'payload', 'migration')
+            }
+            else {
+                @('schema', 'receiptId', 'payload')
+            }
+            if ($names.Count -ne $expectedNames.Count -or
+                @($expectedNames | Where-Object { $names -cnotcontains $_ }).Count -gt 0 -or
                 $receiptSchema -notin @('phase-harvest-receipt/v1', 'phase-harvest-receipt/v2') -or
+                ($hasMigration -and $receiptSchema -cne 'phase-harvest-receipt/v2') -or
                 $receipt.receiptId -notmatch '^[0-9a-f]{64}$' -or
                 $payloadNames.Count -ne $expectedPayloadNames -or
                 @('repo', 'plan', 'phase', 'status', 'ledgerSource', 'sources', 'candidates' |
@@ -757,6 +845,10 @@ function ConvertTo-HarvestRecords {
             }
             if ($receiptSchema -eq 'phase-harvest-receipt/v2') {
                 Assert-SiPhaseReceiptV2 -Receipt $receipt -SourcePath $SourcePath
+                if ($hasMigration) {
+                    Assert-SiPhaseReceiptMigration -Migration $receipt.migration `
+                        -SourcePath $SourcePath
+                }
             }
         }
         'ledger' {
@@ -1135,7 +1227,7 @@ $inventory = @(Get-PinnedPlanInventory -Root $repoRootFull -CommitOid $PinnedBas
 $plan = Resolve-Plan -Reference $PlanReference -RepoRoot $repoRootFull -Inventory $inventory
 $planId = [string]$plan.Id
 $planDir = [System.IO.Path]::GetFullPath([string]$plan.Path)
-$planRelativeDir = [string]$plan.RelativePath
+$planRelativeDir = ([string]$plan.RelativePath).Replace('\', '/')
 $cursorDocument = if ($Cursor) { Read-HarvestCursor -Value $Cursor } else { $null }
 $indexPath = Resolve-SiStatePath -RepoRoot $repoRootFull `
     -Segments @([string]$stateContract.Topology.HarvestIndexName)

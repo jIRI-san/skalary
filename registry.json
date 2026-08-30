@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T01:29:48.2577386Z",
+  "generatedAt": "2026-08-30T05:03:47.2734741Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "6e6bc7950c4e525b56e59ced0740ddda49f2720819480f31fc112b681491f99e",
+          "sha256": "5554d804916b7fe6db544931b4a997e72d06d0be663c905165c5f99a37f8394c",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -232,7 +232,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "4adffdb6c3e10b2725a15529cd2b05b5d5ed3a95d4d723a0136b0736450e2dc8",
+          "sha256": "94b38b5d63bb655808fd1ff74508329f0657d2f1bc99abde99251e826c96602c",
           "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -361,7 +361,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.54"
+      "version": "1.2.57"
     },
     {
       "author": "jIRI-san",
@@ -545,7 +545,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "8b4c5c5e3e753891f9a22812f68a59c244a835976638d3355e89b114859b05f0",
+          "sha256": "f992ca1985d0a79072b3bab2c75e1adbd75164d4e88cd5588c0308f65078fae8",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -580,7 +580,7 @@
         },
         {
           "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
-          "sha256": "4adffdb6c3e10b2725a15529cd2b05b5d5ed3a95d4d723a0136b0736450e2dc8",
+          "sha256": "94b38b5d63bb655808fd1ff74508329f0657d2f1bc99abde99251e826c96602c",
           "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
         },
         {
@@ -700,7 +700,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.77"
+      "version": "1.0.80"
     },
     {
       "author": "jIRI-san",
@@ -1348,7 +1348,7 @@
         },
         {
           "dest": "skills/si/scripts/Get-SiHarvest.ps1",
-          "sha256": "66c9a6d8ff85c184a4225bf766f61fd39bdb4aad56e3378f4e992a7bf6ce9dfb",
+          "sha256": "a59622131de5ca1fb044f349e64020042ae0544934da19a303e6ed73bfa1db98",
           "src": "scripts/Get-SiHarvest.ps1"
         },
         {
@@ -1515,7 +1515,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.67"
+      "version": "1.0.68"
     },
     {
       "author": "jIRI-san",

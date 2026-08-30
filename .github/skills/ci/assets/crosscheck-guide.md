@@ -57,6 +57,12 @@ engine and is not a second harvest implementation.
 10. On `complete` or `empty`, stage the returned receipt path plus only the ledger category files changed by the harvest, then commit them before phase completion. Skip the commit only when replay produced no git delta.
 11. Fail phase completion if blocking criteria are unsatisfied.
 
+Historical `phase-harvest-receipt/v1` files are never replayed or hand-edited. Migrate one only
+through the explicit installed command
+`.github/skills/ci/scripts/Invoke-PhaseHarvest.ps1 -PlanDir <plan-folder> -Phase <N> -MigrateLegacyReceipt -SourceRef HEAD -RepoRoot .`.
+It requires committed, independently verifiable Git provenance and changes only the receipt; commit
+that migrated receipt before resuming validation. Any degraded result is a hard stop.
+
 ### Operator checkpoint
 
 After the receipt is rebuilt, reread the confirmed intent and present one bounded checkpoint containing
