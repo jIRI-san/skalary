@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.63",
+  "version": "1.2.64",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -35,6 +35,10 @@
     {
       "src": "skills/autopilot/scripts/FleetDispatch.psm1",
       "dest": "skills/autopilot/scripts/FleetDispatch.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/SecretGuard.psm1",
+      "dest": "skills/autopilot/scripts/SecretGuard.psm1"
     },
     {
       "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",

@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.86",
+  "version": "1.0.87",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -42,6 +42,10 @@
     {
       "src": "skills/ci/scripts/FleetDispatch.psm1",
       "dest": "skills/ci/scripts/FleetDispatch.psm1"
+    },
+    {
+      "src": "skills/ci/scripts/SecretGuard.psm1",
+      "dest": "skills/ci/scripts/SecretGuard.psm1"
     },
     {
       "src": "skills/ci/scripts/AtomicStore.psm1",
