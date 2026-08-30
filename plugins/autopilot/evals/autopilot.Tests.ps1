@@ -65,7 +65,7 @@ Describe 'autopilot structural evals' {
             Should -BeTrue
     }
 
-    It 'keeps the autopilot plan before calls and conserves the four-role graph and boundaries' {
+    It 'eval:FleetDispatch.Autopilot.ConsumerContract keeps the plan before calls and conserves the four-role graph and boundaries' {
         $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
 
         $relations = @(

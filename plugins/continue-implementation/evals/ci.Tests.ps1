@@ -66,7 +66,7 @@ Describe 'ci structural evals' {
             Should -BeTrue
     }
 
-    It 'keeps the in-session CI plan before calls and conserves the four-role graph' {
+    It 'eval:FleetDispatch.CI.ConsumerContract keeps the in-session plan before calls and conserves the four-role graph' {
         $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/assets/fleet-dispatch-guide.md') -Raw
 

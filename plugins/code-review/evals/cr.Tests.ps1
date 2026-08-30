@@ -165,7 +165,7 @@ Describe 'cr structural evals' {
             Should -BeTrue
     }
 
-    It 'keeps CR Freeze and Fleet planning before calls while conserving frozen task authority' {
+    It 'eval:FleetDispatch.CR.ConsumerContract keeps Freeze and planning before calls while conserving frozen task authority' {
         $skill = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/cr/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'skills/cr/assets/dispatch-guide.md') -Raw
 

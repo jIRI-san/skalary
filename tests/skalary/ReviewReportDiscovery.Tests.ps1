@@ -32,6 +32,13 @@ Describe 'review-report test and eval discovery' {
                 'eval:ReviewReport.DR.DegradedArtifactPreservation'
                 'eval:ReviewReport.DR.BoundedRetry'
             )
+            Fleet = @(
+                'eval:FleetDispatch.CIP.ConsumerContract'
+                'eval:FleetDispatch.CI.ConsumerContract'
+                'eval:FleetDispatch.Autopilot.ConsumerContract'
+                'eval:FleetDispatch.CR.ConsumerContract'
+                'eval:FleetDispatch.DR.ConsumerContract'
+            )
         }
 
         function Script:Get-DeclaredCaseIds {
@@ -150,7 +157,8 @@ Describe 'review-report test and eval discovery' {
         $required = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tools/structural-eval-required.json') -Raw |
             ConvertFrom-Json
         [string]$required.schema | Should -Be 'skalary/structural-eval-required@1'
-        @($required.caseIds) | Should -Be @($script:expectedEvalIds.CR + $script:expectedEvalIds.DR)
+        @($required.caseIds) |
+            Should -Be @($script:expectedEvalIds.CR + $script:expectedEvalIds.Fleet + $script:expectedEvalIds.DR)
         $inventory = Get-TestInventory
         @($inventory.tests | Where-Object { [string]$_.test -match 'test:ReviewReport\.StructuralEvalEnforcement(?=$|\s)' }).Count |
             Should -Be 1 -Because 'the runtime gate must be executed against missing, skipped, and duplicate required outcomes'

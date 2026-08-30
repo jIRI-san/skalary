@@ -10,19 +10,66 @@ $script:SecretBlockPatterns = @(
     [pscustomobject]@{ Type = 'slack-token'; Pattern = 'xox[baprs]-[0-9A-Za-z-]{10,}' }
     [pscustomobject]@{ Type = 'stripe-secret-key'; Pattern = '\bsk_(?:live|test)_[0-9A-Za-z]{24,}\b' }
     [pscustomobject]@{ Type = 'npm-token'; Pattern = '\bnpm_[0-9A-Za-z]{36}\b' }
-    [pscustomobject]@{
-        Type = 'private-key-block'
-        Pattern = '(?s)-----BEGIN (?<keyType>(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----.*?-----END \k<keyType>-----'
-    }
-    [pscustomobject]@{
-        Type = 'private-key-block'
-        Pattern = '(?s)-----BEGIN (?:(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----.*\z'
-    }
 )
+$script:PrivateKeyLabels = @(
+    'PRIVATE KEY'
+    'RSA PRIVATE KEY'
+    'EC PRIVATE KEY'
+    'DSA PRIVATE KEY'
+    'OPENSSH PRIVATE KEY'
+    'ENCRYPTED PRIVATE KEY'
+    'PGP PRIVATE KEY BLOCK'
+)
+$script:PrivateKeyBeginPrefix = '-----BEGIN '
 $script:SecretAllowLiterals = @('AKIAIOSFODNN7EXAMPLE')
 $script:SecretPrefixPattern = '^(?:gh[pousr]_|github_pat_|AKIA|ASIA|AIza|xox[baprs]-|sk_(?:live|test)_|npm_)'
 $script:SecretMaskPattern = '^(?:X+|x+|\*+|0+|\.+|#+|_+|-+)$'
 $script:SecretSyntheticMarkers = @('REDACTED', 'EXAMPLE', 'PLACEHOLDER', 'DUMMY', 'SAMPLE', 'NOTAREALTOKEN')
+
+function Get-PrivateKeyBlockSpan {
+    param([Parameter(Mandatory)][string]$Value)
+
+    $spans = [System.Collections.Generic.List[object]]::new()
+    $cursor = 0
+    while ($cursor -lt $Value.Length) {
+        $begin = $Value.IndexOf(
+            $script:PrivateKeyBeginPrefix,
+            $cursor,
+            [System.StringComparison]::Ordinal
+        )
+        if ($begin -lt 0) { break }
+
+        $label = $null
+        $headerLength = 0
+        foreach ($candidate in $script:PrivateKeyLabels) {
+            $header = "$($script:PrivateKeyBeginPrefix)$candidate-----"
+            if (($begin + $header.Length) -le $Value.Length -and
+                [string]::CompareOrdinal($Value, $begin, $header, 0, $header.Length) -eq 0) {
+                $label = $candidate
+                $headerLength = $header.Length
+                break
+            }
+        }
+        if ($null -eq $label) {
+            $cursor = $begin + $script:PrivateKeyBeginPrefix.Length
+            continue
+        }
+
+        $endMarker = "-----END $label-----"
+        $end = $Value.IndexOf(
+            $endMarker,
+            $begin + $headerLength,
+            [System.StringComparison]::Ordinal
+        )
+        $spanEnd = if ($end -lt 0) { $Value.Length } else { $end + $endMarker.Length }
+        $spans.Add([pscustomobject]@{
+                Start  = $begin
+                Length = $spanEnd - $begin
+            })
+        $cursor = $spanEnd
+    }
+    return $spans.ToArray()
+}
 
 function Test-HighConfidenceSecretAllowed {
     param([Parameter(Mandatory)][string]$Token)
@@ -57,6 +104,9 @@ function Find-HighConfidenceSecret {
             $hits.Add($rule.Type)
         }
     }
+    if (@(Get-PrivateKeyBlockSpan -Value $Value).Count -gt 0) {
+        $hits.Add('private-key-block')
+    }
     return @($hits | Select-Object -Unique)
 }
 
@@ -66,7 +116,21 @@ function Protect-HighConfidenceSecret {
 
     if ([string]::IsNullOrEmpty($Value)) { return $Value }
 
-    $protected = $Value
+    $spans = @(Get-PrivateKeyBlockSpan -Value $Value)
+    if ($spans.Count -gt 0) {
+        $builder = [System.Text.StringBuilder]::new()
+        $cursor = 0
+        foreach ($span in $spans) {
+            [void]$builder.Append($Value, $cursor, $span.Start - $cursor)
+            [void]$builder.Append('[REDACTED:private-key-block]')
+            $cursor = $span.Start + $span.Length
+        }
+        [void]$builder.Append($Value, $cursor, $Value.Length - $cursor)
+        $protected = $builder.ToString()
+    }
+    else {
+        $protected = $Value
+    }
     foreach ($rule in $script:SecretBlockPatterns) {
         $protected = [regex]::Replace(
             $protected,

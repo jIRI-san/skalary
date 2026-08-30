@@ -76,7 +76,7 @@ Describe 'cip structural evals' {
             Should -BeTrue
     }
 
-    It 'keeps the CIP plan before native calls and conserves each declared role' {
+    It 'eval:FleetDispatch.CIP.ConsumerContract keeps the plan before native calls and conserves each declared role' {
         $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/cip/assets/fleet-dispatch-guide.md') -Raw
 

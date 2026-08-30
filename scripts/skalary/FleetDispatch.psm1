@@ -12,6 +12,9 @@ $script:FleetDispatchProviderNote = 'Provider-global concurrency is unobserved.'
 $script:FleetDispatchRetryTrigger = 'explicit-throttle-only'
 $script:FleetDispatchMaximumRetryCount = 1
 $script:FleetDispatchRetryDescription = 'Retry once only when the host or tool explicitly reports throttling.'
+$script:FleetDispatchLauncherDiagnosticWorkLimit = 4096
+$script:FleetDispatchLauncherDiagnosticBoundaryGuard = 128
+$script:FleetDispatchLauncherDiagnosticOutputLimit = 240
 
 function Get-FleetDispatchProperty {
     param(
@@ -107,6 +110,36 @@ function ConvertTo-FleetDispatchDisplayText {
     return ConvertTo-Json -InputObject $Value -Compress
 }
 
+function Limit-FleetDispatchProtectedText {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory)]
+        [string]$Value,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 4096)]
+        [int]$MaximumLength
+    )
+
+    if ($Value.Length -le $MaximumLength) {
+        return $Value.Trim()
+    }
+
+    $limited = $Value.Substring(0, $MaximumLength).Trim()
+    $openMarker = $limited.LastIndexOf('[REDACTED:', [System.StringComparison]::Ordinal)
+    if ($openMarker -ge 0 -and
+        $limited.IndexOf(']', $openMarker, [System.StringComparison]::Ordinal) -lt 0) {
+        $marker = '[REDACTED:truncated]'
+        $prefixLimit = $MaximumLength - $marker.Length
+        $prefix = $limited.Substring(0, [Math]::Min($openMarker, $prefixLimit)).TrimEnd()
+        if ($prefix.Length -gt 0 -and ($prefix.Length + 1 + $marker.Length) -le $MaximumLength) {
+            return "$prefix $marker"
+        }
+        return $marker
+    }
+    return $limited
+}
+
 function ConvertTo-FleetDispatchDiagnosticText {
     param(
         [AllowNull()]
@@ -124,10 +157,7 @@ function ConvertTo-FleetDispatchDiagnosticText {
         -AllowEmpty `
         -MaximumLength $MaximumLength
     $protected = Protect-HighConfidenceSecret -Value $text
-    if ($protected.Length -gt $MaximumLength) {
-        return $protected.Substring(0, $MaximumLength)
-    }
-    return $protected
+    return Limit-FleetDispatchProtectedText -Value $protected -MaximumLength $MaximumLength
 }
 
 function ConvertTo-FleetDispatchSafeDiagnosticText {
@@ -144,6 +174,56 @@ function ConvertTo-FleetDispatchSafeDiagnosticText {
     catch {
         return "$Label was unavailable because it violated the diagnostic boundary."
     }
+}
+
+function ConvertTo-FleetDispatchLauncherDiagnosticText {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory)]
+        [string]$Value
+    )
+
+    $bounded = $Value
+    $hitWorkLimit = $Value.Length -gt $script:FleetDispatchLauncherDiagnosticWorkLimit
+    if ($hitWorkLimit) {
+        $bounded = $Value.Substring(0, $script:FleetDispatchLauncherDiagnosticWorkLimit)
+    }
+
+    $protected = Protect-HighConfidenceSecret -Value $bounded
+    if ($hitWorkLimit) {
+        $guardLength = [Math]::Min(
+            $script:FleetDispatchLauncherDiagnosticBoundaryGuard,
+            $protected.Length
+        )
+        $protected = $protected.Substring(0, $protected.Length - $guardLength) +
+            ' [REDACTED:diagnostic-boundary]'
+    }
+
+    $normalized = [System.Text.StringBuilder]::new()
+    $previousWasSpace = $false
+    for ($index = 0; $index -lt $protected.Length; $index++) {
+        $character = $protected[$index]
+        $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($character)
+        $isSpace = [char]::IsWhiteSpace($character) -or $category -in @(
+            [Globalization.UnicodeCategory]::Control,
+            [Globalization.UnicodeCategory]::Format,
+            [Globalization.UnicodeCategory]::LineSeparator,
+            [Globalization.UnicodeCategory]::ParagraphSeparator
+        )
+        if ($isSpace) {
+            if (-not $previousWasSpace) {
+                [void]$normalized.Append(' ')
+                $previousWasSpace = $true
+            }
+            continue
+        }
+        [void]$normalized.Append($character)
+        $previousWasSpace = $false
+    }
+
+    return Limit-FleetDispatchProtectedText `
+        -Value $normalized.ToString() `
+        -MaximumLength $script:FleetDispatchLauncherDiagnosticOutputLimit
 }
 
 function Get-FleetDispatchBoundedCollection {
@@ -742,27 +822,8 @@ function Invoke-FleetDispatchWave {
         if ($exceptionType.Length -gt 128) {
             $exceptionType = $exceptionType.Substring(0, 128)
         }
-        $exceptionMessage = [string]$_.Exception.Message
-        $safeMessage = [System.Text.StringBuilder]::new()
-        foreach ($character in $exceptionMessage.ToCharArray()) {
-            $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($character)
-            if ($category -in @(
-                    [Globalization.UnicodeCategory]::Control,
-                    [Globalization.UnicodeCategory]::Format,
-                    [Globalization.UnicodeCategory]::LineSeparator,
-                    [Globalization.UnicodeCategory]::ParagraphSeparator
-                )) {
-                [void]$safeMessage.Append(' ')
-            }
-            else {
-                [void]$safeMessage.Append($character)
-            }
-        }
-        $exceptionMessage = Protect-HighConfidenceSecret -Value $safeMessage.ToString()
-        $exceptionMessage = [regex]::Replace($exceptionMessage, '\s+', ' ').Trim()
-        if ($exceptionMessage.Length -gt 240) {
-            $exceptionMessage = $exceptionMessage.Substring(0, 240)
-        }
+        $exceptionMessage = ConvertTo-FleetDispatchLauncherDiagnosticText `
+            -Value ([string]$_.Exception.Message)
         $failureDetail = "wave launcher raised $exceptionType"
         if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
             $failureDetail += ": $exceptionMessage"

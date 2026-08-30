@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T13:50:47.0101585Z",
+  "generatedAt": "2026-08-30T14:49:21.0457874Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -227,7 +227,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/FleetDispatch.psm1",
-          "sha256": "f9cef438342d37628a23d5cf07bcc0028050cac37ee74e2fe4f27988525d8512",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
           "src": "skills/autopilot/scripts/FleetDispatch.psm1"
         },
         {
@@ -267,7 +267,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/autopilot/scripts/SecretGuard.psm1"
         },
         {
@@ -371,7 +371,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.68"
+      "version": "1.2.69"
     },
     {
       "author": "jIRI-san",
@@ -478,7 +478,7 @@
         },
         {
           "dest": "skills/cr/scripts/FleetDispatch.psm1",
-          "sha256": "f9cef438342d37628a23d5cf07bcc0028050cac37ee74e2fe4f27988525d8512",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
           "src": "skills/cr/scripts/FleetDispatch.psm1"
         },
         {
@@ -523,7 +523,7 @@
         },
         {
           "dest": "skills/cr/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cr/scripts/SecretGuard.psm1"
         },
         {
@@ -565,7 +565,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.60"
+      "version": "1.0.61"
     },
     {
       "author": "jIRI-san",
@@ -620,7 +620,7 @@
         },
         {
           "dest": "skills/ci/scripts/FleetDispatch.psm1",
-          "sha256": "f9cef438342d37628a23d5cf07bcc0028050cac37ee74e2fe4f27988525d8512",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
           "src": "skills/ci/scripts/FleetDispatch.psm1"
         },
         {
@@ -665,7 +665,7 @@
         },
         {
           "dest": "skills/ci/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/ci/scripts/SecretGuard.psm1"
         },
         {
@@ -755,7 +755,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.91"
+      "version": "1.0.92"
     },
     {
       "author": "jIRI-san",
@@ -824,7 +824,7 @@
         },
         {
           "dest": "skills/cep/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cep/scripts/SecretGuard.psm1"
         },
         {
@@ -894,7 +894,7 @@
         },
         {
           "dest": "skills/cip/scripts/FleetDispatch.psm1",
-          "sha256": "f9cef438342d37628a23d5cf07bcc0028050cac37ee74e2fe4f27988525d8512",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
           "src": "skills/cip/scripts/FleetDispatch.psm1"
         },
         {
@@ -934,7 +934,7 @@
         },
         {
           "dest": "skills/cip/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/cip/scripts/SecretGuard.psm1"
         },
         {
@@ -971,7 +971,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.76"
+      "version": "1.0.77"
     },
     {
       "author": "jIRI-san",
@@ -1143,7 +1143,7 @@
         },
         {
           "dest": "skills/dr/scripts/FleetDispatch.psm1",
-          "sha256": "f9cef438342d37628a23d5cf07bcc0028050cac37ee74e2fe4f27988525d8512",
+          "sha256": "f1b4e6ab8fb089f9b53a7f6730a9a58a07693c6cef11183b848a9865564083b6",
           "src": "skills/dr/scripts/FleetDispatch.psm1"
         },
         {
@@ -1188,7 +1188,7 @@
         },
         {
           "dest": "skills/dr/scripts/SecretGuard.psm1",
-          "sha256": "f0a9330b2704ab8a82f1d9b01a7ced65e306c60626bd45b878c5a6df2aa00449",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/dr/scripts/SecretGuard.psm1"
         },
         {
@@ -1230,7 +1230,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.59"
+      "version": "1.0.60"
     },
     {
       "author": "jIRI-san",

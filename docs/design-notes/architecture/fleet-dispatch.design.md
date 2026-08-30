@@ -121,8 +121,15 @@ format/bidirectional controls, and line/paragraph separators are rejected; free 
 before rendering. Result details use the same boundary and remain programmatic run-local data;
 `FinalView` contains closed outcomes, counts, omissions, and degradation categories but never host
 diagnostics. Secret redaction runs before diagnostic truncation and the bound is re-applied
-afterward. A plan contains at most 64 tasks and each task at most 64 dependencies, bounding
-projection work and rendered output.
+afterward. Private-key redaction uses a single forward `IndexOf` scan over exact PEM labels rather
+than multiline backtracking; complete and unterminated `PRIVATE KEY`, RSA, EC, DSA, OPENSSH,
+`ENCRYPTED PRIVATE KEY`, and PGP private-key blocks are covered. Launcher exception diagnostics
+inspect at most 4096 source characters. When that work bound is hit, the scanner replaces a
+128-character boundary guard before whitespace normalization, so a credential split by the bound
+cannot become visible after whitespace collapse. The normalized result is capped at 240 characters,
+never splits a redaction marker, and is idempotent when run through state validation again. A plan
+contains at most 64 tasks and each task at most 64 dependencies, bounding projection work and
+rendered output.
 Post-run formatting is reachable only through `Complete-FleetDispatchRun`, which revalidates closed
 task-state values, admitted-wave coherence, and started/attempt conservation before rendering.
 

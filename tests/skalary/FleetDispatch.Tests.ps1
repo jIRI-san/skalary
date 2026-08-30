@@ -1272,6 +1272,53 @@ Describe 'Fleet dispatch execution adapter' {
         }
     }
 
+    It 'redacts encrypted and unterminated private-key blocks with direct payload coverage' {
+        $encrypted = @(
+            'before encrypted'
+            '-----BEGIN ENCRYPTED PRIVATE KEY-----'
+            'ENCRYPTED-PAYLOAD-SECRET'
+            '-----END ENCRYPTED PRIVATE KEY-----'
+            'after encrypted'
+        ) -join "`n"
+        $unterminated = @(
+            'before unterminated'
+            '-----BEGIN OPENSSH PRIVATE KEY-----'
+            'UNTERMINATED-PAYLOAD-SECRET'
+        ) -join "`n"
+
+        foreach ($value in @($encrypted, $unterminated)) {
+            @(Find-HighConfidenceSecret -Value $value) | Should -Contain 'private-key-block'
+            $protected = Protect-HighConfidenceSecret -Value $value
+            $protected | Should -Match '\[REDACTED:private-key-block\]'
+            $protected | Should -Not -Match 'PAYLOAD-SECRET'
+            $protected | Should -Not -Match 'BEGIN (?:ENCRYPTED|OPENSSH) PRIVATE KEY'
+        }
+        $encryptedProtected = Protect-HighConfidenceSecret -Value $encrypted
+        $encryptedProtected | Should -Match 'after encrypted'
+        $unterminatedProtected = Protect-HighConfidenceSecret -Value $unterminated
+        $unterminatedProtected | Should -Not -Match 'UNTERMINATED-PAYLOAD-SECRET'
+    }
+
+    It 'keeps post-redaction truncation normalization idempotent' {
+        $module = Get-Module FleetDispatch
+        $secret = 'github_pat_' + ('a1' * 11)
+        $source = ('x' * 479) + $secret
+
+        $once = & $module {
+            param($Value)
+            ConvertTo-FleetDispatchDiagnosticText -Value $Value -MaximumLength 512
+        } $source
+        $twice = & $module {
+            param($Value)
+            ConvertTo-FleetDispatchDiagnosticText -Value $Value -MaximumLength 512
+        } $once
+
+        $once | Should -BeExactly $twice
+        $once.Length | Should -BeLessOrEqual 512
+        $once | Should -Match '\[REDACTED:truncated\]$'
+        $once | Should -Not -Match 'github_pat_'
+    }
+
     It 'test:FleetDispatch.Execution admits only ready planned tasks and handles failure and explicit throttle once' {
         $plan = New-FleetDispatchPlan -Task @(
             1..5 | ForEach-Object { New-FleetTask -Id "task-$_" }
@@ -1674,7 +1721,18 @@ Describe 'Fleet dispatch execution adapter' {
             throw (('x' * 230) + $boundarySecret + 'trailing diagnostic')
         }
         $boundaryFailure.Tasks[0].Detail | Should -Not -Match ([regex]::Escape($boundarySecret))
+        $boundaryFailure.Tasks[0].Detail | Should -Not -Match 'github_pat_'
+        $boundaryFailure.Tasks[0].Detail |
+            Should -Match '\[REDACTED:truncated\]'
         $boundaryFailure.Tasks[0].Detail.Length | Should -BeLessOrEqual 512
+
+        $splitBoundaryFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            throw ((' ' * 4090) + $boundarySecret)
+        }
+        $splitBoundaryFailure.Tasks[0].Detail | Should -Not -Match 'github_pat_'
+        $splitBoundaryFailure.Tasks[0].Detail |
+            Should -Match '\[REDACTED:diagnostic-boundary\]'
+        $splitBoundaryFailure.Tasks[0].Detail.Length | Should -BeLessOrEqual 512
         $forgedViolation = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
             $exception = [InvalidOperationException]::new('caller exception')
             $exception.Data['FleetDispatchContractViolation'] = $true
