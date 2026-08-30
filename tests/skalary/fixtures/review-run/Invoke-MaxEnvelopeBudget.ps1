@@ -32,6 +32,7 @@ function New-Filler {
 
 $spec = Get-Content -LiteralPath $SpecPath -Raw | ConvertFrom-Json -AsHashtable -Depth 40
 $g = $spec.generation
+$similaritySeed = 'alpha-bravo-charlie-delta-echo-foxtrot-golf-hotel-india-juliet-kilo-lima-mike-november-oscar-papa-quebec-romeo-sierra-tango'
 
 $roster = @(1..$g.rosterModels | ForEach-Object { New-Filler -Length $g.modelLength -Seed "model-$_" })
 
@@ -51,15 +52,17 @@ $resultTasks = @(1..$g.tasks | ForEach-Object {
 $findings = @(1..$g.findings | ForEach-Object {
         $index = $_
         $group = ('{0:d3}' -f ((($index - 1) % $g.mergedGroups) + 1))
+        $groupOccurrence = [Math]::Floor(($index - 1) / $g.mergedGroups)
+        $taskOrdinal = [int]($g.diagnosticTasks + 1 + ($groupOccurrence % 2))
         [ordered]@{
-            action = New-Filler -Length $g.actionLength -Seed "action-$index"
-            body = New-Filler -Length $g.bodyLength -Seed "body-$index"
+            action = New-Filler -Length $g.actionLength -Seed "$similaritySeed-action-$index"
+            body = New-Filler -Length $g.bodyLength -Seed "$similaritySeed-body-$index"
             component = New-Filler -Length $g.componentLength -Seed "component-$group"
             references = @(1..$g.references | ForEach-Object { New-Filler -Length $g.referenceLength -Seed "ref-$index-$_" })
             rootCause = New-Filler -Length $g.rootCauseLength -Seed "root-$group"
             severity = 'Critical'
-            taskId = ('t{0:d3}' -f ((($index - 1) % ($g.tasks - $g.diagnosticTasks)) + $g.diagnosticTasks + 1))
-            title = New-Filler -Length $g.titleLength -Seed "title-$index"
+            taskId = ('t{0:d3}' -f $taskOrdinal)
+            title = New-Filler -Length $g.titleLength -Seed "$similaritySeed-title-$index"
         }
     })
 
@@ -102,10 +105,6 @@ Set-Content -LiteralPath $resultTmp -Value $resultJson -NoNewline
 [System.IO.File]::Move($resultTmp, (Join-Path $runDir 'review-result.input.json'), $true)
 $resultJson = $null
 
-# Record the summary size (it fits, D5) directly; the full view size comes back from the admission
-# diagnostic so we do not hold a second 1.8 MiB string alongside the publish allocations.
-$summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryView -Run $run))
-
 # Free the in-memory envelope the harness built so the sampled growth is the publication's own cost —
 # reading the input from disk, canonicalizing, rendering both views and deciding admission — rather
 # than the test harness's hashtable construction.
@@ -142,6 +141,16 @@ Remove-Job -Job $sampler -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $stopFlag -Force -ErrorAction SilentlyContinue
 $growthBytes = [Math]::Max(0, $peak - $baseline)
 
+# Read the persisted admission source only after timing, so the measurement includes the first
+# corroboration pass rather than warming it through an exported renderer first.
+$admissionSource = @(Get-ChildItem -LiteralPath $runDir -File -Force |
+        Where-Object { $_.Name -cmatch '^review-admission-source\.[0-9a-f]{64}\.json$' })
+if ($admissionSource.Count -ne 1) { throw 'The maximum-envelope admission did not retain one canonical source.' }
+$admittedRun = Get-Content -LiteralPath $admissionSource[0].FullName -Raw | ConvertFrom-Json -AsHashtable -Depth 40
+$projection = ConvertTo-ReviewProjection -Run $admittedRun
+$suspiciousFindings = @($projection.Findings | Where-Object { $_.CorroborationState -eq 'suspicious' }).Count
+$summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryView -Run $admittedRun))
+
 # The full view size is reported inside the admission diagnostic (never truncated).
 $fullBytes = 0
 foreach ($d in @($publish.Diagnostics)) {
@@ -163,6 +172,7 @@ $result = [ordered]@{
     findings = $g.findings
     inputBytes = $inputBytes
     summaryBytes = $summaryBytes
+    suspiciousFindings = $suspiciousFindings
     fullBytes = $fullBytes
     baselinePrivateBytes = $baseline
     peakPrivateBytes = $peak

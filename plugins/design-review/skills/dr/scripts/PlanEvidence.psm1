@@ -416,6 +416,42 @@ function Get-PlanReviewCycleState {
     }
 }
 
+function Assert-PlanReviewPropertySet {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Node,
+        [Parameter(Mandatory)][string[]]$Required,
+        [string[]]$Optional = @(),
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $actual = @($Node.Keys | ForEach-Object { [string]$_ } | Sort-Object)
+    $allowed = @($Required + $Optional | Sort-Object)
+    $extra = @($actual | Where-Object { $_ -cnotin $allowed })
+    $missing = @($Required | Where-Object { $_ -cnotin $actual })
+    if ($extra.Count -gt 0 -or $missing.Count -gt 0) {
+        $detail = @(
+            if ($missing.Count -gt 0) { "missing=$($missing -join ',')" }
+            if ($extra.Count -gt 0) { "extra=$($extra -join ',')" }
+        ) -join '; '
+        throw "$Label has an unexpected or incomplete property set ($detail)."
+    }
+}
+
+function Assert-PlanReviewCounter {
+    param(
+        [Parameter(Mandatory)][object]$Value,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $integerTypes = @(
+        [byte], [sbyte], [int16], [uint16], [int32], [uint32], [int64], [uint64]
+    )
+    if ($null -eq $Value -or $Value.GetType() -notin $integerTypes -or
+        [decimal]$Value -lt 0 -or [decimal]$Value -gt [int]::MaxValue) {
+        throw "$Label must be a non-negative integer no greater than $([int]::MaxValue)."
+    }
+}
+
 function Assert-ReviewResultReceipt {
     [CmdletBinding()]
     param(
@@ -449,19 +485,81 @@ function Assert-PlanReviewResultReceipt {
         -not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
         throw "Clean review evidence for run '$ReviewRunId' is missing its retained report/receipt pair."
     }
+    foreach ($evidencePath in @($receiptPath, $reportPath)) {
+        $item = Get-Item -LiteralPath $evidencePath -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Clean review evidence for run '$ReviewRunId' cannot use a reparse-point file: '$evidencePath'."
+        }
+    }
     if ((Get-Item -LiteralPath $receiptPath -Force).Length -gt 65536) {
         throw "Review result receipt for run '$ReviewRunId' exceeds 65536 bytes."
     }
 
-    $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
-    $receipt = Assert-ReviewResultReceipt `
-        -ReceiptContent (Get-Content -LiteralPath $receiptPath -Raw -Force) `
-        -ReviewRunId $ReviewRunId `
-        -ReportName "$ReviewRunId.review.md" `
-        -ReportBytes $reportBytes
-    if ($receipt['reviewType'] -cne 'code' -or
+    try {
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw -Force | ConvertFrom-Json -AsHashtable -Depth 20
+    }
+    catch {
+        throw "Review result receipt for run '$ReviewRunId' is invalid JSON: $($_.Exception.Message)"
+    }
+    Assert-PlanReviewPropertySet -Node $receipt -Label 'Review result receipt' -Required @(
+        'attendance', 'findings', 'legacySource', 'manifestDigest', 'planDigest', 'report',
+        'reviewType', 'runDigest', 'runId', 'schema', 'source', 'state', 'verdict'
+    )
+    Assert-PlanReviewPropertySet -Node $receipt['attendance'] -Label 'Review attendance' `
+        -Required @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')
+    $extendedFindingFields = @('corroboration', 'needsReview', 'rawSeverity', 'similarity')
+    Assert-PlanReviewPropertySet -Node $receipt['findings'] -Label 'Review findings' `
+        -Required @('merged', 'raw', 'severity') -Optional $extendedFindingFields
+    Assert-PlanReviewPropertySet -Node $receipt['findings']['severity'] -Label 'Review severity' `
+        -Required @('critical', 'high', 'low', 'medium')
+    $presentExtendedFindingFields = @($extendedFindingFields | Where-Object { $receipt['findings'].Contains($_) })
+    if ($presentExtendedFindingFields.Count -notin @(0, $extendedFindingFields.Count)) {
+        $missingExtendedFindingFields = @($extendedFindingFields | Where-Object { -not $receipt['findings'].Contains($_) })
+        throw "Review findings has a partial extended v1 property set " +
+        "(present=$($presentExtendedFindingFields -join ','); missing=$($missingExtendedFindingFields -join ','))."
+    }
+    $hasExtendedFindings = $presentExtendedFindingFields.Count -eq $extendedFindingFields.Count
+    if ($hasExtendedFindings) {
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['rawSeverity'] -Label 'Review raw severity' `
+            -Required @('critical', 'high', 'low', 'medium')
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['corroboration'] -Label 'Review corroboration' `
+            -Required @('corroborated', 'degraded', 'single-source', 'suspicious')
+        Assert-PlanReviewPropertySet -Node $receipt['findings']['similarity'] -Label 'Review similarity' `
+            -Required @('exact', 'near-duplicate', 'none')
+    }
+    Assert-PlanReviewPropertySet -Node $receipt['report'] -Label 'Review report binding' `
+        -Required @('bytes', 'digest', 'name')
+    Assert-PlanReviewPropertySet -Node $receipt['source'] -Label 'Review source' `
+        -Required @('digest', 'head', 'mode', 'pathCount') -Optional @('base')
+    foreach ($name in @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')) {
+        Assert-PlanReviewCounter -Value $receipt['attendance'][$name] -Label "Review attendance.$name"
+    }
+    foreach ($name in @('merged', 'raw')) {
+        Assert-PlanReviewCounter -Value $receipt['findings'][$name] -Label "Review findings.$name"
+    }
+    foreach ($bucket in @('severity') + $(if ($hasExtendedFindings) { @('rawSeverity') } else { @() })) {
+        foreach ($name in @('critical', 'high', 'low', 'medium')) {
+            Assert-PlanReviewCounter -Value $receipt['findings'][$bucket][$name] -Label "Review findings.$bucket.$name"
+        }
+    }
+    if ($hasExtendedFindings) {
+        foreach ($name in @('corroborated', 'degraded', 'single-source', 'suspicious')) {
+            Assert-PlanReviewCounter -Value $receipt['findings']['corroboration'][$name] -Label "Review findings.corroboration.$name"
+        }
+        foreach ($name in @('exact', 'near-duplicate', 'none')) {
+            Assert-PlanReviewCounter -Value $receipt['findings']['similarity'][$name] -Label "Review findings.similarity.$name"
+        }
+        Assert-PlanReviewCounter -Value $receipt['findings']['needsReview'] -Label 'Review findings.needsReview'
+    }
+    Assert-PlanReviewCounter -Value $receipt['source']['pathCount'] -Label 'Review source.pathCount'
+    Assert-PlanReviewCounter -Value $receipt['report']['bytes'] -Label 'Review report.bytes'
+
+    if ($receipt['schema'] -cne 'skalary/review-result-receipt@1' -or
+        $receipt['runId'] -cne $ReviewRunId -or
+        $receipt['reviewType'] -cne 'code' -or
         $receipt['state'] -cne 'clean' -or
-        $receipt['verdict'] -cne 'approved') {
+        $receipt['verdict'] -cne 'approved' -or
+        $receipt['legacySource'] -ne $false) {
         throw "Review run '$ReviewRunId' is not qualifying clean code-review evidence."
     }
     if ([int]$receipt['findings']['merged'] -ne 0 -or [int]$receipt['findings']['raw'] -ne 0) {
@@ -470,9 +568,27 @@ function Assert-PlanReviewResultReceipt {
     if ([int]$receipt['attendance']['completed'] -lt 1) {
         throw "Review run '$ReviewRunId' has no completed attendance."
     }
-    foreach ($name in @('critical', 'high', 'medium', 'low')) {
-        if ([int]$receipt['findings']['severity'][$name] -ne 0) {
-            throw "Review run '$ReviewRunId' still contains $name findings."
+    $severityBuckets = @('severity') + $(if ($hasExtendedFindings) { @('rawSeverity') } else { @() })
+    foreach ($bucket in $severityBuckets) {
+        foreach ($name in @('critical', 'high', 'medium', 'low')) {
+            if ([int]$receipt['findings'][$bucket][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name findings in $bucket."
+            }
+        }
+    }
+    if ($hasExtendedFindings) {
+        foreach ($name in @('corroborated', 'single-source', 'suspicious', 'degraded')) {
+            if ([int]$receipt['findings']['corroboration'][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name corroboration findings."
+            }
+        }
+        foreach ($name in @('none', 'near-duplicate', 'exact')) {
+            if ([int]$receipt['findings']['similarity'][$name] -ne 0) {
+                throw "Review run '$ReviewRunId' still contains $name similarity findings."
+            }
+        }
+        if ([int]$receipt['findings']['needsReview'] -ne 0) {
+            throw "Review run '$ReviewRunId' still contains findings requiring review."
         }
     }
     foreach ($name in @('failed', 'timed-out', 'omitted', 'cancelled', 'pending')) {
@@ -482,6 +598,11 @@ function Assert-PlanReviewResultReceipt {
     }
     if (-not [string]::IsNullOrWhiteSpace($Commit) -and $receipt['source']['head'] -cne $Commit) {
         throw "Review run '$ReviewRunId' reviewed commit '$($receipt['source']['head'])', not '$Commit'."
+    }
+    if ($receipt['source']['head'] -cnotmatch '^[0-9a-f]{40}$' -or
+        $receipt['source']['mode'] -cnotin @('branch', 'uncommitted', 'paths') -or
+        [int]$receipt['source']['pathCount'] -lt 0) {
+        throw "Review run '$ReviewRunId' has an invalid source binding."
     }
     if ($RequireBranchScope -and $receipt['source']['mode'] -cne 'branch') {
         throw "Review run '$ReviewRunId' is not whole-branch evidence."
@@ -503,10 +624,50 @@ function Assert-PlanReviewResultReceipt {
         if ($receipt['source']['base'] -cne $mergeBase) {
             throw "Review run '$ReviewRunId' used base '$($receipt['source']['base'])', not canonical merge base '$mergeBase'."
         }
-        $changedPaths = @(& git -C $repoFull diff --name-only "$mergeBase..$Commit" 2>$null)
-        if ($LASTEXITCODE -ne 0 -or [int]$receipt['source']['pathCount'] -ne $changedPaths.Count) {
-            throw "Review run '$ReviewRunId' does not cover the canonical whole-branch path count."
+        $gitErrorPath = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-plan-evidence-$([guid]::NewGuid().ToString('N')).err")
+        try {
+            $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2> $gitErrorPath)
+            $gitExitCode = $LASTEXITCODE
+            $diagnostic = if (Test-Path -LiteralPath $gitErrorPath -PathType Leaf) {
+                $rawDiagnostic = Get-Content -LiteralPath $gitErrorPath -Raw
+                if ($null -eq $rawDiagnostic) { '' } else { ([string]$rawDiagnostic).Trim() }
+            }
+            else {
+                ''
+            }
         }
+        finally {
+            Remove-Item -LiteralPath $gitErrorPath -Force -ErrorAction SilentlyContinue
+        }
+        if ($gitExitCode -ne 0) {
+            throw "Review run '$ReviewRunId' could not enumerate canonical whole-branch paths for '$mergeBase..$Commit': $diagnostic"
+        }
+        $expectedPathCount = [int]$receipt['source']['pathCount']
+        if ($expectedPathCount -ne $changedPaths.Count) {
+            throw "Review run '$ReviewRunId' claims $expectedPathCount canonical whole-branch paths, but Git found $($changedPaths.Count) for '$mergeBase..$Commit'."
+        }
+    }
+    foreach ($digest in @(
+            $receipt['source']['digest'],
+            $receipt['planDigest'],
+            $receipt['runDigest'],
+            $receipt['manifestDigest'],
+            $receipt['report']['digest']
+        )) {
+        if ($digest -cnotmatch '^sha256:[0-9a-f]{64}$') {
+            throw "Review run '$ReviewRunId' has an invalid digest binding."
+        }
+    }
+
+    $reportBytes = [System.IO.File]::ReadAllBytes($reportPath)
+    $reportDigest = 'sha256:' + [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($reportBytes)
+    ).ToLowerInvariant()
+    if ($reportBytes.Length -lt 1 -or $reportBytes.Length -gt 8192 -or
+        $receipt['report']['name'] -cne "$ReviewRunId.review.md" -or
+        [int64]$receipt['report']['bytes'] -ne $reportBytes.Length -or
+        $receipt['report']['digest'] -cne $reportDigest) {
+        throw "Review run '$ReviewRunId' retained report does not match its receipt."
     }
     return [pscustomobject]@{ Receipt = $receipt; ReceiptPath = $receiptPath; ReportPath = $reportPath }
 }

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T19:04:56.1361615Z",
+  "generatedAt": "2026-08-30T20:12:13.7059911Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -252,7 +252,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -376,7 +376,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.69"
+      "version": "1.2.70"
     },
     {
       "author": "jIRI-san",
@@ -503,7 +503,7 @@
         },
         {
           "dest": "skills/cr/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/cr/scripts/PlanEvidence.psm1"
         },
         {
@@ -528,7 +528,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewRun.psm1",
-          "sha256": "577b50b163a6d9ffe678ff968bc12259dc65d29b818b38d690051457d34f93eb",
+          "sha256": "ac4983a0b633d7fec1771e20bcb20daa8086e2f21f03269a23bddf1e6cbea11a",
           "src": "skills/cr/scripts/ReviewRun.psm1"
         },
         {
@@ -575,7 +575,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.61"
+      "version": "1.0.62"
     },
     {
       "author": "jIRI-san",
@@ -625,7 +625,7 @@
         },
         {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
-          "sha256": "c61a699c1a780a2195b54d3533c73c93caccc3c6f9dda44a560a0cbbc2d3aea1",
+          "sha256": "ab1bb0fbea4724d192cdebdd17b58150f1db3f3d47ff5b0b195c45f3e6ce0111",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
         },
         {
@@ -650,7 +650,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -770,7 +770,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.92"
+      "version": "1.0.93"
     },
     {
       "author": "jIRI-san",
@@ -829,7 +829,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -939,7 +939,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.77"
+      "version": "1.0.78"
     },
     {
       "author": "jIRI-san",
@@ -1188,7 +1188,7 @@
         },
         {
           "dest": "skills/dr/scripts/PlanEvidence.psm1",
-          "sha256": "51ae7173f9060d63c3e21ec70a1e7b160a2161e06dad539ff5fd179c26d2f25d",
+          "sha256": "85a7e1445eb312c8f476e4d5b6c6278abedb76fdf083bbeb4ea67d273404c56e",
           "src": "skills/dr/scripts/PlanEvidence.psm1"
         },
         {
@@ -1213,7 +1213,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewRun.psm1",
-          "sha256": "577b50b163a6d9ffe678ff968bc12259dc65d29b818b38d690051457d34f93eb",
+          "sha256": "ac4983a0b633d7fec1771e20bcb20daa8086e2f21f03269a23bddf1e6cbea11a",
           "src": "skills/dr/scripts/ReviewRun.psm1"
         },
         {
@@ -1260,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.60"
+      "version": "1.0.61"
     },
     {
       "author": "jIRI-san",

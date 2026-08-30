@@ -50,6 +50,7 @@ $reqStatus = [ordered]@{}
 $outcomes = [System.Collections.Generic.List[object]]::new()
 $waivers = if ($metadata) { @(Get-PlanEvidenceWaiver -PlanMetadata $metadata -PlanDirectory $PlanDir) } else { @() }
 $seenResults = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$verifiedReviews = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 
 foreach ($item in $Result) {
     $normalized = ConvertTo-PlanEvidenceResult -InputObject $item
@@ -70,8 +71,11 @@ foreach ($item in $Result) {
             throw "Passed review:cr evidence requires ReviewRunId."
         }
         $reviewStage = if ($PSBoundParameters.ContainsKey('Phase')) { "phase-$Phase" } else { 'plan-finalization' }
-        [void](Assert-PlanCleanReviewEvidence -PlanDir $PlanDir -Stage $reviewStage `
-                -Commit $Commit -ReviewRunId $normalized.ReviewRunId -RepoRoot $RepoRoot)
+        $reviewKey = "$reviewStage|$Commit|$($normalized.ReviewRunId)"
+        if ($verifiedReviews.Add($reviewKey)) {
+            [void](Assert-PlanCleanReviewEvidence -PlanDir $PlanDir -Stage $reviewStage `
+                    -Commit $Commit -ReviewRunId $normalized.ReviewRunId -RepoRoot $RepoRoot)
+        }
         $detail = "review-run:$($normalized.ReviewRunId)"
     }
     $matchingWaivers = @($waivers | Where-Object {

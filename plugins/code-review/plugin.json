@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.61",
+  "version": "1.0.62",
   "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
   "author": "jIRI-san",
   "license": "MIT",
