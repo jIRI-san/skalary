@@ -58,7 +58,7 @@ entire lifecycle:
 3. Freeze exactly once and require exit `0` before dispatch.
 4. Read the sole frozen plan, then build the Fleet descriptors from its ordered `tasks` exactly as
    the dispatch guide specifies.
-5. Import `scripts/skalary/FleetDispatch.psm1`, call `New-FleetDispatchPlan` once and
+5. Import `.github/skills/dr/scripts/FleetDispatch.psm1`, call `New-FleetDispatchPlan` once and
    `Start-FleetDispatchRun` once, then render the returned `PreView` before any reviewer call.
 
 Concern agents: `dr-security`, `dr-correctness-reliability`, `dr-architecture-patterns`,

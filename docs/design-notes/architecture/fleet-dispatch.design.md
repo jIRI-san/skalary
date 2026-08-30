@@ -63,7 +63,8 @@ no dependencies. The adapter calls New and Start once, renders Start's pre-view 
 calls, submits exactly one structured projection for each task in each returned already-admitted
 wave, and calls Complete only after Done before rendering the final view. A six-task fixture projects
 to `4,2`; a fourteen-task fixture projects to `4,4,4,2`, but filters and profiles may freeze any
-valid count.
+valid count. Each review skill imports only its fixed installed `scripts/FleetDispatch.psm1` sibling;
+repository-root replacements are outside the review execution boundary.
 
 Only an explicit structured throttle projection retries, once, as the same frozen task. Review
 failures, timeouts, omissions, and host cancellations project to Fleet failure, while their richer

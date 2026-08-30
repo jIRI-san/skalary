@@ -161,11 +161,13 @@ Before dispatch, require the selected Fleet ids to equal the frozen task ids exa
 and require the Fleet planned count to equal the frozen count. Six and fourteen are representative
 profile fixtures, not fixed review counts; filters and profiles may freeze other counts.
 
-Import `scripts/skalary/FleetDispatch.psm1`. Call `New-FleetDispatchPlan` once from those descriptors,
-then call `Start-FleetDispatchRun` once. Render its `PreView` before any reviewer call. Provider-global
-concurrency is unobserved. Until the transition reports `Done`, invoke only its returned
-already-admitted wave and pass exactly one `{ TaskId, Outcome, Detail }` projection for every admitted
-task to `Step-FleetDispatchRun`.
+Import the active review skill's fixed installed `scripts/FleetDispatch.psm1` sibling (CR:
+`.github/skills/cr/scripts/FleetDispatch.psm1`; DR:
+`.github/skills/dr/scripts/FleetDispatch.psm1`). Never import a repository-root replacement. Call
+`New-FleetDispatchPlan` once from those descriptors, then call `Start-FleetDispatchRun` once. Render
+its `PreView` before any reviewer call. Provider-global concurrency is unobserved. Until the
+transition reports `Done`, invoke only its returned already-admitted wave and pass exactly one
+`{ TaskId, Outcome, Detail }` projection for every admitted task to `Step-FleetDispatchRun`.
 
 Map a completed review to Fleet `completed`. Map only an explicit structured throttle outcome to
 Fleet `throttled`; retry the same frozen task only when Fleet returns its attempt-2 wave. Never infer

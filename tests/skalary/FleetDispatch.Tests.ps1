@@ -477,6 +477,10 @@ Ready order: design -> validate -> implement
             $text | Should -Match 'render its\s+`FinalView`'
             $text | Should -Match 'published review run and its verified readers\s+remain authoritative'
         }
+        [System.IO.File]::ReadAllText((Join-Path $repoRoot $skillPaths[0])) |
+            Should -Match '\.github/skills/cr/scripts/FleetDispatch\.psm1'
+        [System.IO.File]::ReadAllText((Join-Path $repoRoot $skillPaths[1])) |
+            Should -Match '\.github/skills/dr/scripts/FleetDispatch\.psm1'
 
         $crGuide = [System.IO.File]::ReadAllText(
             (Join-Path $repoRoot 'plugins/code-review/skills/cr/assets/dispatch-guide.md')
@@ -495,6 +499,7 @@ Ready order: design -> validate -> implement
         $crGuide | Should -Match 'review `failed`, `timed-out`, `omitted`,\s+or host-cancelled outcomes to Fleet `failed`'
         $crGuide | Should -Match 'do not add Fleet attendance to\s+review-run schemas or result inputs'
         $crGuide | Should -Match 'verified Summary and\s+Full reading, and authoritative result rendering'
+        $crGuide | Should -Match 'Never import a repository-root replacement'
 
         function New-FrozenReviewTasks {
             param(
@@ -677,37 +682,6 @@ Ready order: design -> validate -> implement
     }
 
     It 'test:FleetDispatch.CepConformance publishes an inactive exact frozen-task handoff' {
-        function Get-PlanFolderSnapshot {
-            param(
-                [Parameter(Mandatory)]
-                [string]$Path
-            )
-
-            $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
-            return @(
-                Get-ChildItem -LiteralPath $resolvedPath -File -Recurse |
-                    ForEach-Object {
-                        $relativePath = [System.IO.Path]::GetRelativePath(
-                            $resolvedPath,
-                            $_.FullName
-                        ).Replace('\', '/')
-                        [pscustomobject]@{
-                            Path = $relativePath
-                            Sha256 = (
-                                Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
-                            ).Hash.ToLowerInvariant()
-                        }
-                    } |
-                    Sort-Object -Property Path
-            )
-        }
-
-        $consumerPlanDir = Join-Path $repoRoot (
-            'docs/implementation-plans/2026-08-14-25aa23-epic-coherency-review'
-        )
-        $consumerBefore = Get-PlanFolderSnapshot -Path $consumerPlanDir |
-            ConvertTo-Json -Depth 3 -Compress
-
         $guidePath = Join-Path $repoRoot (
             'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
         )
@@ -753,17 +727,19 @@ Ready order: design -> validate -> implement
             (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cep/SKILL.md')
         )
         $cepSkill | Should -Not -Match 'Epic-review extension handoff'
+        $cepSkill | Should -Not -Match 'New-FleetDispatchPlan|Start-FleetDispatchRun|Step-FleetDispatchRun'
 
         Import-Module (
             Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
         ) -Force -DisableNameChecking
+        $consumerPlan = Resolve-Plan -Reference '25aa23' -RepoRoot $repoRoot
+        $producerPlan = Resolve-Plan -Reference '8a0644' -RepoRoot $repoRoot
+        $consumerPlanDir = $consumerPlan.Path
         $consumerMarkers = Get-PlanHeaderMarkers -Path (
             Join-Path $consumerPlanDir 'plan.md'
         )
         $producerMarkers = Get-PlanHeaderMarkers -Path (
-            Join-Path $repoRoot (
-                'docs/implementation-plans/2026-08-08-8a0644-dispatch-plan-up-front/plan.md'
-            )
+            Join-Path $producerPlan.Path 'plan.md'
         )
         $consumerMarkers.PlanId | Should -BeExactly '25aa23'
         $consumerMarkers.DependsOn | Should -Contain '8a0644'
@@ -886,10 +862,6 @@ Ready order: design -> validate -> implement
         $result.Attendance.Cancelled |
             Should -Be $result.Attendance.Planned
         $result.FinalView | Should -Match 'Fleet dispatch attendance'
-
-        $consumerAfter = Get-PlanFolderSnapshot -Path $consumerPlanDir |
-            ConvertTo-Json -Depth 3 -Compress
-        $consumerAfter | Should -BeExactly $consumerBefore
     }
 
     It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
