@@ -24,7 +24,7 @@
 ## Phase 1: Fixed coherency review
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 1.1 Define one fixed epic-coherency scope over goal and done coverage, verticality, child independence and overlap, shared ownership, necessary acyclic dependencies, MVP-to-final route, and prior-art reuse; invoke existing design-review agents through review-run v1 (REQ-1, REQ-5, RISK-1, RISK-4) `M`
+- [x] 1.1 Define one fixed epic-coherency scope over goal and done coverage, verticality, child independence and overlap, shared ownership, necessary acyclic dependencies, MVP-to-final route, and prior-art reuse; invoke existing design-review agents through review-run v1 (REQ-1, REQ-5, RISK-1, RISK-4) `M`
 - [ ] 1.2 Add the proportionality rubric that compares every proposed mechanism to confirmed operator intent, classifies it as local fix, required shared contract, or speculative platform, detects cross-child duplication, requires one owner, and challenges infrastructure-only dependency edges (REQ-2, REQ-3, RISK-2, RISK-3) [after: 1.1] `M`
 
 ## Phase 2: Resolve and finalize the cut

@@ -83,11 +83,19 @@ Fleet attendance is not added to review schemas or persistence: review-run Publi
 verified Summary/Full reading, and result rendering remain authoritative after Fleet completion.
 
 The `/cep` decomposition guide also publishes an explicitly inactive epic-review extension boundary
-for plan `25aa23 epic-coherency-review`. It projects any later frozen epic-review tasks through the same exact-id/order/model,
-dependency-free descriptor and stepwise lifecycle contract, but creates no current `/cep` activation,
-scheduler, state, or plugin dependency. The dependent plan retains ownership of its fixed review
-scope, selection, rubric, richer findings and outcomes, compact verdict, operator blocking, and
-activation timing; review-run Freeze/Publish and verified readers remain authoritative.
+for plan `25aa23 epic-coherency-review`. Future activation uses the ordinary DR path with an explicit
+all-seven concern filter and both default DR model roles. Exact canonical `epic.md` bytes are the
+review-run design authority: one immutable snapshot supplies validation, the lowercase source
+digest, and the byte-identical untrusted envelope reused by every reviewer. The ordinary design
+scope has exactly `{ path: <canonical epic.md>, status: modified }`; `modified` is a fixed
+design-review classification, never derived from mutable Git status, and Freeze must preserve that
+sole record exactly. Freeze owns the resulting fourteen-task matrix and engine scope digest rather
+than Fleet or `/cep`; Fleet never reads, excerpts, or reconstructs the source and only projects the
+frozen exact-id/order/model tasks through its dependency-free stepwise contract. The guide creates no current `/cep` activation,
+scheduler, state, plugin dependency, or topical task. The dependent plan retains ownership of its
+fixed eight-check review scope, richer findings and outcomes, compact verdict, operator blocking,
+source-drift reconfirmation, and activation timing. Review-run Freeze/Publish and verified readers
+remain authoritative; Fleet attendance stays non-authoritative.
 
 ## Design Decisions
 

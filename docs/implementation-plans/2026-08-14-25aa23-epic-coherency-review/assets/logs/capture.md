@@ -7,3 +7,10 @@ Phase: 0
 - [-] [src:note] [sev:High] dr: mutable epic.md cannot bind its own review digest; use a stable decomposition RFC plus epic-associated retained authority and script-owned lifecycle state
 - [-] [src:note] [sev:High] dr: round two required structured RFC ownership, operation-wide rounds across revisions, concern-registry v2, anti-headless grants, per-epic locking, blocked degraded publication, and atomic activation after distribution convergence
 - [-] [src:note] [sev:High] dr: round three completed all reviewer calls but canonical publication failed when raw records exceeded the eight-reference schema bound; the plan now requires bounded result projection, blocked malformed publication, and fresh-round recovery
+
+## Capture
+Phase: 1
+
+- [1.1] [src:note] [concern:architecture-patterns] [req:REQ-1] [review:none] [source-record:aeb79850a13f17555c5921c0cdd71be66f1c6e79516effa61df07e185d0fd827] fleet attendance: planned=4, started=4, completed=3, failed=1, retried=0, cancelled=0; step remains in progress after Judge failure
+- [1.1] [src:note] [concern:architecture-patterns] [req:REQ-1] [review:none] [source-record:6540d0b71eca2f68e5c3dc0e44df6bce3d4250eedec4da9dc892ecd477f4556c] resumed fleet attendance: planned=4, started=4, completed=3, failed=1, retried=0, cancelled=0; Judge requires deterministic required status in the sole epic.md path record
+- [1.1] [src:note] [concern:architecture-patterns] [req:REQ-1] [review:none] [source-record:b793c41d9bc7b6814caa5940772a2b8ccfe80bc3193a11dca926adee71755306] fleet attendance: planned=4, started=4, completed=4, failed=0, retried=0, cancelled=0; Judge accepted the deterministic epic.md review-run binding
