@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-29T23:43:09.5709191Z",
+  "generatedAt": "2026-08-30T00:10:49.1702168Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -247,7 +247,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "02c5fc0f4c82ed6b1db7d4415a85804b0fa4b0813d88a85a8d7f8191e404a756",
+          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -361,7 +361,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.42"
+      "version": "1.2.43"
     },
     {
       "author": "jIRI-san",
@@ -590,7 +590,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "02c5fc0f4c82ed6b1db7d4415a85804b0fa4b0813d88a85a8d7f8191e404a756",
+          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -700,7 +700,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.67"
+      "version": "1.0.68"
     },
     {
       "author": "jIRI-san",
@@ -744,7 +744,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "02c5fc0f4c82ed6b1db7d4415a85804b0fa4b0813d88a85a8d7f8191e404a756",
+          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -819,7 +819,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "02c5fc0f4c82ed6b1db7d4415a85804b0fa4b0813d88a85a8d7f8191e404a756",
+          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -866,7 +866,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.60"
+      "version": "1.0.61"
     },
     {
       "author": "jIRI-san",

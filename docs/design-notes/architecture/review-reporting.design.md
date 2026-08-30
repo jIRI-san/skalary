@@ -163,7 +163,7 @@ records, the attendance totals — so a golden that quietly lost a finding fails
 with itself. A hostile envelope covers the encoding rules directly.
 
 `edge/maximum-envelope.spec.json` states the largest legal envelope as a recipe. Step 1.1 owns the
-arithmetic only: 128 tasks and 256 findings at every maximum are 2,072,751 bytes, 24,401 under the
+arithmetic only: 128 tasks and 256 findings at every maximum are 2,095,287 bytes, 1,865 under the
 2 MiB input cap, and native `Test-Json` accepts them. The 256 findings carry only 128 distinct
 `(rootCause, component)` merge keys — seeded per group rather than per finding — because
 `maxMergedFindings` is 128: a fixture with 256 keys would describe an envelope the contract does not

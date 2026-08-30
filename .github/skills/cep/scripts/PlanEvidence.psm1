@@ -251,7 +251,9 @@ function Assert-PlanReviewResultReceipt {
         -Required @('critical', 'high', 'low', 'medium')
     $presentExtendedFindingFields = @($extendedFindingFields | Where-Object { $receipt['findings'].Contains($_) })
     if ($presentExtendedFindingFields.Count -notin @(0, $extendedFindingFields.Count)) {
-        throw "Review findings has a partial extended v1 property set (present=$($presentExtendedFindingFields -join ','))."
+        $missingExtendedFindingFields = @($extendedFindingFields | Where-Object { -not $receipt['findings'].Contains($_) })
+        throw "Review findings has a partial extended v1 property set " +
+        "(present=$($presentExtendedFindingFields -join ','); missing=$($missingExtendedFindingFields -join ','))."
     }
     $hasExtendedFindings = $presentExtendedFindingFields.Count -eq $extendedFindingFields.Count
     if ($hasExtendedFindings) {
@@ -337,9 +339,22 @@ function Assert-PlanReviewResultReceipt {
         if ($receipt['source']['base'] -cne $mergeBase) {
             throw "Review run '$ReviewRunId' used base '$($receipt['source']['base'])', not canonical merge base '$mergeBase'."
         }
-        $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2>&1)
-        if ($LASTEXITCODE -ne 0) {
-            $diagnostic = (@($changedPaths | Select-Object -Last 1) -join '').Trim()
+        $gitErrorPath = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-plan-evidence-$([guid]::NewGuid().ToString('N')).err")
+        try {
+            $changedPaths = @(& git -C $repoFull diff --no-renames --name-only "$mergeBase..$Commit" 2> $gitErrorPath)
+            $gitExitCode = $LASTEXITCODE
+            $diagnostic = if (Test-Path -LiteralPath $gitErrorPath -PathType Leaf) {
+                $rawDiagnostic = Get-Content -LiteralPath $gitErrorPath -Raw
+                if ($null -eq $rawDiagnostic) { '' } else { ([string]$rawDiagnostic).Trim() }
+            }
+            else {
+                ''
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $gitErrorPath -Force -ErrorAction SilentlyContinue
+        }
+        if ($gitExitCode -ne 0) {
             throw "Review run '$ReviewRunId' could not enumerate canonical whole-branch paths for '$mergeBase..$Commit': $diagnostic"
         }
         $expectedPathCount = [int]$receipt['source']['pathCount']

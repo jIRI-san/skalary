@@ -105,12 +105,6 @@ Set-Content -LiteralPath $resultTmp -Value $resultJson -NoNewline
 [System.IO.File]::Move($resultTmp, (Join-Path $runDir 'review-result.input.json'), $true)
 $resultJson = $null
 
-# Record the summary size (it fits, D5) directly; the full view size comes back from the admission
-# diagnostic so we do not hold a second 1.8 MiB string alongside the publish allocations.
-$projection = ConvertTo-ReviewProjection -Run $run
-$suspiciousFindings = @($projection.Findings | Where-Object { $_.CorroborationState -eq 'suspicious' }).Count
-$summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryView -Run $run))
-
 # Free the in-memory envelope the harness built so the sampled growth is the publication's own cost —
 # reading the input from disk, canonicalizing, rendering both views and deciding admission — rather
 # than the test harness's hashtable construction.
@@ -146,6 +140,16 @@ $peak = [int64](@(Receive-Job -Job $sampler) | Select-Object -Last 1)
 Remove-Job -Job $sampler -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $stopFlag -Force -ErrorAction SilentlyContinue
 $growthBytes = [Math]::Max(0, $peak - $baseline)
+
+# Read the persisted admission source only after timing, so the measurement includes the first
+# corroboration pass rather than warming it through an exported renderer first.
+$admissionSource = @(Get-ChildItem -LiteralPath $runDir -File -Force |
+        Where-Object { $_.Name -cmatch '^review-admission-source\.[0-9a-f]{64}\.json$' })
+if ($admissionSource.Count -ne 1) { throw 'The maximum-envelope admission did not retain one canonical source.' }
+$admittedRun = Get-Content -LiteralPath $admissionSource[0].FullName -Raw | ConvertFrom-Json -AsHashtable -Depth 40
+$projection = ConvertTo-ReviewProjection -Run $admittedRun
+$suspiciousFindings = @($projection.Findings | Where-Object { $_.CorroborationState -eq 'suspicious' }).Count
+$summaryBytes = [System.Text.Encoding]::UTF8.GetByteCount((Get-ReviewRunSummaryView -Run $admittedRun))
 
 # The full view size is reported inside the admission diagnostic (never truncated).
 $fullBytes = 0
