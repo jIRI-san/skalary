@@ -129,7 +129,7 @@ Describe 'Review skills, shims, and prompts' {
         @($shapes | Where-Object { -not $_.PromptDelegates }) | Should -BeNullOrEmpty
     }
 
-    It 'test:cr-dr-skill-shim-parity keeps the structured untrusted-input boundary in the skill that passes content' {
+    It 'test:cr-dr-skill-shim-parity keeps the untrusted-input fence in the skill that passes content' {
         # /cr passes only paths. /dr passes plan text as serializer-owned JSON so content cannot
         # escape its data field or collide with a fixed sentinel delimiter.
         foreach ($relative in @('plugins/design-review/skills/dr/SKILL.md', '.github/skills/dr/SKILL.md')) {
