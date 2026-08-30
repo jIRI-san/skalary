@@ -19,6 +19,8 @@ The fixed installed writer is `.github/skills/dr/scripts/Build-ReviewReport.ps1`
 Read [`./assets/plan-scope-guide.md`](./assets/plan-scope-guide.md). It owns explicit-path, session
 memory, and chat-context resolution plus plan-assets batching. If no plan can be located, ask for one
 and stop. State when the scope came from chat context rather than an in-repo plan.
+For an in-repo plan, it also owns optional bounded historical context and provenance in the existing
+scope text.
 
 ## Step 2: Load design context
 
@@ -62,7 +64,8 @@ Concern agents: `dr-security`, `dr-correctness-reliability`, `dr-architecture-pa
 ## Step 5: Dispatch independently
 
 Add one todo per frozen task. Dispatch each concern once per frozen model with the same wrapped plan
-scope, matched note/contract paths, and that concern's resolved review standards. Do not include any prior reviewer's result, skip a task because
+scope, matched note/contract paths, plan-associated historical context selected for that concern, and
+that concern's resolved review standards. Do not include any prior reviewer's result, skip a task because
 another reviewer found the same issue, or dedupe during dispatch. Wait for every task and retain all
 outputs/outcomes in memory.
 

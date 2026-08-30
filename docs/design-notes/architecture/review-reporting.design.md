@@ -5,6 +5,8 @@ globs:
   - scripts/skalary/Test-ReviewSchemaCapability.ps1
   - scripts/skalary/Build-ReviewReport.ps1
   - scripts/skalary/ReviewRun.psm1
+  - scripts/skalary/SecretGuard.psm1
+  - scripts/skalary/Get-PlanArtifactConsumerContext.ps1
   - scripts/skalary/Get-ReviewRun.ps1
   - scripts/skalary/Remove-ReviewRun.ps1
   - scripts/skalary/Resolve-ReviewStandards.ps1
@@ -628,6 +630,11 @@ a `.tmp` still being written, or abandoned half-written by a crashed caller, is 
 is neither read nor removed. Input is destroyed after use: removed on success, and overwritten before
 unlinking whenever it was rejected.
 
+Finalization replay keeps cleanup failure observability separate from retained-evidence success.
+`CleanupPending` remains true and `CleanupDiagnostic` carries the deletion failure for both live
+tombstone cleanup and marker-only replay; a compact pair is never reported as fully cleaned when its
+marker removal failed.
+
 **The input leaf is confined too, not just its ancestors.** Those two fixed names are the one path
 inside a run directory whose content an untrusted caller supplies, and the engine both parses that leaf
 and destroys it *in place* — `Remove-ReviewInputSecurely` overwrites the bytes before unlinking. The
@@ -649,10 +656,13 @@ verify. Each used to return leaving staged reviewer text — which nothing had s
 retryable exit `4` is the deliberate exception and keeps the input, because the caller is expected to
 run the same input again.
 
-### The secret guard (D18/RISK-16)
+### The shared secret guard (D18/RISK-16)
 
 Before any lossless artifact is written — including the *frozen plan*, which is a committed artifact
-one mode before `Publish` ever runs — `Find-ReviewSecret` scans every untrusted field for a
+one mode before `Publish` ever runs — `Find-ReviewSecret` scans every untrusted field through the
+shared `SecretGuard.psm1` high-confidence primitive. The cross-plan consumer adapter applies that
+same primitive before repository-visible historical bytes enter model framing. Review-run rejection
+and destruction semantics remain unchanged. The detector recognizes a
 high-confidence credential shape (GitHub PAT/OAuth/fine-grained, AWS access key, Google API key, Slack,
 Stripe, npm, PEM private-key banner). For a plan that is `scope`, the roster and every task model; for
 a result it is additionally each task diagnostic and every finding string and reference. A hit is exit
@@ -700,6 +710,29 @@ its resolved criteria. The fixed optional `docs/review-standards.md` consumer fi
 only entries marked localizable. It remains repo-owned and absent by default. Resolved criteria are
 dispatch-only data: they never enter the review-plan/result handshake, publication manifest, or retained
 review-run v1 evidence.
+
+Plan-associated CR/DR may also select related plan artifacts after their primary code/design scope is
+known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1`; neither it nor the
+low-level resolver is auto-approved because the adapter cannot bind the installed sibling closure's
+bytes. The adapter bounds and terminates its isolated resolver process, requires exit zero and
+top-level array JSON, validates the closed public shape, and applies the shared secret guard before it
+emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. Accepted metadata
+outside the frame omits content, so historical bytes occur only once in adapter output. A detected
+artifact becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
+interpolated into instructions. Deterministic
+plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`
+string. Only consumer-authored marker lines have structural meaning; marker-like content remains data.
+Generic and chat-only reviews skip this path. Full provenance must fit
+the existing 1024-character scope bound or the artifact is not consumed; metadata is never truncated.
+No context field, role, schema, receipt, `scopeAuthority` member, publication step, or retention path is
+added, so Freeze and Publish remain review-run v1 authority.
+
+Compact retained review receipt parsing is shared from `PlanEvidence.psm1`. The historical resolver
+and final evidence gate use one closed shape/type/source-mode parser with producer-equivalent semantic
+invariants: attendance determines clean/degraded state, severity totals equal merged findings, raw
+findings cannot undercount merged findings, and approved requires clean state without Critical/High.
+Evidence qualification layers its stricter clean code-review/commit/whole-branch rules above that
+parser; review-run v1 production and lifecycle remain unchanged.
 
 ## CR/DR caller adoption (step 2.2)
 

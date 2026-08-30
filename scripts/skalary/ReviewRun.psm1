@@ -3839,6 +3839,12 @@ function New-ReviewFinalizationResult {
     return [pscustomobject]@{ RunId = $RunId; Verdict = $Verdict; Report = $Report; Receipt = $Receipt; Replayed = $Replayed; Preview = $Preview; CleanupPending = $CleanupPending; CleanupDiagnostic = $CleanupDiagnostic }
 }
 
+function Remove-ReviewCleanupMarker {
+    param([Parameter(Mandatory)][string]$Path)
+
+    Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
+}
+
 function Finalize-ReviewPlanRun {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
@@ -3890,7 +3896,7 @@ function Finalize-ReviewPlanRun {
                 if ($PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
                     try {
                         Remove-ReviewTree -Path $cleanupDir
-                        Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
+                        Remove-ReviewCleanupMarker -Path $cleanupMarkerPath
                         $cleanupPending = $false
                     }
                     catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
@@ -3904,18 +3910,29 @@ function Finalize-ReviewPlanRun {
                     throw "Finalized review result '$RunId' has a different verdict or identity."
                 }
                 $cleanupPending = Test-Path -LiteralPath $cleanupDir -PathType Container
+                $cleanupDiagnostic = $null
                 if (Test-Path -LiteralPath $cleanupMarkerPath -PathType Leaf) {
                     [void](Read-ReviewCleanupMarker -Path $cleanupMarkerPath -RunId $RunId -Verdict $Verdict -ReportPath $reportPath -ReceiptPath $receiptPath)
-                    try { Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop } catch { $cleanupPending = $true }
+                    try {
+                        Remove-ReviewCleanupMarker -Path $cleanupMarkerPath
+                    }
+                    catch {
+                        $cleanupPending = $true
+                        $cleanupDiagnostic = $_.Exception.Message
+                    }
                 }
-                if ($cleanupPending -and $PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
+                if ((Test-Path -LiteralPath $cleanupDir -PathType Container) -and
+                    $PSCmdlet.ShouldProcess($cleanupDir, 'Complete pending live-authority cleanup')) {
                     try {
                         Remove-Item -LiteralPath $cleanupDir -Recurse -Force -ErrorAction Stop
-                        $cleanupPending = $false
+                        $cleanupPending = Test-Path -LiteralPath $cleanupMarkerPath -PathType Leaf
                     }
-                    catch { $cleanupPending = $true }
+                    catch {
+                        $cleanupPending = $true
+                        $cleanupDiagnostic = $_.Exception.Message
+                    }
                 }
-                return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $true -Preview $WhatIfPreference -CleanupPending $cleanupPending
+                return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $true -Preview $WhatIfPreference -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
             }
             throw "No live or finalized plan review run for '$RunId'."
         }
@@ -3958,27 +3975,28 @@ function Finalize-ReviewPlanRun {
                     throw "Finalized review result '$RunId' did not verify after publication."
                 }
             }
-            $cleanupPending = $false
-            $cleanupDiagnostic = $null
-            try {
-                if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
-                if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
-                    [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
-                }
-                Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
-                if ($null -eq $existingMarker) {
-                    $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
-                    Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
-                }
-                Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
-                Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
-                Remove-ReviewTree -Path $cleanupDir
-                Remove-Item -LiteralPath $cleanupMarkerPath -Force -ErrorAction Stop
-            }
-            catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
-            return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
         }
         finally { Exit-ReviewLock -Lock $runLock }
+
+        $cleanupPending = $false
+        $cleanupDiagnostic = $null
+        try {
+            if (Test-Path -LiteralPath $cleanupDir) { throw "Cleanup tombstone already exists for '$RunId'." }
+            if (-not (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
+                [void](New-Item -ItemType Directory -Path $cleanupRoot -Force -ErrorAction Stop)
+            }
+            Assert-ReviewPathSafe -Path $cleanupRoot -Boundary $repoFull
+            if ($null -eq $existingMarker) {
+                $cleanupMarker = Get-ReviewCleanupMarker -RunId $RunId -Verdict $Verdict -Material $material -ReportPath $reportPath -ReceiptPath $receiptPath
+                Write-ReviewBytesAtomic -Path $cleanupMarkerPath -Bytes $script:Utf8NoBom.GetBytes((ConvertTo-ReviewCanonicalJson -Node $cleanupMarker))
+            }
+            Move-Item -LiteralPath $runDir -Destination $cleanupDir -ErrorAction Stop
+            Invoke-ReviewFaultSeam -Edge 'during-finalize-cleanup'
+            Remove-ReviewTree -Path $cleanupDir
+            Remove-ReviewCleanupMarker -Path $cleanupMarkerPath
+        }
+        catch { $cleanupPending = $true; $cleanupDiagnostic = $_.Exception.Message }
+        return New-ReviewFinalizationResult -RunId $RunId -Verdict $Verdict -Report $reportPath -Receipt $receiptPath -Replayed $pairExists -CleanupPending $cleanupPending -CleanupDiagnostic $cleanupDiagnostic
     }
     finally { Exit-ReviewLock -Lock $lock }
 }

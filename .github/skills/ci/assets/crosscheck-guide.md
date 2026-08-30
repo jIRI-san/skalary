@@ -224,6 +224,14 @@ Wrap record. A clean replacement must be finalized first, then recorded with
 run reviewed current HEAD, and plan-finalization requires whole-branch scope. Do not infer authorization from a request to
 resume, and never describe wrapped/degraded evidence as passed.
 
+If a latest Reopen source record is proven unauthorized before any replacement review runs, an operator
+may invoke `ReviewCycleGate.ps1` with `-Action InvalidateReopen`,
+`-SourceRecordId <64-hex-id>`, `-OperatorAuthorization <repair-id>`,
+`-Reason <operator-reason>`, and `-RepoRoot <repo-root>` as one bound argument invocation. The repair accepts
+only the unique latest typed Reopen immediately following Wrap, verifies its plan/phase-bound source
+record, and restores Wrap without deleting either record. It rejects stale, duplicate, ambiguous,
+post-review, legacy-clean, unconfined, and tampered targets.
+
 - `security.md` — auth/trust-boundary/injection/secret/ACL
 - `performance.md` — latency/throughput/allocation/N+1
 - `error-handling.md` — retry/timeout/fail-loud/exception-flow

@@ -58,10 +58,11 @@ autopilot_plan_all_steps_complete() {
     return 0
 }
 
-autopilot_phase_gate_state() {
+autopilot_review_gate_state() {
     local plan_path="$1"
     local phase_number="$2"
-    local gate_script="$3"
+    local stage="$3"
+    local gate_script="$4"
     local plan_dir
     local gate_json
 
@@ -70,9 +71,9 @@ autopilot_phase_gate_state() {
         -Action Check \
         -PlanDir "${plan_dir}" \
         -Phase "${phase_number}" \
-        -Stage "phase-${phase_number}" \
+        -Stage "${stage}" \
         -Json); then
-        printf 'ERROR: phase review gate failed for phase %s.\n' "${phase_number}" >&2
+        printf 'ERROR: review gate failed for stage %s.\n' "${stage}" >&2
         return 2
     fi
     case "${gate_json}" in
@@ -82,10 +83,18 @@ autopilot_phase_gate_state() {
         *'"state":"operator-decision"'*) printf '%s\n' 'operator-decision' ;;
         *'"state":"legacy-clean"'*) printf '%s\n' 'operator-decision' ;;
         *)
-            printf 'ERROR: phase review gate returned an unknown state for phase %s.\n' "${phase_number}" >&2
+            printf 'ERROR: review gate returned an unknown state for stage %s.\n' "${stage}" >&2
             return 2
             ;;
     esac
+}
+
+autopilot_phase_gate_state() {
+    autopilot_review_gate_state "$1" "$2" "phase-$2" "$3"
+}
+
+autopilot_plan_finalization_gate_state() {
+    autopilot_review_gate_state "$1" "$2" "plan-finalization" "$3"
 }
 
 autopilot_plan_phase_gates_terminal() {
@@ -285,6 +294,24 @@ autopilot_target_close_state() {
                 ;;
             *) return 2 ;;
         esac
+        if ! gate_state=$(
+            autopilot_plan_finalization_gate_state \
+                "${effective_plan_path}" "${final_phase_number}" "${gate_script}"
+        ); then
+            return 2
+        fi
+        case "${gate_state}" in
+            complete) ;;
+            allow)
+                printf '%s\n' 'close-pending'
+                return
+                ;;
+            wrap|operator-decision)
+                printf '%s\n' 'operator-decision'
+                return
+                ;;
+            *) return 2 ;;
+        esac
         if [ "${archive_transition}" -eq 1 ]; then
             if ! repo_root_full=$(git -C "${repo_root}" rev-parse --show-toplevel); then
                 printf 'ERROR: unable to resolve repository root for archived close state.\n' >&2
@@ -395,6 +422,7 @@ autopilot_execution_targets() {
     local gate_script="$3"
     local phase_number
     local gate_state
+    local finalization_state
     local final_phase_number=""
     local final_phase_selected=0
     local -a phase_numbers=()
@@ -421,6 +449,23 @@ autopilot_execution_targets() {
     elif [ "${mode}" = "next-phase" ]; then
         printf 'phase:%s\n' "${incomplete_phases[0]}"
         return
+    fi
+
+    if [ "${mode}" = "whole-plan" ] && [ "${#incomplete_phases[@]}" -eq 0 ]; then
+        if ! finalization_state=$(
+            autopilot_plan_finalization_gate_state \
+                "${plan_path}" "${final_phase_number}" "${gate_script}"
+        ); then
+            return 2
+        fi
+        case "${finalization_state}" in
+            wrap|operator-decision)
+                printf '%s\n' 'operator-stop:plan-finalization'
+                return
+                ;;
+            allow|complete) ;;
+            *) return 2 ;;
+        esac
     fi
 
     autopilot_plan_has_steps "${plan_path}" || return
