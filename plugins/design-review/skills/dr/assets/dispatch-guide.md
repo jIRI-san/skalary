@@ -174,8 +174,11 @@ Fleet `throttled`; retry the same frozen task only when Fleet returns its attemp
 throttling from diagnostics or error prose such as `429`. Map review `failed`, `timed-out`, `omitted`,
 or host-cancelled outcomes to Fleet `failed`. If the explicit throttle retry also throttles, Fleet
 ends that task failed and the richer review outcome used by Publish is `failed` with its diagnostic.
-Keep every richer review outcome and findings separately in memory; do not add Fleet attendance to
-review-run schemas or result inputs.
+Never forward a richer review diagnostic into Fleet `Detail`: it may be multiline and exceed Fleet's
+one-line 512-character boundary. Use only fixed Fleet-safe projection details (`explicit structured
+throttle` or `review outcome: <closed outcome>`), while retaining every richer outcome, diagnostic,
+and finding separately in memory for Publish. Do not add Fleet attendance to review-run schemas or
+result inputs.
 
 Call `Complete-FleetDispatchRun` only after `Done`, require
 `Completed + Failed + Cancelled = Planned`, and render its `FinalView`. Fleet terminal status is only

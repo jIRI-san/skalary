@@ -69,7 +69,9 @@ repository-root replacements are outside the review execution boundary.
 Only an explicit structured throttle projection retries, once, as the same frozen task. Review
 failures, timeouts, omissions, and host cancellations project to Fleet failure, while their richer
 review outcomes remain in memory for publication. Error prose such as `HTTP 429` is an ordinary
-failure. Fleet attendance is not added to review schemas or persistence: review-run Publish,
+failure. Rich review diagnostics never become Fleet `Detail`; callers use a fixed closed-outcome
+detail so multiline or over-512-character review diagnostics cannot abort dispatch attendance.
+Fleet attendance is not added to review schemas or persistence: review-run Publish,
 verified Summary/Full reading, and result rendering remain authoritative after Fleet completion.
 
 The `/cep` decomposition guide also publishes an explicitly inactive epic-review extension boundary

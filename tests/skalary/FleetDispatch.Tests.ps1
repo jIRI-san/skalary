@@ -500,7 +500,7 @@ Ready order: design -> validate -> implement
         $crGuide | Should -Match 'Provider-global\s+concurrency is unobserved'
         $crGuide | Should -Match 'error prose such as `429`'
         $crGuide | Should -Match 'review `failed`, `timed-out`, `omitted`,\s+or host-cancelled outcomes to Fleet `failed`'
-        $crGuide | Should -Match 'do not add Fleet attendance to\s+review-run schemas or result inputs'
+        $crGuide | Should -Match 'Fleet attendance to review-run schemas'
         $crGuide | Should -Match 'verified Summary and\s+Full reading, and authoritative result rendering'
         $crGuide | Should -Match 'Never import a repository-root replacement'
 
@@ -637,6 +637,9 @@ Ready order: design -> validate -> implement
         $retainedReviewOutcomes = [System.Collections.Generic.Dictionary[string, string]]::new(
             [System.StringComparer]::Ordinal
         )
+        $retainedReviewDiagnostics = [System.Collections.Generic.Dictionary[string, string]]::new(
+            [System.StringComparer]::Ordinal
+        )
         $fourteenTransition = Start-FleetDispatchRun -Plan $fourteenPlan
         while (-not $fourteenTransition.Done) {
             $wave = $fourteenTransition.Wave
@@ -646,13 +649,16 @@ Ready order: design -> validate -> implement
                     if ($frozenIndex -lt $richerOutcomes.Count) {
                         $reviewOutcome = $richerOutcomes[$frozenIndex]
                         $retainedReviewOutcomes[$_.Id] = $reviewOutcome
-                        $detail = if ($frozenIndex -eq 0) {
-                            'ordinary review failure: HTTP 429 in error prose'
+                        $retainedReviewDiagnostics[$_.Id] = if ($frozenIndex -eq 0) {
+                            "ordinary review failure: HTTP 429 in error prose`n$('x' * 600)"
                         }
                         else {
-                            "review outcome: $reviewOutcome"
+                            "rich diagnostic for $reviewOutcome"
                         }
-                        New-ReviewWaveResult -TaskId $_.Id -Outcome failed -Detail $detail
+                        New-ReviewWaveResult `
+                            -TaskId $_.Id `
+                            -Outcome failed `
+                            -Detail "review outcome: $reviewOutcome"
                     }
                     else {
                         $retainedReviewOutcomes[$_.Id] = 'completed'
@@ -672,15 +678,22 @@ Ready order: design -> validate -> implement
         $retainedReviewOutcomes.Count | Should -Be $fourteenFrozen.Count
         @($retainedReviewOutcomes.Values | Where-Object { $_ -in $richerOutcomes }).Count |
             Should -Be 4
-        $fourteenResult.Attendance.Planned | Should -Be $fourteenFrozen.Count
-        $fourteenResult.Attendance.Completed | Should -Be 10
-        $fourteenResult.Attendance.Failed | Should -Be 4
-        $fourteenResult.Attendance.Retried | Should -Be 0
-        $fourteenResult.Attendance.Cancelled | Should -Be 0
-        $fourteenResult.Attendance.Completed +
-        $fourteenResult.Attendance.Failed +
-        $fourteenResult.Attendance.Cancelled |
-            Should -Be $fourteenResult.Attendance.Planned
+        $retainedReviewDiagnostics[$fourteenFrozen[0].TaskId].Length | Should -BeGreaterThan 512
+        $retainedReviewDiagnostics[$fourteenFrozen[0].TaskId] | Should -Match "HTTP 429.*`n"
+        @(
+            $fourteenResult.Tasks |
+                Where-Object Status -EQ failed |
+                ForEach-Object Detail
+            ) | Should -Be @($richerOutcomes | ForEach-Object { "review outcome: $_" })
+            $fourteenResult.Attendance.Planned | Should -Be $fourteenFrozen.Count
+            $fourteenResult.Attendance.Completed | Should -Be 10
+            $fourteenResult.Attendance.Failed | Should -Be 4
+            $fourteenResult.Attendance.Retried | Should -Be 0
+            $fourteenResult.Attendance.Cancelled | Should -Be 0
+            $fourteenResult.Attendance.Completed +
+            $fourteenResult.Attendance.Failed +
+            $fourteenResult.Attendance.Cancelled |
+                Should -Be $fourteenResult.Attendance.Planned
         @($fourteenResult.Tasks.Id | Select-Object -Unique).Count | Should -Be $fourteenFrozen.Count
     }
 
