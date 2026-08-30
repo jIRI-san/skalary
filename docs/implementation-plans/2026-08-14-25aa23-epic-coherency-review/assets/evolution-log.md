@@ -44,3 +44,15 @@
   subordinate to deterministic admission.
 - The review run remains non-qualifying because it contains findings. A fresh finding-free verified
   run is required for `review:dr`.
+
+### Phase 1 evidence reviews — 2026-08-30
+
+- Replacement run `596e7b14-8e6c-48a3-91cb-9ec2ec13bb93` degraded when 2 of 14 reviewer tasks
+  failed repository reads; it is non-qualifying.
+- Final automatic run `81be21ce-4b53-44e2-9976-d42f391fad7f` completed 14/14 tasks but reported 10
+  findings. Corrections make the pre-scaffold accepted-child tables authoritative, add canonical
+  regular-file confinement, record demonstrated invariants in a fixed mechanism table, remove an
+  unsupported secret-screening claim, make speculative triggers precede shared-contract admission,
+  and strengthen structural evidence.
+- The automatic design-review round cap is exhausted. These corrections require an operator-approved
+  future review before `review:dr` can qualify; no finding-bearing run is treated as approval.

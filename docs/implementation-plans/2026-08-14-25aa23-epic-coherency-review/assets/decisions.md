@@ -9,8 +9,8 @@
   digest, fixed scope, and full task matrix. Freeze, dispatch, publication, reader, timeout, model,
   or attendance degradation blocks.
 - **Do not ingest sibling bodies.** The canonical epic source contains all review input. `/cep`
-  passes one immutable secret-screened, untrusted envelope to every reviewer and never assembles
-  authority from child plans or related-plan content.
+  passes one immutable untrusted envelope to every reviewer and never assembles authority from child
+  plans or related-plan content.
 - **Fix the scope.** Coherency covers goal/done coverage, verticality, child independence/overlap, ownership, necessary acyclic dependencies, MVP/final route, and prior-art reuse.
 - **Make proportionality explicit.** Findings are classified as local fix, required shared contract, or speculative platform.
 - **Require demonstrated invariants.** Shared architecture is justified only by a concrete invariant spanning children; a minor/local finding cannot create a schema, protocol, store, state machine, compatibility layer, provider, or dependency.

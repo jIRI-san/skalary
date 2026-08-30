@@ -153,32 +153,46 @@ exactly one each of these existing H2 sections, in this order:
 | Section | Required ordered content |
 |---|---|
 | `## Goal` | The non-empty operator-confirmed goal; then non-empty `**Desired outcome.**`, `**Success signals.**`, `**Non-goals.**`, and `**Definition of done.**` entries, in that order. Signals and non-goals are non-empty lists. |
-| `## Child plans` | The generated child table with one complete non-placeholder row per accepted child: canonical id, slug, and every direct dependency. Rows use `New-Epic.ps1` order: child date, then canonical id, ascending ordinal. |
+| `## Child plans` | Before scaffolding, the generated `_(none yet)_` row remains intact and is non-authoritative. After a clean review permits scaffolding, `New-Epic.ps1` replaces it with the generated mirror and the result must exactly match the reviewed accepted-child and direct-dependency tables. |
 | `## Decomposition notes` | Exactly these H3s in order: `### Accepted children`, `### Direct dependencies`, `### Delivery routes`, and `### Prior art`. |
 
-`### Accepted children` has one row per child in child-table order naming its value-bearing slice,
-done bar, boundaries and non-overlap, independent implementation/validation/review/merge and revert
-story. In canonical child then authored order, it also inventories every proposed mechanism, not
-only shared mechanisms or contracts; each mechanism has exactly one owning child and names all
-consuming children/plans. `### Direct dependencies` has one row per edge, ordered by dependent child
-and then prerequisite id, naming the delivered behavior that makes the prerequisite necessary;
-children without an edge are explicitly marked independent. `### Delivery routes` contains
-`**Usable MVP.**` followed by `**MVP to final.**`; each names an ordered child route and the behavior
-delivered at every hop. `### Prior art` has one row per considered candidate, ascending by canonical
-id or repository-relative path, with `reuse`, `extend`, or `reject`, the owning child, and a concrete
-rationale for every rejection.
+Before scaffolding, `### Accepted children` is the membership authority for the review source. It
+contains these two fixed tables:
+
+| Table | Columns | Ordering |
+|---|---|---|
+| Children | `Child`, `Slug`, `Slice`, `Done bar`, `Boundaries and non-overlap`, `Independent delivery and revert` | Canonical child id, ascending ordinal |
+| Mechanisms | `Child`, `Mechanism`, `Intent anchor`, `Owner`, `Consumers`, `Demonstrated invariant`, `Prior-art disposition` | Canonical child id, then mechanism, ascending ordinal |
+
+The Children table has one complete row per accepted child. The Mechanisms table inventories every
+proposed mechanism, not only shared mechanisms or contracts; each row has exactly one owning child,
+names every consuming child/plan, and records either the concrete invariant shared by at least two
+named consumers or `—` for a local mechanism. `### Direct dependencies` has one row per edge,
+ordered by dependent child and then prerequisite id, naming the delivered behavior that makes the
+prerequisite necessary; children without an edge are explicitly marked independent.
+`### Delivery routes` contains `**Usable MVP.**` followed by `**MVP to final.**`; each names an
+ordered child route and the behavior delivered at every hop. `### Prior art` has one row per
+considered candidate, ascending by canonical id or repository-relative path, with `reuse`, `extend`,
+or `reject`, the owning child, and a concrete rationale for every rejection.
 
 Before child scaffolding, the generated `| _(none yet)_ | | |` row is permitted only as
-non-authoritative scaffold state; it cannot be frozen or reviewed. Before `Freeze`, fail closed when
+non-authoritative scaffold state; the review freezes it together with the authoritative accepted-cut
+tables but never treats it as accepted membership. Resolve the epic through existing `Resolve-Epic`
+inventory and require the canonical file and every ancestor below the physical epics root to be a
+regular, non-link, non-reparse path. Before `Freeze`, fail closed when that identity check fails or
 the canonical file is missing, empty or whitespace-only, not strict UTF-8, or over the existing
 128 KiB per-artifact review-content limit. Also fail on a missing, duplicate, or out-of-order
-required section or entry; `TBD`, a placeholder row, or an empty required body/list/cell; duplicate
-child, edge, route entry, or prior-art candidate; an unknown child reference; a self-edge or cycle;
-or conflicting child identity, membership, dependency, ownership, route, prior-art disposition,
-goal, or outcome content across the three sections.
+required section, table, label, or entry; `TBD` or an empty required body/list/cell; duplicate child,
+mechanism, edge, route entry, or prior-art candidate; an unknown child reference; a self-edge or
+cycle; or conflicting child identity, membership, dependency, ownership, route, prior-art
+disposition, goal, or outcome content across the three sections.
 
 Read `epic.md` once into immutable bytes. Decode, validate, hash, and produce reviewer content from
-that same snapshot. Review the whole snapshot against exactly these eight labelled checks:
+that same snapshot. The review-run `scope` string is exactly:
+
+`Epic accepted-cut coherency: goal-success-coverage; definition-of-done-coverage; verticality; child-independence-overlap; shared-ownership; necessary-direct-acyclic-dependencies; usable-mvp-to-final-route; prior-art-reuse`
+
+Review the whole snapshot against exactly these eight labelled checks:
 
 | Label | Fixed check |
 |---|---|
@@ -204,16 +218,16 @@ knowledge.
 
 Classify every proposed mechanism exactly once, in this precedence:
 
-1. **`required shared contract`** only when confirmed intent requires the same concrete invariant
-   across at least two named children/plans; deletion, reuse, or a child-local implementation is
-   insufficient; exactly one owner and all consumers are named; and every associated dependency
-   edge is necessary for delivered behavior.
-2. **`speculative platform`** when any proof needed to justify the proposed scope is absent,
+1. **`speculative platform`** when any proof needed to justify the proposed scope is absent,
    including any required-shared proof when shared use is claimed; the semantic capability is
    duplicated across children; ownership or consumers are missing or ambiguous; the mechanism
    anticipates a hypothetical future provider, versioning, or compatibility need; infrastructure
    exists only to support other speculative machinery; or a local/minor finding manufactures a new
    schema, protocol, store, state machine, compatibility layer, provider, or dependency.
+2. **`required shared contract`** only when no speculative trigger applies and confirmed intent
+   requires the same concrete invariant across at least two named children/plans; deletion, reuse,
+   or a child-local implementation is insufficient; exactly one owner and all consumers are named;
+   and every associated dependency edge is necessary for delivered behavior.
 3. **`local fix`** otherwise. Prefer deletion, reuse of accepted prior art, or the narrowest repair
    wholly owned and consumed by one child.
 
@@ -234,9 +248,9 @@ listed above; without independent `required shared contract` proof, such a recom
 `speculative platform`.
 
 Phase 2 owns `keep`/`simplify`/`split`/`defer` rendering, resolution persistence, operator return,
-blocking integration, and activation. Phase 3 owns fixtures and generated-copy synchronization.
-Nothing in this rubric activates current `/cep`, adds a `/ci` check, or changes either phase
-boundary.
+blocking integration, activation, and same-step synchronization of its source payload changes.
+Phase 3 owns broader fixtures and final generated-drift proof. Nothing in this rubric activates
+current `/cep`, adds a `/ci` check, or changes either phase boundary.
 
 ### Existing design-review path
 
