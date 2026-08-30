@@ -219,8 +219,10 @@ Describe 'review standards resolution' {
             $guide = Get-Content -LiteralPath (Join-Path $script:repoRoot $relative) -Raw
             $guide | Should -Match 'Pass each concern only the resolved entries whose\s+`concern` matches that reviewer'
             $guide | Should -Match 'does not enter review-plan or review-result\s+inputs'
-            $guide | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
-            $guide | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
+            $guide | Should -Match 'skalary/untrusted-review-content@1'
+            $guide | Should -Match '`contentTrust: "untrusted"`'
+            $guide | Should -Match 'Use a JSON serializer'
+            $guide | Should -Match 'no raw\s+duplicate or fixed sentinel delimiter'
         }
     }
 }

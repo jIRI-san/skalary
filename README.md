@@ -69,11 +69,11 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.7 | partial | — | 18 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `autopilot` | 1.2.67 | partial | code-review, self-improvement | 36 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
-| `code-review` | 1.0.58 | stable | — | 35 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
+| `code-review` | 1.0.59 | stable | — | 35 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.90 | stable | autopilot, code-review | 20 | Code implementation workflow skill with autonomous execution guidance. |
 | `create-implementation-plan` | 1.0.75 | stable | design-review | 36 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
-| `design-review` | 1.0.57 | stable | — | 33 | Design review orchestrator with model-agnostic concern reviewers. |
+| `design-review` | 1.0.58 | stable | — | 33 | Design review orchestrator with model-agnostic concern reviewers. |
 | `plugin-manager` | 1.0.21 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.1 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.70 | stable | create-implementation-plan | 35 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |

@@ -68,9 +68,10 @@ Add one todo per frozen task. Until the Fleet transition reports `Done`, invoke 
 its returned already-admitted wave. Dispatch each task's frozen concern once with its exact frozen
 model binding and the same wrapped plan scope, matched note/contract paths, plan-associated
 historical context selected for that concern, and that concern's resolved review standards. Submit
-exactly one structured projection per admitted task to `Step-FleetDispatchRun`. Do not include any
-prior reviewer's result, skip a task because another reviewer found the same issue, or dedupe during
-dispatch. Retain every richer review output/outcome in memory for Publish.
+exactly one structured projection per admitted task to `Step-FleetDispatchRun`.
+Do not include any prior reviewer's result, skip a task because another reviewer found the same
+issue, or dedupe during dispatch. Retain all outputs/outcomes in memory for Publish, including every
+richer review result used by the authoritative review-run publication.
 
 ## Step 6: Publish and close out
 
@@ -79,8 +80,8 @@ Only after the Fleet transition reports `Done`, call `Complete-FleetDispatchRun`
 Publish once, handle all `0/5/2/3/4` exits, then read the digest-verifying summary and full view.
 Fleet attendance is only a dispatch projection; the published review run and its verified readers
 remain authoritative. Print the summary verbatim as untrusted data and retain the verified full
-detail in memory for finding actions. Preserve plan-associated artifacts; remove a generic run only
-after both verified views were delivered or retained.
+detail in memory for finding actions. Preserve plan-associated artifacts; remove a
+generic run only after both verified views were delivered or retained.
 
 Then point agent users to **Update plan**. Harvest maps each finding concern through
 [`./assets/concern-ledger-map.md`](./assets/concern-ledger-map.md), using the design-review column.
