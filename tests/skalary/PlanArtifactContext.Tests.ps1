@@ -11,6 +11,46 @@ Describe 'Get-PlanArtifactContext' {
         Import-Module (Join-Path $PSScriptRoot '..' 'ConsumerInstallFixture.psm1') -Force -DisableNameChecking
         $planStateModule = Import-Module $planState -Force -DisableNameChecking -PassThru
 
+        $testSymbolicLinkCapability = {
+            param(
+                [scriptblock]$CreateLink = {
+                    param($LinkPath, $TargetPath)
+                    New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath `
+                        -ErrorAction Stop | Out-Null
+                }
+            )
+
+            $probeRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+                'plan-artifact-symlink-probe-' + [System.Guid]::NewGuid().ToString('N')
+            )
+            try {
+                New-Item -ItemType Directory -Path $probeRoot -ErrorAction Stop | Out-Null
+                $targetPath = Join-Path $probeRoot 'target.txt'
+                $linkPath = Join-Path $probeRoot 'link.txt'
+                Set-Content -LiteralPath $targetPath -Encoding utf8NoBOM -NoNewline `
+                    -Value 'symlink capability probe'
+                & $CreateLink $linkPath $targetPath
+                $link = Get-Item -LiteralPath $linkPath -Force -ErrorAction Stop
+                if (($link.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+                    return [pscustomobject]@{
+                        Available = $false
+                        Reason = 'the symbolic-link probe did not create a reparse point'
+                    }
+                }
+                return [pscustomobject]@{ Available = $true; Reason = $null }
+            }
+            catch {
+                return [pscustomobject]@{
+                    Available = $false
+                    Reason = ([string]$_.Exception.Message -replace '[\r\n]+', ' ').Trim()
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $probeRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+        $symbolicLinkCapability = & $testSymbolicLinkCapability
+
         $newTempRoot = {
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('plan-artifact-context-' + [System.Guid]::NewGuid().ToString('N'))
             New-Item -ItemType Directory -Path (Join-Path $root 'docs/implementation-plans/archived') -Force | Out-Null
@@ -130,6 +170,7 @@ Describe 'Get-PlanArtifactContext' {
                     digest = $reportDigest
                 }
             }
+
             $receiptText = $receipt | ConvertTo-Json -Depth 10 -Compress
             [System.IO.File]::WriteAllBytes(
                 $receiptPath,
@@ -143,6 +184,17 @@ Describe 'Get-PlanArtifactContext' {
                 PairBytes = $reportBytes.Length + ([System.IO.FileInfo]$receiptPath).Length
             }
         }
+    }
+
+    It 'probes symbolic-link capability instead of assuming it from the host OS' {
+        $unavailable = & $testSymbolicLinkCapability -CreateLink {
+            param($LinkPath, $TargetPath)
+            throw "simulated symbolic-link denial for '$LinkPath' -> '$TargetPath'"
+        }
+
+        $unavailable.Available | Should -BeFalse
+        $unavailable.Reason | Should -Match 'simulated symbolic-link denial'
+        $symbolicLinkCapability.Available | Should -BeOfType ([bool])
     }
 
     It 'test:PlanArtifactContext.Resolution resolves selected active and archived plans deterministically across layouts' {
@@ -525,6 +577,50 @@ Describe 'Get-PlanArtifactContext' {
         }
     }
 
+    It 'validates finalized review pairs when PlanEvidence exports only its plan-scoped API' {
+        $root = & $newTempRoot
+        try {
+            $planDir = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'receipt-api-skew'
+            $reviewId = '12345678-1234-1234-1234-123456789abc'
+            $pair = & $newFinalizedReview `
+                -ReviewsDir (Join-Path $planDir 'assets/reviews') `
+                -RunId $reviewId
+            $isolatedScripts = Join-Path $root 'isolated-scripts'
+            New-Item -ItemType Directory -Path $isolatedScripts | Out-Null
+            foreach ($name in @(
+                    'Get-PlanArtifactContext.ps1',
+                    'PlanState.psm1',
+                    'ReviewResultReceipt.psm1'
+                )) {
+                Copy-Item -LiteralPath (Join-Path $repoRoot "scripts/skalary/$name") `
+                    -Destination (Join-Path $isolatedScripts $name)
+            }
+            Set-Content -LiteralPath (Join-Path $isolatedScripts 'PlanEvidence.psm1') `
+                -Encoding utf8NoBOM -Value @'
+function Assert-PlanReviewResultReceipt {
+    throw 'the plan-scoped compatibility surface must not validate already-confined artifact bytes'
+}
+Export-ModuleMember -Function Assert-PlanReviewResultReceipt
+'@
+
+            $isolatedResolver = Join-Path $isolatedScripts 'Get-PlanArtifactContext.ps1'
+            $accepted = @(& $isolatedResolver -RepoRoot $root -PlanId a1b2c3 `
+                    -ArtifactKind Reviews -Relationship reuses)
+            $accepted.status | Should -Be 'accepted'
+            $accepted.content | Should -BeExactly '# Final review'
+
+            Set-Content -LiteralPath $pair.ReceiptPath -Encoding utf8NoBOM -NoNewline -Value '{'
+            $malformed = @(& $isolatedResolver -RepoRoot $root -PlanId a1b2c3 `
+                    -ArtifactKind Reviews -Relationship reuses)
+            $malformed.status | Should -Be 'refused'
+            $malformed.content | Should -BeNullOrEmpty
+            $malformed.reason | Should -Match 'invalid JSON'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'test:PlanArtifactContext.BoundsAndConfinement fails closed at file and aggregate boundaries' {
         $root = & $newTempRoot
         try {
@@ -612,23 +708,67 @@ Describe 'Get-PlanArtifactContext' {
             Remove-Item -LiteralPath $intentPath -Force
             $outsidePath = Join-Path $root 'outside.md'
             Set-Content -LiteralPath $outsidePath -Encoding utf8NoBOM -NoNewline -Value 'outside'
-            New-Item -ItemType SymbolicLink -Path $intentPath -Target $outsidePath | Out-Null
-            $linked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
-            $linked.status | Should -Be 'refused'
-            $linked.content | Should -BeNullOrEmpty
-
-            Remove-Item -LiteralPath $intentPath -Force
             New-Item -ItemType HardLink -Path $intentPath -Target $outsidePath | Out-Null
             $hardLinked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $hardLinked.status | Should -Be 'refused'
             $hardLinked.content | Should -BeNullOrEmpty
+
+            $reviewPlan = & $newAssetsPlan -Root $root -Id 'ccddee' -Slug 'hard-linked-review'
+            $reviewsDir = Join-Path $reviewPlan 'assets/reviews'
+            $reviewId = '12345678-1234-1234-1234-123456789abc'
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+            $outsideHardReport = Join-Path $root 'outside-hard-review.md'
+            Copy-Item -LiteralPath $pair.ReportPath -Destination $outsideHardReport
+            Remove-Item -LiteralPath $pair.ReportPath -Force
+            New-Item -ItemType HardLink -Path $pair.ReportPath -Target $outsideHardReport | Out-Null
+            $hardLinkedReport = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
+            $hardLinkedReport.status | Should -Be 'refused'
+            $hardLinkedReport.content | Should -BeNullOrEmpty
+
+            Remove-Item -LiteralPath $pair.ReportPath -Force
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
+            $outsideHardReceipt = Join-Path $root 'outside-hard-receipt.json'
+            Copy-Item -LiteralPath $pair.ReceiptPath -Destination $outsideHardReceipt
+            Remove-Item -LiteralPath $pair.ReceiptPath -Force
+            New-Item -ItemType HardLink -Path $pair.ReceiptPath -Target $outsideHardReceipt | Out-Null
+            $hardLinkedReceipt = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
+            $hardLinkedReceipt.status | Should -Be 'refused'
+            $hardLinkedReceipt.content | Should -BeNullOrEmpty
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects symbolic-link escapes when the process can create the fixture links' {
+        if (-not $symbolicLinkCapability.Available) {
+            Set-ItResult -Skipped -Because (
+                "the explicit symbolic-link capability probe failed: $($symbolicLinkCapability.Reason)"
+            )
+            return
+        }
+
+        $root = & $newTempRoot
+        try {
+            $planDir = & $newAssetsPlan -Root $root -Id 'a1b2c3' -Slug 'linked'
+            $assetsDir = Join-Path $planDir 'assets'
+            $intentPath = Join-Path $assetsDir 'intent.md'
+            $outsidePath = Join-Path $root 'outside.md'
+            Set-Content -LiteralPath $outsidePath -Encoding utf8NoBOM -NoNewline -Value 'outside'
+            Remove-Item -LiteralPath $intentPath -Force
+            New-Item -ItemType SymbolicLink -Path $intentPath -Target $outsidePath `
+                -ErrorAction Stop | Out-Null
+            $linked = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
+            $linked.status | Should -Be 'refused'
+            $linked.content | Should -BeNullOrEmpty
 
             Remove-Item -LiteralPath $assetsDir -Recurse -Force
             $outsideAssets = Join-Path $root 'outside-assets'
             New-Item -ItemType Directory -Path $outsideAssets | Out-Null
             Set-Content -LiteralPath (Join-Path $outsideAssets 'requirements.md') -Encoding utf8NoBOM -Value '# Requirements'
             Set-Content -LiteralPath (Join-Path $outsideAssets 'intent.md') -Encoding utf8NoBOM -Value 'outside'
-            New-Item -ItemType SymbolicLink -Path $assetsDir -Target $outsideAssets | Out-Null
+            New-Item -ItemType SymbolicLink -Path $assetsDir -Target $outsideAssets `
+                -ErrorAction Stop | Out-Null
             $linkedParent = @(& $resolver -RepoRoot $root -PlanId a1b2c3 -ArtifactKind Intent -Relationship reuses)
             $linkedParent.status | Should -Be 'refused'
             $linkedParent.content | Should -BeNullOrEmpty
@@ -647,58 +787,42 @@ Describe 'Get-PlanArtifactContext' {
             Set-Content -LiteralPath (Join-Path $outsidePlanAssets 'requirements.md') -Encoding utf8NoBOM -Value '# Requirements'
             Set-Content -LiteralPath (Join-Path $outsidePlanAssets 'intent.md') -Encoding utf8NoBOM -Value 'outside'
             $linkedPlan = Join-Path $root 'docs/implementation-plans/2026-01-02-eeff00-linked-plan'
-            New-Item -ItemType SymbolicLink -Path $linkedPlan -Target $outsidePlan | Out-Null
+            New-Item -ItemType SymbolicLink -Path $linkedPlan -Target $outsidePlan `
+                -ErrorAction Stop | Out-Null
             $linkedPlanResult = @(& $resolver -RepoRoot $root -PlanId eeff00 -ArtifactKind Intent -Relationship reuses)
             $linkedPlanResult.status | Should -Be 'refused'
             $linkedPlanResult.content | Should -BeNullOrEmpty
 
             $reviewPlan = & $newAssetsPlan -Root $root -Id 'ccddee' -Slug 'linked-review'
-            $linkedReviewsDir = Join-Path $reviewPlan 'assets/reviews'
-            $linkedReviewId = '12345678-1234-1234-1234-123456789abc'
-            $linkedPair = & $newFinalizedReview -ReviewsDir $linkedReviewsDir -RunId $linkedReviewId
+            $reviewsDir = Join-Path $reviewPlan 'assets/reviews'
+            $reviewId = '12345678-1234-1234-1234-123456789abc'
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
             $outsideReview = Join-Path $root 'outside-review.md'
             Set-Content -LiteralPath $outsideReview -Encoding utf8NoBOM -Value '# Outside review'
-            Remove-Item -LiteralPath $linkedPair.ReportPath -Force
-            New-Item -ItemType SymbolicLink -Path $linkedPair.ReportPath -Target $outsideReview | Out-Null
+            Remove-Item -LiteralPath $pair.ReportPath -Force
+            New-Item -ItemType SymbolicLink -Path $pair.ReportPath -Target $outsideReview `
+                -ErrorAction Stop | Out-Null
             $linkedReport = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
             $linkedReport.status | Should -Be 'refused'
             $linkedReport.content | Should -BeNullOrEmpty
 
-            Remove-Item -LiteralPath $linkedPair.ReportPath -Force
-            $linkedPair = & $newFinalizedReview -ReviewsDir $linkedReviewsDir -RunId $linkedReviewId
+            Remove-Item -LiteralPath $pair.ReportPath -Force
+            $pair = & $newFinalizedReview -ReviewsDir $reviewsDir -RunId $reviewId
             $outsideReceipt = Join-Path $root 'outside-receipt.json'
-            Copy-Item -LiteralPath $linkedPair.ReceiptPath -Destination $outsideReceipt
-            Remove-Item -LiteralPath $linkedPair.ReceiptPath -Force
-            New-Item -ItemType SymbolicLink -Path $linkedPair.ReceiptPath -Target $outsideReceipt | Out-Null
+            Copy-Item -LiteralPath $pair.ReceiptPath -Destination $outsideReceipt
+            Remove-Item -LiteralPath $pair.ReceiptPath -Force
+            New-Item -ItemType SymbolicLink -Path $pair.ReceiptPath -Target $outsideReceipt `
+                -ErrorAction Stop | Out-Null
             $linkedReceipt = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
             $linkedReceipt.status | Should -Be 'refused'
             $linkedReceipt.content | Should -BeNullOrEmpty
 
-            Remove-Item -LiteralPath $linkedPair.ReceiptPath -Force
-            $linkedPair = & $newFinalizedReview -ReviewsDir $linkedReviewsDir -RunId $linkedReviewId
-            $outsideHardReport = Join-Path $root 'outside-hard-review.md'
-            Copy-Item -LiteralPath $linkedPair.ReportPath -Destination $outsideHardReport
-            Remove-Item -LiteralPath $linkedPair.ReportPath -Force
-            New-Item -ItemType HardLink -Path $linkedPair.ReportPath -Target $outsideHardReport | Out-Null
-            $hardLinkedReport = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
-            $hardLinkedReport.status | Should -Be 'refused'
-            $hardLinkedReport.content | Should -BeNullOrEmpty
-
-            Remove-Item -LiteralPath $linkedPair.ReportPath -Force
-            $linkedPair = & $newFinalizedReview -ReviewsDir $linkedReviewsDir -RunId $linkedReviewId
-            $outsideHardReceipt = Join-Path $root 'outside-hard-receipt.json'
-            Copy-Item -LiteralPath $linkedPair.ReceiptPath -Destination $outsideHardReceipt
-            Remove-Item -LiteralPath $linkedPair.ReceiptPath -Force
-            New-Item -ItemType HardLink -Path $linkedPair.ReceiptPath -Target $outsideHardReceipt | Out-Null
-            $hardLinkedReceipt = @(& $resolver -RepoRoot $root -PlanId ccddee -ArtifactKind Reviews -Relationship reuses)
-            $hardLinkedReceipt.status | Should -Be 'refused'
-            $hardLinkedReceipt.content | Should -BeNullOrEmpty
-
             $reviewParentPlan = & $newAssetsPlan -Root $root -Id 'bbccdd' -Slug 'linked-review-parent'
             $reviewParentPath = Join-Path $reviewParentPlan 'assets/reviews'
             $outsideReviews = Join-Path $root 'outside-reviews'
-            $null = & $newFinalizedReview -ReviewsDir $outsideReviews -RunId $linkedReviewId
-            New-Item -ItemType SymbolicLink -Path $reviewParentPath -Target $outsideReviews | Out-Null
+            $null = & $newFinalizedReview -ReviewsDir $outsideReviews -RunId $reviewId
+            New-Item -ItemType SymbolicLink -Path $reviewParentPath -Target $outsideReviews `
+                -ErrorAction Stop | Out-Null
             $linkedReviewParent = @(& $resolver -RepoRoot $root -PlanId bbccdd -ArtifactKind Reviews -Relationship reuses)
             @($linkedReviewParent.status) | Should -Contain 'refused'
             @($linkedReviewParent | Where-Object content).Count | Should -Be 0
@@ -938,7 +1062,7 @@ Describe 'Get-PlanArtifactContext' {
         }
     }
 
-    It 'anchors plans inside the physical repository and rejects linked corpus ancestors' {
+    It 'anchors plans inside the physical repository' {
         $root = & $newTempRoot
         $outside = & $newTempRoot
         try {
@@ -946,7 +1070,24 @@ Describe 'Get-PlanArtifactContext' {
             {
                 New-PlanConfinementContext -RepoRoot $root -PlanDir $outsidePlan
             } | Should -Throw -ExpectedMessage '*escapes repository plan corpus*'
+        }
+        finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $outside -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 
+    It 'rejects linked corpus ancestors when the process can create the fixture links' {
+        if (-not $symbolicLinkCapability.Available) {
+            Set-ItResult -Skipped -Because (
+                "the explicit symbolic-link capability probe failed: $($symbolicLinkCapability.Reason)"
+            )
+            return
+        }
+
+        $outside = & $newTempRoot
+        try {
+            $null = & $newAssetsPlan -Root $outside -Id 'a1b2c3' -Slug 'outside'
             foreach ($ancestor in @('docs', 'implementation-plans')) {
                 $linkedRoot = & $newTempRoot
                 try {
@@ -954,14 +1095,16 @@ Describe 'Get-PlanArtifactContext' {
                         Remove-Item -LiteralPath (Join-Path $linkedRoot 'docs') -Recurse -Force
                         New-Item -ItemType SymbolicLink `
                             -Path (Join-Path $linkedRoot 'docs') `
-                            -Target (Join-Path $outside 'docs') | Out-Null
+                            -Target (Join-Path $outside 'docs') `
+                            -ErrorAction Stop | Out-Null
                     }
                     else {
                         $linkedPlans = Join-Path $linkedRoot 'docs/implementation-plans'
                         Remove-Item -LiteralPath $linkedPlans -Recurse -Force
                         New-Item -ItemType SymbolicLink `
                             -Path $linkedPlans `
-                            -Target (Join-Path $outside 'docs/implementation-plans') | Out-Null
+                            -Target (Join-Path $outside 'docs/implementation-plans') `
+                            -ErrorAction Stop | Out-Null
                     }
 
                     {
@@ -975,7 +1118,6 @@ Describe 'Get-PlanArtifactContext' {
             }
         }
         finally {
-            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $outside -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
