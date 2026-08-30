@@ -22,6 +22,12 @@ For a Plan Completion-only prompt, read the plan and config and enforce the plan
 
 **Truthful completion handoff:** Never end an invocation with required validation or close work still running. When a tool reports that a command is still running, retain its shell/session identifier and read it until it exits; `Validation is still running.` is progress, not a terminal result. Do not report success until the required validation result is known and the corresponding durable phase-close receipt or final archive state is written and verified. The runtime verifies that receipt through the installed `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` probe. If the runtime resumes this same agent session after detecting `close-pending`, continue the existing target: reconnect to its running tool process when available, otherwise rerun the unfinished validation, then complete only the missing receipt/review/push/PR/archive work. The handoff never authorizes replaying completed implementation or converting pending work into success.
 
+If that probe rejects a committed historical `phase-harvest-receipt/v1`, do not rerun phase
+implementation, review, crosscheck, or harvest and do not edit JSON manually. Invoke the installed
+`.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1 -PlanDir <plan-folder> -Phase <N> -MigrateLegacyReceipt -SourceRef HEAD -RepoRoot .`
+through a bound argument array. Continue only after its migrated receipt is committed and the probe
+returns `closed`; any degraded migration is a hard stop.
+
 ## Execution Loop
 
 1. **Read plan** — open the plan file at the path given in the prompt. Parse the Requirements table, Risks table, and step list. Then load only the assets the phase needs (`assets/intent.md` before implementing, plus requirements/risks/decisions/references as referenced); legacy plans keep these at the plan-folder root. Never read the whole `assets/` tree.
