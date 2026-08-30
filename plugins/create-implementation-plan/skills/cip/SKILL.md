@@ -68,17 +68,49 @@ context: fork
 
 1. Follow the full question bank and the three ordered confirmation checkpoints from the interview asset, beginning with the `intent` gate.
 2. **Intent checkpoint:** capture operator intent first in the layout-resolved `assets/intent.md` (or legacy root `intent.md`). Rephrase all five sections, read them back together, and revise until the operator confirms them. Preserve preliminary `/cep` wording across authored assets and preserve their **Epic discussion provenance** while refining them; never reset them to scaffold templates. `/cip` owns child requirements, risks, evidence, and steps; `/cep` never writes those sections.
-3. **Domain/design checkpoint:** write the layout-resolved domain and design assets, rephrase the important boundaries and uncertainty, and revise until the operator approves the concise Mermaid-backed design. Use `./assets/design-template.md`; call stacks are optional and included only when they clarify control flow.
-4. Build a provisional MVP-first vertical outline that routes every requirement through usable increments to the complete outcome. This outline is interview material, not the detailed plan.
-5. **Final pre-draft checkpoint:** present the confirmed intent, approved design, decisions, uncertainty, rejected alternatives, and provisional vertical outline. Revise the affected asset and repeat the affected checkpoint on correction.
-6. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
+3. After the intent checkpoint is confirmed, run the planning-role dispatch below. Apply its accepted
+   advice through the existing checkpoints and script-owned mutations; role tasks do not bypass
+   operator confirmation or write lifecycle markers.
+4. **Domain/design checkpoint:** write the layout-resolved domain and design assets, rephrase the important boundaries and uncertainty, and revise until the operator approves the concise Mermaid-backed design. Use `./assets/design-template.md`; call stacks are optional and included only when they clarify control flow.
+5. Build a provisional MVP-first vertical outline that routes every requirement through usable increments to the complete outcome. This outline is interview material, not the detailed plan.
+6. **Final pre-draft checkpoint:** present the confirmed intent, approved design, decisions, uncertainty, rejected alternatives, and provisional vertical outline. Revise the affected asset and repeat the affected checkpoint on correction.
+7. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
 
    ```powershell
    pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage scaffolded -ConfirmPlanningContext
    ```
 
    On resume, pass the plan's current stage instead of `scaffolded`. The marker binds the current intent and design; either asset changing makes `Get-PlanState` report `stale` until the affected checkpoint is repeated and the marker is refreshed.
-7. Do not allow unresolved architecture, placeholder context, or evidence-less requirements.
+8. Do not allow unresolved architecture, placeholder context, or evidence-less requirements.
+
+### Planning-role fleet dispatch
+
+Import `.github/skills/cip/scripts/FleetDispatch.psm1` and create one
+`New-FleetDispatchPlan` from these ordered descriptors after the intent checkpoint succeeds:
+
+| Id | Label | Key | DependsOn |
+|---|---|---|---|
+| `cip-designer` | `CIP Designer` | the existing Designer role/model binding | none |
+| `cip-requirements-validator` | `CIP Requirements Validator` | the existing Requirements Validator role/model binding | none |
+| `cip-judge` | `CIP Judge` | the existing Judge role/model binding | `cip-designer`, `cip-requirements-validator` |
+
+All three tasks are selected. The descriptor `Key` records the role/model binding already resolved by
+the caller; dispatch does not replace a role prompt, change its tool set, or select a different model.
+The caller retains all questions, plan-file writes, `Add-WorkflowNote` capture, stage transitions, and
+DR handoff.
+
+Render the complete `Format-FleetDispatchPlan` pre-view before the first role invocation, including
+the cap, projected waves, ready order, retry policy, omissions, and the statement that
+provider-global concurrency is unobserved. Then pass that exact plan to
+`Invoke-FleetDispatchPlan`; its caller-owned wave launcher invokes only the roles admitted in the
+current wave and returns one structured outcome per admitted id. The Designer and Requirements
+Validator may run together; Judge runs only after both complete. An ordinary role failure cancels
+Judge without cancelling unrelated ready work. Retry a role once only when the host or tool returns
+the explicit `throttled` outcome; never infer throttling from diagnostic text.
+
+Render final attendance after every selected role is completed, failed, or cancelled. Record the
+same selected/omitted roles, attempts, explicit throttle retry, and degradation through the existing
+Capture writer; do not add a second log or scheduler. Continue drafting only when Judge completes.
 
 ## Step 3: Draft plan (`./assets/drafting-guide.md` + template)
 

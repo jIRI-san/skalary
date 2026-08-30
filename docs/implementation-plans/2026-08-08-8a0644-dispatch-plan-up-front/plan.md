@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Planning and implementation skills
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Integrate `/cip` Designer, Requirements Validator, and Judge tasks through the shared plan/pre-view/attendance contract; preserve existing role tools and model selection, and add installed structural coverage (REQ-4, REQ-8, RISK-2, RISK-4, RISK-5) [after: 1.2] `M`
+- [x] 2.1 Integrate `/cip` Designer, Requirements Validator, and Judge tasks through the shared plan/pre-view/attendance contract; preserve existing role tools and model selection, and add installed structural coverage (REQ-4, REQ-8, RISK-2, RISK-4, RISK-5) [after: 1.2] `M`
 - [ ] 2.2 Integrate `/ci` and autopilot Designer, Validator, Implementor, and Judge tasks through the same contract while preserving their existing execution and promotion boundaries; add installed structural coverage (REQ-5, REQ-8, RISK-2, RISK-4, RISK-5) [after: 2.1] `M`
 
 ## Phase 3: Review and epic adapters

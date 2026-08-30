@@ -226,6 +226,82 @@ Ready order: design -> validate -> implement
         $escapedView | Should -Match ([regex]::Escape('"role\\key"'))
         $escapedView | Should -Match ([regex]::Escape('"not | selected"'))
     }
+
+    It 'test:FleetDispatch.CipContract preserves the installed plan-first planning-role contract' {
+        $skillPaths = @(
+            'plugins/create-implementation-plan/skills/cip/SKILL.md',
+            '.github/skills/cip/SKILL.md'
+        )
+        foreach ($relativePath in $skillPaths) {
+            $text = [System.IO.File]::ReadAllText((Join-Path $repoRoot $relativePath))
+            $intentIndex = $text.IndexOf('After the intent checkpoint is confirmed', [System.StringComparison]::Ordinal)
+            $planIndex = $text.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $preViewIndex = $text.IndexOf('Format-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $invokeIndex = $text.IndexOf('Invoke-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+
+            $intentIndex | Should -BeGreaterOrEqual 0
+            $planIndex | Should -BeGreaterThan $intentIndex
+            $preViewIndex | Should -BeGreaterThan $planIndex
+            $invokeIndex | Should -BeGreaterThan $preViewIndex
+            $text | Should -Match '\| `cip-designer` \| `CIP Designer` \|'
+            $text | Should -Match '\| `cip-requirements-validator` \| `CIP Requirements Validator` \|'
+            $text | Should -Match '\| `cip-judge` \| `CIP Judge` \|.*`cip-designer`, `cip-requirements-validator`'
+            $text | Should -Match 'does not replace a role prompt, change its tool set, or select a different model'
+            $text | Should -Match 'provider-global concurrency is unobserved'
+            $text | Should -Match 'Retry a role once only when the host or tool returns\s+the explicit `throttled` outcome'
+            $text | Should -Match 'existing\s+Capture writer'
+        }
+
+        $plan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id cip-designer -Label 'CIP Designer' -Key 'role.designer'
+            New-FleetTask `
+                -Id cip-requirements-validator `
+                -Label 'CIP Requirements Validator' `
+                -Key 'role.requirements-validator'
+            New-FleetTask `
+                -Id cip-judge `
+                -Label 'CIP Judge' `
+                -Key 'role.judge' `
+                -DependsOn cip-designer, cip-requirements-validator
+        )
+
+        @($plan.Waves[0].TaskIds) | Should -Be @('cip-designer', 'cip-requirements-validator')
+        @($plan.Waves[1].TaskIds) | Should -Be @('cip-judge')
+
+        $calls = [System.Collections.Generic.List[string]]::new()
+        $result = Invoke-FleetDispatchPlan -Plan $plan -Render {} -InvokeWave {
+            param($Wave)
+            $calls.Add("$($Wave.Attempt)`:$($Wave.TaskIds -join ',')")
+            foreach ($taskId in $Wave.TaskIds) {
+                if ($taskId -ceq 'cip-requirements-validator' -and $Wave.Attempt -eq 1) {
+                    [pscustomobject]@{
+                        TaskId = $taskId
+                        Outcome = 'throttled'
+                        Detail = 'explicit host throttle'
+                    }
+                }
+                else {
+                    [pscustomobject]@{
+                        TaskId = $taskId
+                        Outcome = 'completed'
+                        Detail = ''
+                    }
+                }
+            }
+        }
+
+        $calls.ToArray() |
+            Should -Be @(
+                '1:cip-designer,cip-requirements-validator',
+                '2:cip-requirements-validator',
+                '1:cip-judge'
+            )
+        $result.Attendance.Planned | Should -Be 3
+        $result.Attendance.Started | Should -Be 3
+        $result.Attendance.Completed | Should -Be 3
+        $result.Attendance.Retried | Should -Be 1
+        @($result.Tasks.Id | Select-Object -Unique).Count | Should -Be 3
+    }
 }
 
 Describe 'Fleet dispatch execution adapter' {

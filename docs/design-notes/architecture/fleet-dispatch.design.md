@@ -31,6 +31,14 @@ selected/omitted ids, wave task membership, ready order, and empty attendance. A
 before the first callback. Rendering and dispatch then use the private reconstruction, so callbacks
 cannot mutate the declared plan through caller-held references.
 
+`/cip` creates its fleet only after operator intent confirmation. Its ordered descriptors admit
+Designer and Requirements Validator together, then Judge after both complete. Descriptor keys carry
+the role/model bindings already resolved by the caller; the adapter does not change role prompts,
+tools, model selection, operator checkpoints, script-owned plan mutations, Capture writes, or the DR
+handoff. The complete plan view precedes every role call, and the final attendance is recorded through
+the existing Capture writer. Judge is cancelled when either prerequisite fails, while an explicit
+throttle result permits only the module-owned single retry.
+
 ## Design Decisions
 
 The helper is canonical under `scripts/skalary/` because multiple independently installed plugins
