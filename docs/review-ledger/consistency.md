@@ -23,6 +23,7 @@
 - [2026-08-10] Public lock and CAS parameters allowed values beyond exact 30-second and three-attempt maxima. (plan-1936cb, src:autopilot, sev:Med) #architecture-patterns #phase-2 #req-7
 - [2026-08-09] Regenerated registry payload hashes after the final autopilot agent wording change. (plan-1936cb, src:autopilot, sev:Low) #maintainability-consistency #phase-5 #req-8
 - [2026-08-10] Registry payload hashes are stale after final SI script and guide changes. (plan-1936cb, src:autopilot, sev:Med) #maintainability-consistency #phase-6 #req-8
+- [2026-08-30] REQ-8 maps to phase 1 while its distribution evidence is owned by phase 4; phase 1 can prove only the canonical source boundary and must not claim the later consumer-install marker passed. (plan-8a0644, src:autopilot, sev:Med) #architecture-patterns #phase-1 #req-8
 - [2026-08-29] review 40a86ef6 finding 6 fixed: Get-PhaseAdmission is the single executable phase-admission owner (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1 #req-1
 - [2026-08-29] review 40a86ef6 finding 8 fixed: plan-workflow frontmatter now loads for the canonical harvest script (plan-6a629b, src:autopilot, sev:Med) #maintainability-consistency #phase-1
 - [2026-08-29] review 40a86ef6 finding 9 fixed: Phase 0 compatibility is restricted to Capture (plan-6a629b, src:autopilot, sev:Low) #maintainability-consistency #phase-1 #req-3
