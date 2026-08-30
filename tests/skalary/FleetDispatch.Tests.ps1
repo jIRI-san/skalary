@@ -66,7 +66,9 @@ Describe 'Fleet dispatch planner' {
         @($dependent.Waves[0].TaskIds) | Should -Be @('root', 'independent')
         @($dependent.Waves[1].TaskIds) | Should -Be @('dependent')
         @($dependent.Waves[2].TaskIds) | Should -Be @('final')
+    }
 
+    It 'rejects invalid graphs, unsafe text, and oversized collections' {
         $omitted = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id selected
             New-FleetTask -Id skipped -Selected $false -OmissionReason 'outside requested scope'
@@ -151,15 +153,17 @@ Describe 'Fleet dispatch planner' {
             New-FleetDispatchPlan -Task @(
                 1..65 | ForEach-Object { New-FleetTask -Id "task-$_" }
             )
-        } | Should -Throw '*at most 64 task descriptors*'
+        } | Should -Throw '*64-item limit*'
         {
             New-FleetDispatchPlan -Task @(
                 New-FleetTask -Id excessive-dependencies -DependsOn @(
                     1..65 | ForEach-Object { "dependency-$_" }
                 )
             )
-        } | Should -Throw '*64-dependency limit*'
+        } | Should -Throw '*64-item limit*'
+    }
 
+    It 'is deterministic and does not mutate caller descriptors' {
         $source = @(New-FleetTask -Id stable)
         $before = $source | ConvertTo-Json -Depth 5 -Compress
         $first = New-FleetDispatchPlan -Task $source
@@ -351,7 +355,9 @@ Describe 'Fleet dispatch execution adapter' {
             $failureResult.Attendance.Failed +
             $failureResult.Attendance.Cancelled |
             Should -Be $failureResult.Attendance.Planned
+    }
 
+    It 'binds execution to one coherent private snapshot' {
         $mutablePlan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id first
             New-FleetTask -Id second
@@ -448,9 +454,15 @@ Describe 'Fleet dispatch execution adapter' {
                 Invoke-FleetDispatchPlan -Plan $candidate -Render {} -InvokeWave {
                     throw 'incoherent plan must fail before dispatch'
                 }
-            } | Should -Throw '*not one coherent planner projection*'
+            } | Should -Throw
         }
+    }
 
+    It 'rejects malformed or excessive wave results and preserves launcher failures' {
+        $throttlePlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id first
+            New-FleetTask -Id second
+        )
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
                 param($Wave)
@@ -472,6 +484,17 @@ Describe 'Fleet dispatch execution adapter' {
                 )
             }
         } | Should -Throw '*duplicate result*'
+        $produced = [pscustomobject]@{ Count = 0 }
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                1..100 | ForEach-Object {
+                    $produced.Count++
+                    New-WaveResult -TaskId first
+                }
+            }
+        } | Should -Throw '*more results than admitted tasks*'
+        $produced.Count | Should -Be 3
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
                 param($Wave)

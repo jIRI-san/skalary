@@ -65,6 +65,11 @@ tasks and each task at most 64 dependencies, bounding projection work and render
 Post-run formatting stays internal to `Invoke-FleetDispatchPlan`; callers cannot pass fabricated
 attendance to a public formatter.
 
+Collection admission is streaming and bounded before normalization for task descriptors, plan
+projections, dependencies, waves, and launcher results. A launcher pipeline is stopped on its first
+result beyond the admitted wave cardinality. Execution formats its already validated snapshot
+directly rather than reconstructing it through the public formatter.
+
 An ordinary failure becomes terminal immediately. The adapter cancels only still-pending transitive
 dependents, continues unrelated ready work, and never retries based on status-code prose. An explicit
 throttle outcome admits the same task once more before later work; a second throttle is terminal.

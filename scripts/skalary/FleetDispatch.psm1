@@ -19,16 +19,32 @@ function Get-FleetDispatchProperty {
         [Parameter(Mandatory)]
         [string]$Name,
 
-        [switch]$Required
+        [switch]$Required,
+
+        [switch]$NoEnumerate
     )
 
+    $found = $false
+    $value = $null
     if ($InputObject -is [System.Collections.IDictionary]) {
         if ($InputObject.Contains($Name)) {
-            return $InputObject[$Name]
+            $found = $true
+            $value = $InputObject[$Name]
         }
     }
     elseif ($InputObject.PSObject.Properties.Name -contains $Name) {
-        return $InputObject.$Name
+        $found = $true
+        $value = $InputObject.$Name
+    }
+
+    if ($found) {
+        if ($NoEnumerate) {
+            Write-Output -NoEnumerate $value
+        }
+        else {
+            Write-Output $value
+        }
+        return
     }
 
     if ($Required) {
@@ -86,6 +102,29 @@ function ConvertTo-FleetDispatchDisplayText {
     return ConvertTo-Json -InputObject $Value -Compress
 }
 
+function Get-FleetDispatchBoundedCollection {
+    param(
+        [AllowNull()]
+        [object]$Value,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(0, 4096)]
+        [int]$MaximumCount,
+
+        [Parameter(Mandatory)]
+        [string]$Label
+    )
+
+    $items = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $Value) {
+        if ($items.Count -ge $MaximumCount) {
+            throw "$Label exceeds the $MaximumCount-item limit."
+        }
+        $items.Add($item)
+    }
+    return [pscustomobject]@{ Items = $items.ToArray() }
+}
+
 function ConvertTo-FleetDispatchTask {
     param(
         [Parameter(Mandatory)]
@@ -132,8 +171,12 @@ function ConvertTo-FleetDispatchTask {
 
     $dependencies = [System.Collections.Generic.List[string]]::new()
     $dependencySet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    $dependencyValue = Get-FleetDispatchProperty -InputObject $Descriptor -Name DependsOn
-    foreach ($dependency in @($dependencyValue)) {
+    $dependencyValue = Get-FleetDispatchProperty -InputObject $Descriptor -Name DependsOn -NoEnumerate
+    $boundedDependencies = Get-FleetDispatchBoundedCollection `
+        -Value $dependencyValue `
+        -MaximumCount $script:FleetDispatchMaximumTaskCount `
+        -Label "Fleet task '$id' dependencies"
+    foreach ($dependency in $boundedDependencies.Items) {
         $dependencyId = Assert-FleetDispatchText `
             -Value $dependency `
             -Label "Fleet task '$id' dependency" `
@@ -148,9 +191,6 @@ function ConvertTo-FleetDispatchTask {
             throw "Fleet task '$id' declares duplicate dependency '$dependencyId'."
         }
         $dependencies.Add($dependencyId)
-        if ($dependencies.Count -gt $script:FleetDispatchMaximumTaskCount) {
-            throw "Fleet task '$id' exceeds the $script:FleetDispatchMaximumTaskCount-dependency limit."
-        }
     }
 
     return [pscustomobject]@{
@@ -272,18 +312,20 @@ function New-FleetDispatchPlan {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [AllowNull()]
         [AllowEmptyCollection()]
-        [object[]]$Task
+        [object]$Task
     )
 
-    if (@($Task).Count -gt $script:FleetDispatchMaximumTaskCount) {
-        throw "Fleet dispatch plans support at most $script:FleetDispatchMaximumTaskCount task descriptors."
-    }
+    $descriptors = Get-FleetDispatchBoundedCollection `
+        -Value $Task `
+        -MaximumCount $script:FleetDispatchMaximumTaskCount `
+        -Label 'Fleet dispatch task descriptors'
 
     $normalized = [System.Collections.Generic.List[object]]::new()
     $taskById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
     $order = 0
-    foreach ($descriptor in @($Task)) {
+    foreach ($descriptor in $descriptors.Items) {
         if ($null -eq $descriptor) {
             throw "Fleet task descriptor at order $order cannot be null."
         }
@@ -325,6 +367,30 @@ function ConvertTo-FleetDispatchPlanCanonicalJson {
     )
 
     $retryPolicy = Get-FleetDispatchProperty -InputObject $Plan -Name RetryPolicy -Required
+    $taskItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required -NoEnumerate) `
+            -MaximumCount $script:FleetDispatchMaximumTaskCount `
+            -Label 'Fleet dispatch plan Tasks').Items
+    $selectedItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Selected -Required -NoEnumerate) `
+            -MaximumCount $script:FleetDispatchMaximumTaskCount `
+            -Label 'Fleet dispatch plan Selected').Items
+    $omittedItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Omitted -Required -NoEnumerate) `
+            -MaximumCount $script:FleetDispatchMaximumTaskCount `
+            -Label 'Fleet dispatch plan Omitted').Items
+    $waveItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Waves -Required -NoEnumerate) `
+            -MaximumCount $script:FleetDispatchMaximumTaskCount `
+            -Label 'Fleet dispatch plan Waves').Items
+    $readyOrderItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name ReadyOrder -Required -NoEnumerate) `
+            -MaximumCount $script:FleetDispatchMaximumTaskCount `
+            -Label 'Fleet dispatch plan ReadyOrder').Items
+    $attendanceItems = (Get-FleetDispatchBoundedCollection `
+            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Attendance -Required -NoEnumerate) `
+            -MaximumCount 0 `
+            -Label 'Fleet dispatch plan initial Attendance').Items
     $canonical = [ordered]@{
         schema = [string](Get-FleetDispatchProperty -InputObject $Plan -Name Schema -Required)
         admissionCap = Get-FleetDispatchProperty -InputObject $Plan -Name AdmissionCap -Required
@@ -348,7 +414,11 @@ function ConvertTo-FleetDispatchPlanCanonicalJson {
                     -Required)
         }
         tasks = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required) | ForEach-Object {
+            $taskItems | ForEach-Object {
+                $dependencies = (Get-FleetDispatchBoundedCollection `
+                        -Value (Get-FleetDispatchProperty -InputObject $_ -Name DependsOn -Required -NoEnumerate) `
+                        -MaximumCount $script:FleetDispatchMaximumTaskCount `
+                        -Label "Fleet dispatch task '$($_.Id)' DependsOn").Items
                 [ordered]@{
                     id = [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required)
                     label = [string](Get-FleetDispatchProperty -InputObject $_ -Name Label -Required)
@@ -358,32 +428,34 @@ function ConvertTo-FleetDispatchPlanCanonicalJson {
                             -InputObject $_ `
                             -Name OmissionReason `
                             -Required)
-                    dependsOn = @(
-                        @(Get-FleetDispatchProperty -InputObject $_ -Name DependsOn -Required) |
-                            ForEach-Object { [string]$_ }
-                    )
+                    dependsOn = @($dependencies | ForEach-Object { [string]$_ })
                     order = Get-FleetDispatchProperty -InputObject $_ -Name Order -Required
                 }
             }
         )
         selected = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name Selected -Required) |
+            $selectedItems |
                 ForEach-Object { [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required) }
         )
         omitted = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name Omitted -Required) |
+            $omittedItems |
                 ForEach-Object { [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required) }
         )
         waves = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name Waves -Required) | ForEach-Object {
+            $waveItems | ForEach-Object {
+                $waveTaskIds = (Get-FleetDispatchBoundedCollection `
+                        -Value (Get-FleetDispatchProperty -InputObject $_ -Name TaskIds -Required -NoEnumerate) `
+                        -MaximumCount $script:FleetDispatchAdmissionCap `
+                        -Label 'Fleet dispatch wave TaskIds').Items
+                $waveTasks = (Get-FleetDispatchBoundedCollection `
+                        -Value (Get-FleetDispatchProperty -InputObject $_ -Name Tasks -Required -NoEnumerate) `
+                        -MaximumCount $script:FleetDispatchAdmissionCap `
+                        -Label 'Fleet dispatch wave Tasks').Items
                 [ordered]@{
                     number = Get-FleetDispatchProperty -InputObject $_ -Name Number -Required
-                    taskIds = @(
-                        @(Get-FleetDispatchProperty -InputObject $_ -Name TaskIds -Required) |
-                            ForEach-Object { [string]$_ }
-                    )
+                    taskIds = @($waveTaskIds | ForEach-Object { [string]$_ })
                     tasks = @(
-                        @(Get-FleetDispatchProperty -InputObject $_ -Name Tasks -Required) |
+                        $waveTasks |
                             ForEach-Object {
                                 [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required)
                             }
@@ -392,12 +464,9 @@ function ConvertTo-FleetDispatchPlanCanonicalJson {
             }
         )
         readyOrder = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name ReadyOrder -Required) |
-                ForEach-Object { [string]$_ }
+            $readyOrderItems | ForEach-Object { [string]$_ }
         )
-        attendance = @(
-            @(Get-FleetDispatchProperty -InputObject $Plan -Name Attendance -Required)
-        )
+        attendance = @($attendanceItems)
     }
 
     return $canonical | ConvertTo-Json -Depth 12 -Compress
@@ -409,8 +478,11 @@ function Get-FleetDispatchPlanSnapshot {
         [object]$Plan
     )
 
-    $tasks = @(Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required)
-    $snapshot = New-FleetDispatchPlan -Task $tasks
+    $taskCollection = Get-FleetDispatchBoundedCollection `
+        -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required -NoEnumerate) `
+        -MaximumCount $script:FleetDispatchMaximumTaskCount `
+        -Label 'Fleet dispatch plan Tasks'
+    $snapshot = New-FleetDispatchPlan -Task $taskCollection.Items
     $expected = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $snapshot
     $actual = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $Plan
     if ($actual -cne $expected) {
@@ -419,14 +491,12 @@ function Get-FleetDispatchPlanSnapshot {
     return $snapshot
 }
 
-function Format-FleetDispatchPlan {
+function Format-FleetDispatchPlanSnapshot {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [object]$Plan
     )
-
-    $Plan = Get-FleetDispatchPlanSnapshot -Plan $Plan
 
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add('Fleet dispatch plan')
@@ -474,6 +544,17 @@ function Format-FleetDispatchPlan {
     $lines.Add("Ready order: $readyOrder")
 
     return $lines -join "`n"
+}
+
+function Format-FleetDispatchPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $snapshot = Get-FleetDispatchPlanSnapshot -Plan $Plan
+    return Format-FleetDispatchPlanSnapshot -Plan $snapshot
 }
 
 function ConvertTo-FleetDispatchWaveResults {
@@ -609,19 +690,36 @@ function Invoke-FleetDispatchWave {
         TaskIds = @($Wave.TaskIds)
         Attempt = $Wave.Attempt
     }
+    $rawResultList = [System.Collections.Generic.List[object]]::new()
     try {
-        $rawResults = @(& $InvokeWave $launchWave)
+        & $InvokeWave $launchWave | ForEach-Object {
+            if ($rawResultList.Count -ge $Wave.Tasks.Count) {
+                $violation = [InvalidOperationException]::new(
+                    'Fleet dispatch wave returned more results than admitted tasks.'
+                )
+                $violation.Data['FleetDispatchContractViolation'] = $true
+                throw $violation
+            }
+            $rawResultList.Add($_)
+        }
     }
     catch {
+        if ($_.Exception.Data.Contains('FleetDispatchContractViolation')) {
+            throw $_.Exception
+        }
         $exceptionType = $_.Exception.GetType().FullName
-        $rawResults = @($Wave.Tasks | ForEach-Object {
+        $rawResultList.Clear()
+        foreach ($task in $Wave.Tasks) {
+            $rawResultList.Add(
                 [pscustomobject]@{
-                    TaskId = $_.Id
+                    TaskId = $task.Id
                     Outcome = 'failed'
                     Detail = "wave launcher raised $exceptionType"
                 }
-            })
+            )
+        }
     }
+    $rawResults = $rawResultList.ToArray()
     $results = @(ConvertTo-FleetDispatchWaveResults -ExpectedTask $Wave.Tasks -Result $rawResults)
     foreach ($result in $results) {
         $state = $TaskState[$result.TaskId]
@@ -726,7 +824,7 @@ function Invoke-FleetDispatchPlan {
 
     $Plan = Get-FleetDispatchPlanSnapshot -Plan $Plan
 
-    $preView = Format-FleetDispatchPlan -Plan $Plan
+    $preView = Format-FleetDispatchPlanSnapshot -Plan $Plan
     [void](& $Render $preView 'plan')
 
     $taskState = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
