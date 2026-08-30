@@ -763,6 +763,12 @@ function Resolve-PlanAssetPath {
     $planConfinementContext = $null
     if ($RepoRoot) {
         $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootFull
+        if (-not (Test-PhysicalPathWithin `
+                    -Root $corpusContext.PlansPath `
+                    -Path $planDirFull)) {
+            throw "Plan folder '$planDirFull' escapes repository plan corpus '$($corpusContext.PlansPath)'."
+        }
 
         if (-not $PSBoundParameters.ContainsKey('Inventory')) {
             $Inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
@@ -784,7 +790,6 @@ function Resolve-PlanAssetPath {
             throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
         }
 
-        $corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootFull
         $planConfinementContext = New-PlanConfinementContext `
             -PlanDir $planDirFull `
             -CorpusContext $corpusContext
