@@ -53,4 +53,4 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 4.1 Update source skills, bundled copies, structural evals, registry/catalog outputs, and the relevant customization/plan/review design notes using existing repository generators; do not add activation or migration infrastructure (REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-5) [after: 3.2] `M`
-- [ ] 4.2 Run focused planner/adapter tests, installed-consumer and eval checks, complete repository validation, final CR, and intent/requirement crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 4.1] `M`
+- [x] 4.2 Run focused planner/adapter tests, installed-consumer and eval checks, complete repository validation, final CR, and intent/requirement crosscheck (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 4.1] `M`
