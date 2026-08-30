@@ -3,7 +3,14 @@ description: Run-scoped fleet planning, deterministic task waves, pre-dispatch d
 globs:
   - scripts/skalary/FleetDispatch.psm1
   - tests/skalary/FleetDispatch.Tests.ps1
-  - plugins/*/skills/**
+  - plugins/create-implementation-plan/skills/{cip,cep}/**
+  - plugins/continue-implementation/skills/ci/**
+  - plugins/code-review/skills/cr/**
+  - plugins/design-review/skills/dr/**
+  - plugins/autopilot/agents/autopilot.agent.md
+  - plugins/autopilot/skills/autopilot/scripts/{FleetDispatch,SecretGuard}.psm1
+  - .github/skills/{cip,ci,cr,dr,autopilot}/**
+  - .github/agents/autopilot.agent.md
 ---
 
 # Fleet Dispatch
@@ -21,7 +28,7 @@ omitted tasks, projected waves, stable ready order, retry policy, and empty atte
 | Projection | Stable caller order; each wave admits at most four tasks whose selected prerequisites are in earlier waves |
 | Rendering | `Format-FleetDispatchPlan` prints all selected and omitted tasks, cap, waves, ready order, retry policy, and that provider-global concurrency is unobserved |
 | Execution | `Start-FleetDispatchRun` validates one private snapshot and atomically admits the first ready wave; native hosts settle that wave through `Step-FleetDispatchRun`, which validates one structured result per admitted task and admits the next wave; `Complete-FleetDispatchRun` refuses incomplete state and renders final attendance |
-| Callback compatibility | `Invoke-FleetDispatchPlan` is a wrapper over the stepwise core for PowerShell callers; it maps launcher exceptions to bounded, control-sanitized, token-redacted failed outcomes. If only final attendance delivery fails, its contextual exception exposes the completed result and `attendance` stage so callers retry rendering rather than dispatch |
+| Callback compatibility | `Invoke-FleetDispatchPlan` is a wrapper over the stepwise core for PowerShell callers; it maps launcher exceptions to bounded, control-sanitized, token-redacted failed outcomes. Settlement exceptions retain the admitted caller-held run for corrected settlement without redispatch. If only final attendance delivery fails, its contextual exception exposes the completed result and `attendance` stage so callers retry rendering rather than dispatch |
 | Result | Closed per-attempt outcomes are `completed`, `failed`, or explicit `throttled`; task terminals are `completed`, `failed`, or `cancelled` |
 | State | The plan is pure run-local data. It creates no files, locks, leases, scheduler records, or recovery state |
 
@@ -45,9 +52,10 @@ is fabricating attendance only about its own invocation, not crossing a privileg
 Designer and Requirements Validator together, then Judge after both complete. Descriptor keys carry
 the role/model bindings already resolved by the caller; the adapter does not change role prompts,
 tools, model selection, operator checkpoints, script-owned plan mutations, Capture writes, or the DR
-handoff. The complete plan view precedes every role call, and the final attendance is recorded through
-the existing Capture writer. Judge is cancelled when either prerequisite fails, while an explicit
-throttle result permits only the module-owned single retry.
+handoff. The complete plan view precedes every role call, and final attendance is recorded through
+the existing Capture writer using only closed outcomes and counts, never host `Detail`. Judge is
+cancelled when either prerequisite fails, while an explicit throttle result permits only the
+module-owned single retry.
 
 `/ci` and autopilot use the same four-role graph per active implementation step: Designer and
 Validator are initially ready, Implementor depends on both, and Judge depends on Implementor.
@@ -110,9 +118,11 @@ for each wave task, preserving bounded sanitized failure context and degraded at
 All caller-controlled display fields must be actual strings and are bounded to one line. Values are
 never accepted through implicit object-to-string conversion. Control characters, Unicode
 format/bidirectional controls, and line/paragraph separators are rejected; free text is JSON-quoted
-before rendering. Result details use the same boundary, preventing task labels or host diagnostics
-from injecting terminal control sequences or new attendance records. A plan contains at most 64
-tasks and each task at most 64 dependencies, bounding projection work and rendered output.
+before rendering. Result details use the same boundary and remain programmatic run-local data;
+`FinalView` contains closed outcomes, counts, omissions, and degradation categories but never host
+diagnostics. Secret redaction runs before diagnostic truncation and the bound is re-applied
+afterward. A plan contains at most 64 tasks and each task at most 64 dependencies, bounding
+projection work and rendered output.
 Post-run formatting is reachable only through `Complete-FleetDispatchRun`, which revalidates closed
 task-state values, admitted-wave coherence, and started/attempt conservation before rendering.
 

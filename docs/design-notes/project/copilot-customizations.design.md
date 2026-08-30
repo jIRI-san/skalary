@@ -195,8 +195,19 @@ The writing-style template mirrors this repo's `docs/design-notes/project/design
 
 ## Plugin Eval Workflow
 
-Plugin payload checks are run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`. Structural checks always run; LLM checks require `-IncludeLlm` and are intentionally out of the CI gate (`npm test`/`validate.ps1`).
+Plugin payload checks run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`.
+This always-on Tier-1 structural gate is separate from `npm test` / `validate.ps1`.
 
-Tier-2 (`-IncludeLlm`) reads a gitignored `.eval.config.json`. On the first run, a missing config is **bootstrapped** from the committed `.eval.config.json.example`; the scaffolded copy keeps the `<slug>` placeholder, so that run skips (stays green) with a note to fill in `judgeModel` (and optional `credentialTarget`) and re-run. Auth follows the autopilot pattern: set `credentialTarget` to a Windows Credential Manager target holding a dedicated eval PAT (e.g. `copilot-eval`, kept separate from `copilot-autopilot`), or leave it unset to use ambient `copilot` auth. Missing config/auth/credential is always a skip, never a failure.
+Tier-2 is the opt-in waza workflow: `npm run eval:llm` calls
+`scripts/skalary/Invoke-WazaEvals.ps1`, provisions the checksum-pinned toolchain through
+`Ensure-EvalTools.ps1`, discovers `plugins/<name>/evals/waza/eval.yaml`, and runs functional and
+declared adversarial modes as separate signals. Optional `-Plugin`, `-Case`, `-ChangedOnly`,
+`-Quick`, and `-Approve` switches are available when invoking the script directly. Models, judges,
+trials, and timeouts come from each waza spec; legacy `.eval.config.json` tuning fields do not
+configure waza.
 
-Each run writes a timestamped folder under `tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/` (gitignored) holding `report.json`, a human-readable `report.md`, and any Tier-2 transcripts. Override the parent with `-OutputRoot`.
+`Resolve-EvalToken.ps1` resolves auth in the order `gh auth token` → ambient token →
+Credential Manager fallback. Adversarial mode accepts only the short-lived `gh` OAuth source;
+durable ambient or Credential Manager PATs are excluded. A requested run that executes zero evals
+is non-green. Output is report-only under the gitignored
+`tests/evals/output/<yyyy-MM-dd_HH-mm-ss>/`; no registry, manifest, or receipt writeback occurs.

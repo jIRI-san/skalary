@@ -10,7 +10,14 @@ $script:SecretBlockPatterns = @(
     [pscustomobject]@{ Type = 'slack-token'; Pattern = 'xox[baprs]-[0-9A-Za-z-]{10,}' }
     [pscustomobject]@{ Type = 'stripe-secret-key'; Pattern = '\bsk_(?:live|test)_[0-9A-Za-z]{24,}\b' }
     [pscustomobject]@{ Type = 'npm-token'; Pattern = '\bnpm_[0-9A-Za-z]{36}\b' }
-    [pscustomobject]@{ Type = 'private-key-block'; Pattern = '-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----' }
+    [pscustomobject]@{
+        Type = 'private-key-block'
+        Pattern = '(?s)-----BEGIN (?<keyType>(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----.*?-----END \k<keyType>-----'
+    }
+    [pscustomobject]@{
+        Type = 'private-key-block'
+        Pattern = '(?s)-----BEGIN (?:(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----.*\z'
+    }
 )
 $script:SecretAllowLiterals = @('AKIAIOSFODNN7EXAMPLE')
 $script:SecretPrefixPattern = '^(?:gh[pousr]_|github_pat_|AKIA|ASIA|AIza|xox[baprs]-|sk_(?:live|test)_|npm_)'

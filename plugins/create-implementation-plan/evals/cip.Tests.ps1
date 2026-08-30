@@ -123,7 +123,9 @@ Describe 'cip structural evals' {
         $guide | Should -Match 'Judge completed'
         $guide | Should -Match 'explicit-throttle retry'
         $guide | Should -Match 'does not replace a role prompt, change its tool set, or select another model'
-        $guide | Should -Match 'Capture writer'
+        $guide | Should -Match 'record attendance\s+through the existing Capture writer'
+        $guide | Should -Match 'Capture only\s+closed task outcomes and counts'
+        $guide | Should -Match 'never copy task `Detail` or other host diagnostics'
     }
 
     It 'keeps the CEP epic-review handoff installed but explicitly inactive' {

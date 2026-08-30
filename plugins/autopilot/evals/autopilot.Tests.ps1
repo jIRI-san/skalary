@@ -95,7 +95,12 @@ Describe 'autopilot structural evals' {
         }
         $agent | Should -Match 'Implementor owns the existing implementation, focused'
         $agent | Should -Match 'Judge owns item 17 and starts only after Implementor completes'
-        $agent | Should -Match 'Commit, push, phase review, harvest, and final promotion remain authoritative outside'
-        $agent | Should -Match 'adds no clone,\s+credential, worktree, container, promotion, review, or persistence mechanism'
+        $agent |
+            Should -Match 'Commit, push, phase review, harvest, and final promotion remain\s+authoritative outside'
+        $agent | Should -Match 'record attendance through the existing phase Capture path'
+        $agent | Should -Match 'Capture only closed task outcomes and counts'
+        $agent | Should -Match 'never copy task `Detail` or other host diagnostics'
+        $agent |
+            Should -Match 'adds no clone,\s+credential,\s+worktree,\s+container,\s+promotion,\s+review,\s+or persistence mechanism'
     }
 }

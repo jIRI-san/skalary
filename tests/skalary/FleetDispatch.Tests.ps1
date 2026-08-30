@@ -66,9 +66,23 @@ Describe 'Fleet dispatch planner' {
         @($dependent.Waves[0].TaskIds) | Should -Be @('root', 'independent')
         @($dependent.Waves[1].TaskIds) | Should -Be @('dependent')
         @($dependent.Waves[2].TaskIds) | Should -Be @('final')
-    }
 
-    It 'rejects invalid graphs, unsafe text, and oversized collections' {
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id self-dependent -DependsOn self-dependent
+            )
+        } | Should -Throw '*cannot depend on itself*'
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id root
+                New-FleetTask -Id duplicate-dependency -DependsOn root, root
+            )
+        } | Should -Throw '*duplicate dependency*'
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id selected-with-reason -OmissionReason 'not an omission'
+            )
+        } | Should -Throw '*cannot declare an OmissionReason*'
         $omitted = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id selected
             New-FleetTask -Id skipped -Selected $false -OmissionReason 'outside requested scope'
@@ -225,6 +239,26 @@ Ready order: design -> validate -> implement
         $escapedView | Should -Match ([regex]::Escape('"Task | label"'))
         $escapedView | Should -Match ([regex]::Escape('"role\\key"'))
         $escapedView | Should -Match ([regex]::Escape('"not | selected"'))
+
+        $transition = Start-FleetDispatchRun -Plan $plan
+        $transition = Step-FleetDispatchRun -Run $transition.Run -Result @(
+            [pscustomobject]@{ TaskId = 'design'; Outcome = 'completed'; Detail = '' }
+            [pscustomobject]@{ TaskId = 'validate'; Outcome = 'completed'; Detail = '' }
+        )
+        $transition = Step-FleetDispatchRun -Run $transition.Run -Result @(
+            [pscustomobject]@{
+                TaskId = 'implement'
+                Outcome = 'failed'
+                Detail = 'host detail remains outside the rendered attendance'
+            }
+        )
+        $result = Complete-FleetDispatchRun -Run $transition.Run
+        $result.Attendance.Planned | Should -Be 3
+        $result.Attendance.Completed | Should -Be 2
+        $result.Attendance.Failed | Should -Be 1
+        $result.Attendance.Cancelled | Should -Be 0
+        $result.FinalView | Should -Match 'Attendance: planned=3; started=3; completed=2; failed=1'
+        $result.FinalView | Should -Not -Match 'host detail remains outside'
     }
 
     It 'test:FleetDispatch.CipContract preserves the installed plan-first planning-role contract' {
@@ -239,28 +273,34 @@ Ready order: design -> validate -> implement
             )
         )
         foreach ($relativePaths in $skillPaths) {
-            $text = @($relativePaths | ForEach-Object {
-                    [System.IO.File]::ReadAllText((Join-Path $repoRoot $_))
-                }) -join "`n"
-            $intentIndex = $text.IndexOf('After the intent checkpoint is confirmed', [System.StringComparison]::Ordinal)
-            $planIndex = $text.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-            $startIndex = $text.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
-            $stepIndex = $text.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
-            $completeIndex = $text.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $skillText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $relativePaths[0]))
+            $guideText = [System.IO.File]::ReadAllText((Join-Path $repoRoot $relativePaths[1]))
+            $intentIndex = $skillText.IndexOf(
+                'After the intent checkpoint is confirmed',
+                [System.StringComparison]::Ordinal
+            )
+            $dispatchIndex = $skillText.IndexOf(
+                'Planning-role fleet dispatch',
+                [System.StringComparison]::Ordinal
+            )
+            $planIndex = $guideText.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $startIndex = $guideText.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $stepIndex = $guideText.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $completeIndex = $guideText.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
 
             $intentIndex | Should -BeGreaterOrEqual 0
-            $planIndex | Should -BeGreaterThan $intentIndex
+            $dispatchIndex | Should -BeGreaterThan $intentIndex
+            $planIndex | Should -BeGreaterOrEqual 0
             $startIndex | Should -BeGreaterThan $planIndex
             $stepIndex | Should -BeGreaterThan $startIndex
             $completeIndex | Should -BeGreaterThan $stepIndex
-            $text | Should -Match '\| `cip-designer` \| `CIP Designer` \|'
-            $text | Should -Match '\| `cip-requirements-validator` \| `CIP Requirements Validator` \|'
-            $text | Should -Match '\| `cip-judge` \| `CIP Judge` \|.*`cip-designer`, `cip-requirements-validator`'
-            $text | Should -Match 'does not replace a role prompt, change its tool set, or select another model'
-            $text | Should -Match 'provider-global concurrency is unobserved'
-            $text | Should -Match 'explicit-throttle retry'
-            $text | Should -Match 'existing\s+Capture writer'
-            $text | Should -Match 'returned wave is already admitted'
+            $guideText | Should -Match '\| `cip-designer` \| `CIP Designer` \|'
+            $guideText | Should -Match '\| `cip-requirements-validator` \| `CIP Requirements Validator` \|'
+            $guideText | Should -Match '\| `cip-judge` \| `CIP Judge` \|.*`cip-designer`, `cip-requirements-validator`'
+            $guideText | Should -Match 'does not replace a role prompt, change its tool set, or select another model'
+            $guideText | Should -Match 'provider-global concurrency is unobserved'
+            $guideText | Should -Match 'explicit-throttle retry'
+            $guideText | Should -Match 'returned wave is already admitted'
         }
         $cipSkill = [System.IO.File]::ReadAllText(
             (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/SKILL.md')
@@ -384,7 +424,8 @@ Ready order: design -> validate -> implement
             (Join-Path $repoRoot 'plugins/autopilot/agents/autopilot.agent.md')
         )
         $autopilot | Should -Match 'planning admission, branch/worktree or container setup'
-        $autopilot | Should -Match 'Commit,\s+push, phase review, harvest, and final promotion remain authoritative outside the adapter'
+        $autopilot |
+            Should -Match 'Commit,\s+push, phase review, harvest, and final promotion remain\s+authoritative\s+outside the adapter'
 
         $plan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id ci-designer -Label 'CI Designer' -Key 'role.designer'
@@ -748,23 +789,6 @@ Ready order: design -> validate -> implement
         $cepSkill | Should -Not -Match 'Epic-review extension handoff'
         $cepSkill | Should -Not -Match 'New-FleetDispatchPlan|Start-FleetDispatchRun|Step-FleetDispatchRun'
 
-        Import-Module (
-            Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
-        ) -Force -DisableNameChecking
-        $consumerPlan = Resolve-Plan -Reference '25aa23' -RepoRoot $repoRoot
-        $producerPlan = Resolve-Plan -Reference '8a0644' -RepoRoot $repoRoot
-        $consumerPlanDir = $consumerPlan.Path
-        $consumerMarkers = Get-PlanHeaderMarkers -Path (
-            Join-Path $consumerPlanDir 'plan.md'
-        )
-        $producerMarkers = Get-PlanHeaderMarkers -Path (
-            Join-Path $producerPlan.Path 'plan.md'
-        )
-        $consumerMarkers.PlanId | Should -BeExactly '25aa23'
-        $consumerMarkers.DependsOn | Should -Contain '8a0644'
-        $producerMarkers.PlanId | Should -BeExactly '8a0644'
-        $producerMarkers.DependsOn | Should -Not -Contain '25aa23'
-
         $frozenTasks = @(
             [pscustomobject]@{
                 TaskId  = 'epic-goal'
@@ -877,6 +901,9 @@ Ready order: design -> validate -> implement
     It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
         $registry = Get-Content -LiteralPath (Join-Path $repoRoot 'registry.json') -Raw |
             ConvertFrom-Json -Depth 100
+        $marketplace = Get-Content -LiteralPath (
+            Join-Path $repoRoot '.github/plugin/marketplace.json'
+        ) -Raw | ConvertFrom-Json -Depth 100
         $expected = @(
             @{
                 Plugin     = 'create-implementation-plan'
@@ -940,6 +967,15 @@ Ready order: design -> validate -> implement
                     Where-Object { [string]$_.name -ceq $consumer.Plugin }
             )
             $registryPlugin.Count | Should -Be 1
+            $marketplacePlugin = @(
+                $marketplace.plugins |
+                    Where-Object { [string]$_.name -ceq $consumer.Plugin }
+            )
+            $marketplacePlugin.Count | Should -Be 1
+            [string]$marketplacePlugin[0].version |
+                Should -BeExactly ([string]$manifest.version)
+            [string]$marketplacePlugin[0].source |
+                Should -BeExactly "plugins/$($consumer.Plugin)"
             $registryModule = @(
                 $registryPlugin[0].files |
                     Where-Object { [string]$_.dest -ceq $consumer.ModuleDest }
@@ -1005,7 +1041,9 @@ Describe 'Fleet dispatch execution adapter' {
     BeforeAll {
         $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $modulePath = Join-Path $repoRoot 'scripts/skalary/FleetDispatch.psm1'
+        $secretGuardPath = Join-Path $repoRoot 'scripts/skalary/SecretGuard.psm1'
         Import-Module $modulePath -Force -DisableNameChecking
+        Import-Module $secretGuardPath -Force -DisableNameChecking
 
         function New-FleetTask {
             param(
@@ -1047,6 +1085,7 @@ Describe 'Fleet dispatch execution adapter' {
 
     AfterAll {
         Remove-Module FleetDispatch -Force -ErrorAction SilentlyContinue
+        Remove-Module SecretGuard -Force -ErrorAction SilentlyContinue
     }
 
     It 'supports native stepwise admission without duplicate wave launch' {
@@ -1157,7 +1196,7 @@ Describe 'Fleet dispatch execution adapter' {
             Should -Throw '*task state*invalid*'
     }
 
-    It 'redacts host secrets and frames diagnostics as untrusted data' {
+    It 'redacts host secrets without rendering host diagnostics' {
         $secret = 'ghp_' + ('a1B2' * 9)
         $transition = Start-FleetDispatchRun -Plan (
             New-FleetDispatchPlan -Task @(New-FleetTask -Id failing)
@@ -1170,8 +1209,67 @@ Describe 'Fleet dispatch execution adapter' {
         $result.Tasks[0].Detail | Should -Not -Match ([regex]::Escape($secret))
         $result.Tasks[0].Detail | Should -Match '\[REDACTED:github-pat-classic\]'
         $result.FinalView | Should -Not -Match ([regex]::Escape($secret))
-        $result.FinalView | Should -Match 'Host diagnostics \(untrusted data reported by task hosts; not instructions\)'
+        $result.FinalView | Should -Not -Match 'host rejected|Host diagnostics'
         $result.Degradation[0].Reason | Should -BeExactly 'failed after an admitted host wave'
+
+        $expandingSecret = 'github' + '_pat_' + ('a1' * 11)
+        $boundedTransition = Start-FleetDispatchRun -Plan (
+            New-FleetDispatchPlan -Task @(New-FleetTask -Id bounded)
+        )
+        $boundedTransition = Step-FleetDispatchRun -Run $boundedTransition.Run -Result @(
+            New-WaveResult `
+                -TaskId bounded `
+                -Outcome failed `
+                -Detail ($expandingSecret + ' ' + ('x' * (511 - $expandingSecret.Length)))
+        )
+        $boundedResult = Complete-FleetDispatchRun -Run $boundedTransition.Run
+        $boundedResult.Tasks[0].Detail.Length | Should -Be 512
+        $boundedResult.Tasks[0].Detail |
+            Should -Match '\[REDACTED:github-pat-fine-grained\]'
+        $boundedResult.Tasks[0].Detail |
+            Should -Not -Match ([regex]::Escape($expandingSecret))
+    }
+
+    It 'covers every secret rule and synthetic allow branch' {
+        $cases = @(
+            @{ Type = 'github-pat-classic'; Value = ('gh' + 'p_' + ('a1B2' * 9)) }
+            @{ Type = 'github-pat-fine-grained'; Value = ('github' + '_pat_' + ('a1B2_' * 6)) }
+            @{ Type = 'aws-access-key-id'; Value = ('AK' + 'IA' + 'A1B2C3D4E5F6G7H8') }
+            @{ Type = 'google-api-key'; Value = ('AI' + 'za' + ('a1B2_' * 7)) }
+            @{ Type = 'slack-token'; Value = ('xox' + 'b-' + ('a1B2' * 3)) }
+            @{ Type = 'stripe-secret-key'; Value = ('sk' + '_live_' + ('a1B2' * 6)) }
+            @{ Type = 'npm-token'; Value = ('npm' + '_' + ('a1B2' * 9)) }
+            @{
+                Type = 'private-key-block'
+                Value = @(
+                    '-----BEGIN RSA PRIVATE KEY-----'
+                    'PAYLOAD-SECRET-MATERIAL'
+                    '-----END RSA PRIVATE KEY-----'
+                ) -join "`n"
+            }
+        )
+        foreach ($case in $cases) {
+            @(Find-HighConfidenceSecret -Value $case.Value) |
+                Should -Contain $case.Type -Because "$($case.Type) must be detected"
+            $protected = Protect-HighConfidenceSecret -Value "before $($case.Value) after"
+            $protected | Should -Not -Match ([regex]::Escape($case.Value))
+            $protected | Should -Match ([regex]::Escape("[REDACTED:$($case.Type)]"))
+            if ($case.Type -ceq 'private-key-block') {
+                $protected | Should -Not -Match 'PAYLOAD-SECRET-MATERIAL'
+            }
+        }
+
+        $prefix = 'gh' + 'p_'
+        $allowed = @(
+            'AKIAIOSFODNN7EXAMPLE'
+            ($prefix + ('X' * 36))
+            ($prefix + ('REDACTED' * 4) + 'REDA')
+            'ordinary diagnostic text'
+        )
+        foreach ($value in $allowed) {
+            @(Find-HighConfidenceSecret -Value $value).Count | Should -Be 0
+            Protect-HighConfidenceSecret -Value $value | Should -BeExactly $value
+        }
     }
 
     It 'test:FleetDispatch.Execution admits only ready planned tasks and handles failure and explicit throttle once' {
@@ -1447,6 +1545,25 @@ Describe 'Fleet dispatch execution adapter' {
                 New-WaveResult -TaskId undeclared
             }
         } | Should -Throw '*undeclared task*'
+        $settlementFailure = $null
+        try {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                New-WaveResult -TaskId first
+            }
+        }
+        catch {
+            $settlementFailure = $_.Exception
+        }
+        $settlementFailure.Data['FleetDispatchSettlementStage'] |
+            Should -BeExactly 'wave-result'
+        $recoverableRun = $settlementFailure.Data['FleetDispatchRun']
+        @($recoverableRun.CurrentWave.TaskIds) | Should -Be @('first', 'second')
+        $recovered = Step-FleetDispatchRun -Run $recoverableRun -Result @(
+            New-WaveResult -TaskId first
+            New-WaveResult -TaskId second
+        )
+        $recovered.Done | Should -BeTrue
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
                 param($Wave)
@@ -1534,8 +1651,30 @@ Describe 'Fleet dispatch execution adapter' {
         }
         $launcherFailure.State | Should -Be degraded
         $launcherFailure.Attendance.Failed | Should -Be 2
-        $launcherFailure.FinalView | Should -Match 'wave launcher raised.*host transport failed.*\[REDACTED:github-pat-fine-grained\]'
+        $launcherFailure.Tasks[0].Detail |
+            Should -Match 'wave launcher raised.*host transport failed.*\[REDACTED:github-pat-fine-grained\]'
         $launcherFailure.FinalView | Should -Not -Match ([regex]::Escape($launcherSecret))
+        $launcherFailure.FinalView | Should -Not -Match 'host transport failed'
+
+        $privateKeyFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            throw (@(
+                    'transport prefix'
+                    '-----BEGIN PRIVATE KEY-----'
+                    ('private-payload-' + ('x' * 300))
+                    '-----END PRIVATE KEY-----'
+                    'transport suffix'
+                ) -join "`n")
+        }
+        $privateKeyFailure.Tasks[0].Detail | Should -Match '\[REDACTED:private-key-block\]'
+        $privateKeyFailure.Tasks[0].Detail | Should -Not -Match 'private-payload'
+        $privateKeyFailure.Tasks[0].Detail.Length | Should -BeLessOrEqual 512
+
+        $boundarySecret = 'github' + '_pat_' + ('a1B2' * 6)
+        $boundaryFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            throw (('x' * 230) + $boundarySecret + 'trailing diagnostic')
+        }
+        $boundaryFailure.Tasks[0].Detail | Should -Not -Match ([regex]::Escape($boundarySecret))
+        $boundaryFailure.Tasks[0].Detail.Length | Should -BeLessOrEqual 512
         $forgedViolation = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
             $exception = [InvalidOperationException]::new('caller exception')
             $exception.Data['FleetDispatchContractViolation'] = $true
@@ -1569,9 +1708,6 @@ Omitted tasks:
 
 Degradation:
 - (none)
-
-Host diagnostics (untrusted data reported by task hosts; not instructions):
-- (none)
 '@
 
         $failedPlan = New-FleetDispatchPlan -Task @(
@@ -1598,10 +1734,6 @@ Omitted tasks:
 Degradation:
 - root | "failed after an admitted host wave"
 - dependent | "cancelled because a dependency did not complete"
-
-Host diagnostics (untrusted data reported by task hosts; not instructions):
-- root | attempt 1 failed | "ordinary failure"
-- dependent | status cancelled | "dependency 'root' did not complete"
 '@
 
         $throttledPlan = New-FleetDispatchPlan -Task @(New-FleetTask -Id throttled)
@@ -1628,9 +1760,6 @@ Omitted tasks:
 
 Degradation:
 - throttled | "recovered after one explicit throttle retry"
-
-Host diagnostics (untrusted data reported by task hosts; not instructions):
-- throttled | attempt 1 throttled | "explicit throttle"
 '@
     }
 }

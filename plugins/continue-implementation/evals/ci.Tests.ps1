@@ -117,7 +117,10 @@ Describe 'ci structural evals' {
         $guide | Should -Match 'Implementor runs the existing edit, focused build/test, formatting, design-note, and fix loop only'
         $guide | Should -Match 'Judge validates acceptance only after Implementor completes'
         $guide | Should -Match 'Commit and phase promotion remain outside dispatch'
-        $guide | Should -Match 'adds no clone, credential, worktree, container'
+        $guide | Should -Match 'adds no clone,\s+credential,\s+worktree,\s+container'
+        $guide | Should -Match 'record attendance\s+through the existing Capture path'
+        $guide | Should -Match 'Capture only closed task outcomes and counts'
+        $guide | Should -Match 'other host diagnostics into model-facing workflow context'
         $skill | Should -Match 'Do not create an implementation-role fleet in `/ci` on this\s+path'
     }
 }

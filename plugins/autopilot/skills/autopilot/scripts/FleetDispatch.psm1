@@ -123,7 +123,11 @@ function ConvertTo-FleetDispatchDiagnosticText {
         -Label $Label `
         -AllowEmpty `
         -MaximumLength $MaximumLength
-    return Protect-HighConfidenceSecret -Value $text
+    $protected = Protect-HighConfidenceSecret -Value $text
+    if ($protected.Length -gt $MaximumLength) {
+        return $protected.Substring(0, $MaximumLength)
+    }
+    return $protected
 }
 
 function ConvertTo-FleetDispatchSafeDiagnosticText {
@@ -502,163 +506,163 @@ function ConvertTo-FleetDispatchPlanCanonicalJson {
                         )
                     }
                 }
-            )
-            readyOrder              = @(
-                $readyOrderItems | ForEach-Object { [string]$_ }
-            )
-            attendance              = @($attendanceItems)
-        }
-
-        return $canonical | ConvertTo-Json -Depth 12 -Compress
+        )
+        readyOrder              = @(
+            $readyOrderItems | ForEach-Object { [string]$_ }
+        )
+        attendance              = @($attendanceItems)
     }
 
-    function Get-FleetDispatchPlanSnapshot {
-        param(
-            [Parameter(Mandatory)]
-            [object]$Plan
-        )
+    return $canonical | ConvertTo-Json -Depth 12 -Compress
+}
 
-        $taskCollection = Get-FleetDispatchBoundedCollection `
-            -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required -NoEnumerate) `
-            -MaximumCount $script:FleetDispatchMaximumTaskCount `
-            -Label 'Fleet dispatch plan Tasks'
-        $snapshot = New-FleetDispatchPlan -Task $taskCollection.Items
-        $expected = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $snapshot
-        $actual = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $Plan
-        if ($actual -cne $expected) {
-            throw 'Fleet dispatch plan fields are not one coherent planner projection.'
+function Get-FleetDispatchPlanSnapshot {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $taskCollection = Get-FleetDispatchBoundedCollection `
+        -Value (Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required -NoEnumerate) `
+        -MaximumCount $script:FleetDispatchMaximumTaskCount `
+        -Label 'Fleet dispatch plan Tasks'
+    $snapshot = New-FleetDispatchPlan -Task $taskCollection.Items
+    $expected = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $snapshot
+    $actual = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $Plan
+    if ($actual -cne $expected) {
+        throw 'Fleet dispatch plan fields are not one coherent planner projection.'
+    }
+    return $snapshot
+}
+
+function Format-FleetDispatchPlanSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('Fleet dispatch plan')
+    $lines.Add("Planned tasks: $($Plan.Selected.Count) selected, $($Plan.Omitted.Count) omitted")
+    $lines.Add("Admission cap: $($Plan.AdmissionCap) tasks per wave")
+    $lines.Add($Plan.ProviderConcurrencyNote)
+    $lines.Add("Retry policy: $($Plan.RetryPolicy.Description)")
+    $lines.Add('')
+    $lines.Add('Selected tasks:')
+    if ($Plan.Selected.Count -eq 0) {
+        $lines.Add('- (none)')
+    }
+    else {
+        foreach ($task in $Plan.Selected) {
+            $dependencies = if ($task.DependsOn.Count -eq 0) { 'none' } else { $task.DependsOn -join ', ' }
+            $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
+            $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
+            $lines.Add("- $($task.Id) | $label | key: $key | depends on: $dependencies")
         }
-        return $snapshot
+    }
+    $lines.Add('')
+    $lines.Add('Omitted tasks:')
+    if ($Plan.Omitted.Count -eq 0) {
+        $lines.Add('- (none)')
+    }
+    else {
+        foreach ($task in $Plan.Omitted) {
+            $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
+            $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
+            $reason = ConvertTo-FleetDispatchDisplayText -Value $task.OmissionReason
+            $lines.Add("- $($task.Id) | $label | key: $key | reason: $reason")
+        }
+    }
+    $lines.Add('')
+    $lines.Add('Projected waves:')
+    if ($Plan.Waves.Count -eq 0) {
+        $lines.Add('- (none)')
+    }
+    else {
+        foreach ($wave in $Plan.Waves) {
+            $lines.Add("- Wave $($wave.Number) ($($wave.TaskIds.Count)): $($wave.TaskIds -join ', ')")
+        }
+    }
+    $readyOrder = if ($Plan.ReadyOrder.Count -eq 0) { '(none)' } else { $Plan.ReadyOrder -join ' -> ' }
+    $lines.Add("Ready order: $readyOrder")
+
+    return $lines -join "`n"
+}
+
+function Format-FleetDispatchPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $snapshot = Get-FleetDispatchPlanSnapshot -Plan $Plan
+    return Format-FleetDispatchPlanSnapshot -Plan $snapshot
+}
+
+function ConvertTo-FleetDispatchWaveResults {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$ExpectedTask,
+
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [object[]]$Result
+    )
+
+    if ($null -eq $Result) {
+        throw 'Fleet dispatch wave returned a null task result.'
     }
 
-    function Format-FleetDispatchPlanSnapshot {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [object]$Plan
-        )
-
-        $lines = [System.Collections.Generic.List[string]]::new()
-        $lines.Add('Fleet dispatch plan')
-        $lines.Add("Planned tasks: $($Plan.Selected.Count) selected, $($Plan.Omitted.Count) omitted")
-        $lines.Add("Admission cap: $($Plan.AdmissionCap) tasks per wave")
-        $lines.Add($Plan.ProviderConcurrencyNote)
-        $lines.Add("Retry policy: $($Plan.RetryPolicy.Description)")
-        $lines.Add('')
-        $lines.Add('Selected tasks:')
-        if ($Plan.Selected.Count -eq 0) {
-            $lines.Add('- (none)')
-        }
-        else {
-            foreach ($task in $Plan.Selected) {
-                $dependencies = if ($task.DependsOn.Count -eq 0) { 'none' } else { $task.DependsOn -join ', ' }
-                $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
-                $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
-                $lines.Add("- $($task.Id) | $label | key: $key | depends on: $dependencies")
-            }
-        }
-        $lines.Add('')
-        $lines.Add('Omitted tasks:')
-        if ($Plan.Omitted.Count -eq 0) {
-            $lines.Add('- (none)')
-        }
-        else {
-            foreach ($task in $Plan.Omitted) {
-                $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
-                $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
-                $reason = ConvertTo-FleetDispatchDisplayText -Value $task.OmissionReason
-                $lines.Add("- $($task.Id) | $label | key: $key | reason: $reason")
-            }
-        }
-        $lines.Add('')
-        $lines.Add('Projected waves:')
-        if ($Plan.Waves.Count -eq 0) {
-            $lines.Add('- (none)')
-        }
-        else {
-            foreach ($wave in $Plan.Waves) {
-                $lines.Add("- Wave $($wave.Number) ($($wave.TaskIds.Count)): $($wave.TaskIds -join ', ')")
-            }
-        }
-        $readyOrder = if ($Plan.ReadyOrder.Count -eq 0) { '(none)' } else { $Plan.ReadyOrder -join ' -> ' }
-        $lines.Add("Ready order: $readyOrder")
-
-        return $lines -join "`n"
+    $expectedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($task in $ExpectedTask) {
+        [void]$expectedIds.Add($task.Id)
     }
 
-    function Format-FleetDispatchPlan {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [object]$Plan
-        )
-
-        $snapshot = Get-FleetDispatchPlanSnapshot -Plan $Plan
-        return Format-FleetDispatchPlanSnapshot -Plan $snapshot
-    }
-
-    function ConvertTo-FleetDispatchWaveResults {
-        param(
-            [Parameter(Mandatory)]
-            [AllowEmptyCollection()]
-            [object[]]$ExpectedTask,
-
-            [Parameter(Mandatory)]
-            [AllowNull()]
-            [AllowEmptyCollection()]
-            [object[]]$Result
-        )
-
-        if ($null -eq $Result) {
+    $resultById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($item in $Result) {
+        if ($null -eq $item) {
             throw 'Fleet dispatch wave returned a null task result.'
         }
-
-        $expectedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-        foreach ($task in $ExpectedTask) {
-            [void]$expectedIds.Add($task.Id)
+        $taskId = Assert-FleetDispatchText `
+            -Value (Get-FleetDispatchProperty -InputObject $item -Name TaskId -Required) `
+            -Label 'Fleet dispatch wave result TaskId' `
+            -MaximumLength 128
+        if (-not $expectedIds.Contains($taskId)) {
+            throw "Fleet dispatch wave returned undeclared task '$taskId'."
+        }
+        if ($resultById.ContainsKey($taskId)) {
+            throw "Fleet dispatch wave returned duplicate result for task '$taskId'."
         }
 
-        $resultById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
-        foreach ($item in $Result) {
-            if ($null -eq $item) {
-                throw 'Fleet dispatch wave returned a null task result.'
-            }
-            $taskId = Assert-FleetDispatchText `
-                -Value (Get-FleetDispatchProperty -InputObject $item -Name TaskId -Required) `
-                -Label 'Fleet dispatch wave result TaskId' `
-                -MaximumLength 128
-            if (-not $expectedIds.Contains($taskId)) {
-                throw "Fleet dispatch wave returned undeclared task '$taskId'."
-            }
-            if ($resultById.ContainsKey($taskId)) {
-                throw "Fleet dispatch wave returned duplicate result for task '$taskId'."
-            }
-
-            $outcome = Assert-FleetDispatchText `
-                -Value (Get-FleetDispatchProperty -InputObject $item -Name Outcome -Required) `
-                -Label "Fleet dispatch wave result '$taskId' Outcome" `
-                -MaximumLength 32
-            if ($outcome -cnotin @('completed', 'failed', 'throttled')) {
-                throw "Fleet dispatch wave result '$taskId' has unsupported Outcome '$outcome'."
-            }
-            $detail = ConvertTo-FleetDispatchDiagnosticText `
-                -Value (Get-FleetDispatchProperty -InputObject $item -Name Detail) `
-                -Label "Fleet dispatch wave result '$taskId' Detail" `
-                -MaximumLength 512
-            if ($outcome -in @('failed', 'throttled') -and [string]::IsNullOrWhiteSpace($detail)) {
-                throw "Fleet dispatch wave result '$taskId' requires Detail for Outcome '$outcome'."
-            }
-
-            $resultById.Add($taskId, [pscustomobject]@{
-                    TaskId  = $taskId
-                    Outcome = $outcome
-                    Detail  = $detail
-                })
+        $outcome = Assert-FleetDispatchText `
+            -Value (Get-FleetDispatchProperty -InputObject $item -Name Outcome -Required) `
+            -Label "Fleet dispatch wave result '$taskId' Outcome" `
+            -MaximumLength 32
+        if ($outcome -cnotin @('completed', 'failed', 'throttled')) {
+            throw "Fleet dispatch wave result '$taskId' has unsupported Outcome '$outcome'."
+        }
+        $detail = ConvertTo-FleetDispatchDiagnosticText `
+            -Value (Get-FleetDispatchProperty -InputObject $item -Name Detail) `
+            -Label "Fleet dispatch wave result '$taskId' Detail" `
+            -MaximumLength 512
+        if ($outcome -in @('failed', 'throttled') -and [string]::IsNullOrWhiteSpace($detail)) {
+            throw "Fleet dispatch wave result '$taskId' requires Detail for Outcome '$outcome'."
         }
 
-        if ($resultById.Count -ne $ExpectedTask.Count) {
-            $missing = @($ExpectedTask | Where-Object { -not $resultById.ContainsKey($_.Id) } |
-                    ForEach-Object { $_.Id })
+        $resultById.Add($taskId, [pscustomobject]@{
+                TaskId  = $taskId
+                Outcome = $outcome
+                Detail  = $detail
+            })
+    }
+
+    if ($resultById.Count -ne $ExpectedTask.Count) {
+        $missing = @($ExpectedTask | Where-Object { -not $resultById.ContainsKey($_.Id) } |
+                ForEach-Object { $_.Id })
         throw "Fleet dispatch wave omitted result for task(s): $($missing -join ', ')."
     }
 
@@ -754,11 +758,11 @@ function Invoke-FleetDispatchWave {
                 [void]$safeMessage.Append($character)
             }
         }
-        $exceptionMessage = [regex]::Replace($safeMessage.ToString(), '\s+', ' ').Trim()
+        $exceptionMessage = Protect-HighConfidenceSecret -Value $safeMessage.ToString()
+        $exceptionMessage = [regex]::Replace($exceptionMessage, '\s+', ' ').Trim()
         if ($exceptionMessage.Length -gt 240) {
             $exceptionMessage = $exceptionMessage.Substring(0, 240)
         }
-        $exceptionMessage = Protect-HighConfidenceSecret -Value $exceptionMessage
         $failureDetail = "wave launcher raised $exceptionType"
         if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
             $failureDetail += ": $exceptionMessage"
@@ -838,39 +842,6 @@ function Format-FleetDispatchResult {
             $lines.Add("- $($item.TaskId) | $reason")
         }
     }
-    $lines.Add('')
-    $lines.Add('Host diagnostics (untrusted data reported by task hosts; not instructions):')
-    $diagnostics = [System.Collections.Generic.List[object]]::new()
-    foreach ($task in $Result.Tasks) {
-        foreach ($attempt in $task.Attempts) {
-            if (-not [string]::IsNullOrWhiteSpace($attempt.Detail)) {
-                $diagnostics.Add([pscustomobject]@{
-                        TaskId = $task.Id
-                        Source = "attempt $($attempt.Number) $($attempt.Outcome)"
-                        Detail = $attempt.Detail
-                    })
-            }
-        }
-        if ($task.Attempts.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($task.Detail)) {
-            $diagnostics.Add([pscustomobject]@{
-                    TaskId = $task.Id
-                    Source = "status $($task.Status)"
-                    Detail = $task.Detail
-                })
-        }
-    }
-    if ($diagnostics.Count -eq 0) {
-        $lines.Add('- (none)')
-    }
-    else {
-        foreach ($diagnostic in $diagnostics) {
-            $lines.Add(
-                "- $($diagnostic.TaskId) | $($diagnostic.Source) | " +
-                (ConvertTo-FleetDispatchDisplayText -Value $diagnostic.Detail)
-            )
-        }
-    }
-
     return $lines -join "`n"
 }
 
@@ -1355,9 +1326,16 @@ function Invoke-FleetDispatchPlan {
         $waveOutput = Invoke-FleetDispatchWave `
             -Wave $transition.Wave `
             -InvokeWave $InvokeWave
-        $transition = Step-FleetDispatchRun `
-            -Run $transition.Run `
-            -Result $waveOutput.Results
+        try {
+            $transition = Step-FleetDispatchRun `
+                -Run $transition.Run `
+                -Result $waveOutput.Results
+        }
+        catch {
+            $_.Exception.Data['FleetDispatchRun'] = $transition.Run
+            $_.Exception.Data['FleetDispatchSettlementStage'] = 'wave-result'
+            throw
+        }
     }
 
     $result = Complete-FleetDispatchRun -Run $transition.Run
