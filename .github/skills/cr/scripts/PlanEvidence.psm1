@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'ReviewResultReceipt.psm1') -DisableNameChecking
 
 $script:PlanEvidenceOutcomes = @('passed', 'failed', 'skipped', 'unrun', 'stale', 'degraded', 'waived')
 
@@ -449,6 +450,20 @@ function Assert-PlanReviewCounter {
         [decimal]$Value -lt 0 -or [decimal]$Value -gt [int]::MaxValue) {
         throw "$Label must be a non-negative integer no greater than $([int]::MaxValue)."
     }
+}
+
+function Assert-ReviewResultReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ReceiptContent,
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')]
+        [string]$ReviewRunId,
+        [Parameter(Mandatory)][string]$ReportName,
+        [Parameter(Mandatory)][byte[]]$ReportBytes
+    )
+
+    return ReviewResultReceipt\Assert-ReviewResultReceipt @PSBoundParameters
 }
 
 function Assert-PlanReviewResultReceipt {
@@ -1137,4 +1152,4 @@ function Invoke-PlanFileEvidence {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence, Get-PlanReviewCycleState, Assert-PlanReviewResultReceipt, Assert-PlanCleanReviewEvidence
+Export-ModuleMember -Function ConvertTo-PlanEvidenceResult, Resolve-PlanEvidenceAssetPath, Get-PlanEvidenceWaiver, Read-PlanEvidenceReceipt, Parse-PlanFileEvidenceMarker, Invoke-PlanFileEvidence, Get-PlanReviewCycleState, Assert-ReviewResultReceipt, Assert-PlanReviewResultReceipt, Assert-PlanCleanReviewEvidence

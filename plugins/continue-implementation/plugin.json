@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.83",
+  "version": "1.0.84",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -58,6 +58,10 @@
     {
       "src": "skills/ci/scripts/PlanEvidence.psm1",
       "dest": "skills/ci/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/ci/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/ci/scripts/ReviewResultReceipt.psm1"
     },
     {
       "src": "skills/ci/scripts/PlanState.psm1",

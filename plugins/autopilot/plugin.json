@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.60",
+  "version": "1.2.61",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -111,6 +111,10 @@
     {
       "src": "skills/autopilot/scripts/PlanEvidence.psm1",
       "dest": "skills/autopilot/scripts/PlanEvidence.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
+      "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
     },
     {
       "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
