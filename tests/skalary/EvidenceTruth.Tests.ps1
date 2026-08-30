@@ -467,6 +467,16 @@ Describe 'broken' {
                 Expected = '*extra=unexpected*'
                 Apply = { param($Receipt) $Receipt['findings']['unexpected'] = 0 }
             }
+            @{
+                Name = 'fractional finding count'
+                Expected = '*Review findings.merged must be a non-negative integer*'
+                Apply = { param($Receipt) $Receipt['findings']['merged'] = 0.5 }
+            }
+            @{
+                Name = 'string attendance count'
+                Expected = '*Review attendance.completed must be a non-negative integer*'
+                Apply = { param($Receipt) $Receipt['attendance']['completed'] = '1' }
+            }
         )
         $applyMutation = {
             param(

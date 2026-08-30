@@ -203,6 +203,21 @@ function Assert-PlanReviewPropertySet {
     }
 }
 
+function Assert-PlanReviewCounter {
+    param(
+        [Parameter(Mandatory)][object]$Value,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $integerTypes = @(
+        [byte], [sbyte], [int16], [uint16], [int32], [uint32], [int64], [uint64]
+    )
+    if ($null -eq $Value -or $Value.GetType() -notin $integerTypes -or
+        [decimal]$Value -lt 0 -or [decimal]$Value -gt [int]::MaxValue) {
+        throw "$Label must be a non-negative integer no greater than $([int]::MaxValue)."
+    }
+}
+
 function Assert-PlanReviewResultReceipt {
     [CmdletBinding()]
     param(
@@ -268,6 +283,28 @@ function Assert-PlanReviewResultReceipt {
         -Required @('bytes', 'digest', 'name')
     Assert-PlanReviewPropertySet -Node $receipt['source'] -Label 'Review source' `
         -Required @('digest', 'head', 'mode', 'pathCount') -Optional @('base')
+    foreach ($name in @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')) {
+        Assert-PlanReviewCounter -Value $receipt['attendance'][$name] -Label "Review attendance.$name"
+    }
+    foreach ($name in @('merged', 'raw')) {
+        Assert-PlanReviewCounter -Value $receipt['findings'][$name] -Label "Review findings.$name"
+    }
+    foreach ($bucket in @('severity') + $(if ($hasExtendedFindings) { @('rawSeverity') } else { @() })) {
+        foreach ($name in @('critical', 'high', 'low', 'medium')) {
+            Assert-PlanReviewCounter -Value $receipt['findings'][$bucket][$name] -Label "Review findings.$bucket.$name"
+        }
+    }
+    if ($hasExtendedFindings) {
+        foreach ($name in @('corroborated', 'degraded', 'single-source', 'suspicious')) {
+            Assert-PlanReviewCounter -Value $receipt['findings']['corroboration'][$name] -Label "Review findings.corroboration.$name"
+        }
+        foreach ($name in @('exact', 'near-duplicate', 'none')) {
+            Assert-PlanReviewCounter -Value $receipt['findings']['similarity'][$name] -Label "Review findings.similarity.$name"
+        }
+        Assert-PlanReviewCounter -Value $receipt['findings']['needsReview'] -Label 'Review findings.needsReview'
+    }
+    Assert-PlanReviewCounter -Value $receipt['source']['pathCount'] -Label 'Review source.pathCount'
+    Assert-PlanReviewCounter -Value $receipt['report']['bytes'] -Label 'Review report.bytes'
 
     if ($receipt['schema'] -cne 'skalary/review-result-receipt@1' -or
         $receipt['runId'] -cne $ReviewRunId -or

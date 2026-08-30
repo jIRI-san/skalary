@@ -4,7 +4,7 @@
     "ref": "main",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/main/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T00:10:49.1702168Z",
+  "generatedAt": "2026-08-30T00:50:20.6527009Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -247,7 +247,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
+          "sha256": "7b8ab421e99290bbac6c2b5a586fd56330d575c3233c2ecd7ef72984d0c74f1b",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -361,7 +361,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.43"
+      "version": "1.2.44"
     },
     {
       "author": "jIRI-san",
@@ -570,7 +570,7 @@
         },
         {
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
-          "sha256": "c61a699c1a780a2195b54d3533c73c93caccc3c6f9dda44a560a0cbbc2d3aea1",
+          "sha256": "ab1bb0fbea4724d192cdebdd17b58150f1db3f3d47ff5b0b195c45f3e6ce0111",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
         },
         {
@@ -590,7 +590,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
+          "sha256": "7b8ab421e99290bbac6c2b5a586fd56330d575c3233c2ecd7ef72984d0c74f1b",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -700,7 +700,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.68"
+      "version": "1.0.69"
     },
     {
       "author": "jIRI-san",
@@ -744,7 +744,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
+          "sha256": "7b8ab421e99290bbac6c2b5a586fd56330d575c3233c2ecd7ef72984d0c74f1b",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -819,7 +819,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "868dbb41b0842bece8895268c2ab60c72dd2ae0941f77ac369d8df43ffe05a43",
+          "sha256": "7b8ab421e99290bbac6c2b5a586fd56330d575c3233c2ecd7ef72984d0c74f1b",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -866,7 +866,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.61"
+      "version": "1.0.62"
     },
     {
       "author": "jIRI-san",
