@@ -87,16 +87,100 @@ function ConvertTo-PlanEvidenceResult {
     }
 }
 
+function Get-ReviewCycleSourceRecordId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Line,
+        [Parameter(Mandatory)][string]$PlanId,
+        [Parameter(Mandatory)][ValidateRange(0, 999)][int]$Phase,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $pattern = '^- \[(?<step>-|[0-9]+\.[0-9]+[a-z]?)\] ' +
+        '\[src:(?<src>code-review|discovery|note)\] ' +
+        '\[sev:(?<sev>Critical|High|Med|Low)\] ' +
+        '\[concern:(?<concern>security|correctness-reliability|architecture-patterns|performance|testing-evidence|maintainability-consistency|operability-observability)\] ' +
+        '\[req:(?<req>-|REQ-[1-9][0-9]*(?:,REQ-[1-9][0-9]*)*)\] ' +
+        '\[review:(?<review>cr|dr|none)\] ' +
+        '\[source-record:(?<record>[0-9a-f]{64})\] (?<body>.+)$'
+    $match = [regex]::Match($Line, $pattern)
+    if (-not $match.Success) {
+        throw "$Label is not a supported typed workflow source record."
+    }
+
+    $fields = @(
+        $PlanId,
+        [string]$Phase,
+        $match.Groups['step'].Value,
+        $match.Groups['concern'].Value,
+        $match.Groups['req'].Value,
+        $match.Groups['review'].Value,
+        $match.Groups['src'].Value,
+        $match.Groups['sev'].Value,
+        '-',
+        $match.Groups['body'].Value
+    )
+    $framed = 'workflow-note/crlog/source-record/v1' + [char]0 + ($fields -join [char]0)
+    $expected = [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData(
+            [System.Text.Encoding]::UTF8.GetBytes($framed)
+        )
+    ).ToLowerInvariant()
+    $actual = $match.Groups['record'].Value
+    if ($expected -cne $actual) {
+        throw "$Label source-record digest does not match plan '$PlanId' phase $Phase."
+    }
+    return $actual
+}
+
 function Get-PlanReviewCycleState {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$PlanDir,
         [Parameter(Mandatory)]
         [ValidatePattern('^(?:step-[0-9]+\.[0-9]+[a-z]?|phase-[0-9]+|plan-finalization)$')]
-        [string]$Stage
+        [string]$Stage,
+        [string]$RepoRoot,
+        [ValidateRange(0, 999)]
+        [int]$SourcePhase,
+        [switch]$ValidateSourceRecords
     )
 
-    $logPath = Resolve-PlanAssetPath -PlanDir $PlanDir -Kind CrLog
+    if ($ValidateSourceRecords -and
+        ([string]::IsNullOrWhiteSpace($RepoRoot) -or -not $PSBoundParameters.ContainsKey('SourcePhase'))) {
+        throw 'Source-record validation requires explicit -RepoRoot and -SourcePhase.'
+    }
+
+    $assetArgs = @{ PlanDir = $PlanDir; Kind = 'CrLog' }
+    $planId = ''
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $inventory = @(Get-PlanInventory -RepoRoot $repoRootFull)
+        $assetArgs.RepoRoot = $repoRootFull
+        $assetArgs.Inventory = $inventory
+        if ($ValidateSourceRecords) {
+            $planDirFull = [System.IO.Path]::GetFullPath($PlanDir)
+            $comparison = if ($IsWindows) {
+                [System.StringComparison]::OrdinalIgnoreCase
+            }
+            else {
+                [System.StringComparison]::Ordinal
+            }
+            $planRecord = @($inventory | Where-Object {
+                    $_.Path -and [string]::Equals(
+                        [System.IO.Path]::GetFullPath([string]$_.Path),
+                        $planDirFull,
+                        $comparison
+                    )
+                })
+            if ($planRecord.Count -ne 1) {
+                throw "Plan folder '$planDirFull' is not a unique member of the repository plan inventory."
+            }
+            $planId = [string]$planRecord[0].Id
+        }
+    }
+
+    $logPath = Resolve-PlanAssetPath @assetArgs
     $raw = if (Test-Path -LiteralPath $logPath -PathType Leaf) {
         Get-Content -LiteralPath $logPath -Raw
     }
@@ -143,12 +227,23 @@ function Get-PlanReviewCycleState {
         "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-remediation stage=$stagePattern after=(?<after>[0-9]+) action=reopen authorization=(?<authorization>[A-Za-z0-9][A-Za-z0-9._:-]{0,127}) reason=(?<reason>.+)$"
     )
     foreach ($match in $remediationMatches) {
+        $eventIdMatches = [regex]::Matches($match.Value, '\[source-record:(?<id>[0-9a-f]{64})\]')
+        $eventId = if ($eventIdMatches.Count -eq 1) {
+            [string]$eventIdMatches[0].Groups['id'].Value
+        }
+        else {
+            ''
+        }
+        if ($ValidateSourceRecords) {
+            $eventId = Get-ReviewCycleSourceRecordId -Line $match.Value -PlanId $planId `
+                -Phase $SourcePhase -Label "Reopen event for '$Stage'"
+        }
         $events.Add([pscustomobject]@{
                 Index = $match.Index
                 After = [int]$match.Groups['after'].Value
                 Action = 'reopen'
                 Authorization = [string]$match.Groups['authorization'].Value
-                EventId = ''
+                EventId = $eventId
                 Reason = [string]$match.Groups['reason'].Value
                 TargetEventId = ''
                 Timestamp = ''
@@ -165,6 +260,33 @@ function Get-PlanReviewCycleState {
                 Action = 'invalidate-continue'
                 Authorization = [string]$match.Groups['authorization'].Value
                 EventId = ''
+                Reason = [string]$match.Groups['reason'].Value
+                TargetEventId = [string]$match.Groups['target'].Value
+                Timestamp = [string]$match.Groups['timestamp'].Value
+            })
+    }
+    $reopenInvalidationMatches = [regex]::Matches(
+        $raw,
+        "(?m)^- \[[^\]]+\] \[src:note\] \[sev:Low\]$provenancePattern review-cycle-remediation stage=$stagePattern after=(?<after>[0-9]+) action=invalidate-reopen target=(?<target>[0-9a-f]{64}) authorization=(?<authorization>[A-Za-z0-9][A-Za-z0-9._:-]{0,127}) timestamp=(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{7}Z) reason=(?<reason>.+)$"
+    )
+    foreach ($match in $reopenInvalidationMatches) {
+        $eventIdMatches = [regex]::Matches($match.Value, '\[source-record:(?<id>[0-9a-f]{64})\]')
+        $eventId = if ($eventIdMatches.Count -eq 1) {
+            [string]$eventIdMatches[0].Groups['id'].Value
+        }
+        else {
+            ''
+        }
+        if ($ValidateSourceRecords) {
+            $eventId = Get-ReviewCycleSourceRecordId -Line $match.Value -PlanId $planId `
+                -Phase $SourcePhase -Label "Reopen invalidation for '$Stage'"
+        }
+        $events.Add([pscustomobject]@{
+                Index = $match.Index
+                After = [int]$match.Groups['after'].Value
+                Action = 'invalidate-reopen'
+                Authorization = [string]$match.Groups['authorization'].Value
+                EventId = $eventId
                 Reason = [string]$match.Groups['reason'].Value
                 TargetEventId = [string]$match.Groups['target'].Value
                 Timestamp = [string]$match.Groups['timestamp'].Value
@@ -195,13 +317,53 @@ function Get-PlanReviewCycleState {
             throw "Review-cycle invalidation for '$Stage' is stale or follows a later review result."
         }
     }
+    foreach ($invalidation in @($orderedEvents | Where-Object Action -eq 'invalidate-reopen')) {
+        $priorEvents = @($orderedEvents | Where-Object Index -lt $invalidation.Index)
+        $priorEvent = @($priorEvents | Select-Object -Last 1)
+        $targets = @($orderedEvents | Where-Object {
+                $_.Action -eq 'reopen' -and $_.EventId -ceq $invalidation.TargetEventId
+            })
+        if ($targets.Count -ne 1) {
+            throw "Review-cycle invalidation for '$Stage' has an ambiguous or missing Reopen source record '$($invalidation.TargetEventId)'."
+        }
+        if ($priorEvent.Count -ne 1 -or
+            $priorEvent[0].Action -ne 'reopen' -or
+            $priorEvent[0].Index -ne $targets[0].Index) {
+            throw "Review-cycle Reopen invalidation for '$Stage' does not target the latest event."
+        }
+        $eventsBeforeTarget = @($orderedEvents | Where-Object Index -lt $targets[0].Index)
+        $wrappedEvent = @($eventsBeforeTarget | Select-Object -Last 1)
+        if ($wrappedEvent.Count -ne 1 -or
+            $wrappedEvent[0].Action -ne 'wrap' -or
+            $wrappedEvent[0].After -ne $targets[0].After) {
+            throw "Review-cycle Reopen invalidation for '$Stage' does not restore a prior Wrap."
+        }
+        $cyclesBeforeInvalidation = @($cycleMatches | Where-Object Index -lt $invalidation.Index)
+        $interveningCycles = @($cycleMatches | Where-Object {
+                $_.Index -gt $targets[0].Index -and $_.Index -lt $invalidation.Index
+            })
+        if ($targets[0].After -ne $invalidation.After -or
+            $cyclesBeforeInvalidation.Count -ne $invalidation.After -or
+            $interveningCycles.Count -gt 0) {
+            throw "Review-cycle Reopen invalidation for '$Stage' is stale or follows a later review result."
+        }
+    }
     $latestEvent = @($orderedEvents | Select-Object -Last 1)
     $latestEvent = if ($latestEvent.Count -eq 1) { $latestEvent[0] } else { $null }
+    $previousEvent = if ($orderedEvents.Count -gt 1) {
+        $orderedEvents[$orderedEvents.Count - 2]
+    }
+    else {
+        $null
+    }
 
     $latestCycle = if ($cycleMatches.Count -gt 0) { $cycleMatches[$cycleMatches.Count - 1] } else { $null }
     $latestCycleIndex = if ($null -ne $latestCycle) { $latestCycle.Index } else { -1 }
     $currentContinueCount = @($orderedEvents | Where-Object {
             $_.Action -eq 'continue' -and $_.After -eq $count -and $_.Index -gt $latestCycleIndex
+        }).Count
+    $currentReopenCount = @($orderedEvents | Where-Object {
+            $_.Action -eq 'reopen' -and $_.After -eq $count -and $_.Index -gt $latestCycleIndex
         }).Count
     $latestOutcome = if ($null -ne $latestCycle) { [string]$latestCycle.Groups['outcome'].Value } else { '' }
     $reviewRunId = if ($null -ne $latestCycle -and $latestCycle.Groups['runId'].Success) {
@@ -228,6 +390,9 @@ function Get-PlanReviewCycleState {
         elseif ($latestEvent.Action -eq 'invalidate-continue') {
             'operator-decision'
         }
+        elseif ($latestEvent.Action -eq 'invalidate-reopen') {
+            'wrap'
+        }
         else {
             'wrap'
         }
@@ -240,8 +405,10 @@ function Get-PlanReviewCycleState {
         State = $state
         Cycles = $count
         LatestEvent = $latestEvent
+        PreviousEvent = $previousEvent
         LatestCycleIndex = $latestCycleIndex
         CurrentContinueCount = $currentContinueCount
+        CurrentReopenCount = $currentReopenCount
         LatestOutcome = $latestOutcome
         ReviewRunId = $reviewRunId
         LogPath = $logPath

@@ -307,7 +307,12 @@ primary role from `.github/skills/cr/assets/model-preferences.md`; finalization 
 automatically; a persisted operator Continue decision grants one additional cycle, then the gate asks
 again if findings remain. In a headless run autopilot logs all remaining findings, commits the
 in-progress state, reports Continue/Wrap as the required operator choice, and exits `42`. It never
-uses `maxIterationsPerStep` or a fresh context to bypass the review cap.
+uses `maxIterationsPerStep`, a fresh context, or a completion handoff to bypass the review cap.
+`plan-dispatch.sh` checks `plan-finalization` both before selecting `completion-only` and after a
+zero-exit finalization-owning target. Wrap or `operator-decision` becomes an exit-42 operator stop;
+only `allow` (including an already durable explicit Reopen) may resume review work, while `complete`
+may continue close/archive proof. Thus a `close-pending` same-session handoff cannot synthesize Reopen
+authority, and ordinary validation/archive resumes remain unchanged.
 
 Absolute rules enforced:
 - Never force-push, never push to main
@@ -325,6 +330,7 @@ Absolute rules enforced:
 | Rule 5 trust boundary | `.autopilot.json` complete `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. Focused filters come only from changed files and committed project/test metadata. The committed plan reconcile entry point and named typed-evidence tests are authorized focused checks. |
 | Tiered validation cadence | Phase Fast is not `npm test`: it is an explicit `Run-UnitTests.ps1 -Tier Fast -TestPath ...` selection over changed surfaces. `FastFocusedHardCeilingSeconds` and `SlowHardCeilingSeconds` are advisory observations only. The complete Fast complement requires `-FullRepository`; `package.json` and CI pass that switch explicitly, so omission can never expand scope. The process-heavy `npm run test:slow` gate runs only after all phases complete. Container autopilot follows the same agent contract. |
 | Finalization ordering | Escalation ordering remains strict: commit -> push -> `gh pr create --draft` -> write uncommitted gitignored `.autopilot-finalize-needed` marker -> exit 42. |
+| Finalization resume authority | Target selection and post-target close derivation both read the durable `plan-finalization` gate. Wrap/operator-decision exits 42 without invoking or resuming the agent; `allow` resumes only already-authorized work and `complete` proceeds with archive/PR close proof. A runtime prompt, same-session handoff, or request to finish pending work is never operator Reopen authority. |
 | Container dependency | `.github/skills/autopilot/devcontainer/Dockerfile` installs Pester at an exact pinned version (`Install-PSResource -Name Pester -Version "[5.6.1]"`) so `test:unit` and `test:` evidence are runnable in container-autopilot. |
 | Canonical harvest host | Workflow-memory harvest is specified in `autopilot.agent.md` (canonical), not `ci` assets; `/ci` guidance is a marked mirror. |
 | Harvest guardrail | Finalization harvest runs when the installed `.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1` exists. Ledger categories scaffold on demand, so fresh installs do not require preexisting ledger files. Missing infra falls through to standard branch behavior. |

@@ -48,7 +48,11 @@ selection and invocation arguments. `next-phase` returns after one successful ph
 passes. Either mode preserves checklist progress when an operator or evidence stop interrupts the run.
 Launcher invocation uses bound arguments, validates repository-derived branches against a restricted
 ref grammar, preserves the blocking process exit status, and reports the terminal outcome rather than
-success-shaped "started" wording.
+success-shaped "started" wording. Container target selection and zero-exit close probing also read the
+durable `plan-finalization` review gate: Wrap/operator-decision stops at exit 42 without launching or
+same-session-resuming the agent, while an explicit pre-existing Reopen makes the gate `allow`. A
+`close-pending` handoff remains valid for unfinished validation/archive work but carries no operator
+authority.
 
 **First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
 it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout

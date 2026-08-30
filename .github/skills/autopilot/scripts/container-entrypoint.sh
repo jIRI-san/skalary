@@ -258,7 +258,11 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
     fi
     if [[ "${TARGET}" == operator-stop:* ]]; then
         PHASE_NUM="${TARGET#operator-stop:}"
-        echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
+        if [ "${PHASE_NUM}" = "plan-finalization" ]; then
+            echo "Plan-finalization review is wrapped or requires an operator decision — stopping."
+        else
+            echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
+        fi
         preserve_work || exit 125
         git push origin "${WORK_BRANCH}" || true
         exit 42
@@ -398,7 +402,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             resume)
                 HANDOFF_COUNT=$((HANDOFF_COUNT + 1))
                 echo "${TARGET_LABEL} exited zero with close state 'close-pending'; resuming session ${TARGET_SESSION_ID} (${HANDOFF_COUNT}/${COMPLETION_HANDOFF_LIMIT})."
-                TARGET_PROMPT="Continue the existing ${TARGET_LABEL} target for ${PLAN_PATH}. The previous response ended while required close work was still pending. Resume any still-running validation through its existing tool session and wait for terminal output; if it is no longer running, rerun the required validation. Do not end or report success until validation, durable close receipts, review, push, PR, and archive work required by the original target are terminal. Do not replay completed implementation. Original target: ${PROMPT}"
+                TARGET_PROMPT="Continue the existing ${TARGET_LABEL} target for ${PLAN_PATH}. The previous response ended while required close work was still pending. Resume any still-running validation through its existing tool session and wait for terminal output; if it is no longer running, rerun the required validation. This runtime resume is not operator authorization: never Continue or Reopen a review gate unless an explicit durable supported authorization record already made the gate eligible. Do not end or report success until validation, durable close receipts, review, push, PR, and archive work required by the original target are terminal. Do not replay completed implementation. Original target: ${PROMPT}"
                 ;;
             pending-failed)
                 echo "ERROR: ${TARGET_LABEL} remained 'close-pending' after ${HANDOFF_COUNT} same-session handoffs."

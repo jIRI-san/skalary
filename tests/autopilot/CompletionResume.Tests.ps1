@@ -265,6 +265,86 @@ Describe 'Autopilot container completion resume' {
             Should -Be @('operator-stop:1')
     }
 
+    It 'stops at wrapped finalization unless a durable Reopen already exists' {
+        $plan = @'
+## Phase 1
+- [x] 1.1 completed
+'@
+        $wrapped = @'
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=1 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=2 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=3 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle-decision stage=phase-1 after=3 action=wrap
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=1 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=2 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=3 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle-decision stage=plan-finalization after=3 action=wrap
+'@
+        @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $wrapped) |
+            Should -Be @('operator-stop:plan-finalization')
+
+        $authorized = $wrapped + @'
+
+- [2026-08-29] [src:note] [sev:Low] review-cycle-remediation stage=plan-finalization after=3 action=reopen authorization=operator-ticket-44 reason=run replacement review
+'@
+        @(Get-ExecutionTargets -PlanText $plan -Mode whole-plan -CrLogText $authorized) |
+            Should -Be @('completion-only')
+    }
+
+    It 'converts a zero-exit wrapped finalization close into an operator stop' {
+        $repoDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('N'))
+        $planSlug = '2026-08-30-ca8ba8-wrapped-finalization'
+        $planDir = Join-Path $repoDir "docs/implementation-plans/$planSlug"
+        $logsDir = Join-Path $planDir 'assets/logs'
+        [void](New-Item -ItemType Directory -Path $logsDir -Force)
+        Set-Content -LiteralPath (Join-Path $planDir 'assets/requirements.md') `
+            -Value '# Requirements' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Encoding utf8NoBOM -Value @'
+## Phase 1
+- [x] 1.1 completed
+'@
+        $wrapped = @'
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=1 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=2 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=phase-1 cycle=3 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle-decision stage=phase-1 after=3 action=wrap
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=1 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=2 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=3 outcome=findings
+- [2026-08-29] [src:note] [sev:Low] review-cycle-decision stage=plan-finalization after=3 action=wrap
+'@
+        Set-Content -LiteralPath (Join-Path $logsDir 'cr-log.md') `
+            -Value $wrapped -Encoding utf8NoBOM
+        $stateScript = Join-Path $repoDir 'Get-PhaseExecutionState.ps1'
+        Set-Content -LiteralPath $stateScript -Encoding utf8NoBOM -Value @'
+param([string]$PlanPath, [int]$Phase, [string]$RepoRoot, [string]$HarvestValidator)
+Write-Output closed
+'@
+        & git -C $repoDir init --quiet
+        & git -C $repoDir config user.name fixture
+        & git -C $repoDir config user.email fixture@example.invalid
+        & git -C $repoDir add --all
+        & git -C $repoDir commit --quiet -m initial
+        $helper = $helperBashPath
+        $bashPlan = ConvertTo-BashPath -Path (Join-Path $planDir 'plan.md')
+        $bashRepo = ConvertTo-BashPath -Path $repoDir
+        $state = ConvertTo-BashPath -Path $stateScript
+
+        $blocked = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $reviewGateBashPath $bashRepo $state $harvestValidatorBashPath
+        $LASTEXITCODE | Should -Be 0
+        $blocked | Should -Be 'operator-decision'
+
+        Add-Content -LiteralPath (Join-Path $logsDir 'cr-log.md') -Encoding utf8NoBOM -Value `
+            '- [2026-08-29] [src:note] [sev:Low] review-cycle-remediation stage=plan-finalization after=3 action=reopen authorization=operator-ticket-45 reason=run replacement review'
+        & git -C $repoDir add --all
+        & git -C $repoDir commit --quiet -m 'authorize finalization reopen'
+        $authorized = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" autopilot_target_close_state "$2" completion-only 1 "$3"' `
+            -- $helper $bashPlan $reviewGateBashPath $bashRepo $state $harvestValidatorBashPath
+        $LASTEXITCODE | Should -Be 0
+        $authorized | Should -Be 'close-pending'
+    }
+
     It 'distinguishes nonterminal and operator-blocked pre-finalization gates' {
         $plan = @'
 ## Phase 1
@@ -339,6 +419,7 @@ Describe 'Autopilot container completion resume' {
 - [x] 1.1 completed
 '@
         $crLog = New-WrappedPhaseReviewLog -Phase 1
+        $crLog += "`n- [2026-08-29] [src:note] [sev:Low] review-cycle stage=plan-finalization cycle=1 outcome=clean run=11111111-1111-1111-1111-111111111111"
         $repoDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('N'))
         $planSlug = '2026-08-29-abc123-long-validation'
         $planDir = Join-Path $repoDir "docs/implementation-plans/$planSlug"
@@ -495,6 +576,7 @@ Write-Output $env:FAKE_PHASE_CLOSE_STATE
         $entrypoint | Should -Match '\.github/skills/autopilot/scripts/ReviewCycleGate\.ps1'
         $entrypoint | Should -Match 'phase-completion:'
         $entrypoint | Should -Match 'exit 42'
+        $entrypoint | Should -Match 'This runtime resume is not operator authorization'
         $entrypoint | Should -Match 'exit "\$\{RUN_EXIT_CODE\}"'
         $entrypoint | Should -Match 'at Plan Completion only'
         $agent | Should -Match 'skip the Execution Loop and \*\*On Phase Completion\*\* in full'
