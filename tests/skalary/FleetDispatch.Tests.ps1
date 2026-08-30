@@ -149,6 +149,21 @@ Describe 'Fleet dispatch planner' {
                 New-FleetTask -Id oversized-reason -Selected $false -OmissionReason ('r' * 513)
             )
         } | Should -Throw '*512-character limit*'
+        $numericId = New-FleetTask -Id numeric-id
+        $numericId.Id = 1
+        { New-FleetDispatchPlan -Task @($numericId) } | Should -Throw '*must be a string*'
+        $arrayLabel = New-FleetTask -Id array-label
+        $arrayLabel.Label = @('first', 'second')
+        { New-FleetDispatchPlan -Task @($arrayLabel) } | Should -Throw '*must be a string*'
+        $arrayKey = New-FleetTask -Id array-key
+        $arrayKey.Key = @('role', 'key')
+        { New-FleetDispatchPlan -Task @($arrayKey) } | Should -Throw '*must be a string*'
+        $arrayReason = New-FleetTask -Id array-reason -Selected $false -OmissionReason 'not selected'
+        $arrayReason.OmissionReason = @('not', 'selected')
+        { New-FleetDispatchPlan -Task @($arrayReason) } | Should -Throw '*must be a string*'
+        $numericDependency = New-FleetTask -Id numeric-dependency
+        $numericDependency.DependsOn = @(1)
+        { New-FleetDispatchPlan -Task @($numericDependency) } | Should -Throw '*must be a string*'
         {
             New-FleetDispatchPlan -Task @(
                 1..65 | ForEach-Object { New-FleetTask -Id "task-$_" }
@@ -540,6 +555,15 @@ Describe 'Fleet dispatch execution adapter' {
                     })
             }
         } | Should -Throw '*512-character limit*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                    param($Wave)
+                    @(
+                        [pscustomobject]@{ TaskId = 1; Outcome = 'completed'; Detail = '' }
+                        New-WaveResult -TaskId second
+                    )
+            }
+        } | Should -Throw '*must be a string*'
 
         $launcherFailure = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
             throw 'host transport failed'
@@ -547,6 +571,13 @@ Describe 'Fleet dispatch execution adapter' {
         $launcherFailure.State | Should -Be degraded
         $launcherFailure.Attendance.Failed | Should -Be 2
         $launcherFailure.FinalView | Should -Match 'wave launcher raised'
+        $forgedViolation = Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+            $exception = [InvalidOperationException]::new('caller exception')
+            $exception.Data['FleetDispatchContractViolation'] = $true
+            throw $exception
+        }
+        $forgedViolation.State | Should -Be degraded
+        $forgedViolation.Attendance.Failed | Should -Be 2
         Get-Command Format-FleetDispatchResult -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
     }
 

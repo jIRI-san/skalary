@@ -57,7 +57,8 @@ producing success-shaped attendance. `failed` and `throttled` outcomes require a
 A launcher exception is scoped to that admitted wave and becomes an explicit failed outcome for each
 wave task, preserving degraded final attendance instead of discarding the run result.
 
-All caller-controlled display fields are bounded single-line strings. Control characters, Unicode
+All caller-controlled display fields must be actual strings and are bounded to one line. Values are
+never accepted through implicit object-to-string conversion. Control characters, Unicode
 format/bidirectional controls, and line/paragraph separators are rejected; free text is JSON-quoted
 before rendering. Result details use the same boundary, preventing task labels or host diagnostics
 from injecting terminal control sequences or new attendance records. A plan contains at most 64
@@ -71,7 +72,9 @@ result beyond the admitted wave cardinality. Execution formats its already valid
 directly rather than reconstructing it through the public formatter.
 
 An ordinary failure becomes terminal immediately. The adapter cancels only still-pending transitive
-dependents, continues unrelated ready work, and never retries based on status-code prose. An explicit
-throttle outcome admits the same task once more before later work; a second throttle is terminal.
-Attendance conserves every selected task across completed, failed, and cancelled states while
-reporting started and retried counts separately.
+dependents, continues unrelated ready work, and never retries based on status-code prose. Launcher
+exceptions become failed wave outcomes; locally generated result-cardinality violations are
+distinguished by private object identity rather than caller-controlled exception metadata. An
+explicit throttle outcome admits the same task once more before later work; a second throttle is
+terminal. Attendance conserves every selected task across completed, failed, and cancelled states
+while reporting started and retried counts separately.

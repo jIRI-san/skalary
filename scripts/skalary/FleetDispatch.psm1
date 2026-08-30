@@ -71,8 +71,11 @@ function Assert-FleetDispatchText {
         if ($AllowEmpty) { return '' }
         throw "$Label must be a non-empty string."
     }
+    if ($Value -isnot [string]) {
+        throw "$Label must be a string."
+    }
 
-    $text = [string]$Value
+    $text = $Value
     if ($text.Length -gt $MaximumLength) {
         throw "$Label exceeds the $MaximumLength-character limit."
     }
@@ -691,20 +694,21 @@ function Invoke-FleetDispatchWave {
         Attempt = $Wave.Attempt
     }
     $rawResultList = [System.Collections.Generic.List[object]]::new()
+    $contractViolation = $null
     try {
         & $InvokeWave $launchWave | ForEach-Object {
             if ($rawResultList.Count -ge $Wave.Tasks.Count) {
-                $violation = [InvalidOperationException]::new(
+                $contractViolation = [InvalidOperationException]::new(
                     'Fleet dispatch wave returned more results than admitted tasks.'
                 )
-                $violation.Data['FleetDispatchContractViolation'] = $true
-                throw $violation
+                throw $contractViolation
             }
             $rawResultList.Add($_)
         }
     }
     catch {
-        if ($_.Exception.Data.Contains('FleetDispatchContractViolation')) {
+        if ($null -ne $contractViolation -and
+            [object]::ReferenceEquals($_.Exception, $contractViolation)) {
             throw $_.Exception
         }
         $exceptionType = $_.Exception.GetType().FullName
