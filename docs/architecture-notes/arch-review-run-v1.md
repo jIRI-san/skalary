@@ -2,7 +2,8 @@
 description: Architecture note for review-run v1 execution authority, verified delivery, and compact durable evidence.
 globs:
   - "schemas/review/**"
-  - "scripts/skalary/{Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun,ReviewRun}.ps*1"
+  - "scripts/skalary/{Build-ReviewReport,Get-ReviewRun,Remove-ReviewRun,ReviewRun,SecretGuard}.ps*1"
+  - "scripts/skalary/Get-PlanArtifactConsumerContext.ps1"
   - "plugins/{code-review,design-review}/**"
 ---
 
@@ -27,7 +28,9 @@ report and receipt verify as an exact pair.
 - Optional related-plan content is untrusted dispatch context only. Its compact provenance may use
   the existing bounded scope text, but it adds no scope-authority field, role, schema, receipt, or
   lifecycle step. The shared consumer adapter requires successful resolver execution and array JSON,
-  admits accepted results only, and uses the standard `UNTRUSTED_INPUT` fence.
+  bounds and terminates the resolver process, applies the same high-confidence secret guard as the
+  review engine, admits accepted results only, and uses the standard `UNTRUSTED_INPUT` fence. This
+  dispatch-only screening does not alter review-run v1 execution or publication authority.
 - Publish commits content-addressed plan, run, summary, and full artifacts through one manifest.
 - Readers verify schema, confinement, encoding, byte count, digest, and cross-document identity.
 - Plan finalization reconstructs the retained pair from verified live authority and repairs an

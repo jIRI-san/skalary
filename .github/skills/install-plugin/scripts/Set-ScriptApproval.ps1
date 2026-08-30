@@ -37,6 +37,8 @@ $script:ReviewWriterRules = @{
     'skills/dr/scripts/Build-ReviewReport.ps1' = "/^\\.github\\/skills\\/dr\\/scripts\\/Build-ReviewReport\\.ps1 -Mode (?:Freeze|Publish) -RunId [0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}(?: -PlanDir docs\\/implementation-plans\\/$script:CanonicalPlanFolderPattern)?$/"
 }
 $script:ExactCommandApproval = '{"approve":true,"matchCommandLine":true}'
+$script:PlanArtifactConsumerName = 'Get-PlanArtifactConsumerContext.ps1'
+$script:PlanArtifactResolverName = 'Get-PlanArtifactContext.ps1'
 
 function Test-ReadOnlyScript {
     [CmdletBinding()]
@@ -57,6 +59,18 @@ function Test-ReadOnlyScript {
     }
     $verb = $base.Substring(0, $dashIndex)
     return $script:ReadOnlyVerbs -contains $verb
+}
+
+function Get-PlanArtifactConsumerApprovalRule {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Dest)
+
+    $commandPath = ([regex]::Escape(".github/$Dest")) -replace '/', '\/'
+    $planId = '(?:[0-9a-f]{6}|[0-9]{3})'
+    $kind = '(?:Intent|Design|Decisions|Reviews|Evidence|Learnings)'
+    $relationship = '(?:reuses|extends|supersedes|conflicts|dependency|sibling|operator-selected)'
+    $rule = "/^$commandPath -PlanId $planId(?:,$planId)* -ArtifactKind $kind(?:,$kind)* -Relationship $relationship(?:,$relationship)* -RepoRoot \.$/"
+    return $rule.Replace('\', '\\')
 }
 
 function Get-PluginApprovalEntry {
@@ -84,6 +98,17 @@ function Get-PluginApprovalEntry {
             continue
         }
 
+        $leafName = [System.IO.Path]::GetFileName($dest)
+        if ($leafName -ceq $script:PlanArtifactConsumerName) {
+            $entries += [pscustomobject]@{
+                Key = Get-PlanArtifactConsumerApprovalRule -Dest $dest
+                Value = $script:ExactCommandApproval
+            }
+            continue
+        }
+        if ($leafName -ceq $script:PlanArtifactResolverName) {
+            continue
+        }
         if ($script:ReviewWriterRules.ContainsKey($dest)) {
             $entries += [pscustomobject]@{
                 Key = $script:ReviewWriterRules[$dest]
@@ -390,6 +415,22 @@ foreach ($plugin in $targetPlugins) {
 }
 $approvalEntries = @($approvalEntries | Sort-Object Key -Unique)
 $approvalKeys = @($approvalEntries | ForEach-Object { $_.Key })
+$legacyArtifactKeys = @(
+    foreach ($plugin in $targetPlugins) {
+        foreach ($file in @($plugin.files)) {
+            $dest = ([string]$file.dest) -replace '\\', '/'
+            if ([System.IO.Path]::GetFileName($dest) -cne $script:PlanArtifactConsumerName) {
+                continue
+            }
+            ".github/$dest"
+            '.github/' + $dest.Substring(
+                0,
+                $dest.Length - $script:PlanArtifactConsumerName.Length
+            ) + $script:PlanArtifactResolverName
+        }
+    }
+)
+$legacyArtifactKeys = @($legacyArtifactKeys | Sort-Object -Unique)
 
 if ($approvalEntries.Count -eq 0) {
     Write-Host 'No read-only plugin scripts to approve (nothing changed).'
@@ -412,7 +453,7 @@ else {
     @()
 }
 
-$obsoleteWriterKeys = @()
+$obsoleteApprovalKeys = @()
 if (-not $Remove) {
     $ownedWriterSkills = @(
         foreach ($plugin in $targetPlugins) {
@@ -424,19 +465,31 @@ if (-not $Remove) {
     )
     foreach ($skill in $ownedWriterSkills) {
         $ownedFragment = "skills\\/$skill\\/scripts\\/Build-ReviewReport"
-        $obsoleteWriterKeys += @($before | Where-Object {
+        $obsoleteApprovalKeys += @($before | Where-Object {
                 $_ -match [regex]::Escape($ownedFragment) -and $approvalKeys -cnotcontains $_
             })
     }
+    $obsoleteApprovalKeys += @($legacyArtifactKeys | Where-Object { $before -contains $_ })
+    foreach ($legacyKey in $legacyArtifactKeys) {
+        if ($legacyKey -notmatch '^\.github/skills/(?<skill>[a-z0-9-]+)/scripts/Get-PlanArtifactConsumerContext') {
+            continue
+        }
+        $ownedFragment = "skills/$($Matches.skill)/scripts/Get-PlanArtifactConsumerContext"
+        $obsoleteApprovalKeys += @($before | Where-Object {
+                $_.Replace('\', '').Contains($ownedFragment) -and $approvalKeys -cnotcontains $_
+            })
+    }
+    $obsoleteApprovalKeys = @($obsoleteApprovalKeys | Sort-Object -Unique)
 }
 
 if ($Remove) {
-    $updated = Set-ApprovalKeys -Text $settingsText -RemoveKeys $approvalKeys
-    $changed = @($approvalKeys | Where-Object { $before -contains $_ })
+    $removeKeys = @($approvalKeys + $legacyArtifactKeys | Sort-Object -Unique)
+    $updated = Set-ApprovalKeys -Text $settingsText -RemoveKeys $removeKeys
+    $changed = @($removeKeys | Where-Object { $before -contains $_ })
     $verb = 'Removed'
 }
 else {
-    $updated = Set-ApprovalKeys -Text $settingsText -Add $approvalEntries -RemoveKeys $obsoleteWriterKeys
+    $updated = Set-ApprovalKeys -Text $settingsText -Add $approvalEntries -RemoveKeys $obsoleteApprovalKeys
     $changed = @($approvalKeys | Where-Object { $before -notcontains $_ })
     $verb = 'Added'
 }

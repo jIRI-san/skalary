@@ -142,6 +142,444 @@ function Assert-PhysicalPlanConfinement {
     }
 }
 
+function Initialize-PlanFileHandle {
+    if ('SkalaryPlanFileHandle' -as [type]) {
+        return
+    }
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+public static class SkalaryPlanFileHandle
+{
+    public sealed class Identity
+    {
+        public string Value { get; set; }
+        public ulong LinkCount { get; set; }
+        public bool IsRegular { get; set; }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
+        public uint VolumeSerialNumber;
+        public uint FileSizeHigh;
+        public uint FileSizeLow;
+        public uint NumberOfLinks;
+        public uint FileIndexHigh;
+        public uint FileIndexLow;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(
+        SafeFileHandle handle,
+        StringBuilder path,
+        uint pathLength,
+        uint flags);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileInformationByHandle(
+        SafeFileHandle handle,
+        out ByHandleFileInformation information);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int fcntl(int fd, int command, byte[] buffer);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int fstat(int fd, byte[] buffer);
+
+    private static void AssertSupportedArchitecture(OSPlatform platform, Architecture architecture)
+    {
+        var supported = platform == OSPlatform.Windows
+            ? architecture == Architecture.X86 ||
+                architecture == Architecture.X64 ||
+                architecture == Architecture.Arm64
+            : architecture == Architecture.X64 || architecture == Architecture.Arm64;
+        if (!BitConverter.IsLittleEndian || !supported)
+        {
+            throw new PlatformNotSupportedException(
+                "Opened plan-file identity is not supported on " + platform + "/" + architecture + ".");
+        }
+    }
+
+    private static Identity ParseLinuxIdentity(byte[] stat, Architecture architecture)
+    {
+        if (stat == null || stat.Length < 28)
+        {
+            throw new IOException("Linux fstat buffer is shorter than the supported layout.");
+        }
+
+        var device = BitConverter.ToUInt64(stat, 0);
+        var inode = BitConverter.ToUInt64(stat, 8);
+        ulong links;
+        uint mode;
+        if (architecture == Architecture.X64)
+        {
+            links = BitConverter.ToUInt64(stat, 16);
+            mode = BitConverter.ToUInt32(stat, 24);
+        }
+        else if (architecture == Architecture.Arm64)
+        {
+            mode = BitConverter.ToUInt32(stat, 16);
+            links = BitConverter.ToUInt32(stat, 20);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException("Linux fstat layout is unsupported on " + architecture + ".");
+        }
+        return new Identity
+        {
+            Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
+            LinkCount = links,
+            IsRegular = (mode & 0xF000) == 0x8000
+        };
+    }
+
+    private static Identity ParseMacIdentity(byte[] stat, Architecture architecture)
+    {
+        if (architecture != Architecture.X64 && architecture != Architecture.Arm64)
+        {
+            throw new PlatformNotSupportedException("macOS fstat layout is unsupported on " + architecture + ".");
+        }
+        if (stat == null || stat.Length < 16)
+        {
+            throw new IOException("macOS fstat buffer is shorter than the supported layout.");
+        }
+
+        var device = BitConverter.ToUInt32(stat, 0);
+        var mode = BitConverter.ToUInt16(stat, 4);
+        var links = BitConverter.ToUInt16(stat, 6);
+        var inode = BitConverter.ToUInt64(stat, 8);
+        return new Identity
+        {
+            Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
+            LinkCount = links,
+            IsRegular = (mode & 0xF000) == 0x8000
+        };
+    }
+
+    public static string GetPath(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var path = new StringBuilder(512);
+            var length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+            if (length == 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            if (length >= path.Capacity)
+            {
+                path = new StringBuilder((int)length + 1);
+                length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
+                if (length == 0 || length >= path.Capacity)
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+            }
+
+            var value = path.ToString();
+            if (value.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"\\" + value.Substring(8);
+            }
+            if (value.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+            {
+                return value.Substring(4);
+            }
+            return value;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var fdPath = "/proc/self/fd/" + handle.DangerousGetHandle().ToInt64();
+            var target = new FileInfo(fdPath).ResolveLinkTarget(true);
+            if (target == null)
+            {
+                throw new IOException("Could not resolve the opened plan-file handle.");
+            }
+            return target.FullName;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            const int F_GETPATH = 50;
+            var buffer = new byte[1024];
+            if (fcntl(handle.DangerousGetHandle().ToInt32(), F_GETPATH, buffer) != 0)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            var length = Array.IndexOf(buffer, (byte)0);
+            if (length < 0)
+            {
+                throw new IOException("Opened plan-file handle path exceeds the macOS F_GETPATH buffer.");
+            }
+            return Encoding.UTF8.GetString(buffer, 0, length);
+        }
+
+        throw new PlatformNotSupportedException(
+            "Opened plan-file handle validation supports Windows, Linux, and macOS only.");
+    }
+
+    public static Identity GetIdentity(SafeFileHandle handle)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            AssertSupportedArchitecture(OSPlatform.Windows, RuntimeInformation.ProcessArchitecture);
+            ByHandleFileInformation information;
+            if (!GetFileInformationByHandle(handle, out information))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            var fileIndex = ((ulong)information.FileIndexHigh << 32) | information.FileIndexLow;
+            return new Identity
+            {
+                Value = "windows:" + information.VolumeSerialNumber.ToString("x") + ":" + fileIndex.ToString("x"),
+                LinkCount = information.NumberOfLinks,
+                IsRegular = (information.FileAttributes & 0x10) == 0
+            };
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            AssertSupportedArchitecture(OSPlatform.Linux, RuntimeInformation.ProcessArchitecture);
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            AssertSupportedArchitecture(OSPlatform.OSX, RuntimeInformation.ProcessArchitecture);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException(
+                "Opened plan-file identity supports Windows, Linux, and macOS only.");
+        }
+
+        var stat = new byte[256];
+        if (fstat(handle.DangerousGetHandle().ToInt32(), stat) != 0)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return ParseLinuxIdentity(stat, RuntimeInformation.ProcessArchitecture);
+        }
+        return ParseMacIdentity(stat, RuntimeInformation.ProcessArchitecture);
+    }
+}
+'@
+}
+
+function New-PlanConfinementContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$PlanDir)
+
+    $logicalPath = Normalize-PhysicalPathRoot -Path $PlanDir
+    $item = Get-Item -LiteralPath $logicalPath -Force -ErrorAction Stop
+    if ($item -isnot [System.IO.DirectoryInfo] -or
+        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Inventoried plan folder '$logicalPath' is not a regular directory."
+    }
+
+    $context = [pscustomobject]@{
+        PlanPath = $logicalPath
+        PhysicalPlanPath = Resolve-PhysicalRepoPath -Path $logicalPath
+    }
+    $context.PSObject.TypeNames.Insert(0, 'Skalary.PlanConfinementContext')
+    return $context
+}
+
+function Assert-PlanConfinementContext {
+    param([Parameter(Mandatory)][object]$Context)
+
+    if ($Context.PSObject.TypeNames -cnotcontains 'Skalary.PlanConfinementContext' -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PlanPath) -or
+        [string]::IsNullOrWhiteSpace([string]$Context.PhysicalPlanPath)) {
+        throw 'A PlanState-created plan confinement context is required.'
+    }
+}
+
+function Assert-PhysicalPlanChildPath {
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$PhysicalPath,
+        [Parameter(Mandatory)][string]$DisplayPath
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $prefix = $Context.PhysicalPlanPath.TrimEnd([char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $PhysicalPath.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+        throw "Resolved plan path '$DisplayPath' escapes canonical plan folder '$($Context.PlanPath)'."
+    }
+}
+
+function Resolve-PhysicalPlanChildPath {
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $fullPath = Normalize-PhysicalPathRoot -Path $Path
+    $relativePath = [System.IO.Path]::GetRelativePath($Context.PlanPath, $fullPath)
+    if ($relativePath -eq '..' -or
+        $relativePath.StartsWith(
+            '..' + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "Resolved plan path '$Path' escapes canonical plan folder '$($Context.PlanPath)'."
+    }
+
+    $segments = @($relativePath -split '[\\/]' | Where-Object { $_.Length -gt 0 })
+    $current = $Context.PhysicalPlanPath
+    foreach ($segment in $segments) {
+        $candidate = Join-Path $current $segment
+        if (-not (Test-Path -LiteralPath $candidate)) {
+            $current = Normalize-PhysicalPathRoot -Path $candidate
+            continue
+        }
+
+        $children = @(Get-ChildItem -LiteralPath $current -Force)
+        $matches = @($children | Where-Object {
+                [string]::Equals($_.Name, $segment, [System.StringComparison]::Ordinal)
+            })
+        if ($matches.Count -eq 0) {
+            $matches = @($children | Where-Object {
+                    [string]::Equals($_.Name, $segment, [System.StringComparison]::OrdinalIgnoreCase)
+                })
+        }
+        if ($matches.Count -ne 1) {
+            throw "Cannot resolve a unique physical plan path component '$segment' under '$current'."
+        }
+
+        $item = $matches[0]
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            $target = $item.ResolveLinkTarget($true)
+            if ($null -eq $target) {
+                throw "Cannot resolve reparse-point target '$candidate'."
+            }
+            $current = Normalize-PhysicalPathRoot -Path $target.FullName
+            continue
+        }
+        $current = Normalize-PhysicalPathRoot -Path $item.FullName
+    }
+    return $current
+}
+
+function Resolve-ConfinedPlanPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path,
+        [ValidateSet('Leaf', 'Container')][string]$PathType = 'Leaf'
+    )
+
+    Assert-PlanConfinementContext -Context $Context
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    $expectedType = if ($PathType -eq 'Leaf') { [System.IO.FileInfo] } else { [System.IO.DirectoryInfo] }
+    if ($item -isnot $expectedType -or
+        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Resolved plan path '$Path' is not a regular $($PathType.ToLowerInvariant())."
+    }
+
+    $physicalPath = Resolve-PhysicalPlanChildPath -Context $Context -Path $item.FullName
+    Assert-PhysicalPlanChildPath -Context $Context -PhysicalPath $physicalPath -DisplayPath $Path
+    return [pscustomobject]@{
+        Item = $item
+        PhysicalPath = $physicalPath
+    }
+}
+
+function Open-ConfinedPlanFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Context,
+        [Parameter(Mandatory)][string]$Path,
+        [scriptblock]$BeforeFirstOpen,
+        [scriptblock]$BeforeVerificationOpen
+    )
+
+    $validated = Resolve-ConfinedPlanPath -Context $Context -Path $Path -PathType Leaf
+    if ($BeforeFirstOpen) { & $BeforeFirstOpen }
+
+    Initialize-PlanFileHandle
+    $stream = [System.IO.File]::Open(
+        $validated.Item.FullName,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    try {
+        $handlePath = [SkalaryPlanFileHandle]::GetPath($stream.SafeFileHandle)
+        $handlePhysicalPath = Normalize-PhysicalPathRoot -Path $handlePath
+        Assert-PhysicalPlanChildPath `
+            -Context $Context `
+            -PhysicalPath $handlePhysicalPath `
+            -DisplayPath $handlePath
+        if (-not [string]::Equals(
+                $handlePhysicalPath,
+                $validated.PhysicalPath,
+                [System.StringComparison]::Ordinal
+            )) {
+            throw "Opened plan-file handle '$handlePath' does not match the confined file that was validated."
+        }
+
+        $identity = [SkalaryPlanFileHandle]::GetIdentity($stream.SafeFileHandle)
+        if (-not $identity.IsRegular -or $identity.LinkCount -ne 1) {
+            throw "Opened plan file '$Path' is not a single-link regular file."
+        }
+
+        if ($BeforeVerificationOpen) { & $BeforeVerificationOpen }
+        $verification = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read
+        )
+        try {
+            $verificationPath = Normalize-PhysicalPathRoot -Path (
+                [SkalaryPlanFileHandle]::GetPath($verification.SafeFileHandle)
+            )
+            $verificationIdentity = [SkalaryPlanFileHandle]::GetIdentity($verification.SafeFileHandle)
+            if (-not $verificationIdentity.IsRegular -or
+                $verificationIdentity.LinkCount -ne 1 -or
+                -not [string]::Equals(
+                    $verificationPath,
+                    $handlePhysicalPath,
+                    [System.StringComparison]::Ordinal
+                ) -or
+                -not [string]::Equals(
+                    $verificationIdentity.Value,
+                    $identity.Value,
+                    [System.StringComparison]::Ordinal
+                ) -or
+                $verification.Length -ne $stream.Length) {
+                throw "Plan file '$Path' changed while its stable read handle was opened."
+            }
+        }
+        finally {
+            $verification.Dispose()
+        }
+
+        return $stream
+    }
+    catch {
+        $stream.Dispose()
+        throw
+    }
+}
+
 function Get-PlanLayout {
     <#
     .SYNOPSIS
@@ -326,13 +764,17 @@ function Get-PlanInlineSectionLine {
 
         [Parameter(Mandatory)]
         [ValidateSet('Requirements', 'Risks', 'Decisions')]
-        [string]$Section
+        [string]$Section,
+
+        [switch]$PreserveFencedContent
     )
 
-    $lines = Remove-FencedCodeBlocks -Lines (($Content -replace "`r`n", "`n").Split("`n"))
+    $rawLines = ($Content -replace "`r`n", "`n").Split("`n")
+    $lines = Remove-FencedCodeBlocks -Lines $rawLines
     $sectionLines = [System.Collections.Generic.List[string]]::new()
     $inSection = $false
-    foreach ($line in $lines) {
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
         if ($line -match "^\s*##\s+$([regex]::Escape($Section))\b") {
             $inSection = $true
             continue
@@ -341,7 +783,7 @@ function Get-PlanInlineSectionLine {
             break
         }
         if ($inSection) {
-            $sectionLines.Add($line)
+            $sectionLines.Add($(if ($PreserveFencedContent) { $rawLines[$index] } else { $line }))
         }
     }
     return , $sectionLines.ToArray()
@@ -1865,4 +2307,4 @@ function Get-TypedEvidenceMarkers {
     return , $markers.ToArray()
 }
 
-Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState
+Export-ModuleMember -Function Get-PlanMetadata, ConvertFrom-PlanFolderName, Get-PlanInventory, Get-EpicInventory, Resolve-Epic, Get-EpicRollup, New-PlanId, Resolve-Plan, Get-PlanProgress, Split-PlanHeader, Get-PlanHeaderMarkers, Get-NextStep, Get-TypedEvidenceMarkers, Get-PlanLayout, Resolve-PlanAssetPath, Resolve-PhysicalRepoPath, Resolve-PlanSection, Get-PlanInlineSectionLine, Get-PlanSectionRecord, Remove-FencedCodeBlocks, Split-MarkdownTableCells, Get-PlanStageOrder, Resolve-PlanStage, Test-PlanStageAtLeast, Get-PlanValidationDecision, Get-PlanningContextDigest, Assert-PlanningContextReady, Get-PlanningContextState, New-PlanConfinementContext, Resolve-ConfinedPlanPath, Open-ConfinedPlanFile

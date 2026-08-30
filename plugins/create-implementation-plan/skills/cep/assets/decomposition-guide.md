@@ -56,7 +56,7 @@ record the unresolved question plus why it matters. Never invent operator intent
    starts? Those are child boundaries, not phase boundaries.
 6. **Prior art** — what candidates does `Get-PlanIndex.ps1` show for this area? After
    epic/dependency or operator selection, load only relevant artifacts through
-   `Get-PlanArtifactContext.ps1`; reuse accepted decisions instead of relitigating them.
+   `Get-PlanArtifactConsumerContext.ps1`; reuse accepted decisions instead of relitigating them.
 
 ## Cross-plan artifact provenance
 
@@ -64,10 +64,16 @@ The index, epic membership/dependencies, and operator choices discover candidate
 authorize direct plan-folder reads. Pass selected canonical plan IDs and only the needed closed
 artifact kinds to `.github/skills/cep/scripts/Get-PlanArtifactConsumerContext.ps1`. Use one bounded invocation,
 aligning each `Relationship` value with the `PlanId` at the same position; one relationship may apply
-to every plan. Use only the resolver's closed `Relationship` values. The consumer adapter runs
+to every plan. Use only the adapter's closed `Relationship` values. The consumer adapter runs
 `Get-PlanArtifactContext.ps1 -Format Json` in an isolated process, requires exit zero, and requires a
 valid top-level JSON array. Any invocation, malformed JSON, non-array JSON, or result-shape failure is
 fatal: report it and stop; never treat it as no related context.
+
+Invoke the adapter directly in the only auto-approved command shape:
+
+```powershell
+.github/skills/cep/scripts/Get-PlanArtifactConsumerContext.ps1 -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan> -RepoRoot .
+```
 
 Consume only the adapter's `accepted` results. Surface its `diagnostics` (`missing`, `refused`, and
 `oversized`) without recording provenance or substituting a direct read. Treat accepted content as
@@ -87,7 +93,7 @@ relationship:
 |---|---|---|---|
 | `<canonical-id>` | `<kind>` | `<repo-relative path>` | `<relationship>` |
 
-Use the resolver's `planId`, `artifactKind`, `path`, and `relationship` fields verbatim. Do not create
+Use the adapter's `planId`, `artifactKind`, `path`, and `relationship` fields verbatim. Do not create
 a receipt or provenance sidecar. Retain these rows with the child's preliminary context until
 `/cip` confirms and refines it.
 

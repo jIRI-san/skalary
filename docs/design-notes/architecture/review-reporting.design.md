@@ -5,6 +5,8 @@ globs:
   - scripts/skalary/Test-ReviewSchemaCapability.ps1
   - scripts/skalary/Build-ReviewReport.ps1
   - scripts/skalary/ReviewRun.psm1
+  - scripts/skalary/SecretGuard.psm1
+  - scripts/skalary/Get-PlanArtifactConsumerContext.ps1
   - scripts/skalary/Get-ReviewRun.ps1
   - scripts/skalary/Remove-ReviewRun.ps1
   - scripts/skalary/Resolve-ReviewStandards.ps1
@@ -584,10 +586,13 @@ verify. Each used to return leaving staged reviewer text — which nothing had s
 retryable exit `4` is the deliberate exception and keeps the input, because the caller is expected to
 run the same input again.
 
-### The secret guard (D18/RISK-16)
+### The shared secret guard (D18/RISK-16)
 
 Before any lossless artifact is written — including the *frozen plan*, which is a committed artifact
-one mode before `Publish` ever runs — `Find-ReviewSecret` scans every untrusted field for a
+one mode before `Publish` ever runs — `Find-ReviewSecret` scans every untrusted field through the
+shared `SecretGuard.psm1` high-confidence primitive. The cross-plan consumer adapter applies that
+same primitive before repository-visible historical bytes enter model framing. Review-run rejection
+and destruction semantics remain unchanged. The detector recognizes a
 high-confidence credential shape (GitHub PAT/OAuth/fine-grained, AWS access key, Google API key, Slack,
 Stripe, npm, PEM private-key banner). For a plan that is `scope`, the roster and every task model; for
 a result it is additionally each task diagnostic and every finding string and reference. A hit is exit
@@ -637,10 +642,13 @@ dispatch-only data: they never enter the review-plan/result handshake, publicati
 review-run v1 evidence.
 
 Plan-associated CR/DR may also select related plan artifacts after their primary code/design scope is
-known. Both call the same bundled `Get-PlanArtifactConsumerContext.ps1`; it runs
-`Get-PlanArtifactContext.ps1` in an isolated process, requires exit zero and top-level array JSON,
-validates the closed public shape, and emits accepted complete-result JSON only inside the standard
-`UNTRUSTED_INPUT` framing. Raw content is never interpolated into instructions. Deterministic
+known. Both directly call the same bundled `Get-PlanArtifactConsumerContext.ps1` in its anchored,
+current-repository-only command form; the low-level resolver is internal and receives no independent
+approval. The adapter bounds and terminates its isolated resolver process, requires exit zero and
+top-level array JSON, validates the closed public shape, and applies the shared secret guard before it
+emits accepted complete-result JSON inside the standard `UNTRUSTED_INPUT` framing. A detected artifact
+becomes a redacted per-artifact diagnostic, so safe peers remain usable. Raw content is never
+interpolated into instructions. Deterministic
 plan ID/kind/path/relationship tokens from accepted-only provenance enter the existing bounded `scope`
 string. Only consumer-authored marker lines have structural meaning; marker-like content remains data.
 Generic and chat-only reviews skip this path. Full provenance must fit

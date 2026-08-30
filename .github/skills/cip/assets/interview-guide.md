@@ -56,12 +56,12 @@ repo-wide. An `errors` entry means a plan could not be indexed — say so rather
 as complete. After the index or operator narrows the candidates, load only the artifact kinds needed:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1 -RepoRoot . -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan>
+.github/skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1 -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan> -RepoRoot .
 ```
 
 The resolver accepts canonical IDs, not fuzzy references. In one bounded invocation, align each
 `Relationship` value with the `PlanId` at the same position; one relationship may apply to every plan.
-Use only the resolver's closed `Relationship` values. The consumer adapter runs the resolver with
+Use only the adapter's closed `Relationship` values. The consumer adapter runs the resolver with
 `-Format Json` in an isolated process, requires exit zero, and requires a valid top-level JSON array.
 Any invocation, malformed JSON, non-array JSON, or result-shape failure is fatal: report it and stop;
 never treat it as no related context. Consume only the adapter's `accepted` results; report its
@@ -94,7 +94,7 @@ Maintain one deterministic, de-duplicated table sorted by plan ID, artifact kind
 |---|---|---|---|
 | `<canonical-id>` | `<kind>` | `<repo-relative path>` | `<relationship>` |
 
-Write rows only for `accepted` results, using the resolver's `planId`, `artifactKind`, `path`, and
+Write rows only for `accepted` results, using the adapter's `planId`, `artifactKind`, `path`, and
 `relationship` fields verbatim. The gate **blocks drafting** until the index has been consulted for the
 plan's topic and every consumed artifact has one of the closed relationships recorded. Silently
 contradicting a prior decision is the failure mode this gate exists to prevent.
@@ -164,7 +164,7 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 
 **Prior art** (ask right after Intent — feeds the `prior-art` gate)
 - Which earlier plans touched this area? Run `Get-PlanIndex.ps1 -Filter "<topic>"`, select canonical
-  plan IDs, then load only relevant artifacts through `Get-PlanArtifactContext.ps1`.
+  plan IDs, then load only relevant artifacts through `Get-PlanArtifactConsumerContext.ps1`.
 - For each accepted artifact, classify it with the closed relationship table above. A supersede must
   name the prior plan id and record id in this plan's Decisions, with the reason. Record
   accepted-artifact provenance in the current plan's `references.md`.

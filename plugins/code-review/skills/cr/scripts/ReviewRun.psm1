@@ -40,6 +40,7 @@
 #>
 
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'SecretGuard.psm1') -DisableNameChecking
 
 $script:PlanDiscriminator = 'skalary/review-plan@1'
 $script:RunDiscriminator = 'skalary/review-run@1'
@@ -70,10 +71,10 @@ $script:AdmissionName = '.review-run.admission.json'
 $script:AdmissionDiscriminator = 'skalary/review-admission@1'
 
 $script:ArtifactRole = [ordered]@{
-    plan            = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
-    canonical       = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
-    summary         = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
-    full            = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
+    plan = [pscustomobject]@{ Prefix = $script:PlanPrefix; Extension = '.json' }
+    canonical = [pscustomobject]@{ Prefix = $script:CanonicalPrefix; Extension = '.json' }
+    summary = [pscustomobject]@{ Prefix = $script:SummaryPrefix; Extension = '.md' }
+    full = [pscustomobject]@{ Prefix = $script:FullPrefix; Extension = '.md' }
     admissionSource = [pscustomobject]@{ Prefix = $script:AdmissionSourcePrefix; Extension = '.json' }
 }
 
@@ -85,12 +86,12 @@ $script:RemoveTreeProvider = $null
 # These literal paths are the closed schema sidecar closure copied by Sync-PluginScripts. Root
 # execution still uses the canonical schemas/review directory; installed execution uses these copies.
 $script:BundledSchemaPath = [ordered]@{
-    'review-limits.schema.json'    = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
+    'review-limits.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-limits.schema.json'
     'review-admission.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-admission.schema.json'
-    'review-manifest.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
-    'review-plan.schema.json'      = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
-    'review-run.schema.json'       = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
-    'terminal-status.schema.json'  = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
+    'review-manifest.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-manifest.schema.json'
+    'review-plan.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-plan.schema.json'
+    'review-run.schema.json' = Join-Path $PSScriptRoot 'schemas/review/review-run.schema.json'
+    'terminal-status.schema.json' = Join-Path $PSScriptRoot 'schemas/review/terminal-status.schema.json'
 }
 $script:BundledPlanStatePath = Join-Path $PSScriptRoot 'PlanState.psm1'
 $canonicalModulePath = [System.IO.Path]::GetFullPath(
@@ -459,8 +460,8 @@ function Get-ReviewMergeKey {
 
     $title = ([string](Get-ReviewValue -Node $Finding -Name 'title')).Trim()
     $references = @(@(Sort-ReviewOrdinal -Value @(Get-ReviewValue -Node $Finding -Name 'references')) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
-        ForEach-Object { ([string]$_).Trim() })
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            ForEach-Object { ([string]$_).Trim() })
 
     $rootCause = [string](Get-ReviewValue -Node $Finding -Name 'rootCause')
     if ([string]::IsNullOrWhiteSpace($rootCause)) { $rootCause = $title }
@@ -495,11 +496,11 @@ function ConvertTo-ReviewProjection {
         $task = $taskById[$taskId]
         $diagnostic = [string](Get-ReviewValue -Node $task -Name 'diagnostic')
         $orderedTasks.Add([pscustomobject]@{
-                TaskId      = $taskId
-                Concern     = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model       = [string](Get-ReviewValue -Node $task -Name 'model')
-                Outcome     = [string](Get-ReviewValue -Node $task -Name 'outcome')
-                Diagnostic  = $diagnostic
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Outcome = [string](Get-ReviewValue -Node $task -Name 'outcome')
+                Diagnostic = $diagnostic
                 RawFindings = $(if ($findingsByTask.ContainsKey($taskId)) { [int]$findingsByTask[$taskId] } else { 0 })
             })
     }
@@ -519,8 +520,8 @@ function ConvertTo-ReviewProjection {
         $body = [string](Get-ReviewValue -Node $finding -Name 'body')
         $action = [string](Get-ReviewValue -Node $finding -Name 'action')
         $references = @(@(Get-ReviewValue -Node $finding -Name 'references') |
-            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
-            ForEach-Object { ([string]$_).Trim() })
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+                ForEach-Object { ([string]$_).Trim() })
 
         $rootCause = [string](Get-ReviewValue -Node $finding -Name 'rootCause')
         if ([string]::IsNullOrWhiteSpace($rootCause)) { $rootCause = $title }
@@ -530,15 +531,15 @@ function ConvertTo-ReviewProjection {
         $key = Get-ReviewMergeKey -Finding $finding
         if (-not $groups.Contains($key)) {
             $groups[$key] = [pscustomobject]@{
-                Key        = $key
-                Titles     = [System.Collections.Generic.List[string]]::new()
-                Bodies     = [System.Collections.Generic.List[string]]::new()
-                Actions    = [System.Collections.Generic.List[string]]::new()
-                Concerns   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Models     = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Key = $key
+                Titles = [System.Collections.Generic.List[string]]::new()
+                Bodies = [System.Collections.Generic.List[string]]::new()
+                Actions = [System.Collections.Generic.List[string]]::new()
+                Concerns = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+                Models = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
                 References = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-                Raw        = [System.Collections.Generic.List[object]]::new()
-                Rank       = 0
+                Raw = [System.Collections.Generic.List[object]]::new()
+                Rank = 0
             }
         }
 
@@ -551,15 +552,15 @@ function ConvertTo-ReviewProjection {
         foreach ($reference in $references) { [void]$group.References.Add($reference) }
         if ($script:SeverityRank[$severity] -gt $group.Rank) { $group.Rank = $script:SeverityRank[$severity] }
         $group.Raw.Add([pscustomobject]@{
-                TaskId     = $taskId
-                Concern    = [string](Get-ReviewValue -Node $task -Name 'concern')
-                Model      = [string](Get-ReviewValue -Node $task -Name 'model')
-                Severity   = $severity
-                Title      = $title
-                Body       = $body
-                Action     = $action
-                RootCause  = $rootCause
-                Component  = $component
+                TaskId = $taskId
+                Concern = [string](Get-ReviewValue -Node $task -Name 'concern')
+                Model = [string](Get-ReviewValue -Node $task -Name 'model')
+                Severity = $severity
+                Title = $title
+                Body = $body
+                Action = $action
+                RootCause = $rootCause
+                Component = $component
                 References = $references
             })
     }
@@ -629,18 +630,18 @@ function ConvertTo-ReviewProjection {
             })
 
         $entries.Add([pscustomobject]@{
-                Key        = $group.Key
-                Title      = $title
-                Rank       = $rank
-                Severity   = $script:SeverityByRank[$rank]
-                Elevated   = $unanimous
-                Concerns   = $concerns
-                Models     = $models
-                Bodies     = @($distinctBodies)
+                Key = $group.Key
+                Title = $title
+                Rank = $rank
+                Severity = $script:SeverityByRank[$rank]
+                Elevated = $unanimous
+                Concerns = $concerns
+                Models = $models
+                Bodies = @($distinctBodies)
                 References = @(Sort-ReviewOrdinal -Value @($group.References))
-                Action     = $action
-                Raw        = @($raw)
-                RawCount   = $group.Raw.Count
+                Action = $action
+                Raw = @($raw)
+                RawCount = $group.Raw.Count
             })
     }
 
@@ -660,20 +661,20 @@ function ConvertTo-ReviewProjection {
     $sorted = @(Sort-ReviewArrayByKey -Items @($entries) -KeyScript { param($entry) $sortKeys[$entry.Key] })
 
     return [pscustomobject]@{
-        RunId            = [string](Get-ReviewValue -Node $Run -Name 'runId')
-        ReviewType       = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
-        ContentTrust     = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
-        Scope            = [string](Get-ReviewValue -Node $Run -Name 'scope')
-        ScopeAuthority   = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
-        PlanDigest       = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
+        RunId = [string](Get-ReviewValue -Node $Run -Name 'runId')
+        ReviewType = [string](Get-ReviewValue -Node $Run -Name 'reviewType')
+        ContentTrust = [string](Get-ReviewValue -Node $Run -Name 'contentTrust')
+        Scope = [string](Get-ReviewValue -Node $Run -Name 'scope')
+        ScopeAuthority = Get-ReviewValue -Node $Run -Name 'scopeAuthority'
+        PlanDigest = [string](Get-ReviewValue -Node $Run -Name 'planDigest')
         InvocationBudget = [int](Get-ReviewValue -Node $Run -Name 'invocationBudget')
-        ModelSelection   = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
-        Roster           = $roster
-        Tasks            = @($orderedTasks)
-        Attendance       = $attendance
-        State            = $state
-        Findings         = $sorted
-        RawFindingCount  = $findings.Count
+        ModelSelection = @(Get-ReviewValue -Node $Run -Name 'modelSelection')
+        Roster = $roster
+        Tasks = @($orderedTasks)
+        Attendance = $attendance
+        State = $state
+        Findings = $sorted
+        RawFindingCount = $findings.Count
     }
 }
 
@@ -1403,75 +1404,10 @@ function Test-ReviewRestartAuthority {
     return $failures
 }
 
-# --------------------------------------------------------------------------------------------------
-# Secret guard (D18/RISK-16). Deterministic, high-confidence credential shapes only. The block/allow
-# behavior is pinned by a versioned corpus whose committed fixtures carry only inert fragments; the
-# patterns below are character classes, never a literal token.
-# --------------------------------------------------------------------------------------------------
-$script:SecretBlockPatterns = @(
-    [pscustomobject]@{ Type = 'github-pat-classic'; Pattern = 'gh[pousr]_[0-9A-Za-z]{36}' }
-    [pscustomobject]@{ Type = 'github-pat-fine-grained'; Pattern = 'github_pat_[0-9A-Za-z_]{22,}' }
-    [pscustomobject]@{ Type = 'aws-access-key-id'; Pattern = '\b(?:AKIA|ASIA)[0-9A-Z]{16}\b' }
-    [pscustomobject]@{ Type = 'google-api-key'; Pattern = '\bAIza[0-9A-Za-z_\-]{35}\b' }
-    [pscustomobject]@{ Type = 'slack-token'; Pattern = 'xox[baprs]-[0-9A-Za-z-]{10,}' }
-    [pscustomobject]@{ Type = 'stripe-secret-key'; Pattern = '\bsk_(?:live|test)_[0-9A-Za-z]{24,}\b' }
-    [pscustomobject]@{ Type = 'npm-token'; Pattern = '\bnpm_[0-9A-Za-z]{36}\b' }
-    [pscustomobject]@{ Type = 'private-key-block'; Pattern = '-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----' }
-)
-
-# Known non-secrets that share a high-confidence shape. The rule is exactness, not resemblance: a
-# real credential that happens to contain the letters `example` anywhere in its body used to be
-# allowed by a substring match, which is precisely the value the guard exists to stop. An allowed
-# token is now either the one published AWS documentation key verbatim, or a provider prefix whose
-# entire body is a mask run or an exact repetition of a synthetic marker word.
-$script:SecretAllowLiterals = @('AKIAIOSFODNN7EXAMPLE')
-$script:SecretPrefixPattern = '^(?:gh[pousr]_|github_pat_|AKIA|ASIA|AIza|xox[baprs]-|sk_(?:live|test)_|npm_)'
-$script:SecretMaskPattern = '^(?:X+|x+|\*+|0+|\.+|#+|_+|-+)$'
-$script:SecretSyntheticMarkers = @('REDACTED', 'EXAMPLE', 'PLACEHOLDER', 'DUMMY', 'SAMPLE', 'NOTAREALTOKEN')
-
-function Test-ReviewSecretAllowed {
-    <#
-    .SYNOPSIS
-        Whether one matched credential-shaped token is a known synthetic value rather than a secret.
-    .DESCRIPTION
-        Exact shapes only (D18): the published AWS documentation key, or a recognized provider prefix
-        followed by a body that is entirely a mask run (`XXXX…`, `****…`) or an exact repetition of a
-        synthetic marker (`REDACTEDREDACTED…`, truncated at the shape's fixed length). Anything else
-        — including a token that merely *contains* `example` or `redacted` — is treated as a secret.
-    #>
-    param([Parameter(Mandatory)][string]$Token)
-
-    foreach ($literal in $script:SecretAllowLiterals) {
-        if ($Token -ceq $literal) { return $true }
-    }
-
-    $prefix = [regex]::Match($Token, $script:SecretPrefixPattern)
-    if (-not $prefix.Success) { return $false }
-    $body = $Token.Substring($prefix.Length)
-    if ($body.Length -lt 8) { return $false }
-
-    if ([regex]::IsMatch($body, $script:SecretMaskPattern)) { return $true }
-
-    foreach ($marker in $script:SecretSyntheticMarkers) {
-        $repeats = [int][Math]::Ceiling($body.Length / [double]$marker.Length)
-        $expanded = ($marker * $repeats).Substring(0, $body.Length)
-        if ($body -ceq $expanded) { return $true }
-    }
-    return $false
-}
-
 function Test-ReviewValueForSecret {
     param([AllowEmptyString()][string]$Value)
 
-    if ([string]::IsNullOrEmpty($Value)) { return @() }
-    $hits = [System.Collections.Generic.List[string]]::new()
-    foreach ($rule in $script:SecretBlockPatterns) {
-        foreach ($match in [regex]::Matches($Value, $rule.Pattern)) {
-            if (Test-ReviewSecretAllowed -Token $match.Value) { continue }
-            $hits.Add($rule.Type)
-        }
-    }
-    return @($hits | Select-Object -Unique)
+    return @(Find-HighConfidenceSecret -Value $Value)
 }
 
 function Find-ReviewSecret {
@@ -1582,8 +1518,8 @@ function Get-ReviewTerminalStatusShape {
     }
 
     return [pscustomobject]@{
-        ExitCode      = $exitCode
-        State         = $state
+        ExitCode = $exitCode
+        State = $state
         HasValidRunId = $hasValidRunId
         RejectedRunId = $rejectedRunId
     }
@@ -1691,13 +1627,13 @@ function New-ReviewResult {
         [object]$Summary
     )
     return [pscustomobject]@{
-        Mode        = $Mode
-        ExitCode    = $ExitCode
-        State       = $State
-        Message     = $Message
-        RunId       = $RunId
+        Mode = $Mode
+        ExitCode = $ExitCode
+        State = $State
+        Message = $Message
+        RunId = $RunId
         Diagnostics = @($Diagnostic)
-        Summary     = $Summary
+        Summary = $Summary
     }
 }
 
@@ -1887,8 +1823,8 @@ function Resolve-ReviewRunPreparation {
     foreach ($candidate in @($store, $runRoot)) { Assert-ReviewPathSafe -Path $candidate -Boundary $repoFull }
 
     return [pscustomobject]@{
-        schema  = 'skalary/review-prepare@1'
-        runId   = $RunId
+        schema = 'skalary/review-prepare@1'
+        runId = $RunId
         runRoot = [System.IO.Path]::GetFullPath($runRoot)
     }
 }
@@ -2119,8 +2055,8 @@ function Get-ReviewFrozenPlanFile {
 
     $pattern = Get-ReviewContentNamePattern -Role 'plan'
     return @(Get-ChildItem -LiteralPath $RunDir -File -Force -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -cmatch $pattern } |
-        Sort-Object -Property Name)
+            Where-Object { $_.Name -cmatch $pattern } |
+            Sort-Object -Property Name)
 }
 
 function Get-ReviewFrozenMarkerDigest {
@@ -2199,11 +2135,11 @@ function Read-ReviewFrozenPlan {
     }
 
     return [pscustomobject]@{
-        Path   = $files[0].FullName
-        Name   = $files[0].Name
-        Bytes  = $bytes
+        Path = $files[0].FullName
+        Name = $files[0].Name
+        Bytes = $bytes
         Digest = $digest
-        Plan   = $plan
+        Plan = $plan
     }
 }
 
@@ -2244,13 +2180,13 @@ function Write-ReviewAdmissionMarker {
 
     $marker = [ordered]@{
         maxPartitions = 16
-        maxRestarts   = 1
-        mode          = $Mode
-        reasons       = @(Sort-ReviewOrdinal -Value @($Reason))
-        restartable   = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
-        runId         = $RunId
-        schema        = $script:AdmissionDiscriminator
-        state         = 'admission'
+        maxRestarts = 1
+        mode = $Mode
+        reasons = @(Sort-ReviewOrdinal -Value @($Reason))
+        restartable = ($null -ne $SourceBytes -and $SourceBytes.Length -gt 0)
+        runId = $RunId
+        schema = $script:AdmissionDiscriminator
+        state = 'admission'
     }
     $sourcePath = $null
     try {
@@ -2999,18 +2935,18 @@ function Invoke-ReviewPublishCore {
             Invoke-ReviewFaultSeam -Edge 'after-full'
 
             $manifest = [ordered]@{
-                schema       = $script:ManifestDiscriminator
-                runId        = $RunId
-                state        = 'published'
+                schema = $script:ManifestDiscriminator
+                runId = $RunId
+                state = 'published'
                 contentTrust = [string](Get-ReviewValue -Node $canonicalRun -Name 'contentTrust')
-                scopeDigest  = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
-                planDigest   = $frozenPlanDigest
-                runDigest    = $runDigest
-                files        = [ordered]@{
-                    plan      = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
+                scopeDigest = [string](Get-ReviewValue -Node (Get-ReviewValue -Node $canonicalRun -Name 'scopeAuthority') -Name 'digest')
+                planDigest = $frozenPlanDigest
+                runDigest = $runDigest
+                files = [ordered]@{
+                    plan = [ordered]@{ name = $lockedPlan.Name; digest = $frozenPlanDigest; bytes = $planBytes.Length }
                     canonical = [ordered]@{ name = $canonicalName; digest = $runDigest; bytes = $canonicalBytes.Length }
-                    summary   = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
-                    full      = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
+                    summary = [ordered]@{ name = $summaryName; digest = (Get-ReviewDigest -Bytes $summaryBytes); bytes = $summaryBytes.Length }
+                    full = [ordered]@{ name = $fullName; digest = (Get-ReviewDigest -Bytes $fullBytes); bytes = $fullBytes.Length }
                 }
             }
             $manifestJson = (ConvertTo-Json -InputObject $manifest -Depth 10 -Compress) + "`n"
@@ -3203,9 +3139,9 @@ function Read-ReviewManifest {
 
     # Identity binding: the canonical envelope must name this run and the plan the manifest names.
     $canonical = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['canonical']) |
-    ConvertFrom-Json -AsHashtable -Depth 40
+        ConvertFrom-Json -AsHashtable -Depth 40
     $plan = [System.Text.Encoding]::UTF8.GetString($verifiedBytes['plan']) |
-    ConvertFrom-Json -AsHashtable -Depth 40
+        ConvertFrom-Json -AsHashtable -Depth 40
     if (-not [string]::Equals([string](Get-ReviewValue -Node $canonical -Name 'runId'), [string]$manifest['runId'], [System.StringComparison]::Ordinal)) {
         throw 'the canonical envelope names a different run id than the manifest'
     }
@@ -3223,14 +3159,14 @@ function Read-ReviewManifest {
     }
 
     return [pscustomobject]@{
-        RunId      = [string]$manifest['runId']
+        RunId = [string]$manifest['runId']
         PlanDigest = [string]$manifest['planDigest']
-        RunDigest  = [string]$manifest['runDigest']
-        Files      = $verified
-        Bytes      = $verifiedBytes
-        Documents  = [ordered]@{ plan = $plan; canonical = $canonical }
-        Boundary   = $boundaryFull
-        Manifest   = $manifest
+        RunDigest = [string]$manifest['runDigest']
+        Files = $verified
+        Bytes = $verifiedBytes
+        Documents = [ordered]@{ plan = $plan; canonical = $canonical }
+        Boundary = $boundaryFull
+        Manifest = $manifest
         VerificationToken = $script:VerifiedAuthorityToken
     }
 }
@@ -3443,8 +3379,8 @@ function Test-ReviewFinalizedPair {
     try { $receipt = [System.Text.Encoding]::UTF8.GetString($receiptBytes) | ConvertFrom-Json -AsHashtable -Depth 20 }
     catch { return $false }
     return $receipt['schema'] -eq 'skalary/review-result-receipt@1' -and
-        $receipt['report']['bytes'] -eq $reportBytes.Length -and
-        $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
+    $receipt['report']['bytes'] -eq $reportBytes.Length -and
+    $receipt['report']['digest'] -eq (Get-ReviewDigest -Bytes $reportBytes)
 }
 
 function Get-ReviewCleanupMarker {
@@ -3617,7 +3553,7 @@ function Finalize-ReviewPlanRun {
                 Invoke-ReviewFaultSeam -Edge 'after-final-report'
                 Write-ReviewBytesAtomic -Path $receiptPath -Bytes $material.ReceiptBytes
                 if (-not (Test-ReviewFinalizedPair -ReportPath $reportPath -ReceiptPath $receiptPath `
-                        -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes)) {
+                            -ExpectedReportBytes $material.ReportBytes -ExpectedReceiptBytes $material.ReceiptBytes)) {
                     throw "Finalized review result '$RunId' did not verify after publication."
                 }
             }
@@ -3725,13 +3661,13 @@ function Get-ReviewAdmissionRollup {
     $expectedFindings = @(Get-ReviewValue -Node $parentRun -Name 'findings')
 
     return [pscustomobject]@{
-        schema          = 'skalary/review-admission-rollup@1'
-        state           = 'verified'
-        parentRunId     = $ParentRunId
+        schema = 'skalary/review-admission-rollup@1'
+        state = 'verified'
+        parentRunId = $ParentRunId
         parentRunDigest = [string]$admission.Marker['parentRunDigest']
-        scopeDigest     = [string]$admission.Marker['scopeDigest']
-        findingCount    = $expectedFindings.Count
-        partitions      = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
+        scopeDigest = [string]$admission.Marker['scopeDigest']
+        findingCount = $expectedFindings.Count
+        partitions = @($orderedChildren | ForEach-Object { [pscustomobject]@{ index = [int](Get-ReviewValue -Node $_.Restart -Name 'partitionIndex'); runId = $_.RunId; runDigest = $_.RunDigest } })
     }
 }
 

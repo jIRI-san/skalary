@@ -61,7 +61,10 @@ plan. After collecting the code paths and confirming the current plan folder:
 2. In one bounded invocation, call
    `.github/skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1` with only the artifact kinds the
    selected concerns need. Align each `Relationship` value with the `PlanId` at the same position;
-   one relationship may apply to every plan. Use only the resolver's closed `Relationship` values.
+   one relationship may apply to every plan. Use only the adapter's closed `Relationship` values.
+   Invoke it directly as
+   `.github/skills/cr/scripts/Get-PlanArtifactConsumerContext.ps1 -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan> -RepoRoot .`;
+   no shell wrapper or alternate argument order is approved.
    The consumer adapter runs `Get-PlanArtifactContext.ps1 -Format Json` in an isolated process,
    requires exit zero, and requires a valid top-level JSON array. Any invocation, JSON, or result-shape
    failure is fatal: report it and stop rather than treating it as no historical context.

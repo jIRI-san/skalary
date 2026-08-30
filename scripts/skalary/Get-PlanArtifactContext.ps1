@@ -43,8 +43,18 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -DisableNameChecking
+$planStatePath = Join-Path $PSScriptRoot 'PlanState.psm1'
+if (-not (Get-Module | Where-Object {
+            [string]::Equals($_.Path, $planStatePath, [System.StringComparison]::OrdinalIgnoreCase)
+        })) {
+    Import-Module $planStatePath -DisableNameChecking
+}
+$planEvidencePath = Join-Path $PSScriptRoot 'PlanEvidence.psm1'
+if (-not (Get-Module | Where-Object {
+            [string]::Equals($_.Path, $planEvidencePath, [System.StringComparison]::OrdinalIgnoreCase)
+        })) {
+    Import-Module $planEvidencePath -DisableNameChecking
+}
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $artifactMap = [ordered]@{
@@ -56,293 +66,6 @@ $artifactMap = [ordered]@{
     Learnings = 'Learnings'
 }
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
-
-function Initialize-NativeArtifactHandle {
-    if ('SkalaryPlanArtifactHandle' -as [type]) {
-        return
-    }
-
-    Add-Type -TypeDefinition @'
-using System;
-using System.ComponentModel;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
-using Microsoft.Win32.SafeHandles;
-
-public static class SkalaryPlanArtifactHandle
-{
-    public sealed class Identity
-    {
-        public string Value { get; set; }
-        public ulong LinkCount { get; set; }
-        public bool IsRegular { get; set; }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ByHandleFileInformation
-    {
-        public uint FileAttributes;
-        public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
-        public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
-        public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
-        public uint VolumeSerialNumber;
-        public uint FileSizeHigh;
-        public uint FileSizeLow;
-        public uint NumberOfLinks;
-        public uint FileIndexHigh;
-        public uint FileIndexLow;
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern uint GetFinalPathNameByHandle(
-        SafeFileHandle handle,
-        StringBuilder path,
-        uint pathLength,
-        uint flags);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetFileInformationByHandle(
-        SafeFileHandle handle,
-        out ByHandleFileInformation information);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern int fcntl(int fd, int command, byte[] buffer);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern int fstat(int fd, byte[] buffer);
-
-    private static bool IsSupportedArchitecture(OSPlatform platform, Architecture architecture)
-    {
-        if (platform == OSPlatform.Windows)
-        {
-            return architecture == Architecture.X86 ||
-                architecture == Architecture.X64 ||
-                architecture == Architecture.Arm64;
-        }
-        return architecture == Architecture.X64 || architecture == Architecture.Arm64;
-    }
-
-    private static void AssertSupportedArchitecture(OSPlatform platform, Architecture architecture)
-    {
-        if (!BitConverter.IsLittleEndian || !IsSupportedArchitecture(platform, architecture))
-        {
-            throw new PlatformNotSupportedException(
-                "Opened artifact identity is not supported on " + platform + "/" + architecture + ".");
-        }
-    }
-
-    public static bool IsSupportedPlatformArchitecture(string platform, string architecture)
-    {
-        Architecture parsed;
-        if (!Enum.TryParse(architecture, false, out parsed))
-        {
-            return false;
-        }
-        if (String.Equals(platform, "Windows", StringComparison.Ordinal))
-        {
-            return IsSupportedArchitecture(OSPlatform.Windows, parsed);
-        }
-        if (String.Equals(platform, "Linux", StringComparison.Ordinal))
-        {
-            return IsSupportedArchitecture(OSPlatform.Linux, parsed);
-        }
-        if (String.Equals(platform, "macOS", StringComparison.Ordinal))
-        {
-            return IsSupportedArchitecture(OSPlatform.OSX, parsed);
-        }
-        return false;
-    }
-
-    public static Identity ParseUnixIdentityForTest(string platform, string architecture, byte[] stat)
-    {
-        Architecture parsed;
-        if (!Enum.TryParse(architecture, false, out parsed))
-        {
-            throw new PlatformNotSupportedException("Unknown test architecture '" + architecture + "'.");
-        }
-        if (String.Equals(platform, "Linux", StringComparison.Ordinal))
-        {
-            AssertSupportedArchitecture(OSPlatform.Linux, parsed);
-            return ParseLinuxIdentity(stat, parsed);
-        }
-        if (String.Equals(platform, "macOS", StringComparison.Ordinal))
-        {
-            AssertSupportedArchitecture(OSPlatform.OSX, parsed);
-            return ParseMacIdentity(stat, parsed);
-        }
-        throw new PlatformNotSupportedException("Unix identity fixture platform must be Linux or macOS.");
-    }
-
-    private static Identity ParseLinuxIdentity(byte[] stat, Architecture architecture)
-    {
-        if (stat == null || stat.Length < 28)
-        {
-            throw new IOException("Linux fstat buffer is shorter than the supported layout.");
-        }
-
-        var device = BitConverter.ToUInt64(stat, 0);
-        var inode = BitConverter.ToUInt64(stat, 8);
-        ulong links;
-        uint mode;
-        if (architecture == Architecture.X64)
-        {
-            links = BitConverter.ToUInt64(stat, 16);
-            mode = BitConverter.ToUInt32(stat, 24);
-        }
-        else if (architecture == Architecture.Arm64)
-        {
-            mode = BitConverter.ToUInt32(stat, 16);
-            links = BitConverter.ToUInt32(stat, 20);
-        }
-        else
-        {
-            throw new PlatformNotSupportedException("Linux fstat layout is unsupported on " + architecture + ".");
-        }
-        return new Identity
-        {
-            Value = "linux:" + device.ToString("x") + ":" + inode.ToString("x"),
-            LinkCount = links,
-            IsRegular = (mode & 0xF000) == 0x8000
-        };
-    }
-
-    private static Identity ParseMacIdentity(byte[] stat, Architecture architecture)
-    {
-        if (architecture != Architecture.X64 && architecture != Architecture.Arm64)
-        {
-            throw new PlatformNotSupportedException("macOS fstat layout is unsupported on " + architecture + ".");
-        }
-        if (stat == null || stat.Length < 16)
-        {
-            throw new IOException("macOS fstat buffer is shorter than the supported layout.");
-        }
-
-        var device = BitConverter.ToUInt32(stat, 0);
-        var mode = BitConverter.ToUInt16(stat, 4);
-        var links = BitConverter.ToUInt16(stat, 6);
-        var inode = BitConverter.ToUInt64(stat, 8);
-        return new Identity
-        {
-            Value = "macos:" + device.ToString("x") + ":" + inode.ToString("x"),
-            LinkCount = links,
-            IsRegular = (mode & 0xF000) == 0x8000
-        };
-    }
-
-    public static string GetPath(SafeFileHandle handle)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            var path = new StringBuilder(512);
-            var length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
-            if (length == 0)
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-            if (length >= path.Capacity)
-            {
-                path = new StringBuilder((int)length + 1);
-                length = GetFinalPathNameByHandle(handle, path, (uint)path.Capacity, 0);
-                if (length == 0 || length >= path.Capacity)
-                {
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                }
-            }
-
-            var value = path.ToString();
-            if (value.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
-            {
-                return @"\\" + value.Substring(8);
-            }
-            if (value.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
-            {
-                return value.Substring(4);
-            }
-            return value;
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            var fdPath = "/proc/self/fd/" + handle.DangerousGetHandle().ToInt64();
-            var target = new FileInfo(fdPath).ResolveLinkTarget(true);
-            if (target == null)
-            {
-                throw new IOException("Could not resolve the opened artifact handle.");
-            }
-            return target.FullName;
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            const int F_GETPATH = 50;
-            var buffer = new byte[1024];
-            if (fcntl(handle.DangerousGetHandle().ToInt32(), F_GETPATH, buffer) != 0)
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-            var length = Array.IndexOf(buffer, (byte)0);
-            if (length < 0)
-            {
-                throw new IOException("Opened artifact handle path exceeds the macOS F_GETPATH buffer.");
-            }
-            return Encoding.UTF8.GetString(buffer, 0, length);
-        }
-
-        throw new PlatformNotSupportedException("Opened artifact handle validation supports Windows, Linux, and macOS.");
-    }
-
-    public static Identity GetIdentity(SafeFileHandle handle)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            AssertSupportedArchitecture(OSPlatform.Windows, RuntimeInformation.ProcessArchitecture);
-            ByHandleFileInformation information;
-            if (!GetFileInformationByHandle(handle, out information))
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-            var fileIndex = ((ulong)information.FileIndexHigh << 32) | information.FileIndexLow;
-            return new Identity
-            {
-                Value = "windows:" + information.VolumeSerialNumber.ToString("x") + ":" + fileIndex.ToString("x"),
-                LinkCount = information.NumberOfLinks,
-                IsRegular = (information.FileAttributes & 0x10) == 0
-            };
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            AssertSupportedArchitecture(OSPlatform.Linux, RuntimeInformation.ProcessArchitecture);
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            AssertSupportedArchitecture(OSPlatform.OSX, RuntimeInformation.ProcessArchitecture);
-        }
-        else
-        {
-            throw new PlatformNotSupportedException("Opened artifact identity supports Windows, Linux, and macOS.");
-        }
-
-        var stat = new byte[256];
-        if (fstat(handle.DangerousGetHandle().ToInt32(), stat) != 0)
-        {
-            throw new Win32Exception(Marshal.GetLastWin32Error());
-        }
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            return ParseLinuxIdentity(stat, RuntimeInformation.ProcessArchitecture);
-        }
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return ParseMacIdentity(stat, RuntimeInformation.ProcessArchitecture);
-        }
-
-        throw new PlatformNotSupportedException("Opened artifact identity supports Windows, Linux, and macOS.");
-    }
-}
-'@
-}
 
 function ConvertTo-RepoRelativePath {
     param([Parameter(Mandatory)][string]$Path)
@@ -357,14 +80,13 @@ function New-ArtifactCandidate {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Kind,
         [AllowNull()][object]$Plan,
         [AllowNull()][string]$Path,
-        [AllowNull()][string]$Reason,
+        [AllowNull()][object]$Reason,
         [Parameter(Mandatory)][AllowEmptyString()][string]$Relationship,
         [ValidateSet('Raw', 'LegacyDecisions')]
         [string]$ReadMode = 'Raw',
         [AllowNull()][string]$CompanionPath = $null,
         [ValidateSet('None', 'ReviewReceipt', 'DecisionsPlan')]
         [string]$CompanionPurpose = 'None',
-        [AllowNull()][string]$PhysicalPlanPath = $null,
         [AllowNull()][string]$ReviewRunId = $null
     )
 
@@ -381,22 +103,13 @@ function New-ArtifactCandidate {
         byteCount = $null
         content = $null
         reason = $Reason
-        sourcePath = $Path
         planPath = if ($Plan) { $Plan.Path } else { $null }
+        confinementContext = if ($Plan) { $Plan.ConfinementContext } else { $null }
         readMode = $ReadMode
         stream = $null
         companionPath = $CompanionPath
         companionStream = $null
         companionPurpose = $CompanionPurpose
-        physicalPlanPath = if ($PhysicalPlanPath) {
-            $PhysicalPlanPath
-        }
-        elseif ($Plan -and $Plan.PSObject.Properties.Name -contains 'PhysicalPath') {
-            $Plan.PhysicalPath
-        }
-        else {
-            $null
-        }
         reviewRunId = $ReviewRunId
     }
 }
@@ -434,143 +147,6 @@ function Get-OrdinallySortedUnique {
     return $values.ToArray()
 }
 
-function Test-RegularConfinedFile {
-    param(
-        [Parameter(Mandatory)][string]$PlanPath,
-        [Parameter(Mandatory)][string]$Path,
-        [AllowNull()][string]$PhysicalPlanPath
-    )
-
-    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-    if ($item -isnot [System.IO.FileInfo] -or
-        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "Resolved artifact '$Path' is not a regular file."
-    }
-
-    $physicalPlan = if ([string]::IsNullOrWhiteSpace($PhysicalPlanPath)) {
-        Resolve-PhysicalRepoPath -Path $PlanPath
-    }
-    else {
-        $PhysicalPlanPath
-    }
-    $physicalFile = Resolve-PhysicalRepoPath -Path $item.FullName
-    $prefix = $physicalPlan.TrimEnd([char[]]@(
-            [System.IO.Path]::DirectorySeparatorChar,
-            [System.IO.Path]::AltDirectorySeparatorChar
-        )) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $physicalFile.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
-        throw "Resolved artifact '$Path' escapes canonical plan folder '$PlanPath'."
-    }
-
-    return [pscustomobject]@{
-        Item = $item
-        PhysicalPath = $physicalFile
-        PhysicalPlanPath = $physicalPlan
-    }
-}
-
-function Invoke-ArtifactOpenTestHook {
-    param([Parameter(Mandatory)][ValidateSet('preflight-first-open', 'first-verification-open')][string]$Phase)
-
-    $hookValue = [string]$env:SKALARY_PLAN_ARTIFACT_CONTEXT_TEST_HOOK
-    if ([string]::IsNullOrWhiteSpace($hookValue)) {
-        return
-    }
-
-    $hookRoot = [System.IO.Path]::GetFullPath($hookValue)
-    $repoPrefix = $repoRootPath.TrimEnd([char[]]@(
-            [System.IO.Path]::DirectorySeparatorChar,
-            [System.IO.Path]::AltDirectorySeparatorChar
-        )) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $hookRoot.StartsWith($repoPrefix, [System.StringComparison]::Ordinal) -or
-        [System.IO.Path]::GetFileName($hookRoot) -cne '.skalary-plan-artifact-context-test-hook') {
-        throw 'The plan-artifact test hook must be the fixed test-hook directory inside RepoRoot.'
-    }
-    $hookItem = Get-Item -LiteralPath $hookRoot -Force -ErrorAction Stop
-    if ($hookItem -isnot [System.IO.DirectoryInfo] -or
-        ($hookItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw 'The plan-artifact test hook root must be a regular directory.'
-    }
-
-    $readyPath = Join-Path $hookRoot "$Phase.ready"
-    $continuePath = Join-Path $hookRoot "$Phase.continue"
-    [System.IO.File]::WriteAllText($readyPath, $Phase, [System.Text.UTF8Encoding]::new($false))
-    $deadline = [DateTime]::UtcNow.AddSeconds(10)
-    while (-not [System.IO.File]::Exists($continuePath)) {
-        if ([DateTime]::UtcNow -ge $deadline) {
-            throw "Timed out waiting for the plan-artifact '$Phase' test hook."
-        }
-        [System.Threading.Thread]::Sleep(10)
-    }
-}
-
-function Open-ConfinedArtifact {
-    param(
-        [Parameter(Mandatory)][string]$PlanPath,
-        [Parameter(Mandatory)][string]$Path,
-        [AllowNull()][string]$PhysicalPlanPath
-    )
-
-    $validated = Test-RegularConfinedFile `
-        -PlanPath $PlanPath `
-        -Path $Path `
-        -PhysicalPlanPath $PhysicalPlanPath
-    Invoke-ArtifactOpenTestHook -Phase preflight-first-open
-    Initialize-NativeArtifactHandle
-    $stream = [System.IO.File]::Open(
-        $validated.Item.FullName,
-        [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::Read,
-        [System.IO.FileShare]::Read
-    )
-    try {
-        $handlePath = [SkalaryPlanArtifactHandle]::GetPath($stream.SafeFileHandle)
-        $handlePhysicalPath = Resolve-PhysicalRepoPath -Path $handlePath
-        $physicalPlanPath = $validated.PhysicalPlanPath
-        $planPrefix = $physicalPlanPath.TrimEnd([char[]]@(
-                [System.IO.Path]::DirectorySeparatorChar,
-                [System.IO.Path]::AltDirectorySeparatorChar
-            )) + [System.IO.Path]::DirectorySeparatorChar
-        if (-not $handlePhysicalPath.StartsWith($planPrefix, [System.StringComparison]::Ordinal)) {
-            throw "Opened artifact handle '$handlePath' escapes canonical plan folder '$PlanPath'."
-        }
-        if (-not [string]::Equals($handlePhysicalPath, $validated.PhysicalPath, [System.StringComparison]::Ordinal)) {
-            throw "Opened artifact handle '$handlePath' does not match the confined file that was validated."
-        }
-
-        $identity = [SkalaryPlanArtifactHandle]::GetIdentity($stream.SafeFileHandle)
-        if (-not $identity.IsRegular -or $identity.LinkCount -ne 1) {
-            throw "Opened artifact '$Path' is not a single-link regular file."
-        }
-
-        Invoke-ArtifactOpenTestHook -Phase first-verification-open
-        $verification = [System.IO.File]::Open(
-            $Path,
-            [System.IO.FileMode]::Open,
-            [System.IO.FileAccess]::Read,
-            [System.IO.FileShare]::Read
-        )
-        try {
-            $verificationPath = Resolve-PhysicalRepoPath -Path ([SkalaryPlanArtifactHandle]::GetPath($verification.SafeFileHandle))
-            $verificationIdentity = [SkalaryPlanArtifactHandle]::GetIdentity($verification.SafeFileHandle)
-            if (-not [string]::Equals($verificationPath, $handlePhysicalPath, [System.StringComparison]::Ordinal) -or
-                -not [string]::Equals($verificationIdentity.Value, $identity.Value, [System.StringComparison]::Ordinal) -or
-                $verification.Length -ne $stream.Length) {
-                throw "Artifact '$Path' changed while its stable read handle was opened."
-            }
-        }
-        finally {
-            $verification.Dispose()
-        }
-
-        return $stream
-    }
-    catch {
-        $stream.Dispose()
-        throw
-    }
-}
-
 function Read-BoundedUtf8Stream {
     param(
         [Parameter(Mandatory)][System.IO.FileStream]$Stream,
@@ -599,10 +175,20 @@ function Read-BoundedUtf8Stream {
         return [pscustomobject]@{ Status = 'oversized'; ByteCount = $null; Content = $null; Bytes = $null }
     }
 
+    $content = $utf8.GetString($bytes)
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        return [pscustomobject]@{
+            Status = 'refused'
+            ByteCount = $length
+            Content = $null
+            Bytes = $null
+        }
+    }
+
     return [pscustomobject]@{
         Status = 'accepted'
         ByteCount = $length
-        Content = $utf8.GetString($bytes)
+        Content = $content
         Bytes = $bytes
     }
 }
@@ -701,12 +287,17 @@ if (-not (Test-Path -LiteralPath $plansRoot -PathType Container)) {
 $inventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
 $candidates = [System.Collections.Generic.List[object]]::new()
 $selectionOverflow = $false
+$selectionOverflowReason = $null
+$attemptedCandidateCount = 0
 
 function Add-ArtifactCandidate {
     param([Parameter(Mandatory)][object]$Candidate)
 
+    $script:attemptedCandidateCount++
     if ($script:candidates.Count -eq $MaxCandidates) {
         $script:selectionOverflow = $true
+        $script:selectionOverflowReason =
+        "Selection produced at least $($script:attemptedCandidateCount) candidates, exceeding the $MaxCandidates-candidate limit."
         return
     }
     $script:candidates.Add($Candidate)
@@ -732,14 +323,17 @@ foreach ($id in $ids) {
                     throw "Inventoried plan folder '$($entry.Path)' is a link or reparse point."
                 }
                 $planFile = Join-Path $entry.Path 'plan.md'
-                $planValidation = Test-RegularConfinedFile -PlanPath $entry.Path -Path $planFile
+                $confinementContext = New-PlanConfinementContext -PlanDir $entry.Path
+                $null = Resolve-ConfinedPlanPath `
+                    -Context $confinementContext `
+                    -Path $planFile `
+                    -PathType Leaf
                 $plan = [pscustomobject]@{
                     Id = $entry.Id
                     Path = $entry.Path
-                    PhysicalPath = $planValidation.PhysicalPlanPath
+                    ConfinementContext = $confinementContext
                     IsArchived = [bool]$entry.IsArchived
                     Layout = Get-PlanLayout -PlanDir $entry.Path
-                    InventoryEntry = $entry
                 }
             }
             catch {
@@ -771,19 +365,10 @@ foreach ($id in $ids) {
                     continue
                 }
 
-                $reviewRoot = Get-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
-                if ($reviewRoot -isnot [System.IO.DirectoryInfo] -or
-                    ($reviewRoot.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-                    throw "Resolved review root '$resolvedPath' is not a regular directory."
-                }
-                $physicalReviewRoot = Resolve-PhysicalRepoPath -Path $reviewRoot.FullName
-                $planPrefix = $plan.PhysicalPath.TrimEnd([char[]]@(
-                        [System.IO.Path]::DirectorySeparatorChar,
-                        [System.IO.Path]::AltDirectorySeparatorChar
-                    )) + [System.IO.Path]::DirectorySeparatorChar
-                if (-not $physicalReviewRoot.StartsWith($planPrefix, [System.StringComparison]::Ordinal)) {
-                    throw "Resolved review root '$resolvedPath' escapes canonical plan folder '$($plan.Path)'."
-                }
+                $null = Resolve-ConfinedPlanPath `
+                    -Context $plan.ConfinementContext `
+                    -Path $resolvedPath `
+                    -PathType Container
 
                 $reviewPaths = [System.Collections.Generic.List[object]]::new()
                 $scannedEntries = 0
@@ -810,6 +395,8 @@ foreach ($id in $ids) {
                 }
                 if ($reviewOverflow) {
                     $selectionOverflow = $true
+                    $selectionOverflowReason =
+                    "Review scan inspected $scannedEntries entries, exceeding the $MaxCandidates-entry scan limit."
                     Add-ArtifactCandidate (New-ArtifactCandidate -Status 'refused' -RequestedPlanId $id -Kind $kind -Relationship $planRelationship -Plan $plan -Path $relativeRoot -Reason "Review directory exceeds the $MaxCandidates-entry scan limit.")
                     continue
                 }
@@ -880,10 +467,16 @@ try {
             if (-not [string]::IsNullOrWhiteSpace($_.companionPath)) { 2 } else { 1 }
         } | Measure-Object -Sum).Sum
     if ($selectionOverflow -or $requiredHandles -gt $MaxCandidates) {
-        foreach ($candidate in $candidates) {
+        $overflowReason = if ($selectionOverflow) {
+            $selectionOverflowReason
+        }
+        else {
+            "Selection requires $requiredHandles open handles, exceeding the $MaxCandidates-handle limit."
+        }
+        foreach ($candidate in @($candidates | Where-Object status -eq 'pending')) {
             $candidate.status = 'refused'
             $candidate.content = $null
-            $candidate.reason = "Selection exceeds the $MaxCandidates-candidate or open-handle limit."
+            $candidate.reason = $overflowReason
         }
         $pendingCandidates = @()
     }
@@ -892,10 +485,9 @@ try {
         try {
             if (-not [string]::IsNullOrWhiteSpace($candidate.companionPath)) {
                 $companionFullPath = Join-Path $repoRootPath $candidate.companionPath
-                $candidate.companionStream = Open-ConfinedArtifact `
-                    -PlanPath $candidate.planPath `
-                    -Path $companionFullPath `
-                    -PhysicalPlanPath $candidate.physicalPlanPath
+                $candidate.companionStream = Open-ConfinedPlanFile `
+                    -Context $candidate.confinementContext `
+                    -Path $companionFullPath
                 if ($candidate.companionStream.Length -eq 0) {
                     throw "$($candidate.companionPurpose) companion '$($candidate.companionPath)' is empty."
                 }
@@ -909,11 +501,10 @@ try {
                 }
             }
 
-            $fullPath = Join-Path $repoRootPath $candidate.sourcePath
-            $stream = Open-ConfinedArtifact `
-                -PlanPath $candidate.planPath `
-                -Path $fullPath `
-                -PhysicalPlanPath $candidate.physicalPlanPath
+            $fullPath = Join-Path $repoRootPath $candidate.path
+            $stream = Open-ConfinedPlanFile `
+                -Context $candidate.confinementContext `
+                -Path $fullPath
             $candidate.stream = $stream
             $candidate.byteCount = [int64]$stream.Length
             if ($stream.Length -eq 0) {
@@ -967,11 +558,16 @@ try {
         $actualBytes = [int64]0
         foreach ($candidate in @($candidates | Where-Object status -eq 'pending')) {
             try {
-                $read = Read-BoundedUtf8Stream -Stream $candidate.stream -Path $candidate.sourcePath
+                $read = Read-BoundedUtf8Stream -Stream $candidate.stream -Path $candidate.path
                 $candidate.byteCount = if ($null -eq $read.ByteCount) { $null } else { [int64]$read.ByteCount }
                 if ($read.Status -eq 'refused') {
                     $candidate.status = 'refused'
-                    $candidate.reason = 'Artifact file is empty.'
+                    $candidate.reason = if ($read.ByteCount -eq 0) {
+                        'Artifact file is empty.'
+                    }
+                    else {
+                        'Artifact file contains only whitespace.'
+                    }
                     continue
                 }
                 if ($read.Status -eq 'oversized') {
@@ -994,6 +590,9 @@ try {
                         $candidate.reason = if ($companionRead.Status -eq 'oversized') {
                             "$($candidate.companionPurpose) companion exceeded the per-artifact limit of $MaxArtifactBytes bytes while being read."
                         }
+                        elseif ($companionRead.ByteCount -gt 0) {
+                            "$($candidate.companionPurpose) companion contains only whitespace."
+                        }
                         else {
                             "$($candidate.companionPurpose) companion is empty."
                         }
@@ -1004,7 +603,7 @@ try {
                 if ($candidate.companionPurpose -eq 'ReviewReceipt') {
                     $null = Assert-ReviewResultReceipt `
                         -ReviewRunId $candidate.reviewRunId `
-                        -ReportName ([System.IO.Path]::GetFileName($candidate.sourcePath)) `
+                        -ReportName ([System.IO.Path]::GetFileName($candidate.path)) `
                         -ReportBytes $read.Bytes `
                         -ReceiptContent $companionRead.Content
                 }
@@ -1023,13 +622,22 @@ try {
                             -Section Decisions `
                             -LegacyContent $companionRead.Content `
                             -AssetContent $read.Content `
-                            -AssetPath (Join-Path $repoRootPath $candidate.sourcePath)
+                            -AssetPath (Join-Path $repoRootPath $candidate.path)
                     }
                     if ($decisionSection.Source -eq 'none') {
                         $null
                     }
+                    elseif ($candidate.readMode -eq 'LegacyDecisions') {
+                        $decisionLines = [string[]](
+                            Get-PlanInlineSectionLine `
+                                -Content $read.Content `
+                                -Section Decisions `
+                                -PreserveFencedContent
+                        )
+                        [string]::Join("`n", $decisionLines).Trim()
+                    }
                     else {
-                        (@($decisionSection.Lines) -join "`n").Trim()
+                        $read.Content
                     }
                 }
                 else {
@@ -1043,10 +651,7 @@ try {
 
                 $candidate.status = 'accepted'
                 $candidate.content = $content
-                $candidate.byteCount = [int64]$read.ByteCount
-                if ($candidate.companionPurpose -eq 'ReviewReceipt') {
-                    $candidate.byteCount += [int64]$companionRead.ByteCount
-                }
+                $candidate.byteCount = [int64]$utf8.GetByteCount($content)
                 $actualBytes += [int64]$read.ByteCount
                 if ($null -ne $companionRead) {
                     $actualBytes += [int64]$companionRead.ByteCount

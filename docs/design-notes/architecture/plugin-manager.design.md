@@ -44,6 +44,7 @@ The same `plugins/*/plugin.json` sources feed two independent catalogs; neither 
 |---|---|
 | Verb allowlist | Only `Get`/`Find`/`Test`/`Validate` scripts (read-only). `Install`/`Uninstall`/`Update`/`Remove`/`Set`/`bootstrap` are never approved, so a prompt-injected `-Repository`/`-Ref`/`-Source` cannot ride an approval into a silent remote install. |
 | Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined legacy, unprefixed-hash, or prefixed-hash plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. Approval authorizes only that command shape—it does not provision the writer's PowerShell 7.6+ prerequisite. |
+| Historical-context exception | Exactly four anchored, object-valued `matchCommandLine` rules admit CIP/CEP/CR/DR `Get-PlanArtifactConsumerContext.ps1` only with closed canonical plan IDs, artifact kinds and relationships in fixed order, followed by literal `-RepoRoot .`. A shell wrapper, alternate root/order, limit/timeout override, or chained command does not match. The content-returning leaf resolver receives no approval of its own. |
 | Sensitive-name deny-list | A script whose name contains `credential`/`secret`/`token`/`password`/`passphrase` is never approved even if its verb is read-only (e.g. `get-credential.ps1`). |
 | Key shape | Plain path string (`.github/skills/<skill>/scripts/<Script>.ps1`), matching the existing settings convention. VS Code prefix-matches it per sub-command, so a chained `<script> ; curl … | sh` still prompts (the second sub-command matches no key). |
 | Confinement | Keys are resolved from registry `files[]`, confined to `.github/`, and only written for scripts that exist on disk. |
@@ -55,10 +56,10 @@ always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and 
 entry before writing. Object-valued entries are stored on one JSONC line so the comment-preserving
 add/remove parser can treat one rule atomically.
 
-Dogfood settings are generated through the same writer. The four planning/review
-`Get-PlanArtifactContext.ps1` copies and their fail-loud
-`Get-PlanArtifactConsumerContext.ps1` adapters are ordinary read-only `Get` scripts, so all eight
-installed paths receive plain-path approvals; no special exception or broader verb is needed.
+Dogfood settings are generated through the same writer. Only the four planning/review
+`Get-PlanArtifactConsumerContext.ps1` adapters receive the historical-context rules. Their sibling
+`Get-PlanArtifactContext.ps1` copies remain internal implementation details and are deliberately
+unapproved despite their `Get-` names.
 
 ## Bootstrap flow
 
