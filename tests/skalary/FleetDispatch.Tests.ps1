@@ -21,12 +21,12 @@ Describe 'Fleet dispatch planner' {
             )
 
             return [pscustomobject]@{
-                Id             = $Id
-                Label          = $Label
-                Key            = $Key
-                Selected       = $Selected
+                Id = $Id
+                Label = $Label
+                Key = $Key
+                Selected = $Selected
                 OmissionReason = $OmissionReason
-                DependsOn      = $DependsOn
+                DependsOn = $DependsOn
             }
         }
     }
@@ -437,6 +437,245 @@ Ready order: design -> validate -> implement
         @($result.Tasks | Where-Object Id -CEQ ci-judge)[0].Status | Should -Be cancelled
     }
 
+    It 'test:FleetDispatch.ReviewAdapters preserve frozen review tasks, wave shapes, and attendance parity' {
+        function New-ReviewWaveResult {
+            param(
+                [Parameter(Mandatory)]
+                [string]$TaskId,
+                [ValidateSet('completed', 'failed', 'throttled')]
+                [string]$Outcome = 'completed',
+                [string]$Detail = ''
+            )
+
+            return [pscustomobject]@{
+                TaskId = $TaskId
+                Outcome = $Outcome
+                Detail = $Detail
+            }
+        }
+
+        $skillPaths = @(
+            'plugins/code-review/skills/cr/SKILL.md',
+            'plugins/design-review/skills/dr/SKILL.md'
+        )
+        foreach ($skillPath in $skillPaths) {
+            $text = [System.IO.File]::ReadAllText((Join-Path $repoRoot $skillPath))
+            $freezeIndex = $text.IndexOf('Freeze exactly once', [System.StringComparison]::Ordinal)
+            $planIndex = $text.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+            $startIndex = $text.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $stepIndex = $text.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $completeIndex = $text.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
+            $publishIndex = $text.IndexOf('Publish once', [System.StringComparison]::Ordinal)
+
+            $freezeIndex | Should -BeGreaterOrEqual 0
+            $planIndex | Should -BeGreaterThan $freezeIndex
+            $startIndex | Should -BeGreaterThan $planIndex
+            $stepIndex | Should -BeGreaterThan $startIndex
+            $completeIndex | Should -BeGreaterThan $stepIndex
+            $publishIndex | Should -BeGreaterThan $completeIndex
+            $text | Should -Match 'render the returned `PreView` before any reviewer call'
+            $text | Should -Match 'render its\s+`FinalView`'
+            $text | Should -Match 'published review run and its verified readers\s+remain authoritative'
+        }
+
+        $crGuide = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/code-review/skills/cr/assets/dispatch-guide.md')
+        )
+        $drGuide = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/design-review/skills/dr/assets/dispatch-guide.md')
+        )
+        $crGuide | Should -BeExactly $drGuide
+        $crGuide | Should -Match 'exact frozen `taskId`'
+        $crGuide | Should -Match 'exact frozen `model` binding'
+        $crGuide | Should -Match '`Selected` is `\$true`.*`DependsOn` is `@\(\)`'
+        $crGuide | Should -Match 'selected Fleet ids to equal the frozen task ids exactly and uniquely'
+        $crGuide | Should -Match 'Six and fourteen are representative\s+profile fixtures, not fixed review counts'
+        $crGuide | Should -Match 'Provider-global\s+concurrency is unobserved'
+        $crGuide | Should -Match 'error prose such as `429`'
+        $crGuide | Should -Match 'review `failed`, `timed-out`, `omitted`,\s+or host-cancelled outcomes to Fleet `failed`'
+        $crGuide | Should -Match 'do not add Fleet attendance to\s+review-run schemas or result inputs'
+        $crGuide | Should -Match 'verified Summary and\s+Full reading, and authoritative result rendering'
+
+        function New-FrozenReviewTasks {
+            param(
+                [Parameter(Mandatory)]
+                [string[]]$Concern,
+                [Parameter(Mandatory)]
+                [string[]]$Model
+            )
+
+            $tasks = [System.Collections.Generic.List[object]]::new()
+            foreach ($concernId in $Concern) {
+                for ($modelIndex = 0; $modelIndex -lt $Model.Count; $modelIndex++) {
+                    $tasks.Add([pscustomobject]@{
+                            TaskId = "$concernId-m$($modelIndex + 1)"
+                            Concern = $concernId
+                            Model = $Model[$modelIndex]
+                        })
+                }
+            }
+            return $tasks.ToArray()
+        }
+
+        function New-FrozenReviewFleetPlan {
+            param(
+                [Parameter(Mandatory)]
+                [object[]]$FrozenTask
+            )
+
+            $descriptors = @($FrozenTask | ForEach-Object {
+                    [pscustomobject]@{
+                        Id = $_.TaskId
+                        Label = "$($_.Concern) review"
+                        Key = $_.Model
+                        Selected = $true
+                        OmissionReason = ''
+                        DependsOn = @()
+                    }
+                })
+            return New-FleetDispatchPlan -Task $descriptors
+        }
+
+        $models = @('Claude Opus 5 (copilot)', 'GPT-5.6 Sol (copilot)')
+        $sixFrozen = @(New-FrozenReviewTasks `
+                -Concern security, correctness-reliability, architecture-patterns `
+                -Model $models)
+        $sixPlan = New-FrozenReviewFleetPlan -FrozenTask $sixFrozen
+
+        @($sixPlan.Waves | ForEach-Object { $_.TaskIds.Count }) | Should -Be @(4, 2)
+        @($sixPlan.Selected.Id) | Should -Be @($sixFrozen.TaskId)
+        @($sixPlan.Selected.Id | Select-Object -Unique).Count | Should -Be $sixFrozen.Count
+        @($sixPlan.Tasks | Where-Object { $_.DependsOn.Count -ne 0 }).Count | Should -Be 0
+        @($sixPlan.Omitted).Count | Should -Be 0
+        $sixPlan.Attendance.Count | Should -Be 0
+        for ($index = 0; $index -lt $sixFrozen.Count; $index++) {
+            $sixPlan.Selected[$index].Key | Should -BeExactly $sixFrozen[$index].Model
+        }
+
+        $sixCalls = [System.Collections.Generic.List[string]]::new()
+        $sixRendered = [System.Collections.Generic.List[string]]::new()
+        $sixInvokedIds = [System.Collections.Generic.List[string]]::new()
+        $sixReviewOutcomes = [System.Collections.Generic.Dictionary[string, string]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        $sixTransition = Start-FleetDispatchRun -Plan $sixPlan
+        $sixRendered.Add('PreView')
+        $sixTransition.PreView | Should -Match 'Fleet dispatch plan'
+        while (-not $sixTransition.Done) {
+            $wave = $sixTransition.Wave
+            $sixCalls.Add("$($wave.Attempt)`:$($wave.TaskIds -join ',')")
+            $waveResults = @($wave.Tasks | ForEach-Object {
+                    $sixInvokedIds.Add($_.Id)
+                    if ($_.Id -ceq $sixFrozen[0].TaskId -and $wave.Attempt -eq 1) {
+                        New-ReviewWaveResult `
+                            -TaskId $_.Id `
+                            -Outcome throttled `
+                            -Detail 'explicit structured throttle'
+                    }
+                    else {
+                        $sixReviewOutcomes[$_.Id] = 'completed'
+                        New-ReviewWaveResult -TaskId $_.Id
+                    }
+                })
+            $waveResults.Count | Should -Be $wave.TaskIds.Count
+            $sixTransition = Step-FleetDispatchRun -Run $sixTransition.Run -Result $waveResults
+        }
+        $sixResult = Complete-FleetDispatchRun -Run $sixTransition.Run
+        $sixRendered.Add('FinalView')
+
+        $sixRendered.ToArray() | Should -Be @('PreView', 'FinalView')
+        $sixCalls.ToArray() | Should -Be @(
+            '1:security-m1,security-m2,correctness-reliability-m1,correctness-reliability-m2',
+            '2:security-m1',
+            '1:architecture-patterns-m1,architecture-patterns-m2'
+        )
+        $sixInvokedIds[0] | Should -BeExactly $sixInvokedIds[4]
+        @($sixInvokedIds | Select-Object -Unique) | Should -Be @($sixFrozen.TaskId)
+        $sixReviewOutcomes.Count | Should -Be $sixFrozen.Count
+        $sixResult.Attendance.Planned | Should -Be $sixFrozen.Count
+        $sixResult.Attendance.Completed | Should -Be $sixFrozen.Count
+        $sixResult.Attendance.Retried | Should -Be 1
+        $sixResult.Attendance.Completed +
+        $sixResult.Attendance.Failed +
+        $sixResult.Attendance.Cancelled |
+            Should -Be $sixResult.Attendance.Planned
+        @($sixResult.Tasks.Id | Select-Object -Unique).Count | Should -Be $sixFrozen.Count
+        $sixResult.FinalView | Should -Match 'Fleet dispatch attendance'
+
+        $fourteenFrozen = @(New-FrozenReviewTasks `
+                -Concern @(
+                'security',
+                'correctness-reliability',
+                'architecture-patterns',
+                'performance',
+                'testing-evidence',
+                'maintainability-consistency',
+                'operability-observability'
+            ) `
+                -Model $models)
+        $fourteenPlan = New-FrozenReviewFleetPlan -FrozenTask $fourteenFrozen
+
+        @($fourteenPlan.Waves | ForEach-Object { $_.TaskIds.Count }) | Should -Be @(4, 4, 4, 2)
+        @($fourteenPlan.Selected.Id) | Should -Be @($fourteenFrozen.TaskId)
+        @($fourteenPlan.Selected.Id | Select-Object -Unique).Count | Should -Be $fourteenFrozen.Count
+        @($fourteenPlan.Tasks | Where-Object { $_.DependsOn.Count -ne 0 }).Count | Should -Be 0
+        @($fourteenPlan.Omitted).Count | Should -Be 0
+        for ($index = 0; $index -lt $fourteenFrozen.Count; $index++) {
+            $fourteenPlan.Selected[$index].Key | Should -BeExactly $fourteenFrozen[$index].Model
+        }
+
+        $richerOutcomes = @('failed', 'timed-out', 'omitted', 'cancelled')
+        $fourteenCalls = [System.Collections.Generic.List[string]]::new()
+        $retainedReviewOutcomes = [System.Collections.Generic.Dictionary[string, string]]::new(
+            [System.StringComparer]::Ordinal
+        )
+        $fourteenTransition = Start-FleetDispatchRun -Plan $fourteenPlan
+        while (-not $fourteenTransition.Done) {
+            $wave = $fourteenTransition.Wave
+            $fourteenCalls.Add("$($wave.Attempt)`:$($wave.TaskIds -join ',')")
+            $waveResults = @($wave.Tasks | ForEach-Object {
+                    $frozenIndex = [array]::IndexOf($fourteenFrozen.TaskId, $_.Id)
+                    if ($frozenIndex -lt $richerOutcomes.Count) {
+                        $reviewOutcome = $richerOutcomes[$frozenIndex]
+                        $retainedReviewOutcomes[$_.Id] = $reviewOutcome
+                        $detail = if ($frozenIndex -eq 0) {
+                            'ordinary review failure: HTTP 429 in error prose'
+                        }
+                        else {
+                            "review outcome: $reviewOutcome"
+                        }
+                        New-ReviewWaveResult -TaskId $_.Id -Outcome failed -Detail $detail
+                    }
+                    else {
+                        $retainedReviewOutcomes[$_.Id] = 'completed'
+                        New-ReviewWaveResult -TaskId $_.Id
+                    }
+                })
+            $waveResults.Count | Should -Be $wave.TaskIds.Count
+            $fourteenTransition = Step-FleetDispatchRun `
+                -Run $fourteenTransition.Run `
+                -Result $waveResults
+        }
+        $fourteenResult = Complete-FleetDispatchRun -Run $fourteenTransition.Run
+
+        @($fourteenCalls | ForEach-Object { ($_ -split ':', 2)[1].Split(',').Count }) |
+            Should -Be @(4, 4, 4, 2)
+        @($fourteenCalls | Where-Object { $_ -like '2:*' }).Count | Should -Be 0
+        $retainedReviewOutcomes.Count | Should -Be $fourteenFrozen.Count
+        @($retainedReviewOutcomes.Values | Where-Object { $_ -in $richerOutcomes }).Count |
+            Should -Be 4
+        $fourteenResult.Attendance.Planned | Should -Be $fourteenFrozen.Count
+        $fourteenResult.Attendance.Completed | Should -Be 10
+        $fourteenResult.Attendance.Failed | Should -Be 4
+        $fourteenResult.Attendance.Retried | Should -Be 0
+        $fourteenResult.Attendance.Cancelled | Should -Be 0
+        $fourteenResult.Attendance.Completed +
+        $fourteenResult.Attendance.Failed +
+        $fourteenResult.Attendance.Cancelled |
+            Should -Be $fourteenResult.Attendance.Planned
+        @($fourteenResult.Tasks.Id | Select-Object -Unique).Count | Should -Be $fourteenFrozen.Count
+    }
+
     It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
         Import-Module (Join-Path $repoRoot 'tests/ConsumerInstallFixture.psm1') -Force -DisableNameChecking
         $catalog = Get-ConsumerInstallManifestCatalog -SourceRepoRoot $repoRoot
@@ -566,12 +805,12 @@ Describe 'Fleet dispatch execution adapter' {
             )
 
             return [pscustomobject]@{
-                Id             = $Id
-                Label          = $Label
-                Key            = $Key
-                Selected       = $Selected
+                Id = $Id
+                Label = $Label
+                Key = $Key
+                Selected = $Selected
                 OmissionReason = $OmissionReason
-                DependsOn      = $DependsOn
+                DependsOn = $DependsOn
             }
         }
 
@@ -812,8 +1051,8 @@ Describe 'Fleet dispatch execution adapter' {
         @($failureResult.Tasks | Where-Object Status -eq cancelled).Id |
             Should -Be @('dependent', 'transitive')
         $failureResult.Attendance.Completed +
-            $failureResult.Attendance.Failed +
-            $failureResult.Attendance.Cancelled |
+        $failureResult.Attendance.Failed +
+        $failureResult.Attendance.Cancelled |
             Should -Be $failureResult.Attendance.Planned
     }
 
@@ -1002,11 +1241,11 @@ Describe 'Fleet dispatch execution adapter' {
         } | Should -Throw '*512-character limit*'
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
-                    param($Wave)
-                    @(
-                        [pscustomobject]@{ TaskId = 1; Outcome = 'completed'; Detail = '' }
-                        New-WaveResult -TaskId second
-                    )
+                param($Wave)
+                @(
+                    [pscustomobject]@{ TaskId = 1; Outcome = 'completed'; Detail = '' }
+                    New-WaveResult -TaskId second
+                )
             }
         } | Should -Throw '*must be a string*'
 

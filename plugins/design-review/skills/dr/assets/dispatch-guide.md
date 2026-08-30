@@ -145,7 +145,42 @@ Dispatched 7 of 28 budgeted invocations (7 concerns × 1 selected model).
 If the plan of record for a run would exceed 28, narrow the concern set or scope before Freeze and
 record the resulting exact task set; never silently spend beyond the frozen budget.
 
-## 7. After the reviewers return
+## 7. Fleet adapter after successful Freeze
+
+Freeze remains the admission authority and must finish with exit `0` before creating a Fleet plan.
+Read its sole content-addressed frozen plan. In that canonical `tasks` order, create one descriptor
+per frozen task:
+
+- `Id` is the exact frozen `taskId`.
+- `Label` identifies the frozen concern without changing its identity.
+- `Key` is the exact frozen `model` binding.
+- `Selected` is `$true`, `OmissionReason` is empty, and `DependsOn` is `@()`.
+
+Do not add descriptors, infer omissions, reorder tasks, or derive a fresh concern/model matrix.
+Before dispatch, require the selected Fleet ids to equal the frozen task ids exactly and uniquely,
+and require the Fleet planned count to equal the frozen count. Six and fourteen are representative
+profile fixtures, not fixed review counts; filters and profiles may freeze other counts.
+
+Import `scripts/skalary/FleetDispatch.psm1`. Call `New-FleetDispatchPlan` once from those descriptors,
+then call `Start-FleetDispatchRun` once. Render its `PreView` before any reviewer call. Provider-global
+concurrency is unobserved. Until the transition reports `Done`, invoke only its returned
+already-admitted wave and pass exactly one `{ TaskId, Outcome, Detail }` projection for every admitted
+task to `Step-FleetDispatchRun`.
+
+Map a completed review to Fleet `completed`. Map only an explicit structured throttle outcome to
+Fleet `throttled`; retry the same frozen task only when Fleet returns its attempt-2 wave. Never infer
+throttling from diagnostics or error prose such as `429`. Map review `failed`, `timed-out`, `omitted`,
+or host-cancelled outcomes to Fleet `failed`. If the explicit throttle retry also throttles, Fleet
+ends that task failed and the richer review outcome used by Publish is `failed` with its diagnostic.
+Keep every richer review outcome and findings separately in memory; do not add Fleet attendance to
+review-run schemas or result inputs.
+
+Call `Complete-FleetDispatchRun` only after `Done`, require
+`Completed + Failed + Cancelled = Planned`, and render its `FinalView`. Fleet terminal status is only
+a dispatch projection. The collation lifecycle still owns Publish, persistence, verified Summary and
+Full reading, and authoritative result rendering, all of which happen after Fleet completion.
+
+## 8. After the reviewers return
 
 1. Keep every returned `## Findings (<Concern>)` section and every task outcome in memory.
 2. Never prime one reviewer with another result, suppress an independent dispatch, or dedupe before

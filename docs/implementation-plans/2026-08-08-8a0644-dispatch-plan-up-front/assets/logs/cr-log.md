@@ -53,3 +53,8 @@ Phase: 2
 - [-] [src:code-review] [sev:Med] [concern:operability-observability] [req:REQ-4,REQ-5] [review:cr] [source-record:4d1454b0b05744df73be34b5f6f31c5f56c54acdbdd84edffcc0430679e3260c] Round 3 finding 2 triage=fix: successful or exhausted retries dropped explicit throttle detail from captured attendance; render redacted per-attempt host diagnostics independently of terminal task detail.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:acc5a579d1435467395a91d9a5dc69811311f5b589663cae602280ec3c515017] review-cycle stage=phase-2 cycle=3 outcome=findings run=ee29aef5-b56a-4ea8-852e-7f42a81fa94a summary=two findings fixed; manifest dependency closure and throttle diagnostic retention
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:a44efb00e5c854b9f19970459b3db0f2f1404693e405e6ef807cedfa75138c71] review-cycle-decision stage=phase-2 after=3 action=wrap
+
+## CR Capture
+Phase: 3
+
+No entries for this phase.

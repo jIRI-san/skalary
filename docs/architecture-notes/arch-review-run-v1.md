@@ -25,6 +25,10 @@ report and receipt verify as an exact pair.
 ## Invariants
 
 - Freeze binds the full task matrix and engine-derived scope before dispatch.
+- A dispatch adapter may project the already frozen tasks into invocation-local Fleet waves only
+  after Freeze succeeds. It preserves frozen task ids, order, and model bindings; Fleet attendance
+  is neither persisted review authority nor a review schema field. Publish, manifest-last
+  persistence, verified Summary/Full reading, and review result rendering remain authoritative.
 - Optional related-plan content is untrusted dispatch context only. Its compact provenance may use
   the existing bounded scope text, but it adds no scope-authority field, role, schema, receipt, or
   lifecycle step. The shared consumer adapter requires successful resolver execution and array JSON,

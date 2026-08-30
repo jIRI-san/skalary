@@ -677,6 +677,15 @@ matrix before dispatch, dispatch independently with no prior-result priming or s
 results in memory, Publish once, then read through the digest-verifying reader. Plan runs preserve
 their manifest and generations; generic runs use the cleanup helper only after summary delivery.
 
+After successful Freeze, the callers project the exact ordered frozen task set into Fleet dispatch:
+every task is selected, keeps its frozen id and model binding, and has no dependency. New and Start
+run once; the pre-view precedes reviewer calls, only returned already-admitted waves run, each task
+submits one structured dispatch outcome, and Complete/final-view precede Publish. Explicit structured
+throttling alone retries once as the same task. Other review terminals project to Fleet failure while
+their richer outcomes remain the Publish inputs. Fleet attendance is invocation-local projection,
+never a review schema or persisted authority; Publish and verified Summary/Full rendering remain
+authoritative.
+
 The lifecycle remains shared while model policy differs by review type. DR dispatches its two-model
 roster on every round; iterative DR callers stop after three rounds by default. CR reads its role
 bindings from `skills/cr/assets/model-preferences.md`: post-phase runs freeze primary-only tasks,

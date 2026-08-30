@@ -57,6 +57,20 @@ retains the existing edit/build/test/format/design-note/fix loop, Judge retains 
 and commit, push, promotion, phase review, and harvest remain outside dispatch. Failed runs leave the
 step in progress for a new invocation-local plan rather than issuing undeclared replacement calls.
 
+`/cr` and `/dr` create Fleet descriptors only after review-run Freeze succeeds. Every frozen task is
+selected in canonical frozen order, with its exact `taskId` as Fleet `Id`, frozen model as `Key`, and
+no dependencies. The adapter calls New and Start once, renders Start's pre-view before reviewer
+calls, submits exactly one structured projection for each task in each returned already-admitted
+wave, and calls Complete only after Done before rendering the final view. A six-task fixture projects
+to `4,2`; a fourteen-task fixture projects to `4,4,4,2`, but filters and profiles may freeze any
+valid count.
+
+Only an explicit structured throttle projection retries, once, as the same frozen task. Review
+failures, timeouts, omissions, and host cancellations project to Fleet failure, while their richer
+review outcomes remain in memory for publication. Error prose such as `HTTP 429` is an ordinary
+failure. Fleet attendance is not added to review schemas or persistence: review-run Publish,
+verified Summary/Full reading, and result rendering remain authoritative after Fleet completion.
+
 ## Design Decisions
 
 The helper is canonical under `scripts/skalary/` because multiple independently installed plugins
