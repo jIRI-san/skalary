@@ -601,12 +601,21 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             $retainedReceiptBefore = [System.IO.File]::ReadAllBytes($final.Receipt)
             { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch } |
                 Should -Throw -ExpectedMessage '*different verdict*'
+            { Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict Blocked -RepoRoot $scratch } |
+                Should -Throw -ExpectedMessage '*different verdict*'
             [System.IO.File]::ReadAllBytes($final.Report) | Should -Be $retainedReportBefore
             [System.IO.File]::ReadAllBytes($final.Receipt) | Should -Be $retainedReceiptBefore
 
             $tampered = Get-Content -LiteralPath $final.Receipt -Raw | ConvertFrom-Json -AsHashtable -Depth 20
             $tampered['state'] = 'degraded'
             [System.IO.File]::WriteAllText($final.Receipt, (ConvertTo-ReviewCanonicalJson -Node $tampered), [System.Text.UTF8Encoding]::new($false))
+            $tamperedBytes = [System.IO.File]::ReadAllBytes($final.Receipt)
+            $previewRepair = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch -WhatIf
+            $previewRepair.Preview | Should -BeTrue
+            $previewRepair.CleanupPending | Should -BeTrue
+            [System.IO.File]::ReadAllBytes($final.Receipt) | Should -Be $tamperedBytes
+            Test-Path -LiteralPath (Join-Path $store ".cleanup/$script:runId") | Should -BeTrue
+
             $replay = Finalize-ReviewPlanRun -RunId $script:runId -PlanDir $planDir -Verdict blocked -RepoRoot $scratch
             $replay.Replayed | Should -BeFalse -Because 'tampered retained evidence is reconstructed from verified live authority'
             $replay.CleanupPending | Should -BeFalse
@@ -639,8 +648,6 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             Clear-ReviewRunFaultSeam
             $first.CleanupPending | Should -BeTrue
             $cleanupDir = Join-Path (Split-Path -Parent $runDir) ".cleanup/$runId"
-            $cleanupMarkerPath = Join-Path (Split-Path -Parent $runDir) ".$runId.cleanup.json"
-            $cleanupMarkerBytes = [System.IO.File]::ReadAllBytes($cleanupMarkerPath)
             Remove-Item -LiteralPath (Join-Path $cleanupDir 'review-run.manifest.json') -Force
 
             $replay = Finalize-ReviewPlanRun -RunId $runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch
@@ -648,20 +655,56 @@ Describe 'review report artifact handshake, location, cleanup and secret rejecti
             Test-Path -LiteralPath $cleanupDir | Should -BeFalse
             Test-Path -LiteralPath $replay.Report | Should -BeTrue
             Test-Path -LiteralPath $replay.Receipt | Should -BeTrue
+        }
+        finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
+    }
 
-            [System.IO.File]::WriteAllBytes($cleanupMarkerPath, $cleanupMarkerBytes)
-            Mock Remove-ReviewCleanupMarker {
-                throw 'replay cleanup marker removal denied'
-            } -ModuleName ReviewRun
-            $failedReplay = Finalize-ReviewPlanRun `
-                -RunId $runId `
-                -PlanDir $planDir `
-                -Verdict approved `
-                -RepoRoot $scratch
-            $failedReplay.CleanupPending | Should -BeTrue
-            $failedReplay.CleanupDiagnostic |
-                Should -BeExactly 'replay cleanup marker removal denied'
-            Test-Path -LiteralPath $cleanupMarkerPath -PathType Leaf | Should -BeTrue
+    It 'test:ReviewReport.FinalizedResultCompaction preserves marker-bound evidence across renderer upgrades' {
+        $scratch = New-ReviewScratchRoot
+        try {
+            $runId = [guid]::NewGuid().ToString()
+            $planDir = New-ReviewTestPlanDir -ScratchRoot $scratch
+            $runDir = Resolve-ReviewRunPreparation -RunId $runId -PlanDir $planDir -RepoRoot $scratch | Select-Object -ExpandProperty runRoot
+            [void](New-Item -ItemType Directory -Path $runDir -Force)
+            $task = @{ taskId = 'security-m1'; concern = 'security'; model = 'model-a' }
+            Set-ReviewHandshake -RunDir $runDir -Kind plan -Object (New-ReviewTestPlan -RunId $runId -Roster @('model-a') -Tasks @($task))
+            (Invoke-ReviewFreeze -RunId $runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+            $run = New-ReviewTestRun -RunId $runId -PlanDigest (Get-ReviewFrozenDigest -RunDir $runDir) -Roster @('model-a') `
+                -Tasks @(@{ taskId = 'security-m1'; concern = 'security'; model = 'model-a'; outcome = 'completed' })
+            Set-ReviewHandshake -RunDir $runDir -Kind result -Object $run
+            (Invoke-ReviewPublish -RunId $runId -PlanDir $planDir -RepoRoot $scratch).ExitCode | Should -Be 0
+
+            Set-ReviewRunFaultSeam -Edge 'during-finalize-cleanup'
+            $first = Finalize-ReviewPlanRun -RunId $runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch
+            Clear-ReviewRunFaultSeam
+            $first.CleanupPending | Should -BeTrue
+
+            $reportBytes = [System.IO.File]::ReadAllBytes($first.Report) + [System.Text.Encoding]::UTF8.GetBytes("<!-- prior renderer -->`n")
+            [System.IO.File]::WriteAllBytes($first.Report, $reportBytes)
+            $receipt = Get-Content -LiteralPath $first.Receipt -Raw | ConvertFrom-Json -AsHashtable -Depth 20
+            $receipt['report']['bytes'] = $reportBytes.Length
+            $receipt['report']['digest'] = Get-ReviewDigest -Bytes $reportBytes
+            $receiptBytes = [System.Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-ReviewCanonicalJson -Node $receipt))
+            [System.IO.File]::WriteAllBytes($first.Receipt, $receiptBytes)
+
+            $store = Split-Path -Parent $runDir
+            $markerPath = Join-Path $store ".$runId.cleanup.json"
+            $marker = Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json -AsHashtable -Depth 10
+            $marker['report']['bytes'] = $reportBytes.Length
+            $marker['report']['digest'] = Get-ReviewDigest -Bytes $reportBytes
+            $marker['receipt']['bytes'] = $receiptBytes.Length
+            $marker['receipt']['digest'] = Get-ReviewDigest -Bytes $receiptBytes
+            [System.IO.File]::WriteAllText(
+                $markerPath,
+                (ConvertTo-ReviewCanonicalJson -Node $marker),
+                [System.Text.UTF8Encoding]::new($false))
+
+            $replay = Finalize-ReviewPlanRun -RunId $runId -PlanDir $planDir -Verdict approved -RepoRoot $scratch
+            $replay.Replayed | Should -BeTrue
+            $replay.CleanupPending | Should -BeFalse
+            [System.IO.File]::ReadAllBytes($replay.Report) | Should -Be $reportBytes
+            [System.IO.File]::ReadAllBytes($replay.Receipt) | Should -Be $receiptBytes
+            Test-Path -LiteralPath (Join-Path $store ".cleanup/$runId") | Should -BeFalse
         }
         finally { Clear-ReviewRunFaultSeam; Remove-ReviewScratchRoot -Path $scratch }
     }

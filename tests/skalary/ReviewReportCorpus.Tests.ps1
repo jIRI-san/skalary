@@ -304,7 +304,7 @@ Describe 'review report corpus' {
             $text.IsNormalized([System.Text.NormalizationForm]::FormC) | Should -BeTrue
             $text | Should -Match "`n$" -Because 'both views end with exactly one newline'
         }
-        [string]$script:expectation.ownedByStep | Should -Be '1.1'
+        [string]$script:expectation.ownedByStep | Should -Be 'ca8ba8/2.1'
         [string]$script:expectation.status | Should -Be 'committed'
     }
 
@@ -341,7 +341,8 @@ Describe 'review report corpus' {
 
         # The summary names every merged severity/title exactly once as a numbered row, and carries
         # the attendance totals for every outcome the contract defines.
-        @([regex]::Matches($summary, '(?m)^\| \d+ \| (Critical|High|Medium|Low)')).Count | Should -Be 44
+        @([regex]::Matches($summary, '(?m)^\| \d+ \| [CHML]→[CHML] \|')).Count |
+            Should -Be 44
         $attendance = $script:expectation.summary.requiredAttendance
         [int]$attendance.plannedTasks | Should -Be @($script:run.tasks).Count
         [int]$attendance.completed | Should -Be @($script:run.tasks | Where-Object { [string]$_.outcome -eq 'completed' }).Count
@@ -513,6 +514,58 @@ Describe 'review report corpus' {
         $caseProjection.Findings[0].Elevated | Should -BeFalse
         $caseProjection.Findings[0].Severity |
             Should -Be 'Medium' -Because 'declared model identity is an ordinal value, not a case-insensitive label'
+
+        $spacedModel = ' model-a'
+        $whitespaceSensitive = @{
+            findings = @(
+                @{ body = 'first account'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'plain'; title = 'Plain label' }
+                @{ body = 'second account'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'spaced'; title = 'Spaced label' }
+            )
+            invocationBudget = 2
+            planDigest = 'sha256:' + ('0' * 64)
+            reviewType = 'code'
+            roster = @('model-a', $spacedModel)
+            runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+            schema = 'skalary/review-run@1'
+            scope = 'whitespace-sensitive model identity'
+            tasks = @(
+                @{ concern = 'security'; model = 'model-a'; outcome = 'completed'; taskId = 'plain' }
+                @{ concern = 'security'; model = $spacedModel; outcome = 'completed'; taskId = 'spaced' }
+            )
+        }
+        $referenceWhitespace = ConvertTo-ReviewProjection -Run $whitespaceSensitive
+        $productionWhitespace = ConvertTo-ProdReviewProjection -Run $whitespaceSensitive
+        $referenceWhitespace.Findings[0].Models | Should -Contain $spacedModel
+        $referenceWhitespace.Findings[0].SupportCount | Should -Be 2
+        $referenceWhitespace.Findings[0].EffectiveSeverity | Should -Be 'High'
+        @($referenceWhitespace.Findings[0].Models) | Should -Be @($productionWhitespace.Findings[0].Models)
+        $referenceWhitespace.Findings[0].CorroborationState |
+            Should -Be $productionWhitespace.Findings[0].CorroborationState
+
+        $nearLeft = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango'
+        $nearRight = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra uniform'
+        $exactPrecedence = @{
+            findings = @(
+                @{ action = 'Review manually.'; body = $nearLeft; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'a'; title = 'Echo' }
+                @{ action = 'Review manually.'; body = $nearRight; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'b'; title = 'Echo' }
+                @{ action = 'Review manually.'; body = $nearLeft; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'c'; title = 'Echo' }
+            )
+            invocationBudget = 3
+            planDigest = 'sha256:' + ('0' * 64)
+            reviewType = 'code'
+            roster = @('model-a', 'model-b', 'model-c')
+            runId = '8f3c1d2e-5a47-4b90-9c61-2d7e0f4a6b35'
+            schema = 'skalary/review-run@1'
+            scope = 'exact similarity precedence'
+            tasks = @(
+                @{ concern = 'security'; model = 'model-a'; outcome = 'completed'; taskId = 'a' }
+                @{ concern = 'security'; model = 'model-b'; outcome = 'completed'; taskId = 'b' }
+                @{ concern = 'security'; model = 'model-c'; outcome = 'completed'; taskId = 'c' }
+            )
+        }
+        (ConvertTo-ReviewProjection -Run $exactPrecedence).Findings[0].Similarity |
+            Should -Be 'exact' -Because 'an exact pair takes precedence over an earlier near pair'
+        (ConvertTo-ProdReviewProjection -Run $exactPrecedence).Findings[0].Similarity | Should -Be 'exact'
 
         $caseDistinctModels.findings = @(
             @{ body = 'same'; component = 'component'; rootCause = 'cause'; severity = 'Medium'; taskId = 'upper'; title = 'Alpha' }

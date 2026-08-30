@@ -12,6 +12,7 @@ globs:
   - scripts/skalary/Resolve-ReviewStandards.ps1
   - tests/skalary/ReviewStandards.Tests.ps1
   - tests/skalary/fixtures/review-run/**
+  - tests/skalary/ReviewCorroboration.Tests.ps1
   - tests/skalary/ReviewReport*.Tests.ps1
   - tests/skalary/ReviewRun*.Tests.ps1
   - tests/skalary/ReviewConsumerInstall.Tests.ps1
@@ -120,16 +121,15 @@ rebuilds the envelope and projection from that archived source, and finishes by 
 `New-ReviewLayoutGolden.ps1` so the new-layout goldens can never describe a superseded envelope.
 
 `new-layout.expectation.json` is the closed content contract for the two published views, and it is
-no longer a promise: `new-layout.summary.golden.md` (5,710 bytes) and `new-layout.full.golden.md`
-(81,403 bytes) are committed beside it, with their exact byte counts and SHA-256 digests recorded in
+no longer a promise: `new-layout.summary.golden.md` (7,278 bytes) and `new-layout.full.golden.md`
+(94,468 bytes) are committed beside it, with their exact byte counts and SHA-256 digests recorded in
 both the expectation and the provenance file.
 
 The goldens are produced from the envelope, not copied from anything. `ReviewLayoutReference.psm1`
 is a **test-only** deterministic reference renderer: it derives both views from a
-`skalary/review-run@1` envelope using the contract alone — the merge, elevation and ordering rules
-`Build-ReviewReport.ps1` already implements, plus D4 attendance and D5/D15 encoding — and performs
-no file I/O, no publication and no schema loading. Step 1.2 owns the production renderer,
-`Freeze`/`Publish` and the module; it reproduces these exact bytes, and
+`skalary/review-run@1` envelope using the contract alone — merge, corroboration, elevation, ordering,
+D4 attendance, and D5/D15 encoding — and performs no file I/O, no publication and no schema loading.
+The production renderer, `Freeze`/`Publish`, and the module reproduce these exact bytes, and
 `ReviewReportCorpus.Tests.ps1` holds the production and reference renderers equal.
 
 Regenerate with `pwsh -NoProfile -File tests/skalary/fixtures/review-run/New-ReviewLayoutGolden.ps1`;
@@ -140,8 +140,8 @@ invariant culture, or that changes when the task and finding arrays are reversed
 
 | View | Bound | Contains |
 |---|---|---|
-| `summary` | 32 KiB | identity table (run, type, state, plan/scope digests, structural content trust, requested/declared model state, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming its severity and title |
-| `full` | 1 MiB | the same identity table and structural trust marker, one row per planned task (concern, declared model label, outcome, raw-finding count, diagnostic), every merged finding with its severities/concerns/declared model labels, distinct bodies, references and raw records, then recommendations |
+| `summary` | 32 KiB | identity table (run, type, state, plan/scope digests, structural content trust, requested/declared model state, invocations), attendance totals for all six outcomes plus the planned count, and one numbered row per merged finding naming raw/effective severity, compact support/attendance/similarity/corroboration codes, title, and a lossless reason-legend key |
+| `full` | 1 MiB | the same identity table and structural trust marker, one row per planned task (concern, declared model label, outcome, raw-finding count, diagnostic), every merged finding with raw/effective severity, support count, attendance, similarity, corroboration, reason, concerns/declared model labels, distinct bodies, references and raw records, then recommendations |
 
 Untrusted-field handling is part of the layout, not a later addition:
 
@@ -165,7 +165,7 @@ records, the attendance totals — so a golden that quietly lost a finding fails
 with itself. A hostile envelope covers the encoding rules directly.
 
 `edge/maximum-envelope.spec.json` states the largest legal envelope as a recipe. Step 1.1 owns the
-arithmetic only: 128 tasks and 256 findings at every maximum are 2,072,751 bytes, 24,401 under the
+arithmetic only: 128 tasks and 256 findings at every maximum are 2,095,287 bytes, 1,865 under the
 2 MiB input cap, and native `Test-Json` accepts them. The 256 findings carry only 128 distinct
 `(rootCause, component)` merge keys — seeded per group rather than per finding — because
 `maxMergedFindings` is 128: a fixture with 256 keys would describe an envelope the contract does not
@@ -369,6 +369,65 @@ normalize to the same merge tuple (a title differing only in surrounding whitesp
 projection and the full view in a deterministic ordinal order. Keying a dictionary by that tuple — the
 earlier implementation — turned legal input into a crashed publication.
 
+### Observable finding similarity
+
+Corroboration similarity is derived only inside an existing `(rootCause, component)` merge group and
+only between findings attributed to distinct declared model labels. It is evidence that two nominally
+independent outputs may not be independent; it never proves which model served a request, and absence
+of a match means only that no suspicious similarity was observed.
+
+One engine-owned helper canonicalizes each raw finding's title, body, and action independently to NFC,
+LF, invariant lowercase Unicode letter/decimal-number words. The three normalized fields remain a
+length-prefixed tuple, so reviewer text cannot forge field boundaries. Exact tuple matches always flag.
+Otherwise, a pair is a clearly near duplicate only when both combined normalized records have at least
+8 distinct tokens and 48 characters and their token-set Jaccard similarity is at least `0.90`. The
+fixed content guard prevents short shared boilerplate from suppressing valid corroboration. Comparison
+uses the projection's deterministic raw-record order, preserves every raw field unchanged, and records
+only `none`, `near-duplicate`, or `exact` on the derived merged entry. Each raw record is normalized
+once; exact tuples are indexed by declared model label before lexical comparison, and each near-match
+token maps to nested declared-model posting buckets before intersection counts are accumulated.
+Same-label buckets therefore never enter work that can only affect cross-label corroboration, and the
+pass stops at its first qualifying pair because group-level suspicion is already established.
+
+The merged entry then derives one support state with fixed precedence: any exact or near-duplicate
+cross-label pair is `suspicious`; otherwise incomplete task attendance is `degraded`; otherwise two or
+more distinct declared model labels are `corroborated`; the remainder is `single-source`. The entry
+keeps raw and effective severity separately. A one-rank elevation is allowed only when support is
+corroborated, attendance is complete, every declared model label reported the merge group, no
+suspicious similarity was observed, and raw severity is below Critical. Suspicious and degraded
+support never elevate. Suspicious support sets `NeedsReview`, carries a `needs-review` reason, and makes
+an `approved` retained-result verdict invalid even when its effective severity is otherwise
+non-blocking.
+
+Each projected finding exposes the engine-owned fields `SupportCount`, `AttendanceState`,
+`Similarity`, `CorroborationState`, `RawSeverity`, `EffectiveSeverity`, and `Reason`; none is accepted
+from the review-run envelope. The summary renders all seven beside each merged title. The full view
+renders the same values in each finding's detail table, keeps every raw record and its original
+severity, and labels recommendations with effective severity.
+
+Plan finalization retains the gate-relevant part of that truth without replacing the bounded v1
+lifecycle. The compact report records raw/effective severity distributions, corroboration and
+similarity distributions, needs-review count, and the complete support/attendance/similarity/reason
+tuple for each displayed blocking or non-blocking needs-review finding. The digest-bound receipt
+carries the same aggregate distributions. The 8 KiB retained-report bound, manifest-last publication,
+verified replay, cleanup tombstone, and exact retained-pair repair rules are unchanged. The committed
+corpus reference renderer and byte goldens include these fields so production and fixture rendering
+remain independently derived.
+
+`tests/skalary/fixtures/review-run/corroboration-matrix.json` is the compact behavioral corpus for the
+derived fields. It fixes exact and near duplicates, unrelated short boilerplate, single-source and
+degraded attendance, malicious echo, input-order stability, and unchanged clean elevation. The
+`test:ReviewReport.CorroborationMatrix` host verifies every expected projection and raw-record count,
+then adds each forbidden derived field to an otherwise schema-valid raw finding and requires the
+closed review-run v1 schema to reject it. Derived corroboration and effective severity therefore stay
+engine-owned rather than becoming caller assertions.
+
+`ReviewRun.psm1` remains the single canonical implementation of this derivation. The existing plugin
+script writer copies it into both CR and DR bundles, bumps each changed plugin version, and the
+dogfood, marketplace, and registry writers propagate those exact bytes and hashes. Installed-consumer
+tests execute both shipped copies with canonical source fallbacks poisoned; structural CR/DR evals
+continue to prove orchestration ownership independently of the report behavior corpus.
+
 ### Untrusted text never becomes a delimiter
 
 Every leaf string in the contract is `type: string` with a length bound: a model name, a title or a
@@ -509,9 +568,11 @@ cleanup without verified authority is refused, and `-Force` is limited to unpubl
 For a plan run, `-PlanDir` plus explicit
 `-Verdict approved|blocked` verifies the bundle, emits compact sibling files, then removes the live
 directory. `<uuid>.review.md` is human evidence bounded by `maxRetainedReportBytes` (8 KiB): identity,
-source scope, gate verdict, attendance, severity totals, and bounded blocking titles only. The closed
-`<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance, and
-severity digests/counts. Approval is impossible when the run is degraded or has Critical/High findings.
+source scope, gate verdict, attendance, raw/effective severity totals, corroboration/similarity totals,
+and byte-budgeted blocking and non-blocking needs-review rows with explicit omission counts. The closed
+`<uuid>.receipt.json` binds that report's bytes/digest to plan, run, manifest, scope, attendance,
+raw/effective severity, corroboration, similarity, and needs-review counts. Approval is impossible
+when the run is degraded, has Critical/High effective findings, or has any needs-review finding.
 Live `<uuid>/` directories are gitignored; only those compact siblings are committed. Finalization is
 serialized by a stable ignored store-level lock and the run publication lock, and supports PowerShell
 `ShouldProcess`/`-WhatIf`; dry runs report `would finalize` and write nothing. The live directory is
@@ -524,7 +585,11 @@ manifest identity verification valid). Before the rename it atomically writes a 
 binding run id, verdict, and both retained-file digests. It then recursively removes the tombstone with
 terminating errors. A partial recursive failure therefore cannot be rediscovered as an incomplete
 review and can converge from the marker plus retained pair even if the tombstone manifest was already
-deleted. Marker identity is checked before repair, so a different verdict cannot rewrite evidence.
+deleted. Replay validates and preserves an intact marker-bound pair before invoking the current
+renderer, so a renderer upgrade cannot strand cleanup. A missing or tampered pair is regenerated only
+when verified cleanup authority reproduces the marker-bound bytes; renderer drift therefore never
+silently rewrites retained evidence. Marker identity is checked before repair, so a different verdict
+cannot rewrite evidence.
 Cleanup diagnostics cross the CLI boundary with exit `4`. Retrying the same verdict verifies the pair and converges cleanup. Historical
 live bundles were compacted during migration, so production finalization now accepts only the current
 manifest shape and refuses old live authority. Existing compact legacy receipts remain historical

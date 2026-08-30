@@ -3,6 +3,7 @@
 - [2026-08-01] A content stripper feeding a bootstrap or security gate must fail closed on malformed input; blanking the remainder turns an authoring slip into a silent gate bypass. (plan-b0c0d3, src:autopilot, sev:Med) #phase-10 #req-19
 - [2026-08-05] A least-privilege assertion written as a denylist passes on contents-read plus checks-write and ignores job-level overrides. Assert the top-level block is exactly the scopes needed and reject job-level blocks. (plan-768d7b, src:autopilot, sev:Med) #phase-8 #req-9
 - [2026-08-01] A machine-readable declaration is only worth its truth: assert the declared confine helper is shipped and called by the declaring unit or the manifest passes the gate while the gap stays open. (plan-b0c0d3, src:autopilot, sev:High) #phase-10 #req-19
+- [2026-08-29] Accepted residual: hostile echo may force needs-review but similarity and degraded attendance never hide raw findings or raise effective severity. (plan-ca8ba8, src:autopilot, sev:Med) #phase-1 #req-2 #security
 - [2026-08-10] Adjacent SI modules execute before the trusted checkout identity and cleanliness checks. (plan-1936cb, src:autopilot, sev:High) #phase-6 #req-7 #security
 - [2026-08-09] Candidate JSON types were cast before validation allowing objects numbers and scalar path fields to receive lossy content IDs. (plan-1936cb, src:autopilot, sev:Med) #phase-4 #req-6 #req-7 #security
 - [2026-08-28] Case-insensitive path confinement allowed case-variant escapes on Linux; fixed with platform-aware ordinal comparison. (plan-669ad3, src:autopilot, sev:Med) #phase-2 #req-3 #security
@@ -43,6 +44,8 @@
 - [2026-08-10] Replay coverage used a never-valid token and the nonce was not consumed across a measured run. (plan-1936cb, src:autopilot, sev:Med) #phase-8 #req-8 #security
 - [2026-08-09] Repository identity serialized the raw origin URL which could persist embedded HTTPS credentials in a receipt. (plan-1936cb, src:autopilot, sev:High) #phase-3 #req-7 #security
 - [2026-08-10] Resumed branch runs bypass byte schema and timestamp validation before replay acceptance. (plan-1936cb, src:autopilot, sev:Med) #phase-6 #req-7 #security
+- [2026-08-29] Round 3 finding 1 triage=rejected-pre-existing: generic cleanup authority target binding predates and is outside corroboration derivation rendering distribution and the phase changes. (plan-ca8ba8, src:autopilot, sev:Med) #phase-3 #req-5 #security
+- [2026-08-29] Round 3 finding 6 triage=rejected-pre-existing: artifact read and rejected-input disposal bounds are pre-existing review-run concerns outside the phase scope. (plan-ca8ba8, src:autopilot, sev:Med) #phase-3 #req-5 #security
 - [2026-08-29] review 40a86ef6 finding 1 fixed: v2 harvest replay re-derives every candidate from its typed source record and ledger text is explicitly untrusted data (plan-6a629b, src:autopilot, sev:High) #phase-1 #req-3 #security
 - [2026-08-29] review 40a86ef6 finding 10 fixed: local repository identity is committed only as a SHA-256 path digest (plan-6a629b, src:autopilot, sev:Low) #phase-1 #security
 - [2026-08-29] review 66e61b31 finding 1 deferred as pre-existing: host rebundle trust was mitigated in phase 2 by disabling npm lifecycle scripts; a closed cross-ecosystem restore manifest requires a separate host trust design (plan-6a629b, src:autopilot, sev:Critical) #phase-3 #req-5 #security

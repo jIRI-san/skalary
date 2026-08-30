@@ -117,6 +117,10 @@ Phase: 4
                     merged = 0
                     raw = 0
                     severity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+                    rawSeverity = [ordered]@{ critical = 0; high = 0; medium = 0; low = 0 }
+                    corroboration = [ordered]@{ corroborated = 0; 'single-source' = 0; suspicious = 0; degraded = 0 }
+                    similarity = [ordered]@{ none = 0; 'near-duplicate' = 0; exact = 0 }
+                    needsReview = 0
                 }
                 report = [ordered]@{ name = "$RunId.review.md"; bytes = $reportBytes.Length; digest = $reportDigest }
             } | ConvertTo-Json -Depth 10 -Compress |
