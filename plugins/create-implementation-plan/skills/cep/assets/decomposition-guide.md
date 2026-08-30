@@ -140,8 +140,8 @@ This is an explicitly inactive conformance shape for the later consumer, plan
 `25aa23 epic-coherency-review`. It activates nothing in the current `/cep`, and it neither edits nor otherwise mutates that dependent plan.
 Activation belongs to phase 2 of that plan. Plan `25aa23 epic-coherency-review` remains the owner of
 the fixed epic-coherency scope, richer findings and outcomes, compact verdict, operator-resolution
-and blocking behavior, and activation timing. This handoff defines no proportionality classes or
-`/ci` check.
+and blocking behavior, and activation timing. The proportionality rubric below is inactive reviewer
+criteria within that fixed scope; it is not a `/ci` check.
 
 ### Canonical accepted-cut source
 
@@ -158,13 +158,15 @@ exactly one each of these existing H2 sections, in this order:
 
 `### Accepted children` has one row per child in child-table order naming its value-bearing slice,
 done bar, boundaries and non-overlap, independent implementation/validation/review/merge and revert
-story, and ownership of every shared mechanism or contract it defines. `### Direct dependencies`
-has one row per edge, ordered by dependent child and then prerequisite id, naming the delivered
-behavior that makes the prerequisite necessary; children without an edge are explicitly marked
-independent. `### Delivery routes` contains `**Usable MVP.**` followed by `**MVP to final.**`; each
-names an ordered child route and the behavior delivered at every hop. `### Prior art` has one row
-per considered candidate, ascending by canonical id or repository-relative path, with
-`reuse`, `extend`, or `reject`, the owning child, and a concrete rationale for every rejection.
+story. In canonical child then authored order, it also inventories every proposed mechanism, not
+only shared mechanisms or contracts; each mechanism has exactly one owning child and names all
+consuming children/plans. `### Direct dependencies` has one row per edge, ordered by dependent child
+and then prerequisite id, naming the delivered behavior that makes the prerequisite necessary;
+children without an edge are explicitly marked independent. `### Delivery routes` contains
+`**Usable MVP.**` followed by `**MVP to final.**`; each names an ordered child route and the behavior
+delivered at every hop. `### Prior art` has one row per considered candidate, ascending by canonical
+id or repository-relative path, with `reuse`, `extend`, or `reject`, the owning child, and a concrete
+rationale for every rejection.
 
 Before child scaffolding, the generated `| _(none yet)_ | | |` row is permitted only as
 non-authoritative scaffold state; it cannot be frozen or reviewed. Before `Freeze`, fail closed when
@@ -188,6 +190,53 @@ that same snapshot. Review the whole snapshot against exactly these eight labell
 | `necessary-direct-acyclic-dependencies` | Every edge is direct and required by delivered behavior, the graph is acyclic, and no edge exists only because work feels sequential. |
 | `usable-mvp-to-final-route` | The graph contains an early usable outcome and a coherent route from it to the complete definition of done. |
 | `prior-art-reuse` | Relevant prior art is reused, or its rejection has a concrete reason tied to the confirmed goal and boundaries. |
+
+### Fixed proportionality rubric
+
+Apply this rubric as reviewer criteria inside the eight checks above. It is not a ninth concern or
+check, schema, task, authority, or persisted state. The deterministic inputs are
+only the immutable canonical `epic.md` snapshot: the confirmed Goal, desired outcome, success
+signals, non-goals, and definition of done; every proposed mechanism in canonical child then
+authored order; each mechanism's one owner and all consumers; its demonstrated invariant; every
+direct dependency and its prerequisite-delivered-behavior rationale; and the prior-art/reuse
+evidence. Do not infer missing proof from names, likely future work, child plans, or reviewer
+knowledge.
+
+Classify every proposed mechanism exactly once, in this precedence:
+
+1. **`required shared contract`** only when confirmed intent requires the same concrete invariant
+   across at least two named children/plans; deletion, reuse, or a child-local implementation is
+   insufficient; exactly one owner and all consumers are named; and every associated dependency
+   edge is necessary for delivered behavior.
+2. **`speculative platform`** when any proof needed to justify the proposed scope is absent,
+   including any required-shared proof when shared use is claimed; the semantic capability is
+   duplicated across children; ownership or consumers are missing or ambiguous; the mechanism
+   anticipates a hypothetical future provider, versioning, or compatibility need; infrastructure
+   exists only to support other speculative machinery; or a local/minor finding manufactures a new
+   schema, protocol, store, state machine, compatibility layer, provider, or dependency.
+3. **`local fix`** otherwise. Prefer deletion, reuse of accepted prior art, or the narrowest repair
+   wholly owned and consumed by one child.
+
+Compare delivered semantic capability, not mechanism names. A cross-child duplicate passes only
+after consolidation to one owner with every consumer and the concrete shared invariant named.
+Classification is fail-closed: absent required proof yields `speculative platform`, never an
+assumption that a shared contract is required.
+
+For every direct edge, require that the dependent cannot implement or validate its delivered slice
+without behavior delivered by the prerequisite. Reject transitive, convenience, sequencing,
+platform-first, and infrastructure-only edges. An edge introduced by speculative machinery is
+itself speculative.
+
+Every emitted finding states exactly one of the three classes in the existing design-review finding
+prose; no new finding shape is introduced. A mechanism that passes need not produce a finding.
+`Low`/minor findings and `local fix` findings cannot recommend the prohibited new infrastructure
+listed above; without independent `required shared contract` proof, such a recommendation is
+`speculative platform`.
+
+Phase 2 owns `keep`/`simplify`/`split`/`defer` rendering, resolution persistence, operator return,
+blocking integration, and activation. Phase 3 owns fixtures and generated-copy synchronization.
+Nothing in this rubric activates current `/cep`, adds a `/ci` check, or changes either phase
+boundary.
 
 ### Existing design-review path
 
