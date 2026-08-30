@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T06:06:24.1073126Z",
+  "generatedAt": "2026-08-30T07:42:39.5877072Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "5554d804916b7fe6db544931b4a997e72d06d0be663c905165c5f99a37f8394c",
+          "sha256": "b99232cbfe85df1370b4f08ccd1da6f9642f4636a3f760451d65520dc834b8ff",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -247,7 +247,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/autopilot/scripts/PlanEvidence.psm1"
         },
         {
@@ -257,7 +257,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1",
-          "sha256": "029fd38eddec30a6ad9b05d7f35750e3a0cc9048e5b30ac71494cca121ea15e0",
+          "sha256": "746a1b8ba5ce0a416a5ba9d8aa11dee1679316b02bbde04717cb96196dff7afe",
           "src": "skills/autopilot/scripts/ReviewCycleGate.ps1"
         },
         {
@@ -282,7 +282,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "216484588d239bb28a75cbda1f3419ddad90ae31043afb078a055da5bf76ec1f",
+          "sha256": "c52540bfca624967704b41bec9c492f3acb168b8f3de4a73f08b65b44f9a7f9f",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -317,7 +317,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/plan-dispatch.sh",
-          "sha256": "6a3ca8897a72ed53cbde561c9757a534fb9ca7ef0c88b4bf55b2655a61c2a743",
+          "sha256": "520f7263aafe425f25c762ea0716f88dd4c987bd76b9219ff0c0b5f612d92159",
           "src": "scripts/plan-dispatch.sh"
         },
         {
@@ -361,7 +361,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.58"
+      "version": "1.2.59"
     },
     {
       "author": "jIRI-san",
@@ -483,7 +483,7 @@
         },
         {
           "dest": "skills/cr/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/cr/scripts/PlanEvidence.psm1"
         },
         {
@@ -550,7 +550,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.52"
+      "version": "1.0.53"
     },
     {
       "author": "jIRI-san",
@@ -570,7 +570,7 @@
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "f992ca1985d0a79072b3bab2c75e1adbd75164d4e88cd5588c0308f65078fae8",
+          "sha256": "11308e6625cb47ffe5abbe3e33d42e1dab88700050a18d30cb5abe40845e0cd7",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
@@ -615,7 +615,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/ci/scripts/PlanEvidence.psm1"
         },
         {
@@ -635,7 +635,7 @@
         },
         {
           "dest": "skills/ci/scripts/ReviewCycleGate.ps1",
-          "sha256": "029fd38eddec30a6ad9b05d7f35750e3a0cc9048e5b30ac71494cca121ea15e0",
+          "sha256": "746a1b8ba5ce0a416a5ba9d8aa11dee1679316b02bbde04717cb96196dff7afe",
           "src": "skills/ci/scripts/ReviewCycleGate.ps1"
         },
         {
@@ -725,7 +725,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.81"
+      "version": "1.0.82"
     },
     {
       "author": "jIRI-san",
@@ -784,7 +784,7 @@
         },
         {
           "dest": "skills/cep/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/cep/scripts/PlanEvidence.psm1"
         },
         {
@@ -879,7 +879,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/cip/scripts/PlanEvidence.psm1"
         },
         {
@@ -931,7 +931,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.65"
+      "version": "1.0.66"
     },
     {
       "author": "jIRI-san",
@@ -1118,7 +1118,7 @@
         },
         {
           "dest": "skills/dr/scripts/PlanEvidence.psm1",
-          "sha256": "08981fe8c7e18461bdb6b207ef4a3379fdefcb89dbae7607c69db1cb0894fdbb",
+          "sha256": "76e10bae33e73e32aff9a4ede4b53a7f0ec0e87e32b93c1421994e0bd283f58b",
           "src": "skills/dr/scripts/PlanEvidence.psm1"
         },
         {
@@ -1185,7 +1185,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.51"
+      "version": "1.0.52"
     },
     {
       "author": "jIRI-san",
