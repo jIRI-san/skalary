@@ -5,6 +5,10 @@ $ErrorActionPreference = 'Stop'
 
 $script:FleetDispatchAdmissionCap = 4
 $script:FleetDispatchIdPattern = '^[a-z0-9][a-z0-9._:-]{0,127}$'
+$script:FleetDispatchProviderNote = 'Provider-global concurrency is unobserved.'
+$script:FleetDispatchRetryTrigger = 'explicit-throttle-only'
+$script:FleetDispatchMaximumRetryCount = 1
+$script:FleetDispatchRetryDescription = 'Retry once only when the host or tool explicitly reports throttling.'
 
 function Get-FleetDispatchProperty {
     param(
@@ -40,7 +44,10 @@ function Assert-FleetDispatchText {
         [Parameter(Mandatory)]
         [string]$Label,
 
-        [switch]$AllowEmpty
+        [switch]$AllowEmpty,
+
+        [ValidateRange(1, 4096)]
+        [int]$MaximumLength = 1024
     )
 
     if ($null -eq $Value) {
@@ -49,12 +56,33 @@ function Assert-FleetDispatchText {
     }
 
     $text = [string]$Value
-    if ((-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($text)) -or
-        $text -match '[\r\n]' -or
-        $text.IndexOfAny([char[]]@(0, 9)) -ge 0) {
-        throw "$Label must be a single-line string$(if ($AllowEmpty) { '' } else { ' with visible content' })."
+    if ($text.Length -gt $MaximumLength) {
+        throw "$Label exceeds the $MaximumLength-character limit."
+    }
+    if (-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($text)) {
+        throw "$Label must be a string with visible content."
+    }
+    for ($index = 0; $index -lt $text.Length; $index++) {
+        $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($text, $index)
+        if ($category -in @(
+                [Globalization.UnicodeCategory]::Control,
+                [Globalization.UnicodeCategory]::Format,
+                [Globalization.UnicodeCategory]::LineSeparator,
+                [Globalization.UnicodeCategory]::ParagraphSeparator
+            )) {
+            throw "$Label contains a prohibited control or formatting character."
+        }
     }
     return $text.Trim()
+}
+
+function ConvertTo-FleetDispatchDisplayText {
+    param(
+        [AllowEmptyString()]
+        [string]$Value
+    )
+
+    return $Value.Replace('\', '\\').Replace('|', '\|')
 }
 
 function ConvertTo-FleetDispatchTask {
@@ -68,17 +96,20 @@ function ConvertTo-FleetDispatchTask {
 
     $id = Assert-FleetDispatchText `
         -Value (Get-FleetDispatchProperty -InputObject $Descriptor -Name Id -Required) `
-        -Label "Fleet task $Order id"
+        -Label "Fleet task $Order id" `
+        -MaximumLength 128
     if ($id -cnotmatch $script:FleetDispatchIdPattern) {
         throw "Fleet task id '$id' must match $script:FleetDispatchIdPattern."
     }
 
     $label = Assert-FleetDispatchText `
         -Value (Get-FleetDispatchProperty -InputObject $Descriptor -Name Label -Required) `
-        -Label "Fleet task '$id' label"
+        -Label "Fleet task '$id' label" `
+        -MaximumLength 256
     $key = Assert-FleetDispatchText `
         -Value (Get-FleetDispatchProperty -InputObject $Descriptor -Name Key -Required) `
-        -Label "Fleet task '$id' key"
+        -Label "Fleet task '$id' key" `
+        -MaximumLength 256
 
     $selectedValue = Get-FleetDispatchProperty -InputObject $Descriptor -Name Selected -Required
     if ($selectedValue -isnot [bool]) {
@@ -89,7 +120,8 @@ function ConvertTo-FleetDispatchTask {
     $omissionReason = Assert-FleetDispatchText `
         -Value $reasonValue `
         -Label "Fleet task '$id' omission reason" `
-        -AllowEmpty
+        -AllowEmpty `
+        -MaximumLength 1024
     if (-not $selectedValue -and [string]::IsNullOrWhiteSpace($omissionReason)) {
         throw "Omitted fleet task '$id' requires an explicit OmissionReason."
     }
@@ -103,7 +135,8 @@ function ConvertTo-FleetDispatchTask {
     foreach ($dependency in @($dependencyValue)) {
         $dependencyId = Assert-FleetDispatchText `
             -Value $dependency `
-            -Label "Fleet task '$id' dependency"
+            -Label "Fleet task '$id' dependency" `
+            -MaximumLength 128
         if ($dependencyId -cnotmatch $script:FleetDispatchIdPattern) {
             throw "Fleet task '$id' dependency '$dependencyId' must match $script:FleetDispatchIdPattern."
         }
@@ -262,11 +295,11 @@ function New-FleetDispatchPlan {
         Schema                      = 'skalary/fleet-dispatch-plan@1'
         AdmissionCap                = $script:FleetDispatchAdmissionCap
         ProviderConcurrencyObserved = $false
-        ProviderConcurrencyNote     = 'Provider-global concurrency is unobserved.'
+        ProviderConcurrencyNote     = $script:FleetDispatchProviderNote
         RetryPolicy                 = [pscustomobject]@{
-            Trigger           = 'explicit-throttle-only'
-            MaximumRetryCount = 1
-            Description       = 'Retry once only when the host or tool explicitly reports throttling.'
+            Trigger           = $script:FleetDispatchRetryTrigger
+            MaximumRetryCount = $script:FleetDispatchMaximumRetryCount
+            Description       = $script:FleetDispatchRetryDescription
         }
         Tasks                       = $tasks
         Selected                    = @($tasks | Where-Object Selected)
@@ -277,6 +310,107 @@ function New-FleetDispatchPlan {
     }
 }
 
+function ConvertTo-FleetDispatchPlanCanonicalJson {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $retryPolicy = Get-FleetDispatchProperty -InputObject $Plan -Name RetryPolicy -Required
+    $canonical = [ordered]@{
+        schema = [string](Get-FleetDispatchProperty -InputObject $Plan -Name Schema -Required)
+        admissionCap = Get-FleetDispatchProperty -InputObject $Plan -Name AdmissionCap -Required
+        providerConcurrencyObserved = Get-FleetDispatchProperty `
+            -InputObject $Plan `
+            -Name ProviderConcurrencyObserved `
+            -Required
+        providerConcurrencyNote = [string](Get-FleetDispatchProperty `
+                -InputObject $Plan `
+                -Name ProviderConcurrencyNote `
+                -Required)
+        retryPolicy = [ordered]@{
+            trigger = [string](Get-FleetDispatchProperty -InputObject $retryPolicy -Name Trigger -Required)
+            maximumRetryCount = Get-FleetDispatchProperty `
+                -InputObject $retryPolicy `
+                -Name MaximumRetryCount `
+                -Required
+            description = [string](Get-FleetDispatchProperty `
+                    -InputObject $retryPolicy `
+                    -Name Description `
+                    -Required)
+        }
+        tasks = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required) | ForEach-Object {
+                [ordered]@{
+                    id = [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required)
+                    label = [string](Get-FleetDispatchProperty -InputObject $_ -Name Label -Required)
+                    key = [string](Get-FleetDispatchProperty -InputObject $_ -Name Key -Required)
+                    selected = Get-FleetDispatchProperty -InputObject $_ -Name Selected -Required
+                    omissionReason = [string](Get-FleetDispatchProperty `
+                            -InputObject $_ `
+                            -Name OmissionReason `
+                            -Required)
+                    dependsOn = @(
+                        @(Get-FleetDispatchProperty -InputObject $_ -Name DependsOn -Required) |
+                            ForEach-Object { [string]$_ }
+                    )
+                    order = Get-FleetDispatchProperty -InputObject $_ -Name Order -Required
+                }
+            }
+        )
+        selected = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name Selected -Required) |
+                ForEach-Object { [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required) }
+        )
+        omitted = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name Omitted -Required) |
+                ForEach-Object { [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required) }
+        )
+        waves = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name Waves -Required) | ForEach-Object {
+                [ordered]@{
+                    number = Get-FleetDispatchProperty -InputObject $_ -Name Number -Required
+                    taskIds = @(
+                        @(Get-FleetDispatchProperty -InputObject $_ -Name TaskIds -Required) |
+                            ForEach-Object { [string]$_ }
+                    )
+                    tasks = @(
+                        @(Get-FleetDispatchProperty -InputObject $_ -Name Tasks -Required) |
+                            ForEach-Object {
+                                [string](Get-FleetDispatchProperty -InputObject $_ -Name Id -Required)
+                            }
+                    )
+                }
+            }
+        )
+        readyOrder = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name ReadyOrder -Required) |
+                ForEach-Object { [string]$_ }
+        )
+        attendance = @(
+            @(Get-FleetDispatchProperty -InputObject $Plan -Name Attendance -Required)
+        )
+    }
+
+    return $canonical | ConvertTo-Json -Depth 12 -Compress
+}
+
+function Get-FleetDispatchPlanSnapshot {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Plan
+    )
+
+    $tasks = @(Get-FleetDispatchProperty -InputObject $Plan -Name Tasks -Required)
+    $snapshot = New-FleetDispatchPlan -Task $tasks
+    $expected = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $snapshot
+    $actual = ConvertTo-FleetDispatchPlanCanonicalJson -Plan $Plan
+    if ($actual -cne $expected) {
+        throw 'Fleet dispatch plan fields are not one coherent planner projection.'
+    }
+    return $snapshot
+}
+
 function Format-FleetDispatchPlan {
     [CmdletBinding()]
     param(
@@ -284,9 +418,7 @@ function Format-FleetDispatchPlan {
         [object]$Plan
     )
 
-    if ($Plan.Schema -cne 'skalary/fleet-dispatch-plan@1') {
-        throw "Unsupported fleet dispatch plan schema '$($Plan.Schema)'."
-    }
+    $Plan = Get-FleetDispatchPlanSnapshot -Plan $Plan
 
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add('Fleet dispatch plan')
@@ -302,7 +434,9 @@ function Format-FleetDispatchPlan {
     else {
         foreach ($task in $Plan.Selected) {
             $dependencies = if ($task.DependsOn.Count -eq 0) { 'none' } else { $task.DependsOn -join ', ' }
-            $lines.Add("- $($task.Id) | $($task.Label) | key: $($task.Key) | depends on: $dependencies")
+            $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
+            $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
+            $lines.Add("- $($task.Id) | $label | key: $key | depends on: $dependencies")
         }
     }
     $lines.Add('')
@@ -312,7 +446,10 @@ function Format-FleetDispatchPlan {
     }
     else {
         foreach ($task in $Plan.Omitted) {
-            $lines.Add("- $($task.Id) | $($task.Label) | key: $($task.Key) | reason: $($task.OmissionReason)")
+            $label = ConvertTo-FleetDispatchDisplayText -Value $task.Label
+            $key = ConvertTo-FleetDispatchDisplayText -Value $task.Key
+            $reason = ConvertTo-FleetDispatchDisplayText -Value $task.OmissionReason
+            $lines.Add("- $($task.Id) | $label | key: $key | reason: $reason")
         }
     }
     $lines.Add('')
@@ -354,7 +491,8 @@ function ConvertTo-FleetDispatchWaveResults {
         }
         $taskId = Assert-FleetDispatchText `
             -Value (Get-FleetDispatchProperty -InputObject $item -Name TaskId -Required) `
-            -Label 'Fleet dispatch wave result TaskId'
+            -Label 'Fleet dispatch wave result TaskId' `
+            -MaximumLength 128
         if (-not $expectedIds.Contains($taskId)) {
             throw "Fleet dispatch wave returned undeclared task '$taskId'."
         }
@@ -364,14 +502,16 @@ function ConvertTo-FleetDispatchWaveResults {
 
         $outcome = Assert-FleetDispatchText `
             -Value (Get-FleetDispatchProperty -InputObject $item -Name Outcome -Required) `
-            -Label "Fleet dispatch wave result '$taskId' Outcome"
+            -Label "Fleet dispatch wave result '$taskId' Outcome" `
+            -MaximumLength 32
         if ($outcome -cnotin @('completed', 'failed', 'throttled')) {
             throw "Fleet dispatch wave result '$taskId' has unsupported Outcome '$outcome'."
         }
         $detail = Assert-FleetDispatchText `
             -Value (Get-FleetDispatchProperty -InputObject $item -Name Detail) `
             -Label "Fleet dispatch wave result '$taskId' Detail" `
-            -AllowEmpty
+            -AllowEmpty `
+            -MaximumLength 2048
 
         $resultById.Add($taskId, [pscustomobject]@{
                 TaskId = $taskId
@@ -437,7 +577,23 @@ function Invoke-FleetDispatchWave {
         Add-FleetDispatchEvent -Event $Event -TaskId $task.Id -Outcome started -Attempt $Wave.Attempt
     }
 
-    $rawResults = @(& $InvokeWave $Wave)
+    $launchTasks = @($Wave.Tasks | ForEach-Object {
+            [pscustomobject]@{
+                Id             = $_.Id
+                Label          = $_.Label
+                Key            = $_.Key
+                Selected       = $_.Selected
+                OmissionReason = $_.OmissionReason
+                DependsOn      = @($_.DependsOn)
+                Order          = $_.Order
+            }
+        })
+    $launchWave = [pscustomobject]@{
+        Tasks   = $launchTasks
+        TaskIds = @($Wave.TaskIds)
+        Attempt = $Wave.Attempt
+    }
+    $rawResults = @(& $InvokeWave $launchWave)
     $results = @(ConvertTo-FleetDispatchWaveResults -ExpectedTask $Wave.Tasks -Result $rawResults)
     foreach ($result in $results) {
         $state = $TaskState[$result.TaskId]
@@ -471,7 +627,7 @@ function Format-FleetDispatchResult {
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add('Fleet dispatch attendance')
     $lines.Add("State: $($Result.State)")
-    $lines.Add($Result.Plan.ProviderConcurrencyNote)
+    $lines.Add($script:FleetDispatchProviderNote)
     $lines.Add(
         "Attendance: planned=$($attendance.Planned); started=$($attendance.Started); " +
         "completed=$($attendance.Completed); failed=$($attendance.Failed); " +
@@ -490,7 +646,12 @@ function Format-FleetDispatchResult {
             else {
                 @($task.Attempts | ForEach-Object { "$($_.Number):$($_.Outcome)" }) -join ', '
             }
-            $detail = if ([string]::IsNullOrWhiteSpace($task.Detail)) { '' } else { " | detail: $($task.Detail)" }
+            $detail = if ([string]::IsNullOrWhiteSpace($task.Detail)) {
+                ''
+            }
+            else {
+                " | detail: $(ConvertTo-FleetDispatchDisplayText -Value $task.Detail)"
+            }
             $lines.Add("- $($task.Id) | $($task.Status) | attempts: $attempts$detail")
         }
     }
@@ -501,7 +662,8 @@ function Format-FleetDispatchResult {
     }
     else {
         foreach ($task in $Result.Plan.Omitted) {
-            $lines.Add("- $($task.Id) | omitted | reason: $($task.OmissionReason)")
+            $reason = ConvertTo-FleetDispatchDisplayText -Value $task.OmissionReason
+            $lines.Add("- $($task.Id) | omitted | reason: $reason")
         }
     }
     $lines.Add('')
@@ -511,7 +673,8 @@ function Format-FleetDispatchResult {
     }
     else {
         foreach ($item in $Result.Degradation) {
-            $lines.Add("- $($item.TaskId) | $($item.Reason)")
+            $reason = ConvertTo-FleetDispatchDisplayText -Value $item.Reason
+            $lines.Add("- $($item.TaskId) | $reason")
         }
     }
 
@@ -533,13 +696,7 @@ function Invoke-FleetDispatchPlan {
         }
     )
 
-    if ($Plan.Schema -cne 'skalary/fleet-dispatch-plan@1' -or
-        $Plan.AdmissionCap -ne $script:FleetDispatchAdmissionCap) {
-        throw 'Invoke-FleetDispatchPlan requires an unmodified skalary/fleet-dispatch-plan@1 plan.'
-    }
-    if ($Plan.Attendance.Count -ne 0) {
-        throw 'Invoke-FleetDispatchPlan requires a plan with empty initial attendance.'
-    }
+    $Plan = Get-FleetDispatchPlanSnapshot -Plan $Plan
 
     $preView = Format-FleetDispatchPlan -Plan $Plan
     [void](& $Render $preView 'plan')
@@ -551,6 +708,7 @@ function Invoke-FleetDispatchPlan {
                 Status   = 'pending'
                 Started  = $false
                 Retried  = $false
+                RetryCount = 0
                 Attempts = [System.Collections.Generic.List[object]]::new()
                 Detail   = ''
             })
@@ -615,14 +773,28 @@ function Invoke-FleetDispatchPlan {
                     $state.Detail = $result.Detail
                 }
                 throttled {
-                    $state.Retried = $true
-                    $retryTasks.Add(@($ready | Where-Object Id -CEQ $result.TaskId)[0])
-                    Add-FleetDispatchEvent `
-                        -Event $events `
-                        -TaskId $result.TaskId `
-                        -Outcome retried `
-                        -Attempt 2 `
-                        -Detail 'one retry admitted after explicit throttle outcome'
+                    if ($Plan.RetryPolicy.Trigger -ceq $script:FleetDispatchRetryTrigger -and
+                        $state.RetryCount -lt $Plan.RetryPolicy.MaximumRetryCount) {
+                        $state.Retried = $true
+                        $state.RetryCount++
+                        $retryTasks.Add(@($ready | Where-Object Id -CEQ $result.TaskId)[0])
+                        Add-FleetDispatchEvent `
+                            -Event $events `
+                            -TaskId $result.TaskId `
+                            -Outcome retried `
+                            -Attempt ($firstWave.Attempt + 1) `
+                            -Detail $Plan.RetryPolicy.Description
+                    }
+                    else {
+                        $state.Status = 'failed'
+                        $state.Detail = 'explicit throttle retry policy exhausted'
+                        Add-FleetDispatchEvent `
+                            -Event $events `
+                            -TaskId $result.TaskId `
+                            -Outcome failed `
+                            -Attempt $firstWave.Attempt `
+                            -Detail $state.Detail
+                    }
                 }
             }
         }
@@ -631,7 +803,7 @@ function Invoke-FleetDispatchPlan {
             $retryWave = [pscustomobject]@{
                 Tasks   = $retryTasks.ToArray()
                 TaskIds = @($retryTasks | ForEach-Object { $_.Id })
-                Attempt = 2
+                Attempt = $firstWave.Attempt + 1
             }
             $retryResults = @(Invoke-FleetDispatchWave `
                     -Wave $retryWave `
@@ -647,7 +819,7 @@ function Invoke-FleetDispatchPlan {
                 else {
                     $state.Status = 'failed'
                     $state.Detail = if ($result.Outcome -ceq 'throttled') {
-                        'explicit throttle persisted after the single retry'
+                        "explicit throttle persisted after $($Plan.RetryPolicy.MaximumRetryCount) permitted retry"
                     }
                     else {
                         $result.Detail

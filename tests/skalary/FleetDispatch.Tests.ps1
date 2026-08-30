@@ -15,13 +15,15 @@ Describe 'Fleet dispatch planner' {
                 [string]$Id,
                 [string[]]$DependsOn = @(),
                 [bool]$Selected = $true,
-                [string]$OmissionReason = ''
+                [string]$OmissionReason = '',
+                [string]$Label = "Task $Id",
+                [string]$Key = "role.$Id"
             )
 
             return [pscustomobject]@{
                 Id             = $Id
-                Label          = "Task $Id"
-                Key            = "role.$Id"
+                Label          = $Label
+                Key            = $Key
                 Selected       = $Selected
                 OmissionReason = $OmissionReason
                 DependsOn      = $DependsOn
@@ -107,6 +109,24 @@ Describe 'Fleet dispatch planner' {
                 New-FleetTask -Id 'not valid'
             )
         } | Should -Throw '*must match*'
+        foreach ($unsafe in @(
+                "$([char]0x1b)[31mred",
+                "ring$([char]0x07)",
+                "right$([char]0x202e)left",
+                "line$([char]0x2028)break",
+                "paragraph$([char]0x2029)break"
+            )) {
+            {
+                New-FleetDispatchPlan -Task @(
+                    New-FleetTask -Id unsafe -Label $unsafe
+                )
+            } | Should -Throw '*prohibited control or formatting character*'
+        }
+        {
+            New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id oversized -Label ('x' * 257)
+            )
+        } | Should -Throw '*256-character limit*'
 
         $source = @(New-FleetTask -Id stable)
         $before = $source | ConvertTo-Json -Depth 5 -Compress
@@ -145,6 +165,15 @@ Projected waves:
 - Wave 2 (1): implement
 Ready order: design -> validate -> implement
 '@
+
+        $escaped = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id escaped -Label 'Task | label' -Key 'role\key'
+            New-FleetTask -Id omitted -Selected $false -OmissionReason 'not | selected'
+        )
+        $escapedView = Format-FleetDispatchPlan -Plan $escaped
+        $escapedView | Should -Match ([regex]::Escape('Task \| label'))
+        $escapedView | Should -Match ([regex]::Escape('role\\key'))
+        $escapedView | Should -Match ([regex]::Escape('not \| selected'))
     }
 }
 
@@ -160,13 +189,15 @@ Describe 'Fleet dispatch execution adapter' {
                 [string]$Id,
                 [string[]]$DependsOn = @(),
                 [bool]$Selected = $true,
-                [string]$OmissionReason = ''
+                [string]$OmissionReason = '',
+                [string]$Label = "Task $Id",
+                [string]$Key = "role.$Id"
             )
 
             return [pscustomobject]@{
                 Id             = $Id
-                Label          = "Task $Id"
-                Key            = "role.$Id"
+                Label          = $Label
+                Key            = $Key
                 Selected       = $Selected
                 OmissionReason = $OmissionReason
                 DependsOn      = $DependsOn
@@ -275,6 +306,69 @@ Describe 'Fleet dispatch execution adapter' {
             $failureResult.Attendance.Cancelled |
             Should -Be $failureResult.Attendance.Planned
 
+        $mutablePlan = New-FleetDispatchPlan -Task @(
+            New-FleetTask -Id first
+            New-FleetTask -Id second
+        )
+        $snapshotResult = Invoke-FleetDispatchPlan -Plan $mutablePlan -Render {
+            param($Text, $Stage)
+            if ($Stage -ceq 'plan') {
+                $mutablePlan.AdmissionCap = 1
+                $mutablePlan.Selected = @()
+                $mutablePlan.Tasks[0].Id = 'mutated'
+            }
+        } -InvokeWave {
+            param($Wave)
+            $Wave.Tasks[0].Id = 'callback-mutation'
+            @($Wave.TaskIds | ForEach-Object { New-WaveResult -TaskId $_ })
+        }
+        $snapshotResult.Attendance.Completed | Should -Be 2
+        @($snapshotResult.Tasks.Id) | Should -Be @('first', 'second')
+
+        $mutators = @(
+            {
+                param($Candidate)
+                $Candidate.Selected = @($Candidate.Selected | Select-Object -First 1)
+            },
+            {
+                param($Candidate)
+                $Candidate.Omitted = @()
+            },
+            {
+                param($Candidate)
+                $Candidate.Waves[0].TaskIds = @('dependent')
+            },
+            {
+                param($Candidate)
+                $Candidate.Waves[0].Tasks = @()
+            },
+            {
+                param($Candidate)
+                $Candidate.ReadyOrder = @('dependent', 'root')
+            },
+            {
+                param($Candidate)
+                $Candidate.Tasks[1].DependsOn = @()
+            },
+            {
+                param($Candidate)
+                $Candidate.RetryPolicy.MaximumRetryCount = 2
+            }
+        )
+        foreach ($mutator in $mutators) {
+            $candidate = New-FleetDispatchPlan -Task @(
+                New-FleetTask -Id root
+                New-FleetTask -Id dependent -DependsOn root
+                New-FleetTask -Id omitted -Selected $false -OmissionReason 'outside scope'
+            )
+            & $mutator $candidate
+            {
+                Invoke-FleetDispatchPlan -Plan $candidate -Render {} -InvokeWave {
+                    throw 'incoherent plan must fail before dispatch'
+                }
+            } | Should -Throw '*not one coherent planner projection*'
+        }
+
         {
             Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
                 param($Wave)
@@ -287,6 +381,17 @@ Describe 'Fleet dispatch execution adapter' {
                 New-WaveResult -TaskId first
             }
         } | Should -Throw '*omitted result*'
+        {
+            Invoke-FleetDispatchPlan -Plan $throttlePlan -Render {} -InvokeWave {
+                param($Wave)
+                @($Wave.Tasks | ForEach-Object {
+                        New-WaveResult `
+                            -TaskId $_.Id `
+                            -Outcome failed `
+                            -Detail "unsafe$([char]0x1b)]0;title$([char]0x07)"
+                    })
+            }
+        } | Should -Throw '*prohibited control or formatting character*'
     }
 
     It 'renders complete success, omission, dependency-failure, and throttle-degradation attendance' {

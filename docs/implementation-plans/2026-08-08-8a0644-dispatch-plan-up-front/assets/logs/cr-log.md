@@ -1,4 +1,8 @@
 ## CR Capture
 Phase: 1
 
-No entries for this phase.
+- [-] [src:code-review] [sev:High] [concern:architecture-patterns] [req:REQ-1] [review:cr] [source-record:4f3f483fcfbf5434f5aa08ceebd13fb294e18ef1b8cf337feb2f35148f6f5d44] Round 1: execution rereads mutable plan fields after rendering, so a render callback can change the dispatched task set; execute a validated private snapshot.
+- [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-2] [review:cr] [source-record:85e333c065c54776ef5e22490a825c46663041d199a28d6cdfcaeb297d8b15bc] Round 1: executor validation does not prove Tasks, Selected, Omitted, Waves, ReadyOrder, and dependencies remain one coherent projection.
+- [-] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-3] [review:cr] [source-record:0b6709884ca0ac558e056cd7a2060422aa9bb9019a25f2137f77459ddcc66d1c] Round 1: retry policy is declared in the plan but independently hard-coded in execution; consume one canonical policy.
+- [-] [src:code-review] [sev:Med] [concern:security] [req:REQ-2] [review:cr] [source-record:52212457898f22aa809504650ce23f67dba5dfa2271f8aa28413b6a5d9470f4c] Round 1: descriptor and result text allows terminal controls, Unicode formatting separators, delimiters, and unbounded values into rendered output.
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:151e023bce02a6e6f3ce84be1c9a72f1d8fe577195cbc1c2b5268bda669e51d1] review-cycle stage=phase-1 cycle=1 outcome=findings run=da8b16ef-7660-484c-bdce-dec1075819ab summary=four findings; snapshot, projection validation, retry authority, and text safety require fixes
