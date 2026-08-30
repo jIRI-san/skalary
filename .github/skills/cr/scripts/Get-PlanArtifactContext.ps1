@@ -58,6 +58,7 @@ if (-not (Get-Module | Where-Object {
         })) {
     Import-Module $planEvidencePath -DisableNameChecking
 }
+Import-Module (Join-Path $PSScriptRoot 'ReviewResultReceipt.psm1') -DisableNameChecking
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $artifactMap = [ordered]@{
