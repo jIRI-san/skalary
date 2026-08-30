@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Check', 'Record', 'Continue', 'Wrap', 'Reopen')]
+    [ValidateSet('Check', 'Record', 'Continue', 'Wrap', 'Reopen', 'InvalidateContinue')]
     [string]$Action,
 
     [Parameter(Mandatory)]
@@ -93,6 +93,9 @@ switch ($Action) {
     }
     'Continue' {
         if ($count -lt 3) { throw 'Continue is valid only after at least three recorded review cycles.' }
+        if ($null -ne $latestEvent -and $latestEvent.Action -eq 'invalidate-continue') {
+            throw "Continue cannot be re-recorded after the latest Continue for '$Stage' was invalidated."
+        }
         if ($state -ne 'operator-decision') { throw "Continue cannot be recorded while state is '$state'." }
         Add-ReviewCycleNote -Message "review-cycle-decision stage=$Stage after=$count action=continue"
         $latestEvent = [pscustomobject]@{ After = $count; Action = 'continue'; Authorization = ''; Reason = '' }
@@ -104,6 +107,45 @@ switch ($Action) {
         Add-ReviewCycleNote -Message "review-cycle-decision stage=$Stage after=$count action=wrap"
         $latestEvent = [pscustomobject]@{ After = $count; Action = 'wrap'; Authorization = ''; Reason = '' }
         $state = 'wrap'
+    }
+    'InvalidateContinue' {
+        if (-not $OperatorAuthorization) {
+            throw 'InvalidateContinue requires explicit -OperatorAuthorization.'
+        }
+        if ([string]::IsNullOrWhiteSpace($Reason)) {
+            throw 'InvalidateContinue requires a non-empty -Reason.'
+        }
+        if ($null -ne $latestEvent -and $latestEvent.Action -eq 'invalidate-continue') {
+            throw "The latest Continue for '$Stage' was already invalidated."
+        }
+        if ($null -eq $latestEvent -or $latestEvent.Action -ne 'continue') {
+            throw "InvalidateContinue requires the latest event for '$Stage' to be Continue."
+        }
+        if ($latestEvent.After -ne $count -or $latestEvent.Index -lt $cycleState.LatestCycleIndex) {
+            throw "InvalidateContinue cannot target a stale Continue after a later review result for '$Stage'."
+        }
+        if ($cycleState.CurrentContinueCount -ne 1) {
+            throw "InvalidateContinue found an ambiguous Continue target for '$Stage'."
+        }
+        if ($state -ne 'allow') {
+            throw "InvalidateContinue cannot be recorded while state is '$state'."
+        }
+        $timestamp = [DateTimeOffset]::UtcNow.ToString(
+            'yyyy-MM-ddTHH:mm:ss.fffffffZ',
+            [Globalization.CultureInfo]::InvariantCulture
+        )
+        Add-ReviewCycleNote -Message "review-cycle-remediation stage=$Stage after=$count action=invalidate-continue target=$($latestEvent.EventId) authorization=$OperatorAuthorization timestamp=$timestamp reason=$Reason"
+        $latestEvent = [pscustomobject]@{
+            After = $count
+            Action = 'invalidate-continue'
+            Authorization = $OperatorAuthorization
+            EventId = ''
+            Index = [int]::MaxValue
+            Reason = $Reason
+            TargetEventId = $latestEvent.EventId
+            Timestamp = $timestamp
+        }
+        $state = 'operator-decision'
     }
     'Reopen' {
         if ($state -notin @('wrap', 'legacy-clean')) { throw "Reopen cannot be recorded while state is '$state'." }
@@ -141,12 +183,16 @@ elseif ($state -eq 'complete' -and $cycleState.ReviewRunId) {
     $result['reviewRunId'] = $cycleState.ReviewRunId
 }
 if ($null -ne $latestEvent) {
-    if ($latestEvent.Action -eq 'reopen') {
+    if ($latestEvent.Action -in @('reopen', 'invalidate-continue')) {
         $result['remediation'] = [ordered]@{
             after = $latestEvent.After
             action = $latestEvent.Action
             authorization = $latestEvent.Authorization
             reason = $latestEvent.Reason
+        }
+        if ($latestEvent.Action -eq 'invalidate-continue') {
+            $result.remediation['targetEventId'] = $latestEvent.TargetEventId
+            $result.remediation['timestamp'] = $latestEvent.Timestamp
         }
     }
     else {
