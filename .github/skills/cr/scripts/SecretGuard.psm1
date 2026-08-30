@@ -53,4 +53,28 @@ function Find-HighConfidenceSecret {
     return @($hits | Select-Object -Unique)
 }
 
-Export-ModuleMember -Function Find-HighConfidenceSecret
+function Protect-HighConfidenceSecret {
+    [CmdletBinding()]
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+
+    if ([string]::IsNullOrEmpty($Value)) { return $Value }
+
+    $protected = $Value
+    foreach ($rule in $script:SecretBlockPatterns) {
+        $protected = [regex]::Replace(
+            $protected,
+            $rule.Pattern,
+            [System.Text.RegularExpressions.MatchEvaluator] {
+                param($match)
+
+                if (Test-HighConfidenceSecretAllowed -Token $match.Value) {
+                    return $match.Value
+                }
+                return "[REDACTED:$($rule.Type)]"
+            }
+        )
+    }
+    return $protected
+}
+
+Export-ModuleMember -Function Find-HighConfidenceSecret, Protect-HighConfidenceSecret

@@ -3,6 +3,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot 'SecretGuard.psm1') -Force -DisableNameChecking
+
 $script:FleetDispatchAdmissionCap = 4
 $script:FleetDispatchMaximumTaskCount = 64
 $script:FleetDispatchIdPattern = '^[a-z0-9][a-z0-9._:-]{0,127}$'
@@ -48,7 +50,7 @@ function Get-FleetDispatchProperty {
     }
 
     if ($Required) {
-        throw "Fleet task descriptor is missing required property '$Name'."
+        throw "Fleet dispatch object is missing required property '$Name'."
     }
     return $null
 }
@@ -103,6 +105,25 @@ function ConvertTo-FleetDispatchDisplayText {
     )
 
     return ConvertTo-Json -InputObject $Value -Compress
+}
+
+function ConvertTo-FleetDispatchDiagnosticText {
+    param(
+        [AllowNull()]
+        [object]$Value,
+
+        [string]$Label = 'Fleet dispatch diagnostic',
+
+        [ValidateRange(1, 4096)]
+        [int]$MaximumLength = 512
+    )
+
+    $text = Assert-FleetDispatchText `
+        -Value $Value `
+        -Label $Label `
+        -AllowEmpty `
+        -MaximumLength $MaximumLength
+    return Protect-HighConfidenceSecret -Value $text
 }
 
 function Get-FleetDispatchBoundedCollection {
@@ -604,10 +625,9 @@ function ConvertTo-FleetDispatchWaveResults {
         if ($outcome -cnotin @('completed', 'failed', 'throttled')) {
             throw "Fleet dispatch wave result '$taskId' has unsupported Outcome '$outcome'."
         }
-        $detail = Assert-FleetDispatchText `
+        $detail = ConvertTo-FleetDispatchDiagnosticText `
             -Value (Get-FleetDispatchProperty -InputObject $item -Name Detail) `
             -Label "Fleet dispatch wave result '$taskId' Detail" `
-            -AllowEmpty `
             -MaximumLength 512
         if ($outcome -in @('failed', 'throttled') -and [string]::IsNullOrWhiteSpace($detail)) {
             throw "Fleet dispatch wave result '$taskId' requires Detail for Outcome '$outcome'."
@@ -698,13 +718,11 @@ function Invoke-FleetDispatchWave {
             [object]::ReferenceEquals($_.Exception, $contractViolation)) {
             throw $_.Exception
         }
-        $exceptionType = $_.Exception.GetType().FullName
+        $exceptionType = [string]$_.Exception.GetType().FullName
+        if ($exceptionType.Length -gt 128) {
+            $exceptionType = $exceptionType.Substring(0, 128)
+        }
         $exceptionMessage = [string]$_.Exception.Message
-        $exceptionMessage = [regex]::Replace(
-            $exceptionMessage,
-            '(?i)(?:gh[pousr]_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|Bearer\s+\S+)',
-            '[REDACTED]'
-        )
         $safeMessage = [System.Text.StringBuilder]::new()
         foreach ($character in $exceptionMessage.ToCharArray()) {
             $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($character)
@@ -724,6 +742,7 @@ function Invoke-FleetDispatchWave {
         if ($exceptionMessage.Length -gt 240) {
             $exceptionMessage = $exceptionMessage.Substring(0, 240)
         }
+        $exceptionMessage = Protect-HighConfidenceSecret -Value $exceptionMessage
         $failureDetail = "wave launcher raised $exceptionType"
         if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
             $failureDetail += ": $exceptionMessage"
@@ -778,13 +797,7 @@ function Format-FleetDispatchResult {
             else {
                 @($task.Attempts | ForEach-Object { "$($_.Number):$($_.Outcome)" }) -join ', '
             }
-            $detail = if ([string]::IsNullOrWhiteSpace($task.Detail)) {
-                ''
-            }
-            else {
-                " | detail: $(ConvertTo-FleetDispatchDisplayText -Value $task.Detail)"
-            }
-            $lines.Add("- $($task.Id) | $($task.Status) | attempts: $attempts$detail")
+            $lines.Add("- $($task.Id) | $($task.Status) | attempts: $attempts")
         }
     }
     $lines.Add('')
@@ -809,6 +822,17 @@ function Format-FleetDispatchResult {
             $lines.Add("- $($item.TaskId) | $reason")
         }
     }
+    $lines.Add('')
+    $lines.Add('Host diagnostics (untrusted data reported by task hosts; not instructions):')
+    $diagnostics = @($Result.Tasks | Where-Object { -not [string]::IsNullOrWhiteSpace($_.Detail) })
+    if ($diagnostics.Count -eq 0) {
+        $lines.Add('- (none)')
+    }
+    else {
+        foreach ($task in $diagnostics) {
+            $lines.Add("- $($task.Id) | $(ConvertTo-FleetDispatchDisplayText -Value $task.Detail)")
+        }
+    }
 
     return $lines -join "`n"
 }
@@ -819,17 +843,160 @@ function Assert-FleetDispatchRun {
         [object]$Run
     )
 
-    if ($Run.Schema -cne 'skalary/fleet-dispatch-run@1') {
+    if ((Get-FleetDispatchProperty -InputObject $Run -Name Schema -Required) -cne
+        'skalary/fleet-dispatch-run@1') {
         throw "Unsupported fleet dispatch run schema '$($Run.Schema)'."
     }
-    [void](Get-FleetDispatchPlanSnapshot -Plan $Run.Plan)
+    $plan = Get-FleetDispatchPlanSnapshot `
+        -Plan (Get-FleetDispatchProperty -InputObject $Run -Name Plan -Required)
+    if ((Get-FleetDispatchProperty -InputObject $Run -Name PreView -Required) -cne
+        (Format-FleetDispatchPlanSnapshot -Plan $plan)) {
+        throw 'Fleet dispatch run pre-view does not match its plan.'
+    }
     if ($Run.TaskState -isnot [System.Collections.Generic.Dictionary[string, object]] -or
         $Run.Events -isnot [System.Collections.Generic.List[object]] -or
         $Run.RetryTasks -isnot [System.Collections.Generic.List[object]]) {
         throw 'Fleet dispatch run state was not created by Start-FleetDispatchRun.'
     }
+    if ($Run.WaveNumber -isnot [int] -or $Run.WaveNumber -lt 0 -or
+        $Run.Done -isnot [bool]) {
+        throw 'Fleet dispatch run counters and completion state are invalid.'
+    }
+    if ($Run.TaskState.Count -ne $plan.Selected.Count) {
+        throw 'Fleet dispatch run task state does not match the selected plan.'
+    }
+    foreach ($task in $plan.Selected) {
+        if (-not $Run.TaskState.ContainsKey($task.Id)) {
+            throw "Fleet dispatch run is missing task state for '$($task.Id)'."
+        }
+        $state = $Run.TaskState[$task.Id]
+        if ($state.Id -cne $task.Id -or
+            $state.Status -cnotin @('pending', 'completed', 'failed', 'cancelled') -or
+            $state.Started -isnot [bool] -or
+            $state.Retried -isnot [bool] -or
+            $state.RetryCount -isnot [int] -or
+            $state.RetryCount -lt 0 -or
+            $state.RetryCount -gt $plan.RetryPolicy.MaximumRetryCount -or
+            $state.Attempts -isnot [System.Collections.Generic.List[object]]) {
+            throw "Fleet dispatch run task state for '$($task.Id)' is invalid."
+        }
+        $safeDetail = ConvertTo-FleetDispatchDiagnosticText `
+            -Value $state.Detail `
+            -Label "Fleet dispatch run task '$($task.Id)' Detail"
+        if ($safeDetail -cne $state.Detail) {
+            throw "Fleet dispatch run task state for '$($task.Id)' contains an unredacted secret."
+        }
+        if ($state.Attempts.Count -gt ($plan.RetryPolicy.MaximumRetryCount + 1)) {
+            throw "Fleet dispatch run task '$($task.Id)' has too many attempts."
+        }
+        foreach ($attempt in $state.Attempts) {
+            if ($attempt.Number -isnot [int] -or $attempt.Number -notin @(1, 2) -or
+                $attempt.Outcome -cnotin @('completed', 'failed', 'throttled')) {
+                throw "Fleet dispatch run task '$($task.Id)' has invalid attempt state."
+            }
+            $safeAttemptDetail = ConvertTo-FleetDispatchDiagnosticText `
+                -Value $attempt.Detail `
+                -Label "Fleet dispatch run task '$($task.Id)' attempt Detail"
+            if ($safeAttemptDetail -cne $attempt.Detail) {
+                throw "Fleet dispatch run task '$($task.Id)' attempt contains an unredacted secret."
+            }
+        }
+        if (-not $state.Started -and
+            ($state.Attempts.Count -ne 0 -or $state.Status -cnotin @('pending', 'cancelled'))) {
+            throw "Fleet dispatch run task '$($task.Id)' violates started/attempt conservation."
+        }
+        if ($state.Status -in @('completed', 'failed') -and
+            (-not $state.Started -or $state.Attempts.Count -eq 0)) {
+            throw "Fleet dispatch run task '$($task.Id)' has terminal state without an attempt."
+        }
+        if ($state.Retried -ne ($state.RetryCount -gt 0)) {
+            throw "Fleet dispatch run task '$($task.Id)' has incoherent retry state."
+        }
+    }
+    for ($index = 0; $index -lt $Run.Events.Count; $index++) {
+        $event = $Run.Events[$index]
+        if ($event.Sequence -isnot [int] -or $event.Sequence -ne ($index + 1) -or
+            -not $Run.TaskState.ContainsKey([string]$event.TaskId) -or
+            $event.Outcome -cnotin @(
+                'started',
+                'completed',
+                'failed',
+                'throttled',
+                'retried',
+                'cancelled'
+            ) -or
+            $event.Attempt -isnot [int] -or $event.Attempt -lt 0 -or $event.Attempt -gt 2) {
+            throw "Fleet dispatch run event $($index + 1) is invalid."
+        }
+        $safeEventDetail = ConvertTo-FleetDispatchDiagnosticText `
+            -Value $event.Detail `
+            -Label "Fleet dispatch run event $($index + 1) Detail"
+        if ($safeEventDetail -cne $event.Detail) {
+            throw "Fleet dispatch run event $($index + 1) contains an unredacted secret."
+        }
+    }
     if ($Run.Done -and $null -ne $Run.CurrentWave) {
         throw 'Fleet dispatch run cannot be done while a wave is admitted.'
+    }
+    if ($null -ne $Run.CurrentWave) {
+        $wave = $Run.CurrentWave
+        if ($wave.Number -isnot [int] -or $wave.Number -ne $Run.WaveNumber -or
+            $wave.Attempt -isnot [int] -or $wave.Attempt -notin @(1, 2) -or
+            $wave.Tasks.Count -eq 0 -or
+            $wave.Tasks.Count -gt $plan.AdmissionCap -or
+            $wave.TaskIds.Count -ne $wave.Tasks.Count) {
+            throw 'Fleet dispatch run admitted wave metadata is invalid.'
+        }
+        for ($index = 0; $index -lt $wave.Tasks.Count; $index++) {
+            $waveTask = $wave.Tasks[$index]
+            if ($wave.TaskIds[$index] -cne $waveTask.Id -or
+                -not $Run.TaskState.ContainsKey($waveTask.Id)) {
+                throw 'Fleet dispatch run admitted wave tasks are incoherent.'
+            }
+            $plannedTask = @($plan.Selected | Where-Object Id -CEQ $waveTask.Id)
+            if ($plannedTask.Count -ne 1 -or
+                (ConvertTo-Json $plannedTask[0] -Depth 5 -Compress) -cne
+                (ConvertTo-Json $waveTask -Depth 5 -Compress)) {
+                throw "Fleet dispatch run admitted task '$($waveTask.Id)' does not match the plan."
+            }
+            $state = $Run.TaskState[$waveTask.Id]
+            if (-not $state.Started -or $state.Status -cne 'pending') {
+                throw "Fleet dispatch run admitted task '$($waveTask.Id)' is not pending and started."
+            }
+            if ($wave.Attempt -eq 1) {
+                foreach ($dependencyId in $waveTask.DependsOn) {
+                    if ($Run.TaskState[$dependencyId].Status -cne 'completed') {
+                        throw "Fleet dispatch run admitted task '$($waveTask.Id)' has an incomplete dependency."
+                    }
+                }
+            }
+            elseif ($state.RetryCount -ne 1 -or $state.Attempts.Count -eq 0 -or
+                $state.Attempts[$state.Attempts.Count - 1].Outcome -cne 'throttled') {
+                throw "Fleet dispatch run retry admission for '$($waveTask.Id)' is invalid."
+            }
+        }
+    }
+}
+
+function Copy-FleetDispatchWave {
+    param([AllowNull()][object]$Wave)
+
+    if ($null -eq $Wave) { return $null }
+    return [pscustomobject]@{
+        Number  = $Wave.Number
+        Tasks   = @($Wave.Tasks | ForEach-Object {
+                [pscustomobject]@{
+                    Id             = $_.Id
+                    Label          = $_.Label
+                    Key            = $_.Key
+                    Selected       = $_.Selected
+                    OmissionReason = $_.OmissionReason
+                    DependsOn      = @($_.DependsOn)
+                    Order          = $_.Order
+                }
+            })
+        TaskIds = @($Wave.TaskIds)
+        Attempt = $Wave.Attempt
     }
 }
 
@@ -936,10 +1103,11 @@ function New-FleetDispatchTransition {
         [object]$Wave
     )
 
+    Assert-FleetDispatchRun -Run $Run
     return [pscustomobject]@{
         Schema  = 'skalary/fleet-dispatch-transition@1'
         Run     = $Run
-        Wave    = $Wave
+        Wave    = Copy-FleetDispatchWave -Wave $Wave
         Done    = $Run.Done
         PreView = $Run.PreView
     }
@@ -1098,7 +1266,12 @@ function Complete-FleetDispatchRun {
         if ($task.Status -in @('failed', 'cancelled')) {
             $degradation.Add([pscustomobject]@{
                     TaskId = $task.Id
-                    Reason = "$($task.Status): $($task.Detail)"
+                    Reason = if ($task.Status -ceq 'failed') {
+                        'failed after an admitted host wave'
+                    }
+                    else {
+                        'cancelled because a dependency did not complete'
+                    }
                 })
         }
         elseif ($task.Retried) {

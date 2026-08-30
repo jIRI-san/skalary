@@ -36,8 +36,10 @@ admitted cloned wave, Step requires exactly one result for each admitted id befo
 else, and Complete rejects pending or admitted work. A native timeout, crash, or missing result is
 submitted as an explicit failed outcome rather than restarting the run and duplicating a lease.
 Retry waves contain only explicitly throttled tasks and run before newly ready work. The caller-held
-run is invocation-local state, not an authentication or attestation mechanism, and is never written
-by the module.
+run is invocation-local state mutated in place by Start/Step and never persisted by the module. It
+has no integrity digest or admission token and is not an authentication, attestation, or tamper-proof
+mechanism. Internally inconsistent edits fail loud; a caller that coherently rewrites its own state
+is fabricating attendance only about its own invocation, not crossing a privilege boundary.
 
 `/cip` creates its fleet only after operator intent confirmation. Its ordered descriptors admit
 Designer and Requirements Validator together, then Judge after both complete. Descriptor keys carry
@@ -87,8 +89,8 @@ format/bidirectional controls, and line/paragraph separators are rejected; free 
 before rendering. Result details use the same boundary, preventing task labels or host diagnostics
 from injecting terminal control sequences or new attendance records. A plan contains at most 64
 tasks and each task at most 64 dependencies, bounding projection work and rendered output.
-Post-run formatting stays internal to `Invoke-FleetDispatchPlan`; callers cannot pass fabricated
-attendance to a public formatter.
+Post-run formatting is reachable only through `Complete-FleetDispatchRun`, which revalidates closed
+task-state values, admitted-wave coherence, and started/attempt conservation before rendering.
 
 Collection admission is streaming and bounded before normalization for task descriptors, plan
 projections, dependencies, waves, and launcher results. A launcher pipeline is stopped on its first
