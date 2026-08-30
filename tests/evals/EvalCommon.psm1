@@ -144,6 +144,28 @@ function Get-ArtifactType {
     throw "Unsupported artifact destination path '$DestinationPath'."
 }
 
+function Assert-EvalMarkerOrder {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Text,
+
+        [Parameter(Mandatory)]
+        [string]$BeforeMarker,
+
+        [Parameter(Mandatory)]
+        [string]$AfterMarker,
+
+        [System.StringComparison]$Comparison = [System.StringComparison]::Ordinal
+    )
+
+    $beforeIndex = $Text.IndexOf($BeforeMarker, $Comparison)
+    $afterIndex = $Text.IndexOf($AfterMarker, $Comparison)
+    $beforeIndex | Should -BeGreaterOrEqual 0 -Because "'$BeforeMarker' must be present"
+    $afterIndex | Should -BeGreaterOrEqual 0 -Because "'$AfterMarker' must be present"
+    $beforeIndex | Should -BeLessThan $afterIndex -Because "'$BeforeMarker' must precede '$AfterMarker'"
+}
+
 function Test-ReferencedFile {
     [CmdletBinding()]
     param(
@@ -434,6 +456,7 @@ Export-ModuleMember -Function @(
     'Test-RequiredFrontmatter',
     'Get-ArtifactType',
     'Test-ReferencedFile',
+    'Assert-EvalMarkerOrder',
     'Resolve-MarkdownLink',
     'Test-BodySection',
     'Get-ReviewRunEvalContext',

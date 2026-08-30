@@ -875,8 +875,6 @@ Ready order: design -> validate -> implement
     }
 
     It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
-        Import-Module (Join-Path $repoRoot 'tests/ConsumerInstallFixture.psm1') -Force -DisableNameChecking
-        $catalog = Get-ConsumerInstallManifestCatalog -SourceRepoRoot $repoRoot
         $registry = Get-Content -LiteralPath (Join-Path $repoRoot 'registry.json') -Raw |
             ConvertFrom-Json -Depth 100
         $expected = @(
@@ -923,15 +921,19 @@ Ready order: design -> validate -> implement
         ).Hash.ToLowerInvariant()
 
         foreach ($consumer in $expected) {
-            $catalogModule = @(
-                $catalog.Files |
-                    Where-Object {
-                        [string]$_.Plugin -ceq $consumer.Plugin -and
-                        [string]$_.Dest -ceq $consumer.ModuleDest
-                    }
+            $pluginRoot = Join-Path $repoRoot "plugins/$($consumer.Plugin)"
+            $manifest = Get-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Raw |
+                ConvertFrom-Json -Depth 100
+            $moduleMapping = @(
+                $manifest.files |
+                    Where-Object { [string]$_.dest -ceq $consumer.ModuleDest }
             )
-            $catalogModule.Count | Should -Be 1
-            [string]$catalogModule[0].Sha256 | Should -BeExactly $canonicalHash
+            $moduleMapping.Count | Should -Be 1
+            $moduleSourcePath = Join-Path $pluginRoot (
+                [string]$moduleMapping[0].src -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            (Get-FileHash -LiteralPath $moduleSourcePath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                Should -BeExactly $canonicalHash
 
             $registryPlugin = @(
                 $registry.plugins |
@@ -951,15 +953,16 @@ Ready order: design -> validate -> implement
             (Get-FileHash -LiteralPath $installedModulePath -Algorithm SHA256).Hash.ToLowerInvariant() |
                 Should -BeExactly $canonicalHash
 
-            $catalogGuard = @(
-                $catalog.Files |
-                    Where-Object {
-                        [string]$_.Plugin -ceq $consumer.Plugin -and
-                        [string]$_.Dest -ceq $consumer.GuardDest
-                    }
+            $guardMapping = @(
+                $manifest.files |
+                    Where-Object { [string]$_.dest -ceq $consumer.GuardDest }
             )
-            $catalogGuard.Count | Should -Be 1
-            [string]$catalogGuard[0].Sha256 | Should -BeExactly $guardHash
+            $guardMapping.Count | Should -Be 1
+            $guardSourcePath = Join-Path $pluginRoot (
+                [string]$guardMapping[0].src -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            (Get-FileHash -LiteralPath $guardSourcePath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                Should -BeExactly $guardHash
             $registryGuard = @(
                 $registryPlugin[0].files |
                     Where-Object { [string]$_.dest -ceq $consumer.GuardDest }
@@ -975,22 +978,23 @@ Ready order: design -> validate -> implement
             $installedOwnerPath = Join-Path (Join-Path $repoRoot '.github') (
                 $consumer.OwnerDest -replace '/', [System.IO.Path]::DirectorySeparatorChar
             )
-            $catalogOwner = @(
-                $catalog.Files |
-                    Where-Object {
-                        [string]$_.Plugin -ceq $consumer.Plugin -and
-                        [string]$_.Dest -ceq $consumer.OwnerDest
-                    }
+            $ownerMapping = @(
+                $manifest.files |
+                    Where-Object { [string]$_.dest -ceq $consumer.OwnerDest }
             )
-            $catalogOwner.Count | Should -Be 1
+            $ownerMapping.Count | Should -Be 1
+            $ownerSourcePath = Join-Path $pluginRoot (
+                [string]$ownerMapping[0].src -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            $ownerHash = (Get-FileHash -LiteralPath $ownerSourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
             $registryOwner = @(
                 $registryPlugin[0].files |
                     Where-Object { [string]$_.dest -ceq $consumer.OwnerDest }
             )
             $registryOwner.Count | Should -Be 1
-            [string]$registryOwner[0].sha256 | Should -BeExactly ([string]$catalogOwner[0].Sha256)
+            [string]$registryOwner[0].sha256 | Should -BeExactly $ownerHash
             (Get-FileHash -LiteralPath $installedOwnerPath -Algorithm SHA256).Hash.ToLowerInvariant() |
-                Should -BeExactly ([string]$catalogOwner[0].Sha256)
+                Should -BeExactly $ownerHash
             [System.IO.File]::ReadAllText($installedOwnerPath) |
                 Should -Match ([regex]::Escape(".github/$($consumer.ModuleDest)"))
         }
@@ -1196,6 +1200,7 @@ Describe 'Fleet dispatch execution adapter' {
         $result.Attendance.Cancelled | Should -Be 0
 
         $renderFailure = $null
+        $renderDispatch = [pscustomobject]@{ Count = 0 }
         try {
             [void](Invoke-FleetDispatchPlan -Plan (
                     New-FleetDispatchPlan -Task @(New-FleetTask -Id rendered)
@@ -1206,6 +1211,7 @@ Describe 'Fleet dispatch execution adapter' {
                     }
                 } -InvokeWave {
                     param($Wave)
+                    $renderDispatch.Count++
                     New-WaveResult -TaskId $Wave.TaskIds[0]
                 })
         }
@@ -1221,6 +1227,37 @@ Describe 'Fleet dispatch execution adapter' {
         $completedRenderResult.Schema | Should -BeExactly 'skalary/fleet-dispatch-result@1'
         $completedRenderResult.Attendance.Completed | Should -Be 1
         $completedRenderResult.Tasks[0].Status | Should -BeExactly 'completed'
+        $renderDispatch.Count | Should -Be 1
+
+        foreach ($unsafeMessage in @(
+                ('x' * 513),
+                "multiline`ndiagnostic",
+                "control$([char]0x1b)diagnostic"
+            )) {
+            $unsafeFailure = $null
+            try {
+                [void](Invoke-FleetDispatchPlan -Plan (
+                        New-FleetDispatchPlan -Task @(New-FleetTask -Id unsafe-render)
+                    ) -Render {
+                        param($Text, $Stage)
+                        if ($Stage -ceq 'attendance') {
+                            throw $unsafeMessage
+                        }
+                    } -InvokeWave {
+                        param($Wave)
+                        New-WaveResult -TaskId $Wave.TaskIds[0]
+                    })
+            }
+            catch {
+                $unsafeFailure = $_.Exception
+            }
+            $unsafeFailure | Should -Not -BeNullOrEmpty
+            $unsafeFailure.Message | Should -BeLike (
+                'Fleet dispatch completed, but attendance rendering failed: *violated the diagnostic boundary*'
+            )
+            $unsafeFailure.Data['FleetDispatchResult'].Attendance.Completed | Should -Be 1
+            $unsafeFailure.Data['FleetDispatchRenderStage'] | Should -BeExactly 'attendance'
+        }
 
         $throttlePlan = New-FleetDispatchPlan -Task @(
             New-FleetTask -Id first

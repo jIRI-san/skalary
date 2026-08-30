@@ -126,6 +126,22 @@ function ConvertTo-FleetDispatchDiagnosticText {
     return Protect-HighConfidenceSecret -Value $text
 }
 
+function ConvertTo-FleetDispatchSafeDiagnosticText {
+    param(
+        [AllowNull()]
+        [object]$Value,
+
+        [string]$Label = 'Fleet dispatch diagnostic'
+    )
+
+    try {
+        return ConvertTo-FleetDispatchDiagnosticText -Value $Value -Label $Label
+    }
+    catch {
+        return "$Label was unavailable because it violated the diagnostic boundary."
+    }
+}
+
 function Get-FleetDispatchBoundedCollection {
     param(
         [AllowNull()]
@@ -1349,7 +1365,7 @@ function Invoke-FleetDispatchPlan {
         [void](& $Render $result.FinalView 'attendance')
     }
     catch {
-        $detail = ConvertTo-FleetDispatchDiagnosticText `
+        $detail = ConvertTo-FleetDispatchSafeDiagnosticText `
             -Value ([string]$_.Exception.Message) `
             -Label 'Fleet dispatch attendance renderer failure'
         $exception = [InvalidOperationException]::new(

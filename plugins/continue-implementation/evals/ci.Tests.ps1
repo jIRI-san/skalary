@@ -87,17 +87,45 @@ Describe 'ci structural evals' {
         $skill = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/SKILL.md') -Raw
         $guide = Get-Content -LiteralPath (Join-Path $pluginRoot 'skills/ci/assets/fleet-dispatch-guide.md') -Raw
 
-        $phaseAdmissionIndex = $skill.IndexOf('phase admission', [System.StringComparison]::OrdinalIgnoreCase)
-        $fleetSectionIndex = $skill.IndexOf('Implementation-role fleet dispatch', [System.StringComparison]::Ordinal)
-        $phaseAdmissionIndex | Should -BeGreaterOrEqual 0
-        $fleetSectionIndex | Should -BeGreaterOrEqual 0
-        $phaseAdmissionIndex | Should -BeLessThan $fleetSectionIndex
-        $guide.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('PreView', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Invoke only', [System.StringComparison]::Ordinal)
-        $guide.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $guide.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
+        $skillRelations = @(, @('phase admission', 'Implementation-role fleet dispatch'))
+        $guideRelations = @(
+            @('New-FleetDispatchPlan', 'Start-FleetDispatchRun'),
+            @('PreView', 'Invoke only'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun')
+        )
+        foreach ($relation in $skillRelations) {
+            Assert-EvalMarkerOrder `
+                -Text $skill `
+                -BeforeMarker $relation[0] `
+                -AfterMarker $relation[1] `
+                -Comparison OrdinalIgnoreCase
+        }
+        foreach ($relation in $guideRelations) {
+            Assert-EvalMarkerOrder -Text $guide -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($skillRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerSkill = $skill.Replace($marker, '', [System.StringComparison]::OrdinalIgnoreCase)
+            {
+                foreach ($relation in $skillRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerSkill `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1] `
+                        -Comparison OrdinalIgnoreCase
+                }
+            } | Should -Throw
+        }
+        foreach ($marker in @($guideRelations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerGuide = $guide.Replace($marker, '')
+            {
+                foreach ($relation in $guideRelations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerGuide `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
 
         foreach ($id in @('ci-designer', 'ci-validator', 'ci-implementor', 'ci-judge')) {
             @([regex]::Matches($guide, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |

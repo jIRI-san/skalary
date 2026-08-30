@@ -87,17 +87,26 @@ Describe 'autopilot structural evals' {
     It 'keeps the autopilot plan before calls and conserves the four-role graph and boundaries' {
         $agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
 
-        $fleetAdmissionIndex = $agent.IndexOf('Create the fleet only after', [System.StringComparison]::Ordinal)
-        $planCallIndex = $agent.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
-        $fleetAdmissionIndex | Should -BeGreaterOrEqual 0
-        $planCallIndex | Should -BeGreaterOrEqual 0
-        $fleetAdmissionIndex | Should -BeLessThan $planCallIndex
-        $agent.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $agent.IndexOf('PreView', [System.StringComparison]::Ordinal)
-        $agent.IndexOf('PreView', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $agent.IndexOf('first native role call', [System.StringComparison]::Ordinal)
-        $agent.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal) |
-            Should -BeLessThan $agent.IndexOf('Complete-FleetDispatchRun', [System.StringComparison]::Ordinal)
+        $relations = @(
+            @('Create the fleet only after', 'New-FleetDispatchPlan'),
+            @('Start-FleetDispatchRun', 'PreView'),
+            @('PreView', 'first native role call'),
+            @('Step-FleetDispatchRun', 'Complete-FleetDispatchRun')
+        )
+        foreach ($relation in $relations) {
+            Assert-EvalMarkerOrder -Text $agent -BeforeMarker $relation[0] -AfterMarker $relation[1]
+        }
+        foreach ($marker in @($relations | ForEach-Object { $_ } | Sort-Object -Unique)) {
+            $missingMarkerAgent = $agent.Replace($marker, '')
+            {
+                foreach ($relation in $relations) {
+                    Assert-EvalMarkerOrder `
+                        -Text $missingMarkerAgent `
+                        -BeforeMarker $relation[0] `
+                        -AfterMarker $relation[1]
+                }
+            } | Should -Throw
+        }
 
         foreach ($id in @('ci-designer', 'ci-validator', 'ci-implementor', 'ci-judge')) {
             @([regex]::Matches($agent, ('(?m)^\|\s*`' + [regex]::Escape($id) + '`\s*\|'))).Count |
