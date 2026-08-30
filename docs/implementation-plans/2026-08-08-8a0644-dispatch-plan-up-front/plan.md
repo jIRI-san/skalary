@@ -47,7 +47,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Adapt `/cr` and `/dr` frozen task lists to the shared planner while leaving review-run publication, persistence, and result rendering authoritative; prove the six- and fourteen-task wave shapes and attendance parity (REQ-6, REQ-8, RISK-2, RISK-3, RISK-6) [after: 2.2] `M`
-- [ ] 3.2 Publish the generic epic-review conformance shape and local handoff consumed later by plan `25aa23`, without editing that plan or adding another scheduler (REQ-7, REQ-8, RISK-6) [after: 3.1] `S`
+- [x] 3.2 Publish the generic epic-review conformance shape and local handoff consumed later by plan `25aa23`, without editing that plan or adding another scheduler (REQ-7, REQ-8, RISK-6) [after: 3.1] `S`
 
 ## Phase 4: Distribution and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->

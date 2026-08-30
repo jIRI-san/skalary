@@ -71,6 +71,13 @@ review outcomes remain in memory for publication. Error prose such as `HTTP 429`
 failure. Fleet attendance is not added to review schemas or persistence: review-run Publish,
 verified Summary/Full reading, and result rendering remain authoritative after Fleet completion.
 
+The `/cep` decomposition guide also publishes an explicitly inactive epic-review extension boundary
+for plan `25aa23`. It projects any later frozen epic-review tasks through the same exact-id/order/model,
+dependency-free descriptor and stepwise lifecycle contract, but creates no current `/cep` activation,
+scheduler, state, or plugin dependency. The dependent plan retains ownership of its fixed review
+scope, selection, rubric, richer findings and outcomes, compact verdict, operator blocking, and
+activation timing; review-run Freeze/Publish and verified readers remain authoritative.
+
 ## Design Decisions
 
 The helper is canonical under `scripts/skalary/` because multiple independently installed plugins

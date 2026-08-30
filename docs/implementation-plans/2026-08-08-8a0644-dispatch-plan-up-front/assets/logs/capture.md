@@ -31,3 +31,4 @@ No entries for this phase.
 Phase: 3
 
 - [3.1] [src:note] [concern:testing-evidence] [req:REQ-6,REQ-8] [review:none] [source-record:fc84cec170887a44a8582204690081ad8c3e4af7af1e6301f08fec63c500601d] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0.
+- [3.2] [src:note] [concern:testing-evidence] [req:REQ-7,REQ-8] [review:none] [source-record:7d8041287b8dde3f54a6ab7259200736004b9cd4aee7654e34c7d421c33b8f3a] Fleet attendance clean: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0.

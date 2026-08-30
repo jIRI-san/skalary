@@ -133,3 +133,38 @@ Present the proposed cut before scaffolding anything, as one table plus the edge
 
 Then ask for confirmation with `vscode_askQuestions`. On rejection, revise the cut and present again;
 never scaffold folders to "show" a cut.
+
+## Epic-review extension handoff (inactive)
+
+This is an explicitly inactive conformance shape for the later consumer, plan `25aa23`. It activates
+nothing in the current `/cep`, and it neither edits nor otherwise mutates that dependent plan. Plan
+`25aa23` remains the owner of the fixed epic-coherency scope, frozen task selection, reviewer prompts
+and rubric, richer outcomes and findings, compact verdict, operator-resolution and blocking behavior,
+and activation timing.
+
+After a review-run `Freeze` succeeds, project one Fleet descriptor for every exact ordered frozen
+task:
+
+| Fleet field | Projection |
+|---|---|
+| `Id` | Exact frozen `taskId` |
+| `Label` | Bounded one-line concern label |
+| `Key` | Exact frozen `model` |
+| `Selected` | `$true` |
+| `OmissionReason` | Empty string |
+| `DependsOn` | Empty collection |
+
+Conserve the frozen ids, order, and count exactly and uniquely. Do not add tasks, infer omissions,
+reorder tasks, or introduce dependencies.
+
+Create `New-FleetDispatchPlan` once, call `Start-FleetDispatchRun` once, and render its `PreView`
+before any reviewer call. Invoke only the already-admitted tasks in each returned wave and submit
+exactly one structured outcome for every admitted task to `Step-FleetDispatchRun`. Continue stepping
+until `Done`, then call `Complete-FleetDispatchRun` and render its `FinalView`. Only then continue the
+unchanged review-run `Publish` and verified-reader flow.
+
+Only an explicit structured throttle retries once, as the same frozen task. Every other unsuccessful
+review outcome projects to Fleet `failed`; richer review outcomes and findings stay separate for
+`Publish`. Fleet attendance is invocation-local and non-authoritative. Review-run `Freeze`,
+`Publish`, persistence, and rendering remain authoritative, and provider-global concurrency is
+unobserved.

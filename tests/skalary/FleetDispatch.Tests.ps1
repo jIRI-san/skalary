@@ -676,6 +676,222 @@ Ready order: design -> validate -> implement
         @($fourteenResult.Tasks.Id | Select-Object -Unique).Count | Should -Be $fourteenFrozen.Count
     }
 
+    It 'test:FleetDispatch.CepConformance publishes an inactive exact frozen-task handoff' {
+        function Get-PlanFolderSnapshot {
+            param(
+                [Parameter(Mandatory)]
+                [string]$Path
+            )
+
+            $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+            return @(
+                Get-ChildItem -LiteralPath $resolvedPath -File -Recurse |
+                    ForEach-Object {
+                        $relativePath = [System.IO.Path]::GetRelativePath(
+                            $resolvedPath,
+                            $_.FullName
+                        ).Replace('\', '/')
+                        [pscustomobject]@{
+                            Path = $relativePath
+                            Sha256 = (
+                                Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+                            ).Hash.ToLowerInvariant()
+                        }
+                    } |
+                    Sort-Object -Property Path
+            )
+        }
+
+        $consumerPlanDir = Join-Path $repoRoot (
+            'docs/implementation-plans/2026-08-14-25aa23-epic-coherency-review'
+        )
+        $consumerBefore = Get-PlanFolderSnapshot -Path $consumerPlanDir |
+            ConvertTo-Json -Depth 3 -Compress
+
+        $guidePath = Join-Path $repoRoot (
+            'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
+        )
+        $guide = [System.IO.File]::ReadAllText($guidePath)
+        $handoffIndex = $guide.IndexOf(
+            '## Epic-review extension handoff (inactive)',
+            [System.StringComparison]::Ordinal
+        )
+        $handoffIndex | Should -BeGreaterOrEqual 0
+        $handoff = $guide.Substring($handoffIndex)
+
+        $freezeIndex = $handoff.IndexOf('Freeze', [System.StringComparison]::Ordinal)
+        $newIndex = $handoff.IndexOf('New-FleetDispatchPlan', [System.StringComparison]::Ordinal)
+        $startIndex = $handoff.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
+        $preViewIndex = $handoff.IndexOf('PreView', [System.StringComparison]::Ordinal)
+        $stepIndex = $handoff.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
+        $doneIndex = $handoff.IndexOf('Done', [System.StringComparison]::Ordinal)
+        $completeIndex = $handoff.IndexOf(
+            'Complete-FleetDispatchRun',
+            [System.StringComparison]::Ordinal
+        )
+        $finalViewIndex = $handoff.IndexOf('FinalView', [System.StringComparison]::Ordinal)
+        $publishIndex = $handoff.IndexOf('Publish', [System.StringComparison]::Ordinal)
+
+        $freezeIndex | Should -BeGreaterOrEqual 0
+        $newIndex | Should -BeGreaterThan $freezeIndex
+        $startIndex | Should -BeGreaterThan $newIndex
+        $preViewIndex | Should -BeGreaterThan $startIndex
+        $stepIndex | Should -BeGreaterThan $preViewIndex
+        $doneIndex | Should -BeGreaterThan $stepIndex
+        $completeIndex | Should -BeGreaterThan $doneIndex
+        $finalViewIndex | Should -BeGreaterThan $completeIndex
+        $publishIndex | Should -BeGreaterThan $finalViewIndex
+        $handoff | Should -Match 'explicitly inactive'
+        $handoff | Should -Match 'activates\s+nothing in the current `/cep`'
+        $handoff | Should -Match 'neither edits nor otherwise mutates that dependent plan'
+        $handoff | Should -Match 'Plan\s+`25aa23` remains the owner'
+        $handoff | Should -Match 'Review-run `Freeze`,\s+`Publish`, persistence, and rendering remain authoritative'
+        $handoff | Should -Match 'Fleet attendance is invocation-local and non-authoritative'
+        $handoff | Should -Match 'provider-global concurrency is\s+unobserved'
+
+        $cepSkill = [System.IO.File]::ReadAllText(
+            (Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cep/SKILL.md')
+        )
+        $cepSkill | Should -Not -Match 'Epic-review extension handoff'
+
+        Import-Module (
+            Join-Path $repoRoot 'scripts/skalary/PlanState.psm1'
+        ) -Force -DisableNameChecking
+        $consumerMarkers = Get-PlanHeaderMarkers -Path (
+            Join-Path $consumerPlanDir 'plan.md'
+        )
+        $producerMarkers = Get-PlanHeaderMarkers -Path (
+            Join-Path $repoRoot (
+                'docs/implementation-plans/2026-08-08-8a0644-dispatch-plan-up-front/plan.md'
+            )
+        )
+        $consumerMarkers.PlanId | Should -BeExactly '25aa23'
+        $consumerMarkers.DependsOn | Should -Contain '8a0644'
+        $producerMarkers.PlanId | Should -BeExactly '8a0644'
+        $producerMarkers.DependsOn | Should -Not -Contain '25aa23'
+
+        $frozenTasks = @(
+            [pscustomobject]@{
+                TaskId = 'epic-goal'
+                Concern = 'Goal coverage'
+                Model = 'Claude Opus 5 (copilot)'
+            }
+            [pscustomobject]@{
+                TaskId = 'epic-done'
+                Concern = 'Done coverage'
+                Model = 'GPT-5.6 Sol (copilot)'
+            }
+            [pscustomobject]@{
+                TaskId = 'child-independence'
+                Concern = 'Child independence'
+                Model = 'Claude Opus 5 (copilot)'
+            }
+            [pscustomobject]@{
+                TaskId = 'dependency-graph'
+                Concern = 'Dependency graph'
+                Model = 'GPT-5.6 Sol (copilot)'
+            }
+            [pscustomobject]@{
+                TaskId = 'prior-art'
+                Concern = 'Prior-art reuse'
+                Model = 'Claude Opus 5 (copilot)'
+            }
+        )
+        $descriptors = @($frozenTasks | ForEach-Object {
+                [pscustomobject]@{
+                    Id = $_.TaskId
+                    Label = $_.Concern
+                    Key = $_.Model
+                    Selected = $true
+                    OmissionReason = ''
+                    DependsOn = @()
+                }
+            })
+
+        $newCount = 0
+        $newCount++
+        $plan = New-FleetDispatchPlan -Task $descriptors
+        $newCount | Should -Be 1
+        $plan.AdmissionCap | Should -Be 4
+        @($plan.Waves | ForEach-Object { $_.TaskIds.Count }) | Should -Be @(4, 1)
+        @($plan.Selected.Id) | Should -Be @($frozenTasks.TaskId)
+        @($plan.Selected.Id | Select-Object -Unique).Count | Should -Be $frozenTasks.Count
+        @($plan.Omitted).Count | Should -Be 0
+        $plan.Attendance.Count | Should -Be 0
+        @($plan.Tasks | Where-Object { $_.DependsOn.Count -ne 0 }).Count | Should -Be 0
+        @($plan.Tasks | Where-Object { -not $_.Selected }).Count | Should -Be 0
+        @($plan.Tasks | Where-Object { $_.OmissionReason -cne '' }).Count | Should -Be 0
+        @($plan.Tasks | Where-Object { $_.Label.Length -gt 256 }).Count | Should -Be 0
+        for ($index = 0; $index -lt $frozenTasks.Count; $index++) {
+            $plan.Selected[$index].Id | Should -BeExactly $frozenTasks[$index].TaskId
+            $plan.Selected[$index].Label | Should -BeExactly $frozenTasks[$index].Concern
+            $plan.Selected[$index].Key | Should -BeExactly $frozenTasks[$index].Model
+        }
+
+        $events = [System.Collections.Generic.List[string]]::new()
+        $admittedIds = [System.Collections.Generic.List[string]]::new()
+        $invokedIds = [System.Collections.Generic.List[string]]::new()
+        $startCount = 0
+        $stepCount = 0
+        $completeCount = 0
+        $startCount++
+        $transition = Start-FleetDispatchRun -Plan $plan
+        $events.Add('PreView')
+        $transition.PreView | Should -Match 'Fleet dispatch plan'
+
+        while (-not $transition.Done) {
+            $wave = $transition.Wave
+            foreach ($taskId in $wave.TaskIds) {
+                $admittedIds.Add($taskId)
+            }
+            $events.Add("Wave:$($wave.TaskIds -join ',')")
+            $waveResults = @($wave.Tasks | ForEach-Object {
+                    $invokedIds.Add($_.Id)
+                    [pscustomobject]@{
+                        TaskId = $_.Id
+                        Outcome = 'completed'
+                        Detail = ''
+                    }
+                })
+            $waveResults.Count | Should -Be $wave.TaskIds.Count
+            $stepCount++
+            $transition = Step-FleetDispatchRun -Run $transition.Run -Result $waveResults
+        }
+
+        $transition.Done | Should -BeTrue
+        $completeCount++
+        $result = Complete-FleetDispatchRun -Run $transition.Run
+        $events.Add('FinalView')
+        $startCount | Should -Be 1
+        $stepCount | Should -Be 2
+        $completeCount | Should -Be 1
+        $events[0] | Should -BeExactly 'PreView'
+        $events[$events.Count - 1] | Should -BeExactly 'FinalView'
+        $events.ToArray() | Should -Be @(
+            'PreView',
+            'Wave:epic-goal,epic-done,child-independence,dependency-graph',
+            'Wave:prior-art',
+            'FinalView'
+        )
+        $invokedIds.ToArray() | Should -Be $admittedIds.ToArray()
+        $invokedIds.ToArray() | Should -Be @($frozenTasks.TaskId)
+        $result.Attendance.Planned | Should -Be $frozenTasks.Count
+        $result.Attendance.Started | Should -Be $frozenTasks.Count
+        $result.Attendance.Completed | Should -Be $frozenTasks.Count
+        $result.Attendance.Failed | Should -Be 0
+        $result.Attendance.Cancelled | Should -Be 0
+        $result.Attendance.Retried | Should -Be 0
+        $result.Attendance.Completed +
+        $result.Attendance.Failed +
+        $result.Attendance.Cancelled |
+            Should -Be $result.Attendance.Planned
+        $result.FinalView | Should -Match 'Fleet dispatch attendance'
+
+        $consumerAfter = Get-PlanFolderSnapshot -Path $consumerPlanDir |
+            ConvertTo-Json -Depth 3 -Compress
+        $consumerAfter | Should -BeExactly $consumerBefore
+    }
+
     It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
         Import-Module (Join-Path $repoRoot 'tests/ConsumerInstallFixture.psm1') -Force -DisableNameChecking
         $catalog = Get-ConsumerInstallManifestCatalog -SourceRepoRoot $repoRoot
