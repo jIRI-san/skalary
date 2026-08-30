@@ -24,7 +24,13 @@ Describe 'Set-ScriptApproval' {
             $crScripts = Join-Path $root '.github/skills/cr/scripts'
             $drScripts = Join-Path $root '.github/skills/dr/scripts'
             New-Item -ItemType Directory -Path $lpScripts, $ipScripts, $crScripts, $drScripts -Force | Out-Null
-            foreach ($f in @('Get-Plugin.ps1', 'Find-Plugin.ps1', '_Common.ps1')) {
+            foreach ($f in @(
+                    'Get-Plugin.ps1',
+                    'Find-Plugin.ps1',
+                    'Get-PlanArtifactContext.ps1',
+                    'Get-PlanArtifactConsumerContext.ps1',
+                    '_Common.ps1'
+                )) {
                 Set-Content -LiteralPath (Join-Path $lpScripts $f) -Value '# stub' -Encoding utf8NoBOM
             }
             Set-Content -LiteralPath (Join-Path $ipScripts 'Install-Plugin.ps1') -Value '# stub' -Encoding utf8NoBOM
@@ -36,7 +42,7 @@ Describe 'Set-ScriptApproval' {
             $registry = [ordered]@{
                 plugins = @(
                     [ordered]@{
-                        name  = 'testplug'
+                        name = 'testplug'
                         version = '1.0.0'
                         files = @(
                             @{ src = 'a'; dest = 'skills/lp/scripts/Get-Plugin.ps1' }
@@ -47,6 +53,8 @@ Describe 'Set-ScriptApproval' {
                             @{ src = 'f'; dest = 'skills/lp/scripts/Get-Credential.ps1' }
                             @{ src = 'g'; dest = 'skills/cr/scripts/Build-ReviewReport.ps1' }
                             @{ src = 'h'; dest = 'skills/dr/scripts/Build-ReviewReport.ps1' }
+                            @{ src = 'i'; dest = 'skills/lp/scripts/Get-PlanArtifactContext.ps1' }
+                            @{ src = 'j'; dest = 'skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1' }
                         )
                     }
                 )
@@ -102,7 +110,36 @@ Describe 'Set-ScriptApproval' {
         $keys | Should -Not -Contain '.github/skills/ip/scripts/Install-Plugin.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/_Common.ps1'
         $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-Credential.ps1'
+        $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-PlanArtifactContext.ps1'
+        $keys | Should -Not -Contain '.github/skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1'
+        @($keys | Where-Object { $_ -match 'Get-PlanArtifactConsumerContext' }).Count | Should -Be 0
         $keys | Should -Contain 'git add'  # pre-existing key preserved
+    }
+
+    It 'test:SetScriptApproval.PlanArtifactBoundary removes every adapter and resolver approval shape' {
+        $legacyConsumer = '.github/skills/lp/scripts/Get-PlanArtifactConsumerContext.ps1'
+        $legacyResolver = '.github/skills/lp/scripts/Get-PlanArtifactContext.ps1'
+        $legacyRule = '/^\.github\/skills\/lp\/scripts\/Get-PlanArtifactConsumerContext\.ps1 -PlanId .*$/'
+        $root = New-ApprovalFixture -SettingsContent @"
+{
+  "chat.tools.terminal.autoApprove": {
+    "$legacyConsumer": true,
+    "$legacyResolver": true,
+    "$($legacyRule.Replace('\', '\\'))": {"approve":true,"matchCommandLine":true}
+  }
+}
+"@
+        $settings = Join-Path $root '.vscode/settings.json'
+        & $approvalScript -Name 'testplug' -RepoRoot $root *> $null
+        $keys = Get-ApproveKeys -Path $settings
+        $keys | Should -Not -Contain $legacyConsumer
+        $keys | Should -Not -Contain $legacyResolver
+        @($keys | Where-Object { $_ -match 'Get-PlanArtifactConsumerContext' }).Count | Should -Be 0
+
+        & $approvalScript -Name 'testplug' -RepoRoot $root -Remove *> $null
+        @(Get-ApproveKeys -Path $settings | Where-Object {
+                $_ -match 'Get-PlanArtifact(?:Consumer)?Context'
+            }) | Should -BeNullOrEmpty
     }
 
     It 'test:ReviewReport.SafeInputAndApprovalBoundary adds and removes only two exact object-valued writer exceptions' {
@@ -317,6 +354,11 @@ Describe 'Repo settings auto-approval' {
                 $rule.Value.GetProperty('approve').GetBoolean() | Should -BeTrue
                 $rule.Value.GetProperty('matchCommandLine').GetBoolean() | Should -BeTrue
             }
+            $artifactRules = @(
+                $approve.EnumerateObject() |
+                    Where-Object { $_.Name -match 'Get-PlanArtifactConsumerContext' }
+            )
+            $artifactRules.Count | Should -Be 0
         }
         finally { $doc.Dispose() }
 
@@ -331,5 +373,7 @@ Describe 'Repo settings auto-approval' {
         $text | Should -Not -Match 'scripts/Set-ScriptApproval\.ps1'
         $text | Should -Not -Match 'get-credential\.ps1'
         $text | Should -Not -Match '"\.github/skills/(?:cr|dr)/scripts/Build-ReviewReport\.ps1"\s*:\s*true'
+        $text | Should -Not -Match '"\.github/skills/(?:cip|cep|cr|dr)/scripts/Get-PlanArtifactContext\.ps1"'
+        $text | Should -Not -Match '"\.github/skills/(?:cip|cep|cr|dr)/scripts/Get-PlanArtifactConsumerContext\.ps1"\s*:\s*true'
     }
 }

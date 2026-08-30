@@ -59,6 +59,12 @@ Describe 'Legacy phase receipt migration' {
             }
         }
 
+        function ConvertTo-AssertionText {
+            param([AllowEmptyCollection()][object[]]$InputObject)
+
+            return (($InputObject | Out-String) -replace '\r?\n\s*', '').Trim()
+        }
+
         function New-MigrationFixture {
             $tempBase = if ($IsWindows) {
                 [void](New-Item -ItemType Directory -Path 'C:\tmp' -Force)
@@ -182,7 +188,7 @@ Describe 'Legacy phase receipt migration' {
                 -Phase 1 -MigrateLegacyReceipt -SourceRef $SourceRef -RepoRoot $Fixture.Root 2>&1
             return [pscustomobject]@{
                 ExitCode = $LASTEXITCODE
-                Output = ($output | Out-String)
+                Output = ConvertTo-AssertionText -InputObject $output
             }
         }
     }
@@ -223,7 +229,8 @@ Describe 'Legacy phase receipt migration' {
         $pendingValidation = & pwsh -NoProfile -File $script:harvest `
             -PlanDir $fixture.PlanDir -Phase 1 -ValidateReceipt -RepoRoot $fixture.Root 2>&1
         $LASTEXITCODE | Should -Be 3
-        ($pendingValidation -join "`n") | Should -Match 'does not match repository HEAD'
+        (ConvertTo-AssertionText -InputObject $pendingValidation) |
+            Should -Match 'does not match repository HEAD'
         $pendingState = & pwsh -NoProfile -File $script:phaseState -PlanPath $fixture.PlanPath `
             -Phase 1 -RepoRoot $fixture.Root -HarvestValidator $script:harvest 2>&1
         $LASTEXITCODE | Should -Be 0
@@ -428,7 +435,8 @@ Describe 'Legacy phase receipt migration' {
         $validation = & pwsh -NoProfile -File $script:harvest -PlanDir $fixture.PlanDir `
             -Phase 1 -ValidateReceipt -RepoRoot $fixture.Root 2>&1
         $LASTEXITCODE | Should -Be 3
-        ($validation -join "`n") | Should -Match 'intervening conflicting receipt'
+        (ConvertTo-AssertionText -InputObject $validation) |
+            Should -Match 'intervening conflicting receipt'
     }
 
     It 'fails closed when migrated provenance is tampered or its source commit is unavailable' {
@@ -451,7 +459,7 @@ Describe 'Legacy phase receipt migration' {
         $validation = & pwsh -NoProfile -File $script:harvest -PlanDir $fixture.PlanDir `
             -Phase 1 -ValidateReceipt -RepoRoot $fixture.Root 2>&1
         $LASTEXITCODE | Should -Be 3
-        ($validation -join "`n") | Should -Match 'does not exist'
+        (ConvertTo-AssertionText -InputObject $validation) | Should -Match 'does not exist'
     }
 
     It 'keeps canonical, bundled, dogfood, and SI migration consumers byte-identical' {

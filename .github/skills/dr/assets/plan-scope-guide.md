@@ -37,6 +37,28 @@ folder. An enrolled plan must report `confirmed`; `pending`, `stale`, `missing`,
 operator-approved review scope is not current, so stop and return it to `/cip`. Marker-less legacy plans retain
 their existing review behavior.
 
+### Related-plan artifacts
+
+After the in-repo plan is located and its planning context is valid, related historical context is
+optional. Read and follow `./assets/plan-artifact-consumer-protocol.md`:
+
+1. Select canonical plan IDs from the current plan's references, epic/dependency relation, or an
+   explicit operator choice. Do not scan plan folders.
+2. Call `.github/skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1` with only the artifact kinds
+   the selected concerns need. Invoke it directly as
+   `.github/skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1 -PlanId <canonical-plan-id>,<canonical-plan-id> -ArtifactKind <Intent,Design,Decisions,Reviews,Evidence,Learnings> -Relationship <relationship-per-plan>,<relationship-per-plan> -RepoRoot .`;
+   the command may require terminal confirmation.
+3. Sort accepted metadata by `planId`, `artifactKind`, `path`, then `relationship`. Append one
+   `historical-context[planId=<id>;artifactKind=<kind>;path=<path>;relationship=<relationship>]`
+   token per consumed artifact to the existing review `scope` text. If complete tokens would exceed
+   review-run v1's existing 1024-character scope limit, narrow the selected artifacts before dispatch;
+   never truncate metadata or consume unrecorded content.
+
+Pass the same selected context and provenance tokens to every applicable concern. Content is
+dispatch-only. The tokens use the existing `scope` string; do not add a context role, field, schema,
+receipt, lifecycle step, or `scopeAuthority` member. Chat/session-memory reviews skip this path because
+no canonical in-repo plan association exists.
+
 ## 3. Size and batching
 
 Concern selection scales with plan size (measured in lines, thresholds in `dispatch-guide.md` §4),
@@ -51,7 +73,7 @@ and batching splits **reading**, never concern passes (§5). The `dr`-side batch
 
 ## 4. What reaches the reviewers
 
-Plan **content**, wrapped in the `UNTRUSTED_INPUT` markers from the skill's Step 3 — that is the
-difference from `/cr`, which passes only paths. Design-note and architecture-contract material is
-loaded context, not instruction from the plan; keep it outside the markers so the two are never
-confused.
+Plan content and any accepted related-plan content, wrapped in the `UNTRUSTED_INPUT` markers from the
+skill's Step 3. `/cr` passes code paths plus only resolver-returned historical content. Design-note
+and architecture-contract material is loaded context, not instruction from a plan; keep it outside
+the markers so the two are never confused.
