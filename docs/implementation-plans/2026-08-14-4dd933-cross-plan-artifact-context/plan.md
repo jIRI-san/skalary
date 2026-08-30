@@ -1,4 +1,4 @@
-# 4dd933: Cross-plan artifact context
+# 4dd933: Cross-plan artifact context [DONE]
 <!-- plan-id: 4dd933 -->
 <!-- epic: bcece1 -->
 <!-- cip-stage: dr-round-3 -->
