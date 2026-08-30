@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T07:42:39.5877072Z",
+  "generatedAt": "2026-08-30T09:21:45.2607901Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -167,7 +167,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "b99232cbfe85df1370b4f08ccd1da6f9642f4636a3f760451d65520dc834b8ff",
+          "sha256": "36461362119e949cfeb98b502b4e18e057d53fcdddffa3b1aa8d5c47b959436e",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -224,6 +224,11 @@
           "dest": "skills/autopilot/scripts/AtomicStore.psm1",
           "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/autopilot/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/FleetDispatch.psm1",
+          "sha256": "53d7adb8a74894ffb911d1bd036e273a34d48a2340e9f6f950f5eb88e09dc98e",
+          "src": "skills/autopilot/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
@@ -361,7 +366,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.59"
+      "version": "1.2.60"
     },
     {
       "author": "jIRI-san",
@@ -565,7 +570,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "55d9e2c24683925509d1cc2e6104443d1f31cb6d803346c2ecb1967c185e6f9b",
+          "sha256": "dbf51964d21cdd6a50be471e860fb076ac1e1472a680c93d567cacb4cf542cc0",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -597,6 +602,11 @@
           "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
           "sha256": "c61a699c1a780a2195b54d3533c73c93caccc3c6f9dda44a560a0cbbc2d3aea1",
           "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/FleetDispatch.psm1",
+          "sha256": "53d7adb8a74894ffb911d1bd036e273a34d48a2340e9f6f950f5eb88e09dc98e",
+          "src": "skills/ci/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/ci/scripts/Get-PlanState.ps1",
@@ -725,7 +735,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.82"
+      "version": "1.0.83"
     },
     {
       "author": "jIRI-san",
@@ -809,7 +819,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "e2fbfd5355c981712e1784a25130a2d21b87c7415f84e9f7426b73ea85b8c976",
+          "sha256": "c50f40ab801d9276ece1779cf27cd17cd3de98f3cd1f825f073e37c0e538caff",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -856,6 +866,11 @@
           "dest": "skills/cip/scripts/AtomicStore.psm1",
           "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
           "src": "skills/cip/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/FleetDispatch.psm1",
+          "sha256": "53d7adb8a74894ffb911d1bd036e273a34d48a2340e9f6f950f5eb88e09dc98e",
+          "src": "skills/cip/scripts/FleetDispatch.psm1"
         },
         {
           "dest": "skills/cip/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -931,7 +946,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.66"
+      "version": "1.0.67"
     },
     {
       "author": "jIRI-san",

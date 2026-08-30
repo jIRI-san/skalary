@@ -396,6 +396,71 @@ Ready order: design -> validate -> implement
         $result.Attendance.Cancelled | Should -Be 1
         @($result.Tasks | Where-Object Id -CEQ ci-judge)[0].Status | Should -Be cancelled
     }
+
+    It 'test:FleetDispatch.ConsumerInstall catalogs byte-identical installed fleet consumers' {
+        Import-Module (Join-Path $repoRoot 'tests/ConsumerInstallFixture.psm1') -Force -DisableNameChecking
+        $catalog = Get-ConsumerInstallManifestCatalog -SourceRepoRoot $repoRoot
+        $registry = Get-Content -LiteralPath (Join-Path $repoRoot 'registry.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $expected = @(
+            @{
+                Plugin = 'create-implementation-plan'
+                ModuleDest = 'skills/cip/scripts/FleetDispatch.psm1'
+                OwnerDest = 'skills/cip/SKILL.md'
+            },
+            @{
+                Plugin = 'continue-implementation'
+                ModuleDest = 'skills/ci/scripts/FleetDispatch.psm1'
+                OwnerDest = 'skills/ci/SKILL.md'
+            },
+            @{
+                Plugin = 'autopilot'
+                ModuleDest = 'skills/autopilot/scripts/FleetDispatch.psm1'
+                OwnerDest = 'agents/autopilot.agent.md'
+            }
+        )
+        $canonicalHash = (
+            Get-FileHash -LiteralPath (
+                Join-Path $repoRoot 'scripts/skalary/FleetDispatch.psm1'
+            ) -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+
+        foreach ($consumer in $expected) {
+            $catalogModule = @(
+                $catalog.Files |
+                    Where-Object {
+                        [string]$_.Plugin -ceq $consumer.Plugin -and
+                        [string]$_.Dest -ceq $consumer.ModuleDest
+                    }
+            )
+            $catalogModule.Count | Should -Be 1
+            [string]$catalogModule[0].Sha256 | Should -BeExactly $canonicalHash
+
+            $registryPlugin = @(
+                $registry.plugins |
+                    Where-Object { [string]$_.name -ceq $consumer.Plugin }
+            )
+            $registryPlugin.Count | Should -Be 1
+            $registryModule = @(
+                $registryPlugin[0].files |
+                    Where-Object { [string]$_.dest -ceq $consumer.ModuleDest }
+            )
+            $registryModule.Count | Should -Be 1
+            [string]$registryModule[0].sha256 | Should -BeExactly $canonicalHash
+
+            $installedModulePath = Join-Path (Join-Path $repoRoot '.github') (
+                $consumer.ModuleDest -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            (Get-FileHash -LiteralPath $installedModulePath -Algorithm SHA256).Hash.ToLowerInvariant() |
+                Should -BeExactly $canonicalHash
+
+            $installedOwnerPath = Join-Path (Join-Path $repoRoot '.github') (
+                $consumer.OwnerDest -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            )
+            [System.IO.File]::ReadAllText($installedOwnerPath) |
+                Should -Match ([regex]::Escape(".github/$($consumer.ModuleDest)"))
+        }
+    }
 }
 
 Describe 'Fleet dispatch execution adapter' {
