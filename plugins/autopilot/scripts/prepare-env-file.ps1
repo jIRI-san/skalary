@@ -25,6 +25,8 @@ param(
 
     [string]$Branch,
 
+    [string]$ExpectedStartCommit,
+
     # When set, inject offline-restore env so the entrypoint restores from the
     # read-only /feed mount instead of the network.
     [switch]$Offline
@@ -32,6 +34,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($ExpectedStartCommit -and
+    $ExpectedStartCommit -cnotmatch '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
+    throw "Invalid expected start commit '$ExpectedStartCommit'. Use a full Git commit id."
+}
 
 # Create per-session random subdirectory
 $sessionId = [System.IO.Path]::GetRandomFileName().Replace('.', '')
@@ -88,6 +95,9 @@ if ($remote) {
 # Pass target branch if specified
 if ($Branch) {
     $envContent += "REPO_BRANCH=$Branch"
+}
+if ($ExpectedStartCommit) {
+    $envContent += "EXPECTED_START_COMMIT=$($ExpectedStartCommit.ToLowerInvariant())"
 }
 
 # Offline restore: point the entrypoint at the read-only feed mount.

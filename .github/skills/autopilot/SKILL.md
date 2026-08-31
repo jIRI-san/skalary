@@ -113,3 +113,16 @@ success-shaped "started" wording for an interrupted or failed run.
 Every runtime adapter delegates admission and close-state interpretation to the installed
 `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` contract; adapters must not replace it
 with local checkbox or receipt-existence predicates.
+
+## Staged epic host helper
+
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` is delivered for the host-owned epic
+flow. It atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
+`running`, and invokes the installed `launch.ps1` once in a separate PowerShell process with fixed
+`whole-plan` / `container` arguments, the normalized caller target branch, and the admitted target
+commit as `-ExpectedStartCommit`. The container verifies that fetched branch resolves to the admitted
+commit before creating the work branch or running repository code. Terminal launcher codes are stored
+as `exit:<0..255>`, the portable process-exit domain; launch-start failures and out-of-domain
+invocation results are stored as `invocation-failed`. Existing running or terminal state never
+launches another child. Do not route the ordinary `/ci` plan handoff through this staged helper until
+the later merge-gate and repeat increments land.

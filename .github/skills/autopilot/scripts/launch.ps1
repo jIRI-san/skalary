@@ -22,7 +22,9 @@ param(
     [ValidateSet('host', 'container', 'sandbox')]
     [string]$Runtime,
 
-    [string]$Branch
+    [string]$Branch,
+
+    [string]$ExpectedStartCommit
 )
 
 Set-StrictMode -Version Latest
@@ -45,6 +47,15 @@ if ($Branch -and (
     Write-Error "Invalid branch '$Branch'. Use a simple Git ref containing only letters, digits, '.', '_', '/', and '-'."
     exit 1
 }
+if ($ExpectedStartCommit -and
+    $ExpectedStartCommit -cnotmatch '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
+    Write-Error "Invalid expected start commit '$ExpectedStartCommit'. Use a full Git commit id."
+    exit 1
+}
+$expectedStartCommitNormalized = if ($ExpectedStartCommit) {
+    $ExpectedStartCommit.ToLowerInvariant()
+}
+else { $null }
 
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 if (-not (Test-Path (Join-Path $PlanFolder 'plan.md'))) {
@@ -139,6 +150,11 @@ if (-not $testAllowed) {
 # --- Determine runtime ---
 $effectiveRuntime = if ($Runtime) { $Runtime } else { $Config.runtime }
 Write-Host "Runtime: $effectiveRuntime"
+
+if ($expectedStartCommitNormalized -and $effectiveRuntime -ne 'container') {
+    Write-Error '-ExpectedStartCommit is supported only by the container runtime.'
+    exit 1
+}
 
 if ($effectiveRuntime -eq 'host' -and $env:AUTOPILOT_DISABLE_HOST -eq 'true') {
     Write-Error "Host runtime disabled via AUTOPILOT_DISABLE_HOST."
@@ -248,6 +264,9 @@ $dispatchParams = @{
     Token = $Token
     Branch = "feature/$PlanSlug"
     StartBranch = if ($Branch) { $Branch } else { git branch --show-current }
+}
+if ($expectedStartCommitNormalized) {
+    $dispatchParams.ExpectedStartCommit = $expectedStartCommitNormalized
 }
 # Host mode runs locally and authenticates to git via ambient credentials, so it
 # does not accept -AdoToken; only forward the token to container/sandbox runtimes.

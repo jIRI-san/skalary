@@ -45,7 +45,8 @@ else {
 }
 
 if ($resolvedEpic) {
-    $rollup = Get-EpicRollup -EpicId $resolvedEpic.Id -RepoRoot $repoRootPath
+    $rollup = Get-EpicRollup -EpicId $resolvedEpic.Id -RepoRoot $repoRootPath `
+        -Inventory $inventory
 
     $epicState = [pscustomobject]@{
         Kind       = 'epic'

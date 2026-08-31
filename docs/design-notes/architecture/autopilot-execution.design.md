@@ -9,6 +9,8 @@ globs:
   - .autopilot.host.json
   - plugins/autopilot/schemas/autopilot.schema.json
   - plugins/autopilot/schemas/autopilot.host.schema.json
+  - scripts/skalary/EpicAutopilot.psm1
+  - scripts/skalary/Invoke-EpicAutopilot.ps1
   - scripts/skalary/Invoke-ContainerToolchainGate.ps1
 ---
 
@@ -76,7 +78,11 @@ Under the `AtomicStore` lock, the wrapper refetches and validates those coordina
 resumes `selected`, then CAS-transitions that same run to `running`. The lock is released before
 the blocking launcher call. The launcher runs once as a separate PowerShell process from repo root,
 using `ProcessStartInfo.ArgumentList` with exact arguments `-PlanSlug <NextChild.FolderName> -Mode
-whole-plan -Runtime container -Branch <caller-target-ref>`. This preserves the launcher's internal
+whole-plan -Runtime container -Branch <normalized-target-branch> -ExpectedStartCommit
+<persisted-target-commit>`. `HEAD` normalizes to its local branch and `refs/heads/` is stripped; other
+Git object expressions are rejected. The container fetches that branch and proves it resolves to the
+persisted commit before checkout, work-branch creation, or repository execution. Existing callers that
+omit `-ExpectedStartCommit` retain ordinary launch behavior. This preserves the launcher's internal
 rebundle loop and exit behavior. After it returns, the wrapper reacquires the lock and CAS-transitions
 the same `running` generation to `exit:<0..255>`; `Process.ExitCode` after `WaitForExit` is the
 production authority. The persisted/replay domain is limited to 0..255 because POSIX exposes only
@@ -393,6 +399,8 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 
 | Script | Purpose |
 |--------|---------|
+| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; exports only the four-argument production host loop and keeps test adapters private |
+| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; propagates portable child exit codes and reports no-child/invocation-failed outcomes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `autopilot-dispatch.ps1` | `param()`-less library dot-sourced by `launch.ps1`: `Resolve-OfflinePackagesConfig` (StrictMode-safe config parsing) + `Invoke-AutopilotDispatch` (runtime dispatch + offline rebundle loop) |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |

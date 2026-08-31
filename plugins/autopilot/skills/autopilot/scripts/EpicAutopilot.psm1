@@ -261,7 +261,39 @@ function Invoke-EpicChildLauncher {
     }
 }
 
-function Invoke-EpicAutopilotHostLoop {
+function Resolve-EpicAutopilotTargetBranch {
+    param(
+        [Parameter(Mandatory)][string]$Target,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $branch = $Target
+    if ($branch -ceq 'HEAD') {
+        $branchOutput = @(& git -C $RepoRoot symbolic-ref --quiet --short HEAD 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $branchOutput.Count -ne 1) {
+            throw 'Target HEAD does not name a local branch.'
+        }
+        $branch = ([string]$branchOutput[0]).Trim()
+    }
+    elseif ($branch.StartsWith('refs/heads/', [System.StringComparison]::Ordinal)) {
+        $branch = $branch.Substring('refs/heads/'.Length)
+    }
+
+    if ($branch -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $branch.Contains('..') -or $branch.Contains('//') -or
+        $branch.EndsWith('/') -or $branch.EndsWith('.') -or
+        $branch.EndsWith('.lock', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $branch.Contains('@{')) {
+        throw "Target '$Target' must name a valid local branch or refs/heads/<branch> ref."
+    }
+    & git -C $RepoRoot check-ref-format --branch $branch 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Target '$Target' must name a valid local branch or refs/heads/<branch> ref."
+    }
+    return $branch
+}
+
+function Invoke-EpicAutopilotHostLoopCore {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Epic,
@@ -288,6 +320,7 @@ function Invoke-EpicAutopilotHostLoop {
     }
     $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
     $stateFile = Resolve-EpicAutopilotStatePath -RepoRoot $repoRootPath -StatePath $StatePath
+    $targetBranch = Resolve-EpicAutopilotTargetBranch -Target $Target -RepoRoot $repoRootPath
 
     if (-not $PlanStateInvoker) {
         $PlanStateInvoker = {
@@ -303,10 +336,12 @@ function Invoke-EpicAutopilotHostLoop {
     }
     if (-not $TargetResolver) {
         $TargetResolver = {
-            param($TargetReference, $Root)
-            $output = @(& git -C $Root rev-parse --verify "$TargetReference^{commit}" 2>&1)
+            param($BranchName, $Root)
+            $output = @(
+                & git -C $Root rev-parse --verify "refs/heads/$BranchName`^{commit}" 2>&1
+            )
             if ($LASTEXITCODE -ne 0 -or $output.Count -ne 1) {
-                throw "Unable to resolve target '$TargetReference': $(($output -join ' ').Trim())"
+                throw "Unable to resolve target branch '$BranchName': $(($output -join ' ').Trim())"
             }
             return ([string]$output[0]).Trim().ToLowerInvariant()
         }
@@ -337,7 +372,7 @@ function Invoke-EpicAutopilotHostLoop {
             throw "Get-PlanState resolved epic '$($rollup.EpicId)', not requested epic '$Epic'."
         }
 
-        $targetCommit = [string](& $TargetResolver $Target $repoRootPath)
+        $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
         $targetCommit = $targetCommit.Trim().ToLowerInvariant()
         if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
             throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
@@ -450,7 +485,8 @@ function Invoke-EpicAutopilotHostLoop {
         '-PlanSlug', [string]$admission.NextChild.FolderName,
         '-Mode', 'whole-plan',
         '-Runtime', 'container',
-        '-Branch', $Target
+        '-Branch', $targetBranch,
+        '-ExpectedStartCommit', [string]$admission.State.target
     )
     try {
         $launcherOutput = @(
@@ -496,4 +532,16 @@ function Invoke-EpicAutopilotHostLoop {
     }
 }
 
-Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop, Read-EpicAutopilotState
+function Invoke-EpicAutopilotHostLoop {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Epic,
+        [string]$Target = 'HEAD',
+        [string]$RepoRoot,
+        [string]$StatePath
+    )
+
+    return Invoke-EpicAutopilotHostLoopCore @PSBoundParameters
+}
+
+Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop

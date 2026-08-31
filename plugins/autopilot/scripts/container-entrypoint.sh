@@ -51,6 +51,28 @@ phase_needs_execution() {
     esac
 }
 
+verify_expected_start_commit() {
+    local repo_path="$1"
+    local branch="$2"
+    local expected="${3:-}"
+    local actual
+
+    [ -z "${expected}" ] && return 0
+    if [[ ! "${expected}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+        echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
+        return 2
+    fi
+    if ! actual="$(git -C "${repo_path}" rev-parse --verify \
+        "refs/remotes/origin/${branch}^{commit}" 2>/dev/null)"; then
+        echo "ERROR: Unable to resolve fetched start branch '${branch}'." >&2
+        return 1
+    fi
+    if [ "${actual,,}" != "${expected}" ]; then
+        echo "ERROR: Fetched start branch '${branch}' resolved to '${actual,,}', expected '${expected}'." >&2
+        return 1
+    fi
+}
+
 # Expose the pure phase-progress and recovery probes to focused tests.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -60,6 +82,15 @@ PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
 REPO_REMOTE="${REPO_REMOTE:?REPO_REMOTE env var required}"
+if ! git check-ref-format --branch "${BRANCH}" > /dev/null 2>&1; then
+    echo "ERROR: REPO_BRANCH is not a valid branch name." >&2
+    exit 2
+fi
+if [ -n "${EXPECTED_START_COMMIT:-}" ] &&
+    [[ ! "${EXPECTED_START_COMMIT}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+    echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
+    exit 2
+fi
 
 . /usr/local/lib/autopilot/plan-dispatch.sh
 
@@ -84,11 +115,16 @@ fi
 
 # --- Clone and branch ---
 echo "Cloning ${REPO_REMOTE}..."
-git clone "${REPO_REMOTE}" /work
+git clone --no-checkout "${REPO_REMOTE}" /work
 cd /work
 
 # Determine target branch
 WORK_BRANCH="feature/${PLAN_SLUG}"
+
+if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
+    git fetch origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+    verify_expected_start_commit /work "${BRANCH}" "${EXPECTED_START_COMMIT}"
+fi
 
 if git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
     echo "Work branch ${WORK_BRANCH} exists on remote — resuming..."

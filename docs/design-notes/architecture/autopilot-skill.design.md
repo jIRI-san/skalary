@@ -59,8 +59,10 @@ authority.
 `.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` helper atomically selects or resumes the
 exact `NextChild`, transitions `selected` to `running`, then invokes the installed per-plan launcher
 once in a separate PowerShell process. Its launcher arguments are fixed to the selected folder,
-`whole-plan`, `container`, and the caller's target ref; the epic wrapper exposes no mode/runtime
-override. It stores the raw terminal code without interpreting success and never relaunches running
+`whole-plan`, `container`, the normalized caller target branch, and the admitted target commit as
+`-ExpectedStartCommit`; the epic wrapper exposes no mode/runtime override. The credentialed container
+must fetch that branch at the admitted commit before creating the work branch or executing repository
+code. It stores the raw terminal code without interpreting success and never relaunches running
 or terminal state. Persisted/replayed launcher codes use the portable 0..255 process-exit domain;
 out-of-domain injected results become `invocation-failed`. The skill names the installed helper so
 plugin bundling carries its canonical
