@@ -22,6 +22,10 @@ Describe 'suite tiers' {
         $slow.Count | Should -BeGreaterThan 0
         $dedicated |
             Should -Be @('tests/skalary/ReviewConsumerInstall.Tests.ps1') -Because 'every dedicated exclusion needs an explicit blocking owner; this schema has exactly one'
+        $slow |
+            Should -Contain 'tests/autopilot/EpicAutopilot.Tests.ps1' -Because 'the Git/process integration fixture is Slow-owned'
+        $dedicated |
+            Should -Not -Contain 'tests/autopilot/EpicAutopilot.Tests.ps1' -Because 'Epic autopilot uses the shared Slow runner, not a dedicated gate'
 
         $declared = @($slow) + @($dedicated)
         @($declared | Sort-Object -Unique).Count |

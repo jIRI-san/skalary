@@ -1515,6 +1515,51 @@ function Resolve-EpicAutopilotTargetBranch {
     return $branch
 }
 
+function Get-EpicAutopilotTerminalReplay {
+    param(
+        [Parameter(Mandatory)]$State,
+        [Parameter(Mandatory)][string]$StatePath
+    )
+
+    $isInvocationFailure = $State.outcome -ceq 'invocation-failed'
+    $isNonzeroExit = $State.outcome.StartsWith(
+        'exit:',
+        [System.StringComparison]::Ordinal
+    ) -and $State.outcome -cne 'exit:0'
+    if (-not $isInvocationFailure -and -not $isNonzeroExit) {
+        return $null
+    }
+
+    $storedExit = if ($isNonzeroExit) {
+        [int]$State.outcome.Substring(5)
+    }
+    else {
+        1
+    }
+    return [pscustomobject]@{
+        State = $State
+        NextChild = $null
+        Resumed = $true
+        StatePath = $StatePath
+        Launch = $false
+        LaunchAttempted = $false
+        Replayed = $true
+        ExitCode = $storedExit
+        Failed = $true
+        Completed = $false
+        Blocked = $false
+        Message = if ($isInvocationFailure) {
+            "Epic child '$($State.currentChild)' on branch '$($State.branch)' in run '$($State.run)' has terminal outcome 'invocation-failed'."
+        }
+        elseif ($storedExit -eq 42) {
+            "Epic child '$($State.currentChild)' on branch '$($State.branch)' in run '$($State.run)' stopped for operator action with exit code 42."
+        }
+        else {
+            "Epic child '$($State.currentChild)' on branch '$($State.branch)' in run '$($State.run)' failed with exit code $storedExit."
+        }
+    }
+}
+
 function Invoke-EpicAutopilotHostLoopCore {
     [CmdletBinding()]
     param(
@@ -1693,6 +1738,17 @@ function Invoke-EpicAutopilotHostLoopCore {
             $generation = Get-AtomicStoreGeneration -Path $stateFile
             $existing = Read-EpicAutopilotState -Path $stateFile
 
+            if ($existing -and $Epic -cmatch '^[0-9a-f]{6}$') {
+                if ($existing.epic -cne $Epic) {
+                    throw "Existing epic autopilot state belongs to epic '$($existing.epic)', not requested epic '$Epic'."
+                }
+                $terminalReplay = Get-EpicAutopilotTerminalReplay `
+                    -State $existing -StatePath $stateFile
+                if ($null -ne $terminalReplay) {
+                    return $terminalReplay
+                }
+            }
+
             $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
             $targetCommit = $targetCommit.Trim().ToLowerInvariant()
             if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
@@ -1740,35 +1796,8 @@ function Invoke-EpicAutopilotHostLoopCore {
                 )
 
                 if ($isTerminalFailure) {
-                    $storedExit = if ($existing.outcome.StartsWith(
-                            'exit:',
-                            [System.StringComparison]::Ordinal
-                        )) {
-                        [int]$existing.outcome.Substring(5)
-                    }
-                    else { 1 }
-                    return [pscustomobject]@{
-                        State = $existing
-                        NextChild = $rollup.NextChild
-                        Resumed = $true
-                        StatePath = $stateFile
-                        Launch = $false
-                        LaunchAttempted = $false
-                        Replayed = $true
-                        ExitCode = $storedExit
-                        Failed = $true
-                        Completed = $false
-                        Blocked = $false
-                        Message = if ($existing.outcome -ceq 'invocation-failed') {
-                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' has terminal outcome 'invocation-failed'."
-                        }
-                        elseif ($storedExit -eq 42) {
-                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' stopped for operator action with exit code 42."
-                        }
-                        else {
-                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' failed with exit code $storedExit."
-                        }
-                    }
+                    return Get-EpicAutopilotTerminalReplay `
+                        -State $existing -StatePath $stateFile
                 }
 
                 if ($isSuccessfulCheckpoint) {

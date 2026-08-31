@@ -87,6 +87,61 @@ function Get-BudgetPlatformKey {
     return 'Linux'
 }
 
+function Resolve-ConfinedRegularPath {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Label,
+        [switch]$AllowMissing
+    )
+
+    $rootFull = [System.IO.Path]::GetFullPath($Root)
+    $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
+        [System.IO.Path]::GetFullPath($Path)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $rootFull $Path))
+    }
+    $relative = [System.IO.Path]::GetRelativePath($rootFull, $candidate)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith(
+            "..$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "$Label must stay inside the repository: '$candidate'."
+    }
+
+    $volumeRoot = [System.IO.Path]::GetPathRoot($candidate)
+    $cursor = $volumeRoot
+    $segments = $candidate.Substring($volumeRoot.Length).Split(
+        [char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ),
+        [System.StringSplitOptions]::RemoveEmptyEntries
+    )
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+        $cursor = Join-Path $cursor $segments[$index]
+        $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) {
+            if ($AllowMissing) { break }
+            throw "$Label does not exist: '$candidate'."
+        }
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ($item.PSObject.Properties.Name -contains 'LinkType' -and
+            -not [string]::IsNullOrWhiteSpace([string]$item.LinkType))) {
+            throw "$Label must not traverse a link or reparse point: '$cursor'."
+        }
+        $isLeaf = $index -eq ($segments.Count - 1)
+        if ((-not $isLeaf -and $item -isnot [System.IO.DirectoryInfo]) -or
+            ($isLeaf -and $item -isnot [System.IO.FileInfo])) {
+            throw "$Label must name a regular file: '$candidate'."
+        }
+    }
+    return $candidate
+}
+
 if (-not $BudgetClockPath) {
     $rootKey = [System.IO.Path]::GetFullPath($RepoRoot)
     $digest = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($rootKey))
@@ -149,27 +204,25 @@ if ($hasEvidenceIds -ne $hasEvidencePath) {
     exit 12
 }
 if ($hasEvidencePath) {
-    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-    $rootPrefix = $repoRootFull.TrimEnd(
-        [System.IO.Path]::DirectorySeparatorChar,
-        [System.IO.Path]::AltDirectorySeparatorChar
-    ) + [System.IO.Path]::DirectorySeparatorChar
-    $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
-    $EvidenceResultPath = if ([System.IO.Path]::IsPathRooted($EvidenceResultPath)) {
-        [System.IO.Path]::GetFullPath($EvidenceResultPath)
+    try {
+        $EvidenceResultPath = Resolve-ConfinedRegularPath -Root $RepoRoot `
+            -Path $EvidenceResultPath -Label 'Evidence result path' -AllowMissing
     }
-    else {
-        [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $EvidenceResultPath))
-    }
-    if (-not $EvidenceResultPath.StartsWith($rootPrefix, $pathComparison)) {
-        Write-Host "FocusedScopeRequired: evidence result path must stay inside the repository: '$EvidenceResultPath'." -ForegroundColor Red
+    catch {
+        Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
         exit 12
     }
-    if (Test-Path -LiteralPath $EvidenceResultPath -PathType Container) {
-        Write-Host "FocusedScopeRequired: evidence result path names a directory: '$EvidenceResultPath'." -ForegroundColor Red
-        exit 12
+    if (Test-Path -LiteralPath $EvidenceResultPath) {
+        try {
+            [void](Resolve-ConfinedRegularPath -Root $RepoRoot `
+                    -Path $EvidenceResultPath -Label 'Evidence result path')
+            Remove-Item -LiteralPath $EvidenceResultPath -Force
+        }
+        catch {
+            Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+            exit 12
+        }
     }
-    Remove-Item -LiteralPath $EvidenceResultPath -Force -ErrorAction SilentlyContinue
 }
 
 # Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
@@ -349,6 +402,8 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
                 if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
                     throw "Focused test path does not exist: '$relativePath'."
                 }
+                [void](Resolve-ConfinedRegularPath -Root $testsRootFull `
+                        -Path $fullPath -Label "Focused test path '$relativePath'")
                 if ($dedicatedSet.Contains($fullPath)) {
                     throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
                 }
@@ -502,9 +557,13 @@ function Write-StructuredEvidenceResult {
     }
     $resultFullPath = [System.IO.Path]::GetFullPath($EvidenceResultPath)
     $resultDirectory = Split-Path -Parent $resultFullPath
+    [void](Resolve-ConfinedRegularPath -Root $RepoRoot -Path $resultFullPath `
+            -Label 'Evidence result path' -AllowMissing)
     if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
         [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
     }
+    [void](Resolve-ConfinedRegularPath -Root $RepoRoot -Path $resultFullPath `
+            -Label 'Evidence result path' -AllowMissing)
     Set-Content -LiteralPath $resultFullPath -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
     return [pscustomobject]$payload
 }
@@ -586,10 +645,16 @@ foreach ($name in ($candidateNames | Sort-Object)) {
     $before = if ($environmentBefore.ContainsKey($name)) { $environmentBefore[$name] } else { $null }
     $after = if ($environmentAfter.ContainsKey($name)) { $environmentAfter[$name] } else { $null }
     if ($before -ne $after) {
-        # Rendered rather than interpolated: an unset variable and one set to '' both interpolate to
-        # nothing, which turns a real difference into the unreadable "('' -> '')".
-        $shown = { param($v) if ($null -eq $v) { '<unset>' } else { "'$v'" } }
-        $leakedNames.Add("$name ($(& $shown $before) -> $(& $shown $after))")
+        $transition = if ($null -eq $before) {
+            'added'
+        }
+        elseif ($null -eq $after) {
+            'removed'
+        }
+        else {
+            'changed'
+        }
+        $leakedNames.Add("$name ($transition)")
     }
 }
 

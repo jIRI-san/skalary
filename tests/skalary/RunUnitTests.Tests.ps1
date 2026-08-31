@@ -238,7 +238,7 @@ Describe 'sandbox' {
         $script:environmentCreatingTestFile = @'
 Describe 'sandbox' {
     It 'creates a variable that was never set' {
-        $env:SKALARY_LEAK_PROBE = ''
+        $env:SKALARY_LEAK_PROBE = 'synthetic-secret-do-not-print'
         $true | Should -BeTrue
     }
 }
@@ -470,6 +470,71 @@ Describe 'focused slow evidence file' {
         $overBudget.Output | Should -Match 'advisory ceiling'
     }
 
+    It 'test:RunUnitTests.PhysicalPathConfinement rejects linked parents and leaves for test and evidence paths' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $outside = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $tests = Join-Path $sandbox 'tests'
+        $outsideTest = Join-Path $outside 'tests/Sandbox.Tests.ps1'
+        $linkedParent = Join-Path $tests 'linked-parent'
+        $linkedLeaf = Join-Path $tests 'LinkedLeaf.Tests.ps1'
+        $evidenceParent = Join-Path $sandbox 'linked-evidence-parent'
+        $evidenceLeafDirectory = Join-Path $sandbox 'artifacts'
+        $evidenceLeaf = Join-Path $evidenceLeafDirectory 'linked-result.json'
+        $outsideEvidence = Join-Path $outside 'evidence-result.json'
+        [System.IO.File]::WriteAllText($outsideEvidence, "outside remains`n")
+        [void](New-Item -ItemType Directory -Path $evidenceLeafDirectory)
+        try {
+            [void](New-Item -ItemType SymbolicLink -Path $linkedParent `
+                    -Target (Join-Path $outside 'tests') -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $linkedLeaf `
+                    -Target $outsideTest -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $evidenceParent `
+                    -Target $outside -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $evidenceLeaf `
+                    -Target $outsideEvidence -ErrorAction Stop)
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'the filesystem or account does not permit symlink creation'
+            return
+        }
+
+        foreach ($case in @(
+                @{
+                    Name = 'test parent'
+                    Arguments = @("-TestPath 'tests/linked-parent/Sandbox.Tests.ps1'")
+                },
+                @{
+                    Name = 'test leaf'
+                    Arguments = @("-TestPath 'tests/LinkedLeaf.Tests.ps1'")
+                },
+                @{
+                    Name = 'evidence parent'
+                    Arguments = @(
+                        "-TestPath 'tests/Sandbox.Tests.ps1'",
+                        "-EvidenceTestId 'RunUnitTests.LinkProbe'",
+                        "-EvidenceResultPath 'linked-evidence-parent/result.json'"
+                    )
+                },
+                @{
+                    Name = 'evidence leaf'
+                    Arguments = @(
+                        "-TestPath 'tests/Sandbox.Tests.ps1'",
+                        "-EvidenceTestId 'RunUnitTests.LinkProbe'",
+                        "-EvidenceResultPath 'artifacts/linked-result.json'"
+                    )
+                }
+            )) {
+            $result = Invoke-Runner -SandboxRoot $sandbox `
+                -ExtraArguments $case.Arguments
+            $result.ExitCode |
+                Should -Be 12 -Because "$($case.Name) must fail confinement: $($result.Output)"
+            $result.Output | Should -Match 'FocusedScopeRequired'
+            $result.Output | Should -Match 'link or reparse point'
+        }
+        [System.IO.File]::ReadAllText($outsideEvidence) |
+            Should -BeExactly "outside remains`n"
+    }
+
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
         # A file that throws during discovery contributes nothing to FailedCount or TotalCount
         # — Pester counts it separately — so a whole file can silently not run while the suite
@@ -528,10 +593,6 @@ Describe 'focused slow evidence file' {
     }
 
     It 'test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked' {
-        # Setting an absent variable to '' is still a change, and it is the case a developer box
-        # hides: locally the variable is usually already set, so the restore looks correct and only a
-        # clean environment disagrees. The report has to distinguish unset from empty, or the
-        # difference renders as "('' -> '')" and reads like a bug in the check.
         foreach ($tier in @('Fast', 'Slow')) {
             $sandbox = New-RunnerSandbox -TestFileContent $script:environmentCreatingTestFile
             $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier
@@ -540,7 +601,9 @@ Describe 'focused slow evidence file' {
             $result.ExitCode |
                 Should -Be 7 -Because "$tier must treat environment creation as a leak: $($result.Output)"
             $result.Output | Should -Match 'SKALARY_LEAK_PROBE'
-            $result.Output | Should -Match '<unset>'
+            $result.Output | Should -Match 'SKALARY_LEAK_PROBE \(added\)'
+            $result.Output |
+                Should -Not -Match 'synthetic-secret-do-not-print' -Because 'environment diagnostics must never reveal values'
         }
     }
 

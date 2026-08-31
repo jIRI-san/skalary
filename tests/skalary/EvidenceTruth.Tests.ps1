@@ -265,14 +265,53 @@ Describe 'focused evidence' {
         $byMarker = @{}
         foreach ($record in $result.Result.results) { $byMarker[[string]$record.marker] = $record }
         foreach ($case in @(
-                @{ Marker = 'test:EvidenceTruth.Pass'; Status = 'passed'; Selected = 1; Executed = 1 },
-                @{ Marker = 'test:EvidenceTruth.Mixed'; Status = 'degraded'; Selected = 2; Executed = 1 },
-                @{ Marker = 'test:EvidenceTruth.Skip'; Status = 'skipped'; Selected = 1; Executed = 0 },
-                @{ Marker = 'test:EvidenceTruth.Fail'; Status = 'failed'; Selected = 1; Executed = 1 },
-                @{ Marker = 'test:EvidenceTruth.Inconclusive'; Status = 'unrun'; Selected = 1; Executed = 0 },
-                @{ Marker = 'test:EvidenceTruth.Missing'; Status = 'unrun'; Selected = 0; Executed = 0 }
+                @{
+                    Marker = 'test:EvidenceTruth.Pass'
+                    Aggregate = 'passed'
+                    Selected = 1
+                    Executed = 1
+                    Outcomes = @('Passed')
+                },
+                @{
+                    Marker = 'test:EvidenceTruth.Mixed'
+                    Aggregate = 'degraded'
+                    Selected = 2
+                    Executed = 1
+                    Outcomes = @('Passed', 'Skipped')
+                },
+                @{
+                    Marker = 'test:EvidenceTruth.Skip'
+                    Aggregate = 'skipped'
+                    Selected = 1
+                    Executed = 0
+                    Outcomes = @('Skipped')
+                },
+                @{
+                    Marker = 'test:EvidenceTruth.Fail'
+                    Aggregate = 'failed'
+                    Selected = 1
+                    Executed = 1
+                    Outcomes = @('Failed')
+                },
+                @{
+                    Marker = 'test:EvidenceTruth.Inconclusive'
+                    Aggregate = 'unrun'
+                    Selected = 1
+                    Executed = 0
+                    Outcomes = @('Inconclusive')
+                },
+                @{
+                    Marker = 'test:EvidenceTruth.Missing'
+                    Aggregate = 'unrun'
+                    Selected = 0
+                    Executed = 0
+                    Outcomes = @()
+                }
             )) {
-            $byMarker[$case.Marker].status | Should -Be $case.Status -Because $case.Marker
+            $byMarker[$case.Marker].status |
+                Should -BeExactly $case.Aggregate -Because "$($case.Marker) aggregate"
+            @($byMarker[$case.Marker].outcomes) |
+                Should -BeExactly @($case.Outcomes) -Because "$($case.Marker) outcomes"
             $byMarker[$case.Marker].selectedCount | Should -Be $case.Selected -Because $case.Marker
             $byMarker[$case.Marker].executedCount | Should -Be $case.Executed -Because $case.Marker
         }

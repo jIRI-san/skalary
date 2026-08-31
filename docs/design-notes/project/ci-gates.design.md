@@ -96,7 +96,7 @@ matrix legs with its own NUnit report and manifest-owned runtime observation. `A
 | Measured quantity | the whole `npm test` command, not the `test:unit` leg — the `pretest` hook starts a clock file, and this script is last in the chain and reads it |
 | Tier ownership | `tools/suite-tier.psd1` owns Slow and dedicated files; complete Fast is every other discovered `*.Tests.ps1` file. Focused Fast accepts explicit `-TestPath` values; a Slow-owned file additionally requires `-TestName` or stable `-EvidenceTestId` filtering so its complete process-heavy file never runs accidentally |
 | Focused feedback | focused Fast is the default mode, requires explicit test paths, and warns above `FastFocusedHardCeilingSeconds` (60s). Optional Pester full-name filters narrow within a file. Full Fast requires `-FullRepository` |
-| Focused evidence output | `-EvidenceTestId` plus `-EvidenceResultPath` is a focused-Fast-only extension of the same runner, not another host. It binds exact leading `test:<id>` tokens, writes `skalary/evidence-test-results@1` with selected/executed counts and per-ID outcomes, and leaves every non-pass red. It cannot combine with `-TestName` or `-FullRepository`. |
+| Focused evidence output | `-EvidenceTestId` plus `-EvidenceResultPath` is a focused-Fast-only extension of the same runner, not another host. It binds exact leading `test:<id>` tokens, writes `skalary/evidence-test-results@1` with selected/executed counts and per-ID outcomes, and leaves every non-pass red. It cannot combine with `-TestName` or `-FullRepository`. Focused test inputs and evidence outputs are lexically repository-confined and every existing path component must be a regular non-link path; a missing output validates its nearest existing parent before creation and revalidates immediately before writing. |
 | Slow enforcement | a separate blocking test step in each Linux/Windows matrix leg, through the same runner; no `continue-on-error`, separate NUnit evidence, and advisory `SlowHardCeilingSeconds` reporting |
 | Unclocked run | reports a *lower bound* and says so; over budget on a subset is still over budget, under budget is not a verdict |
 | Ceiling metadata | Historical `HardCeilingSeconds` and `BoundCeilingSeconds` values remain tracked for comparable reporting; they are not pass/fail thresholds |
@@ -124,6 +124,8 @@ contract. The workflow is structurally forbidden from supplying it, so CI always
 `ReviewConsumerInstall.Tests.ps1` matrix.
 
 Exit codes `5`, `6`, and `10` are reserved: runtime overruns, missing advisory budget metadata, and stale measurements are warnings. Blocking diagnosis remains `1` tests failed, `2` Pester absent, `3` nothing discovered, `4` a test file never loaded, `7` leaked environment, `8` skipped required evidence, `9` invalid tier manifest, `11` invalid explicit measurement authorization, and `12` missing focused scope.
+Environment-leak diagnostics identify each variable and only its transition category (`added`,
+`removed`, or `changed`); snapshot values are never emitted because they may contain credentials.
 
 ## Constraints
 

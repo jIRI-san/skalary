@@ -73,11 +73,16 @@ record has exactly six case-sensitive string fields:
 A fresh process resumes `selected` or reconciles `running` only when canonical epic, resolved target
 commit, exact `NextChild`, and derived branch still match. Malformed state or a different epic fails
 loudly before mutation. Non-success terminal records (`invocation-failed` and nonzero `exit:*`) are
-immutable retry stops even when the target or graph changed; they never skip to a sibling. A null
+immutable retry stops even when the target or graph changed; they never skip to a sibling. When the
+requested epic is already the canonical six-hex id, schema and exact epic identity are the only
+admission needed to replay that stop: target resolution, worktree inspection, and `Get-PlanState`
+are not called, and the replay contains no graph-derived child context. Noncanonical references
+retain full resolution so their epic identity is never guessed. A null
 `NextChild` with no state returns a typed complete or blocked stop without creating a record.
 
-Under the `AtomicStore` lock, the wrapper resolves the target commit first, requires the repository
-worktree to be clean with HEAD at that exact commit, and only then invokes `Get-PlanState`. It creates
+Under the `AtomicStore` lock, after the immutable terminal fast path above, the wrapper resolves the
+target commit first, requires the repository worktree to be clean with HEAD at that exact commit, and
+only then invokes `Get-PlanState`. It creates
 or resumes `selected`, acquires a run-scoped host lease, then CAS-transitions that same run to
 `running`. The short state lock is released before the blocking launcher call, while the run lease
 stays held through image preparation, container execution, transcript extraction, and terminal-state

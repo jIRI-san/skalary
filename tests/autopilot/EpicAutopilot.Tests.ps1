@@ -243,6 +243,98 @@ Describe 'Epic autopilot child launcher state machine' {
             $State.run | Should -BeExactly $Run
             $State.outcome | Should -BeExactly $Outcome
         }
+
+        $script:workflowNoteWriter = Join-Path $script:repoRoot `
+            'scripts/skalary/Add-WorkflowNote.ps1'
+
+        function New-FinalEvidenceGitFixture {
+            param(
+                [Parameter(Mandatory)][string]$Name,
+                [string]$PlanFolder = '2026-08-31-111111-first-child',
+                [string]$PlanId = '111111',
+                [string]$EpicId = 'abc123',
+                [switch]$NoCheckpoint
+            )
+
+            $root = Join-Path $script:fixtureRoot $Name
+            $epicDir = Join-Path $root (
+                'docs/implementation-plans/epics/2026-08-31-abc123-fixture-epic'
+            )
+            $planDir = Join-Path $root (
+                "docs/implementation-plans/$PlanFolder"
+            )
+            [void](New-Item -ItemType Directory -Path $epicDir -Force)
+            [void](New-Item -ItemType Directory -Path $planDir -Force)
+            $epicFile = Join-Path $epicDir 'epic.md'
+            $planFile = Join-Path $planDir 'plan.md'
+            $capturePath = Join-Path $planDir 'capture.md'
+            [System.IO.File]::WriteAllText(
+                $epicFile,
+                "# abc123: Fixture epic`n<!-- epic-id: abc123 -->`n`n## Goal`n`nShip.`n`n## Definition of done`n`nAll children complete.`n"
+            )
+            [System.IO.File]::WriteAllText(
+                $planFile,
+                @(
+                    "# ${PlanId}: First child"
+                    "<!-- plan-id: $PlanId -->"
+                    "<!-- epic: $EpicId -->"
+                    '<!-- cip-stage: done -->'
+                    ''
+                    '## Requirements'
+                    ''
+                    '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                    '|----|-------------|---------------------|--------------|'
+                    '| REQ-1 | Fixture | `test:fixture` | 1.1 |'
+                    ''
+                    '## Phase 1: Fixture'
+                    ''
+                    '- [x] 1.1 Execute fixture (REQ-1) `S`'
+                ) -join "`n"
+            )
+            [System.IO.File]::WriteAllText(
+                $capturePath,
+                "## Capture`nPhase: 0`n`nNo entries for this phase.`n"
+            )
+            & git -C $root init --initial-branch=main --quiet
+            & git -C $root config user.name 'Epic Autopilot Test'
+            & git -C $root config user.email 'epic-autopilot@example.invalid'
+            & git -C $root add -- .
+            & git -C $root commit --quiet -m 'fixture base'
+            $baseCommit = (& git -C $root rev-parse HEAD).Trim()
+            [System.IO.File]::WriteAllText(
+                (Join-Path $root 'operator-merge.txt'),
+                "operator merge`n"
+            )
+            & git -C $root add -- operator-merge.txt
+            & git -C $root commit --quiet -m 'operator merge'
+            $targetCommit = (& git -C $root rev-parse HEAD).Trim()
+            $statePath = Join-Path $script:fixtureRoot "$Name-state.json"
+            if (-not $NoCheckpoint) {
+                [System.IO.File]::WriteAllText(
+                    $statePath,
+                    (New-StateJson -Target $baseCommit -Outcome 'awaiting-merge' `
+                        -Branch "feature/$PlanFolder")
+                )
+            }
+            $completeChild = [ordered]@{
+                Id = $script:childA.Id
+                IsComplete = $true
+                IsBlocked = $false
+                PlanFile = $planFile
+            }
+            return [pscustomobject]@{
+                Root = $root
+                PlanDir = $planDir
+                PlanFolder = $PlanFolder
+                CapturePath = $capturePath
+                StatePath = $statePath
+                BaseCommit = $baseCommit
+                TargetCommit = $targetCommit
+                Rollup = New-RollupJson -NextChild $null `
+                    -Children @($completeChild) -IsComplete $true `
+                    -EpicFile $epicFile
+            }
+        }
     }
 
     AfterAll {
@@ -1610,98 +1702,74 @@ exit 0
         )
     }
 
+    It 'test:EpicAutopilot.NoCheckpointProductionFinalization publishes one Capture-only commit and replays idempotently' {
+        $fixture = New-FinalEvidenceGitFixture `
+            -Name 'final-evidence-no-checkpoint-production' -NoCheckpoint
+        Test-Path -LiteralPath $fixture.StatePath |
+            Should -BeFalse -Because 'the production completion path starts without a checkpoint'
+
+        $first = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
+            -PlanStateInvoker { $fixture.Rollup } `
+            -UseDefaultFinalEvidenceRecorder `
+            -UseDefaultFinalEvidenceTransaction `
+            -UseDefaultWorktreeValidator `
+            -LauncherInvoker { throw 'complete no-checkpoint epic must not launch' }
+
+        $first.Completed | Should -BeTrue
+        $first.FinalCrosscheck | Should -BeExactly 'fallback'
+        Test-Path -LiteralPath $fixture.StatePath | Should -BeFalse
+        $evidenceCommit = (& git -C $fixture.Root rev-parse HEAD).Trim()
+        $parents = @(
+            (& git -C $fixture.Root show -s --format=%P $evidenceCommit).Trim() `
+                -split ' '
+        )
+        $parents | Should -BeExactly @($fixture.TargetCommit)
+        [int](& git -C $fixture.Root rev-list --count (
+                "$($fixture.TargetCommit)..main"
+            )) | Should -Be 1
+        @(
+            & git -C $fixture.Root diff-tree --no-commit-id --name-only -r `
+                $fixture.TargetCommit $evidenceCommit
+        ) | Should -BeExactly @(
+            [System.IO.Path]::GetRelativePath(
+                $fixture.Root,
+                $fixture.CapturePath
+            ).Replace('\', '/')
+        )
+        @(& git -C $fixture.Root status --porcelain=v1) |
+            Should -HaveCount 0
+
+        $replay = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
+            -PlanStateInvoker { $fixture.Rollup } `
+            -UseDefaultFinalEvidenceRecorder `
+            -UseDefaultFinalEvidenceTransaction `
+            -UseDefaultWorktreeValidator `
+            -LauncherInvoker { throw 'final evidence replay must not launch' }
+
+        $replay.Completed | Should -BeTrue
+        $replay.FinalCrosscheck | Should -BeExactly 'fallback'
+        Test-Path -LiteralPath $fixture.StatePath | Should -BeFalse
+        (& git -C $fixture.Root rev-parse HEAD).Trim() |
+            Should -BeExactly $evidenceCommit
+        [int](& git -C $fixture.Root rev-list --count (
+                "$($fixture.TargetCommit)..main"
+            )) | Should -Be 1
+        @(& git -C $fixture.Root status --porcelain=v1) |
+            Should -HaveCount 0
+        ([regex]::Matches(
+            [System.IO.File]::ReadAllText($fixture.CapturePath),
+            'Epic final crosscheck passed via fallback'
+        )).Count | Should -Be 1
+    }
+
     It 'test:EpicAutopilot.AbruptEvidenceRecovery admits only exact writer or staging residue' {
-        $writer = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
-
-        function New-AbruptEvidenceFixture {
-            param(
-                [Parameter(Mandatory)][string]$Name,
-                [string]$PlanFolder = '2026-08-31-111111-first-child',
-                [string]$PlanId = '111111',
-                [string]$EpicId = 'abc123'
-            )
-
-            $root = Join-Path $script:fixtureRoot $Name
-            $epicDir = Join-Path $root (
-                'docs/implementation-plans/epics/2026-08-31-abc123-fixture-epic'
-            )
-            $planDir = Join-Path $root (
-                "docs/implementation-plans/$PlanFolder"
-            )
-            [void](New-Item -ItemType Directory -Path $epicDir -Force)
-            [void](New-Item -ItemType Directory -Path $planDir -Force)
-            $epicFile = Join-Path $epicDir 'epic.md'
-            $planFile = Join-Path $planDir 'plan.md'
-            $capturePath = Join-Path $planDir 'capture.md'
-            [System.IO.File]::WriteAllText(
-                $epicFile,
-                "# abc123: Fixture epic`n<!-- epic-id: abc123 -->`n`n## Goal`n`nShip.`n`n## Definition of done`n`nAll children complete.`n"
-            )
-            [System.IO.File]::WriteAllText(
-                $planFile,
-                @(
-                    "# ${PlanId}: First child"
-                    "<!-- plan-id: $PlanId -->"
-                    "<!-- epic: $EpicId -->"
-                    '<!-- cip-stage: done -->'
-                    ''
-                    '## Requirements'
-                    ''
-                    '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
-                    '|----|-------------|---------------------|--------------|'
-                    '| REQ-1 | Fixture | `test:fixture` | 1.1 |'
-                    ''
-                    '## Phase 1: Fixture'
-                    ''
-                    '- [x] 1.1 Execute fixture (REQ-1) `S`'
-                ) -join "`n"
-            )
-            [System.IO.File]::WriteAllText(
-                $capturePath,
-                "## Capture`nPhase: 0`n`nNo entries for this phase.`n"
-            )
-            & git -C $root init --initial-branch=main --quiet
-            & git -C $root config user.name 'Epic Autopilot Test'
-            & git -C $root config user.email 'epic-autopilot@example.invalid'
-            & git -C $root add -- .
-            & git -C $root commit --quiet -m 'fixture base'
-            $baseCommit = (& git -C $root rev-parse HEAD).Trim()
-            [System.IO.File]::WriteAllText(
-                (Join-Path $root 'operator-merge.txt'),
-                "operator merge`n"
-            )
-            & git -C $root add -- operator-merge.txt
-            & git -C $root commit --quiet -m 'operator merge'
-            $targetCommit = (& git -C $root rev-parse HEAD).Trim()
-            $statePath = Join-Path $script:fixtureRoot "$Name-state.json"
-            [System.IO.File]::WriteAllText(
-                $statePath,
-                (New-StateJson -Target $baseCommit -Outcome 'awaiting-merge' `
-                    -Branch "feature/$PlanFolder")
-            )
-            $completeChild = [ordered]@{
-                Id = $script:childA.Id
-                IsComplete = $true
-                IsBlocked = $false
-                PlanFile = $planFile
-            }
-            return [pscustomobject]@{
-                Root = $root
-                PlanDir = $planDir
-                PlanFolder = $PlanFolder
-                CapturePath = $capturePath
-                StatePath = $statePath
-                TargetCommit = $targetCommit
-                Rollup = New-RollupJson -NextChild $null `
-                    -Children @($completeChild) -IsComplete $true `
-                    -EpicFile $epicFile
-            }
-        }
-
         function Add-AbruptEvidenceRecord {
             param([Parameter(Mandatory)]$Fixture)
 
-            $result = & $writer -Kind Capture -PlanDir $Fixture.PlanDir `
+            $result = & $script:workflowNoteWriter -Kind Capture `
+                -PlanDir $Fixture.PlanDir `
                 -Phase 0 `
                 -Message 'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.' `
                 -Src note -Concern architecture-patterns -ReviewType none `
@@ -1726,7 +1794,7 @@ exit 0
                     Folder = 'abc123-2026-08-31-111111-first-child'
                 }
             )) {
-            $fixture = New-AbruptEvidenceFixture -Name $case.Name `
+            $fixture = New-FinalEvidenceGitFixture -Name $case.Name `
                 -PlanFolder $case.Folder
             Add-AbruptEvidenceRecord -Fixture $fixture
             if ($case.Stage) {
@@ -1776,6 +1844,13 @@ exit 0
                     Match = "*prefix 'def456' does not match epic 'abc123'*"
                 },
                 @{
+                    Name = 'abrupt-standalone-prefix'
+                    Folder = 'standalone-2026-08-31-111111-first-child'
+                    PlanId = '111111'
+                    EpicId = 'abc123'
+                    Match = "*prefix 'standalone' does not match epic 'abc123'*"
+                },
+                @{
                     Name = 'abrupt-wrong-membership'
                     Folder = 'abc123-2026-08-31-111111-first-child'
                     PlanId = '111111'
@@ -1783,7 +1858,7 @@ exit 0
                     Match = "*header epic membership 'abc123'*"
                 }
             )) {
-            $fixture = New-AbruptEvidenceFixture -Name $invalid.Name `
+            $fixture = New-FinalEvidenceGitFixture -Name $invalid.Name `
                 -PlanFolder $invalid.Folder -PlanId $invalid.PlanId `
                 -EpicId $invalid.EpicId
             Add-AbruptEvidenceRecord -Fixture $fixture
@@ -1800,7 +1875,7 @@ exit 0
                 Should -Be $stateBefore
         }
 
-        $forged = New-AbruptEvidenceFixture -Name 'abrupt-forged'
+        $forged = New-FinalEvidenceGitFixture -Name 'abrupt-forged'
         Add-AbruptEvidenceRecord -Fixture $forged
         [System.IO.File]::AppendAllText($forged.CapturePath, "forged`n")
         $forgedState = [System.IO.File]::ReadAllBytes($forged.StatePath)
@@ -1822,7 +1897,7 @@ exit 0
         (& git -C $forged.Root rev-parse HEAD).Trim() |
             Should -BeExactly $forged.TargetCommit
 
-        $concurrent = New-AbruptEvidenceFixture -Name 'abrupt-concurrent'
+        $concurrent = New-FinalEvidenceGitFixture -Name 'abrupt-concurrent'
         Add-AbruptEvidenceRecord -Fixture $concurrent
         $concurrentState = [System.IO.File]::ReadAllBytes($concurrent.StatePath)
         $concurrentCapture = [System.IO.File]::ReadAllBytes(
@@ -1837,7 +1912,8 @@ exit 0
                 -UseDefaultWorktreeValidator `
                 -FinalEvidenceRecorder {
                 param($ScriptPath, $PlanDir, $Message, $ReviewType, $Root)
-                & $writer -Kind Capture -PlanDir $PlanDir -Phase 0 `
+                & $script:workflowNoteWriter -Kind Capture `
+                    -PlanDir $PlanDir -Phase 0 `
                     -Message $Message -Src note `
                     -Concern architecture-patterns -ReviewType $ReviewType `
                     -RepoRoot $Root | Out-Null
@@ -1866,7 +1942,7 @@ exit 0
             Should -BeExactly $movedCommit.Value
 
         foreach ($kind in @('untracked', 'other-index', 'mixed-capture')) {
-            $extra = New-AbruptEvidenceFixture -Name "abrupt-extra-$kind"
+            $extra = New-FinalEvidenceGitFixture -Name "abrupt-extra-$kind"
             Add-AbruptEvidenceRecord -Fixture $extra
             switch ($kind) {
                 'untracked' {
@@ -2132,15 +2208,45 @@ exit 1
                 (New-StateJson -Outcome $terminalOutcome)
             )
             $terminalRaw = [System.IO.File]::ReadAllText($terminalPath)
+            $terminalCalls = [System.Collections.Generic.List[string]]::new()
             $replay = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
                 -RepoRoot $script:repoRoot -StatePath $terminalPath `
-                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -TargetResolver {
+                $terminalCalls.Add('target:synthetic-target-secret')
+                throw 'synthetic-target-secret'
+            } -WorktreeValidator {
+                $terminalCalls.Add('worktree:synthetic-worktree-secret')
+                throw 'synthetic-worktree-secret'
+            } -PlanStateInvoker {
+                $terminalCalls.Add('graph:synthetic-graph-secret')
+                throw 'synthetic-graph-secret'
+            } `
                 -LauncherInvoker { throw 'terminal state must not relaunch' }
             $replay.Replayed | Should -BeTrue
             $replay.Launch | Should -BeFalse
+            $replay.NextChild | Should -BeNullOrEmpty
             $replay.State.outcome | Should -BeExactly $terminalOutcome
+            $terminalCalls | Should -HaveCount 0
+            ($replay | ConvertTo-Json -Depth 5) |
+                Should -Not -Match 'synthetic-(?:target|worktree|graph)-secret'
             [System.IO.File]::ReadAllText($terminalPath) | Should -BeExactly $terminalRaw
         }
+
+        $wrongTerminalPath = New-StatePath -Name 'terminal-wrong-epic'
+        [System.IO.File]::WriteAllText(
+            $wrongTerminalPath,
+            (New-StateJson -Outcome 'exit:43')
+        )
+        $wrongTerminalBytes = [System.IO.File]::ReadAllBytes($wrongTerminalPath)
+        {
+            Invoke-TestEpicHostLoop -Epic 'def456' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $wrongTerminalPath `
+                -TargetResolver { throw 'wrong epic must fail before target resolution' } `
+                -WorktreeValidator { throw 'wrong epic must fail before worktree status' } `
+                -PlanStateInvoker { throw 'wrong epic must fail before graph resolution' }
+        } | Should -Throw "*belongs to epic 'abc123', not requested epic 'def456'*"
+        [System.IO.File]::ReadAllBytes($wrongTerminalPath) |
+            Should -Be $wrongTerminalBytes
 
         $throwPath = New-StatePath -Name 'launcher-throw'
         $failureReceipt = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
