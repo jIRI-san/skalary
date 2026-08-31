@@ -3,11 +3,6 @@ $ErrorActionPreference = 'Stop'
 
 # Run with: Invoke-Pester ./tests/autopilot
 #
-# Static-content assertions over the container offline path. The launcher and
-# entrypoint shell out to docker/git, so this fixture verifies the wiring
-# (feed mount, offline env, out-of-tree config, exit-43 handling) by reading
-# the scripts rather than executing a container.
-
 Describe 'Autopilot.ContainerOffline' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -17,6 +12,7 @@ Describe 'Autopilot.ContainerOffline' {
         $script:launcher = Get-Content -LiteralPath (Join-Path $scriptsDir 'launch-container.ps1') -Raw
         $script:envFile = Get-Content -LiteralPath (Join-Path $scriptsDir 'prepare-env-file.ps1') -Raw
         $script:entrypoint = Get-Content -LiteralPath $entrypointPath -Raw
+        . (Join-Path $scriptsDir 'autopilot-dispatch.ps1')
     }
 
     Context 'launch-container.ps1' {
@@ -34,12 +30,6 @@ Describe 'Autopilot.ContainerOffline' {
         It 'enables offline env injection only when a feed is provided' {
             $launcher | Should -Match 'if \(\$FeedPath\) \{ \$envParams\.Offline = \$true \}'
         }
-        It 'passes the optional expected start commit to environment preparation' {
-            $launch | Should -Match '\[string\]\$ExpectedStartCommit'
-            $launch | Should -Match '\$dispatchParams\.ExpectedStartCommit'
-            $launcher | Should -Match '\[string\]\$ExpectedStartCommit'
-            $launcher | Should -Match '\$envParams\.ExpectedStartCommit'
-        }
     }
 
     Context 'prepare-env-file.ps1' {
@@ -50,9 +40,98 @@ Describe 'Autopilot.ContainerOffline' {
             $envFile | Should -Match 'AUTOPILOT_OFFLINE=true'
             $envFile | Should -Match 'AUTOPILOT_FEED=/feed'
         }
-        It 'validates and injects EXPECTED_START_COMMIT only when supplied' {
-            $envFile | Should -Match 'Invalid expected start commit'
-            $envFile | Should -Match 'EXPECTED_START_COMMIT='
+    }
+
+    Context 'executable container launch contract' {
+        It 'enables work-branch resume only for a later internal expected-start attempt' {
+            (Get-AutopilotContainerAttemptParameters `
+                    -ExpectedStartCommit ('A' * 40) -Attempt 0
+            ).TrustedInternalRetry | Should -BeFalse
+            (Get-AutopilotContainerAttemptParameters `
+                    -ExpectedStartCommit ('A' * 40) -Attempt 1
+            ).TrustedInternalRetry | Should -BeTrue
+            (Get-AutopilotContainerAttemptParameters `
+                    -ExpectedStartCommit $null -Attempt 1
+            ).TrustedInternalRetry | Should -BeFalse
+        }
+
+        It 'generates the exact expected-start environment for initial and retry launches' {
+            $expected = 'A' * 40
+            @(Get-AutopilotExpectedStartEnvironment `
+                    -ExpectedStartCommit $expected) |
+                Should -BeExactly @("EXPECTED_START_COMMIT=$($expected.ToLowerInvariant())")
+            @(Get-AutopilotExpectedStartEnvironment `
+                    -ExpectedStartCommit $expected -TrustedInternalRetry $true) |
+                Should -BeExactly @(
+                    "EXPECTED_START_COMMIT=$($expected.ToLowerInvariant())",
+                    'AUTOPILOT_TRUSTED_INTERNAL_RETRY=true'
+                )
+            {
+                Get-AutopilotExpectedStartEnvironment `
+                    -TrustedInternalRetry $true
+            } | Should -Throw '*requires an expected start commit*'
+        }
+
+        It 'derives a deterministic safe container name from the epic run' {
+            $run = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+            Get-AutopilotContainerName -Run $run |
+                Should -BeExactly "autopilot-run-$run"
+            { Get-AutopilotContainerName -Run '../unsafe' } |
+                Should -Throw '*Invalid container run*'
+        }
+
+        It 'rejects HTTP remote userinfo without echoing the credential-bearing URL' {
+            foreach ($remote in @(
+                    'https://user@example.invalid/repo.git',
+                    'https://user:secret@example.invalid/repo.git',
+                    'http://token@example.invalid/repo.git'
+                )) {
+                $message = try {
+                    Assert-AutopilotRepositoryRemote -Remote $remote
+                    ''
+                }
+                catch {
+                    $_.Exception.Message
+                }
+                $message | Should -Match 'must not contain userinfo'
+                $message | Should -Not -Match [regex]::Escape($remote)
+            }
+            {
+                Assert-AutopilotRepositoryRemote `
+                    -Remote 'https://example.invalid/repo.git'
+            } | Should -Not -Throw
+            {
+                Assert-AutopilotRepositoryRemote `
+                    -Remote 'git@example.invalid:owner/repo.git'
+            } | Should -Not -Throw
+        }
+
+        It 'waits on the process handle and reports only deadline expiry' {
+            $quick = Start-Process -FilePath (Get-Process -Id $PID).Path `
+                -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Milliseconds 50') `
+                -PassThru
+            try {
+                Wait-AutopilotProcessUntil -Process $quick `
+                    -Deadline (Get-Date).AddSeconds(5) | Should -BeTrue
+            }
+            finally {
+                $quick.Dispose()
+            }
+
+            $slow = Start-Process -FilePath (Get-Process -Id $PID).Path `
+                -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 5') `
+                -PassThru
+            try {
+                Wait-AutopilotProcessUntil -Process $slow `
+                    -Deadline (Get-Date).AddMilliseconds(25) | Should -BeFalse
+            }
+            finally {
+                if (-not $slow.HasExited) {
+                    $slow.Kill($true)
+                    $slow.WaitForExit()
+                }
+                $slow.Dispose()
+            }
         }
     }
 
@@ -89,39 +168,91 @@ Describe 'Autopilot.ContainerOffline' {
             $entrypoint | Should -Match "Selected start branch '\$\{BRANCH\}' is not available on origin"
             $entrypoint | Should -Not -Match 'Creating new branch \$\{WORK_BRANCH\} from \$\(git branch --show-current\)'
         }
-        It 'rejects a fetched start-branch mismatch before creating a work branch' {
+        It 'never prints the configured remote URL' {
+            $entrypoint | Should -Not -Match '(?m)^\s*echo\s+.*REPO_REMOTE'
+            $entrypoint | Should -Match 'Preparing configured origin'
+        }
+        It 'executes immutable matching, mismatch, fresh rejection, and trusted retry fixtures' {
             $fixture = Join-Path $script:repoRoot (
                 'artifacts/expected-start-' + [guid]::NewGuid().ToString('N')
             )
             try {
-                [void](New-Item -ItemType Directory -Path $fixture -Force)
-                & git -C $fixture init -q -b main
-                & git -C $fixture config user.name fixture
-                & git -C $fixture config user.email fixture@example.invalid
-                [System.IO.File]::WriteAllText((Join-Path $fixture 'tracked.txt'), 'fixture')
-                & git -C $fixture add tracked.txt
-                & git -C $fixture commit -q -m fixture
-                $actual = (& git -C $fixture rev-parse HEAD).Trim()
-                & git -C $fixture update-ref refs/remotes/origin/main $actual
+                $remote = Join-Path $fixture 'remote.git'
+                $seed = Join-Path $fixture 'seed'
+                [void](New-Item -ItemType Directory -Path $seed -Force)
+                & git init -q --bare $remote
+                & git -C $seed init -q -b main
+                & git -C $seed config user.name fixture
+                & git -C $seed config user.email fixture@example.invalid
+                [System.IO.File]::WriteAllText((Join-Path $seed 'tracked.txt'), 'fixture')
+                & git -C $seed add tracked.txt
+                & git -C $seed commit -q -m fixture
+                & git -C $seed remote add origin $remote
+                & git -C $seed push -q origin main
+                $actual = (& git -C $seed rev-parse HEAD).Trim()
 
+                $matching = Join-Path $fixture 'matching'
+                [void](New-Item -ItemType Directory -Path $matching)
+                & git -C $matching init -q
+                & git -C $matching remote add origin $remote
+                $matchingOutput = & bash -c @'
+source "$1"
+checkout_epic_work_branch "$2" main "$3" feature/fixture false
+'@ bash $script:entrypointPath $matching $actual 2>&1
+                $LASTEXITCODE | Should -Be 0
+                (& git -C $matching rev-parse HEAD).Trim() |
+                    Should -BeExactly $actual
+                (& git -C $matching branch --show-current).Trim() |
+                    Should -BeExactly 'feature/fixture'
+
+                $mismatch = Join-Path $fixture 'mismatch'
+                [void](New-Item -ItemType Directory -Path $mismatch)
+                & git -C $mismatch init -q
+                & git -C $mismatch remote add origin $remote
                 $output = & bash -c @'
 source "$1"
-verify_expected_start_commit "$2" main aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-'@ bash $script:entrypointPath $fixture 2>&1
-
+checkout_epic_work_branch "$2" main aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa feature/mismatch false
+'@ bash $script:entrypointPath $mismatch 2>&1
                 $LASTEXITCODE | Should -Be 1
                 ($output | Out-String) | Should -Match 'resolved to.*expected'
-                & git -C $fixture show-ref --verify --quiet refs/heads/feature/fixture
+                & git -C $mismatch show-ref --verify --quiet refs/heads/feature/mismatch
                 $LASTEXITCODE | Should -Not -Be 0
-                $entrypoint.IndexOf('verify_expected_start_commit /work') |
-                    Should -BeLessThan $entrypoint.IndexOf('git checkout -b "${WORK_BRANCH}"')
 
-                $invalidOutput = & bash -c @'
+                & git -C $seed checkout -q -b feature/existing
+                [System.IO.File]::WriteAllText(
+                    (Join-Path $seed 'work.txt'),
+                    'trusted work'
+                )
+                & git -C $seed add work.txt
+                & git -C $seed commit -q -m work
+                & git -C $seed push -q origin feature/existing
+                $workCommit = (& git -C $seed rev-parse HEAD).Trim()
+
+                $fresh = Join-Path $fixture 'fresh-rejection'
+                [void](New-Item -ItemType Directory -Path $fresh)
+                & git -C $fresh init -q
+                & git -C $fresh remote add origin $remote
+                $freshOutput = & bash -c @'
 source "$1"
-verify_expected_start_commit "$2" main not-a-commit
-'@ bash $script:entrypointPath $fixture 2>&1
-                $LASTEXITCODE | Should -Be 2
-                ($invalidOutput | Out-String) | Should -Match 'must be a full lowercase Git commit id'
+checkout_epic_work_branch "$2" main "$3" feature/existing false
+'@ bash $script:entrypointPath $fresh $actual 2>&1
+                $LASTEXITCODE | Should -Be 1
+                ($freshOutput | Out-String) |
+                    Should -Match 'fresh epic launch will not resume'
+
+                $retry = Join-Path $fixture 'trusted-retry'
+                [void](New-Item -ItemType Directory -Path $retry)
+                & git -C $retry init -q
+                & git -C $retry remote add origin $remote
+                $retryOutput = & bash -c @'
+source "$1"
+checkout_epic_work_branch "$2" main "$3" feature/existing true
+'@ bash $script:entrypointPath $retry $actual 2>&1
+                $LASTEXITCODE | Should -Be 0
+                (& git -C $retry rev-parse HEAD).Trim() |
+                    Should -BeExactly $workCommit
+                (& git -C $retry branch --show-current).Trim() |
+                    Should -BeExactly 'feature/existing'
             }
             finally {
                 Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue

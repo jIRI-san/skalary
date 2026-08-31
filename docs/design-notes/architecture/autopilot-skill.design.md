@@ -60,11 +60,13 @@ authority.
 exact `NextChild`, transitions `selected` to `running`, then invokes the installed per-plan launcher
 once in a separate PowerShell process. Its launcher arguments are fixed to the selected folder,
 `whole-plan`, `container`, the normalized caller target branch, and the admitted target commit as
-`-ExpectedStartCommit`; the epic wrapper exposes no mode/runtime override. The credentialed container
-must fetch that branch at the admitted commit before creating the work branch or executing repository
-code. It stores the raw terminal code without interpreting success and never relaunches running
-or terminal state. Persisted/replayed launcher codes use the portable 0..255 process-exit domain;
-out-of-domain injected results become `invocation-failed`. The skill names the installed helper so
+`-ExpectedStartCommit` plus the persisted run id; the epic wrapper exposes no mode/runtime override.
+Selection requires clean HEAD at the resolved target. The first container fetches that target once,
+creates directly from its verified object, and rejects an existing work branch; only a later exit-43
+retry inside that launcher invocation may resume the branch. A repeated host call uses the run-derived
+container name to refuse active work or reconcile proven inactive work to `invocation-failed` without
+relaunch. Persisted/replayed launcher codes use the portable 0..255 process-exit domain; launch failures
+return structured `invocation-failed` receipts. The skill names the installed helper so
 plugin bundling carries its canonical
 `Get-PlanState`, `EpicAutopilot`, and `AtomicStore` closure, while retaining the ordinary plan
 handoff until merge-gate and repeat behavior lands.

@@ -3,7 +3,7 @@
     Container-mode orchestrator for autonomous plan execution.
 .DESCRIPTION
     Builds Docker image, runs container with entrypoint script, enforces timeout
-    via polling, extracts transcripts on completion.
+    via the native process wait handle, extracts transcripts on completion.
 .PARAMETER PlanSlug
     The plan folder name (e.g. '002-persistent-storage-for-job-data').
 .PARAMETER Mode
@@ -39,6 +39,10 @@ param(
 
     [string]$ExpectedStartCommit,
 
+    [string]$Run,
+
+    [switch]$TrustedInternalRetry,
+
     # When set, mount this host package-feed read-only at /feed and run the
     # container fully offline (see prepare-packages.ps1).
     [string]$FeedPath
@@ -46,10 +50,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'autopilot-dispatch.ps1')
 
 $RepoRoot = git rev-parse --show-toplevel
 $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
-$ContainerName = "autopilot-run-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+$ContainerName = Get-AutopilotContainerName -Run $Run
 # Whole-run cap. `timeout` is the PER-PHASE budget and is enforced inside the
 # container, which is the only place phase boundaries are visible.
 $TimeoutMinutes = if ($Config.PSObject.Properties.Name -contains 'planTimeout') { [int]$Config.planTimeout } else { 1440 }
@@ -115,6 +120,9 @@ try {
     if ($ExpectedStartCommit) {
         $envParams.ExpectedStartCommit = $ExpectedStartCommit
     }
+    if ($TrustedInternalRetry) {
+        $envParams.TrustedInternalRetry = $true
+    }
     if ($FeedPath) { $envParams.Offline = $true }
     $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') @envParams
 
@@ -142,35 +150,20 @@ try {
     # returns $null for ExitCode once the process has terminated.
     $null = $dockerProcess.Handle
 
-    # Brief delay to let docker register the container name
-    Start-Sleep -Seconds 3
-
-    # --- Timeout enforcement via polling ---
+    # --- Timeout enforcement via the native process wait handle ---
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
-    while (-not $dockerProcess.HasExited) {
-        if ((Get-Date) -gt $deadline) {
-            Write-Warning "Container exceeded the whole-run cap of $TimeoutMinutes minutes (planTimeout)."
-            Write-Host "Sending SIGTERM (docker stop) — the entrypoint commits and pushes in-flight work before exiting..."
-            docker stop --time 30 $ContainerName 2>$null
-            # Wait briefly for graceful shutdown
-            if (-not $dockerProcess.HasExited) {
-                Start-Sleep -Seconds 5
-                if (-not $dockerProcess.HasExited) {
-                    Write-Warning "Force-killing container..."
-                    docker kill $ContainerName 2>$null
-                }
-            }
-            break
+    $completedBeforeDeadline = Wait-AutopilotProcessUntil `
+        -Process $dockerProcess -Deadline $deadline
+    if (-not $completedBeforeDeadline) {
+        Write-Warning "Container exceeded the whole-run cap of $TimeoutMinutes minutes (planTimeout)."
+        Write-Host "Sending SIGTERM (docker stop) — the entrypoint commits and pushes in-flight work before exiting..."
+        docker stop --time 30 $ContainerName 2>$null
+        $gracefulDeadline = (Get-Date).AddSeconds(35)
+        if (-not (Wait-AutopilotProcessUntil `
+                    -Process $dockerProcess -Deadline $gracefulDeadline)) {
+            Write-Warning "Force-killing container..."
+            docker kill $ContainerName 2>$null
         }
-
-        # Check container is still running (suppress errors during startup race)
-        $prevEAP = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $state = docker inspect --format '{{.State.Running}}' $ContainerName 2>$null
-        $ErrorActionPreference = $prevEAP
-        if ($state -eq 'false') { break }
-
-        Start-Sleep -Seconds 2
     }
 
     $dockerProcess.WaitForExit()

@@ -25,13 +25,21 @@ Describe 'Epic autopilot child launcher state machine' {
                 [string]$PlanStateScript,
                 [scriptblock]$PlanStateInvoker,
                 [scriptblock]$TargetResolver,
+                [scriptblock]$WorktreeValidator,
                 [scriptblock]$RunFactory,
-                [scriptblock]$LauncherInvoker
+                [scriptblock]$LauncherInvoker,
+                [scriptblock]$ContainerProbe
             )
 
             $parameters = @{}
             foreach ($entry in $PSBoundParameters.GetEnumerator()) {
                 $parameters[$entry.Key] = $entry.Value
+            }
+            if (-not $parameters.ContainsKey('WorktreeValidator')) {
+                $parameters.WorktreeValidator = {}
+            }
+            if (-not $parameters.ContainsKey('ContainerProbe')) {
+                $parameters.ContainerProbe = { $true }
             }
             return & $script:epicModule {
                 param($CoreParameters)
@@ -172,7 +180,8 @@ Describe 'Epic autopilot child launcher state machine' {
                 '-Mode', 'whole-plan',
                 '-Runtime', 'container',
                 '-Branch', 'main',
-                '-ExpectedStartCommit', $script:targetA
+                '-ExpectedStartCommit', $script:targetA,
+                '-Run', $script:runA
             )
             $result.ExitCode | Should -Be $exitCode
             $result.Launch | Should -BeTrue
@@ -248,9 +257,11 @@ Describe 'Epic autopilot child launcher state machine' {
         $moduleText | Should -Match 'ProcessStartInfo'
         $moduleText | Should -Match 'ArgumentList'
         $moduleText | Should -Not -Match (
-            '(?i)\b(?:docker|launch-container|launch-host|launch-sandbox|' +
+            '(?i)\b(?:launch-container|launch-host|launch-sandbox|' +
             'validate-auth|prepare-packages|autopilot-dispatch)\b'
         )
+        $moduleText | Should -Match 'docker container ls --all'
+        $moduleText | Should -Not -Match '(?i)\bdocker\s+(?:run|start|stop|kill|rm|create)\b'
         $wrapperTokens = $null
         $wrapperErrors = $null
         $wrapperAst = [System.Management.Automation.Language.Parser]::ParseFile(
@@ -277,7 +288,8 @@ Describe 'Epic autopilot child launcher state machine' {
         }
         foreach ($privateParameter in @(
                 'PlanStateScript', 'PlanStateInvoker', 'TargetResolver',
-                'RunFactory', 'LauncherInvoker'
+                'WorktreeValidator', 'RunFactory', 'LauncherInvoker',
+                'ContainerProbe'
             )) {
             $publicParameters | Should -Not -Contain $privateParameter
         }
@@ -329,17 +341,85 @@ Describe 'Epic autopilot child launcher state machine' {
         [System.IO.File]::WriteAllText($runningPath, (New-StateJson -Outcome 'running'))
         $runningRaw = [System.IO.File]::ReadAllText($runningPath)
         $blockedLaunches = [System.Collections.Generic.List[object]]::new()
+        $activeProbeNames = [System.Collections.Generic.List[string]]::new()
         {
             Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
                 -RepoRoot $script:repoRoot -StatePath $runningPath `
                 -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -ContainerProbe {
+                param($ContainerName)
+                $activeProbeNames.Add($ContainerName)
+                return $true
+            } `
                 -LauncherInvoker {
                 [void]$blockedLaunches.Add($null)
                 return 0
             }
         } | Should -Throw '*already running*'
+        $activeProbeNames | Should -BeExactly @("autopilot-run-$script:runA")
         $blockedLaunches | Should -HaveCount 0
         [System.IO.File]::ReadAllText($runningPath) | Should -BeExactly $runningRaw
+
+        $inactivePath = New-StatePath -Name 'interrupted-running'
+        [System.IO.File]::WriteAllText(
+            $inactivePath,
+            (New-StateJson -Outcome 'running')
+        )
+        $inactiveBefore = [System.IO.File]::ReadAllBytes($inactivePath)
+        $probedNames = [System.Collections.Generic.List[string]]::new()
+        $inactive = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $inactivePath `
+            -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+            -ContainerProbe {
+            param($ContainerName)
+            $probedNames.Add($ContainerName)
+            return $false
+        } -LauncherInvoker { throw 'inactive running state must not relaunch' }
+        $probedNames | Should -BeExactly @("autopilot-run-$script:runA")
+        $inactive.Failed | Should -BeTrue
+        $inactive.Replayed | Should -BeTrue
+        $inactive.Launch | Should -BeFalse
+        $inactive.LaunchAttempted | Should -BeFalse
+        $inactive.Message | Should -Match 'reconciled to invocation-failed'
+        Assert-ExactState -State $inactive.State -Outcome 'invocation-failed'
+        [System.IO.File]::ReadAllBytes($inactivePath) |
+            Should -Not -Be $inactiveBefore
+
+        $probeFailurePath = New-StatePath -Name 'running-probe-failure'
+        [System.IO.File]::WriteAllText(
+            $probeFailurePath,
+            (New-StateJson -Outcome 'running')
+        )
+        $probeFailureBefore = [System.IO.File]::ReadAllBytes($probeFailurePath)
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $probeFailurePath `
+                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -ContainerProbe { throw 'synthetic daemon failure' } `
+                -LauncherInvoker { throw 'probe failure must not relaunch' }
+        } | Should -Throw '*Unable to determine*synthetic daemon failure*'
+        [System.IO.File]::ReadAllBytes($probeFailurePath) |
+            Should -Be $probeFailureBefore
+
+        $reconcileCasPath = New-StatePath -Name 'running-reconcile-cas'
+        [System.IO.File]::WriteAllText(
+            $reconcileCasPath,
+            (New-StateJson -Outcome 'running')
+        )
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $reconcileCasPath `
+                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -ContainerProbe {
+                [System.IO.File]::WriteAllText(
+                    $reconcileCasPath,
+                    (New-StateJson -Outcome 'selected')
+                )
+                return $false
+            } -LauncherInvoker { throw 'CAS conflict must not relaunch' }
+        } | Should -Throw '*reconciliation failed*'
+        [System.IO.File]::ReadAllText($reconcileCasPath) |
+            Should -BeExactly (New-StateJson -Outcome 'selected')
 
         foreach ($terminalOutcome in @('exit:43', 'invocation-failed')) {
             $terminalPath = New-StatePath -Name (
@@ -361,22 +441,26 @@ Describe 'Epic autopilot child launcher state machine' {
         }
 
         $throwPath = New-StatePath -Name 'launcher-throw'
-        {
-            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
-                -RepoRoot $script:repoRoot -StatePath $throwPath `
-                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
-                -RunFactory { $script:runA } -LauncherInvoker {
-                throw 'synthetic start failure'
-            }
-        } | Should -Throw '*launcher invocation failed*synthetic start failure*'
-        Assert-ExactState -State (Read-TestEpicState -Path $throwPath) `
-            -Outcome 'invocation-failed'
+        $failureReceipt = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $throwPath `
+            -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+            -RunFactory { $script:runA } -LauncherInvoker {
+            throw 'synthetic start failure'
+        }
+        $failureReceipt.Failed | Should -BeTrue
+        $failureReceipt.Launch | Should -BeFalse
+        $failureReceipt.LaunchAttempted | Should -BeTrue
+        $failureReceipt.Message | Should -Match 'launcher invocation failed.*synthetic start failure'
+        Assert-ExactState -State $failureReceipt.State -Outcome 'invocation-failed'
+        $failureReceipt.StatePath | Should -BeExactly $throwPath
         $throwRaw = [System.IO.File]::ReadAllText($throwPath)
         $throwReplay = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
             -RepoRoot $script:repoRoot -StatePath $throwPath `
             -PlanStateInvoker $invokerA -TargetResolver $resolveA `
             -LauncherInvoker { throw 'stored failure must not relaunch' }
         $throwReplay.Replayed | Should -BeTrue
+        $throwReplay.Failed | Should -BeTrue
+        $throwReplay.Message | Should -Match 'invocation-failed'
         [System.IO.File]::ReadAllText($throwPath) | Should -BeExactly $throwRaw
 
         foreach ($invalidExitCode in @(
@@ -392,15 +476,13 @@ Describe 'Epic autopilot child launcher state machine' {
                 param($LaunchScript, $Argument, $Root)
                 return $invalidExitCode
             }.GetNewClosure()
-            {
-                Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
-                    -RepoRoot $script:repoRoot -StatePath $invalidResultPath `
-                    -PlanStateInvoker $invokerA -TargetResolver $resolveA `
-                    -RunFactory { $script:runA } -LauncherInvoker $invalidLauncher
-            } | Should -Throw '*invalid exit code*'
-            Assert-ExactState -State (
-                Read-TestEpicState -Path $invalidResultPath
-            ) -Outcome 'invocation-failed'
+            $invalidReceipt = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $invalidResultPath `
+                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -RunFactory { $script:runA } -LauncherInvoker $invalidLauncher
+            $invalidReceipt.Failed | Should -BeTrue
+            $invalidReceipt.Message | Should -Match 'invalid exit code'
+            Assert-ExactState -State $invalidReceipt.State -Outcome 'invocation-failed'
             [System.IO.File]::ReadAllText($invalidResultPath) |
                 Should -Not -Match '"outcome":"exit:0"'
         }
@@ -573,7 +655,8 @@ Describe 'Epic autopilot child launcher state machine' {
             '-Mode', 'whole-plan',
             '-Runtime', 'container',
             '-Branch', 'main',
-            '-ExpectedStartCommit', $targetCommit
+            '-ExpectedStartCommit', $targetCommit,
+            '-Run', $script:runA
         )
 
         foreach ($failure in @(
@@ -594,6 +677,156 @@ Describe 'Epic autopilot child launcher state machine' {
         }
         $launches | Should -HaveCount 1
     }
+
+        It 'test:EpicAutopilot.Admission resolves and validates the target before plan selection' {
+            $order = [System.Collections.Generic.List[string]]::new()
+            $result = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath (New-StatePath -Name 'admission-order') `
+                -TargetResolver {
+                $order.Add('target')
+                return $script:targetA
+            } -WorktreeValidator {
+                param($Root, $Commit)
+                $order.Add("worktree:$Commit")
+            } -PlanStateInvoker {
+                $order.Add('plan-state')
+                return (New-RollupJson -NextChild $null)
+            } -LauncherInvoker { throw 'no child must not launch' }
+
+            $result.State | Should -BeNullOrEmpty
+            $order | Should -BeExactly @(
+                'target',
+                "worktree:$script:targetA",
+                'plan-state'
+            )
+        }
+
+        It 'test:EpicAutopilot.PublicDefaults use clean HEAD and shared Git-common-dir state' {
+            $root = Join-Path $script:fixtureRoot 'public-defaults'
+            $linked = Join-Path $script:fixtureRoot 'public-defaults-linked'
+            $plans = Join-Path $root 'docs/implementation-plans'
+            $childFolder = '2026-08-31-111111-first-child'
+            $childDir = Join-Path $plans $childFolder
+            $epicDir = Join-Path $plans 'epics/2026-08-31-abc123-fixture-epic'
+            $launcherDir = Join-Path $root '.github/skills/autopilot/scripts'
+            [void](New-Item -ItemType Directory -Path $childDir -Force)
+            [void](New-Item -ItemType Directory -Path $epicDir -Force)
+            [void](New-Item -ItemType Directory -Path $launcherDir -Force)
+            [System.IO.File]::WriteAllText(
+                (Join-Path $epicDir 'epic.md'),
+                "# abc123: Fixture epic`n<!-- epic-id: abc123 -->`n"
+            )
+            [System.IO.File]::WriteAllText(
+                (Join-Path $childDir 'plan.md'),
+                @(
+                    '# 111111: First child'
+                    '<!-- plan-id: 111111 -->'
+                    '<!-- epic: abc123 -->'
+                    ''
+                    '## Requirements'
+                    ''
+                    '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                    '|----|-------------|---------------------|--------------|'
+                    '| REQ-1 | Fixture | `test:fixture` | 1.1 |'
+                    ''
+                    '## Phase 1: Fixture'
+                    ''
+                    '- [ ] 1.1 Execute fixture (REQ-1) `S`'
+                ) -join "`n"
+            )
+            [System.IO.File]::WriteAllText(
+                (Join-Path $launcherDir 'launch.ps1'),
+                @'
+param(
+        [string]$PlanSlug,
+        [string]$Mode,
+        [string]$Runtime,
+        [string]$Branch,
+        [string]$ExpectedStartCommit,
+        [string]$Run
+)
+if ($Branch -cne 'main') { exit 9 }
+if ($Run -cnotmatch '^[0-9a-f-]{36}$') { exit 10 }
+exit 0
+'@
+            )
+            & git -C $root init -q -b main
+            & git -C $root config user.name fixture
+            & git -C $root config user.email fixture@example.invalid
+            & git -C $root add .
+            & git -C $root commit -q -m fixture
+            $targetCommit = (& git -C $root rev-parse HEAD).Trim()
+
+            Push-Location $root
+            try {
+                $first = Invoke-EpicAutopilotHostLoop -Epic 'abc123'
+            }
+            finally {
+                Pop-Location
+            }
+            $commonDir = (& git -C $root rev-parse --git-common-dir).Trim()
+            if (-not [System.IO.Path]::IsPathRooted($commonDir)) {
+                $commonDir = Join-Path $root $commonDir
+            }
+            $expectedStatePath = [System.IO.Path]::GetFullPath(
+                (Join-Path $commonDir 'skalary/epic-autopilot.json')
+            )
+            $first.StatePath | Should -BeExactly $expectedStatePath
+            $first.State.target | Should -BeExactly $targetCommit
+            $first.ExitCode | Should -Be 0
+            $first.Failed | Should -BeFalse
+
+            $tree = (& git -C $root rev-parse 'HEAD^{tree}').Trim()
+            $aheadCommit = (
+                'ahead' | & git -C $root commit-tree $tree -p $targetCommit
+            ).Trim()
+            & git -C $root update-ref refs/heads/ahead $aheadCommit
+            Push-Location $root
+            try {
+                { Invoke-EpicAutopilotHostLoop -Epic 'abc123' -Target ahead } |
+                    Should -Throw '*does not equal resolved target*'
+            }
+            finally {
+                Pop-Location
+            }
+
+            & git -C $root worktree add -q -b linked $linked $targetCommit
+            Push-Location $linked
+            try {
+                $shared = Invoke-EpicAutopilotHostLoop -Epic 'abc123'
+            }
+            finally {
+                Pop-Location
+            }
+            $shared.StatePath | Should -BeExactly $expectedStatePath
+            $shared.Replayed | Should -BeTrue
+            $shared.State.run | Should -BeExactly $first.State.run
+
+            [System.IO.File]::WriteAllText((Join-Path $linked 'dirty.txt'), 'dirty')
+            Push-Location $linked
+            try {
+                { Invoke-EpicAutopilotHostLoop -Epic 'abc123' } |
+                    Should -Throw '*worktree must be clean*'
+            }
+            finally {
+                Pop-Location
+                Remove-Item -LiteralPath (Join-Path $linked 'dirty.txt') -Force
+            }
+
+            & git -C $linked checkout --detach -q
+            Push-Location $linked
+            try {
+                { Invoke-EpicAutopilotHostLoop -Epic 'abc123' } |
+                    Should -Throw '*HEAD does not name a local branch*'
+            }
+            finally {
+                Pop-Location
+            }
+            [System.IO.File]::ReadAllText($expectedStatePath) |
+                Should -BeExactly (
+                    $first.State | ConvertTo-Json -Compress
+                )
+        }
 
     It 'test:EpicAutopilot.StateSchema rejects every noncanonical six-field record without mutation' {
         $base = New-StateJson
@@ -692,6 +925,10 @@ function Invoke-EpicAutopilotHostLoop {
         }
         ExitCode = if ($outcome -like 'exit:*') {
             [int]$env:EPIC_WRAPPER_SCENARIO
+        } else { $null }
+        Failed = $outcome -eq 'invocation-failed'
+        Message = if ($outcome -eq 'invocation-failed') {
+            'Synthetic persisted launcher failure.'
         } else { $null }
     }
 }

@@ -40,6 +40,9 @@ Describe 'Autopilot timeout configuration' {
         # silently turned a documented per-phase budget into a whole-run one.
         $containerLauncher | Should -Not -Match '\$TimeoutMinutes = \$Config\.timeout'
         $containerLauncher | Should -Match '\$TimeoutMinutes = if \(\$Config\.PSObject\.Properties\.Name -contains ''planTimeout''\)'
+        $containerLauncher | Should -Match 'Wait-AutopilotProcessUntil'
+        $containerLauncher | Should -Not -Match 'docker inspect'
+        $containerLauncher | Should -Not -Match 'Start-Sleep -Seconds 2'
     }
 
     It 'keeps host mode enforcing the per-phase budget around each invocation' {

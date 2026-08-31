@@ -74,23 +74,29 @@ different epic fails loudly before mutation. The existing bytes remain untouched
 validation or staleness failure. A null `NextChild` with no state returns without creating a
 record.
 
-Under the `AtomicStore` lock, the wrapper refetches and validates those coordinates, creates or
-resumes `selected`, then CAS-transitions that same run to `running`. The lock is released before
+Under the `AtomicStore` lock, the wrapper resolves the target commit first, requires the repository
+worktree to be clean with HEAD at that exact commit, and only then invokes `Get-PlanState`. It creates
+or resumes `selected`, then CAS-transitions that same run to `running`. The lock is released before
 the blocking launcher call. The launcher runs once as a separate PowerShell process from repo root,
 using `ProcessStartInfo.ArgumentList` with exact arguments `-PlanSlug <NextChild.FolderName> -Mode
 whole-plan -Runtime container -Branch <normalized-target-branch> -ExpectedStartCommit
-<persisted-target-commit>`. `HEAD` normalizes to its local branch and `refs/heads/` is stripped; other
-Git object expressions are rejected. The container fetches that branch and proves it resolves to the
-persisted commit before checkout, work-branch creation, or repository execution. Existing callers that
-omit `-ExpectedStartCommit` retain ordinary launch behavior. This preserves the launcher's internal
-rebundle loop and exit behavior. After it returns, the wrapper reacquires the lock and CAS-transitions
+<persisted-target-commit> -Run <persisted-run>`. `HEAD` normalizes to its local branch and detached
+HEAD is refused; `refs/heads/` is stripped and other Git object expressions are rejected. The first
+epic container initializes an empty repository, fetches the selected branch once into `FETCH_HEAD`,
+proves that object equals the persisted commit, rejects any existing remote work branch, and creates
+the work branch directly from the verified object. Existing callers that omit `-ExpectedStartCommit`
+retain ordinary launch behavior. Only a later exit-43 attempt inside the same host launcher invocation
+receives the internal retry flag and may fetch/resume the remote work branch; a fresh invocation cannot
+claim that provenance. After it returns, the wrapper reacquires the lock and CAS-transitions
 the same `running` generation to `exit:<0..255>`; `Process.ExitCode` after `WaitForExit` is the
 production authority. The persisted/replay domain is limited to 0..255 because POSIX exposes only
 that portable range. An injected out-of-domain result follows the launch-error path, attempts the
-same CAS to `invocation-failed`, and fails loudly; zero is never substituted. A start exception does
-the same. A terminal-write failure never returns success, including after launcher exit zero.
-Existing `running` state fails closed; existing terminal state is replayed without launching or
-selecting a sibling.
+same CAS to `invocation-failed`, and returns a structured failure receipt; zero is never substituted.
+A start exception does the same. A terminal-write failure still throws, including after launcher exit
+zero. The run GUID deterministically names its container. Existing `running` state probes only that
+container: an active container refuses a second launch, an absent/exited container CAS-reconciles the
+same run to `invocation-failed` and replays that terminal receipt without relaunch, and probe uncertainty
+fails without changing bytes. Existing terminal state is replayed without selecting a sibling.
 
 ## Modes
 
@@ -121,7 +127,8 @@ selecting a sibling.
 - Zero-exit targets are not terminal until committed phase-close proof is valid. The entrypoint uses
   bounded same-session handoffs for pending completion, and finalization additionally requires
   terminal phase gates, an exact committed archive transition, and an open branch PR.
-- Timeout via `docker inspect` polling + `docker stop`/`docker kill`
+- Timeout uses the native `docker run` process wait handle; `docker stop`/`docker kill` run only after
+  the whole-run deadline
 - Transcripts extracted via `docker cp`; containers are removed after normal outcomes and retained
   with recovery commands when exit `70` says publication durability could not be established
 
@@ -402,7 +409,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `EpicAutopilot.psm1` | Host-only epic child admission/state machine; exports only the four-argument production host loop and keeps test adapters private |
 | `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; propagates portable child exit codes and reports no-child/invocation-failed outcomes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
-| `autopilot-dispatch.ps1` | `param()`-less library dot-sourced by `launch.ps1`: `Resolve-OfflinePackagesConfig` (StrictMode-safe config parsing) + `Invoke-AutopilotDispatch` (runtime dispatch + offline rebundle loop) |
+| `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |
 | `launch-host.ps1` | Host-mode orchestrator (worktree + per-phase CLI) |
 | `launch-container.ps1` | Container-mode orchestrator (docker build/run/cp) |
@@ -411,7 +418,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `host-command.ps1` | `param()`-less helper exporting `Resolve-HostCommand` (custom host command resolution); dot-sourced by `launch-host.ps1` only |
 | `clean-sandbox-cache.ps1` | Remove sandbox toolchain cache (~700MB) |
 | `get-credential.ps1` | Read tokens from Windows Credential Manager |
-| `prepare-env-file.ps1` | Create temp env file with restrictive ACL |
+| `prepare-env-file.ps1` | Create temp env file with restrictive ACL; reject HTTP(S) remotes containing userinfo |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
 | `container-entrypoint.sh` | Container bootstrap (clone, branch, phase loop) |
 | `run-smoke-test.ps1` | End-to-end smoke test runner |
@@ -432,7 +439,10 @@ The worktree persists at `<repo>.worktrees/feature-<slug>`. Re-running `launch.p
 
 ### Container mode — interrupted run
 
-If the remote branch exists, container resumes from it (entrypoint checks `git ls-remote`). If the container was killed mid-run, `docker rm` is attempted on next launch.
+Ordinary per-plan launches resume an existing remote branch. Epic launches never infer provenance from
+branch existence: only an internal exit-43 retry may resume. Re-entering an epic `running` record probes
+the deterministic run container; active work is left alone, while proven absent/exited work becomes
+terminal `invocation-failed` without an automatic child relaunch.
 
 ### Sandbox mode — interrupted run
 

@@ -27,6 +27,8 @@ param(
 
     [string]$ExpectedStartCommit,
 
+    [switch]$TrustedInternalRetry,
+
     # When set, inject offline-restore env so the entrypoint restores from the
     # read-only /feed mount instead of the network.
     [switch]$Offline
@@ -34,11 +36,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'autopilot-dispatch.ps1')
 
-if ($ExpectedStartCommit -and
-    $ExpectedStartCommit -cnotmatch '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
-    throw "Invalid expected start commit '$ExpectedStartCommit'. Use a full Git commit id."
-}
+$expectedStartEnvironment = @(
+    Get-AutopilotExpectedStartEnvironment `
+        -ExpectedStartCommit $ExpectedStartCommit `
+        -TrustedInternalRetry:$TrustedInternalRetry
+)
 
 # Create per-session random subdirectory
 $sessionId = [System.IO.Path]::GetRandomFileName().Replace('.', '')
@@ -89,6 +93,7 @@ if ($remote) {
     if ($remote -match '^git@github\.com:(.+)$') {
         $remote = "https://github.com/$($Matches[1])"
     }
+    Assert-AutopilotRepositoryRemote -Remote $remote
     $envContent += "REPO_REMOTE=$remote"
 }
 
@@ -96,8 +101,8 @@ if ($remote) {
 if ($Branch) {
     $envContent += "REPO_BRANCH=$Branch"
 }
-if ($ExpectedStartCommit) {
-    $envContent += "EXPECTED_START_COMMIT=$($ExpectedStartCommit.ToLowerInvariant())"
+if ($expectedStartEnvironment.Count -gt 0) {
+    $envContent += $expectedStartEnvironment
 }
 
 # Offline restore: point the entrypoint at the read-only feed mount.

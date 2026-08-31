@@ -120,9 +120,12 @@ with local checkbox or receipt-existence predicates.
 flow. It atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
 `running`, and invokes the installed `launch.ps1` once in a separate PowerShell process with fixed
 `whole-plan` / `container` arguments, the normalized caller target branch, and the admitted target
-commit as `-ExpectedStartCommit`. The container verifies that fetched branch resolves to the admitted
-commit before creating the work branch or running repository code. Terminal launcher codes are stored
-as `exit:<0..255>`, the portable process-exit domain; launch-start failures and out-of-domain
-invocation results are stored as `invocation-failed`. Existing running or terminal state never
-launches another child. Do not route the ordinary `/ci` plan handoff through this staged helper until
-the later merge-gate and repeat increments land.
+commit as `-ExpectedStartCommit`. Selection requires a clean worktree whose HEAD equals that commit.
+The container creates a fresh work branch directly from the verified fetched object and rejects an
+existing remote work branch; only an exit-43 rebundle retry inside that same launcher invocation may
+resume it. The persisted `run` derives the exact container name. A repeated host call probes only that
+container: active means refuse, while absent/exited reconciles the same run to `invocation-failed`
+without relaunch. Terminal launcher codes are stored as `exit:<0..255>`, the portable process-exit
+domain; launch-start failures and out-of-domain invocation results return a structured
+`invocation-failed` receipt. Do not route the ordinary `/ci` plan handoff through this staged helper
+until the later merge-gate and repeat increments land.

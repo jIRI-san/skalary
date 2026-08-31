@@ -53,8 +53,9 @@ phase_needs_execution() {
 
 verify_expected_start_commit() {
     local repo_path="$1"
-    local branch="$2"
-    local expected="${3:-}"
+    local expected="${2:-}"
+    local object="${3:-FETCH_HEAD}"
+    local branch_label="${4:-selected start branch}"
     local actual
 
     [ -z "${expected}" ] && return 0
@@ -63,14 +64,60 @@ verify_expected_start_commit() {
         return 2
     fi
     if ! actual="$(git -C "${repo_path}" rev-parse --verify \
-        "refs/remotes/origin/${branch}^{commit}" 2>/dev/null)"; then
-        echo "ERROR: Unable to resolve fetched start branch '${branch}'." >&2
+        "${object}^{commit}" 2>/dev/null)"; then
+        echo "ERROR: Unable to resolve fetched start branch '${branch_label}'." >&2
         return 1
     fi
     if [ "${actual,,}" != "${expected}" ]; then
-        echo "ERROR: Fetched start branch '${branch}' resolved to '${actual,,}', expected '${expected}'." >&2
+        echo "ERROR: Fetched start branch '${branch_label}' resolved to '${actual,,}', expected '${expected}'." >&2
         return 1
     fi
+    printf '%s\n' "${actual,,}"
+}
+
+remote_branch_exists() {
+    local repo_path="$1"
+    local branch="$2"
+
+    git -C "${repo_path}" ls-remote --exit-code origin \
+        "refs/heads/${branch}" > /dev/null 2>&1
+}
+
+checkout_epic_work_branch() {
+    local repo_path="$1"
+    local start_branch="$2"
+    local expected="$3"
+    local work_branch="$4"
+    local trusted_retry="${5:-false}"
+    local verified_start
+    local retry_ref="refs/autopilot/internal-retry"
+
+    if [ "${trusted_retry}" = "true" ]; then
+        if ! remote_branch_exists "${repo_path}" "${work_branch}"; then
+            echo "ERROR: Trusted internal retry cannot find work branch '${work_branch}' on origin." >&2
+            return 1
+        fi
+        git -C "${repo_path}" fetch --no-tags origin \
+            "refs/heads/${work_branch}:${retry_ref}"
+        git -C "${repo_path}" checkout -b "${work_branch}" "${retry_ref}"
+        return 0
+    fi
+
+    if ! git -C "${repo_path}" fetch --no-tags origin \
+        "refs/heads/${start_branch}"; then
+        echo "ERROR: Selected start branch '${start_branch}' is not available on origin." >&2
+        return 1
+    fi
+    verified_start="$(
+        verify_expected_start_commit "${repo_path}" "${expected}" FETCH_HEAD "${start_branch}"
+    )" || return $?
+
+    if remote_branch_exists "${repo_path}" "${work_branch}"; then
+        echo "ERROR: Work branch '${work_branch}' already exists on origin; a fresh epic launch will not resume it." >&2
+        return 1
+    fi
+
+    git -C "${repo_path}" checkout -b "${work_branch}" "${verified_start}"
 }
 
 # Expose the pure phase-progress and recovery probes to focused tests.
@@ -89,6 +136,17 @@ fi
 if [ -n "${EXPECTED_START_COMMIT:-}" ] &&
     [[ ! "${EXPECTED_START_COMMIT}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
     echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
+    exit 2
+fi
+TRUSTED_INTERNAL_RETRY="${AUTOPILOT_TRUSTED_INTERNAL_RETRY:-false}"
+if [ "${TRUSTED_INTERNAL_RETRY}" != "false" ] &&
+    [ "${TRUSTED_INTERNAL_RETRY}" != "true" ]; then
+    echo "ERROR: AUTOPILOT_TRUSTED_INTERNAL_RETRY must be 'true' or unset." >&2
+    exit 2
+fi
+if [ "${TRUSTED_INTERNAL_RETRY}" = "true" ] &&
+    [ -z "${EXPECTED_START_COMMIT:-}" ]; then
+    echo "ERROR: A trusted internal retry requires EXPECTED_START_COMMIT." >&2
     exit 2
 fi
 
@@ -114,19 +172,22 @@ if [ -n "${ADO_TOKEN:-}" ]; then
 fi
 
 # --- Clone and branch ---
-echo "Cloning ${REPO_REMOTE}..."
-git clone --no-checkout "${REPO_REMOTE}" /work
+echo "Preparing configured origin..."
+if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
+    git init -q /work
+    git -C /work remote add origin "${REPO_REMOTE}"
+else
+    git clone --no-checkout "${REPO_REMOTE}" /work
+fi
 cd /work
 
 # Determine target branch
 WORK_BRANCH="feature/${PLAN_SLUG}"
 
 if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
-    git fetch origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
-    verify_expected_start_commit /work "${BRANCH}" "${EXPECTED_START_COMMIT}"
-fi
-
-if git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
+    checkout_epic_work_branch /work "${BRANCH}" "${EXPECTED_START_COMMIT}" \
+        "${WORK_BRANCH}" "${TRUSTED_INTERNAL_RETRY}"
+elif git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
     echo "Work branch ${WORK_BRANCH} exists on remote — resuming..."
     git fetch origin "${WORK_BRANCH}"
     git checkout "${WORK_BRANCH}"

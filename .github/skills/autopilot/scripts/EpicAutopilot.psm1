@@ -261,6 +261,67 @@ function Invoke-EpicChildLauncher {
     }
 }
 
+function Get-EpicAutopilotContainerName {
+    param([Parameter(Mandatory)][string]$Run)
+
+    $parsedRun = [guid]::Empty
+    if (-not [guid]::TryParseExact($Run, 'D', [ref]$parsedRun) -or
+        $parsedRun.ToString('D') -cne $Run) {
+        throw "Cannot derive an epic container name from noncanonical run '$Run'."
+    }
+    return "autopilot-run-$Run"
+}
+
+function Assert-EpicAutopilotWorktree {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$TargetCommit
+    )
+
+    $headOutput = @(& git -C $RepoRoot rev-parse --verify 'HEAD^{commit}' 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $headOutput.Count -ne 1) {
+        throw "Unable to resolve the repository worktree HEAD: $(($headOutput -join ' ').Trim())"
+    }
+    $headCommit = ([string]$headOutput[0]).Trim().ToLowerInvariant()
+    if ($headCommit -cne $TargetCommit) {
+        throw "Repository worktree HEAD '$headCommit' does not equal resolved target '$TargetCommit'."
+    }
+
+    $statusOutput = @(
+        & git -C $RepoRoot status --porcelain=v1 --untracked-files=normal 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect the repository worktree: $(($statusOutput -join ' ').Trim())"
+    }
+    if ($statusOutput.Count -ne 0) {
+        throw 'Repository worktree must be clean before epic child selection.'
+    }
+}
+
+function Test-EpicAutopilotContainerActive {
+    param([Parameter(Mandatory)][string]$ContainerName)
+
+    $output = @(
+        & docker container ls --all --filter "name=^/$ContainerName$" `
+            --format '{{.Names}}|{{.State}}' 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect epic container '$ContainerName': $(($output -join ' ').Trim())"
+    }
+    if ($output.Count -eq 0) {
+        return $false
+    }
+    if ($output.Count -ne 1) {
+        throw "Container probe returned multiple records for '$ContainerName'."
+    }
+
+    $parts = ([string]$output[0]).Split('|', 2)
+    if ($parts.Count -ne 2 -or $parts[0] -cne $ContainerName) {
+        throw "Container probe returned an unexpected record for '$ContainerName'."
+    }
+    return $parts[1] -cnotin @('exited', 'dead')
+}
+
 function Resolve-EpicAutopilotTargetBranch {
     param(
         [Parameter(Mandatory)][string]$Target,
@@ -303,8 +364,10 @@ function Invoke-EpicAutopilotHostLoopCore {
         [string]$PlanStateScript = (Join-Path $PSScriptRoot 'Get-PlanState.ps1'),
         [scriptblock]$PlanStateInvoker,
         [scriptblock]$TargetResolver,
+        [scriptblock]$WorktreeValidator,
         [scriptblock]$RunFactory,
-        [scriptblock]$LauncherInvoker
+        [scriptblock]$LauncherInvoker,
+        [scriptblock]$ContainerProbe
     )
 
     if ($env:AUTOPILOT_CONTAINER -ceq 'true') {
@@ -346,6 +409,12 @@ function Invoke-EpicAutopilotHostLoopCore {
             return ([string]$output[0]).Trim().ToLowerInvariant()
         }
     }
+    if (-not $WorktreeValidator) {
+        $WorktreeValidator = {
+            param($Root, $Commit)
+            Assert-EpicAutopilotWorktree -RepoRoot $Root -TargetCommit $Commit
+        }
+    }
     if (-not $RunFactory) {
         $RunFactory = { [guid]::NewGuid().ToString('D') }
     }
@@ -356,10 +425,28 @@ function Invoke-EpicAutopilotHostLoopCore {
                 -WorkingDirectory $Root
         }
     }
+    if (-not $ContainerProbe) {
+        $ContainerProbe = {
+            param($ContainerName)
+            Test-EpicAutopilotContainerActive -ContainerName $ContainerName
+        }
+    }
 
     $admission = Invoke-WithAtomicStoreLock -Scope $stateFile -Action {
         $generation = Get-AtomicStoreGeneration -Path $stateFile
         $existing = Read-EpicAutopilotState -Path $stateFile
+
+        $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
+        $targetCommit = $targetCommit.Trim().ToLowerInvariant()
+        if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+            throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
+        }
+        try {
+            & $WorktreeValidator $repoRootPath $targetCommit
+        }
+        catch {
+            throw "Epic target worktree validation failed: $($_.Exception.Message)"
+        }
 
         try {
             $rollupJson = & $PlanStateInvoker $Epic $repoRootPath $PlanStateScript
@@ -370,12 +457,6 @@ function Invoke-EpicAutopilotHostLoopCore {
         $rollup = ConvertFrom-EpicRollupJson -Json ([string]$rollupJson)
         if ($Epic -cmatch '^[0-9a-f]{6}$' -and $Epic -cne [string]$rollup.EpicId) {
             throw "Get-PlanState resolved epic '$($rollup.EpicId)', not requested epic '$Epic'."
-        }
-
-        $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
-        $targetCommit = $targetCommit.Trim().ToLowerInvariant()
-        if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
-            throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
         }
 
         if ($existing) {
@@ -396,7 +477,45 @@ function Invoke-EpicAutopilotHostLoopCore {
             }
 
             if ($existing.outcome -ceq 'running') {
-                throw "Epic autopilot run '$($existing.run)' is already running; refusing a second child launcher."
+                $containerName = Get-EpicAutopilotContainerName -Run $existing.run
+                try {
+                    $probeOutput = @(& $ContainerProbe $containerName)
+                }
+                catch {
+                    throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: $($_.Exception.Message)"
+                }
+                if ($probeOutput.Count -ne 1 -or $probeOutput[0] -isnot [bool]) {
+                    throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: container probe returned an invalid result."
+                }
+                if ([bool]$probeOutput[0]) {
+                    throw "Epic autopilot run '$($existing.run)' is already running in container '$containerName'; refusing a second child launcher."
+                }
+
+                $reconciled = New-EpicAutopilotState -State $existing `
+                    -Outcome 'invocation-failed'
+                $reconciledWrite = Set-AtomicStoreContent -Path $stateFile `
+                    -Content (ConvertTo-EpicAutopilotStateJson -State $reconciled) `
+                    -ExpectedGeneration $generation -Validate {
+                    param($candidatePath)
+                    [void](ConvertFrom-EpicAutopilotStateJson -Json (
+                            [System.IO.File]::ReadAllText($candidatePath)
+                        ))
+                }
+                if ($reconciledWrite.Status -ne 'complete') {
+                    throw "Epic autopilot running-state reconciliation failed with status '$($reconciledWrite.Status)'."
+                }
+                return [pscustomobject]@{
+                    State = $reconciled
+                    NextChild = $rollup.NextChild
+                    Resumed = $true
+                    StatePath = $stateFile
+                    Launch = $false
+                    LaunchAttempted = $false
+                    Replayed = $true
+                    ExitCode = $null
+                    Failed = $true
+                    Message = "Interrupted epic autopilot run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
+                }
             }
             if ($existing.outcome -cne 'selected') {
                 $storedExit = $null
@@ -409,8 +528,14 @@ function Invoke-EpicAutopilotHostLoopCore {
                     Resumed = $true
                     StatePath = $stateFile
                     Launch = $false
+                    LaunchAttempted = $false
                     Replayed = $true
                     ExitCode = $storedExit
+                    Failed = $existing.outcome -ceq 'invocation-failed'
+                    Message = if ($existing.outcome -ceq 'invocation-failed') {
+                        "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
+                    }
+                    else { $null }
                 }
             }
         }
@@ -421,8 +546,11 @@ function Invoke-EpicAutopilotHostLoopCore {
                 Resumed = $false
                 StatePath = $stateFile
                 Launch = $false
+                LaunchAttempted = $false
                 Replayed = $false
                 ExitCode = $null
+                Failed = $false
+                Message = $null
             }
         }
 
@@ -470,8 +598,11 @@ function Invoke-EpicAutopilotHostLoopCore {
             Resumed = $resumed
             StatePath = $stateFile
             Launch = $true
+            LaunchAttempted = $false
             Replayed = $false
             ExitCode = $null
+            Failed = $false
+            Message = $null
             Generation = $runningWrite.Generation
         }
     }
@@ -486,7 +617,8 @@ function Invoke-EpicAutopilotHostLoopCore {
         '-Mode', 'whole-plan',
         '-Runtime', 'container',
         '-Branch', $targetBranch,
-        '-ExpectedStartCommit', [string]$admission.State.target
+        '-ExpectedStartCommit', [string]$admission.State.target,
+        '-Run', [string]$admission.State.run
     )
     try {
         $launcherOutput = @(
@@ -508,14 +640,25 @@ function Invoke-EpicAutopilotHostLoopCore {
     catch {
         $launchError = $_.Exception.Message
         try {
-            [void](Set-EpicAutopilotTerminalState -Path $stateFile `
-                    -RunningState $admission.State -RunningGeneration $admission.Generation `
-                    -Outcome 'invocation-failed')
+            $failedState = Set-EpicAutopilotTerminalState -Path $stateFile `
+                -RunningState $admission.State -RunningGeneration $admission.Generation `
+                -Outcome 'invocation-failed'
         }
         catch {
             throw "Per-plan launcher invocation failed ('$launchError') and its terminal state could not be persisted: $($_.Exception.Message)"
         }
-        throw "Per-plan launcher invocation failed: $launchError"
+        return [pscustomobject]@{
+            State = $failedState
+            NextChild = $admission.NextChild
+            Resumed = $admission.Resumed
+            StatePath = $stateFile
+            Launch = $false
+            LaunchAttempted = $true
+            Replayed = $false
+            ExitCode = $null
+            Failed = $true
+            Message = "Per-plan launcher invocation failed: $launchError"
+        }
     }
 
     $terminal = Set-EpicAutopilotTerminalState -Path $stateFile `
@@ -527,8 +670,11 @@ function Invoke-EpicAutopilotHostLoopCore {
         Resumed = $admission.Resumed
         StatePath = $stateFile
         Launch = $true
+        LaunchAttempted = $true
         Replayed = $false
         ExitCode = $launcherExit
+        Failed = $false
+        Message = $null
     }
 }
 

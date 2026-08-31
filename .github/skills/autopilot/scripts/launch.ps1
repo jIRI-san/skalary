@@ -24,7 +24,9 @@ param(
 
     [string]$Branch,
 
-    [string]$ExpectedStartCommit
+    [string]$ExpectedStartCommit,
+
+    [string]$Run
 )
 
 Set-StrictMode -Version Latest
@@ -56,6 +58,14 @@ $expectedStartCommitNormalized = if ($ExpectedStartCommit) {
     $ExpectedStartCommit.ToLowerInvariant()
 }
 else { $null }
+if ($Run) {
+    $parsedRun = [guid]::Empty
+    if (-not [guid]::TryParseExact($Run, 'D', [ref]$parsedRun) -or
+        $parsedRun.ToString('D') -cne $Run) {
+        Write-Error "Invalid run '$Run'. Use a canonical GUID."
+        exit 1
+    }
+}
 
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 if (-not (Test-Path (Join-Path $PlanFolder 'plan.md'))) {
@@ -155,6 +165,10 @@ if ($expectedStartCommitNormalized -and $effectiveRuntime -ne 'container') {
     Write-Error '-ExpectedStartCommit is supported only by the container runtime.'
     exit 1
 }
+if ($Run -and $effectiveRuntime -ne 'container') {
+    Write-Error '-Run is supported only by the container runtime.'
+    exit 1
+}
 
 if ($effectiveRuntime -eq 'host' -and $env:AUTOPILOT_DISABLE_HOST -eq 'true') {
     Write-Error "Host runtime disabled via AUTOPILOT_DISABLE_HOST."
@@ -201,6 +215,10 @@ else {
     # Check if remote branch exists (container/sandbox mode resume)
     $remoteBranch = git ls-remote --heads origin $branchName 2>$null
     if ($remoteBranch) {
+        if ($expectedStartCommitNormalized) {
+            Write-Error "Remote work branch '$branchName' already exists; a fresh expected-start launch will not resume it."
+            exit 1
+        }
         Write-Host ""
         Write-Host "NOTICE: Remote branch '$branchName' already exists."
         Write-Host "Container will resume from that branch state."
@@ -268,6 +286,9 @@ $dispatchParams = @{
 if ($expectedStartCommitNormalized) {
     $dispatchParams.ExpectedStartCommit = $expectedStartCommitNormalized
 }
+if ($Run) {
+    $dispatchParams.Run = $Run
+}
 # Host mode runs locally and authenticates to git via ambient credentials, so it
 # does not accept -AdoToken; only forward the token to container/sandbox runtimes.
 if ($AdoToken -and $effectiveRuntime -ne 'host') { $dispatchParams.AdoToken = $AdoToken }
@@ -295,9 +316,14 @@ $WorkBranch = "feature/$PlanSlug"
 $offlineEcosystems = $offline.Ecosystems
 
 $Launch = {
-    param([string]$FeedPath)
+    param([string]$FeedPath, [int]$Attempt)
     $p = $dispatchParams.Clone()
     if ($FeedPath) { $p.FeedPath = $FeedPath }
+    $attemptParameters = Get-AutopilotContainerAttemptParameters `
+        -ExpectedStartCommit $expectedStartCommitNormalized -Attempt $Attempt
+    if ($attemptParameters.TrustedInternalRetry) {
+        $p.TrustedInternalRetry = $true
+    }
     # Orchestrators report via Write-Host and signal via exit code; discard the
     # success stream so the dispatch loop receives only the integer exit code.
     & (Join-Path $ScriptDir $orchestratorScript) @p | Out-Null
