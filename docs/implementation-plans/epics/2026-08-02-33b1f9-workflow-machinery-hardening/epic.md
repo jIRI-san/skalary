@@ -35,10 +35,10 @@ Improve plan **acquisition**, **implementation**, and the **learning loop** so t
 | `2366ad` | cross-repo-si-and-standards _(archived)_ | `1936cb`, `79cfe1` |
 | `34088e` | consumer-install-correctness _(archived)_ | — |
 | `768d7b` | gates-real-and-affordable _(archived)_ | — |
-| `863d97` | evidence-receipt-truth | — |
+| `863d97` | evidence-receipt-truth _(archived)_ | — |
 | `c21cdc` | review-report-as-data _(archived)_ | — |
 | `79cfe1` | concern-registry-and-generated-agents _(archived)_ | — |
-| `ca8ba8` | review-corroboration-truth | `c21cdc` |
+| `ca8ba8` | review-corroboration-truth _(archived)_ | `c21cdc` |
 | `583308` | autopilot-container-toolchain _(archived)_ | — |
 <!-- child-plans:end -->
 
@@ -54,7 +54,7 @@ child plan.
 
 **Why not one plan.** The queue spans ~8 Critical review findings, eight enforcement-gap clusters, three accepted `/si` candidates, six parked explorations and two `/dr` headline findings, across the review, receipt, ledger, install and CI surfaces. `b0c0d3` was smaller and still overran its advisory phase budget on 5 of 10 phases.
 
-**Edges.** `cross-repo-si-and-standards` depends only on durable local learning from `learning-loop-durability` and the concern source/generator from `concern-registry-and-generated-agents`. `review-corroboration-truth` retains archived `review-report-as-data` as prior implementation authority. The remaining active children have no dependencies and are independently schedulable.
+**Edges.** `cross-repo-si-and-standards` depends only on durable local learning from `learning-loop-durability` and the concern source/generator from `concern-registry-and-generated-agents`. `review-corroboration-truth` retains archived `review-report-as-data` as prior implementation authority. The other children had no dependencies and were independently schedulable; every child is now archived.
 
 **Prior art reconciled.** *Reuses* plan `001`'s agent-safety rules and exit-code contract, and plan `002`'s receipt model, install confinement and hash verification. *Extends* `002`'s receipt concept to the evidence receipt — a different artifact sharing the same inability to describe a degraded run. No prior decision is superseded and none conflicts.
 

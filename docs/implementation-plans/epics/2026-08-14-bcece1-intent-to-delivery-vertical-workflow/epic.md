@@ -36,18 +36,18 @@ Make `/cip`, `/cep`, and `/ci` produce and execute complete, operator-aligned pl
 <!-- child-plans:start -->
 | Plan | Slug | Depends on |
 |---|---|---|
-| `57cc2c` | intent-capture-and-rfc | — |
-| `8a0644` | dispatch-plan-up-front | `57cc2c`, `6a629b`, `c21cdc` |
+| `57cc2c` | intent-capture-and-rfc _(archived)_ | — |
+| `8a0644` | dispatch-plan-up-front _(archived)_ | `57cc2c`, `6a629b`, `c21cdc` |
 | `25aa23` | epic-coherency-review | `8a0644` |
-| `4dd933` | cross-plan-artifact-context | — |
-| `669ad3` | epic-prefixed-plan-folder-naming | — |
-| `6a629b` | vertical-implementation-requirement-loop | `57cc2c`, `863d97` |
-| `9fda0b` | github-work-hierarchy-synchronization | — |
-| `a5ad22` | epic-autopilot-orchestration | — |
-| `cda9da` | architecture-test-retirement | — |
+| `4dd933` | cross-plan-artifact-context _(archived)_ | — |
+| `669ad3` | epic-prefixed-plan-folder-naming _(archived)_ | — |
+| `6a629b` | vertical-implementation-requirement-loop _(archived)_ | `57cc2c`, `863d97` |
+| `9fda0b` | github-work-hierarchy-synchronization _(archived)_ | — |
+| `a5ad22` | epic-autopilot-orchestration _(archived)_ | — |
+| `cda9da` | architecture-test-retirement _(archived)_ | — |
 <!-- child-plans:end -->
 
-Membership is the `<!-- epic: bcece1 -->` marker in each child `plan.md`. The table is the generated mirror of those markers and dependency headers. `cda9da` is archived and complete; `863d97` is an external active dependency supplying truthful evidence behavior to `6a629b`. Run `Get-PlanState bcece1` for the live rollup and next unblocked child.
+Membership is the `<!-- epic: bcece1 -->` marker in each child `plan.md`. The table is the generated mirror of those markers, archive locations, and dependency headers. `25aa23` is the sole active child; `863d97` is an archived external dependency that supplied truthful evidence behavior to `6a629b`. Run `Get-PlanState bcece1` for the live rollup and next unblocked child.
 
 ## Accepted simplified cut
 

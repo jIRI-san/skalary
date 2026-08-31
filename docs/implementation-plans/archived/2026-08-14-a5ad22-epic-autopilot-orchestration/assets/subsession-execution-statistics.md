@@ -39,6 +39,16 @@ The result totals measure executions, not distinct test identities. They
 include expected red runs used to reproduce defects and prove fail-closed
 behavior. They must not be read as a final product pass rate.
 
+### Whole-tree profile evidence
+
+The later instrumented Windows whole-tree run is preserved separately in
+[test-suite-profile-evidence.md](test-suite-profile-evidence.md). It records
+the 76m 25.70s wall-clock result, tier and concentration breakdowns, the 40
+slowest files and tests, instrumented plugin-operation timings, four disclosed
+test failures, and the evidence behind each identified bottleneck. This run is
+not included in the 14h 13m 42.27s subsession total above because it happened
+after orchestration and was requested as a separate profiling exercise.
+
 The 17 app child sessions span 168.32 summed wall-clock hours. That figure is
 not compute time: sessions overlapped, remained idle at operator-decision
 points, and waited for prerequisite merges. It is included only to prevent the
