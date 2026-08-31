@@ -10,7 +10,7 @@ Describe 'Epic autopilot child launcher state machine' {
         $script:originalContainerFlag = $env:AUTOPILOT_CONTAINER
         $env:AUTOPILOT_CONTAINER = $null
         $script:fixtureRoot = Join-Path $repoRoot (
-            'artifacts/epic-autopilot-' + [guid]::NewGuid().ToString('N')
+            'artifacts/e-' + [guid]::NewGuid().ToString('N')
         )
         [void](New-Item -ItemType Directory -Path $fixtureRoot -Force)
         Import-Module $modulePath -Force
@@ -298,6 +298,8 @@ Describe 'Epic autopilot child launcher state machine' {
             & git -C $root init --initial-branch=main --quiet
             & git -C $root config user.name 'Epic Autopilot Test'
             & git -C $root config user.email 'epic-autopilot@example.invalid'
+            & git -C $root config core.longpaths true
+            & git -C $root config core.autocrlf false
             & git -C $root add -- .
             & git -C $root commit --quiet -m 'fixture base'
             $baseCommit = (& git -C $root rev-parse HEAD).Trim()
@@ -308,7 +310,14 @@ Describe 'Epic autopilot child launcher state machine' {
             & git -C $root add -- operator-merge.txt
             & git -C $root commit --quiet -m 'operator merge'
             $targetCommit = (& git -C $root rev-parse HEAD).Trim()
-            $statePath = Join-Path $script:fixtureRoot "$Name-state.json"
+            $statePath = if ($NoCheckpoint) {
+                [System.IO.Path]::GetFullPath(
+                    (Join-Path $root '.git/skalary/epic-autopilot.json')
+                )
+            }
+            else {
+                Join-Path $script:fixtureRoot "$Name-state.json"
+            }
             if (-not $NoCheckpoint) {
                 [System.IO.File]::WriteAllText(
                     $statePath,
@@ -1709,13 +1718,16 @@ exit 0
     }
 
     It 'test:EpicAutopilot.NoCheckpointProductionFinalization publishes one Capture-only commit and replays idempotently' {
+        $longPlanFolder = '2026-08-31-111111-' + ('windows-path-' * 17) +
+        'fixture'
         $fixture = New-FinalEvidenceGitFixture `
-            -Name 'final-evidence-no-checkpoint-production' -NoCheckpoint
+            -Name 'ncp' -PlanFolder $longPlanFolder -NoCheckpoint
+        $fixture.CapturePath.Length | Should -BeGreaterThan 260
         Test-Path -LiteralPath $fixture.StatePath |
             Should -BeFalse -Because 'the production completion path starts without a checkpoint'
 
         $first = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
-            -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
+            -RepoRoot $fixture.Root `
             -PlanStateInvoker { $fixture.Rollup } `
             -UseDefaultFinalEvidenceRecorder `
             -UseDefaultFinalEvidenceTransaction `
@@ -1724,6 +1736,12 @@ exit 0
 
         $first.Completed | Should -BeTrue
         $first.FinalCrosscheck | Should -BeExactly 'fallback'
+        @($first) | Should -HaveCount 1
+        [string]::IsNullOrWhiteSpace([string]$first.StatePath) |
+            Should -BeFalse
+        [System.IO.Path]::IsPathRooted([string]$first.StatePath) |
+            Should -BeTrue
+        $first.StatePath | Should -BeExactly $fixture.StatePath
         Test-Path -LiteralPath $fixture.StatePath | Should -BeFalse
         $evidenceCommit = (& git -C $fixture.Root rev-parse HEAD).Trim()
         $parents = @(
@@ -1747,7 +1765,7 @@ exit 0
             Should -HaveCount 0
 
         $replay = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
-            -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
+            -RepoRoot $fixture.Root `
             -PlanStateInvoker { $fixture.Rollup } `
             -UseDefaultFinalEvidenceRecorder `
             -UseDefaultFinalEvidenceTransaction `
@@ -1756,6 +1774,8 @@ exit 0
 
         $replay.Completed | Should -BeTrue
         $replay.FinalCrosscheck | Should -BeExactly 'fallback'
+        @($replay) | Should -HaveCount 1
+        $replay.StatePath | Should -BeExactly $first.StatePath
         Test-Path -LiteralPath $fixture.StatePath | Should -BeFalse
         (& git -C $fixture.Root rev-parse HEAD).Trim() |
             Should -BeExactly $evidenceCommit
@@ -1785,24 +1805,49 @@ exit 0
 
         foreach ($case in @(
                 @{
-                    Name = 'abrupt-post-writer'
+                    Name = 'abrupt-unstaged-lf'
                     Stage = $false
+                    CrLf = $false
                     Folder = '2026-08-31-111111-first-child'
                 },
                 @{
-                    Name = 'abrupt-post-stage'
+                    Name = 'abrupt-staged-lf'
                     Stage = $true
+                    CrLf = $false
                     Folder = '2026-08-31-111111-first-child'
                 },
                 @{
-                    Name = 'abrupt-prefixed-post-writer'
+                    Name = 'abrupt-unstaged-crlf'
                     Stage = $false
+                    CrLf = $true
+                    Folder = '2026-08-31-111111-first-child'
+                },
+                @{
+                    Name = 'abrupt-staged-crlf'
+                    Stage = $true
+                    CrLf = $true
+                    Folder = '2026-08-31-111111-first-child'
+                },
+                @{
+                    Name = 'abrupt-prefixed-unstaged-lf'
+                    Stage = $false
+                    CrLf = $false
                     Folder = 'abc123-2026-08-31-111111-first-child'
                 }
             )) {
             $fixture = New-FinalEvidenceGitFixture -Name $case.Name `
                 -PlanFolder $case.Folder
             Add-AbruptEvidenceRecord -Fixture $fixture
+            if ($case.CrLf) {
+                $lf = [System.IO.File]::ReadAllText($fixture.CapturePath)
+                $lf.Contains("`r") | Should -BeFalse
+                [System.IO.File]::WriteAllText(
+                    $fixture.CapturePath,
+                    $lf.Replace("`n", "`r`n")
+                )
+                [System.IO.File]::ReadAllBytes($fixture.CapturePath) |
+                    Should -Contain 13
+            }
             if ($case.Stage) {
                 & git -C $fixture.Root add -- (
                     [System.IO.Path]::GetRelativePath(
@@ -1827,6 +1872,21 @@ exit 0
             [int](& git -C $fixture.Root rev-list --count (
                     "$($fixture.TargetCommit)..main"
                 )) | Should -Be 1
+            $evidenceCommit = (& git -C $fixture.Root rev-parse HEAD).Trim()
+            (& git -C $fixture.Root rev-parse "$evidenceCommit^").Trim() |
+                Should -BeExactly $fixture.TargetCommit
+            @(
+                & git -C $fixture.Root diff-tree --no-commit-id --name-only `
+                    -r $fixture.TargetCommit $evidenceCommit
+            ) | Should -BeExactly @(
+                [System.IO.Path]::GetRelativePath(
+                    $fixture.Root,
+                    $fixture.CapturePath
+                ).Replace('\', '/')
+            )
+            [System.IO.File]::ReadAllBytes($fixture.CapturePath) |
+                Should -Not -Contain 13 `
+                -Because 'the committed Capture is canonical LF on every host'
             $capture = [System.IO.File]::ReadAllText($fixture.CapturePath)
             ([regex]::Matches(
                 $capture,
@@ -1869,6 +1929,9 @@ exit 0
                 -EpicId $invalid.EpicId
             Add-AbruptEvidenceRecord -Fixture $fixture
             $stateBefore = [System.IO.File]::ReadAllBytes($fixture.StatePath)
+            $captureBefore = [System.IO.File]::ReadAllBytes(
+                $fixture.CapturePath
+            )
             {
                 Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
                     -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
@@ -1879,29 +1942,85 @@ exit 0
             } | Should -Throw $invalid.Match -Because $invalid.Name
             [System.IO.File]::ReadAllBytes($fixture.StatePath) |
                 Should -Be $stateBefore
+            [System.IO.File]::ReadAllBytes($fixture.CapturePath) |
+                Should -Be $captureBefore
+            (& git -C $fixture.Root rev-parse HEAD).Trim() |
+                Should -BeExactly $fixture.TargetCommit
         }
 
-        $forged = New-FinalEvidenceGitFixture -Name 'abrupt-forged'
-        Add-AbruptEvidenceRecord -Fixture $forged
-        [System.IO.File]::AppendAllText($forged.CapturePath, "forged`n")
-        $forgedState = [System.IO.File]::ReadAllBytes($forged.StatePath)
-        $forgedCapture = [System.IO.File]::ReadAllBytes($forged.CapturePath)
-        {
-            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
-                -RepoRoot $forged.Root -StatePath $forged.StatePath `
-                -PlanStateInvoker { $forged.Rollup } `
-                -UseDefaultFinalEvidenceRecorder `
-                -UseDefaultFinalEvidenceTransaction `
-                -UseDefaultWorktreeValidator
-        } | Should -Throw '*does not match deterministic writer output*'
-        [Convert]::ToBase64String(
-            [System.IO.File]::ReadAllBytes($forged.StatePath)
-        ) | Should -BeExactly ([Convert]::ToBase64String($forgedState))
-        [Convert]::ToBase64String(
-            [System.IO.File]::ReadAllBytes($forged.CapturePath)
-        ) | Should -BeExactly ([Convert]::ToBase64String($forgedCapture))
-        (& git -C $forged.Root rev-parse HEAD).Trim() |
-            Should -BeExactly $forged.TargetCommit
+        foreach ($forgery in @(
+                @{ Name = 'content'; Bytes = [byte[]][char[]]"forged`n" },
+                @{ Name = 'lone-cr'; Bytes = [byte[]]@(13) }
+            )) {
+            $forged = New-FinalEvidenceGitFixture `
+                -Name "abrupt-forged-$($forgery.Name)"
+            Add-AbruptEvidenceRecord -Fixture $forged
+            $stream = [System.IO.File]::Open(
+                $forged.CapturePath,
+                [System.IO.FileMode]::Append,
+                [System.IO.FileAccess]::Write
+            )
+            try {
+                $stream.Write($forgery.Bytes, 0, $forgery.Bytes.Length)
+            }
+            finally {
+                $stream.Dispose()
+            }
+            $forgedState = [System.IO.File]::ReadAllBytes($forged.StatePath)
+            $forgedCapture = [System.IO.File]::ReadAllBytes(
+                $forged.CapturePath
+            )
+            {
+                Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                    -RepoRoot $forged.Root -StatePath $forged.StatePath `
+                    -PlanStateInvoker { $forged.Rollup } `
+                    -UseDefaultFinalEvidenceRecorder `
+                    -UseDefaultFinalEvidenceTransaction `
+                    -UseDefaultWorktreeValidator
+            } | Should -Throw '*does not match deterministic writer output*'
+            [Convert]::ToBase64String(
+                [System.IO.File]::ReadAllBytes($forged.StatePath)
+            ) | Should -BeExactly ([Convert]::ToBase64String($forgedState))
+            [Convert]::ToBase64String(
+                [System.IO.File]::ReadAllBytes($forged.CapturePath)
+            ) | Should -BeExactly ([Convert]::ToBase64String($forgedCapture))
+            (& git -C $forged.Root rev-parse HEAD).Trim() |
+                Should -BeExactly $forged.TargetCommit
+        }
+
+        foreach ($identity in @(
+                @{ Name = 'wrong-case'; Suffix = 'Capture.md' },
+                @{ Name = 'malformed'; Suffix = "capture.md`r" }
+            )) {
+            $fixture = New-FinalEvidenceGitFixture `
+                -Name "abrupt-identity-$($identity.Name)"
+            Add-AbruptEvidenceRecord -Fixture $fixture
+            $relative = [System.IO.Path]::GetRelativePath(
+                $fixture.Root,
+                $fixture.CapturePath
+            ).Replace('\', '/')
+            $wrongIdentity = $relative.Substring(
+                0,
+                $relative.Length - 'capture.md'.Length
+            ) + $identity.Suffix
+            $stateBefore = [System.IO.File]::ReadAllBytes($fixture.StatePath)
+            $captureBefore = [System.IO.File]::ReadAllBytes(
+                $fixture.CapturePath
+            )
+            {
+                & $script:epicModule {
+                    param($Root, $Capture)
+                    Assert-EpicAutopilotEvidenceStatus `
+                        -RepoRoot $Root -CapturePath $Capture
+                } $fixture.Root $wrongIdentity
+            } | Should -Throw '*must change exactly tracked Capture path*'
+            [System.IO.File]::ReadAllBytes($fixture.StatePath) |
+                Should -Be $stateBefore
+            [System.IO.File]::ReadAllBytes($fixture.CapturePath) |
+                Should -Be $captureBefore
+            (& git -C $fixture.Root rev-parse HEAD).Trim() |
+                Should -BeExactly $fixture.TargetCommit
+        }
 
         $concurrent = New-FinalEvidenceGitFixture -Name 'abrupt-concurrent'
         Add-AbruptEvidenceRecord -Fixture $concurrent
@@ -1977,6 +2096,9 @@ exit 0
                 }
             }
             $stateBefore = [System.IO.File]::ReadAllBytes($extra.StatePath)
+            $captureBefore = [System.IO.File]::ReadAllBytes(
+                $extra.CapturePath
+            )
             {
                 Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
                     -RepoRoot $extra.Root -StatePath $extra.StatePath `
@@ -1995,9 +2117,37 @@ exit 0
             ) | Should -BeExactly (
                 [Convert]::ToBase64String($stateBefore)
             )
+            [System.IO.File]::ReadAllBytes($extra.CapturePath) |
+                Should -Be $captureBefore
             (& git -C $extra.Root rev-parse HEAD).Trim() |
                 Should -BeExactly $extra.TargetCommit
         }
+    }
+
+    It 'test:EpicAutopilot.A5ad22WrappedBaseline preserves the terminal Wrap tree and retained evidence' {
+        $wrappedPlan = 'docs/implementation-plans/' +
+        '2026-08-14-a5ad22-epic-autopilot-orchestration'
+        $expectedTree = 'd2477b4d495a1edc747e41a1a1cbecee0df2c3d2'
+        $actualTree = (
+            & git -C $script:repoRoot rev-parse "HEAD`:$wrappedPlan"
+        ).Trim()
+        $LASTEXITCODE | Should -Be 0
+        $actualTree | Should -BeExactly $expectedTree
+        @(
+            & git -C $script:repoRoot status --porcelain=v1 `
+                --untracked-files=all -- $wrappedPlan
+        ) | Should -HaveCount 0
+
+        $wrapLog = @(
+            & git -C $script:repoRoot show (
+                "HEAD`:$wrappedPlan/assets/logs/cr-log.md"
+            )
+        ) -join "`n"
+        $LASTEXITCODE | Should -Be 0
+        ([regex]::Matches(
+            $wrapLog,
+            'review-cycle-decision stage=plan-finalization after=4 action=wrap'
+        )).Count | Should -Be 1
     }
 
     It 'test:EpicAutopilot.ProcessBoundary observes exit 255 from a real pwsh child' {

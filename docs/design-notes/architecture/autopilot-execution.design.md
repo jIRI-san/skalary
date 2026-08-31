@@ -189,6 +189,16 @@ concern family, receipt, or finalization platform is introduced. With no pre-exi
 same gate and idempotent local publication run before the typed complete return against the last rollup
 child.
 
+The focused cross-platform regression matrix writes CRLF bytes explicitly on every host and covers
+both sole staged and sole unstaged abrupt residue. It requires recovery to publish one Capture-only
+commit with canonical LF bytes. A compact fixture root carries a Windows-stressing final-plan path
+with fixture-local Git long-path support and proves no-checkpoint results retain one absolute, stable,
+nonempty `StatePath` that remains absent before and after finalization. Negative cases retain
+checkpoint, residue, and `HEAD` for non-CRLF changes, lone CR, mixed/extra state, and malformed or
+wrong-case path identities. A read-only path-scoped tree-object invariant pins the terminal `a5ad22`
+Wrap and its retained evidence without rerunning review or assuming that unrelated later commits keep
+the same repository `HEAD`.
+
 When the rollup is incomplete but has no `NextChild`, the loop returns an explicit blocked stop
 (wrapper exit 42) and deliberately retains the prior success checkpoint. That checkpoint is the retry
 anchor: a later invocation can re-evaluate the same merge against a repaired dependency graph without

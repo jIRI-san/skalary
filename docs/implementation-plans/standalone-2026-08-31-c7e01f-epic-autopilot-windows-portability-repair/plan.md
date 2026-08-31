@@ -32,4 +32,4 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 1.1 Repair final-crosscheck Capture handling so CRLF restoration, long Windows fixture paths, missing `StatePath`, and staged/unstaged abrupt residue are classified deterministically without weakening exact-path or clean-worktree gates (REQ-1, REQ-2, RISK-1, RISK-2) `M`
-- [ ] 1.2 Add cross-platform regression coverage for the three observed Windows failures, synchronize owned plugin/dogfood copies and related design notes, and preserve the append-only `a5ad22` Wrap and retained evidence unchanged (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2, RISK-3) [after: 1.1] `M`
+- [x] 1.2 Add cross-platform regression coverage for the three observed Windows failures, synchronize owned plugin/dogfood copies and related design notes, and preserve the append-only `a5ad22` Wrap and retained evidence unchanged (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2, RISK-3) [after: 1.1] `M`

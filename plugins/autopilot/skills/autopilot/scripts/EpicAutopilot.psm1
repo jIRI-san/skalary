@@ -723,6 +723,57 @@ function ConvertTo-EpicAutopilotRepoRelativePath {
     )
 }
 
+function Get-EpicAutopilotGitPaths {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string[]]$Argument,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'git'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($item in @('-C', $RepoRoot) + $Argument) {
+        [void]$startInfo.ArgumentList.Add($item)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $stream = [System.IO.MemoryStream]::new()
+    try {
+        if (-not $process.Start()) {
+            throw "Unable to start Git while $Label."
+        }
+        $errorRead = $process.StandardError.ReadToEndAsync()
+        $process.StandardOutput.BaseStream.CopyTo($stream)
+        $process.WaitForExit()
+        $errorText = $errorRead.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to $Label`: $($errorText.Trim())"
+        }
+
+        $bytes = $stream.ToArray()
+        if ($bytes.Length -eq 0) { return }
+        if ($bytes[$bytes.Length - 1] -ne 0) {
+            throw "Git returned malformed path output while $Label."
+        }
+        $text = [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+        $records = $text.Split([char]0)
+        for ($index = 0; $index -lt $records.Length - 1; $index++) {
+            if ($records[$index].Length -eq 0) {
+                throw "Git returned an empty path while $Label."
+            }
+            Write-Output $records[$index]
+        }
+    }
+    finally {
+        $stream.Dispose()
+        $process.Dispose()
+    }
+}
+
 function Get-EpicAutopilotCapturePath {
     param(
         [Parameter(Mandatory)][string]$PlanFile,
@@ -739,12 +790,11 @@ function Get-EpicAutopilotCapturePath {
         $relative = ConvertTo-EpicAutopilotRepoRelativePath -Path $candidate `
             -RepoRoot $RepoRoot -Label 'Final crosscheck Capture'
         $treeEntry = @(
-            & git -C $RepoRoot ls-tree --name-only $Commit -- $relative 2>&1
+            Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+                'ls-tree', '--name-only', '-z', $Commit, '--', $relative
+            ) -Label "inspect Capture path '$relative' at '$Commit'"
         )
-        if ($LASTEXITCODE -ne 0) {
-            throw "Unable to inspect Capture path '$relative' at '$Commit'."
-        }
-        if ($treeEntry.Count -eq 1 -and ([string]$treeEntry[0]).Trim() -ceq $relative) {
+        if ($treeEntry.Count -eq 1 -and [string]$treeEntry[0] -ceq $relative) {
             $captureMatches.Add([pscustomobject]@{
                     FullPath = [System.IO.Path]::GetFullPath($candidate)
                     RelativePath = $relative
@@ -931,13 +981,10 @@ function Get-EpicAutopilotRecoveryDescriptor {
         throw "Canonical final child plan must carry exactly one header epic membership '$($State.epic)'."
     }
 
-    $epicTree = @(
-        & git -C $RepoRoot ls-tree -r --name-only $TargetCommit -- `
-            'docs/implementation-plans/epics' 2>&1
-    )
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to inspect canonical epic sources at '$TargetCommit'."
-    }
+    $epicTree = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'ls-tree', '-r', '--name-only', '-z', $TargetCommit, '--',
+            'docs/implementation-plans/epics'
+        ) -Label "inspect canonical epic sources at '$TargetCommit'")
     $epicPattern = '^docs/implementation-plans/epics/' +
     '\d{4}-\d{2}-\d{2}-' + [regex]::Escape([string]$State.epic) +
     '(?:-[^/]+)?/epic\.md$'
@@ -1023,6 +1070,28 @@ function Restore-EpicAutopilotRecoveryResidue {
         -CapturePath $CapturePath -Staged:$Staged
 }
 
+function Get-EpicAutopilotLfByteIdentity {
+    param([Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Bytes)
+
+    $normalized = [System.IO.MemoryStream]::new($Bytes.Length)
+    try {
+        for ($index = 0; $index -lt $Bytes.Length; $index++) {
+            if ($Bytes[$index] -eq 13 -and $index + 1 -lt $Bytes.Length -and
+                $Bytes[$index + 1] -eq 10) {
+                $normalized.WriteByte(10)
+                $index++
+            }
+            else {
+                $normalized.WriteByte($Bytes[$index])
+            }
+        }
+        return [Convert]::ToBase64String($normalized.ToArray())
+    }
+    finally {
+        $normalized.Dispose()
+    }
+}
+
 function Repair-EpicAutopilotFinalEvidenceResidue {
     param(
         [Parameter(Mandatory)]$State,
@@ -1034,12 +1103,15 @@ function Repair-EpicAutopilotFinalEvidenceResidue {
         [Parameter(Mandatory)][scriptblock]$EvidenceRecorder
     )
 
-    $unstaged = @(& git -C $RepoRoot diff --name-only --no-renames 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery worktree changes.' }
-    $cached = @(& git -C $RepoRoot diff --cached --name-only --no-renames 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery index changes.' }
-    $untracked = @(& git -C $RepoRoot ls-files --others --exclude-standard 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery untracked files.' }
+    $unstaged = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'diff', '--name-only', '--no-renames', '-z'
+        ) -Label 'inspect recovery worktree changes')
+    $cached = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'diff', '--cached', '--name-only', '--no-renames', '-z'
+        ) -Label 'inspect recovery index changes')
+    $untracked = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'ls-files', '--others', '--exclude-standard', '-z'
+        ) -Label 'inspect recovery untracked files')
     if ($unstaged.Count -eq 0 -and $cached.Count -eq 0 -and
         $untracked.Count -eq 0) {
         return
@@ -1063,9 +1135,9 @@ function Repair-EpicAutopilotFinalEvidenceResidue {
         -ReviewScriptPath $ReviewScriptPath
     $capturePath = [string]$descriptor.CapturePath
     $isUnstaged = $unstaged.Count -eq 1 -and $cached.Count -eq 0 -and
-    ([string]$unstaged[0]).Trim() -ceq $capturePath
+    [string]$unstaged[0] -ceq $capturePath
     $isStaged = $unstaged.Count -eq 0 -and $cached.Count -eq 1 -and
-    ([string]$cached[0]).Trim() -ceq $capturePath
+    [string]$cached[0] -ceq $capturePath
     if (-not $isUnstaged -and -not $isStaged) {
         throw "Abrupt final evidence recovery permits only sole unstaged or staged Capture residue '$capturePath'."
     }
@@ -1100,8 +1172,8 @@ function Repair-EpicAutopilotFinalEvidenceResidue {
         $expectedBytes = [System.IO.File]::ReadAllBytes(
             (Join-Path $RepoRoot $capturePath)
         )
-        if ([Convert]::ToBase64String($expectedBytes) -cne
-            [Convert]::ToBase64String($residueBytes)) {
+        if ((Get-EpicAutopilotLfByteIdentity -Bytes $expectedBytes) -cne
+            (Get-EpicAutopilotLfByteIdentity -Bytes $residueBytes)) {
             throw "Abrupt final evidence Capture residue '$capturePath' does not match deterministic writer output."
         }
 
@@ -1197,12 +1269,12 @@ function Resolve-EpicAutopilotEvidenceCommit {
     if ($message -cne $expectedMessage) {
         throw "Epic final evidence commit '$TargetCommit' has invalid metadata."
     }
-    $changedPaths = @(
-        & git -C $RepoRoot diff-tree --no-commit-id --name-only -r `
-            $reviewedTarget $TargetCommit 2>&1
-    )
-    if ($LASTEXITCODE -ne 0 -or $changedPaths.Count -ne 1 -or
-        ([string]$changedPaths[0]).Trim() -cne $capture.RelativePath) {
+    $changedPaths = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'diff-tree', '--no-commit-id', '--name-only', '-r', '-z',
+            $reviewedTarget, $TargetCommit
+        ) -Label "inspect final evidence commit '$TargetCommit'")
+    if ($changedPaths.Count -ne 1 -or
+        [string]$changedPaths[0] -cne $capture.RelativePath) {
         throw "Epic final evidence commit '$TargetCommit' must change only '$($capture.RelativePath)'."
     }
     return [pscustomobject]@{
@@ -1234,12 +1306,15 @@ function Assert-EpicAutopilotEvidenceStatus {
         [switch]$Clean
     )
 
-    $unstaged = @(& git -C $RepoRoot diff --name-only --no-renames 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect unstaged final evidence changes.' }
-    $cached = @(& git -C $RepoRoot diff --cached --name-only --no-renames 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect staged final evidence changes.' }
-    $untracked = @(& git -C $RepoRoot ls-files --others --exclude-standard 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect untracked final evidence changes.' }
+    $unstaged = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'diff', '--name-only', '--no-renames', '-z'
+        ) -Label 'inspect unstaged final evidence changes')
+    $cached = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'diff', '--cached', '--name-only', '--no-renames', '-z'
+        ) -Label 'inspect staged final evidence changes')
+    $untracked = @(Get-EpicAutopilotGitPaths -RepoRoot $RepoRoot -Argument @(
+            'ls-files', '--others', '--exclude-standard', '-z'
+        ) -Label 'inspect untracked final evidence changes')
 
     if ($Clean) {
         if ($unstaged.Count -ne 0 -or $cached.Count -ne 0 -or
@@ -1252,10 +1327,10 @@ function Assert-EpicAutopilotEvidenceStatus {
     $expectedCached = if ($Staged) { 1 } else { 0 }
     if ($unstaged.Count -ne $expectedUnstaged -or
         ($expectedUnstaged -eq 1 -and
-        ([string]$unstaged[0]).Trim() -cne $CapturePath) -or
+        [string]$unstaged[0] -cne $CapturePath) -or
         $cached.Count -ne $expectedCached -or
         ($expectedCached -eq 1 -and
-        ([string]$cached[0]).Trim() -cne $CapturePath) -or
+        [string]$cached[0] -cne $CapturePath) -or
         $untracked.Count -ne 0) {
         throw "Final crosscheck must change exactly tracked Capture path '$CapturePath'."
     }
