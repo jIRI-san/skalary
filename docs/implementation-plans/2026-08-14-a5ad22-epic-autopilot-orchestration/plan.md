@@ -22,7 +22,7 @@
 ## Phase 1: One-child host loop
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 1.1 Add a host-owned epic loop that reads the existing `Get-PlanState` epic rollup, selects its `NextChild`, and persists one small resumable JSON record containing `epic`, `target`, `currentChild`, `branch`, `run`, and `outcome` (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Add a host-owned epic loop that reads the existing `Get-PlanState` epic rollup, selects its `NextChild`, and persists one small resumable JSON record containing `epic`, `target`, `currentChild`, `branch`, `run`, and `outcome` (REQ-1, REQ-2, RISK-1) `M`
 - [ ] 1.2 Invoke the existing per-plan launcher for that child only, enforce one active child/container, and update the small state record from launcher start and terminal results without changing child execution semantics (REQ-1, REQ-2, RISK-2, RISK-4) [after: 1.1] `M`
 
 ## Phase 2: Merge gate and repeat

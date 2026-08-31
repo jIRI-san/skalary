@@ -46,6 +46,32 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 └───────────────────┘ └─────────┘ └──────────────────────┘
 ```
 
+### Epic host selection
+
+`Invoke-EpicAutopilot.ps1` is a host-only wrapper above the per-plan launchers. Its first
+increment invokes the existing `Get-PlanState.ps1 -Epic -Json` with bound arguments and treats
+that command's `NextChild` as authoritative; it does not parse plans or launch a child yet.
+`AUTOPILOT_CONTAINER=true` fails closed at this boundary.
+
+Selection is serialized through `AtomicStore` and persisted at
+`<git-common-dir>/skalary/epic-autopilot.json` (or an explicit test/operator `-StatePath`). The
+record has exactly six case-sensitive string fields:
+
+| Field | Meaning before launch |
+|---|---|
+| `epic` | Canonical six-hex `Get-PlanState.EpicId` |
+| `target` | Full commit id resolved from the caller's target Git ref at selection |
+| `currentChild` | Canonical six-hex `Get-PlanState.NextChild.Id` |
+| `branch` | Reserved per-child branch, `feature/<NextChild.FolderName>` |
+| `run` | Canonical GUID allocated once for this sequential run |
+| `outcome` | `selected`; launcher-owned transitions are added by the next increment |
+
+A fresh process resumes only when canonical epic, resolved target commit, exact `NextChild`, and
+derived branch still match. Malformed state, a changed target, a different/no `NextChild`, or a
+different epic fails loudly before mutation. The existing bytes remain untouched on every
+validation or staleness failure. A null `NextChild` with no state returns without creating a
+record. This keeps `selected` distinct from `running` and permits only one active child.
+
 ## Modes
 
 ### Host Mode

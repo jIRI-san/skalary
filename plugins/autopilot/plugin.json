@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.70",
+  "version": "1.2.71",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -27,6 +27,18 @@
     {
       "src": "skills/autopilot/scripts/AtomicStore.psm1",
       "dest": "skills/autopilot/scripts/AtomicStore.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/EpicAutopilot.psm1",
+      "dest": "skills/autopilot/scripts/EpicAutopilot.psm1"
+    },
+    {
+      "src": "skills/autopilot/scripts/Get-PlanState.ps1",
+      "dest": "skills/autopilot/scripts/Get-PlanState.ps1"
+    },
+    {
+      "src": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1",
+      "dest": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1"
     },
     {
       "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1",

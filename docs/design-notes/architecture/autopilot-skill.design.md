@@ -20,6 +20,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
+| Epic host selection | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; selection/state only, no per-plan launch |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 
 ## Key Patterns
@@ -53,6 +54,12 @@ durable `plan-finalization` review gate: Wrap/operator-decision stops at exit 42
 same-session-resuming the agent, while an explicit pre-existing Reopen makes the gate `allow`. A
 `close-pending` handoff remains valid for unfinished validation/archive work but carries no operator
 authority.
+
+**Epic selection is staged, not wired into `/ci`.** The installed
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` helper currently owns only atomic
+`NextChild` selection and resume validation. It never calls the per-plan launcher. The skill names the
+installed helper so plugin bundling carries its canonical `Get-PlanState`, `EpicAutopilot`, and
+`AtomicStore` closure, while retaining the existing plan handoff until launcher transitions land.
 
 **First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
 it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout

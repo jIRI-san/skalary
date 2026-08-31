@@ -113,3 +113,10 @@ success-shaped "started" wording for an interrupted or failed run.
 Every runtime adapter delegates admission and close-state interpretation to the installed
 `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` contract; adapters must not replace it
 with local checkbox or receipt-existence predicates.
+
+## Staged epic host helper
+
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` is delivered for the host-owned epic
+selection flow. In its current increment it persists only the exact `Get-PlanState` `NextChild` as a
+resumable `selected` record. It does not invoke `launch.ps1` or any runtime adapter. Do not route the
+ordinary `/ci` plan handoff through this helper until the later launcher-transition increment.
