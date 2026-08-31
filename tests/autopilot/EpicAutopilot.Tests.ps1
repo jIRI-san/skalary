@@ -1552,17 +1552,17 @@ function Invoke-EpicAutopilotHostLoop {
             "$Epic|$Target|$RepoRoot"
         )
     }
-    if ($env:EPIC_WRAPPER_SCENARIO -in @('none', 'complete')) {
+    if ($env:EPIC_WRAPPER_SCENARIO -in @('none', 'complete', 'blocked')) {
         return [pscustomobject]@{
             State = $null
             Completed = $env:EPIC_WRAPPER_SCENARIO -ceq 'complete'
-            Blocked = $false
+            Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked'
         }
     }
     $outcome = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'failed') {
         'invocation-failed'
     }
-    elseif ($env:EPIC_WRAPPER_SCENARIO -in @('0', 'blocked')) {
+    elseif ($env:EPIC_WRAPPER_SCENARIO -ceq '0') {
         'awaiting-merge'
     }
     elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'legacy-zero') {
@@ -1592,11 +1592,8 @@ function Invoke-EpicAutopilotHostLoop {
         else { $null }
         Failed = $outcome -eq 'invocation-failed'
         Completed = $false
-        Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked'
-        Message = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked') {
-            'Synthetic blocked graph.'
-        }
-        elseif ($outcome -eq 'invocation-failed') {
+        Blocked = $false
+        Message = if ($outcome -eq 'invocation-failed') {
             'Synthetic persisted launcher failure.'
         } else { $null }
     }
@@ -1614,7 +1611,7 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                     @{ Scenario = '42'; Exit = 42; Match = '"outcome":"exit:42"' },
                     @{ Scenario = '255'; Exit = 255; Match = '"outcome":"exit:255"' },
                     @{ Scenario = 'failed'; Exit = 1; Match = 'invocation-failed' },
-                    @{ Scenario = 'blocked'; Exit = 42; Match = 'Synthetic blocked graph' },
+                    @{ Scenario = 'blocked'; Exit = 42; Match = 'incomplete with no eligible NextChild' },
                     @{ Scenario = 'complete'; Exit = 0; Match = 'complete after target refresh' },
                     @{ Scenario = 'none'; Exit = 0; Match = 'no eligible NextChild' }
                 )) {

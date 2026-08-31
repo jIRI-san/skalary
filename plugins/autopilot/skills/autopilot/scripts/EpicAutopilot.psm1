@@ -931,32 +931,6 @@ function Invoke-EpicAutopilotHostLoopCore {
                         Message         = "Interrupted epic autopilot run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
                     }
                 }
-                if ($existing.outcome -cne 'selected') {
-                    $storedExit = $null
-                    if ($existing.outcome -ceq 'awaiting-merge') {
-                        $storedExit = 0
-                    }
-                    elseif ($existing.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal)) {
-                        $storedExit = [int]$existing.outcome.Substring(5)
-                    }
-                    return [pscustomobject]@{
-                        State           = $existing
-                        NextChild       = $rollup.NextChild
-                        Resumed         = $true
-                        StatePath       = $stateFile
-                        Launch          = $false
-                        LaunchAttempted = $false
-                        Replayed        = $true
-                        ExitCode        = $storedExit
-                        Failed          = $existing.outcome -ceq 'invocation-failed'
-                        Completed       = $false
-                        Blocked         = $false
-                        Message         = if ($existing.outcome -ceq 'invocation-failed') {
-                            "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
-                        }
-                        else { $null }
-                    }
-                }
             }
             elseif ($null -eq $rollup.NextChild) {
                 return [pscustomobject]@{
