@@ -111,8 +111,83 @@ function ConvertFrom-EpicRollupJson {
     if ($rollup.PSObject.Properties.Name -notcontains 'NextChild') {
         throw 'Get-PlanState epic rollup is missing NextChild.'
     }
+    if ($rollup.PSObject.Properties.Name -notcontains 'Rollup' -or
+        $null -eq $rollup.Rollup -or
+        $rollup.Rollup -isnot [pscustomobject]) {
+        throw 'Get-PlanState epic rollup is missing Rollup.'
+    }
+    foreach ($field in @('ChildCount', 'CompleteCount', 'BlockedCount')) {
+        if ($rollup.Rollup.PSObject.Properties.Name -notcontains $field -or
+            $rollup.Rollup.$field -isnot [long] -or
+            [long]$rollup.Rollup.$field -lt 0) {
+            throw "Get-PlanState Rollup.$field must be a nonnegative integer."
+        }
+    }
+    if ($rollup.Rollup.PSObject.Properties.Name -notcontains 'IsComplete' -or
+        $rollup.Rollup.IsComplete -isnot [bool]) {
+        throw 'Get-PlanState Rollup.IsComplete must be boolean.'
+    }
+    if ($rollup.PSObject.Properties.Name -notcontains 'Children') {
+        throw 'Get-PlanState epic rollup is missing Children.'
+    }
+    $children = @($rollup.Children)
+    $childIds = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $completeCount = 0
+    $blockedCount = 0
+    $expectedNextChild = $null
+    foreach ($child in $children) {
+        if ($null -eq $child -or $child -isnot [pscustomobject]) {
+            throw 'Get-PlanState Children must contain child objects.'
+        }
+        foreach ($field in @('Id', 'IsComplete', 'IsBlocked')) {
+            if ($child.PSObject.Properties.Name -notcontains $field) {
+                throw "Get-PlanState child is missing '$field'."
+            }
+        }
+        if ($child.Id -isnot [string] -or
+            [string]$child.Id -cnotmatch '^[0-9a-f]{6}$') {
+            throw 'Get-PlanState child has an invalid canonical Id.'
+        }
+        if (-not $childIds.Add([string]$child.Id)) {
+            throw "Get-PlanState Children contains duplicate Id '$($child.Id)'."
+        }
+        if ($child.IsComplete -isnot [bool] -or $child.IsBlocked -isnot [bool]) {
+            throw 'Get-PlanState child completion and block fields must be boolean.'
+        }
+        if ([bool]$child.IsComplete -and [bool]$child.IsBlocked) {
+            throw "Get-PlanState child '$($child.Id)' cannot be both complete and blocked."
+        }
+        if ([bool]$child.IsComplete) {
+            $completeCount++
+        }
+        elseif ([bool]$child.IsBlocked) {
+            $blockedCount++
+        }
+        elseif ($null -eq $expectedNextChild) {
+            $expectedNextChild = $child
+        }
+    }
+
+    $derivedCounts = [ordered]@{
+        ChildCount    = $children.Count
+        CompleteCount = $completeCount
+        BlockedCount  = $blockedCount
+    }
+    foreach ($field in $derivedCounts.Keys) {
+        if ([long]$rollup.Rollup.$field -ne [long]$derivedCounts[$field]) {
+            throw "Get-PlanState Rollup.$field does not match Children (expected $($derivedCounts[$field]))."
+        }
+    }
+    $expectedIsComplete = $children.Count -gt 0 -and
+    $completeCount -eq $children.Count
+    if ([bool]$rollup.Rollup.IsComplete -ne $expectedIsComplete) {
+        throw "Get-PlanState Rollup.IsComplete does not match Children (expected $expectedIsComplete)."
+    }
+
     if ($null -ne $rollup.NextChild) {
-        if ($rollup.NextChild -is [array]) {
+        if ($rollup.NextChild -isnot [pscustomobject]) {
             throw 'Get-PlanState NextChild must be one child object or null.'
         }
         foreach ($field in @('Id', 'FolderName')) {
@@ -128,6 +203,22 @@ function ConvertFrom-EpicRollupJson {
             [string]$rollup.NextChild.FolderName -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
             throw 'Get-PlanState NextChild has an invalid FolderName.'
         }
+        if ($null -eq $expectedNextChild) {
+            throw 'Get-PlanState NextChild is non-null but no child is eligible.'
+        }
+        if ([string]$rollup.NextChild.Id -cne [string]$expectedNextChild.Id) {
+            throw "Get-PlanState NextChild must be the first incomplete, unblocked child '$($expectedNextChild.Id)'."
+        }
+        if ($expectedNextChild.PSObject.Properties.Name -contains 'FolderName' -and (
+                $expectedNextChild.FolderName -isnot [string] -or
+                [string]$expectedNextChild.FolderName -cne
+                [string]$rollup.NextChild.FolderName
+            )) {
+            throw "Get-PlanState NextChild FolderName does not match child '$($expectedNextChild.Id)'."
+        }
+    }
+    elseif ($null -ne $expectedNextChild) {
+        throw "Get-PlanState NextChild is null but child '$($expectedNextChild.Id)' is eligible."
     }
     return $rollup
 }
@@ -199,6 +290,50 @@ function Set-EpicAutopilotState {
         throw "Epic autopilot $Operation failed with status '$($write.Status)'."
     }
     return $write
+}
+
+function Remove-EpicAutopilotState {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ExpectedGeneration
+    )
+
+    $actualGeneration = Get-AtomicStoreGeneration -Path $Path
+    if (-not [string]::Equals(
+            $actualGeneration,
+            $ExpectedGeneration,
+            [System.StringComparison]::Ordinal
+        )) {
+        return [pscustomobject]@{
+            Status             = 'cas-conflict'
+            Path               = $Path
+            ExpectedGeneration = $ExpectedGeneration
+            ActualGeneration   = $actualGeneration
+        }
+    }
+
+    Remove-Item -LiteralPath $Path -Force
+    return [pscustomobject]@{
+        Status = 'complete'
+        Path   = $Path
+    }
+}
+
+function Test-EpicAutopilotAncestor {
+    param(
+        [Parameter(Mandatory)][string]$Ancestor,
+        [Parameter(Mandatory)][string]$Descendant,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    & git -C $RepoRoot merge-base --is-ancestor $Ancestor $Descendant 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        return $true
+    }
+    if ($LASTEXITCODE -eq 1) {
+        return $false
+    }
+    throw "Unable to prove target ancestry from '$Ancestor' to '$Descendant'."
 }
 
 function Test-EpicAutopilotStateIdentity {
@@ -471,7 +606,9 @@ function Invoke-EpicAutopilotHostLoopCore {
         [scriptblock]$RunFactory,
         [scriptblock]$LauncherInvoker,
         [scriptblock]$ContainerProbe,
-        [scriptblock]$RunLeaseProbe
+        [scriptblock]$RunLeaseProbe,
+        [scriptblock]$AncestorTester,
+        [scriptblock]$StateDeleteInvoker
     )
 
     if ($env:AUTOPILOT_CONTAINER -ceq 'true') {
@@ -541,6 +678,20 @@ function Invoke-EpicAutopilotHostLoopCore {
             Test-EpicAutopilotRunLeaseActive -StatePath $Path -Run $Run
         }
     }
+    if (-not $AncestorTester) {
+        $AncestorTester = {
+            param($Ancestor, $Descendant, $Root)
+            Test-EpicAutopilotAncestor -Ancestor $Ancestor -Descendant $Descendant `
+                -RepoRoot $Root
+        }
+    }
+    if (-not $StateDeleteInvoker) {
+        $StateDeleteInvoker = {
+            param($Path, $ExpectedGeneration)
+            Remove-EpicAutopilotState -Path $Path `
+                -ExpectedGeneration $ExpectedGeneration
+        }
+    }
 
     $runLease = [pscustomobject]@{ Value = $null }
     try {
@@ -575,6 +726,153 @@ function Invoke-EpicAutopilotHostLoopCore {
                 if ($existing.epic -cne [string]$rollup.EpicId) {
                     throw "Existing epic autopilot state belongs to epic '$($existing.epic)', not '$($rollup.EpicId)'."
                 }
+
+                $isSuccessfulCheckpoint = $existing.outcome -ceq 'awaiting-merge' -or
+                $existing.outcome -ceq 'exit:0'
+                $isTerminalFailure = $existing.outcome -ceq 'invocation-failed' -or (
+                    $existing.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal) -and
+                    $existing.outcome -cne 'exit:0'
+                )
+
+                if ($isTerminalFailure) {
+                    $storedExit = if ($existing.outcome.StartsWith(
+                            'exit:',
+                            [System.StringComparison]::Ordinal
+                        )) {
+                        [int]$existing.outcome.Substring(5)
+                    }
+                    else { $null }
+                    return [pscustomobject]@{
+                        State           = $existing
+                        NextChild       = $rollup.NextChild
+                        Resumed         = $true
+                        StatePath       = $stateFile
+                        Launch          = $false
+                        LaunchAttempted = $false
+                        Replayed        = $true
+                        ExitCode        = $storedExit
+                        Failed          = $existing.outcome -ceq 'invocation-failed'
+                        Completed       = $false
+                        Blocked         = $false
+                        Message         = if ($existing.outcome -ceq 'invocation-failed') {
+                            "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
+                        }
+                        else { $null }
+                    }
+                }
+
+                if ($isSuccessfulCheckpoint) {
+                    if ($existing.target -ceq $targetCommit) {
+                        return [pscustomobject]@{
+                            State           = $existing
+                            NextChild       = $rollup.NextChild
+                            Resumed         = $true
+                            StatePath       = $stateFile
+                            Launch          = $false
+                            LaunchAttempted = $false
+                            Replayed        = $true
+                            ExitCode        = 0
+                            Failed          = $false
+                            Completed       = $false
+                            Blocked         = $false
+                            Message         = $null
+                        }
+                    }
+
+                    $ancestryOutput = @(
+                        & $AncestorTester $existing.target $targetCommit $repoRootPath
+                    )
+                    if ($ancestryOutput.Count -ne 1 -or
+                        $ancestryOutput[0] -isnot [bool]) {
+                        throw 'Target ancestry probe returned an invalid result.'
+                    }
+                    if (-not [bool]$ancestryOutput[0]) {
+                        throw "Refreshed target '$targetCommit' is not a forward descendant of prior target '$($existing.target)'."
+                    }
+
+                    $priorChildren = @(
+                        $rollup.Children |
+                            Where-Object { [string]$_.Id -ceq $existing.currentChild }
+                    )
+                    if ($priorChildren.Count -ne 1) {
+                        throw "Refreshed epic graph must contain prior child '$($existing.currentChild)' exactly once; found $($priorChildren.Count)."
+                    }
+                    if (-not [bool]$priorChildren[0].IsComplete) {
+                        throw "Refreshed epic graph still reports prior child '$($existing.currentChild)' incomplete."
+                    }
+                    if ($null -ne $rollup.NextChild -and
+                        [string]$rollup.NextChild.Id -ceq $existing.currentChild) {
+                        throw "Refreshed epic graph still selects prior child '$($existing.currentChild)' as NextChild."
+                    }
+
+                    if ($null -eq $rollup.NextChild) {
+                        if (-not [bool]$rollup.Rollup.IsComplete) {
+                            return [pscustomobject]@{
+                                State           = $existing
+                                NextChild       = $null
+                                Resumed         = $true
+                                StatePath       = $stateFile
+                                Launch          = $false
+                                LaunchAttempted = $false
+                                Replayed        = $true
+                                ExitCode        = 42
+                                Failed          = $false
+                                Completed       = $false
+                                Blocked         = $true
+                                Message         = 'Epic graph is incomplete but has no eligible NextChild; prior success checkpoint is retained for explicit resume.'
+                            }
+                        }
+
+                        $deleteOutput = @(
+                            & $StateDeleteInvoker $stateFile $generation
+                        )
+                        if ($deleteOutput.Count -ne 1 -or
+                            $null -eq $deleteOutput[0] -or
+                            $deleteOutput[0].PSObject.Properties.Name -notcontains 'Status' -or
+                            [string]$deleteOutput[0].Status -cne 'complete') {
+                            $status = if ($deleteOutput.Count -eq 1 -and
+                                $null -ne $deleteOutput[0] -and
+                                $deleteOutput[0].PSObject.Properties.Name -contains 'Status') {
+                                [string]$deleteOutput[0].Status
+                            }
+                            else { 'invalid' }
+                            throw "Epic autopilot completed-state delete failed with status '$status'."
+                        }
+                        return [pscustomobject]@{
+                            State           = $null
+                            NextChild       = $null
+                            Resumed         = $true
+                            StatePath       = $stateFile
+                            Launch          = $false
+                            LaunchAttempted = $false
+                            Replayed        = $false
+                            ExitCode        = 0
+                            Failed          = $false
+                            Completed       = $true
+                            Blocked         = $false
+                            Message         = 'Epic graph is complete after the operator merge.'
+                        }
+                    }
+
+                    if ([bool]$rollup.Rollup.IsComplete) {
+                        throw 'Get-PlanState reports a complete epic with a non-null NextChild.'
+                    }
+
+                    $selected = [pscustomobject][ordered]@{
+                        epic         = [string]$rollup.EpicId
+                        target       = $targetCommit
+                        currentChild = [string]$rollup.NextChild.Id
+                        branch       = "feature/$($rollup.NextChild.FolderName)"
+                        run          = [string](& $RunFactory)
+                        outcome      = 'selected'
+                    }
+                    $selectedWrite = Set-EpicAutopilotState -Path $stateFile `
+                        -State $selected -ExpectedGeneration $generation `
+                        -Operation 'next-child selected state replacement'
+                    $generation = $selectedWrite.Generation
+                    $existing = $selected
+                }
+
                 if ($existing.target -cne $targetCommit) {
                     throw "Existing epic autopilot state targets '$($existing.target)', but '$Target' is now '$targetCommit'."
                 }
@@ -651,6 +949,8 @@ function Invoke-EpicAutopilotHostLoopCore {
                         Replayed        = $true
                         ExitCode        = $storedExit
                         Failed          = $existing.outcome -ceq 'invocation-failed'
+                        Completed       = $false
+                        Blocked         = $false
                         Message         = if ($existing.outcome -ceq 'invocation-failed') {
                             "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
                         }
@@ -669,7 +969,14 @@ function Invoke-EpicAutopilotHostLoopCore {
                     Replayed        = $false
                     ExitCode        = $null
                     Failed          = $false
-                    Message         = $null
+                    Completed       = [bool]$rollup.Rollup.IsComplete
+                    Blocked         = -not [bool]$rollup.Rollup.IsComplete
+                    Message         = if ([bool]$rollup.Rollup.IsComplete) {
+                        'Epic graph is complete; no child launch is needed.'
+                    }
+                    else {
+                        'Epic graph is incomplete but has no eligible NextChild.'
+                    }
                 }
             }
 

@@ -125,7 +125,13 @@ The container creates a fresh work branch directly from the verified fetched obj
 existing remote work branch; only an exit-43 rebundle retry inside that same launcher invocation may
 resume it. The persisted `run` derives the exact container name. A repeated host call probes only that
 container: active means refuse, while absent/exited reconciles the same run to `invocation-failed`
-without relaunch. Terminal launcher codes are stored as `exit:<0..255>`, the portable process-exit
+without relaunch. Nonzero launcher codes are stored as `exit:<1..255>`, the portable process-exit
 domain; launch-start failures and out-of-domain invocation results return a structured
-`invocation-failed` receipt. Do not route the ordinary `/ci` plan handoff through this staged helper
-until the later merge-gate and repeat increments land.
+`invocation-failed` receipt. Verified zero becomes `awaiting-merge` and stops for an operator merge.
+On a later call, only that outcome and legacy `exit:0` can advance: the target must move forward and a
+fresh rollup must prove the prior child complete and no longer current. The helper CAS-selects one new
+child and launches it, CAS-clears state for a complete epic, or returns blocked exit 42 while retaining
+the prior checkpoint when the incomplete graph has no eligible child. Non-success terminal outcomes
+remain unchanged for explicit resume. Target refresh never fetches, pulls, checks out, merges, pushes,
+or calls a provider. Do not route the ordinary `/ci` plan handoff through this staged helper until the
+epic entry flow lands.

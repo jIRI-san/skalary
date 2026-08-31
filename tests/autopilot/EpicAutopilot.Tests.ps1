@@ -29,7 +29,9 @@ Describe 'Epic autopilot child launcher state machine' {
                 [scriptblock]$RunFactory,
                 [scriptblock]$LauncherInvoker,
                 [scriptblock]$ContainerProbe,
-                [scriptblock]$RunLeaseProbe
+                [scriptblock]$RunLeaseProbe,
+                [scriptblock]$AncestorTester,
+                [scriptblock]$StateDeleteInvoker
             )
 
             $parameters = @{}
@@ -59,6 +61,7 @@ Describe 'Epic autopilot child launcher state machine' {
         $script:targetA = 'a' * 40
         $script:targetB = 'b' * 40
         $script:runA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+        $script:runB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
         $script:childA = [ordered]@{
             Id         = '111111'
             Slug       = 'first-child'
@@ -78,11 +81,35 @@ Describe 'Epic autopilot child launcher state machine' {
             param(
                 [string]$EpicId = 'abc123',
                 [AllowNull()]$NextChild = $script:childA,
-                [string]$Kind = 'epic'
+                [string]$Kind = 'epic',
+                [object[]]$Children,
+                [Nullable[bool]]$IsComplete
             )
+            if (-not $PSBoundParameters.ContainsKey('Children')) {
+                $Children = @(if ($null -ne $NextChild) {
+                        [ordered]@{
+                            Id         = [string]$NextChild.Id
+                            IsComplete = $false
+                            IsBlocked  = $false
+                        }
+                    })
+            }
+            $completeCount = @($Children | Where-Object { $_.IsComplete }).Count
+            $blockedCount = @($Children | Where-Object { $_.IsBlocked }).Count
+            if (-not $PSBoundParameters.ContainsKey('IsComplete')) {
+                $IsComplete = $Children.Count -gt 0 -and
+                $completeCount -eq $Children.Count
+            }
             return [ordered]@{
                 Kind      = $Kind
                 EpicId    = $EpicId
+                Rollup    = [ordered]@{
+                    ChildCount    = $Children.Count
+                    CompleteCount = $completeCount
+                    BlockedCount  = $blockedCount
+                    IsComplete    = [bool]$IsComplete
+                }
+                Children  = @($Children)
                 NextChild = $NextChild
             } | ConvertTo-Json -Depth 5 -Compress
         }
@@ -296,7 +323,8 @@ Describe 'Epic autopilot child launcher state machine' {
         foreach ($privateParameter in @(
                 'StatePath', 'PlanStateScript', 'PlanStateInvoker', 'TargetResolver',
                 'WorktreeValidator', 'RunFactory', 'LauncherInvoker',
-                'ContainerProbe', 'RunLeaseProbe'
+                'ContainerProbe', 'RunLeaseProbe', 'AncestorTester',
+                'StateDeleteInvoker'
             )) {
             $publicParameters | Should -Not -Contain $privateParameter
         }
@@ -403,6 +431,431 @@ Describe 'Epic autopilot child launcher state machine' {
         $dispatchText | Should -Match 'autopilot_branch_has_published_pr'
         $dispatchText | Should -Match '--json headRefName,headRefOid,baseRefName,state'
         $dispatchText | Should -Match 'archived_tree_at_commit'
+    }
+
+    It 'test:EpicAutopilot.RefreshAndRepeat advances only proven merges and preserves every stop' {
+        $completeA = [ordered]@{
+            Id = $script:childA.Id; IsComplete = $true; IsBlocked = $false
+        }
+        $incompleteA = [ordered]@{
+            Id = $script:childA.Id; IsComplete = $false; IsBlocked = $false
+        }
+        $incompleteB = [ordered]@{
+            Id = $script:childB.Id; IsComplete = $false; IsBlocked = $false
+        }
+        $blockedB = [ordered]@{
+            Id = $script:childB.Id; IsComplete = $false; IsBlocked = $true
+        }
+        $blockedA = [ordered]@{
+            Id = $script:childA.Id; IsComplete = $false; IsBlocked = $true
+        }
+        $forward = { param($Ancestor, $Descendant, $Root) $true }
+        $resolveB = { param($Reference, $Root) $script:targetB }
+
+        $ancestryRoot = Join-Path $script:fixtureRoot 'refresh-ancestry'
+        [void](New-Item -ItemType Directory -Path $ancestryRoot -Force)
+        & git -C $ancestryRoot init -q -b main
+        & git -C $ancestryRoot config user.name fixture
+        & git -C $ancestryRoot config user.email fixture@example.invalid
+        [System.IO.File]::WriteAllText((Join-Path $ancestryRoot 'value.txt'), 'one')
+        & git -C $ancestryRoot add .
+        & git -C $ancestryRoot commit -q -m one
+        $ancestorCommit = (& git -C $ancestryRoot rev-parse HEAD).Trim()
+        [System.IO.File]::WriteAllText((Join-Path $ancestryRoot 'value.txt'), 'two')
+        & git -C $ancestryRoot add .
+        & git -C $ancestryRoot commit -q -m two
+        $descendantCommit = (& git -C $ancestryRoot rev-parse HEAD).Trim()
+        & $script:epicModule {
+            param($Ancestor, $Descendant, $Root)
+            Test-EpicAutopilotAncestor -Ancestor $Ancestor -Descendant $Descendant `
+                -RepoRoot $Root
+        } $ancestorCommit $descendantCommit $ancestryRoot | Should -BeTrue
+        & $script:epicModule {
+            param($Ancestor, $Descendant, $Root)
+            Test-EpicAutopilotAncestor -Ancestor $Ancestor -Descendant $Descendant `
+                -RepoRoot $Root
+        } $descendantCommit $ancestorCommit $ancestryRoot | Should -BeFalse
+
+        $advancePath = New-StatePath -Name 'refresh-advance'
+        [System.IO.File]::WriteAllText(
+            $advancePath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $reordered = New-RollupJson -NextChild $script:childB `
+            -Children @($incompleteB, $completeA)
+        $advanceLaunches = [System.Collections.Generic.List[object]]::new()
+        $advanced = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $advancePath `
+            -PlanStateInvoker {
+            param($EpicReference, $Root, $ScriptPath)
+            $reordered
+        } -TargetResolver $resolveB -AncestorTester $forward `
+            -RunFactory { $script:runB } -LauncherInvoker {
+            param($LaunchScript, $Argument, $Root)
+            $during = [System.IO.File]::ReadAllText($advancePath) |
+                ConvertFrom-Json
+            [void]$advanceLaunches.Add([pscustomobject]@{
+                    Argument = @($Argument)
+                    During   = $during
+                })
+            return 0
+        }
+        $advanceLaunches | Should -HaveCount 1
+        $advanceLaunches[0].During.target | Should -BeExactly $script:targetB
+        $advanceLaunches[0].During.currentChild | Should -BeExactly $script:childB.Id
+        $advanceLaunches[0].During.run | Should -BeExactly $script:runB
+        $advanceLaunches[0].During.outcome | Should -BeExactly 'running'
+        $advanceLaunches[0].Argument | Should -BeExactly @(
+            '-PlanSlug', $script:childB.FolderName,
+            '-Mode', 'whole-plan',
+            '-Runtime', 'container',
+            '-Branch', 'main',
+            '-ExpectedStartCommit', $script:targetB,
+            '-Run', $script:runB
+        )
+        $advanced.State.outcome | Should -BeExactly 'awaiting-merge'
+        $advanced.State.currentChild | Should -BeExactly $script:childB.Id
+        @($advanced.State.PSObject.Properties.Name) | Should -BeExactly @(
+            'epic', 'target', 'currentChild', 'branch', 'run', 'outcome'
+        )
+
+        $restartPath = New-StatePath -Name 'refresh-selected-restart'
+        [System.IO.File]::WriteAllText(
+            $restartPath,
+            (New-StateJson -Target $script:targetB -Child $script:childB.Id `
+                -Branch "feature/$($script:childB.FolderName)" -Run $script:runB)
+        )
+        $restartLaunches = [System.Collections.Generic.List[object]]::new()
+        $restart = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $restartPath `
+            -PlanStateInvoker {
+            param($EpicReference, $Root, $ScriptPath)
+            $reordered
+        } -TargetResolver $resolveB -RunFactory {
+            throw 'selected restart must retain its run'
+        } -LauncherInvoker {
+            param($LaunchScript, $Argument, $Root)
+            [void]$restartLaunches.Add($null)
+            return 42
+        }
+        $restartLaunches | Should -HaveCount 1
+        $restart.Resumed | Should -BeTrue
+        $restart.State.currentChild | Should -BeExactly $script:childB.Id
+        $restart.State.run | Should -BeExactly $script:runB
+        $restart.State.outcome | Should -BeExactly 'exit:42'
+
+        $unchangedPath = New-StatePath -Name 'refresh-unchanged'
+        [System.IO.File]::WriteAllText(
+            $unchangedPath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $unchangedBytes = [System.IO.File]::ReadAllText($unchangedPath)
+        $unchanged = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $unchangedPath `
+            -PlanStateInvoker {
+            param($EpicReference, $Root, $ScriptPath)
+            $reordered
+        } -TargetResolver { param($Reference, $Root) $script:targetA } `
+            -AncestorTester { throw 'unchanged target must not probe ancestry' } `
+            -LauncherInvoker { throw 'unchanged target must not launch' }
+        $unchanged.State.outcome | Should -BeExactly 'awaiting-merge'
+        $unchanged.ExitCode | Should -Be 0
+        [System.IO.File]::ReadAllText($unchangedPath) |
+            Should -BeExactly $unchangedBytes
+
+        $invalidGraphs = @(
+            @{
+                Name  = 'prior-incomplete'
+                Json  = New-RollupJson -NextChild $script:childB `
+                    -Children @($incompleteA, $incompleteB)
+                Match = '*NextChild must be the first*'
+            },
+            @{
+                Name  = 'prior-still-current'
+                Json  = New-RollupJson -NextChild $script:childA `
+                    -Children @($completeA, $incompleteB)
+                Match = '*NextChild must be the first*'
+            },
+            @{
+                Name  = 'prior-missing'
+                Json  = New-RollupJson -NextChild $script:childB `
+                    -Children @($incompleteB)
+                Match = '*exactly once; found 0*'
+            },
+            @{
+                Name  = 'prior-duplicate'
+                Json  = New-RollupJson -NextChild $script:childB `
+                    -Children @($completeA, $completeA, $incompleteB)
+                Match = '*duplicate Id*'
+            }
+        )
+        foreach ($case in $invalidGraphs) {
+            $path = New-StatePath -Name "refresh-$($case.Name)"
+            [System.IO.File]::WriteAllText(
+                $path,
+                (New-StateJson -Outcome 'awaiting-merge')
+            )
+            $before = [System.IO.File]::ReadAllText($path)
+            $json = $case.Json
+            {
+                Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                    -RepoRoot $script:repoRoot -StatePath $path `
+                    -PlanStateInvoker {
+                    param($EpicReference, $Root, $ScriptPath)
+                    $json
+                } -TargetResolver $resolveB -AncestorTester $forward `
+                    -LauncherInvoker { throw 'invalid graph must not launch' }
+            } | Should -Throw $case.Match -Because $case.Name
+            [System.IO.File]::ReadAllText($path) |
+                Should -BeExactly $before -Because $case.Name
+        }
+
+        $globalConsistencyCases = [System.Collections.Generic.List[object]]::new()
+        function Add-InvalidRollupCase {
+            param(
+                [Parameter(Mandatory)][string]$Name,
+                [Parameter(Mandatory)][string]$Json,
+                [Parameter(Mandatory)][string]$Match,
+                [scriptblock]$Mutate
+            )
+            $document = $Json | ConvertFrom-Json
+            if ($Mutate) {
+                & $Mutate $document
+            }
+            [void]$globalConsistencyCases.Add([pscustomobject]@{
+                    Name  = $Name
+                    Json  = $document | ConvertTo-Json -Depth 6 -Compress
+                    Match = $Match
+                })
+        }
+
+        Add-InvalidRollupCase -Name 'duplicate-ids' `
+            -Json (New-RollupJson -NextChild $script:childA `
+                -Children @($incompleteA, $incompleteA)) `
+            -Match '*duplicate Id*'
+        Add-InvalidRollupCase -Name 'complete-and-blocked' `
+            -Json (New-RollupJson -NextChild $null -Children @(
+                [ordered]@{
+                    Id         = $script:childA.Id
+                    IsComplete = $true
+                    IsBlocked  = $true
+                }
+            )) -Match '*both complete and blocked*'
+        foreach ($field in @('ChildCount', 'CompleteCount', 'BlockedCount')) {
+            Add-InvalidRollupCase -Name "mismatched-$field" `
+                -Json (New-RollupJson -NextChild $script:childA) `
+                -Match "*Rollup.$field does not match Children*" `
+                -Mutate { param($Document) $Document.Rollup.$field++ }
+            Add-InvalidRollupCase -Name "missing-$field" `
+                -Json (New-RollupJson -NextChild $script:childA) `
+                -Match "*Rollup.$field must be a nonnegative integer*" `
+                -Mutate {
+                param($Document)
+                $Document.Rollup.PSObject.Properties.Remove($field)
+            }
+        }
+        Add-InvalidRollupCase -Name 'negative-count' `
+            -Json (New-RollupJson -NextChild $script:childA) `
+            -Match '*Rollup.ChildCount must be a nonnegative integer*' `
+            -Mutate { param($Document) $Document.Rollup.ChildCount = -1 }
+        Add-InvalidRollupCase -Name 'fractional-count' `
+            -Json (New-RollupJson -NextChild $script:childA) `
+            -Match '*Rollup.CompleteCount must be a nonnegative integer*' `
+            -Mutate { param($Document) $Document.Rollup.CompleteCount = 0.5 }
+        Add-InvalidRollupCase -Name 'complete-rollup-false' `
+            -Json (New-RollupJson -NextChild $null -Children @($completeA) `
+                -IsComplete $false) -Match '*Rollup.IsComplete does not match Children*'
+        Add-InvalidRollupCase -Name 'incomplete-rollup-true' `
+            -Json (New-RollupJson -NextChild $script:childA `
+                -Children @($incompleteA) -IsComplete $true) `
+            -Match '*Rollup.IsComplete does not match Children*'
+        Add-InvalidRollupCase -Name 'null-with-eligible' `
+            -Json (New-RollupJson -NextChild $null -Children @($incompleteA)) `
+            -Match '*NextChild is null*eligible*'
+        Add-InvalidRollupCase -Name 'unknown-next' `
+            -Json (New-RollupJson -NextChild $script:childB `
+                -Children @($incompleteA)) `
+            -Match '*NextChild must be the first*'
+        Add-InvalidRollupCase -Name 'complete-next' `
+            -Json (New-RollupJson -NextChild $script:childA `
+                -Children @($completeA, $incompleteB)) `
+            -Match '*NextChild must be the first*'
+        Add-InvalidRollupCase -Name 'blocked-next' `
+            -Json (New-RollupJson -NextChild $script:childA `
+                -Children @($blockedA, $incompleteB)) `
+            -Match '*NextChild must be the first*'
+        Add-InvalidRollupCase -Name 'later-next' `
+            -Json (New-RollupJson -NextChild $script:childB `
+                -Children @($incompleteA, $incompleteB)) `
+            -Match '*NextChild must be the first*'
+        $childWithFolder = [ordered]@{
+            Id         = $script:childA.Id
+            FolderName = $script:childA.FolderName
+            IsComplete = $false
+            IsBlocked  = $false
+        }
+        $wrongFolderNext = [ordered]@{
+            Id         = $script:childA.Id
+            Slug       = $script:childA.Slug
+            FolderName = 'wrong-folder'
+            PlanFile   = $script:childA.PlanFile
+            NextStepId = $script:childA.NextStepId
+        }
+        Add-InvalidRollupCase -Name 'folder-mismatch' `
+            -Json (New-RollupJson -NextChild $wrongFolderNext `
+                -Children @($childWithFolder)) `
+            -Match '*NextChild FolderName does not match child*'
+
+        foreach ($case in $globalConsistencyCases) {
+            $path = New-StatePath -Name "refresh-global-$($case.Name)"
+            [System.IO.File]::WriteAllText(
+                $path,
+                (New-StateJson -Outcome 'awaiting-merge')
+            )
+            $before = [System.IO.File]::ReadAllText($path)
+            $json = $case.Json
+            $launches = 0
+            {
+                Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                    -RepoRoot $script:repoRoot -StatePath $path `
+                    -PlanStateInvoker {
+                    param($EpicReference, $Root, $ScriptPath)
+                    $json
+                } -TargetResolver $resolveB -AncestorTester {
+                    throw 'invalid global rollup must not probe ancestry'
+                } -StateDeleteInvoker {
+                    throw 'invalid global rollup must not delete state'
+                } -LauncherInvoker {
+                    $launches++
+                    throw 'invalid global rollup must not launch'
+                }
+            } | Should -Throw $case.Match -Because $case.Name
+            $launches | Should -Be 0 -Because $case.Name
+            [System.IO.File]::ReadAllText($path) |
+                Should -BeExactly $before -Because $case.Name
+        }
+
+        $completePath = New-StatePath -Name 'refresh-complete'
+        [System.IO.File]::WriteAllText(
+            $completePath,
+            (New-StateJson -Outcome 'exit:0')
+        )
+        $completeRollup = New-RollupJson -NextChild $null `
+            -Children @($completeA) -IsComplete $true
+        $complete = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $completePath `
+            -PlanStateInvoker {
+            param($EpicReference, $Root, $ScriptPath)
+            $completeRollup
+        } -TargetResolver $resolveB -AncestorTester $forward `
+            -LauncherInvoker { throw 'complete epic must not launch' }
+        $complete.Completed | Should -BeTrue
+        $complete.Blocked | Should -BeFalse
+        $complete.State | Should -BeNullOrEmpty
+        Test-Path -LiteralPath $completePath | Should -BeFalse
+
+        $blockedPath = New-StatePath -Name 'refresh-blocked'
+        [System.IO.File]::WriteAllText(
+            $blockedPath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $blockedBefore = [System.IO.File]::ReadAllText($blockedPath)
+        $blockedRollup = New-RollupJson -NextChild $null `
+            -Children @($blockedB, $completeA)
+        $blocked = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $blockedPath `
+            -PlanStateInvoker {
+            param($EpicReference, $Root, $ScriptPath)
+            $blockedRollup
+        } -TargetResolver $resolveB -AncestorTester $forward `
+            -LauncherInvoker { throw 'blocked epic must not launch' }
+        $blocked.Blocked | Should -BeTrue
+        $blocked.Completed | Should -BeFalse
+        $blocked.ExitCode | Should -Be 42
+        $blocked.Message | Should -Match 'prior success checkpoint is retained'
+        [System.IO.File]::ReadAllText($blockedPath) |
+            Should -BeExactly $blockedBefore
+
+        $nonForwardPath = New-StatePath -Name 'refresh-non-forward'
+        [System.IO.File]::WriteAllText(
+            $nonForwardPath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $nonForwardBefore = [System.IO.File]::ReadAllText($nonForwardPath)
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $nonForwardPath `
+                -PlanStateInvoker {
+                param($EpicReference, $Root, $ScriptPath)
+                $reordered
+            } -TargetResolver $resolveB `
+                -AncestorTester { param($Ancestor, $Descendant, $Root) $false } `
+                -LauncherInvoker { throw 'non-forward target must not launch' }
+        } | Should -Throw '*not a forward descendant*'
+        [System.IO.File]::ReadAllText($nonForwardPath) |
+            Should -BeExactly $nonForwardBefore
+
+        foreach ($outcome in @(
+                'invocation-failed', 'exit:1', 'exit:3', 'exit:42', 'exit:43', 'exit:255'
+            )) {
+            $path = New-StatePath -Name ('refresh-immutable-' + $outcome.Replace(':', '-'))
+            [System.IO.File]::WriteAllText($path, (New-StateJson -Outcome $outcome))
+            $before = [System.IO.File]::ReadAllText($path)
+            $terminal = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $path `
+                -PlanStateInvoker {
+                param($EpicReference, $Root, $ScriptPath)
+                $reordered
+            } -TargetResolver $resolveB `
+                -AncestorTester { throw 'failed outcome must not probe ancestry' } `
+                -LauncherInvoker { throw 'failed outcome must not launch' }
+            $terminal.Replayed | Should -BeTrue -Because $outcome
+            $terminal.State.outcome | Should -BeExactly $outcome
+            [System.IO.File]::ReadAllText($path) |
+                Should -BeExactly $before -Because $outcome
+        }
+
+        $replaceRacePath = New-StatePath -Name 'refresh-replace-race'
+        [System.IO.File]::WriteAllText(
+            $replaceRacePath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $racedReplacement = New-StateJson -Outcome 'exit:42'
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $replaceRacePath `
+                -PlanStateInvoker {
+                param($EpicReference, $Root, $ScriptPath)
+                $reordered
+            } -TargetResolver $resolveB -AncestorTester $forward -RunFactory {
+                [System.IO.File]::WriteAllText($replaceRacePath, $racedReplacement)
+                $script:runB
+            } -LauncherInvoker { throw 'CAS conflict must not launch' }
+        } | Should -Throw '*replacement failed with status ''cas-conflict''*'
+        [System.IO.File]::ReadAllText($replaceRacePath) |
+            Should -BeExactly $racedReplacement
+
+        $deleteRacePath = New-StatePath -Name 'refresh-delete-race'
+        [System.IO.File]::WriteAllText(
+            $deleteRacePath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $racedDelete = New-StateJson -Outcome 'exit:42'
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $deleteRacePath `
+                -PlanStateInvoker {
+                param($EpicReference, $Root, $ScriptPath)
+                $completeRollup
+            } -TargetResolver $resolveB -AncestorTester $forward `
+                -StateDeleteInvoker {
+                param($Path, $ExpectedGeneration)
+                [System.IO.File]::WriteAllText($Path, $racedDelete)
+                [pscustomobject]@{ Status = 'cas-conflict' }
+            } -LauncherInvoker { throw 'delete CAS conflict must not launch' }
+        } | Should -Throw '*delete failed with status ''cas-conflict''*'
+        [System.IO.File]::ReadAllText($deleteRacePath) |
+            Should -BeExactly $racedDelete
     }
 
     It 'test:EpicAutopilot.ProcessBoundary observes exit 255 from a real pwsh child' {
@@ -1099,13 +1552,17 @@ function Invoke-EpicAutopilotHostLoop {
             "$Epic|$Target|$RepoRoot"
         )
     }
-    if ($env:EPIC_WRAPPER_SCENARIO -ceq 'none') {
-        return [pscustomobject]@{ State = $null }
+    if ($env:EPIC_WRAPPER_SCENARIO -in @('none', 'complete')) {
+        return [pscustomobject]@{
+            State = $null
+            Completed = $env:EPIC_WRAPPER_SCENARIO -ceq 'complete'
+            Blocked = $false
+        }
     }
     $outcome = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'failed') {
         'invocation-failed'
     }
-    elseif ($env:EPIC_WRAPPER_SCENARIO -ceq '0') {
+    elseif ($env:EPIC_WRAPPER_SCENARIO -in @('0', 'blocked')) {
         'awaiting-merge'
     }
     elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'legacy-zero') {
@@ -1134,7 +1591,12 @@ function Invoke-EpicAutopilotHostLoop {
         }
         else { $null }
         Failed = $outcome -eq 'invocation-failed'
-        Message = if ($outcome -eq 'invocation-failed') {
+        Completed = $false
+        Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked'
+        Message = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked') {
+            'Synthetic blocked graph.'
+        }
+        elseif ($outcome -eq 'invocation-failed') {
             'Synthetic persisted launcher failure.'
         } else { $null }
     }
@@ -1152,6 +1614,8 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                     @{ Scenario = '42'; Exit = 42; Match = '"outcome":"exit:42"' },
                     @{ Scenario = '255'; Exit = 255; Match = '"outcome":"exit:255"' },
                     @{ Scenario = 'failed'; Exit = 1; Match = 'invocation-failed' },
+                    @{ Scenario = 'blocked'; Exit = 42; Match = 'Synthetic blocked graph' },
+                    @{ Scenario = 'complete'; Exit = 0; Match = 'complete after target refresh' },
                     @{ Scenario = 'none'; Exit = 0; Match = 'no eligible NextChild' }
                 )) {
                 $env:EPIC_WRAPPER_SCENARIO = $case.Scenario

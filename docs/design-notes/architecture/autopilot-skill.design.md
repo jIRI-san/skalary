@@ -20,7 +20,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
-| Epic child launch | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; atomically selects/resumes and launches one child, then maps verified launcher zero to an operator merge stop |
+| Epic child launch | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; atomically selects/resumes one child, maps verified launcher zero to an operator merge stop, and advances after a proven operator merge |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 
 ## Key Patterns
@@ -70,13 +70,18 @@ publication, and typed open-PR proof. It pushes before probing, then requires ch
 OID equality and one PR whose head name/OID match; an explicitly selected target must match its base.
 Provider/command or typed-output failures are errors, while valid mismatches resume as close-pending.
 The epic helper does not duplicate this chain: launcher zero becomes `awaiting-merge`, then the host
-stops for operator merge without push, merge, checkout, provider API, or transcript parsing. Nonzero
-portable process codes remain `exit:<1..255>`; malformed launcher results and launch failures become
-`invocation-failed`. Legacy `exit:0` replays as the same terminal operator-merge stop without mutation
-or relaunch. The skill names the installed helper so
+stops for operator merge without push, merge, checkout, provider API, or transcript parsing. Nonzero portable process codes remain `exit:<1..255>`; malformed launcher results and launch failures
+become `invocation-failed`. Those non-success terminal records remain byte-identical retry stops even
+when the target or graph changes. Only `awaiting-merge` and legacy `exit:0` can advance: after the
+operator moves the clean target forward, a fresh rollup must contain the prior child exactly once,
+mark it complete, and select a different child. The helper then CAS-replaces the old checkpoint with a
+fresh six-field `selected` record and reuses the normal launch path. Complete rollups CAS-delete state;
+incomplete no-next-child rollups return blocked exit 42 while retaining the prior checkpoint as the
+explicit resume anchor. The helper only resolves local refs and proves ancestry; it never fetches,
+pulls, checks out, merges, pushes, or calls a provider. The skill names the installed helper so
 plugin bundling carries its canonical
 `Get-PlanState`, `EpicAutopilot`, and `AtomicStore` closure, while retaining the ordinary plan
-handoff until merge-gate and repeat behavior lands.
+handoff until epic routing lands.
 
 **First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
 it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout

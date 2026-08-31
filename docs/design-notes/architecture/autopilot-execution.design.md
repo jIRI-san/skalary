@@ -70,11 +70,11 @@ record has exactly six case-sensitive string fields:
 | `run` | Canonical GUID allocated once for this sequential run |
 | `outcome` | `selected`, `running`, `awaiting-merge`, `invocation-failed`, or `exit:<0..255>` |
 
-A fresh process resumes only when canonical epic, resolved target commit, exact `NextChild`, and
-derived branch still match. Malformed state, a changed target, a different/no `NextChild`, or a
-different epic fails loudly before mutation. The existing bytes remain untouched on every
-validation or staleness failure. A null `NextChild` with no state returns without creating a
-record.
+A fresh process resumes `selected` or reconciles `running` only when canonical epic, resolved target
+commit, exact `NextChild`, and derived branch still match. Malformed state or a different epic fails
+loudly before mutation. Non-success terminal records (`invocation-failed` and nonzero `exit:*`) are
+immutable retry stops even when the target or graph changed; they never skip to a sibling. A null
+`NextChild` with no state returns a typed complete or blocked stop without creating a record.
 
 Under the `AtomicStore` lock, the wrapper resolves the target commit first, requires the repository
 worktree to be clean with HEAD at that exact commit, and only then invokes `Get-PlanState`. It creates
@@ -107,14 +107,34 @@ The epic layer does not repeat those probes, parse transcripts, call a provider,
 check out another branch.
 `Process.ExitCode` after `WaitForExit` is the production authority. The persisted/replay exit domain
 is limited to 0..255 because POSIX exposes only that portable range. Legacy `exit:0` records remain
-terminal, replay as operator-merge stops without mutation, and never relaunch or select a sibling.
+merge-success checkpoints equivalent to `awaiting-merge`.
 An injected out-of-domain result follows the launch-error path, attempts the same CAS to
 `invocation-failed`, and returns a structured failure receipt; zero is never substituted.
 A start exception does the same. A terminal-write failure still throws, including after launcher exit
 zero. The run GUID deterministically names its container. Existing `running` state probes only that
 container: an active container refuses a second launch, an absent/exited container CAS-reconciles the
 same run to `invocation-failed` and replays that terminal receipt without relaunch, and probe uncertainty
-fails without changing bytes. Existing terminal state is replayed without selecting a sibling.
+fails without changing bytes. Existing non-success terminal state is replayed without selecting a
+sibling.
+
+Only `awaiting-merge` and legacy `exit:0` may advance. An unchanged target remains at the merge stop.
+For a changed target, the loop uses `git merge-base --is-ancestor` to prove the new commit moves
+forward. Before any state mutation, the rollup parser requires unique canonical child ids, consistent
+boolean child states, exact derived nonnegative counts and completion, and `NextChild` equal to the
+first received incomplete, unblocked child (including its folder when present in `Children`). It then
+requires the prior child to occur exactly once, be complete, and no longer be `NextChild`. Any invalid
+or contradictory graph or non-forward target leaves the six-field record byte-identical and launches
+nothing. When another child is eligible, one CAS replaces the prior checkpoint directly with a fresh
+`selected` record for the new target/child/run; normal `selected` restart and `selected` → `running`
+launch semantics then apply. A replacement race fails without overwriting the winner.
+
+When the refreshed rollup is complete, a generation-checked delete clears the checkpoint and returns
+an explicit clean completion with no launch. When the rollup is incomplete but has no `NextChild`, the
+loop returns an explicit blocked stop (wrapper exit 42) and deliberately retains the prior success
+checkpoint. That checkpoint is the retry anchor: a later invocation can re-evaluate the same merge
+against a repaired dependency graph without a seventh persisted field or a second state family. A
+delete race likewise fails without deleting the competing state. Target refresh is read-only: the epic
+layer never fetches, pulls, checks out, merges, pushes, or invokes a provider API.
 
 ## Modes
 
@@ -428,8 +448,8 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 
 | Script | Purpose |
 |--------|---------|
-| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; maps verified launcher zero to `awaiting-merge`, exports only the three-argument production host loop, and keeps test adapters private |
-| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; reports awaiting-merge/no-child/invocation-failed outcomes and propagates portable nonzero child exit codes |
+| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; refreshes and CAS-advances only merge-proven success, preserves terminal failures and blocked retry anchors, exports only the three-argument production host loop, and keeps test adapters private |
+| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; distinguishes awaiting merge, clean completion, blocked exit 42, invocation failure, and portable child exit codes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |

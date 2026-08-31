@@ -29,7 +29,7 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 2.1 Verify the child's terminal result, evidence, branch, and remote head through existing launcher outputs, then stop for operator merge rather than pushing or merging from the epic loop (REQ-3, RISK-2, RISK-3, RISK-4) [after: 1.2] `M`
-- [ ] 2.2 After operator merge, refresh the target and `Get-PlanState` graph, clear the current child, select the next eligible child, and repeat; retain failure/block/degraded outcomes for explicit resume instead of skipping work (REQ-2, REQ-4, RISK-1, RISK-3, RISK-4) [after: 2.1] `M`
+- [x] 2.2 After operator merge, refresh the target and `Get-PlanState` graph, clear the current child, select the next eligible child, and repeat; retain failure/block/degraded outcomes for explicit resume instead of skipping work (REQ-2, REQ-4, RISK-1, RISK-3, RISK-4) [after: 2.1] `M`
 
 ## Phase 3: Epic close and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
