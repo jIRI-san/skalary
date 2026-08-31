@@ -71,22 +71,22 @@ Describe 'run unit tests' {
             $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
             $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
             $runtime = [ordered]@{
-                schema          = 'skalary/suite-runtime@2'
+                schema = 'skalary/suite-runtime@2'
                 measuredCommand = 'npm test'
-                platforms       = [ordered]@{
+                platforms = [ordered]@{
                     $platform = [ordered]@{
-                        schema              = 'skalary/suite-runtime-row@2'
-                        platform            = $platform
-                        measuredCommand     = 'npm test'
+                        schema = 'skalary/suite-runtime-row@2'
+                        platform = $platform
+                        measuredCommand = 'npm test'
                         fingerprintProtocol = $fingerprint.Protocol
-                        inputFingerprint    = $fingerprint.Fingerprint
-                        seconds             = 1
-                        succeeded           = $true
-                        measuredAt          = '2026-08-10T00:00:00Z'
-                        commit              = 'fixture'
-                        source              = 'test'
-                        note                = ''
-                        environment         = [ordered]@{}
+                        inputFingerprint = $fingerprint.Fingerprint
+                        seconds = 1
+                        succeeded = $true
+                        measuredAt = '2026-08-10T00:00:00Z'
+                        commit = 'fixture'
+                        source = 'test'
+                        note = ''
+                        environment = [ordered]@{}
                     }
                 }
             }
@@ -149,7 +149,7 @@ Describe 'run unit tests' {
 
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+                Output = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
             }
         }
 
@@ -438,6 +438,27 @@ Describe 'focused slow file' {
         )
         $named.ExitCode | Should -Be 0 -Because $named.Output
         $named.Output | Should -Match 'Tests Passed: 1'
+
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'focused slow evidence file' {
+    It 'test:SlowEvidence.Selected passes' { $true | Should -BeTrue }
+    It 'test:SlowEvidence.Unselected fails' { $true | Should -BeFalse }
+}
+'@
+        $evidence = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Slow.Tests.ps1'",
+            "-EvidenceTestId 'SlowEvidence.Selected'",
+            "-EvidenceResultPath 'artifacts/slow-evidence.json'"
+        )
+        $evidence.ExitCode | Should -Be 0 -Because $evidence.Output
+        $evidence.Output | Should -Match 'Tests Passed: 1'
+        $evidenceResult = Get-Content -LiteralPath (
+            Join-Path $sandbox 'artifacts/slow-evidence.json'
+        ) -Raw | ConvertFrom-Json
+        $evidenceResult.schema | Should -BeExactly 'skalary/evidence-test-results@1'
+        $evidenceResult.executedCount | Should -Be 1
+        $evidenceResult.results[0].marker | Should -BeExactly 'test:SlowEvidence.Selected'
+        $evidenceResult.results[0].status | Should -BeExactly 'passed'
 
         $manifestPath = Join-Path $sandbox 'tools/suite-tier.psd1'
         $manifestText = Get-Content -LiteralPath $manifestPath -Raw

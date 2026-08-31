@@ -129,9 +129,9 @@ if ($StartBudgetClock) {
         $measurementNonce = $authorization.Nonce
     }
     $clock = [ordered]@{
-        schema           = $budgetClockSchema
-        startedAt        = $legStart.ToString('o')
-        command          = 'npm test'
+        schema = $budgetClockSchema
+        startedAt = $legStart.ToString('o')
+        command = 'npm test'
         measurementNonce = $measurementNonce
     }
     Set-Content -LiteralPath $BudgetClockPath -Value (($clock | ConvertTo-Json -Depth 4) + "`n") -Encoding utf8NoBOM
@@ -352,8 +352,9 @@ if ($Tier -eq 'Fast' -and -not $FullRepository) {
                 if ($dedicatedSet.Contains($fullPath)) {
                     throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
                 }
-                if ($slowSet.Contains($fullPath) -and $TestName.Count -eq 0) {
-                    throw "Focused Fast requires -TestName when selecting a Slow-tier file: '$relativePath'."
+                if ($slowSet.Contains($fullPath) -and
+                    $TestName.Count -eq 0 -and $EvidenceTestId.Count -eq 0) {
+                    throw "Focused Fast requires -TestName or -EvidenceTestId when selecting a Slow-tier file: '$relativePath'."
                 }
                 $fullPath
             } | Sort-Object -Unique)
