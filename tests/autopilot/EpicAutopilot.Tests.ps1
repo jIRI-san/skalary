@@ -49,7 +49,6 @@ Describe 'Epic autopilot child launcher state machine' {
                 Invoke-EpicAutopilotHostLoopCore @CoreParameters
             } $parameters
         }
-
         function Read-TestEpicState {
             param([Parameter(Mandatory)][string]$Path)
             return & $script:epicModule {
@@ -1562,7 +1561,7 @@ function Invoke-EpicAutopilotHostLoop {
     $outcome = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'failed') {
         'invocation-failed'
     }
-    elseif ($env:EPIC_WRAPPER_SCENARIO -ceq '0') {
+    elseif ($env:EPIC_WRAPPER_SCENARIO -in @('0', 'blocked-retained')) {
         'awaiting-merge'
     }
     elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'legacy-zero') {
@@ -1580,7 +1579,10 @@ function Invoke-EpicAutopilotHostLoop {
             run = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
             outcome = $outcome
         }
-        ExitCode = if ($outcome -eq 'awaiting-merge') {
+        ExitCode = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked-retained') {
+            42
+        }
+        elseif ($outcome -eq 'awaiting-merge') {
             0
         }
         elseif ($outcome -like 'exit:*') {
@@ -1592,10 +1594,14 @@ function Invoke-EpicAutopilotHostLoop {
         else { $null }
         Failed = $outcome -eq 'invocation-failed'
         Completed = $false
-        Blocked = $false
+        Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked-retained'
         Message = if ($outcome -eq 'invocation-failed') {
             'Synthetic persisted launcher failure.'
-        } else { $null }
+        }
+        elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked-retained') {
+            'Synthetic retained-checkpoint blocked stop.'
+        }
+        else { $null }
     }
 }
 Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
@@ -1612,6 +1618,7 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                     @{ Scenario = '255'; Exit = 255; Match = '"outcome":"exit:255"' },
                     @{ Scenario = 'failed'; Exit = 1; Match = 'invocation-failed' },
                     @{ Scenario = 'blocked'; Exit = 42; Match = 'incomplete with no eligible NextChild' },
+                    @{ Scenario = 'blocked-retained'; Exit = 42; Match = 'retained-checkpoint blocked stop' },
                     @{ Scenario = 'complete'; Exit = 0; Match = 'complete after target refresh' },
                     @{ Scenario = 'none'; Exit = 0; Match = 'no eligible NextChild' }
                 )) {

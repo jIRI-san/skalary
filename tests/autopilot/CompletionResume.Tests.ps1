@@ -35,7 +35,6 @@ Describe 'Autopilot container completion resume' {
             if ($LASTEXITCODE -ne 0) { throw "Unable to convert bash path '$Path'." }
             return ($converted | Select-Object -Last 1).Trim()
         }
-
         function New-WrappedPhaseReviewLog {
             param([Parameter(Mandatory)][int[]]$Phase)
 
@@ -606,6 +605,12 @@ printf '%s' "${FAKE_GH_OUTPUT:-}"
             -TrustedInternalRetry $true
         $trustedRetry.ExitCode | Should -Be 0
         $trustedRetry.Output | Should -Be 'closed'
+
+        $trustedRetryWrongBase = Invoke-FinalCloseProbe `
+            -PrOutput "$workBranch`t$head`tdevelop`tOPEN`n" `
+            -TrustedInternalRetry $true
+        $trustedRetryWrongBase.ExitCode | Should -Be 0
+        $trustedRetryWrongBase.Output | Should -Be 'close-pending'
 
         $missingEpicTarget = Invoke-FinalCloseProbe `
             -PrOutput $validPr `
