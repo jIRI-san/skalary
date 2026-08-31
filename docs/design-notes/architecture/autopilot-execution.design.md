@@ -168,8 +168,11 @@ and restore only the Capture worktree/index entry against current `HEAD`. A dele
 checkpoint but not an uncommitted Capture. Before the normal cleanliness gate, restart recovery is
 available only to a retained successful checkpoint and only for the canonical final-child Capture
 resolved from regular-file entries in the current target tree. It admits the sole unstaged or sole
-staged forms that an abrupt writer/publication exit can leave, regenerates the deterministic bytes from
-clean canonical sources to reject forgery, restores only that Capture/index entry, and then repeats the
+staged forms that an abrupt writer/publication exit can leave. NUL-delimited Git path output preserves
+repository-relative path identity, and each path is compared case-sensitively without trimming.
+Recovery regenerates the deterministic bytes from clean canonical sources and compares them after
+normalizing only CRLF pairs to LF, so checkout conversion is accepted while all other byte changes still
+reject forgery. It restores only that Capture/index entry, and then repeats the
 normal validation, crosscheck, writer, and target-ref CAS. Mixed states, untracked or other path/index
 changes, noncanonical source bytes/modes, and concurrent target movement fail closed without changing
 checkpoint bytes. Recovery accepts current unprefixed `<date>-<child-id>-<slug>` and epic-prefixed
