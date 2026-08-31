@@ -34,7 +34,7 @@ Describe 'Skill contract token guards' {
     It 'test:ci-skill-planstate routes ci/SKILL.md state through Get-PlanState and the validate-plan gate' {
         $text = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/SKILL.md'
         $text | Should -Match 'Get-PlanState'
-        $text | Should -Match 'validate-plan'
+        $text | Should -Match 'Test-Plan\.ps1'
     }
 
     It 'test:ci-skill-epic-host-route keeps epic selection inside the fixed installed host wrapper' {

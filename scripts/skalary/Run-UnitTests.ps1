@@ -496,7 +496,7 @@ function Write-StructuredEvidenceResult {
         $pattern = '^test:' + [regex]::Escape($id) + '(?:\s|$)'
         $tests = @(
             if ($PesterResult) {
-                $PesterResult.Tests | Where-Object { [string]$_.Name -match $pattern }
+                $PesterResult.Tests | Where-Object { [string]$_.Name -cmatch $pattern }
             }
         )
         $selectedCount = $tests.Count

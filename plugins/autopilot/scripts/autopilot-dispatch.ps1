@@ -65,6 +65,28 @@ function Get-AutopilotExpectedStartEnvironment {
     return [string[]]$lines
 }
 
+function ConvertTo-AutopilotEnvFileContent {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$Entry
+    )
+
+    foreach ($line in $Entry) {
+        $separator = $line.IndexOf('=')
+        if ($separator -le 0 -or
+            $line.Substring(0, $separator) -cnotmatch '^[A-Z][A-Z0-9_]*$') {
+            throw 'Container environment entries must use NAME=value syntax.'
+        }
+        $value = $line.Substring($separator + 1)
+        if ($value.IndexOfAny([char[]]@(0, 10, 13)) -ge 0) {
+            $name = $line.Substring(0, $separator)
+            throw "Container environment value '$name' contains an unsupported line break or NUL."
+        }
+    }
+    return $Entry -join "`n"
+}
+
 function Assert-AutopilotRepositoryRemote {
     param([Parameter(Mandatory)][string]$Remote)
 

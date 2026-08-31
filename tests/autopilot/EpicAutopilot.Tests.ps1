@@ -2036,7 +2036,7 @@ exit 0
         } | Should -Throw "*unknown state 'unknown'*"
     }
 
-    It 'test:EpicAutopilot.RunLease is visible to a concurrent host process' {
+    It 'test:EpicAutopilot.HostLoop rejects a concurrent host process through the run lease' {
         $statePath = New-StatePath -Name 'cross-process-lease'
         $lease = & $script:epicModule {
             param($Path, $Run)
@@ -2052,12 +2052,23 @@ param(
     [string]$Run
 )
 Import-Module $ModulePath -Force
-$active = & (Get-Module EpicAutopilot) {
-    param($Path, $RunId)
-    Test-EpicAutopilotRunLeaseActive -StatePath $Path -Run $RunId
-} $StatePath $Run
-if ($active) { exit 0 }
-exit 1
+try {
+    $lease = & (Get-Module EpicAutopilot) {
+        param($Path, $RunId)
+        Enter-EpicAutopilotRunLease -StatePath $Path -Run $RunId
+    } $StatePath $Run
+    & (Get-Module EpicAutopilot) {
+        param($RunLease)
+        Exit-EpicAutopilotRunLease -Lease $RunLease
+    } $lease
+    exit 2
+}
+catch {
+    if ($_.Exception.Message -match 'already has an active host launcher') {
+        exit 0
+    }
+    exit 1
+}
 '@
         )
 

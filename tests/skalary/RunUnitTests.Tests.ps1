@@ -460,6 +460,23 @@ Describe 'focused slow evidence file' {
         $evidenceResult.results[0].marker | Should -BeExactly 'test:SlowEvidence.Selected'
         $evidenceResult.results[0].status | Should -BeExactly 'passed'
 
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'focused slow evidence case mismatch' {
+    It 'test:slowevidence.Selected passes' { $true | Should -BeTrue }
+}
+'@
+        $caseMismatch = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Slow.Tests.ps1'",
+            "-EvidenceTestId 'SlowEvidence.Selected'",
+            "-EvidenceResultPath 'artifacts/case-mismatch.json'"
+        )
+        $caseMismatch.ExitCode | Should -Be 8 -Because $caseMismatch.Output
+        $caseMismatchResult = Get-Content -LiteralPath (
+            Join-Path $sandbox 'artifacts/case-mismatch.json'
+        ) -Raw | ConvertFrom-Json
+        $caseMismatchResult.results[0].selectedCount | Should -Be 0
+        $caseMismatchResult.results[0].status | Should -BeExactly 'unrun'
+
         $manifestPath = Join-Path $sandbox 'tools/suite-tier.psd1'
         $manifestText = Get-Content -LiteralPath $manifestPath -Raw
         $manifestText.Replace('FastFocusedHardCeilingSeconds = 60', 'FastFocusedHardCeilingSeconds = 0.001') |

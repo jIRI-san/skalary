@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-31T08:10:40.0059944Z",
+  "generatedAt": "2026-08-31T09:18:13.3544001Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -302,7 +302,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
-          "sha256": "b7625c98358902c447258f817c6b720f85be9e6f7607e2b58d42c7a30b4b3c35",
+          "sha256": "21eb22b61bc82df3e0168c69db243e9b2b9ef87d7a4bfd348c5bdabb46f5742d",
           "src": "scripts/autopilot-dispatch.ps1"
         },
         {
@@ -352,7 +352,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
-          "sha256": "838e2cb882d138fb2f4c47c2a875101575e152207c0916a885d7f63f11e004ba",
+          "sha256": "483fbcb829e52f1e8fc7fb5c773f94c42f24b36a7cd200d5befd249199c46ca6",
           "src": "scripts/prepare-env-file.ps1"
         },
         {
@@ -605,7 +605,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "5bef780cbe76e9e7cb24bebfc2b754d6c7d51fa8118989148cd90b4c2d86f577",
+          "sha256": "018bec885ede8911caaaf8d57dcf2c28f341f2622d0465aba2da299af207bdc1",
           "src": "skills/ci/SKILL.md"
         },
         {

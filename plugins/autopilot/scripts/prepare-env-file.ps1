@@ -111,7 +111,8 @@ if ($Offline) {
     $envContent += "AUTOPILOT_FEED=/feed"
 }
 
-Set-Content -Path $envFilePath -Value ($envContent -join "`n") -NoNewline -Encoding UTF8
+$serializedEnvironment = ConvertTo-AutopilotEnvFileContent -Entry $envContent
+Set-Content -Path $envFilePath -Value $serializedEnvironment -NoNewline -Encoding UTF8
 
 Write-Host "Env file created: $envFilePath (ACL restricted to $currentUser)"
 return $envFilePath

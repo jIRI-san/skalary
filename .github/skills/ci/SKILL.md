@@ -146,10 +146,11 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
 Before implementing a step, run the validation reconcile gate:
 
 ```powershell
-npm run validate-plan
+pwsh -NoProfile -File .github/skills/ci/scripts/Test-Plan.ps1 `
+    -PlanPath <selected-plan-path> -RepoRoot <canonical-repo-root>
 ```
 
-If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `.github/skills/ci/scripts/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
+Fix blocking failures before execution. This bundled gate is the plan-consistency authority; do not add inline validation logic.
 
 Use the execution asset for the implement/build/test/code-review/commit loop.
 
@@ -172,6 +173,6 @@ Long runs drift; re-anchor every step instead of trusting context memory:
 
 - **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
 - **Intent authority:** the plan's intent asset — not remembered context — is the anchor for *why* a step exists. Re-read it before each step and at every crosscheck.
-- **Consistency authority:** the `npm run validate-plan` reconcile gate (Step 4) is the only authority on plan/evidence consistency — resolve any divergence by re-running it, not by reasoning from context.
+- **Consistency authority:** the bundled Step 4 gate owns plan/evidence consistency; re-run it to resolve divergence.
 - **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
 - **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.

@@ -38,6 +38,18 @@ Describe 'Autopilot.ContainerOffline' {
             $envFile | Should -Match 'AUTOPILOT_OFFLINE=true'
             $envFile | Should -Match 'AUTOPILOT_FEED=/feed'
         }
+        It 'rejects line and NUL injection in every environment value' {
+            ConvertTo-AutopilotEnvFileContent -Entry @(
+                'SAFE=value=with-equals',
+                'EMPTY='
+            ) | Should -BeExactly "SAFE=value=with-equals`nEMPTY="
+
+            foreach ($value in @("line`nbreak", "carriage`rreturn", "nul$([char]0)value")) {
+                {
+                    ConvertTo-AutopilotEnvFileContent -Entry @("COPILOT_MODEL=$value")
+                } | Should -Throw "*'COPILOT_MODEL'*unsupported*"
+            }
+        }
     }
 
     Context 'executable container launch contract' {
