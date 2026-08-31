@@ -6,9 +6,7 @@ param(
 
     [string]$Target = 'HEAD',
 
-    [string]$RepoRoot,
-
-    [string]$StatePath
+    [string]$RepoRoot
 )
 
 Set-StrictMode -Version Latest
@@ -23,10 +21,6 @@ $parameters = @{
 if ($RepoRoot) {
     $parameters.RepoRoot = $RepoRoot
 }
-if ($StatePath) {
-    $parameters.StatePath = $StatePath
-}
-
 $result = Invoke-EpicAutopilotHostLoop @parameters
 if ($result.State) {
     Write-Output ($result.State | ConvertTo-Json -Compress)

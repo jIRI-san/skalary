@@ -56,7 +56,9 @@ authoritative; it never parses plans or calls Docker, auth, rebundling, runtime 
 execution directly. `AUTOPILOT_CONTAINER=true` fails closed before selection or launch.
 
 Selection is serialized through `AtomicStore` and persisted at
-`<git-common-dir>/skalary/epic-autopilot.json` (or an explicit test/operator `-StatePath`). The
+`<git-common-dir>/skalary/epic-autopilot.json`. The location is host-owned Git metadata, not
+consumer-repository content materialized by plugin installation; the arbitrary `StatePath` seam is
+private to the module's test core and is not exposed by the installed production command. The
 record has exactly six case-sensitive string fields:
 
 | Field | Meaning |
@@ -76,8 +78,12 @@ record.
 
 Under the `AtomicStore` lock, the wrapper resolves the target commit first, requires the repository
 worktree to be clean with HEAD at that exact commit, and only then invokes `Get-PlanState`. It creates
-or resumes `selected`, then CAS-transitions that same run to `running`. The lock is released before
-the blocking launcher call. The launcher runs once as a separate PowerShell process from repo root,
+or resumes `selected`, acquires a run-scoped host lease, then CAS-transitions that same run to
+`running`. The short state lock is released before the blocking launcher call, while the run lease
+stays held through image preparation, container execution, transcript extraction, and terminal-state
+publication. Resume treats either a live host lease or active deterministic container as running, so
+container absence alone cannot overwrite a launcher that is still starting or finishing. The launcher
+runs once as a separate PowerShell process from repo root,
 using `ProcessStartInfo.ArgumentList` with exact arguments `-PlanSlug <NextChild.FolderName> -Mode
 whole-plan -Runtime container -Branch <normalized-target-branch> -ExpectedStartCommit
 <persisted-target-commit> -Run <persisted-run>`. `HEAD` normalizes to its local branch and detached
@@ -418,10 +424,11 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `host-command.ps1` | `param()`-less helper exporting `Resolve-HostCommand` (custom host command resolution); dot-sourced by `launch-host.ps1` only |
 | `clean-sandbox-cache.ps1` | Remove sandbox toolchain cache (~700MB) |
 | `get-credential.ps1` | Read tokens from Windows Credential Manager |
+| `Invoke-SiDueEnqueue.ps1` | Non-blocking headless finalization wrapper for the installed SI due writer |
 | `prepare-env-file.ps1` | Create temp env file with restrictive ACL; reject HTTP(S) remotes containing userinfo |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
 | `container-entrypoint.sh` | Container bootstrap (clone, branch, phase loop) |
-| `run-smoke-test.ps1` | End-to-end smoke test runner |
+| `plan-dispatch.sh` | Container phase-resume and completion dispatch helper sourced by the entrypoint |
 
 ## Trust Boundaries
 
@@ -440,9 +447,9 @@ The worktree persists at `<repo>.worktrees/feature-<slug>`. Re-running `launch.p
 ### Container mode — interrupted run
 
 Ordinary per-plan launches resume an existing remote branch. Epic launches never infer provenance from
-branch existence: only an internal exit-43 retry may resume. Re-entering an epic `running` record probes
-the deterministic run container; active work is left alone, while proven absent/exited work becomes
-terminal `invocation-failed` without an automatic child relaunch.
+branch existence: only an internal exit-43 retry may resume. Re-entering an epic `running` record checks
+the host run lease before probing the deterministic container; active work is left alone, while proven
+host-and-container inactivity becomes terminal `invocation-failed` without an automatic child relaunch.
 
 ### Sandbox mode — interrupted run
 

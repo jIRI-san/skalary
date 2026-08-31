@@ -8,7 +8,6 @@ Describe 'Autopilot.ContainerOffline' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
         $script:scriptsDir = Join-Path $PSScriptRoot '../../plugins/autopilot/scripts'
         $script:entrypointPath = Join-Path $scriptsDir 'container-entrypoint.sh'
-        $script:launch = Get-Content -LiteralPath (Join-Path $scriptsDir 'launch.ps1') -Raw
         $script:launcher = Get-Content -LiteralPath (Join-Path $scriptsDir 'launch-container.ps1') -Raw
         $script:envFile = Get-Content -LiteralPath (Join-Path $scriptsDir 'prepare-env-file.ps1') -Raw
         $script:entrypoint = Get-Content -LiteralPath $entrypointPath -Raw

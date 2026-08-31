@@ -28,7 +28,8 @@ Describe 'Epic autopilot child launcher state machine' {
                 [scriptblock]$WorktreeValidator,
                 [scriptblock]$RunFactory,
                 [scriptblock]$LauncherInvoker,
-                [scriptblock]$ContainerProbe
+                [scriptblock]$ContainerProbe,
+                [scriptblock]$RunLeaseProbe
             )
 
             $parameters = @{}
@@ -283,13 +284,13 @@ Describe 'Epic autopilot child launcher state machine' {
         @(Get-Command -Module EpicAutopilot).Name |
             Should -BeExactly @('Invoke-EpicAutopilotHostLoop')
         $publicParameters = (Get-Command Invoke-EpicAutopilotHostLoop).Parameters.Keys
-        foreach ($parameter in @('Epic', 'Target', 'RepoRoot', 'StatePath')) {
+        foreach ($parameter in @('Epic', 'Target', 'RepoRoot')) {
             $publicParameters | Should -Contain $parameter
         }
         foreach ($privateParameter in @(
-                'PlanStateScript', 'PlanStateInvoker', 'TargetResolver',
+                'StatePath', 'PlanStateScript', 'PlanStateInvoker', 'TargetResolver',
                 'WorktreeValidator', 'RunFactory', 'LauncherInvoker',
-                'ContainerProbe'
+                'ContainerProbe', 'RunLeaseProbe'
             )) {
             $publicParameters | Should -Not -Contain $privateParameter
         }
@@ -306,6 +307,45 @@ Describe 'Epic autopilot child launcher state machine' {
         } $childScript $TestDrive
 
         $observed | Should -Be 255
+    }
+
+    It 'test:EpicAutopilot.RunLease is visible to a concurrent host process' {
+        $statePath = New-StatePath -Name 'cross-process-lease'
+        $lease = & $script:epicModule {
+            param($Path, $Run)
+            Enter-EpicAutopilotRunLease -StatePath $Path -Run $Run
+        } $statePath $script:runA
+        $probeScript = Join-Path $TestDrive 'probe-epic-run-lease.ps1'
+        [System.IO.File]::WriteAllText(
+            $probeScript,
+            @'
+param(
+    [string]$ModulePath,
+    [string]$StatePath,
+    [string]$Run
+)
+Import-Module $ModulePath -Force
+$active = & (Get-Module EpicAutopilot) {
+    param($Path, $RunId)
+    Test-EpicAutopilotRunLeaseActive -StatePath $Path -Run $RunId
+} $StatePath $Run
+if ($active) { exit 0 }
+exit 1
+'@
+        )
+
+        try {
+            & (Get-Process -Id $PID).Path -NoProfile -File $probeScript `
+                -ModulePath $script:modulePath -StatePath $statePath `
+                -Run $script:runA
+            $LASTEXITCODE | Should -Be 0
+        }
+        finally {
+            & $script:epicModule {
+                param($RunLease)
+                Exit-EpicAutopilotRunLease -Lease $RunLease
+            } $lease
+        }
     }
 
     It 'test:EpicAutopilot.ResumeState resumes selected, refuses active or stale state, and fails closed on launch errors' {
@@ -359,6 +399,23 @@ Describe 'Epic autopilot child launcher state machine' {
         $activeProbeNames | Should -BeExactly @("autopilot-run-$script:runA")
         $blockedLaunches | Should -HaveCount 0
         [System.IO.File]::ReadAllText($runningPath) | Should -BeExactly $runningRaw
+
+        $hostActivePath = New-StatePath -Name 'host-launcher-active'
+        [System.IO.File]::WriteAllText(
+            $hostActivePath,
+            (New-StateJson -Outcome 'running')
+        )
+        $hostActiveRaw = [System.IO.File]::ReadAllText($hostActivePath)
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $hostActivePath `
+                -PlanStateInvoker $invokerA -TargetResolver $resolveA `
+                -RunLeaseProbe { return $true } `
+                -ContainerProbe { throw 'active host lease must stop before container probe' } `
+                -LauncherInvoker { throw 'active host lease must not relaunch' }
+        } | Should -Throw '*active host launcher*'
+        [System.IO.File]::ReadAllText($hostActivePath) |
+            Should -BeExactly $hostActiveRaw
 
         $inactivePath = New-StatePath -Name 'interrupted-running'
         [System.IO.File]::WriteAllText(
@@ -600,8 +657,10 @@ Describe 'Epic autopilot child launcher state machine' {
         $plans = Join-Path $root 'docs/implementation-plans'
         $childFolder = '2026-08-31-111111-first-child'
         $childDir = Join-Path $plans $childFolder
+        $conflictingPlanDir = Join-Path $plans '2026-08-31-def456-fixture-epic'
         $epicDir = Join-Path $plans 'epics/2026-08-31-abc123-fixture-epic'
         [void](New-Item -ItemType Directory -Path $childDir -Force)
+        [void](New-Item -ItemType Directory -Path $conflictingPlanDir -Force)
         [void](New-Item -ItemType Directory -Path $epicDir -Force)
         [System.IO.File]::WriteAllText(
             (Join-Path $epicDir 'epic.md'),
@@ -625,16 +684,37 @@ Describe 'Epic autopilot child launcher state machine' {
                 '- [ ] 1.1 Execute fixture (REQ-1) `S`'
             ) -join "`n"
         )
+        [System.IO.File]::WriteAllText(
+            (Join-Path $conflictingPlanDir 'plan.md'),
+            @(
+                '# def456: Fixture epic'
+                '<!-- plan-id: def456 -->'
+                ''
+                '## Requirements'
+                ''
+                '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                '|----|-------------|---------------------|--------------|'
+                '| REQ-1 | Fixture | `test:fixture` | 1.1 |'
+                ''
+                '## Phase 1: Fixture'
+                ''
+                '- [ ] 1.1 Execute fixture (REQ-1) `S`'
+            ) -join "`n"
+        )
         & git -C $root init -q -b main
         & git -C $root config user.name fixture
         & git -C $root config user.email fixture@example.invalid
         & git -C $root add .
         & git -C $root commit -q -m fixture
         $targetCommit = (& git -C $root rev-parse HEAD).Trim()
+        $ordinary = & (Join-Path $script:repoRoot 'scripts/skalary/Get-PlanState.ps1') `
+            -Reference 'fixture-epic' -RepoRoot $root -Json |
+            ConvertFrom-Json
+        $ordinary.Kind | Should -BeExactly 'plan'
 
         $statePath = Join-Path $root 'state.json'
         $launches = [System.Collections.Generic.List[object]]::new()
-        $result = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'refs/heads/main' `
+        $result = Invoke-TestEpicHostLoop -Epic 'fixture-epic' -Target 'refs/heads/main' `
             -RepoRoot $root -StatePath $statePath -RunFactory { $script:runA } `
             -LauncherInvoker {
             param($LaunchScript, $Argument, $WorkingDirectory)
@@ -902,9 +982,14 @@ function Invoke-EpicAutopilotHostLoop {
     param(
         [Parameter(Mandatory)][string]$Epic,
         [string]$Target = 'HEAD',
-        [string]$RepoRoot,
-        [string]$StatePath
+        [string]$RepoRoot
     )
+    if ($env:EPIC_WRAPPER_CAPTURE) {
+        [System.IO.File]::WriteAllText(
+            $env:EPIC_WRAPPER_CAPTURE,
+            "$Epic|$Target|$RepoRoot"
+        )
+    }
     if ($env:EPIC_WRAPPER_SCENARIO -ceq 'none') {
         return [pscustomobject]@{ State = $null }
     }
@@ -937,6 +1022,7 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
         )
         $wrapper = Join-Path $layout 'Invoke-EpicAutopilot.ps1'
         $originalScenario = $env:EPIC_WRAPPER_SCENARIO
+        $originalCapture = $env:EPIC_WRAPPER_CAPTURE
         try {
             foreach ($case in @(
                     @{ Scenario = '0'; Exit = 0; Match = '"outcome":"exit:0"' },
@@ -952,9 +1038,18 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                 $LASTEXITCODE | Should -Be $case.Exit -Because $case.Scenario
                 $output | Should -Match $case.Match -Because $case.Scenario
             }
+            $capturePath = Join-Path $layout 'bound-parameters.txt'
+            $env:EPIC_WRAPPER_CAPTURE = $capturePath
+            $env:EPIC_WRAPPER_SCENARIO = '0'
+            & (Get-Process -Id $PID).Path -NoProfile -File $wrapper abc123 `
+                -Target refs/heads/main -RepoRoot $layout 2>&1 | Out-Null
+            $LASTEXITCODE | Should -Be 0
+            [System.IO.File]::ReadAllText($capturePath) |
+                Should -BeExactly "abc123|refs/heads/main|$layout"
         }
         finally {
             $env:EPIC_WRAPPER_SCENARIO = $originalScenario
+            $env:EPIC_WRAPPER_CAPTURE = $originalCapture
         }
     }
 }

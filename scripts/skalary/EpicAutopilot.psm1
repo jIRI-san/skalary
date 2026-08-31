@@ -177,6 +177,28 @@ function ConvertTo-EpicAutopilotStateJson {
     return $content
 }
 
+function Set-EpicAutopilotState {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)]$State,
+        [Parameter(Mandatory)][string]$ExpectedGeneration,
+        [Parameter(Mandatory)][string]$Operation
+    )
+
+    $write = Set-AtomicStoreContent -Path $Path `
+        -Content (ConvertTo-EpicAutopilotStateJson -State $State) `
+        -ExpectedGeneration $ExpectedGeneration -Validate {
+        param($candidatePath)
+        [void](ConvertFrom-EpicAutopilotStateJson -Json (
+                [System.IO.File]::ReadAllText($candidatePath)
+            ))
+    }
+    if ($write.Status -ne 'complete') {
+        throw "Epic autopilot $Operation failed with status '$($write.Status)'."
+    }
+    return $write
+}
+
 function Test-EpicAutopilotStateIdentity {
     param(
         [Parameter(Mandatory)]$Actual,
@@ -210,18 +232,97 @@ function Set-EpicAutopilotTerminalState {
         }
 
         $terminal = New-EpicAutopilotState -State $current -Outcome $Outcome
-        $write = Set-AtomicStoreContent -Path $Path `
-            -Content (ConvertTo-EpicAutopilotStateJson -State $terminal) `
-            -ExpectedGeneration $RunningGeneration -Validate {
-            param($candidatePath)
-            [void](ConvertFrom-EpicAutopilotStateJson -Json (
-                    [System.IO.File]::ReadAllText($candidatePath)
-                ))
-        }
-        if ($write.Status -ne 'complete') {
-            throw "Epic autopilot terminal state write failed with status '$($write.Status)'."
-        }
+        [void](Set-EpicAutopilotState -Path $Path -State $terminal `
+                -ExpectedGeneration $RunningGeneration -Operation 'terminal state write')
         return $terminal
+    }
+}
+
+function New-EpicAutopilotRunMutex {
+    param(
+        [Parameter(Mandatory)][string]$StatePath,
+        [Parameter(Mandatory)][string]$Run
+    )
+
+    $scope = "$([System.IO.Path]::GetFullPath($StatePath))`n$Run"
+    $digest = [System.Security.Cryptography.SHA256]::HashData(
+        [System.Text.Encoding]::UTF8.GetBytes($scope)
+    )
+    $name = 'skalary-epic-run-' +
+        [Convert]::ToHexString($digest).ToLowerInvariant().Substring(0, 32)
+    foreach ($prefix in @('Global\', 'Local\', '')) {
+        try {
+            return [System.Threading.Mutex]::new($false, "$prefix$name")
+        }
+        catch {
+            continue
+        }
+    }
+    throw "Unable to create epic autopilot run lease '$name'."
+}
+
+function Enter-EpicAutopilotRunLease {
+    param(
+        [Parameter(Mandatory)][string]$StatePath,
+        [Parameter(Mandatory)][string]$Run
+    )
+
+    $mutex = New-EpicAutopilotRunMutex -StatePath $StatePath -Run $Run
+    $acquired = $false
+    try {
+        try {
+            $acquired = $mutex.WaitOne([TimeSpan]::Zero)
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $acquired = $true
+        }
+        if (-not $acquired) {
+            throw "Epic autopilot run '$Run' already has an active host launcher."
+        }
+        return $mutex
+    }
+    catch {
+        if ($acquired) {
+            [void]$mutex.ReleaseMutex()
+        }
+        $mutex.Dispose()
+        throw
+    }
+}
+
+function Test-EpicAutopilotRunLeaseActive {
+    param(
+        [Parameter(Mandatory)][string]$StatePath,
+        [Parameter(Mandatory)][string]$Run
+    )
+
+    $mutex = New-EpicAutopilotRunMutex -StatePath $StatePath -Run $Run
+    $acquired = $false
+    try {
+        try {
+            $acquired = $mutex.WaitOne([TimeSpan]::Zero)
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $acquired = $true
+        }
+        return -not $acquired
+    }
+    finally {
+        if ($acquired) {
+            [void]$mutex.ReleaseMutex()
+        }
+        $mutex.Dispose()
+    }
+}
+
+function Exit-EpicAutopilotRunLease {
+    param([Parameter(Mandatory)][System.Threading.Mutex]$Lease)
+
+    try {
+        [void]$Lease.ReleaseMutex()
+    }
+    finally {
+        $Lease.Dispose()
     }
 }
 
@@ -367,7 +468,8 @@ function Invoke-EpicAutopilotHostLoopCore {
         [scriptblock]$WorktreeValidator,
         [scriptblock]$RunFactory,
         [scriptblock]$LauncherInvoker,
-        [scriptblock]$ContainerProbe
+        [scriptblock]$ContainerProbe,
+        [scriptblock]$RunLeaseProbe
     )
 
     if ($env:AUTOPILOT_CONTAINER -ceq 'true') {
@@ -431,8 +533,16 @@ function Invoke-EpicAutopilotHostLoopCore {
             Test-EpicAutopilotContainerActive -ContainerName $ContainerName
         }
     }
+    if (-not $RunLeaseProbe) {
+        $RunLeaseProbe = {
+            param($Path, $Run)
+            Test-EpicAutopilotRunLeaseActive -StatePath $Path -Run $Run
+        }
+    }
 
-    $admission = Invoke-WithAtomicStoreLock -Scope $stateFile -Action {
+    $runLease = [pscustomobject]@{ Value = $null }
+    try {
+        $admission = Invoke-WithAtomicStoreLock -Scope $stateFile -Action {
         $generation = Get-AtomicStoreGeneration -Path $stateFile
         $existing = Read-EpicAutopilotState -Path $stateFile
 
@@ -479,6 +589,18 @@ function Invoke-EpicAutopilotHostLoopCore {
             if ($existing.outcome -ceq 'running') {
                 $containerName = Get-EpicAutopilotContainerName -Run $existing.run
                 try {
+                    $leaseOutput = @(& $RunLeaseProbe $stateFile $existing.run)
+                }
+                catch {
+                    throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: $($_.Exception.Message)"
+                }
+                if ($leaseOutput.Count -ne 1 -or $leaseOutput[0] -isnot [bool]) {
+                    throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: run lease probe returned an invalid result."
+                }
+                if ([bool]$leaseOutput[0]) {
+                    throw "Epic autopilot run '$($existing.run)' already has an active host launcher; refusing a second child launcher."
+                }
+                try {
                     $probeOutput = @(& $ContainerProbe $containerName)
                 }
                 catch {
@@ -493,17 +615,9 @@ function Invoke-EpicAutopilotHostLoopCore {
 
                 $reconciled = New-EpicAutopilotState -State $existing `
                     -Outcome 'invocation-failed'
-                $reconciledWrite = Set-AtomicStoreContent -Path $stateFile `
-                    -Content (ConvertTo-EpicAutopilotStateJson -State $reconciled) `
-                    -ExpectedGeneration $generation -Validate {
-                    param($candidatePath)
-                    [void](ConvertFrom-EpicAutopilotStateJson -Json (
-                            [System.IO.File]::ReadAllText($candidatePath)
-                        ))
-                }
-                if ($reconciledWrite.Status -ne 'complete') {
-                    throw "Epic autopilot running-state reconciliation failed with status '$($reconciledWrite.Status)'."
-                }
+                [void](Set-EpicAutopilotState -Path $stateFile -State $reconciled `
+                        -ExpectedGeneration $generation `
+                        -Operation 'running-state reconciliation')
                 return [pscustomobject]@{
                     State = $reconciled
                     NextChild = $rollup.NextChild
@@ -565,32 +679,16 @@ function Invoke-EpicAutopilotHostLoopCore {
                 run = [string](& $RunFactory)
                 outcome = 'selected'
             }
-            $selectedWrite = Set-AtomicStoreContent -Path $stateFile `
-                -Content (ConvertTo-EpicAutopilotStateJson -State $selected) `
-                -ExpectedGeneration 'absent' -Validate {
-                param($candidatePath)
-                [void](ConvertFrom-EpicAutopilotStateJson -Json (
-                        [System.IO.File]::ReadAllText($candidatePath)
-                    ))
-            }
-            if ($selectedWrite.Status -ne 'complete') {
-                throw "Epic autopilot selected state write failed with status '$($selectedWrite.Status)'."
-            }
+            $selectedWrite = Set-EpicAutopilotState -Path $stateFile -State $selected `
+                -ExpectedGeneration 'absent' -Operation 'selected state write'
             $generation = $selectedWrite.Generation
         }
 
+        $runLease.Value = Enter-EpicAutopilotRunLease `
+            -StatePath $stateFile -Run $selected.run
         $running = New-EpicAutopilotState -State $selected -Outcome 'running'
-        $runningWrite = Set-AtomicStoreContent -Path $stateFile `
-            -Content (ConvertTo-EpicAutopilotStateJson -State $running) `
-            -ExpectedGeneration $generation -Validate {
-            param($candidatePath)
-            [void](ConvertFrom-EpicAutopilotStateJson -Json (
-                    [System.IO.File]::ReadAllText($candidatePath)
-                ))
-        }
-        if ($runningWrite.Status -ne 'complete') {
-            throw "Epic autopilot running state write failed with status '$($runningWrite.Status)'."
-        }
+        $runningWrite = Set-EpicAutopilotState -Path $stateFile -State $running `
+            -ExpectedGeneration $generation -Operation 'running state write'
 
         return [pscustomobject]@{
             State = $running
@@ -605,11 +703,11 @@ function Invoke-EpicAutopilotHostLoopCore {
             Message = $null
             Generation = $runningWrite.Generation
         }
-    }
+        }
 
-    if (-not $admission.Launch) {
-        return $admission
-    }
+        if (-not $admission.Launch) {
+            return $admission
+        }
 
     $launchScript = Join-Path $repoRootPath '.github/skills/autopilot/scripts/launch.ps1'
     $launchArguments = @(
@@ -661,20 +759,26 @@ function Invoke-EpicAutopilotHostLoopCore {
         }
     }
 
-    $terminal = Set-EpicAutopilotTerminalState -Path $stateFile `
-        -RunningState $admission.State -RunningGeneration $admission.Generation `
-        -Outcome "exit:$launcherExit"
-    return [pscustomobject]@{
-        State = $terminal
-        NextChild = $admission.NextChild
-        Resumed = $admission.Resumed
-        StatePath = $stateFile
-        Launch = $true
-        LaunchAttempted = $true
-        Replayed = $false
-        ExitCode = $launcherExit
-        Failed = $false
-        Message = $null
+        $terminal = Set-EpicAutopilotTerminalState -Path $stateFile `
+            -RunningState $admission.State -RunningGeneration $admission.Generation `
+            -Outcome "exit:$launcherExit"
+        return [pscustomobject]@{
+            State = $terminal
+            NextChild = $admission.NextChild
+            Resumed = $admission.Resumed
+            StatePath = $stateFile
+            Launch = $true
+            LaunchAttempted = $true
+            Replayed = $false
+            ExitCode = $launcherExit
+            Failed = $false
+            Message = $null
+        }
+    }
+    finally {
+        if ($null -ne $runLease.Value) {
+            Exit-EpicAutopilotRunLease -Lease $runLease.Value
+        }
     }
 }
 
@@ -683,8 +787,7 @@ function Invoke-EpicAutopilotHostLoop {
     param(
         [Parameter(Mandatory)][string]$Epic,
         [string]$Target = 'HEAD',
-        [string]$RepoRoot,
-        [string]$StatePath
+        [string]$RepoRoot
     )
 
     return Invoke-EpicAutopilotHostLoopCore @PSBoundParameters
