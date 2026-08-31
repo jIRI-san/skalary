@@ -34,5 +34,5 @@
 ## Phase 3: Epic close and proof
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 After the final merge, invoke the simplified epic-coherency review when available or run an epic-intent/definition-of-done crosscheck; record the result without creating an evidence-only finalization PR (REQ-5, RISK-5) [after: 2.2] `M`
+- [~] 3.1 After the final merge, invoke the simplified epic-coherency review when available or run an epic-intent/definition-of-done crosscheck; record the result without creating an evidence-only finalization PR (REQ-5, RISK-5) [after: 2.2] `M`
 - [ ] 3.2 Add focused state/resume, one-child, terminal-stop, target-refresh, failure, and final-crosscheck tests; synchronize existing plugin/generated copies, rebuild the existing evidence receipt, and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5) [after: 3.1] `M`

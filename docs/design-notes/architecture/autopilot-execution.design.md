@@ -128,13 +128,53 @@ nothing. When another child is eligible, one CAS replaces the prior checkpoint d
 `selected` record for the new target/child/run; normal `selected` restart and `selected` → `running`
 launch semantics then apply. A replacement race fails without overwriting the winner.
 
-When the refreshed rollup is complete, a generation-checked delete clears the checkpoint and returns
-an explicit clean completion with no launch. When the rollup is incomplete but has no `NextChild`, the
-loop returns an explicit blocked stop (wrapper exit 42) and deliberately retains the prior success
-checkpoint. That checkpoint is the retry anchor: a later invocation can re-evaluate the same merge
-against a repaired dependency graph without a seventh persisted field or a second state family. A
-delete race likewise fails without deleting the competing state. Target refresh is read-only: the epic
-layer never fetches, pulls, checks out, merges, pushes, or invokes a provider API.
+When the refreshed rollup is complete, completion is gated before the generation-checked checkpoint
+delete. The host recognizes only the fixed optional installed entry point
+`.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1`; its exact process exit code is the review
+result. Presence with a start failure, malformed result, or nonzero result blocks completion and never
+falls back. When that entry point is absent, the bounded deterministic fallback requires the trusted
+complete rollup plus regular, repository-confined canonical `epic.md` and final-child `plan.md` files,
+then checks a valid UTF-8 epic of at most 1 MiB for non-placeholder `Goal` and `Definition of done`
+sections. Epic text is data only and is never included in commands or evidence.
+
+After either path passes, the existing installed `Add-WorkflowNote.ps1` records one deterministic
+phase-0 Capture entry against the final child plan; only its zero process result permits completion.
+The epic host then makes that tracked evidence durable through one narrow local exception to the
+otherwise target-read-only contract. The worktree must be attached to the selected local target ref
+and clean at the reviewed target. Exactly one existing tracked Capture path may change. Git plumbing
+creates a single-parent commit containing only that path, with the reviewed target as its parent, and
+advances the checked-out local target ref by compare-and-swap. The index and worktree must be clean at
+the new commit before state deletion. There is no checkout, branch creation, merge, push, PR, or
+provider call, and this local commit does not bypass protected-target publication: an operator may
+publish it only through the repository's normal protected-target workflow when that workflow already
+permits the resulting commit.
+
+Recording and local publication occur while the exact six-field checkpoint still exists. Review,
+fallback, writer, staging, commit creation, or pre-publication CAS failures leave its bytes unchanged
+and restore only the Capture worktree/index entry against current `HEAD`. A delete failure retains the
+checkpoint but not an uncommitted Capture. Before the normal cleanliness gate, restart recovery is
+available only to a retained successful checkpoint and only for the canonical final-child Capture
+resolved from regular-file entries in the current target tree. It admits the sole unstaged or sole
+staged forms that an abrupt writer/publication exit can leave, regenerates the deterministic bytes from
+clean canonical sources to reject forgery, restores only that Capture/index entry, and then repeats the
+normal validation, crosscheck, writer, and target-ref CAS. Mixed states, untracked or other path/index
+changes, noncanonical source bytes/modes, and concurrent target movement fail closed without changing
+checkpoint bytes. On restart after publication, only an exact marker-bearing single-parent target
+commit whose sole delta is the expected Capture path is recognized; the coherency check is repeated
+against its recorded parent, the typed writer must report a byte-clean deduplicated replay, and no
+second record or commit is created before deletion retries. Malformed evidence metadata, detached/wrong
+`HEAD`, or concurrent ref movement fails closed. No seventh state field, evidence-only branch/PR,
+concern family, receipt, or finalization platform is introduced. With no pre-existing checkpoint, the
+same gate and idempotent local publication run before the typed complete return against the last rollup
+child.
+
+When the rollup is incomplete but has no `NextChild`, the loop returns an explicit blocked stop
+(wrapper exit 42) and deliberately retains the prior success checkpoint. That checkpoint is the retry
+anchor: a later invocation can re-evaluate the same merge against a repaired dependency graph without
+a seventh persisted field or a second state family. A delete race likewise fails without deleting the
+competing state. Target refresh remains remote-read-only: apart from the bounded final Capture
+commit above, the epic layer never mutates the local target and never fetches, pulls, checks out,
+merges, pushes, or invokes a provider API.
 
 ## Modes
 
@@ -449,7 +489,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 
 | Script | Purpose |
 |--------|---------|
-| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; refreshes and CAS-advances only merge-proven success, preserves terminal failures and blocked retry anchors, exports only the three-argument production host loop, and keeps test adapters private |
+| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; refreshes and CAS-advances only merge-proven success, gates complete rollups through the optional fixed coherency-review entry point or bounded intent/done fallback, publishes exactly one local Capture-only evidence commit by checked-out-target CAS before deleting state, preserves terminal failures and blocked retry anchors, exports only the three-argument production host loop, and keeps test adapters private |
 | `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; distinguishes awaiting merge, clean completion, blocked exit 42, invocation failure, and portable child exit codes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |

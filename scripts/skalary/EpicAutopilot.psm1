@@ -560,6 +560,788 @@ function Test-EpicAutopilotContainerActive {
     return $parts[1] -cnotin @('exited', 'dead')
 }
 
+function Resolve-EpicAutopilotTrustedFile {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ExpectedName,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "$Label path is missing."
+    }
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
+        [System.IO.Path]::GetFullPath($Path)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $root $Path))
+    }
+    $relative = [System.IO.Path]::GetRelativePath($root, $candidate)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith(
+            "..$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "$Label path is outside the repository."
+    }
+    if ([System.IO.Path]::GetFileName($candidate) -cne $ExpectedName) {
+        throw "$Label path must name '$ExpectedName'."
+    }
+
+    $cursor = $root
+    foreach ($segment in $relative.Split(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringSplitOptions]::RemoveEmptyEntries
+        )) {
+        $cursor = Join-Path $cursor $segment
+        $item = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ($item.PSObject.Properties.Name -contains 'LinkType' -and $item.LinkType)) {
+            throw "$Label path must not contain links or reparse points."
+        }
+    }
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        throw "$Label path must be a regular file."
+    }
+    return $candidate
+}
+
+function Test-EpicAutopilotIntentSection {
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][string]$Heading
+    )
+
+    $pattern = '(?ms)^##[ \t]+' + [regex]::Escape($Heading) +
+    '[ \t]*\r?\n(?<body>.*?)(?=^##[ \t]+|\z)'
+    $match = [regex]::Match(
+        $Content,
+        $pattern,
+        [System.Text.RegularExpressions.RegexOptions]::None,
+        [TimeSpan]::FromSeconds(1)
+    )
+    if (-not $match.Success) {
+        return $false
+    }
+    $body = [regex]::Replace(
+        $match.Groups['body'].Value,
+        '<!--.*?-->',
+        '',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline,
+        [TimeSpan]::FromSeconds(1)
+    ).Trim()
+    return -not [string]::IsNullOrWhiteSpace($body) -and
+    $body -cnotmatch '^(?:[_*(]*\s*)?(?:TBD|TODO|not yet defined)(?:\s*[_*)]*)?[.!]?$'
+}
+
+function Get-EpicAutopilotFinalPlanFile {
+    param(
+        [Parameter(Mandatory)]$Rollup,
+        $State
+    )
+
+    $children = @($Rollup.Children)
+    $selected = if ($null -ne $State) {
+        @($children | Where-Object { [string]$_.Id -ceq [string]$State.currentChild })
+    }
+    elseif ($children.Count -gt 0) {
+        @($children[$children.Count - 1])
+    }
+    else {
+        @()
+    }
+    if ($selected.Count -ne 1 -or
+        $selected[0].PSObject.Properties.Name -notcontains 'PlanFile' -or
+        $selected[0].PlanFile -isnot [string]) {
+        throw 'Complete epic rollup does not identify exactly one final child plan file.'
+    }
+    return [string]$selected[0].PlanFile
+}
+
+function Assert-EpicAutopilotCheckedOutTarget {
+    param(
+        [Parameter(Mandatory)][string]$TargetBranch,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $expectedRef = "refs/heads/$TargetBranch"
+    $headRef = @(& git -C $RepoRoot symbolic-ref --quiet HEAD 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $headRef.Count -ne 1 -or
+        ([string]$headRef[0]).Trim() -cne $expectedRef) {
+        throw "Repository worktree HEAD must be attached to checked-out target ref '$expectedRef'."
+    }
+    $refCommit = @(
+        & git -C $RepoRoot rev-parse --verify "$expectedRef`^{commit}" 2>&1
+    )
+    if ($LASTEXITCODE -ne 0 -or $refCommit.Count -ne 1 -or
+        ([string]$refCommit[0]).Trim().ToLowerInvariant() -cne $TargetCommit) {
+        throw "Checked-out target ref '$expectedRef' moved from expected commit '$TargetCommit'."
+    }
+}
+
+function ConvertTo-EpicAutopilotRepoRelativePath {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    $relative = [System.IO.Path]::GetRelativePath($root, $candidate)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith(
+            "..$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "$Label path is outside the repository."
+    }
+    return $relative.Replace(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [char]'/'
+    )
+}
+
+function Get-EpicAutopilotCapturePath {
+    param(
+        [Parameter(Mandatory)][string]$PlanFile,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Commit
+    )
+
+    $planDirectory = Split-Path -Parent $PlanFile
+    $matches = [System.Collections.Generic.List[object]]::new()
+    foreach ($candidate in @(
+            (Join-Path $planDirectory 'capture.md'),
+            (Join-Path $planDirectory 'assets/logs/capture.md')
+        )) {
+        $relative = ConvertTo-EpicAutopilotRepoRelativePath -Path $candidate `
+            -RepoRoot $RepoRoot -Label 'Final crosscheck Capture'
+        $treeEntry = @(
+            & git -C $RepoRoot ls-tree --name-only $Commit -- $relative 2>&1
+        )
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect Capture path '$relative' at '$Commit'."
+        }
+        if ($treeEntry.Count -eq 1 -and ([string]$treeEntry[0]).Trim() -ceq $relative) {
+            $matches.Add([pscustomobject]@{
+                    FullPath     = [System.IO.Path]::GetFullPath($candidate)
+                    RelativePath = $relative
+                })
+        }
+        elseif ($treeEntry.Count -ne 0) {
+            throw "Capture path lookup returned an unexpected result for '$relative'."
+        }
+    }
+    if ($matches.Count -ne 1) {
+        throw "Final child plan must have exactly one tracked Capture path; found $($matches.Count)."
+    }
+    [void](Resolve-EpicAutopilotTrustedFile -Path $matches[0].FullPath `
+            -RepoRoot $RepoRoot -ExpectedName 'capture.md' `
+            -Label 'Final crosscheck Capture')
+    return $matches[0]
+}
+
+function Get-EpicAutopilotTreeEntry {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Commit,
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$Optional
+    )
+
+    $output = @(& git -C $RepoRoot ls-tree $Commit -- $Path 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect canonical target path '$Path' at '$Commit'."
+    }
+    if ($output.Count -eq 0 -and $Optional) { return $null }
+    if ($output.Count -ne 1 -or
+        [string]$output[0] -cnotmatch
+        '^(?<mode>[0-9]{6}) (?<type>[a-z]+) (?<oid>[0-9a-f]+)\t(?<path>.+)$' -or
+        $Matches.path -cne $Path) {
+        throw "Canonical target path '$Path' must resolve to exactly one tree entry."
+    }
+    if ($Matches.mode -cne '100644' -or $Matches.type -cne 'blob') {
+        throw "Canonical target path '$Path' must be a regular non-executable file."
+    }
+    return [pscustomobject]@{
+        Path = $Path
+        Oid  = $Matches.oid
+    }
+}
+
+function Assert-EpicAutopilotWorktreeFileMatchesTree {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)]$TreeEntry
+    )
+
+    $output = @(
+        & git -C $RepoRoot hash-object "--path=$($TreeEntry.Path)" -- `
+            $TreeEntry.Path 2>&1
+    )
+    if ($LASTEXITCODE -ne 0 -or $output.Count -ne 1 -or
+        ([string]$output[0]).Trim().ToLowerInvariant() -cne
+        ([string]$TreeEntry.Oid).ToLowerInvariant()) {
+        throw "Worktree source '$($TreeEntry.Path)' does not match the canonical target blob."
+    }
+}
+
+function Get-EpicAutopilotRecoveryDescriptor {
+    param(
+        [Parameter(Mandatory)]$State,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$ReviewScriptPath
+    )
+
+    $branchPrefix = 'feature/'
+    if (-not ([string]$State.branch).StartsWith(
+            $branchPrefix,
+            [System.StringComparison]::Ordinal
+        )) {
+        throw 'Retained epic checkpoint has no canonical final-child folder.'
+    }
+    $folder = ([string]$State.branch).Substring($branchPrefix.Length)
+    $childPattern = '^\d{4}-\d{2}-\d{2}-' +
+        [regex]::Escape([string]$State.currentChild) + '(?:-[^/]+)?$'
+    if ($folder -cnotmatch $childPattern) {
+        throw 'Retained epic checkpoint branch does not identify its canonical final child.'
+    }
+
+    $planPath = "docs/implementation-plans/$folder/plan.md"
+    $planEntry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+        -Commit $TargetCommit -Path $planPath
+    $planDirectory = [System.IO.Path]::GetFullPath(
+        (Join-Path $RepoRoot "docs/implementation-plans/$folder")
+    )
+    [void](Resolve-EpicAutopilotTrustedFile -Path (Join-Path $planDirectory 'plan.md') `
+            -RepoRoot $RepoRoot -ExpectedName 'plan.md' -Label 'Final child plan')
+    Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
+        -TreeEntry $planEntry
+
+    $epicTree = @(
+        & git -C $RepoRoot ls-tree -r --name-only $TargetCommit -- `
+            'docs/implementation-plans/epics' 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect canonical epic sources at '$TargetCommit'."
+    }
+    $epicPattern = '^docs/implementation-plans/epics/' +
+        '\d{4}-\d{2}-\d{2}-' + [regex]::Escape([string]$State.epic) +
+        '(?:-[^/]+)?/epic\.md$'
+    $epicPaths = @($epicTree | Where-Object { [string]$_ -cmatch $epicPattern })
+    if ($epicPaths.Count -ne 1) {
+        throw "Canonical target must contain exactly one epic source for '$($State.epic)'."
+    }
+    $epicEntry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+        -Commit $TargetCommit -Path ([string]$epicPaths[0])
+    [void](Resolve-EpicAutopilotTrustedFile `
+            -Path (Join-Path $RepoRoot ([string]$epicPaths[0])) `
+            -RepoRoot $RepoRoot -ExpectedName 'epic.md' -Label 'Canonical epic')
+    Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
+        -TreeEntry $epicEntry
+
+    $capturePaths = @(
+        "$($planPath.Substring(0, $planPath.Length - 'plan.md'.Length))capture.md"
+        "$($planPath.Substring(0, $planPath.Length - 'plan.md'.Length))assets/logs/capture.md"
+    )
+    $captureEntries = @(
+        foreach ($capturePath in $capturePaths) {
+            $entry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+                -Commit $TargetCommit -Path $capturePath -Optional
+            if ($null -ne $entry) { $entry }
+        }
+    )
+    if ($captureEntries.Count -ne 1) {
+        throw "Canonical final child must contain exactly one tracked Capture path; found $($captureEntries.Count)."
+    }
+    $capturePath = [string]$captureEntries[0].Path
+    [void](Resolve-EpicAutopilotTrustedFile -Path (Join-Path $RepoRoot $capturePath) `
+            -RepoRoot $RepoRoot -ExpectedName 'capture.md' `
+            -Label 'Final crosscheck Capture')
+
+    $reviewRelative = ConvertTo-EpicAutopilotRepoRelativePath `
+        -Path $ReviewScriptPath -RepoRoot $RepoRoot `
+        -Label 'Installed epic coherency review'
+    $reviewEntry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+        -Commit $TargetCommit -Path $reviewRelative -Optional
+    if ($null -ne $reviewEntry) {
+        [void](Resolve-EpicAutopilotTrustedFile -Path $ReviewScriptPath `
+                -RepoRoot $RepoRoot -ExpectedName 'Invoke-EpicCoherencyReview.ps1' `
+                -Label 'Installed epic coherency review')
+        Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
+            -TreeEntry $reviewEntry
+    }
+
+    return [pscustomobject]@{
+        CapturePath  = $capturePath
+        PlanDirectory = $planDirectory
+        Message      = if ($null -ne $reviewEntry) {
+            'Epic final crosscheck passed via installed simplified epic coherency review.'
+        }
+        else {
+            'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.'
+        }
+        ReviewType   = if ($null -ne $reviewEntry) { 'dr' } else { 'none' }
+    }
+}
+
+function Restore-EpicAutopilotRecoveryResidue {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$CapturePath,
+        [Parameter(Mandatory)][byte[]]$Bytes,
+        [Parameter(Mandatory)][bool]$Staged
+    )
+
+    & git -C $RepoRoot restore --source=$TargetCommit --staged --worktree -- `
+        $CapturePath 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to restore canonical Capture path '$CapturePath'."
+    }
+    [System.IO.File]::WriteAllBytes((Join-Path $RepoRoot $CapturePath), $Bytes)
+    if ($Staged) {
+        & git -C $RepoRoot add -- $CapturePath 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to restore staged Capture residue '$CapturePath'."
+        }
+    }
+    Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+        -CapturePath $CapturePath -Staged:$Staged
+}
+
+function Repair-EpicAutopilotFinalEvidenceResidue {
+    param(
+        [Parameter(Mandatory)]$State,
+        [Parameter(Mandatory)][string]$TargetBranch,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ReviewScriptPath,
+        [Parameter(Mandatory)][string]$EvidenceScriptPath,
+        [Parameter(Mandatory)][scriptblock]$EvidenceRecorder
+    )
+
+    $unstaged = @(& git -C $RepoRoot diff --name-only --no-renames 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery worktree changes.' }
+    $cached = @(& git -C $RepoRoot diff --cached --name-only --no-renames 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery index changes.' }
+    $untracked = @(& git -C $RepoRoot ls-files --others --exclude-standard 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect recovery untracked files.' }
+    if ($unstaged.Count -eq 0 -and $cached.Count -eq 0 -and
+        $untracked.Count -eq 0) {
+        return
+    }
+    if ($untracked.Count -ne 0) {
+        return
+    }
+    if ([string]$State.target -ceq $TargetCommit) {
+        return
+    }
+    & git -C $RepoRoot merge-base --is-ancestor ([string]$State.target) `
+        $TargetCommit 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Abrupt final evidence recovery target '$TargetCommit' is not a forward descendant of retained target '$($State.target)'."
+    }
+    Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+        -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+
+    $descriptor = Get-EpicAutopilotRecoveryDescriptor -State $State `
+        -RepoRoot $RepoRoot -TargetCommit $TargetCommit `
+        -ReviewScriptPath $ReviewScriptPath
+    $capturePath = [string]$descriptor.CapturePath
+    $isUnstaged = $unstaged.Count -eq 1 -and $cached.Count -eq 0 -and
+        ([string]$unstaged[0]).Trim() -ceq $capturePath
+    $isStaged = $unstaged.Count -eq 0 -and $cached.Count -eq 1 -and
+        ([string]$cached[0]).Trim() -ceq $capturePath
+    if (-not $isUnstaged -and -not $isStaged) {
+        throw "Abrupt final evidence recovery permits only sole unstaged or staged Capture residue '$capturePath'."
+    }
+
+    $residueBytes = [System.IO.File]::ReadAllBytes(
+        (Join-Path $RepoRoot $capturePath)
+    )
+    try {
+        & git -C $RepoRoot restore --source=$TargetCommit --staged --worktree -- `
+            $capturePath 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to restore Capture path '$capturePath' for recovery verification."
+        }
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath -Clean
+
+        $recordOutput = @(
+            & $EvidenceRecorder $EvidenceScriptPath $descriptor.PlanDirectory `
+                $descriptor.Message $descriptor.ReviewType $RepoRoot
+        )
+        $recordExit = ConvertTo-EpicAutopilotExitCode -Output $recordOutput `
+            -Label 'Epic final evidence recovery writer'
+        if ($recordExit -ne 0) {
+            throw "Epic final evidence recovery writer failed with exit code '$recordExit'."
+        }
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath
+        $expectedBytes = [System.IO.File]::ReadAllBytes(
+            (Join-Path $RepoRoot $capturePath)
+        )
+        if ([Convert]::ToBase64String($expectedBytes) -cne
+            [Convert]::ToBase64String($residueBytes)) {
+            throw "Abrupt final evidence Capture residue '$capturePath' does not match deterministic writer output."
+        }
+
+        & git -C $RepoRoot restore --source=$TargetCommit --staged --worktree -- `
+            $capturePath 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to finish Capture recovery for '$capturePath'."
+        }
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath -Clean
+    }
+    catch {
+        $failure = $_
+        try {
+            Restore-EpicAutopilotRecoveryResidue -RepoRoot $RepoRoot `
+                -TargetCommit $TargetCommit -CapturePath $capturePath `
+                -Bytes $residueBytes -Staged:$isStaged
+        }
+        catch {
+            throw "$($failure.Exception.Message) Recovery residue restoration also failed: $($_.Exception.Message)"
+        }
+        throw $failure
+    }
+}
+
+function Get-EpicAutopilotEvidenceMessage {
+    param(
+        [Parameter(Mandatory)][string]$EpicId,
+        [Parameter(Mandatory)][string]$ReviewedTarget,
+        [Parameter(Mandatory)][string]$CapturePath
+    )
+
+    return @(
+        "chore(autopilot): record epic $EpicId final crosscheck"
+        ''
+        'Epic-Autopilot-Evidence: v1'
+        "Epic-Autopilot-Reviewed-Target: $ReviewedTarget"
+        "Epic-Autopilot-Capture-Path: $CapturePath"
+    ) -join "`n"
+}
+
+function Resolve-EpicAutopilotEvidenceCommit {
+    param(
+        [Parameter(Mandatory)][string]$TargetBranch,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$PlanFile,
+        [Parameter(Mandatory)][string]$EpicId
+    )
+
+    Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+        -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+    $capture = Get-EpicAutopilotCapturePath -PlanFile $PlanFile `
+        -RepoRoot $RepoRoot -Commit $TargetCommit
+    $messageOutput = @(& git -C $RepoRoot show -s --format=%B $TargetCommit 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect target commit '$TargetCommit' for final evidence."
+    }
+    $message = (($messageOutput | ForEach-Object { [string]$_ }) -join "`n").TrimEnd()
+    $hasMarker = $message -cmatch '(?m)^Epic-Autopilot-Evidence:'
+    $expectedSubject = "chore(autopilot): record epic $EpicId final crosscheck"
+    if (-not $hasMarker -and -not $message.StartsWith(
+            $expectedSubject,
+            [System.StringComparison]::Ordinal
+        )) {
+        return [pscustomobject]@{
+            IsReplay       = $false
+            ReviewedTarget = $TargetCommit
+            EvidenceCommit = $null
+            Capture        = $capture
+        }
+    }
+
+    $parentOutput = @(& git -C $RepoRoot show -s --format=%P $TargetCommit 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $parentOutput.Count -ne 1) {
+        throw "Epic final evidence commit '$TargetCommit' has invalid parent metadata."
+    }
+    $parents = @(
+        ([string]$parentOutput[0]).Trim().Split(
+            ' ',
+            [System.StringSplitOptions]::RemoveEmptyEntries
+        )
+    )
+    if ($parents.Count -ne 1 -or
+        $parents[0] -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+        throw "Epic final evidence commit '$TargetCommit' must have exactly one parent."
+    }
+    $reviewedTarget = $parents[0].ToLowerInvariant()
+    $expectedMessage = Get-EpicAutopilotEvidenceMessage -EpicId $EpicId `
+        -ReviewedTarget $reviewedTarget -CapturePath $capture.RelativePath
+    if ($message -cne $expectedMessage) {
+        throw "Epic final evidence commit '$TargetCommit' has invalid metadata."
+    }
+    $changedPaths = @(
+        & git -C $RepoRoot diff-tree --no-commit-id --name-only -r `
+            $reviewedTarget $TargetCommit 2>&1
+    )
+    if ($LASTEXITCODE -ne 0 -or $changedPaths.Count -ne 1 -or
+        ([string]$changedPaths[0]).Trim() -cne $capture.RelativePath) {
+        throw "Epic final evidence commit '$TargetCommit' must change only '$($capture.RelativePath)'."
+    }
+    return [pscustomobject]@{
+        IsReplay       = $true
+        ReviewedTarget = $reviewedTarget
+        EvidenceCommit = $TargetCommit
+        Capture        = $capture
+    }
+}
+
+function Restore-EpicAutopilotEvidenceWorktree {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$CapturePath
+    )
+
+    & git -C $RepoRoot restore --source=HEAD --staged --worktree -- `
+        $CapturePath 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to restore Capture/index path '$CapturePath' after final evidence failure."
+    }
+}
+
+function Assert-EpicAutopilotEvidenceStatus {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$CapturePath,
+        [switch]$Staged,
+        [switch]$Clean
+    )
+
+    $unstaged = @(& git -C $RepoRoot diff --name-only --no-renames 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect unstaged final evidence changes.' }
+    $cached = @(& git -C $RepoRoot diff --cached --name-only --no-renames 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect staged final evidence changes.' }
+    $untracked = @(& git -C $RepoRoot ls-files --others --exclude-standard 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect untracked final evidence changes.' }
+
+    if ($Clean) {
+        if ($unstaged.Count -ne 0 -or $cached.Count -ne 0 -or
+            $untracked.Count -ne 0) {
+            throw 'Repository worktree must be clean after final evidence publication.'
+        }
+        return
+    }
+    $expectedUnstaged = if ($Staged) { 0 } else { 1 }
+    $expectedCached = if ($Staged) { 1 } else { 0 }
+    if ($unstaged.Count -ne $expectedUnstaged -or
+        ($expectedUnstaged -eq 1 -and
+            ([string]$unstaged[0]).Trim() -cne $CapturePath) -or
+        $cached.Count -ne $expectedCached -or
+        ($expectedCached -eq 1 -and
+            ([string]$cached[0]).Trim() -cne $CapturePath) -or
+        $untracked.Count -ne 0) {
+        throw "Final crosscheck must change exactly tracked Capture path '$CapturePath'."
+    }
+}
+
+function Publish-EpicAutopilotFinalEvidence {
+    param(
+        [Parameter(Mandatory)]$Descriptor,
+        [Parameter(Mandatory)][string]$TargetBranch,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$EpicId,
+        [Parameter(Mandatory)][string]$EvidenceScriptPath,
+        [Parameter(Mandatory)][string]$PlanDirectory,
+        [Parameter(Mandatory)][string]$Message,
+        [Parameter(Mandatory)][string]$ReviewType,
+        [Parameter(Mandatory)][scriptblock]$EvidenceRecorder
+    )
+
+    $capturePath = [string]$Descriptor.Capture.RelativePath
+    try {
+        $recordOutput = @(
+            & $EvidenceRecorder $EvidenceScriptPath $PlanDirectory `
+                $Message $ReviewType $RepoRoot
+        )
+        $recordExit = ConvertTo-EpicAutopilotExitCode -Output $recordOutput `
+            -Label 'Epic final crosscheck evidence writer'
+        if ($recordExit -ne 0) {
+            throw "Epic final crosscheck evidence writer failed with exit code '$recordExit'."
+        }
+
+        if ([bool]$Descriptor.IsReplay) {
+            Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+                -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+            Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+                -CapturePath $capturePath -Clean
+            return [string]$Descriptor.EvidenceCommit
+        }
+
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath
+        & git -C $RepoRoot add -- $capturePath 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to stage final Capture path '$capturePath'."
+        }
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath -Staged
+        $treeOutput = @(& git -C $RepoRoot write-tree 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $treeOutput.Count -ne 1) {
+            throw 'Unable to write the final evidence commit tree.'
+        }
+        $commitMessage = Get-EpicAutopilotEvidenceMessage -EpicId $EpicId `
+            -ReviewedTarget $TargetCommit -CapturePath $capturePath
+        $messageParts = $commitMessage.Split("`n", 3)
+        $commitOutput = @(
+            & git -C $RepoRoot commit-tree ([string]$treeOutput[0]).Trim() `
+                -p $TargetCommit -m $messageParts[0] -m $messageParts[2] 2>&1
+        )
+        if ($LASTEXITCODE -ne 0 -or $commitOutput.Count -ne 1 -or
+            ([string]$commitOutput[0]).Trim() -cnotmatch
+            '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+            throw 'Unable to create the final evidence commit.'
+        }
+        $evidenceCommit = ([string]$commitOutput[0]).Trim().ToLowerInvariant()
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $TargetCommit -RepoRoot $RepoRoot
+        & git -C $RepoRoot update-ref "refs/heads/$TargetBranch" `
+            $evidenceCommit $TargetCommit 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Checked-out target ref 'refs/heads/$TargetBranch' moved before final evidence publication."
+        }
+        Assert-EpicAutopilotCheckedOutTarget -TargetBranch $TargetBranch `
+            -TargetCommit $evidenceCommit -RepoRoot $RepoRoot
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath -Clean
+        return $evidenceCommit
+    }
+    catch {
+        $failure = $_
+        try {
+            Restore-EpicAutopilotEvidenceWorktree -RepoRoot $RepoRoot `
+                -CapturePath $capturePath
+        }
+        catch {
+            throw "$($failure.Exception.Message) Cleanup also failed: $($_.Exception.Message)"
+        }
+        Assert-EpicAutopilotEvidenceStatus -RepoRoot $RepoRoot `
+            -CapturePath $capturePath -Clean
+        throw $failure
+    }
+}
+
+function ConvertTo-EpicAutopilotExitCode {
+    param(
+        [Parameter(Mandatory)][object[]]$Output,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    if ($Output.Count -ne 1) {
+        throw "$Label must return exactly one exit code."
+    }
+    $text = [string]$Output[0]
+    if ($text -cnotmatch $script:PortableExitCodePattern) {
+        throw "$Label returned invalid exit code '$text'."
+    }
+    return [int]::Parse(
+        $text,
+        [System.Globalization.NumberStyles]::None,
+        [System.Globalization.CultureInfo]::InvariantCulture
+    )
+}
+
+function Invoke-EpicAutopilotFinalCrosscheck {
+    param(
+        [Parameter(Mandatory)]$Rollup,
+        $State,
+        [Parameter(Mandatory)][string]$TargetBranch,
+        [Parameter(Mandatory)][string]$TargetCommit,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ReviewScriptPath,
+        [Parameter(Mandatory)][string]$EvidenceScriptPath,
+        [Parameter(Mandatory)][scriptblock]$ReviewInvoker,
+        [Parameter(Mandatory)][scriptblock]$EvidenceRecorder,
+        [Parameter(Mandatory)][scriptblock]$EvidenceCommitResolver,
+        [Parameter(Mandatory)][scriptblock]$EvidenceManager
+    )
+
+    if (-not [bool]$Rollup.Rollup.IsComplete -or $null -ne $Rollup.NextChild) {
+        throw 'Epic final crosscheck requires a complete rollup with no NextChild.'
+    }
+    $epicFile = if ($Rollup.PSObject.Properties.Name -contains 'EpicFile' -and
+        $Rollup.EpicFile -is [string]) {
+        Resolve-EpicAutopilotTrustedFile -Path $Rollup.EpicFile -RepoRoot $RepoRoot `
+            -ExpectedName 'epic.md' -Label 'Canonical epic'
+    }
+    else {
+        throw 'Complete epic rollup is missing its canonical EpicFile.'
+    }
+    $planFile = Resolve-EpicAutopilotTrustedFile `
+        -Path (Get-EpicAutopilotFinalPlanFile -Rollup $Rollup -State $State) `
+        -RepoRoot $RepoRoot -ExpectedName 'plan.md' -Label 'Final child plan'
+    $descriptor = & $EvidenceCommitResolver $TargetBranch $TargetCommit `
+        $RepoRoot $planFile ([string]$Rollup.EpicId)
+    if ($null -eq $descriptor -or
+        $descriptor.PSObject.Properties.Name -notcontains 'ReviewedTarget' -or
+        [string]$descriptor.ReviewedTarget -cnotmatch
+        '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+        throw 'Epic final evidence resolver returned an invalid result.'
+    }
+    $reviewedTarget = [string]$descriptor.ReviewedTarget
+
+    $mode = 'fallback'
+    $reviewType = 'none'
+    $message = 'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.'
+    if (Test-Path -LiteralPath $ReviewScriptPath -PathType Any) {
+        $reviewScript = Resolve-EpicAutopilotTrustedFile -Path $ReviewScriptPath `
+            -RepoRoot $RepoRoot -ExpectedName 'Invoke-EpicCoherencyReview.ps1' `
+            -Label 'Installed epic coherency review'
+        $reviewOutput = @(& $ReviewInvoker $reviewScript $epicFile $reviewedTarget $RepoRoot)
+        $reviewExit = ConvertTo-EpicAutopilotExitCode -Output $reviewOutput `
+            -Label 'Installed epic coherency review'
+        if ($reviewExit -ne 0) {
+            throw "Installed epic coherency review failed with exit code '$reviewExit'; fallback is not permitted."
+        }
+        $mode = 'review'
+        $reviewType = 'dr'
+        $message = 'Epic final crosscheck passed via installed simplified epic coherency review.'
+    }
+    else {
+        $epicBytes = [System.IO.File]::ReadAllBytes($epicFile)
+        if ($epicBytes.Length -gt 1MB) {
+            throw 'Canonical epic exceeds the 1 MiB fallback crosscheck bound.'
+        }
+        $epicText = [System.Text.UTF8Encoding]::new($false, $true).GetString($epicBytes)
+        foreach ($heading in @('Goal', 'Definition of done')) {
+            if (-not (Test-EpicAutopilotIntentSection -Content $epicText -Heading $heading)) {
+                throw "Canonical epic fallback crosscheck requires a non-empty '$heading' section."
+            }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $EvidenceScriptPath -PathType Leaf)) {
+        throw "Epic final crosscheck evidence writer not found: $EvidenceScriptPath"
+    }
+    [void](& $EvidenceManager $descriptor $TargetBranch $TargetCommit $RepoRoot `
+            ([string]$Rollup.EpicId) $EvidenceScriptPath `
+            (Split-Path -Parent $planFile) $message $reviewType $EvidenceRecorder)
+    return $mode
+}
+
 function Resolve-EpicAutopilotTargetBranch {
     param(
         [Parameter(Mandatory)][string]$Target,
@@ -608,7 +1390,12 @@ function Invoke-EpicAutopilotHostLoopCore {
         [scriptblock]$ContainerProbe,
         [scriptblock]$RunLeaseProbe,
         [scriptblock]$AncestorTester,
-        [scriptblock]$StateDeleteInvoker
+        [scriptblock]$StateDeleteInvoker,
+        [string]$ReviewScriptPath,
+        [scriptblock]$ReviewInvoker,
+        [scriptblock]$FinalEvidenceRecorder,
+        [scriptblock]$FinalEvidenceCommitResolver,
+        [scriptblock]$FinalEvidenceManager
     )
 
     if ($env:AUTOPILOT_CONTAINER -ceq 'true') {
@@ -650,6 +1437,7 @@ function Invoke-EpicAutopilotHostLoopCore {
             return ([string]$output[0]).Trim().ToLowerInvariant()
         }
     }
+    $usesDefaultWorktreeValidator = -not [bool]$WorktreeValidator
     if (-not $WorktreeValidator) {
         $WorktreeValidator = {
             param($Root, $Commit)
@@ -692,6 +1480,71 @@ function Invoke-EpicAutopilotHostLoopCore {
                 -ExpectedGeneration $ExpectedGeneration
         }
     }
+    if (-not $ReviewScriptPath) {
+        $ReviewScriptPath = [System.IO.Path]::Combine(
+            $repoRootPath,
+            '.github',
+            'skills',
+            'cep',
+            'scripts',
+            'Invoke-EpicCoherencyReview.ps1'
+        )
+    }
+    $evidenceScriptPath = Join-Path $PSScriptRoot 'Add-WorkflowNote.ps1'
+    if (-not $ReviewInvoker) {
+        $ReviewInvoker = {
+            param($ScriptPath, $EpicFile, $TargetCommit, $Root)
+            Invoke-EpicChildLauncher -LaunchScript $ScriptPath -Argument @(
+                '-EpicFile', $EpicFile,
+                '-TargetCommit', $TargetCommit,
+                '-RepoRoot', $Root
+            ) -WorkingDirectory $Root
+        }
+    }
+    if (-not $FinalEvidenceRecorder) {
+        $FinalEvidenceRecorder = {
+            param($ScriptPath, $PlanDir, $Message, $ReviewType, $Root)
+            Invoke-EpicChildLauncher -LaunchScript $ScriptPath -Argument @(
+                '-Kind', 'Capture',
+                '-PlanDir', $PlanDir,
+                '-Phase', '0',
+                '-Message', $Message,
+                '-Src', 'note',
+                '-Concern', 'architecture-patterns',
+                '-ReviewType', $ReviewType,
+                '-RepoRoot', $Root
+            ) -WorkingDirectory $Root
+        }
+    }
+    if (-not $FinalEvidenceCommitResolver) {
+        $FinalEvidenceCommitResolver = {
+            param($Branch, $Commit, $Root, $PlanFile, $EpicId)
+            Resolve-EpicAutopilotEvidenceCommit -TargetBranch $Branch `
+                -TargetCommit $Commit -RepoRoot $Root -PlanFile $PlanFile `
+                -EpicId $EpicId
+        }
+    }
+    if (-not $FinalEvidenceManager) {
+        $FinalEvidenceManager = {
+            param(
+                $Descriptor,
+                $Branch,
+                $Commit,
+                $Root,
+                $EpicId,
+                $ScriptPath,
+                $PlanDirectory,
+                $Message,
+                $ReviewType,
+                $Recorder
+            )
+            Publish-EpicAutopilotFinalEvidence -Descriptor $Descriptor `
+                -TargetBranch $Branch -TargetCommit $Commit -RepoRoot $Root `
+                -EpicId $EpicId -EvidenceScriptPath $ScriptPath `
+                -PlanDirectory $PlanDirectory -Message $Message `
+                -ReviewType $ReviewType -EvidenceRecorder $Recorder
+        }
+    }
 
     $runLease = [pscustomobject]@{ Value = $null }
     try {
@@ -703,6 +1556,17 @@ function Invoke-EpicAutopilotHostLoopCore {
             $targetCommit = $targetCommit.Trim().ToLowerInvariant()
             if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
                 throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
+            }
+            $isRetainedSuccess = $null -ne $existing -and (
+                $existing.outcome -ceq 'awaiting-merge' -or
+                $existing.outcome -ceq 'exit:0'
+            )
+            if ($usesDefaultWorktreeValidator -and $isRetainedSuccess) {
+                Repair-EpicAutopilotFinalEvidenceResidue -State $existing `
+                    -TargetBranch $targetBranch -TargetCommit $targetCommit `
+                    -RepoRoot $repoRootPath -ReviewScriptPath $ReviewScriptPath `
+                    -EvidenceScriptPath $evidenceScriptPath `
+                    -EvidenceRecorder $FinalEvidenceRecorder
             }
             try {
                 & $WorktreeValidator $repoRootPath $targetCommit
@@ -823,6 +1687,15 @@ function Invoke-EpicAutopilotHostLoopCore {
                             }
                         }
 
+                        $finalCrosscheck = Invoke-EpicAutopilotFinalCrosscheck `
+                            -Rollup $rollup -State $existing `
+                            -TargetBranch $targetBranch -TargetCommit $targetCommit `
+                            -RepoRoot $repoRootPath -ReviewScriptPath $ReviewScriptPath `
+                            -EvidenceScriptPath $evidenceScriptPath `
+                            -ReviewInvoker $ReviewInvoker `
+                            -EvidenceRecorder $FinalEvidenceRecorder `
+                            -EvidenceCommitResolver $FinalEvidenceCommitResolver `
+                            -EvidenceManager $FinalEvidenceManager
                         $deleteOutput = @(
                             & $StateDeleteInvoker $stateFile $generation
                         )
@@ -850,7 +1723,8 @@ function Invoke-EpicAutopilotHostLoopCore {
                             Failed          = $false
                             Completed       = $true
                             Blocked         = $false
-                            Message         = 'Epic graph is complete after the operator merge.'
+                            FinalCrosscheck = $finalCrosscheck
+                            Message         = 'Epic graph is complete after the operator merge and final crosscheck.'
                         }
                     }
 
@@ -933,6 +1807,18 @@ function Invoke-EpicAutopilotHostLoopCore {
                 }
             }
             elseif ($null -eq $rollup.NextChild) {
+                $finalCrosscheck = if ([bool]$rollup.Rollup.IsComplete) {
+                    Invoke-EpicAutopilotFinalCrosscheck -Rollup $rollup `
+                        -TargetBranch $targetBranch -TargetCommit $targetCommit `
+                        -RepoRoot $repoRootPath `
+                        -ReviewScriptPath $ReviewScriptPath `
+                        -EvidenceScriptPath $evidenceScriptPath `
+                        -ReviewInvoker $ReviewInvoker `
+                        -EvidenceRecorder $FinalEvidenceRecorder `
+                        -EvidenceCommitResolver $FinalEvidenceCommitResolver `
+                        -EvidenceManager $FinalEvidenceManager
+                }
+                else { $null }
                 return [pscustomobject]@{
                     State           = $null
                     NextChild       = $null
@@ -945,6 +1831,7 @@ function Invoke-EpicAutopilotHostLoopCore {
                     Failed          = $false
                     Completed       = [bool]$rollup.Rollup.IsComplete
                     Blocked         = -not [bool]$rollup.Rollup.IsComplete
+                    FinalCrosscheck = $finalCrosscheck
                     Message         = if ([bool]$rollup.Rollup.IsComplete) {
                         'Epic graph is complete; no child launch is needed.'
                     }

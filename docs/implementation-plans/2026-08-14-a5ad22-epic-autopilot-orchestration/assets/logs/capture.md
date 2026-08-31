@@ -21,3 +21,8 @@ Phase: 2
 - [2.1] [src:note] [concern:testing-evidence] [req:REQ-3] [review:none] [source-record:62a4460cd2dedfaf182414f1b6b1099fee9c0c24a04322c9301e99d32fd17699] Final replacement fleet attendance: planned=4, started=4, completed=4, failed=0, retried=0, cancelled=0; ci-designer=completed, ci-validator=completed, ci-implementor=completed, ci-judge=completed.
 - [2.2] [src:note] [concern:correctness-reliability] [req:REQ-2,REQ-4] [review:none] [source-record:5d894376e50aed9ace66825a74512bab387362b5b46b1c3cd1fdb727f8064d08] Fleet attendance: planned=4, started=4, completed=3, failed=1, retried=0, cancelled=0; ci-designer=completed, ci-validator=completed, ci-implementor=completed, ci-judge=failed because refreshed rollup integrity permits contradictory completion and invalid next-child selection.
 - [2.2] [src:note] [concern:correctness-reliability] [req:REQ-2,REQ-4] [review:none] [source-record:5ec97e83f52d03a99194b5e00882b296e7ecec8fd40641b140b07ce23c1124f1] Replacement fleet attendance: planned=4, started=4, completed=4, failed=0, retried=0, cancelled=0; ci-designer=completed, ci-validator=completed, ci-implementor=completed, ci-judge=completed.
+
+## Capture
+Phase: 3
+
+- [3.1] [src:note] [concern:correctness-reliability] [req:REQ-5] [review:none] [source-record:a3238cc5e5e545a15995c38fa470b0e44cc5a190bc50e519b75752f61018d78e] Fleet attendance: planned=4; started=4; completed=3; failed=1; retried=0; cancelled=0; ci-designer=completed; ci-validator=completed; ci-implementor=completed; ci-judge=failed.
