@@ -47,18 +47,39 @@ If it exits non-zero, stop immediately.
 
 ## Step 2: Plan state and next step (always)
 
-Surface deterministic state before any work. Invoke the production state command once in JSON mode,
-then render its progress, next-step, planning-context, and admission fields for the operator from that
-single result:
+Surface deterministic state before any work. Resolve the repository root to one canonical absolute
+path, invoke the production state command once in JSON mode with that root, then render its progress,
+next-step, planning-context, and admission fields for the operator from that single result:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot . -Json
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 `
+    <plan-or-epic-reference> -RepoRoot <canonical-repo-root> -Json
 ```
 
-For an epic, use its ordered, dependency-ready `NextChild`; an empty value means all children
-are complete or a dependency is unresolved. Re-run state against that child. For a plan, state
-reports progress and the first non-`[x]` step, including `@human`, `[discovery]`, and
-`blocked-by-after`; it never silently skips blocked work. Add only this judgment:
+### Epic host routing (hard branch)
+
+When the JSON result has `Kind: epic`, route it directly to the fixed installed host wrapper. Do not
+select `NextChild`, re-run state against a child, bootstrap ordinary plan autopilot, or present the
+plan mode/runtime menus. The wrapper owns the authoritative `Get-PlanState -Epic` refresh, child
+selection, state, launcher, container, terminal stop, target refresh, failure, and final crosscheck:
+
+```powershell
+$epicLauncher = Join-Path (
+    Join-Path <canonical-repo-root> '.github/skills/autopilot/scripts'
+) 'Invoke-EpicAutopilot.ps1'
+pwsh -NoProfile -File $epicLauncher -Epic <state.EpicId> `
+    -Target HEAD -RepoRoot <canonical-repo-root>
+```
+
+Bind `-Epic` to the canonical `EpicId` from the state result, keep `-Target` as the literal local
+`HEAD` target, and bind `-RepoRoot` to the same canonical absolute repository root used for the state
+call. Never interpolate the original reference or plan content into this command. If
+`AUTOPILOT_CONTAINER=true`, stop: the epic wrapper is host-only and must never run or fall through to
+ordinary child selection inside the container. Block on the wrapper, preserve its exact process exit
+status, report its emitted awaiting-merge/completed/blocked/failure outcome, and exit `/ci`.
+
+For a plan, state reports progress and the first non-`[x]` step, including `@human`, `[discovery]`,
+and `blocked-by-after`; it never silently skips blocked work. Add only this judgment:
 
 - **Confirmed planning context:** an enrolled plan must report `Context: confirmed`. Stop before branch or file
   mutation on `pending`, `stale`, `missing`, or `invalid` and return the plan to `/cip` for the affected
@@ -80,7 +101,7 @@ Admission has the closed states `ready`, `blocked`, `missing`, `ambiguous`, and 
 branch/worktree mutation, `[~]`, or log initialization. Every other result stops with
 `Admission.Reason` and leaves the plan tree byte-for-byte unchanged.
 
-## Step 3: Determine execution mode and branch/worktree
+## Step 3: Determine plan execution mode and branch/worktree
 
 1. **Read the plan's declared execution mode.** Parse the plan header for `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->`. This marker is a *runtime* selector, not a pacing hint — `*-autopilot` means the plan is meant to run autonomously, not interactively with approvals.
 

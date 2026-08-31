@@ -114,10 +114,16 @@ Every runtime adapter delegates admission and close-state interpretation to the 
 `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` contract; adapters must not replace it
 with local checkbox or receipt-existence predicates.
 
-## Staged epic host helper
+## Epic host routing
 
 `.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` is delivered for the host-owned epic
-flow. It atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
+flow. When `/ci`'s single state result has `Kind: epic`, `/ci` invokes this fixed installed wrapper
+directly with the canonical `EpicId`, literal target `HEAD`, and the same canonical repository root;
+it does not select a child, present the ordinary plan runtime/extent menus, or enter this skill's
+bootstrap and per-plan handoff. `AUTOPILOT_CONTAINER=true` fails closed before the wrapper is invoked
+and must never fall through to ordinary child selection.
+
+The wrapper atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
 `running`, and invokes the installed `launch.ps1` once in a separate PowerShell process with fixed
 `whole-plan` / `container` arguments, the normalized caller target branch, and the admitted target
 commit as `-ExpectedStartCommit`. Selection requires a clean worktree whose HEAD equals that commit.
@@ -133,5 +139,5 @@ fresh rollup must prove the prior child complete and no longer current. The help
 child and launches it, CAS-clears state for a complete epic, or returns blocked exit 42 while retaining
 the prior checkpoint when the incomplete graph has no eligible child. Non-success terminal outcomes
 remain unchanged for explicit resume. Target refresh never fetches, pulls, checks out, merges, pushes,
-or calls a provider. Do not route the ordinary `/ci` plan handoff through this staged helper until the
-epic entry flow lands.
+or calls a provider. Ordinary plan `/ci` behavior remains on the runtime/extent and bootstrap flow
+above; only an epic-kind state result takes this host route.
