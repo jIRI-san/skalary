@@ -15,7 +15,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'EpicAutopilot.psm1') -Force
 
 $parameters = @{
-    Epic = $Epic
+    Epic   = $Epic
     Target = $Target
 }
 if ($RepoRoot) {
@@ -28,7 +28,14 @@ if ($result.State) {
         Write-Error $result.Message -ErrorAction Continue
         exit 1
     }
+    if ($result.State.outcome -ceq 'awaiting-merge') {
+        Write-Output "Child '$($result.State.currentChild)' passed launcher close proof and is awaiting operator merge."
+        exit 0
+    }
     if ($result.State.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal)) {
+        if ([int]$result.ExitCode -eq 0) {
+            Write-Output "Child '$($result.State.currentChild)' has legacy exit:0 close proof and is awaiting operator merge."
+        }
         exit ([int]$result.ExitCode)
     }
 }

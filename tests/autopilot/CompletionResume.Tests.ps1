@@ -5,6 +5,7 @@ Describe 'Autopilot container completion resume' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
         $script:helperPath = Join-Path $repoRoot 'plugins/autopilot/scripts/plan-dispatch.sh'
+        $script:entrypointPath = Join-Path $repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
         $script:reviewGatePath = Join-Path $repoRoot 'scripts/skalary/ReviewCycleGate.ps1'
         $script:harvestValidatorPath = Join-Path $repoRoot 'scripts/skalary/Invoke-PhaseHarvest.ps1'
         $script:entrypoint = Get-Content -LiteralPath (
@@ -49,6 +50,7 @@ Describe 'Autopilot container completion resume' {
         }
 
         $script:helperBashPath = ConvertTo-BashPath -Path $helperPath
+        $script:entrypointBashPath = ConvertTo-BashPath -Path $entrypointPath
         $script:reviewGateBashPath = ConvertTo-BashPath -Path $reviewGatePath
         $script:harvestValidatorBashPath = ConvertTo-BashPath -Path $harvestValidatorPath
 
@@ -437,9 +439,15 @@ Write-Output closed
         & git -C $repoDir add -- .
         & git -C $repoDir commit --quiet -m initial
         $initialCommit = (& git -C $repoDir rev-parse HEAD).Trim()
+        $remoteDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('N') + '.git')
+        & git init --bare --quiet $remoteDir
+        & git -C $repoDir remote add origin $remoteDir
         $helper = $helperBashPath
+        $entrypointHelper = $entrypointBashPath
         $bashPlan = ConvertTo-BashPath -Path $planPath
         $gate = $reviewGateBashPath
+        $workBranch = "feature/$planSlug"
+        $targetBranch = 'main'
 
         $stateScript = Join-Path $fixtureRoot (
             'Get-PhaseExecutionState-' + [guid]::NewGuid().ToString('N') + '.ps1'
@@ -450,48 +458,81 @@ Write-Output closed
 '@
         $bashStateScript = ConvertTo-BashPath -Path $stateScript
         $bashRepo = ConvertTo-BashPath -Path $repoDir
-        $openPrProbe = Join-Path $fixtureRoot ('gh-open-' + [guid]::NewGuid().ToString('N'))
-        Set-Content -LiteralPath $openPrProbe -Encoding utf8NoBOM -Value @'
+        $ghProbe = Join-Path $fixtureRoot ('gh-close-proof-' + [guid]::NewGuid().ToString('N'))
+        $ghArguments = Join-Path $fixtureRoot ('gh-close-proof-args-' + [guid]::NewGuid().ToString('N'))
+        Set-Content -LiteralPath $ghProbe -Encoding utf8NoBOM -Value @'
 #!/bin/bash
-printf '%s\n' '1'
+printf '%s\n' "$@" > "${FAKE_GH_ARGUMENTS:?}"
+if [ "${FAKE_GH_EXIT:-0}" -ne 0 ]; then
+    exit "${FAKE_GH_EXIT}"
+fi
+printf '%s' "${FAKE_GH_OUTPUT:-}"
 '@
-        $missingPrProbe = Join-Path $fixtureRoot ('gh-missing-' + [guid]::NewGuid().ToString('N'))
-        Set-Content -LiteralPath $missingPrProbe -Encoding utf8NoBOM -Value @'
-#!/bin/bash
-printf '%s\n' '0'
-'@
-        $bashOpenPrProbe = ConvertTo-BashPath -Path $openPrProbe
-        $bashMissingPrProbe = ConvertTo-BashPath -Path $missingPrProbe
-        & bash -c 'chmod +x "$1" "$2"' -- $bashOpenPrProbe $bashMissingPrProbe
-        $pending = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $pending | Should -Be 'close-pending'
+        $bashGhProbe = ConvertTo-BashPath -Path $ghProbe
+        $bashGhArguments = ConvertTo-BashPath -Path $ghArguments
+        & bash -c 'chmod +x "$1"' -- $bashGhProbe
+
+        function Invoke-FinalCloseProbe {
+            param(
+                [Parameter(Mandatory)][AllowEmptyString()][string]$PrOutput,
+                [string]$ExpectedWorkBranch = $workBranch,
+                [AllowEmptyString()][string]$ExpectedStartCommit = ('a' * 40),
+                [AllowEmptyString()][string]$RepoBranch = $targetBranch,
+                [bool]$TrustedInternalRetry = $false,
+                [int]$ProviderExit = 0
+            )
+
+            $priorOutput = $env:FAKE_GH_OUTPUT
+            $priorExit = $env:FAKE_GH_EXIT
+            $priorArguments = $env:FAKE_GH_ARGUMENTS
+            try {
+                $env:FAKE_GH_OUTPUT = $PrOutput
+                $env:FAKE_GH_EXIT = [string]$ProviderExit
+                $env:FAKE_GH_ARGUMENTS = $bashGhArguments
+                $trustedRetryText = $TrustedInternalRetry.ToString().ToLowerInvariant()
+                $output = @(
+                    & bash -c 'source "$1"; source "$2"; AUTOPILOT_REPO_ROOT="$5" AUTOPILOT_PHASE_STATE_SCRIPT="$6" AUTOPILOT_HARVEST_VALIDATOR="$7" AUTOPILOT_GH_BIN="$8" EXPECTED_START_COMMIT="${10}" REPO_BRANCH="${11}" AUTOPILOT_TRUSTED_INTERNAL_RETRY="${12}" autopilot_entrypoint_target_close_state "$3" completion-only 1 "$4" "$9"' `
+                        -- $entrypointHelper $helper $bashPlan $gate $bashRepo `
+                        $bashStateScript $harvestValidatorBashPath $bashGhProbe `
+                        $ExpectedWorkBranch $ExpectedStartCommit $RepoBranch $trustedRetryText
+                )
+                return [pscustomobject]@{
+                    ExitCode = $LASTEXITCODE
+                    Output   = @($output)
+                }
+            }
+            finally {
+                $env:FAKE_GH_OUTPUT = $priorOutput
+                $env:FAKE_GH_EXIT = $priorExit
+                $env:FAKE_GH_ARGUMENTS = $priorArguments
+            }
+        }
+
+        $pending = Invoke-FinalCloseProbe -PrOutput ''
+        $pending.ExitCode | Should -Be 0
+        $pending.Output | Should -Be 'close-pending'
 
         $archiveRoot = Join-Path $repoDir 'docs/implementation-plans/archived'
         [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
         Move-Item -LiteralPath $planDir -Destination $archiveRoot
-        $uncommitted = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $uncommitted | Should -Be 'close-pending'
+        $uncommitted = Invoke-FinalCloseProbe -PrOutput ''
+        $uncommitted.ExitCode | Should -Be 0
+        $uncommitted.Output | Should -Be 'close-pending'
 
         $archivedPlan = Join-Path $archiveRoot "$planSlug/plan.md"
         & git -C $repoDir add -- $archivedPlan
         & git -C $repoDir commit --quiet -m 'partial archive'
-        $partialCommit = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $partialCommit | Should -Be 'close-pending'
+        $partialCommit = Invoke-FinalCloseProbe -PrOutput ''
+        $partialCommit.ExitCode | Should -Be 0
+        $partialCommit.Output | Should -Be 'close-pending'
 
         & git -C $repoDir add -- .
         & git -C $repoDir commit --quiet -m 'finish partial archive'
-        $splitCommit = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $splitCommit | Should -Be 'close-pending'
+        $splitCommit = Invoke-FinalCloseProbe -PrOutput ''
+        $splitCommit.ExitCode | Should -Be 0
+        $splitCommit.Output | Should -Be 'close-pending'
 
-        & git -C $repoDir checkout --quiet -b atomic-archive $initialCommit
+        & git -C $repoDir checkout --quiet -b $workBranch $initialCommit
         if (Test-Path -LiteralPath $archiveRoot) {
             Remove-Item -LiteralPath $archiveRoot -Recurse -Force
         }
@@ -499,24 +540,99 @@ printf '%s\n' '0'
         Move-Item -LiteralPath $planDir -Destination $archiveRoot
         & git -C $repoDir add --all
         & git -C $repoDir commit --quiet -m archive
-        $missingPr = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashMissingPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $missingPr | Should -Be 'close-pending'
+        $archiveCommit = (& git -C $repoDir rev-parse HEAD).Trim()
 
-        $closed = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $closed | Should -Be 'closed'
+        $missingRemote = Invoke-FinalCloseProbe -PrOutput ''
+        $missingRemote.ExitCode | Should -Be 0
+        $missingRemote.Output | Should -Be 'close-pending'
+
+        & git -C $repoDir push --quiet --set-upstream origin $workBranch
+        & git -C $repoDir commit --quiet --allow-empty -m 'advance local close proof'
+        $head = (& git -C $repoDir rev-parse HEAD).Trim()
+        $validPr = "$workBranch`t$head`t$targetBranch`tOPEN`n"
+
+        $staleRemote = Invoke-FinalCloseProbe -PrOutput $validPr
+        $staleRemote.ExitCode | Should -Be 0
+        $staleRemote.Output | Should -Be 'close-pending'
+        & git -C $repoDir push --quiet origin $workBranch
+
+        & git -C $repoDir checkout --quiet -b wrong-close-branch
+        $wrongBranch = Invoke-FinalCloseProbe -PrOutput $validPr
+        $wrongBranch.ExitCode | Should -Be 0
+        $wrongBranch.Output | Should -Be 'close-pending'
+        & git -C $repoDir checkout --quiet $workBranch
+
+        $missingPr = Invoke-FinalCloseProbe -PrOutput ''
+        $missingPr.ExitCode | Should -Be 0
+        $missingPr.Output | Should -Be 'close-pending'
+
+        foreach ($case in @(
+                @{ Name = 'wrong head'; Output = "feature/wrong`t$head`t$targetBranch`tOPEN`n" },
+                @{ Name = 'wrong OID'; Output = "$workBranch`t$archiveCommit`t$targetBranch`tOPEN`n" },
+                @{ Name = 'wrong base'; Output = "$workBranch`t$head`tdevelop`tOPEN`n" },
+                @{ Name = 'wrong state'; Output = "$workBranch`t$head`t$targetBranch`tCLOSED`n" },
+                @{ Name = 'multiple'; Output = $validPr + $validPr }
+            )) {
+            $mismatch = Invoke-FinalCloseProbe -PrOutput $case.Output
+            $mismatch.ExitCode | Should -Be 0 -Because $case.Name
+            $mismatch.Output | Should -Be 'close-pending' -Because $case.Name
+        }
+
+        $malformed = Invoke-FinalCloseProbe -PrOutput "$workBranch`t$head`tOPEN`n"
+        $malformed.ExitCode | Should -Be 2
+        $malformed.Output | Should -BeNullOrEmpty
+
+        $mixedMalformed = Invoke-FinalCloseProbe `
+            -PrOutput ($validPr + "$workBranch`tinvalid-oid`t$targetBranch`tOPEN`n")
+        $mixedMalformed.ExitCode | Should -Be 2
+        $mixedMalformed.Output | Should -BeNullOrEmpty
+
+        $providerError = Invoke-FinalCloseProbe -PrOutput '' -ProviderExit 17
+        $providerError.ExitCode | Should -Be 2
+        $providerError.Output | Should -BeNullOrEmpty
+
+        $ordinaryNoTarget = Invoke-FinalCloseProbe `
+            -PrOutput "$workBranch`t$head`tany-base`tOPEN`n" `
+            -ExpectedStartCommit ''
+        $ordinaryNoTarget.ExitCode | Should -Be 0
+        $ordinaryNoTarget.Output | Should -Be 'closed'
+
+        $epicInitial = Invoke-FinalCloseProbe -PrOutput $validPr
+        $epicInitial.ExitCode | Should -Be 0
+        $epicInitial.Output | Should -Be 'closed'
+
+        $trustedRetry = Invoke-FinalCloseProbe `
+            -PrOutput $validPr `
+            -TrustedInternalRetry $true
+        $trustedRetry.ExitCode | Should -Be 0
+        $trustedRetry.Output | Should -Be 'closed'
+
+        $missingEpicTarget = Invoke-FinalCloseProbe `
+            -PrOutput $validPr `
+            -RepoBranch ''
+        $missingEpicTarget.ExitCode | Should -Be 2
+        $missingEpicTarget.Output | Should -BeNullOrEmpty
+
+        Get-Content -LiteralPath $ghArguments | Should -Be @(
+            'pr',
+            'list',
+            '--head',
+            $workBranch,
+            '--state',
+            'open',
+            '--json',
+            'headRefName,headRefOid,baseRefName,state',
+            '--jq',
+            '.[] | [.headRefName, .headRefOid, .baseRefName, .state] | @tsv'
+        )
 
         Add-Content -LiteralPath $archivedPlan -Value "`n<!-- late committed mutation -->" `
             -Encoding utf8NoBOM
         & git -C $repoDir add --all
         & git -C $repoDir commit --quiet -m 'mutate archived tree'
-        $mutated = & bash -c 'source "$1"; AUTOPILOT_REPO_ROOT="$4" AUTOPILOT_PHASE_STATE_SCRIPT="$5" AUTOPILOT_HARVEST_VALIDATOR="$6" AUTOPILOT_GH_BIN="$7" autopilot_target_close_state "$2" completion-only 1 "$3"' `
-            -- $helper $bashPlan $gate $bashRepo $bashStateScript $harvestValidatorBashPath $bashOpenPrProbe
-        $LASTEXITCODE | Should -Be 0
-        $mutated | Should -Be 'close-pending'
+        $mutated = Invoke-FinalCloseProbe -PrOutput $validPr
+        $mutated.ExitCode | Should -Be 0
+        $mutated.Output | Should -Be 'close-pending'
 
         $entrypoint | Should -Match '--session-id "\$\{TARGET_SESSION_ID\}"'
         $entrypoint | Should -Match 'TARGET_STARTED_AT=\$\(date \+%s\)'
@@ -583,10 +699,10 @@ Write-Output $env:FAKE_PHASE_CLOSE_STATE
         $dockerfile | Should -Match 'COPY scripts/plan-dispatch\.sh /usr/local/lib/autopilot/plan-dispatch\.sh'
         $containerLauncher | Should -Match 'session-transcript-completion\.md'
         $containerLauncher | Should -Match 'session-transcript-phase\$\{i\}-completion\.md'
-        @($manifest.files | Where-Object src -eq 'scripts/plan-dispatch.sh') | Should -HaveCount 1
-        @($manifest.files | Where-Object src -eq 'skills/autopilot/scripts/ReviewCycleGate.ps1') |
+        @($manifest.files | Where-Object src -EQ 'scripts/plan-dispatch.sh') | Should -HaveCount 1
+        @($manifest.files | Where-Object src -EQ 'skills/autopilot/scripts/ReviewCycleGate.ps1') |
             Should -HaveCount 1
-        @($manifest.files | Where-Object src -eq 'skills/autopilot/scripts/Add-WorkflowNote.ps1') |
+        @($manifest.files | Where-Object src -EQ 'skills/autopilot/scripts/Add-WorkflowNote.ps1') |
             Should -HaveCount 1
     }
 }

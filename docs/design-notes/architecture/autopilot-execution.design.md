@@ -68,7 +68,7 @@ record has exactly six case-sensitive string fields:
 | `currentChild` | Canonical six-hex `Get-PlanState.NextChild.Id` |
 | `branch` | Reserved per-child branch, `feature/<NextChild.FolderName>` |
 | `run` | Canonical GUID allocated once for this sequential run |
-| `outcome` | `selected`, `running`, `invocation-failed`, or `exit:<0..255>` |
+| `outcome` | `selected`, `running`, `awaiting-merge`, `invocation-failed`, or `exit:<0..255>` |
 
 A fresh process resumes only when canonical epic, resolved target commit, exact `NextChild`, and
 derived branch still match. Malformed state, a changed target, a different/no `NextChild`, or a
@@ -93,11 +93,23 @@ proves that object equals the persisted commit, rejects any existing remote work
 the work branch directly from the verified object. Existing callers that omit `-ExpectedStartCommit`
 retain ordinary launch behavior. Only a later exit-43 attempt inside the same host launcher invocation
 receives the internal retry flag and may fetch/resume the remote work branch; a fresh invocation cannot
-claim that provenance. After it returns, the wrapper reacquires the lock and CAS-transitions
-the same `running` generation to `exit:<0..255>`; `Process.ExitCode` after `WaitForExit` is the
-production authority. The persisted/replay domain is limited to 0..255 because POSIX exposes only
-that portable range. An injected out-of-domain result follows the launch-error path, attempts the
-same CAS to `invocation-failed`, and returns a structured failure receipt; zero is never substituted.
+claim that provenance. After it returns, the wrapper reacquires the lock and CAS-transitions the same
+`running` generation: zero becomes `awaiting-merge`, while nonzero becomes `exit:<1..255>`. The
+per-plan launcher's zero is the authoritative close proof: its existing chain requires canonical
+evidence and review receipts, an exact committed archive transition, and pre-probe publication of
+the expected work branch. Final close then proves the checked-out branch and full local `HEAD`,
+exactly one same-OID `refs/heads/<work-branch>` on origin, and exactly one typed open PR row whose
+head name/OID match. `EXPECTED_START_COMMIT` is the epic-provenance signal: when it is present,
+`REPO_BRANCH` is mandatory and must match the PR base, including on trusted internal retries.
+Ordinary launches retain `REPO_BRANCH` for checkout but omit the base constraint. Command failures
+and malformed typed provider/ref output fail loudly; valid nonmatching state remains close-pending.
+The epic layer does not repeat those probes, parse transcripts, call a provider, push, merge, or
+check out another branch.
+`Process.ExitCode` after `WaitForExit` is the production authority. The persisted/replay exit domain
+is limited to 0..255 because POSIX exposes only that portable range. Legacy `exit:0` records remain
+terminal, replay as operator-merge stops without mutation, and never relaunch or select a sibling.
+An injected out-of-domain result follows the launch-error path, attempts the same CAS to
+`invocation-failed`, and returns a structured failure receipt; zero is never substituted.
 A start exception does the same. A terminal-write failure still throws, including after launcher exit
 zero. The run GUID deterministically names its container. Existing `running` state probes only that
 container: an active container refuses a second launch, an absent/exited container CAS-reconciles the
@@ -131,8 +143,12 @@ fails without changing bytes. Existing terminal state is replayed without select
   commit and push them fail-loud, then preserve the original phase status; preservation failure exits
   `70` for container recovery instead of claiming the work is durable
 - Zero-exit targets are not terminal until committed phase-close proof is valid. The entrypoint uses
-  bounded same-session handoffs for pending completion, and finalization additionally requires
-  terminal phase gates, an exact committed archive transition, and an open branch PR.
+  bounded same-session handoffs for pending completion and publishes the work branch before every
+  close probe. Finalization additionally requires terminal phase gates, an exact committed archive
+  transition, local/remote work-branch OID equality, and one typed open PR matching the work
+  branch's name and OID. Epic initial launches and trusted internal retries use
+  `EXPECTED_START_COMMIT` to bind `REPO_BRANCH` as the exact PR base; a missing epic target is an
+  input error. Ordinary launches still use `REPO_BRANCH` for checkout but pass no PR-base constraint.
 - Timeout uses the native `docker run` process wait handle; `docker stop`/`docker kill` run only after
   the whole-run deadline
 - Transcripts extracted via `docker cp`; containers are removed after normal outcomes and retained
@@ -412,8 +428,8 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 
 | Script | Purpose |
 |--------|---------|
-| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; exports only the four-argument production host loop and keeps test adapters private |
-| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; propagates portable child exit codes and reports no-child/invocation-failed outcomes |
+| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; maps verified launcher zero to `awaiting-merge`, exports only the three-argument production host loop, and keeps test adapters private |
+| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; reports awaiting-merge/no-child/invocation-failed outcomes and propagates portable nonzero child exit codes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |

@@ -64,7 +64,9 @@ function ConvertFrom-EpicAutopilotStateJson {
             $parsedRun.ToString('D') -cne $values.run) {
             throw "Epic autopilot state field 'run' must be a canonical GUID."
         }
-        if ($values.outcome -cnotin @('selected', 'running', 'invocation-failed')) {
+        if ($values.outcome -cnotin @(
+                'selected', 'running', 'awaiting-merge', 'invocation-failed'
+            )) {
             if (-not $values.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal) -or
                 $values.outcome.Substring(5) -cnotmatch $script:PortableExitCodePattern) {
                 throw "Epic autopilot state field 'outcome' is invalid."
@@ -160,12 +162,12 @@ function New-EpicAutopilotState {
     )
 
     return [pscustomobject][ordered]@{
-        epic = [string]$State.epic
-        target = [string]$State.target
+        epic         = [string]$State.epic
+        target       = [string]$State.target
         currentChild = [string]$State.currentChild
-        branch = [string]$State.branch
-        run = [string]$State.run
-        outcome = $Outcome
+        branch       = [string]$State.branch
+        run          = [string]$State.run
+        outcome      = $Outcome
     }
 }
 
@@ -249,7 +251,7 @@ function New-EpicAutopilotRunMutex {
         [System.Text.Encoding]::UTF8.GetBytes($scope)
     )
     $name = 'skalary-epic-run-' +
-        [Convert]::ToHexString($digest).ToLowerInvariant().Substring(0, 32)
+    [Convert]::ToHexString($digest).ToLowerInvariant().Substring(0, 32)
     foreach ($prefix in @('Global\', 'Local\', '')) {
         try {
             return [System.Threading.Mutex]::new($false, "$prefix$name")
@@ -543,236 +545,245 @@ function Invoke-EpicAutopilotHostLoopCore {
     $runLease = [pscustomobject]@{ Value = $null }
     try {
         $admission = Invoke-WithAtomicStoreLock -Scope $stateFile -Action {
-        $generation = Get-AtomicStoreGeneration -Path $stateFile
-        $existing = Read-EpicAutopilotState -Path $stateFile
+            $generation = Get-AtomicStoreGeneration -Path $stateFile
+            $existing = Read-EpicAutopilotState -Path $stateFile
 
-        $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
-        $targetCommit = $targetCommit.Trim().ToLowerInvariant()
-        if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
-            throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
-        }
-        try {
-            & $WorktreeValidator $repoRootPath $targetCommit
-        }
-        catch {
-            throw "Epic target worktree validation failed: $($_.Exception.Message)"
-        }
-
-        try {
-            $rollupJson = & $PlanStateInvoker $Epic $repoRootPath $PlanStateScript
-        }
-        catch {
-            throw "Get-PlanState epic rollup failed: $($_.Exception.Message)"
-        }
-        $rollup = ConvertFrom-EpicRollupJson -Json ([string]$rollupJson)
-        if ($Epic -cmatch '^[0-9a-f]{6}$' -and $Epic -cne [string]$rollup.EpicId) {
-            throw "Get-PlanState resolved epic '$($rollup.EpicId)', not requested epic '$Epic'."
-        }
-
-        if ($existing) {
-            if ($existing.epic -cne [string]$rollup.EpicId) {
-                throw "Existing epic autopilot state belongs to epic '$($existing.epic)', not '$($rollup.EpicId)'."
+            $targetCommit = [string](& $TargetResolver $targetBranch $repoRootPath)
+            $targetCommit = $targetCommit.Trim().ToLowerInvariant()
+            if ($targetCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+                throw "Target '$Target' resolved to invalid commit id '$targetCommit'."
             }
-            if ($existing.target -cne $targetCommit) {
-                throw "Existing epic autopilot state targets '$($existing.target)', but '$Target' is now '$targetCommit'."
+            try {
+                & $WorktreeValidator $repoRootPath $targetCommit
             }
-            if ($null -eq $rollup.NextChild) {
-                throw "Existing epic autopilot state selects '$($existing.currentChild)', but Get-PlanState has no NextChild."
+            catch {
+                throw "Epic target worktree validation failed: $($_.Exception.Message)"
             }
 
-            $expectedBranch = "feature/$($rollup.NextChild.FolderName)"
-            if ($existing.currentChild -cne [string]$rollup.NextChild.Id -or
-                $existing.branch -cne $expectedBranch) {
-                throw "Existing epic autopilot state selects '$($existing.currentChild)' on '$($existing.branch)'; refusing conflicting NextChild '$($rollup.NextChild.Id)' on '$expectedBranch'."
+            try {
+                $rollupJson = & $PlanStateInvoker $Epic $repoRootPath $PlanStateScript
+            }
+            catch {
+                throw "Get-PlanState epic rollup failed: $($_.Exception.Message)"
+            }
+            $rollup = ConvertFrom-EpicRollupJson -Json ([string]$rollupJson)
+            if ($Epic -cmatch '^[0-9a-f]{6}$' -and $Epic -cne [string]$rollup.EpicId) {
+                throw "Get-PlanState resolved epic '$($rollup.EpicId)', not requested epic '$Epic'."
             }
 
-            if ($existing.outcome -ceq 'running') {
-                $containerName = Get-EpicAutopilotContainerName -Run $existing.run
-                try {
-                    $leaseOutput = @(& $RunLeaseProbe $stateFile $existing.run)
+            if ($existing) {
+                if ($existing.epic -cne [string]$rollup.EpicId) {
+                    throw "Existing epic autopilot state belongs to epic '$($existing.epic)', not '$($rollup.EpicId)'."
                 }
-                catch {
-                    throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: $($_.Exception.Message)"
+                if ($existing.target -cne $targetCommit) {
+                    throw "Existing epic autopilot state targets '$($existing.target)', but '$Target' is now '$targetCommit'."
                 }
-                if ($leaseOutput.Count -ne 1 -or $leaseOutput[0] -isnot [bool]) {
-                    throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: run lease probe returned an invalid result."
-                }
-                if ([bool]$leaseOutput[0]) {
-                    throw "Epic autopilot run '$($existing.run)' already has an active host launcher; refusing a second child launcher."
-                }
-                try {
-                    $probeOutput = @(& $ContainerProbe $containerName)
-                }
-                catch {
-                    throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: $($_.Exception.Message)"
-                }
-                if ($probeOutput.Count -ne 1 -or $probeOutput[0] -isnot [bool]) {
-                    throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: container probe returned an invalid result."
-                }
-                if ([bool]$probeOutput[0]) {
-                    throw "Epic autopilot run '$($existing.run)' is already running in container '$containerName'; refusing a second child launcher."
+                if ($null -eq $rollup.NextChild) {
+                    throw "Existing epic autopilot state selects '$($existing.currentChild)', but Get-PlanState has no NextChild."
                 }
 
-                $reconciled = New-EpicAutopilotState -State $existing `
-                    -Outcome 'invocation-failed'
-                [void](Set-EpicAutopilotState -Path $stateFile -State $reconciled `
-                        -ExpectedGeneration $generation `
-                        -Operation 'running-state reconciliation')
-                return [pscustomobject]@{
-                    State = $reconciled
-                    NextChild = $rollup.NextChild
-                    Resumed = $true
-                    StatePath = $stateFile
-                    Launch = $false
-                    LaunchAttempted = $false
-                    Replayed = $true
-                    ExitCode = $null
-                    Failed = $true
-                    Message = "Interrupted epic autopilot run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
+                $expectedBranch = "feature/$($rollup.NextChild.FolderName)"
+                if ($existing.currentChild -cne [string]$rollup.NextChild.Id -or
+                    $existing.branch -cne $expectedBranch) {
+                    throw "Existing epic autopilot state selects '$($existing.currentChild)' on '$($existing.branch)'; refusing conflicting NextChild '$($rollup.NextChild.Id)' on '$expectedBranch'."
                 }
-            }
-            if ($existing.outcome -cne 'selected') {
-                $storedExit = $null
-                if ($existing.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal)) {
-                    $storedExit = [int]$existing.outcome.Substring(5)
-                }
-                return [pscustomobject]@{
-                    State = $existing
-                    NextChild = $rollup.NextChild
-                    Resumed = $true
-                    StatePath = $stateFile
-                    Launch = $false
-                    LaunchAttempted = $false
-                    Replayed = $true
-                    ExitCode = $storedExit
-                    Failed = $existing.outcome -ceq 'invocation-failed'
-                    Message = if ($existing.outcome -ceq 'invocation-failed') {
-                        "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
+
+                if ($existing.outcome -ceq 'running') {
+                    $containerName = Get-EpicAutopilotContainerName -Run $existing.run
+                    try {
+                        $leaseOutput = @(& $RunLeaseProbe $stateFile $existing.run)
                     }
-                    else { $null }
+                    catch {
+                        throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: $($_.Exception.Message)"
+                    }
+                    if ($leaseOutput.Count -ne 1 -or $leaseOutput[0] -isnot [bool]) {
+                        throw "Unable to determine whether epic autopilot run '$($existing.run)' has an active host launcher: run lease probe returned an invalid result."
+                    }
+                    if ([bool]$leaseOutput[0]) {
+                        throw "Epic autopilot run '$($existing.run)' already has an active host launcher; refusing a second child launcher."
+                    }
+                    try {
+                        $probeOutput = @(& $ContainerProbe $containerName)
+                    }
+                    catch {
+                        throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: $($_.Exception.Message)"
+                    }
+                    if ($probeOutput.Count -ne 1 -or $probeOutput[0] -isnot [bool]) {
+                        throw "Unable to determine whether epic autopilot run '$($existing.run)' is active: container probe returned an invalid result."
+                    }
+                    if ([bool]$probeOutput[0]) {
+                        throw "Epic autopilot run '$($existing.run)' is already running in container '$containerName'; refusing a second child launcher."
+                    }
+
+                    $reconciled = New-EpicAutopilotState -State $existing `
+                        -Outcome 'invocation-failed'
+                    [void](Set-EpicAutopilotState -Path $stateFile -State $reconciled `
+                            -ExpectedGeneration $generation `
+                            -Operation 'running-state reconciliation')
+                    return [pscustomobject]@{
+                        State           = $reconciled
+                        NextChild       = $rollup.NextChild
+                        Resumed         = $true
+                        StatePath       = $stateFile
+                        Launch          = $false
+                        LaunchAttempted = $false
+                        Replayed        = $true
+                        ExitCode        = $null
+                        Failed          = $true
+                        Message         = "Interrupted epic autopilot run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
+                    }
+                }
+                if ($existing.outcome -cne 'selected') {
+                    $storedExit = $null
+                    if ($existing.outcome -ceq 'awaiting-merge') {
+                        $storedExit = 0
+                    }
+                    elseif ($existing.outcome.StartsWith('exit:', [System.StringComparison]::Ordinal)) {
+                        $storedExit = [int]$existing.outcome.Substring(5)
+                    }
+                    return [pscustomobject]@{
+                        State           = $existing
+                        NextChild       = $rollup.NextChild
+                        Resumed         = $true
+                        StatePath       = $stateFile
+                        Launch          = $false
+                        LaunchAttempted = $false
+                        Replayed        = $true
+                        ExitCode        = $storedExit
+                        Failed          = $existing.outcome -ceq 'invocation-failed'
+                        Message         = if ($existing.outcome -ceq 'invocation-failed') {
+                            "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
+                        }
+                        else { $null }
+                    }
                 }
             }
-        }
-        elseif ($null -eq $rollup.NextChild) {
+            elseif ($null -eq $rollup.NextChild) {
+                return [pscustomobject]@{
+                    State           = $null
+                    NextChild       = $null
+                    Resumed         = $false
+                    StatePath       = $stateFile
+                    Launch          = $false
+                    LaunchAttempted = $false
+                    Replayed        = $false
+                    ExitCode        = $null
+                    Failed          = $false
+                    Message         = $null
+                }
+            }
+
+            $resumed = $null -ne $existing
+            $selected = $existing
+            if (-not $selected) {
+                $selected = [pscustomobject][ordered]@{
+                    epic         = [string]$rollup.EpicId
+                    target       = $targetCommit
+                    currentChild = [string]$rollup.NextChild.Id
+                    branch       = "feature/$($rollup.NextChild.FolderName)"
+                    run          = [string](& $RunFactory)
+                    outcome      = 'selected'
+                }
+                $selectedWrite = Set-EpicAutopilotState -Path $stateFile -State $selected `
+                    -ExpectedGeneration 'absent' -Operation 'selected state write'
+                $generation = $selectedWrite.Generation
+            }
+
+            $runLease.Value = Enter-EpicAutopilotRunLease `
+                -StatePath $stateFile -Run $selected.run
+            $running = New-EpicAutopilotState -State $selected -Outcome 'running'
+            $runningWrite = Set-EpicAutopilotState -Path $stateFile -State $running `
+                -ExpectedGeneration $generation -Operation 'running state write'
+
             return [pscustomobject]@{
-                State = $null
-                NextChild = $null
-                Resumed = $false
-                StatePath = $stateFile
-                Launch = $false
+                State           = $running
+                NextChild       = $rollup.NextChild
+                Resumed         = $resumed
+                StatePath       = $stateFile
+                Launch          = $true
                 LaunchAttempted = $false
-                Replayed = $false
-                ExitCode = $null
-                Failed = $false
-                Message = $null
+                Replayed        = $false
+                ExitCode        = $null
+                Failed          = $false
+                Message         = $null
+                Generation      = $runningWrite.Generation
             }
-        }
-
-        $resumed = $null -ne $existing
-        $selected = $existing
-        if (-not $selected) {
-            $selected = [pscustomobject][ordered]@{
-                epic = [string]$rollup.EpicId
-                target = $targetCommit
-                currentChild = [string]$rollup.NextChild.Id
-                branch = "feature/$($rollup.NextChild.FolderName)"
-                run = [string](& $RunFactory)
-                outcome = 'selected'
-            }
-            $selectedWrite = Set-EpicAutopilotState -Path $stateFile -State $selected `
-                -ExpectedGeneration 'absent' -Operation 'selected state write'
-            $generation = $selectedWrite.Generation
-        }
-
-        $runLease.Value = Enter-EpicAutopilotRunLease `
-            -StatePath $stateFile -Run $selected.run
-        $running = New-EpicAutopilotState -State $selected -Outcome 'running'
-        $runningWrite = Set-EpicAutopilotState -Path $stateFile -State $running `
-            -ExpectedGeneration $generation -Operation 'running state write'
-
-        return [pscustomobject]@{
-            State = $running
-            NextChild = $rollup.NextChild
-            Resumed = $resumed
-            StatePath = $stateFile
-            Launch = $true
-            LaunchAttempted = $false
-            Replayed = $false
-            ExitCode = $null
-            Failed = $false
-            Message = $null
-            Generation = $runningWrite.Generation
-        }
         }
 
         if (-not $admission.Launch) {
             return $admission
         }
 
-    $launchScript = Join-Path $repoRootPath '.github/skills/autopilot/scripts/launch.ps1'
-    $launchArguments = @(
-        '-PlanSlug', [string]$admission.NextChild.FolderName,
-        '-Mode', 'whole-plan',
-        '-Runtime', 'container',
-        '-Branch', $targetBranch,
-        '-ExpectedStartCommit', [string]$admission.State.target,
-        '-Run', [string]$admission.State.run
-    )
-    try {
-        $launcherOutput = @(
-            & $LauncherInvoker $launchScript $launchArguments $repoRootPath
+        $launchScript = Join-Path $repoRootPath '.github/skills/autopilot/scripts/launch.ps1'
+        $launchArguments = @(
+            '-PlanSlug', [string]$admission.NextChild.FolderName,
+            '-Mode', 'whole-plan',
+            '-Runtime', 'container',
+            '-Branch', $targetBranch,
+            '-ExpectedStartCommit', [string]$admission.State.target,
+            '-Run', [string]$admission.State.run
         )
-        if ($launcherOutput.Count -ne 1) {
-            throw 'Per-plan launcher invoker must return exactly one exit code.'
-        }
-        $launcherExitText = [string]$launcherOutput[0]
-        if ($launcherExitText -cnotmatch $script:PortableExitCodePattern) {
-            throw "Per-plan launcher invoker returned invalid exit code '$($launcherOutput[0])'."
-        }
-        $launcherExit = [int]::Parse(
-            $launcherExitText,
-            [System.Globalization.NumberStyles]::None,
-            [System.Globalization.CultureInfo]::InvariantCulture
-        )
-    }
-    catch {
-        $launchError = $_.Exception.Message
         try {
-            $failedState = Set-EpicAutopilotTerminalState -Path $stateFile `
-                -RunningState $admission.State -RunningGeneration $admission.Generation `
-                -Outcome 'invocation-failed'
+            $launcherOutput = @(
+                & $LauncherInvoker $launchScript $launchArguments $repoRootPath
+            )
+            if ($launcherOutput.Count -ne 1) {
+                throw 'Per-plan launcher invoker must return exactly one exit code.'
+            }
+            $launcherExitText = [string]$launcherOutput[0]
+            if ($launcherExitText -cnotmatch $script:PortableExitCodePattern) {
+                throw "Per-plan launcher invoker returned invalid exit code '$($launcherOutput[0])'."
+            }
+            $launcherExit = [int]::Parse(
+                $launcherExitText,
+                [System.Globalization.NumberStyles]::None,
+                [System.Globalization.CultureInfo]::InvariantCulture
+            )
         }
         catch {
-            throw "Per-plan launcher invocation failed ('$launchError') and its terminal state could not be persisted: $($_.Exception.Message)"
+            $launchError = $_.Exception.Message
+            try {
+                $failedState = Set-EpicAutopilotTerminalState -Path $stateFile `
+                    -RunningState $admission.State -RunningGeneration $admission.Generation `
+                    -Outcome 'invocation-failed'
+            }
+            catch {
+                throw "Per-plan launcher invocation failed ('$launchError') and its terminal state could not be persisted: $($_.Exception.Message)"
+            }
+            return [pscustomobject]@{
+                State           = $failedState
+                NextChild       = $admission.NextChild
+                Resumed         = $admission.Resumed
+                StatePath       = $stateFile
+                Launch          = $false
+                LaunchAttempted = $true
+                Replayed        = $false
+                ExitCode        = $null
+                Failed          = $true
+                Message         = "Per-plan launcher invocation failed: $launchError"
+            }
         }
-        return [pscustomobject]@{
-            State = $failedState
-            NextChild = $admission.NextChild
-            Resumed = $admission.Resumed
-            StatePath = $stateFile
-            Launch = $false
-            LaunchAttempted = $true
-            Replayed = $false
-            ExitCode = $null
-            Failed = $true
-            Message = "Per-plan launcher invocation failed: $launchError"
-        }
-    }
 
+        $terminalOutcome = if ($launcherExit -eq 0) {
+            'awaiting-merge'
+        }
+        else {
+            "exit:$launcherExit"
+        }
         $terminal = Set-EpicAutopilotTerminalState -Path $stateFile `
             -RunningState $admission.State -RunningGeneration $admission.Generation `
-            -Outcome "exit:$launcherExit"
+            -Outcome $terminalOutcome
         return [pscustomobject]@{
-            State = $terminal
-            NextChild = $admission.NextChild
-            Resumed = $admission.Resumed
-            StatePath = $stateFile
-            Launch = $true
+            State           = $terminal
+            NextChild       = $admission.NextChild
+            Resumed         = $admission.Resumed
+            StatePath       = $stateFile
+            Launch          = $true
             LaunchAttempted = $true
-            Replayed = $false
-            ExitCode = $launcherExit
-            Failed = $false
-            Message = $null
+            Replayed        = $false
+            ExitCode        = $launcherExit
+            Failed          = $false
+            Message         = $null
         }
     }
     finally {

@@ -120,6 +120,38 @@ checkout_epic_work_branch() {
     git -C "${repo_path}" checkout -b "${work_branch}" "${verified_start}"
 }
 
+autopilot_expected_close_target_branch() {
+    local expected_start_commit="${1:-}"
+    local repo_branch="${2:-}"
+
+    if [ -z "${expected_start_commit}" ]; then
+        printf '\n'
+        return 0
+    fi
+    if [ -z "${repo_branch}" ]; then
+        echo "ERROR: REPO_BRANCH is required when EXPECTED_START_COMMIT is set." >&2
+        return 2
+    fi
+    printf '%s\n' "${repo_branch}"
+}
+
+autopilot_entrypoint_target_close_state() {
+    local plan_path="$1"
+    local target="$2"
+    local final_phase_number="$3"
+    local review_gate="$4"
+    local work_branch="$5"
+    local expected_close_target_branch
+
+    expected_close_target_branch="$(
+        autopilot_expected_close_target_branch \
+            "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}"
+    )" || return $?
+    autopilot_target_close_state \
+        "${plan_path}" "${target}" "${final_phase_number}" "${review_gate}" \
+        "${work_branch}" "${expected_close_target_branch}"
+}
+
 # Expose the pure phase-progress and recovery probes to focused tests.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -138,6 +170,8 @@ if [ -n "${EXPECTED_START_COMMIT:-}" ] &&
     echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
     exit 2
 fi
+autopilot_expected_close_target_branch \
+    "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}" >/dev/null || exit $?
 TRUSTED_INTERNAL_RETRY="${AUTOPILOT_TRUSTED_INTERNAL_RETRY:-false}"
 if [ "${TRUSTED_INTERNAL_RETRY}" != "false" ] &&
     [ "${TRUSTED_INTERNAL_RETRY}" != "true" ]; then
@@ -478,9 +512,16 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
 
         CLOSE_STATE=""
         if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "Publishing ${WORK_BRANCH} before terminal close proof..."
+            if ! git push origin "${WORK_BRANCH}"; then
+                echo "ERROR: Failed to publish successful child work before close proof."
+                preserve_work || true
+                exit 70
+            fi
             if ! CLOSE_STATE=$(
-                autopilot_target_close_state \
-                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}"
+                autopilot_entrypoint_target_close_state \
+                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}" \
+                    "${WORK_BRANCH}"
             ); then
                 echo "ERROR: Unable to verify terminal close state for ${TARGET_LABEL}."
                 preserve_work

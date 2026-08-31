@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-31T03:09:01.5073628Z",
+  "generatedAt": "2026-08-31T03:49:34.8392998Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -227,7 +227,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/EpicAutopilot.psm1",
-          "sha256": "f3812fce26abd548355e8c9acc7875cb6780ac98be621b0fbc9613f6af17e6a7",
+          "sha256": "71524221b9a57858e81bf2c0abfd1a6abfd5aea17b7bf46398dd9a4fbcff9a6c",
           "src": "skills/autopilot/scripts/EpicAutopilot.psm1"
         },
         {
@@ -247,7 +247,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1",
-          "sha256": "e5738ebf1845c3cc9cafeafdb359b04082cc2713152f73939ac87c7fb34695e9",
+          "sha256": "931b6dfdec9cc167f2db3cd9c97a84a132122ee6e90f9321bf41126720d2194c",
           "src": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1"
         },
         {
@@ -312,7 +312,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "e06e2b294b1b5b127cfba36e56d417b898299a7f157ed1c90e6969892c2d3af0",
+          "sha256": "32e2a4513de544b0d682c96418c9696c8f0f204b571a8f03f5f2c470267daee4",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -347,7 +347,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/plan-dispatch.sh",
-          "sha256": "520f7263aafe425f25c762ea0716f88dd4c987bd76b9219ff0c0b5f612d92159",
+          "sha256": "6f50619c28aa9a8cb6f49ce28d5d5d701a1adac870bc3398d765e2b78509d1be",
           "src": "scripts/plan-dispatch.sh"
         },
         {
@@ -391,7 +391,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.77"
+      "version": "1.2.79"
     },
     {
       "author": "jIRI-san",

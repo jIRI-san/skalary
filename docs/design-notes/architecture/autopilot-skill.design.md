@@ -20,7 +20,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
-| Epic child launch | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; atomically selects/resumes and launches one child, then stops at its raw launcher result |
+| Epic child launch | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; atomically selects/resumes and launches one child, then maps verified launcher zero to an operator merge stop |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 
 ## Key Patterns
@@ -65,8 +65,15 @@ Selection requires clean HEAD at the resolved target. The first container fetche
 creates directly from its verified object, and rejects an existing work branch; only a later exit-43
 retry inside that launcher invocation may resume the branch. A repeated host call uses the run-derived
 container name to refuse active work or reconcile proven inactive work to `invocation-failed` without
-relaunch. Persisted/replayed launcher codes use the portable 0..255 process-exit domain; launch failures
-return structured `invocation-failed` receipts. The skill names the installed helper so
+relaunch. The existing per-plan launcher owns terminal evidence, review, archive, exact child-branch
+publication, and typed open-PR proof. It pushes before probing, then requires checked-out/local/origin
+OID equality and one PR whose head name/OID match; an explicitly selected target must match its base.
+Provider/command or typed-output failures are errors, while valid mismatches resume as close-pending.
+The epic helper does not duplicate this chain: launcher zero becomes `awaiting-merge`, then the host
+stops for operator merge without push, merge, checkout, provider API, or transcript parsing. Nonzero
+portable process codes remain `exit:<1..255>`; malformed launcher results and launch failures become
+`invocation-failed`. Legacy `exit:0` replays as the same terminal operator-merge stop without mutation
+or relaunch. The skill names the installed helper so
 plugin bundling carries its canonical
 `Get-PlanState`, `EpicAutopilot`, and `AtomicStore` closure, while retaining the ordinary plan
 handoff until merge-gate and repeat behavior lands.

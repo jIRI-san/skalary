@@ -43,3 +43,8 @@ Phase: 1
 - [-] [src:code-review] [sev:Med] [concern:correctness-reliability] [req:REQ-1,REQ-2] [review:cr] [source-record:5cd9f5d76e279e59d861640f188921c18b5aff52d3dd63a2acb1e9e80f873b38] CR run acb21779 finding 3: container absence could overwrite a live pre-container or post-container launcher. Triage: fixed with a run-scoped cross-process host lease acquired before running publication and held through terminal persistence.
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:66f4077ace83ff8decf3d38b22132ddb08f0442fac3def163c7b2d71876cb3e2] review-cycle stage=phase-1 cycle=4 outcome=findings run=acb21779-fcfd-4f6d-ba2a-04b4ef9fb88a summary=eight findings triaged; seven remediated; one false-positive
 - [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:b78dc3388172251e1e02dd878a7d20a15b8e744612dfd2c2921f310c8fa8dd91] review-cycle-decision stage=phase-1 after=4 action=wrap
+
+## CR Capture
+Phase: 2
+
+No entries for this phase.

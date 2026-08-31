@@ -125,28 +125,119 @@ autopilot_target_owns_finalization() {
         [ "${target}" = "phase-completion:${final_phase_number}" ]
 }
 
-autopilot_branch_has_open_pr() {
+autopilot_branch_has_published_pr() {
     local repo_root="$1"
+    local expected_branch="$2"
+    local target_branch="${3:-}"
     local gh_bin="${AUTOPILOT_GH_BIN:-gh}"
-    local branch
-    local count
+    local current_branch
+    local local_head
+    local remote_output
+    local remote_oid
+    local remote_ref
+    local pr_output
+    local pr_head
+    local pr_oid
+    local pr_base
+    local pr_state
+    local extra
+    local row
+    local -a remote_rows=()
+    local -a pr_rows=()
 
-    if ! branch=$(git -C "${repo_root}" branch --show-current) || [ -z "${branch}" ]; then
+    if ! git -C "${repo_root}" check-ref-format --branch "${expected_branch}" >/dev/null 2>&1; then
+        printf 'ERROR: expected work branch is invalid for close proof.\n' >&2
+        return 2
+    fi
+    if [ -n "${target_branch}" ] &&
+        ! git -C "${repo_root}" check-ref-format --branch "${target_branch}" >/dev/null 2>&1; then
+        printf 'ERROR: expected target branch is invalid for close proof.\n' >&2
+        return 2
+    fi
+    if ! current_branch=$(git -C "${repo_root}" branch --show-current) ||
+        [ -z "${current_branch}" ]; then
         printf 'ERROR: unable to resolve the current branch for PR close proof.\n' >&2
         return 2
     fi
-    if ! count=$(
+    if [ "${current_branch}" != "${expected_branch}" ]; then
+        return 1
+    fi
+    if ! local_head=$(git -C "${repo_root}" rev-parse --verify 'HEAD^{commit}') ||
+        [[ ! "${local_head}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+        printf 'ERROR: local HEAD is not a full commit id for close proof.\n' >&2
+        return 2
+    fi
+    if ! remote_output=$(
+        git -C "${repo_root}" ls-remote --refs origin "refs/heads/${expected_branch}"
+    ); then
+        printf 'ERROR: unable to inspect the published work branch for close proof.\n' >&2
+        return 2
+    fi
+    if [ -n "${remote_output}" ]; then
+        mapfile -t remote_rows <<< "${remote_output}"
+    fi
+    if [ "${#remote_rows[@]}" -eq 0 ]; then
+        return 1
+    fi
+    for row in "${remote_rows[@]}"; do
+        IFS=$'\t' read -r remote_oid remote_ref extra <<< "${row}"
+        if [ -n "${extra:-}" ] ||
+            [[ ! "${remote_oid:-}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] ||
+            [ -z "${remote_ref:-}" ]; then
+            printf 'ERROR: published work branch close proof returned malformed ref data.\n' >&2
+            return 2
+        fi
+        if [ "${remote_ref}" != "refs/heads/${expected_branch}" ]; then
+            return 1
+        fi
+    done
+    if [ "${#remote_rows[@]}" -ne 1 ]; then
+        return 1
+    fi
+    IFS=$'\t' read -r remote_oid remote_ref extra <<< "${remote_rows[0]}"
+    if [ "${remote_oid}" != "${local_head}" ]; then
+        return 1
+    fi
+
+    if ! pr_output=$(
         cd "${repo_root}" &&
-            "${gh_bin}" pr list --head "${branch}" --state open --json number --jq length
+            "${gh_bin}" pr list \
+                --head "${expected_branch}" \
+                --state open \
+                --json headRefName,headRefOid,baseRefName,state \
+                --jq '.[] | [.headRefName, .headRefOid, .baseRefName, .state] | @tsv'
     ); then
         printf 'ERROR: unable to inspect the branch pull request for close proof.\n' >&2
         return 2
     fi
-    if [[ ! "${count}" =~ ^[0-9]+$ ]]; then
-        printf 'ERROR: pull request close proof returned an invalid count.\n' >&2
-        return 2
+    if [ -n "${pr_output}" ]; then
+        mapfile -t pr_rows <<< "${pr_output}"
     fi
-    [ "${count}" -gt 0 ]
+    if [ "${#pr_rows[@]}" -eq 0 ]; then
+        return 1
+    fi
+    for row in "${pr_rows[@]}"; do
+        IFS=$'\t' read -r pr_head pr_oid pr_base pr_state extra <<< "${row}"
+        if [ -n "${extra:-}" ] ||
+            [ -z "${pr_head:-}" ] ||
+            [[ ! "${pr_oid:-}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] ||
+            [ -z "${pr_base:-}" ] ||
+            [ -z "${pr_state:-}" ]; then
+            printf 'ERROR: pull request close proof returned malformed typed metadata.\n' >&2
+            return 2
+        fi
+    done
+    if [ "${#pr_rows[@]}" -ne 1 ]; then
+        return 1
+    fi
+    IFS=$'\t' read -r pr_head pr_oid pr_base pr_state extra <<< "${pr_rows[0]}"
+    if [ "${pr_head}" != "${expected_branch}" ] ||
+        [ "${pr_oid}" != "${local_head}" ] ||
+        [ "${pr_state}" != "OPEN" ] ||
+        { [ -n "${target_branch}" ] && [ "${pr_base}" != "${target_branch}" ]; }; then
+        return 1
+    fi
+    return 0
 }
 
 autopilot_tree_records() {
@@ -167,6 +258,8 @@ autopilot_target_close_state() {
     local target="$2"
     local final_phase_number="$3"
     local gate_script="$4"
+    local expected_work_branch="${5:-}"
+    local target_branch="${6:-}"
     local phase_number
     local gate_state
     local gate_status
@@ -358,7 +451,12 @@ autopilot_target_close_state() {
                 printf '%s\n' 'close-pending'
                 return
             fi
-            if autopilot_branch_has_open_pr "${repo_root_full}"; then
+            if [ -z "${expected_work_branch}" ]; then
+                printf 'ERROR: expected work branch is required for final close proof.\n' >&2
+                return 2
+            fi
+            if autopilot_branch_has_published_pr \
+                "${repo_root_full}" "${expected_work_branch}" "${target_branch}"; then
                 pr_status=0
             else
                 pr_status=$?
