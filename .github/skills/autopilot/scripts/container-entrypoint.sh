@@ -408,7 +408,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         else
             echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
         fi
-        preserve_work || exit 125
+        preserve_work || exit 70
         git push origin "${WORK_BRANCH}" || true
         exit 42
     elif [ "${TARGET}" = "completion-only" ]; then
@@ -426,7 +426,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             fi
             if [ "${GATE_STATUS}" -eq 42 ]; then
                 echo "Plan completion requires an operator review decision — stopping."
-                preserve_work || exit 125
+                preserve_work || exit 70
                 git push origin "${WORK_BRANCH}" || true
                 exit 42
             fi
@@ -563,7 +563,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
                 ;;
             human-stop)
                 echo "${TARGET_LABEL} requires operator action — stopping."
-                preserve_work || exit 125
+                preserve_work || exit 70
                 git push origin "${WORK_BRANCH}" || true
                 exit 42
                 ;;

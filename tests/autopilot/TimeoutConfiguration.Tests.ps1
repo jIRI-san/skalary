@@ -91,7 +91,7 @@ Describe 'Autopilot work preservation' {
 
     It 'retains the container when preservation cannot commit or push' {
         $entrypoint | Should -Match 'autopilot-preservation-failed'
-        $entrypoint | Should -Match 'preserve_work \|\| exit 125'
+        $entrypoint | Should -Match 'preserve_work \|\| exit 70'
         $containerLauncher | Should -Match 'Retaining container'
         $containerLauncher | Should -Match 'autopilot-preservation-failed'
     }

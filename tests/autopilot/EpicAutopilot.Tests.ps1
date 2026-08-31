@@ -2086,6 +2086,127 @@ catch {
         }
     }
 
+    It 'test:EpicAutopilot.HostLoop excludes a second production host loop across processes' {
+        $statePath = Join-Path $TestDrive 'competing-hosts.json'
+        $rollupPath = Join-Path $TestDrive 'competing-hosts-rollup.json'
+        $readyPath = Join-Path $TestDrive 'primary-ready'
+        $releasePath = Join-Path $TestDrive 'primary-release'
+        $secondLaunchPath = Join-Path $TestDrive 'second-launch'
+        $primaryOutput = Join-Path $TestDrive 'primary-output.txt'
+        $primaryError = Join-Path $TestDrive 'primary-error.txt'
+        $primaryScript = Join-Path $TestDrive 'primary-host-loop.ps1'
+        $secondaryScript = Join-Path $TestDrive 'secondary-host-loop.ps1'
+        [System.IO.File]::WriteAllText(
+            $rollupPath,
+            (New-RollupJson -NextChild $script:childA)
+        )
+        [System.IO.File]::WriteAllText(
+            $primaryScript,
+            @'
+param($ModulePath, $RepoRoot, $StatePath, $RollupPath, $ReadyPath, $ReleasePath)
+Import-Module $ModulePath -Force
+$rollup = [System.IO.File]::ReadAllText($RollupPath)
+$parameters = @{
+    Epic = 'abc123'
+    Target = 'main'
+    RepoRoot = $RepoRoot
+    StatePath = $StatePath
+    PlanStateInvoker = { $rollup }.GetNewClosure()
+    TargetResolver = { 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
+    WorktreeValidator = {}
+    RunFactory = { 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }
+    LauncherInvoker = {
+        [System.IO.File]::WriteAllText($ReadyPath, 'ready')
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        while (-not (Test-Path -LiteralPath $ReleasePath)) {
+            if ([DateTime]::UtcNow -ge $deadline) { throw 'release timeout' }
+            Start-Sleep -Milliseconds 25
+        }
+        return 42
+    }.GetNewClosure()
+}
+$result = & (Get-Module EpicAutopilot) {
+    param($Arguments)
+    Invoke-EpicAutopilotHostLoopCore @Arguments
+} $parameters
+if ($result.ExitCode -eq 42) { exit 0 }
+exit 3
+'@
+        )
+        [System.IO.File]::WriteAllText(
+            $secondaryScript,
+            @'
+param($ModulePath, $RepoRoot, $StatePath, $RollupPath, $SecondLaunchPath)
+Import-Module $ModulePath -Force
+$rollup = [System.IO.File]::ReadAllText($RollupPath)
+$parameters = @{
+    Epic = 'abc123'
+    Target = 'main'
+    RepoRoot = $RepoRoot
+    StatePath = $StatePath
+    PlanStateInvoker = { $rollup }.GetNewClosure()
+    TargetResolver = { 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
+    WorktreeValidator = {}
+    RunFactory = { throw 'second host must reuse the persisted run' }
+    ContainerProbe = { throw 'the active host lease must stop before the container probe' }
+    LauncherInvoker = {
+        [System.IO.File]::WriteAllText($SecondLaunchPath, 'launched')
+        return 0
+    }.GetNewClosure()
+}
+try {
+    & (Get-Module EpicAutopilot) {
+        param($Arguments)
+        Invoke-EpicAutopilotHostLoopCore @Arguments
+    } $parameters | Out-Null
+    exit 2
+}
+catch {
+    if ($_.Exception.Message -match 'already has an active host launcher') { exit 0 }
+    Write-Error $_
+    exit 1
+}
+'@
+        )
+
+        $primary = Start-Process -FilePath (Get-Process -Id $PID).Path `
+            -ArgumentList @(
+                '-NoProfile', '-File', $primaryScript,
+                $script:modulePath, $script:repoRoot, $statePath, $rollupPath,
+                $readyPath, $releasePath
+            ) -RedirectStandardOutput $primaryOutput `
+            -RedirectStandardError $primaryError -PassThru
+        $null = $primary.Handle
+        try {
+            $readyDeadline = [DateTime]::UtcNow.AddSeconds(10)
+            while (-not (Test-Path -LiteralPath $readyPath)) {
+                if ($primary.HasExited) {
+                    throw "Primary host exited early with code $($primary.ExitCode)."
+                }
+                if ([DateTime]::UtcNow -ge $readyDeadline) {
+                    throw 'Primary host did not reach its launcher.'
+                }
+                Start-Sleep -Milliseconds 25
+            }
+
+            & (Get-Process -Id $PID).Path -NoProfile -File $secondaryScript `
+                $script:modulePath $script:repoRoot $statePath $rollupPath `
+                $secondLaunchPath
+            $LASTEXITCODE | Should -Be 0
+            Test-Path -LiteralPath $secondLaunchPath | Should -BeFalse
+        }
+        finally {
+            [System.IO.File]::WriteAllText($releasePath, 'release')
+            if (-not $primary.WaitForExit(10000)) {
+                $primary.Kill($true)
+                $primary.WaitForExit()
+            }
+        }
+        $primary.ExitCode | Should -Be 0 -Because (
+            (Get-Content -LiteralPath $primaryError -Raw -ErrorAction SilentlyContinue)
+        )
+    }
+
     It 'test:EpicAutopilot.ResumeState resumes selected, refuses active or stale state, and fails closed on launch errors' {
         $invokerA = {
             param($EpicReference, $Root, $ScriptPath)

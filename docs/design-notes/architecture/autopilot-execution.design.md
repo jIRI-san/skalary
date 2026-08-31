@@ -207,7 +207,8 @@ merges, pushes, or invokes a provider API.
 ### Container Mode
 
 - Builds image from `.github/skills/autopilot/devcontainer/Dockerfile`
-- Passes auth via env file (prepared by `prepare-env-file.ps1`)
+- Passes auth via env file (prepared by `prepare-env-file.ps1`); centralized serialization rejects
+  malformed names and CR, LF, or NUL in every value before the writer receives the payload
 - Container entry point: `container-entrypoint.sh` handles clone, branch, and targets selected by
   the deterministic `plan-dispatch.sh` helper
 - Sourcing `container-entrypoint.sh` exposes its testable phase-state, recovery, and checkout
@@ -520,7 +521,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `clean-sandbox-cache.ps1` | Remove sandbox toolchain cache (~700MB) |
 | `get-credential.ps1` | Read tokens from Windows Credential Manager |
 | `Invoke-SiDueEnqueue.ps1` | Non-blocking headless finalization wrapper for the installed SI due writer |
-| `prepare-env-file.ps1` | Create temp env file with restrictive ACL; reject HTTP(S) remotes containing userinfo |
+| `prepare-env-file.ps1` | Create a restrictive-ACL temp env file; reject remote userinfo and env line/NUL injection |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
 | `container-entrypoint.sh` | Container bootstrap (clone, branch, phase loop) |
 | `plan-dispatch.sh` | Container phase-resume and completion dispatch helper sourced by the entrypoint |

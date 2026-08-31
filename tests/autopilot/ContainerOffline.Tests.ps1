@@ -38,6 +38,11 @@ Describe 'Autopilot.ContainerOffline' {
             $envFile | Should -Match 'AUTOPILOT_OFFLINE=true'
             $envFile | Should -Match 'AUTOPILOT_FEED=/feed'
         }
+        It 'routes the complete writer payload through the validated serializer' {
+            $envFile | Should -Match (
+                'ConvertTo-AutopilotEnvFileContent -Entry \$envContent'
+            )
+        }
         It 'rejects line and NUL injection in every environment value' {
             ConvertTo-AutopilotEnvFileContent -Entry @(
                 'SAFE=value=with-equals',

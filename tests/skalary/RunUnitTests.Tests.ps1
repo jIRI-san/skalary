@@ -463,6 +463,7 @@ Describe 'focused slow evidence file' {
         Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
 Describe 'focused slow evidence case mismatch' {
     It 'test:slowevidence.Selected passes' { $true | Should -BeTrue }
+    It 'prefix test:SlowEvidence.Selected passes' { $true | Should -BeTrue }
 }
 '@
         $caseMismatch = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
