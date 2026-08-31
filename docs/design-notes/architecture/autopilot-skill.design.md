@@ -20,7 +20,7 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
-| Epic host selection | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; selection/state only, no per-plan launch |
+| Epic child launch | `Invoke-EpicAutopilot.ps1` | Delivered but not yet routed from `/ci`; atomically selects/resumes and launches one child, then stops at its raw launcher result |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 
 ## Key Patterns
@@ -55,11 +55,17 @@ same-session-resuming the agent, while an explicit pre-existing Reopen makes the
 `close-pending` handoff remains valid for unfinished validation/archive work but carries no operator
 authority.
 
-**Epic selection is staged, not wired into `/ci`.** The installed
-`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` helper currently owns only atomic
-`NextChild` selection and resume validation. It never calls the per-plan launcher. The skill names the
-installed helper so plugin bundling carries its canonical `Get-PlanState`, `EpicAutopilot`, and
-`AtomicStore` closure, while retaining the existing plan handoff until launcher transitions land.
+**Epic child launch is staged, not wired into `/ci`.** The installed
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` helper atomically selects or resumes the
+exact `NextChild`, transitions `selected` to `running`, then invokes the installed per-plan launcher
+once in a separate PowerShell process. Its launcher arguments are fixed to the selected folder,
+`whole-plan`, `container`, and the caller's target ref; the epic wrapper exposes no mode/runtime
+override. It stores the raw terminal code without interpreting success and never relaunches running
+or terminal state. Persisted/replayed launcher codes use the portable 0..255 process-exit domain;
+out-of-domain injected results become `invocation-failed`. The skill names the installed helper so
+plugin bundling carries its canonical
+`Get-PlanState`, `EpicAutopilot`, and `AtomicStore` closure, while retaining the ordinary plan
+handoff until merge-gate and repeat behavior lands.
 
 **First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
 it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout

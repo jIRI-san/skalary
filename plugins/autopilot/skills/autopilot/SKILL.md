@@ -117,6 +117,10 @@ with local checkbox or receipt-existence predicates.
 ## Staged epic host helper
 
 `.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` is delivered for the host-owned epic
-selection flow. In its current increment it persists only the exact `Get-PlanState` `NextChild` as a
-resumable `selected` record. It does not invoke `launch.ps1` or any runtime adapter. Do not route the
-ordinary `/ci` plan handoff through this helper until the later launcher-transition increment.
+flow. It atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
+`running`, and invokes the installed `launch.ps1` once in a separate PowerShell process with fixed
+`whole-plan` / `container` arguments and the caller's target ref. Terminal launcher codes are stored
+as `exit:<0..255>`, the portable process-exit domain; launch-start failures and out-of-domain
+invocation results are stored as `invocation-failed`. Existing running or terminal state never
+launches another child. Do not route the ordinary `/ci` plan handoff through this staged helper until
+the later merge-gate and repeat increments land.

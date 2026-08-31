@@ -46,31 +46,45 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 └───────────────────┘ └─────────┘ └──────────────────────┘
 ```
 
-### Epic host selection
+### Epic host child launch
 
-`Invoke-EpicAutopilot.ps1` is a host-only wrapper above the per-plan launchers. Its first
-increment invokes the existing `Get-PlanState.ps1 -Epic -Json` with bound arguments and treats
-that command's `NextChild` as authoritative; it does not parse plans or launch a child yet.
-`AUTOPILOT_CONTAINER=true` fails closed at this boundary.
+`Invoke-EpicAutopilot.ps1` is a host-only wrapper above the existing per-plan launcher. It invokes
+`Get-PlanState.ps1 -Epic -Json` with bound arguments and treats that command's `NextChild` as
+authoritative; it never parses plans or calls Docker, auth, rebundling, runtime adapters, or child
+execution directly. `AUTOPILOT_CONTAINER=true` fails closed before selection or launch.
 
 Selection is serialized through `AtomicStore` and persisted at
 `<git-common-dir>/skalary/epic-autopilot.json` (or an explicit test/operator `-StatePath`). The
 record has exactly six case-sensitive string fields:
 
-| Field | Meaning before launch |
+| Field | Meaning |
 |---|---|
 | `epic` | Canonical six-hex `Get-PlanState.EpicId` |
 | `target` | Full commit id resolved from the caller's target Git ref at selection |
 | `currentChild` | Canonical six-hex `Get-PlanState.NextChild.Id` |
 | `branch` | Reserved per-child branch, `feature/<NextChild.FolderName>` |
 | `run` | Canonical GUID allocated once for this sequential run |
-| `outcome` | `selected`; launcher-owned transitions are added by the next increment |
+| `outcome` | `selected`, `running`, `invocation-failed`, or `exit:<0..255>` |
 
 A fresh process resumes only when canonical epic, resolved target commit, exact `NextChild`, and
 derived branch still match. Malformed state, a changed target, a different/no `NextChild`, or a
 different epic fails loudly before mutation. The existing bytes remain untouched on every
 validation or staleness failure. A null `NextChild` with no state returns without creating a
-record. This keeps `selected` distinct from `running` and permits only one active child.
+record.
+
+Under the `AtomicStore` lock, the wrapper refetches and validates those coordinates, creates or
+resumes `selected`, then CAS-transitions that same run to `running`. The lock is released before
+the blocking launcher call. The launcher runs once as a separate PowerShell process from repo root,
+using `ProcessStartInfo.ArgumentList` with exact arguments `-PlanSlug <NextChild.FolderName> -Mode
+whole-plan -Runtime container -Branch <caller-target-ref>`. This preserves the launcher's internal
+rebundle loop and exit behavior. After it returns, the wrapper reacquires the lock and CAS-transitions
+the same `running` generation to `exit:<0..255>`; `Process.ExitCode` after `WaitForExit` is the
+production authority. The persisted/replay domain is limited to 0..255 because POSIX exposes only
+that portable range. An injected out-of-domain result follows the launch-error path, attempts the
+same CAS to `invocation-failed`, and fails loudly; zero is never substituted. A start exception does
+the same. A terminal-write failure never returns success, including after launcher exit zero.
+Existing `running` state fails closed; existing terminal state is replayed without launching or
+selecting a sibling.
 
 ## Modes
 
