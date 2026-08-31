@@ -110,12 +110,18 @@ is limited to 0..255 because POSIX exposes only that portable range. Legacy `exi
 merge-success checkpoints equivalent to `awaiting-merge`.
 An injected out-of-domain result follows the launch-error path, attempts the same CAS to
 `invocation-failed`, and returns a structured failure receipt; zero is never substituted.
-A start exception does the same. A terminal-write failure still throws, including after launcher exit
-zero. The run GUID deterministically names its container. Existing `running` state probes only that
-container: an active container refuses a second launch, an absent/exited container CAS-reconciles the
-same run to `invocation-failed` and replays that terminal receipt without relaunch, and probe uncertainty
-fails without changing bytes. Existing non-success terminal state is replayed without selecting a
-sibling.
+A start exception does the same and uses stable process exit `1`; every structured blocked stop uses
+`42`. The wrapper validates that every terminal result carries a portable code consistent with its
+state and failure flag, so a missing/null/mismatched code cannot cast to false success. Every nonzero
+launcher result has `Failed=true` and a bounded message naming child, run, branch, and either the
+operator stop or failing code; raw exception text is not returned. A terminal-write failure still
+throws, including after launcher exit zero. The run GUID deterministically names its container.
+Existing `running` state probes only that container: `running`, `restarting`, `paused`, and `removing`
+are active; `created`, `exited`, and `dead` are stale/inactive when the host lease is inactive;
+unknown Docker states fail closed. Active state refuses a second launch, inactive state
+CAS-reconciles the same run to `invocation-failed` and replays that terminal receipt without relaunch,
+and probe uncertainty fails without changing bytes. Existing non-success terminal state is replayed
+without selecting a sibling.
 
 Only `awaiting-merge` and legacy `exit:0` may advance. An unchanged target remains at the merge stop.
 For a changed target, the loop uses `git merge-base --is-ancestor` to prove the new commit moves
@@ -161,7 +167,12 @@ staged forms that an abrupt writer/publication exit can leave, regenerates the d
 clean canonical sources to reject forgery, restores only that Capture/index entry, and then repeats the
 normal validation, crosscheck, writer, and target-ref CAS. Mixed states, untracked or other path/index
 changes, noncanonical source bytes/modes, and concurrent target movement fail closed without changing
-checkpoint bytes. On restart after publication, only an exact marker-bearing single-parent target
+checkpoint bytes. Recovery accepts current unprefixed `<date>-<child-id>-<slug>` and epic-prefixed
+`<epic-id>-<date>-<child-id>-<slug>` folders only after the target-tree `plan.md` proves the exact
+six-character plan id and epic-membership header; `standalone` or a different epic prefix is refused.
+Legacy `NNN-<slug>` plans can remain epic members for ordinary rollups but cannot be represented by
+this host's immutable six-character `currentChild` field, so they are an explicit epic-autopilot
+recovery boundary rather than guessed into a mapping. On restart after publication, only an exact marker-bearing single-parent target
 commit whose sole delta is the expected Capture path is recognized; the coherency check is repeated
 against its recorded parent, the typed writer must report a byte-clean deduplicated replay, and no
 second record or commit is created before deletion retries. Malformed evidence metadata, detached/wrong
@@ -492,7 +503,7 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | Script | Purpose |
 |--------|---------|
 | `EpicAutopilot.psm1` | Host-only epic child admission/state machine; refreshes and CAS-advances only merge-proven success, gates complete rollups through the optional fixed coherency-review entry point or bounded intent/done fallback, publishes exactly one local Capture-only evidence commit by checked-out-target CAS before deleting state, preserves terminal failures and blocked retry anchors, exports only the three-argument production host loop, and keeps test adapters private |
-| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; distinguishes awaiting merge, clean completion, blocked exit 42, invocation failure, and portable child exit codes |
+| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; validates structured exit/state consistency and distinguishes awaiting merge, clean completion, blocked exit 42, stable invocation failure exit 1, and portable child exit codes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |

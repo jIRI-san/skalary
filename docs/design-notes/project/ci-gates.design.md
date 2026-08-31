@@ -108,6 +108,10 @@ matrix legs with its own NUnit report and manifest-owned runtime observation. `A
 | Row publication | Successful measurement emits/writes a `suite-runtime-row@2` candidate carrying the fingerprint. Publication retires rows for older fingerprints, so they cannot masquerade as cross-platform evidence; later same-fingerprint imports compose the platform set. Import rejects failed, wrong-command, wrong-schema, or wrong-fingerprint rows. Generated row writes do not change the fingerprint. |
 | Measurement receipt | Rows record non-empty OS/PowerShell/Pester/processor identity, HEAD commit, source, exact tracked-input fingerprint, and protocol. Failed runs are emitted but never recorded. Ordered dictionaries are canonicalized by keys, never through `PSObject.Properties` metadata. |
 
+`tests/autopilot/EpicAutopilot.Tests.ps1` is Slow-owned because it creates many Git repositories
+and child PowerShell processes. Stable `test:EpicAutopilot.*` evidence IDs remain admissible through
+focused Fast selection, which executes only the named case and emits nonzero selected/executed counts.
+
 `MeasurementRecord` remains the preferred observation source. Omitting it logs `BudgetNotDefined`
 without changing a passing test verdict.
 

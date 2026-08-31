@@ -74,10 +74,10 @@ Describe 'Epic autopilot child launcher state machine' {
                     $parameters.FinalEvidenceCommitResolver = {
                         param($Branch, $Commit)
                         [pscustomobject]@{
-                            IsReplay       = $false
+                            IsReplay = $false
                             ReviewedTarget = $Commit
                             EvidenceCommit = $null
-                            Capture        = [pscustomobject]@{
+                            Capture = [pscustomobject]@{
                                 RelativePath = 'capture.md'
                             }
                         }
@@ -150,17 +150,17 @@ Describe 'Epic autopilot child launcher state machine' {
         [System.IO.File]::WriteAllText($script:planFileA, "# 111111: First child`n")
         [System.IO.File]::WriteAllText($script:planFileB, "# 222222: Second child`n")
         $script:childA = [ordered]@{
-            Id         = '111111'
-            Slug       = 'first-child'
+            Id = '111111'
+            Slug = 'first-child'
             FolderName = '2026-08-31-111111-first-child'
-            PlanFile   = 'unused'
+            PlanFile = 'unused'
             NextStepId = '1.1'
         }
         $script:childB = [ordered]@{
-            Id         = '222222'
-            Slug       = 'second-child'
+            Id = '222222'
+            Slug = 'second-child'
             FolderName = '2026-08-31-222222-second-child'
-            PlanFile   = 'unused'
+            PlanFile = 'unused'
             NextStepId = '1.1'
         }
 
@@ -176,9 +176,9 @@ Describe 'Epic autopilot child launcher state machine' {
             if (-not $PSBoundParameters.ContainsKey('Children')) {
                 $Children = @(if ($null -ne $NextChild) {
                         [ordered]@{
-                            Id         = [string]$NextChild.Id
+                            Id = [string]$NextChild.Id
                             IsComplete = $false
-                            IsBlocked  = $false
+                            IsBlocked = $false
                         }
                     })
             }
@@ -189,16 +189,16 @@ Describe 'Epic autopilot child launcher state machine' {
                 $completeCount -eq $Children.Count
             }
             return [ordered]@{
-                Kind      = $Kind
-                EpicId    = $EpicId
-                EpicFile  = $EpicFile
-                Rollup    = [ordered]@{
-                    ChildCount    = $Children.Count
+                Kind = $Kind
+                EpicId = $EpicId
+                EpicFile = $EpicFile
+                Rollup = [ordered]@{
+                    ChildCount = $Children.Count
                     CompleteCount = $completeCount
-                    BlockedCount  = $blockedCount
-                    IsComplete    = [bool]$IsComplete
+                    BlockedCount = $blockedCount
+                    IsComplete = [bool]$IsComplete
                 }
-                Children  = @($Children)
+                Children = @($Children)
                 NextChild = $NextChild
             } | ConvertTo-Json -Depth 5 -Compress
         }
@@ -218,12 +218,12 @@ Describe 'Epic autopilot child launcher state machine' {
                 [string]$Outcome = 'selected'
             )
             return [ordered]@{
-                epic         = $Epic
-                target       = $Target
+                epic = $Epic
+                target = $Target
                 currentChild = $Child
-                branch       = $Branch
-                run          = $Run
-                outcome      = $Outcome
+                branch = $Branch
+                run = $Run
+                outcome = $Outcome
             } | ConvertTo-Json -Compress
         }
 
@@ -257,8 +257,8 @@ Describe 'Epic autopilot child launcher state machine' {
         $invoker = {
             param($EpicReference, $Root, $ScriptPath)
             [void]$planCalls.Add([pscustomobject]@{
-                    Epic       = $EpicReference
-                    Root       = $Root
+                    Epic = $EpicReference
+                    Root = $Root
                     ScriptPath = $ScriptPath
                 })
             $rollupA
@@ -279,10 +279,10 @@ Describe 'Epic autopilot child launcher state machine' {
                 $during = [System.IO.File]::ReadAllText($statePath) |
                     ConvertFrom-Json
                 [void]$launchCalls.Add([pscustomobject]@{
-                        Script   = $LaunchScript
+                        Script = $LaunchScript
                         Argument = @($Argument)
-                        Root     = $Root
-                        During   = $during
+                        Root = $Root
+                        During = $during
                     })
                 return $exitCode
             }.GetNewClosure()
@@ -308,6 +308,13 @@ Describe 'Epic autopilot child launcher state machine' {
             )
             $result.ExitCode | Should -Be $exitCode
             $result.Launch | Should -BeTrue
+            $result.Failed | Should -Be ($exitCode -ne 0)
+            if ($exitCode -eq 42) {
+                $result.Message | Should -Match 'operator action.*exit code 42'
+            }
+            elseif ($exitCode -ne 0) {
+                $result.Message | Should -Match "child '111111'.*branch 'feature/.*failed with exit code $exitCode"
+            }
             Assert-ExactState -State $result.State -Outcome $expectedOutcome
             Assert-ExactState -State (Read-TestEpicState -Path $statePath) `
                 -Outcome $expectedOutcome
@@ -320,6 +327,7 @@ Describe 'Epic autopilot child launcher state machine' {
             $replay.Replayed | Should -BeTrue
             $replay.Launch | Should -BeFalse
             $replay.ExitCode | Should -Be $exitCode
+            $replay.Failed | Should -Be ($exitCode -ne 0)
             Assert-ExactState -State $replay.State -Outcome $expectedOutcome
             [System.IO.File]::ReadAllText($statePath) | Should -BeExactly $persisted
             $launchCalls | Should -HaveCount 1
@@ -336,6 +344,8 @@ Describe 'Epic autopilot child launcher state machine' {
             throw 'no child must not launch'
         }
         $none.State | Should -BeNullOrEmpty
+        $none.Blocked | Should -BeTrue
+        $none.ExitCode | Should -Be 42
         Test-Path -LiteralPath $nonePath | Should -BeFalse
 
         $boundaryLaunches = [System.Collections.Generic.List[object]]::new()
@@ -396,8 +406,8 @@ Describe 'Epic autopilot child launcher state machine' {
         $wrapperText = [System.IO.File]::ReadAllText(
             (Join-Path $script:repoRoot 'scripts/skalary/Invoke-EpicAutopilot.ps1')
         )
-        $wrapperText | Should -Match 'exit \(\[int\]\$result\.ExitCode\)'
-        $wrapperText | Should -Not -Match 'outcome\.Substring'
+        $wrapperText | Should -Match 'Terminal epic autopilot result has inconsistent'
+        $wrapperText | Should -Match 'Blocked epic autopilot result must carry exit code 42'
         $wrapperParameters = @(
             $wrapperAst.ParamBlock.Parameters.Name.VariablePath.UserPath
         )
@@ -430,11 +440,11 @@ Describe 'Epic autopilot child launcher state machine' {
                 @{ Name = 'degraded-close'; Output = @(3); Outcome = 'exit:3'; Exit = 3 },
                 @{ Name = 'operator-stop'; Output = @(42); Outcome = 'exit:42'; Exit = 42 },
                 @{ Name = 'publication-failed'; Output = @(70); Outcome = 'exit:70'; Exit = 70 },
-                @{ Name = 'missing-result'; Output = @(); Outcome = 'invocation-failed'; Exit = $null },
-                @{ Name = 'duplicate-result'; Output = @(0, 0); Outcome = 'invocation-failed'; Exit = $null },
-                @{ Name = 'malformed-result'; Output = @('degraded'); Outcome = 'invocation-failed'; Exit = $null },
-                @{ Name = 'negative-result'; Output = @(-1); Outcome = 'invocation-failed'; Exit = $null },
-                @{ Name = 'wide-result'; Output = @(256); Outcome = 'invocation-failed'; Exit = $null }
+                @{ Name = 'missing-result'; Output = @(); Outcome = 'invocation-failed'; Exit = 1 },
+                @{ Name = 'duplicate-result'; Output = @(0, 0); Outcome = 'invocation-failed'; Exit = 1 },
+                @{ Name = 'malformed-result'; Output = @('degraded'); Outcome = 'invocation-failed'; Exit = 1 },
+                @{ Name = 'negative-result'; Output = @(-1); Outcome = 'invocation-failed'; Exit = 1 },
+                @{ Name = 'wide-result'; Output = @(256); Outcome = 'invocation-failed'; Exit = 1 }
             )) {
             $statePath = New-StatePath -Name "merge-gate-$($case.Name)"
             $output = @($case.Output)
@@ -452,6 +462,7 @@ Describe 'Epic autopilot child launcher state machine' {
 
             Assert-ExactState -State $result.State -Outcome $case.Outcome
             $result.ExitCode | Should -Be $case.Exit -Because $case.Name
+            $result.Failed | Should -Be ($case.Exit -ne 0) -Because $case.Name
             $result.LaunchAttempted | Should -BeTrue -Because $case.Name
             $persisted = [System.IO.File]::ReadAllText($statePath)
 
@@ -463,6 +474,8 @@ Describe 'Epic autopilot child launcher state machine' {
             }
             $replay.Replayed | Should -BeTrue -Because $case.Name
             $replay.Launch | Should -BeFalse -Because $case.Name
+            $replay.ExitCode | Should -Be $case.Exit -Because $case.Name
+            $replay.Failed | Should -Be ($case.Exit -ne 0) -Because $case.Name
             Assert-ExactState -State $replay.State -Outcome $case.Outcome
             [System.IO.File]::ReadAllText($statePath) |
                 Should -BeExactly $persisted -Because $case.Name
@@ -586,7 +599,7 @@ Describe 'Epic autopilot child launcher state machine' {
                 ConvertFrom-Json
             [void]$advanceLaunches.Add([pscustomobject]@{
                     Argument = @($Argument)
-                    During   = $during
+                    During = $during
                 })
             return 0
         }
@@ -655,26 +668,26 @@ Describe 'Epic autopilot child launcher state machine' {
 
         $invalidGraphs = @(
             @{
-                Name  = 'prior-incomplete'
-                Json  = New-RollupJson -NextChild $script:childB `
+                Name = 'prior-incomplete'
+                Json = New-RollupJson -NextChild $script:childB `
                     -Children @($incompleteA, $incompleteB)
                 Match = '*NextChild must be the first*'
             },
             @{
-                Name  = 'prior-still-current'
-                Json  = New-RollupJson -NextChild $script:childA `
+                Name = 'prior-still-current'
+                Json = New-RollupJson -NextChild $script:childA `
                     -Children @($completeA, $incompleteB)
                 Match = '*NextChild must be the first*'
             },
             @{
-                Name  = 'prior-missing'
-                Json  = New-RollupJson -NextChild $script:childB `
+                Name = 'prior-missing'
+                Json = New-RollupJson -NextChild $script:childB `
                     -Children @($incompleteB)
                 Match = '*exactly once; found 0*'
             },
             @{
-                Name  = 'prior-duplicate'
-                Json  = New-RollupJson -NextChild $script:childB `
+                Name = 'prior-duplicate'
+                Json = New-RollupJson -NextChild $script:childB `
                     -Children @($completeA, $completeA, $incompleteB)
                 Match = '*duplicate Id*'
             }
@@ -713,8 +726,8 @@ Describe 'Epic autopilot child launcher state machine' {
                 & $Mutate $document
             }
             [void]$globalConsistencyCases.Add([pscustomobject]@{
-                    Name  = $Name
-                    Json  = $document | ConvertTo-Json -Depth 6 -Compress
+                    Name = $Name
+                    Json = $document | ConvertTo-Json -Depth 6 -Compress
                     Match = $Match
                 })
         }
@@ -726,9 +739,9 @@ Describe 'Epic autopilot child launcher state machine' {
         Add-InvalidRollupCase -Name 'complete-and-blocked' `
             -Json (New-RollupJson -NextChild $null -Children @(
                 [ordered]@{
-                    Id         = $script:childA.Id
+                    Id = $script:childA.Id
                     IsComplete = $true
-                    IsBlocked  = $true
+                    IsBlocked = $true
                 }
             )) -Match '*both complete and blocked*'
         foreach ($field in @('ChildCount', 'CompleteCount', 'BlockedCount')) {
@@ -779,16 +792,16 @@ Describe 'Epic autopilot child launcher state machine' {
                 -Children @($incompleteA, $incompleteB)) `
             -Match '*NextChild must be the first*'
         $childWithFolder = [ordered]@{
-            Id         = $script:childA.Id
+            Id = $script:childA.Id
             FolderName = $script:childA.FolderName
             IsComplete = $false
-            IsBlocked  = $false
+            IsBlocked = $false
         }
         $wrongFolderNext = [ordered]@{
-            Id         = $script:childA.Id
-            Slug       = $script:childA.Slug
+            Id = $script:childA.Id
+            Slug = $script:childA.Slug
             FolderName = 'wrong-folder'
-            PlanFile   = $script:childA.PlanFile
+            PlanFile = $script:childA.PlanFile
             NextStepId = $script:childA.NextStepId
         }
         Add-InvalidRollupCase -Name 'folder-mismatch' `
@@ -950,10 +963,10 @@ Describe 'Epic autopilot child launcher state machine' {
 
     It 'test:EpicAutopilot.FinalCrosscheck gates completion, records evidence, and never creates a finalization delivery' {
         $completeA = [ordered]@{
-            Id         = $script:childA.Id
+            Id = $script:childA.Id
             IsComplete = $true
-            IsBlocked  = $false
-            PlanFile   = $script:planFileA
+            IsBlocked = $false
+            PlanFile = $script:planFileA
         }
         $completeRollup = New-RollupJson -NextChild $null `
             -Children @($completeA) -IsComplete $true
@@ -966,6 +979,51 @@ Describe 'Epic autopilot child launcher state machine' {
                 Split-Path -Parent $reviewScript
             ) -Force)
         [System.IO.File]::WriteAllText($reviewScript, "exit 0`n")
+        $missingReview = Join-Path $script:fixtureRoot (
+            'missing/Invoke-EpicCoherencyReview.ps1'
+        )
+
+        $noCheckpointPath = New-StatePath -Name 'final-no-checkpoint'
+        $noCheckpointRecords = [System.Collections.Generic.List[string]]::new()
+        $noCheckpoint = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $noCheckpointPath `
+            -PlanStateInvoker { $completeRollup } -TargetResolver $resolveB `
+            -ReviewScriptPath $missingReview -FinalEvidenceRecorder {
+            param($ScriptPath, $PlanDir, $Message)
+            [void]$noCheckpointRecords.Add($Message)
+            return 0
+        } -LauncherInvoker { throw 'complete no-checkpoint epic must not launch' }
+        $noCheckpoint.Completed | Should -BeTrue
+        $noCheckpoint.Blocked | Should -BeFalse
+        $noCheckpoint.ExitCode | Should -Be 0
+        $noCheckpoint.FinalCrosscheck | Should -BeExactly 'fallback'
+        $noCheckpointRecords | Should -HaveCount 1
+        Test-Path -LiteralPath $noCheckpointPath | Should -BeFalse
+
+        $incompleteNoCheckpoint = New-RollupJson -NextChild $null
+        $incompletePath = New-StatePath -Name 'incomplete-no-checkpoint'
+        $incomplete = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $script:repoRoot -StatePath $incompletePath `
+            -PlanStateInvoker { $incompleteNoCheckpoint } `
+            -TargetResolver $resolveB `
+            -FinalEvidenceRecorder { throw 'blocked epic must not publish evidence' } `
+            -LauncherInvoker { throw 'blocked epic must not launch' }
+        $incomplete.Completed | Should -BeFalse
+        $incomplete.Blocked | Should -BeTrue
+        $incomplete.ExitCode | Should -Be 42
+        Test-Path -LiteralPath $incompletePath | Should -BeFalse
+
+        $failedNoCheckpointPath = New-StatePath -Name 'final-no-checkpoint-review-failure'
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $failedNoCheckpointPath `
+                -PlanStateInvoker { $completeRollup } -TargetResolver $resolveB `
+                -ReviewScriptPath $reviewScript -ReviewInvoker { 9 } `
+                -FinalEvidenceRecorder {
+                throw 'failed no-checkpoint review must not publish evidence'
+            } -LauncherInvoker { throw 'failed no-checkpoint review must not launch' }
+        } | Should -Throw "*failed with exit code '9'*"
+        Test-Path -LiteralPath $failedNoCheckpointPath | Should -BeFalse
 
         $availablePath = New-StatePath -Name 'final-review-available'
         [System.IO.File]::WriteAllText(
@@ -982,9 +1040,9 @@ Describe 'Epic autopilot child launcher state machine' {
             param($ScriptPath, $EpicFile, $TargetCommit, $Root)
             [void]$reviewCalls.Add([pscustomobject]@{
                     Script = $ScriptPath
-                    Epic   = $EpicFile
+                    Epic = $EpicFile
                     Target = $TargetCommit
-                    Root   = $Root
+                    Root = $Root
                 })
             return 0
         } -FinalEvidenceRecorder {
@@ -992,8 +1050,8 @@ Describe 'Epic autopilot child launcher state machine' {
             (Read-TestEpicState -Path $availablePath).outcome |
                 Should -BeExactly 'awaiting-merge'
             [void]$recordCalls.Add([pscustomobject]@{
-                    PlanDir    = $PlanDir
-                    Message    = $Message
+                    PlanDir = $PlanDir
+                    Message = $Message
                     ReviewType = $ReviewType
                 })
             return 0
@@ -1019,9 +1077,6 @@ Describe 'Epic autopilot child launcher state machine' {
             (New-StateJson -Outcome 'exit:0')
         )
         $fallbackRecords = [System.Collections.Generic.List[object]]::new()
-        $missingReview = Join-Path $script:fixtureRoot (
-            'missing/Invoke-EpicCoherencyReview.ps1'
-        )
         $fallback = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
             -RepoRoot $script:repoRoot -StatePath $fallbackPath `
             -PlanStateInvoker { $completeRollup } -TargetResolver $resolveB `
@@ -1030,7 +1085,7 @@ Describe 'Epic autopilot child launcher state machine' {
             -FinalEvidenceRecorder {
             param($ScriptPath, $PlanDir, $Message, $ReviewType, $Root)
             [void]$fallbackRecords.Add([pscustomobject]@{
-                    Message    = $Message
+                    Message = $Message
                     ReviewType = $ReviewType
                 })
             return 0
@@ -1089,13 +1144,13 @@ Describe 'Epic autopilot child launcher state machine' {
 
         foreach ($invalidEpic in @(
                 @{
-                    Name  = 'missing-goal'
-                    Text  = "# abc123`n`n## Definition of done`n`nComplete.`n"
+                    Name = 'missing-goal'
+                    Text = "# abc123`n`n## Definition of done`n`nComplete.`n"
                     Match = "*non-empty 'Goal' section*"
                 },
                 @{
-                    Name  = 'missing-done'
-                    Text  = "# abc123`n`n## Goal`n`nShip.`n"
+                    Name = 'missing-done'
+                    Text = "# abc123`n`n## Goal`n`nShip.`n"
                     Match = "*non-empty 'Definition of done' section*"
                 }
             )) {
@@ -1242,10 +1297,10 @@ Describe 'Epic autopilot child launcher state machine' {
         )
         $integrationStateBefore = [System.IO.File]::ReadAllText($integrationState)
         $integrationComplete = [ordered]@{
-            Id         = $script:childA.Id
+            Id = $script:childA.Id
             IsComplete = $true
-            IsBlocked  = $false
-            PlanFile   = $integrationPlan
+            IsBlocked = $false
+            PlanFile = $integrationPlan
         }
         $integrationRollup = New-RollupJson -NextChild $null `
             -Children @($integrationComplete) -IsComplete $true `
@@ -1559,14 +1614,19 @@ exit 0
         $writer = Join-Path $script:repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
 
         function New-AbruptEvidenceFixture {
-            param([Parameter(Mandatory)][string]$Name)
+            param(
+                [Parameter(Mandatory)][string]$Name,
+                [string]$PlanFolder = '2026-08-31-111111-first-child',
+                [string]$PlanId = '111111',
+                [string]$EpicId = 'abc123'
+            )
 
             $root = Join-Path $script:fixtureRoot $Name
             $epicDir = Join-Path $root (
                 'docs/implementation-plans/epics/2026-08-31-abc123-fixture-epic'
             )
             $planDir = Join-Path $root (
-                'docs/implementation-plans/2026-08-31-111111-first-child'
+                "docs/implementation-plans/$PlanFolder"
             )
             [void](New-Item -ItemType Directory -Path $epicDir -Force)
             [void](New-Item -ItemType Directory -Path $planDir -Force)
@@ -1580,9 +1640,9 @@ exit 0
             [System.IO.File]::WriteAllText(
                 $planFile,
                 @(
-                    '# 111111: First child'
-                    '<!-- plan-id: 111111 -->'
-                    '<!-- epic: abc123 -->'
+                    "# ${PlanId}: First child"
+                    "<!-- plan-id: $PlanId -->"
+                    "<!-- epic: $EpicId -->"
                     '<!-- cip-stage: done -->'
                     ''
                     '## Requirements'
@@ -1616,21 +1676,23 @@ exit 0
             $statePath = Join-Path $script:fixtureRoot "$Name-state.json"
             [System.IO.File]::WriteAllText(
                 $statePath,
-                (New-StateJson -Target $baseCommit -Outcome 'awaiting-merge')
+                (New-StateJson -Target $baseCommit -Outcome 'awaiting-merge' `
+                    -Branch "feature/$PlanFolder")
             )
             $completeChild = [ordered]@{
-                Id         = $script:childA.Id
+                Id = $script:childA.Id
                 IsComplete = $true
-                IsBlocked  = $false
-                PlanFile   = $planFile
+                IsBlocked = $false
+                PlanFile = $planFile
             }
             return [pscustomobject]@{
-                Root         = $root
-                PlanDir      = $planDir
-                CapturePath  = $capturePath
-                StatePath    = $statePath
+                Root = $root
+                PlanDir = $planDir
+                PlanFolder = $PlanFolder
+                CapturePath = $capturePath
+                StatePath = $statePath
                 TargetCommit = $targetCommit
-                Rollup       = New-RollupJson -NextChild $null `
+                Rollup = New-RollupJson -NextChild $null `
                     -Children @($completeChild) -IsComplete $true `
                     -EpicFile $epicFile
             }
@@ -1647,11 +1709,27 @@ exit 0
             $result.Status | Should -BeExactly 'complete'
         }
 
-        foreach ($stage in @($false, $true)) {
-            $name = if ($stage) { 'abrupt-post-stage' } else { 'abrupt-post-writer' }
-            $fixture = New-AbruptEvidenceFixture -Name $name
+        foreach ($case in @(
+                @{
+                    Name = 'abrupt-post-writer'
+                    Stage = $false
+                    Folder = '2026-08-31-111111-first-child'
+                },
+                @{
+                    Name = 'abrupt-post-stage'
+                    Stage = $true
+                    Folder = '2026-08-31-111111-first-child'
+                },
+                @{
+                    Name = 'abrupt-prefixed-post-writer'
+                    Stage = $false
+                    Folder = 'abc123-2026-08-31-111111-first-child'
+                }
+            )) {
+            $fixture = New-AbruptEvidenceFixture -Name $case.Name `
+                -PlanFolder $case.Folder
             Add-AbruptEvidenceRecord -Fixture $fixture
-            if ($stage) {
+            if ($case.Stage) {
                 & git -C $fixture.Root add -- (
                     [System.IO.Path]::GetRelativePath(
                         $fixture.Root,
@@ -1680,6 +1758,46 @@ exit 0
                 $capture,
                 'Epic final crosscheck passed via fallback'
             )).Count | Should -Be 1
+        }
+
+        foreach ($invalid in @(
+                @{
+                    Name = 'abrupt-legacy-folder'
+                    Folder = '123-first-child'
+                    PlanId = '123'
+                    EpicId = 'abc123'
+                    Match = '*legacy three-digit plan folder*'
+                },
+                @{
+                    Name = 'abrupt-wrong-prefix'
+                    Folder = 'def456-2026-08-31-111111-first-child'
+                    PlanId = '111111'
+                    EpicId = 'abc123'
+                    Match = "*prefix 'def456' does not match epic 'abc123'*"
+                },
+                @{
+                    Name = 'abrupt-wrong-membership'
+                    Folder = 'abc123-2026-08-31-111111-first-child'
+                    PlanId = '111111'
+                    EpicId = 'def456'
+                    Match = "*header epic membership 'abc123'*"
+                }
+            )) {
+            $fixture = New-AbruptEvidenceFixture -Name $invalid.Name `
+                -PlanFolder $invalid.Folder -PlanId $invalid.PlanId `
+                -EpicId $invalid.EpicId
+            Add-AbruptEvidenceRecord -Fixture $fixture
+            $stateBefore = [System.IO.File]::ReadAllBytes($fixture.StatePath)
+            {
+                Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                    -RepoRoot $fixture.Root -StatePath $fixture.StatePath `
+                    -PlanStateInvoker { $fixture.Rollup } `
+                    -UseDefaultFinalEvidenceRecorder `
+                    -UseDefaultFinalEvidenceTransaction `
+                    -UseDefaultWorktreeValidator
+            } | Should -Throw $invalid.Match -Because $invalid.Name
+            [System.IO.File]::ReadAllBytes($fixture.StatePath) |
+                Should -Be $stateBefore
         }
 
         $forged = New-AbruptEvidenceFixture -Name 'abrupt-forged'
@@ -1811,6 +1929,29 @@ exit 0
         } $childScript $TestDrive
 
         $observed | Should -Be 255
+    }
+
+    It 'test:EpicAutopilot.ContainerState classifies only genuine activity as active' {
+        foreach ($state in @('running', 'restarting', 'paused', 'removing')) {
+            & $script:epicModule {
+                param($State)
+                ConvertFrom-EpicAutopilotContainerState `
+                    -ContainerName 'autopilot-run-fixture' -State $State
+            } $state | Should -BeTrue -Because $state
+        }
+        foreach ($state in @('created', 'exited', 'dead')) {
+            & $script:epicModule {
+                param($State)
+                ConvertFrom-EpicAutopilotContainerState `
+                    -ContainerName 'autopilot-run-fixture' -State $State
+            } $state | Should -BeFalse -Because $state
+        }
+        {
+            & $script:epicModule {
+                ConvertFrom-EpicAutopilotContainerState `
+                    -ContainerName 'autopilot-run-fixture' -State 'unknown'
+            }
+        } | Should -Throw "*unknown state 'unknown'*"
     }
 
     It 'test:EpicAutopilot.RunLease is visible to a concurrent host process' {
@@ -2011,7 +2152,8 @@ exit 1
         $failureReceipt.Failed | Should -BeTrue
         $failureReceipt.Launch | Should -BeFalse
         $failureReceipt.LaunchAttempted | Should -BeTrue
-        $failureReceipt.Message | Should -Match 'launcher invocation failed.*synthetic start failure'
+        $failureReceipt.Message |
+            Should -Match "launcher invocation failed.*child '111111'.*run '$script:runA'.*start-failed/RuntimeException.*immutable"
         Assert-ExactState -State $failureReceipt.State -Outcome 'invocation-failed'
         $failureReceipt.StatePath | Should -BeExactly $throwPath
         $throwRaw = [System.IO.File]::ReadAllText($throwPath)
@@ -2042,7 +2184,7 @@ exit 1
                 -PlanStateInvoker $invokerA -TargetResolver $resolveA `
                 -RunFactory { $script:runA } -LauncherInvoker $invalidLauncher
             $invalidReceipt.Failed | Should -BeTrue
-            $invalidReceipt.Message | Should -Match 'invalid exit code'
+            $invalidReceipt.Message | Should -Match 'exit-code-invalid'
             Assert-ExactState -State $invalidReceipt.State -Outcome 'invocation-failed'
             [System.IO.File]::ReadAllText($invalidResultPath) |
                 Should -Not -Match '"outcome":"exit:0"'
@@ -2070,29 +2212,29 @@ exit 1
         $conflictRaw = [System.IO.File]::ReadAllText($conflictPath)
         $conflicts = @(
             @{
-                Name     = 'stale epic'
-                Invoker  = {
+                Name = 'stale epic'
+                Invoker = {
                     param($EpicReference, $Root, $ScriptPath)
                     New-RollupJson -EpicId 'def456' -NextChild $script:childA
                 }
                 Resolver = $resolveA
             },
             @{
-                Name     = 'stale target'
-                Invoker  = $invokerA
+                Name = 'stale target'
+                Invoker = $invokerA
                 Resolver = { param($Reference, $Root) $script:targetB }
             },
             @{
-                Name     = 'second active child'
-                Invoker  = {
+                Name = 'second active child'
+                Invoker = {
                     param($EpicReference, $Root, $ScriptPath)
                     New-RollupJson -NextChild $script:childB
                 }
                 Resolver = $resolveA
             },
             @{
-                Name     = 'missing active child'
-                Invoker  = {
+                Name = 'missing active child'
+                Invoker = {
                     param($EpicReference, $Root, $ScriptPath)
                     New-RollupJson -NextChild $null
                 }
@@ -2223,9 +2365,9 @@ exit 1
             -LauncherInvoker {
             param($LaunchScript, $Argument, $WorkingDirectory)
             [void]$launches.Add([pscustomobject]@{
-                    Script   = $LaunchScript
+                    Script = $LaunchScript
                     Argument = @($Argument)
-                    Root     = $WorkingDirectory
+                    Root = $WorkingDirectory
                 })
             return 0
         }
@@ -2494,11 +2636,17 @@ function Invoke-EpicAutopilotHostLoop {
             "$Epic|$Target|$RepoRoot"
         )
     }
+    if ($env:EPIC_WRAPPER_SCENARIO -ceq 'final-review-failed') {
+        throw 'Synthetic final-review failure.'
+    }
     if ($env:EPIC_WRAPPER_SCENARIO -in @('none', 'complete', 'blocked')) {
         return [pscustomobject]@{
             State = $null
             Completed = $env:EPIC_WRAPPER_SCENARIO -ceq 'complete'
             Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked'
+            ExitCode = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'complete') { 0 }
+                elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked') { 42 }
+                else { $null }
         }
     }
     $outcome = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'failed') {
@@ -2509,6 +2657,9 @@ function Invoke-EpicAutopilotHostLoop {
     }
     elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'legacy-zero') {
         'exit:0'
+    }
+    elseif ($env:EPIC_WRAPPER_SCENARIO -in @('missing-exit', 'invalid-exit', 'mismatch-exit')) {
+        'exit:42'
     }
     else {
         "exit:$($env:EPIC_WRAPPER_SCENARIO)"
@@ -2525,6 +2676,18 @@ function Invoke-EpicAutopilotHostLoop {
         ExitCode = if ($env:EPIC_WRAPPER_SCENARIO -ceq 'blocked-retained') {
             42
         }
+        elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'failed') {
+            1
+        }
+        elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'missing-exit') {
+            $null
+        }
+        elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'invalid-exit') {
+            'invalid'
+        }
+        elseif ($env:EPIC_WRAPPER_SCENARIO -ceq 'mismatch-exit') {
+            3
+        }
         elseif ($outcome -eq 'awaiting-merge') {
             0
         }
@@ -2535,7 +2698,8 @@ function Invoke-EpicAutopilotHostLoop {
             }
         }
         else { $null }
-        Failed = $outcome -eq 'invocation-failed'
+        Failed = $outcome -eq 'invocation-failed' -or
+            ($outcome -like 'exit:*' -and $outcome -ne 'exit:0')
         Completed = $false
         Blocked = $env:EPIC_WRAPPER_SCENARIO -ceq 'blocked-retained'
         Message = if ($outcome -eq 'invocation-failed') {
@@ -2563,7 +2727,11 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                     @{ Scenario = 'blocked'; Exit = 42; Match = 'incomplete with no eligible NextChild' },
                     @{ Scenario = 'blocked-retained'; Exit = 42; Match = 'retained-checkpoint blocked stop' },
                     @{ Scenario = 'complete'; Exit = 0; Match = 'complete after target refresh' },
-                    @{ Scenario = 'none'; Exit = 0; Match = 'no eligible NextChild' }
+                    @{ Scenario = 'none'; Exit = 1; Match = 'neither state, completion, nor a blocked stop' },
+                    @{ Scenario = 'missing-exit'; Exit = 1; Match = '(?s)inconsistent outcome.*Failed flag' },
+                    @{ Scenario = 'invalid-exit'; Exit = 1; Match = 'invalid exit code' },
+                    @{ Scenario = 'mismatch-exit'; Exit = 1; Match = '(?s)inconsistent outcome.*Failed flag' },
+                    @{ Scenario = 'final-review-failed'; Exit = 1; Match = 'Synthetic final-review failure' }
                 )) {
                 $env:EPIC_WRAPPER_SCENARIO = $case.Scenario
                 $output = @(

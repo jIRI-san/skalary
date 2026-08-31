@@ -171,9 +171,9 @@ function ConvertFrom-EpicRollupJson {
     }
 
     $derivedCounts = [ordered]@{
-        ChildCount    = $children.Count
+        ChildCount = $children.Count
         CompleteCount = $completeCount
-        BlockedCount  = $blockedCount
+        BlockedCount = $blockedCount
     }
     foreach ($field in $derivedCounts.Keys) {
         if ([long]$rollup.Rollup.$field -ne [long]$derivedCounts[$field]) {
@@ -253,12 +253,12 @@ function New-EpicAutopilotState {
     )
 
     return [pscustomobject][ordered]@{
-        epic         = [string]$State.epic
-        target       = [string]$State.target
+        epic = [string]$State.epic
+        target = [string]$State.target
         currentChild = [string]$State.currentChild
-        branch       = [string]$State.branch
-        run          = [string]$State.run
-        outcome      = $Outcome
+        branch = [string]$State.branch
+        run = [string]$State.run
+        outcome = $Outcome
     }
 }
 
@@ -305,17 +305,17 @@ function Remove-EpicAutopilotState {
             [System.StringComparison]::Ordinal
         )) {
         return [pscustomobject]@{
-            Status             = 'cas-conflict'
-            Path               = $Path
+            Status = 'cas-conflict'
+            Path = $Path
             ExpectedGeneration = $ExpectedGeneration
-            ActualGeneration   = $actualGeneration
+            ActualGeneration = $actualGeneration
         }
     }
 
     Remove-Item -LiteralPath $Path -Force
     return [pscustomobject]@{
         Status = 'complete'
-        Path   = $Path
+        Path = $Path
     }
 }
 
@@ -536,6 +536,21 @@ function Assert-EpicAutopilotWorktree {
     }
 }
 
+function ConvertFrom-EpicAutopilotContainerState {
+    param(
+        [Parameter(Mandatory)][string]$ContainerName,
+        [Parameter(Mandatory)][string]$State
+    )
+
+    switch -CaseSensitive ($State) {
+        { $_ -in @('running', 'restarting', 'paused', 'removing') } { return $true }
+        { $_ -in @('created', 'exited', 'dead') } { return $false }
+        default {
+            throw "Container probe returned unknown state '$State' for '$ContainerName'."
+        }
+    }
+}
+
 function Test-EpicAutopilotContainerActive {
     param([Parameter(Mandatory)][string]$ContainerName)
 
@@ -557,7 +572,8 @@ function Test-EpicAutopilotContainerActive {
     if ($parts.Count -ne 2 -or $parts[0] -cne $ContainerName) {
         throw "Container probe returned an unexpected record for '$ContainerName'."
     }
-    return $parts[1] -cnotin @('exited', 'dead')
+    return ConvertFrom-EpicAutopilotContainerState -ContainerName $ContainerName `
+        -State $parts[1]
 }
 
 function Resolve-EpicAutopilotTrustedFile {
@@ -730,7 +746,7 @@ function Get-EpicAutopilotCapturePath {
         }
         if ($treeEntry.Count -eq 1 -and ([string]$treeEntry[0]).Trim() -ceq $relative) {
             $captureMatches.Add([pscustomobject]@{
-                    FullPath     = [System.IO.Path]::GetFullPath($candidate)
+                    FullPath = [System.IO.Path]::GetFullPath($candidate)
                     RelativePath = $relative
                 })
         }
@@ -771,7 +787,65 @@ function Get-EpicAutopilotTreeEntry {
     }
     return [pscustomobject]@{
         Path = $Path
-        Oid  = $Matches.oid
+        Oid = $Matches.oid
+    }
+}
+
+function Read-EpicAutopilotTreeBlob {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)]$TreeEntry,
+        [Parameter(Mandatory)][long]$MaxBytes,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    $sizeOutput = @(& git -C $RepoRoot cat-file -s $TreeEntry.Oid 2>&1)
+    $size = 0L
+    if ($LASTEXITCODE -ne 0 -or $sizeOutput.Count -ne 1 -or
+        -not [long]::TryParse(
+            ([string]$sizeOutput[0]).Trim(),
+            [System.Globalization.NumberStyles]::None,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [ref]$size
+        ) -or $size -lt 0) {
+        throw "Unable to determine the canonical $Label blob size."
+    }
+    if ($size -gt $MaxBytes) {
+        throw "Canonical $Label exceeds the $MaxBytes-byte recovery identity bound."
+    }
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'git'
+    $startInfo.WorkingDirectory = $RepoRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.ArgumentList.Add('cat-file')
+    $startInfo.ArgumentList.Add('blob')
+    $startInfo.ArgumentList.Add([string]$TreeEntry.Oid)
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $stream = [System.IO.MemoryStream]::new()
+    try {
+        if (-not $process.Start()) {
+            throw "Unable to read the canonical $Label blob."
+        }
+        $errorRead = $process.StandardError.ReadToEndAsync()
+        $process.StandardOutput.BaseStream.CopyTo($stream)
+        $process.WaitForExit()
+        $errorText = $errorRead.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to read the canonical $Label blob: $($errorText.Trim())"
+        }
+        $bytes = $stream.ToArray()
+        if ($bytes.Length -ne $size) {
+            throw "Canonical $Label blob length changed while reading."
+        }
+        return , $bytes
+    }
+    finally {
+        $stream.Dispose()
+        $process.Dispose()
     }
 }
 
@@ -808,10 +882,20 @@ function Get-EpicAutopilotRecoveryDescriptor {
         throw 'Retained epic checkpoint has no canonical final-child folder.'
     }
     $folder = ([string]$State.branch).Substring($branchPrefix.Length)
-    $childPattern = '^\d{4}-\d{2}-\d{2}-' +
-    [regex]::Escape([string]$State.currentChild) + '(?:-[^/]+)?$'
-    if ($folder -cnotmatch $childPattern) {
+    if ($folder -cmatch '^\d{3}-[a-z0-9][a-z0-9-]*$') {
+        throw 'Retained epic checkpoint uses a legacy three-digit plan folder, which cannot carry the required six-character epic child identity.'
+    }
+    $childPattern = '^(?:(?<prefix>standalone|[0-9a-f]{6})-)?' +
+    '\d{4}-\d{2}-\d{2}-(?<child>[0-9a-f]{6})-' +
+    '[a-z0-9][a-z0-9-]*$'
+    $childMatch = [regex]::Match($folder, $childPattern)
+    if (-not $childMatch.Success -or
+        $childMatch.Groups['child'].Value -cne [string]$State.currentChild) {
         throw 'Retained epic checkpoint branch does not identify its canonical final child.'
+    }
+    $folderPrefix = $childMatch.Groups['prefix'].Value
+    if ($folderPrefix -and $folderPrefix -cne [string]$State.epic) {
+        throw "Retained epic checkpoint final-child folder prefix '$folderPrefix' does not match epic '$($State.epic)'."
     }
 
     $planPath = "docs/implementation-plans/$folder/plan.md"
@@ -824,6 +908,28 @@ function Get-EpicAutopilotRecoveryDescriptor {
             -RepoRoot $RepoRoot -ExpectedName 'plan.md' -Label 'Final child plan')
     Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
         -TreeEntry $planEntry
+    $planBytes = Read-EpicAutopilotTreeBlob -RepoRoot $RepoRoot `
+        -TreeEntry $planEntry -MaxBytes 1MB -Label 'final child plan'
+    $planText = [System.Text.UTF8Encoding]::new($false, $true).GetString($planBytes)
+    $header = ($planText -split '(?m)^##[ \t]+', 2)[0]
+    $planIds = @(
+        [regex]::Matches(
+            $header,
+            '(?m)^[ \t]*<!--[ \t]*plan-id:[ \t]*(?<id>[0-9a-fA-F]{3,})[ \t]*-->[ \t]*$'
+        ) | ForEach-Object { $_.Groups['id'].Value.ToLowerInvariant() }
+    )
+    $epicIds = @(
+        [regex]::Matches(
+            $header,
+            '(?m)^[ \t]*<!--[ \t]*epic:[ \t]*(?<id>[0-9a-fA-F]{3,})[ \t]*-->[ \t]*$'
+        ) | ForEach-Object { $_.Groups['id'].Value.ToLowerInvariant() }
+    )
+    if ($planIds.Count -ne 1 -or $planIds[0] -cne [string]$State.currentChild) {
+        throw "Canonical final child plan must carry exactly one header plan-id '$($State.currentChild)'."
+    }
+    if ($epicIds.Count -ne 1 -or $epicIds[0] -cne [string]$State.epic) {
+        throw "Canonical final child plan must carry exactly one header epic membership '$($State.epic)'."
+    }
 
     $epicTree = @(
         & git -C $RepoRoot ls-tree -r --name-only $TargetCommit -- `
@@ -880,15 +986,15 @@ function Get-EpicAutopilotRecoveryDescriptor {
     }
 
     return [pscustomobject]@{
-        CapturePath   = $capturePath
+        CapturePath = $capturePath
         PlanDirectory = $planDirectory
-        Message       = if ($null -ne $reviewEntry) {
+        Message = if ($null -ne $reviewEntry) {
             'Epic final crosscheck passed via installed simplified epic coherency review.'
         }
         else {
             'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.'
         }
-        ReviewType    = if ($null -ne $reviewEntry) { 'dr' } else { 'none' }
+        ReviewType = if ($null -ne $reviewEntry) { 'dr' } else { 'none' }
     }
 }
 
@@ -1064,10 +1170,10 @@ function Resolve-EpicAutopilotEvidenceCommit {
             [System.StringComparison]::Ordinal
         )) {
         return [pscustomobject]@{
-            IsReplay       = $false
+            IsReplay = $false
             ReviewedTarget = $TargetCommit
             EvidenceCommit = $null
-            Capture        = $capture
+            Capture = $capture
         }
     }
 
@@ -1100,10 +1206,10 @@ function Resolve-EpicAutopilotEvidenceCommit {
         throw "Epic final evidence commit '$TargetCommit' must change only '$($capture.RelativePath)'."
     }
     return [pscustomobject]@{
-        IsReplay       = $true
+        IsReplay = $true
         ReviewedTarget = $reviewedTarget
         EvidenceCommit = $TargetCommit
-        Capture        = $capture
+        Capture = $capture
     }
 }
 
@@ -1307,11 +1413,11 @@ function Invoke-EpicAutopilotFinalCrosscheck {
     if ($RequireTargetBoundSources) {
         foreach ($source in @(
                 @{
-                    Path  = $epicFile
+                    Path = $epicFile
                     Label = 'Canonical epic'
                 },
                 @{
-                    Path  = $planFile
+                    Path = $planFile
                     Label = 'Final child plan'
                 }
             )) {
@@ -1640,41 +1746,46 @@ function Invoke-EpicAutopilotHostLoopCore {
                         )) {
                         [int]$existing.outcome.Substring(5)
                     }
-                    else { $null }
+                    else { 1 }
                     return [pscustomobject]@{
-                        State           = $existing
-                        NextChild       = $rollup.NextChild
-                        Resumed         = $true
-                        StatePath       = $stateFile
-                        Launch          = $false
+                        State = $existing
+                        NextChild = $rollup.NextChild
+                        Resumed = $true
+                        StatePath = $stateFile
+                        Launch = $false
                         LaunchAttempted = $false
-                        Replayed        = $true
-                        ExitCode        = $storedExit
-                        Failed          = $existing.outcome -ceq 'invocation-failed'
-                        Completed       = $false
-                        Blocked         = $false
-                        Message         = if ($existing.outcome -ceq 'invocation-failed') {
-                            "Epic autopilot run '$($existing.run)' has terminal outcome 'invocation-failed'."
+                        Replayed = $true
+                        ExitCode = $storedExit
+                        Failed = $true
+                        Completed = $false
+                        Blocked = $false
+                        Message = if ($existing.outcome -ceq 'invocation-failed') {
+                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' has terminal outcome 'invocation-failed'."
                         }
-                        else { $null }
+                        elseif ($storedExit -eq 42) {
+                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' stopped for operator action with exit code 42."
+                        }
+                        else {
+                            "Epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' failed with exit code $storedExit."
+                        }
                     }
                 }
 
                 if ($isSuccessfulCheckpoint) {
                     if ($existing.target -ceq $targetCommit) {
                         return [pscustomobject]@{
-                            State           = $existing
-                            NextChild       = $rollup.NextChild
-                            Resumed         = $true
-                            StatePath       = $stateFile
-                            Launch          = $false
+                            State = $existing
+                            NextChild = $rollup.NextChild
+                            Resumed = $true
+                            StatePath = $stateFile
+                            Launch = $false
                             LaunchAttempted = $false
-                            Replayed        = $true
-                            ExitCode        = 0
-                            Failed          = $false
-                            Completed       = $false
-                            Blocked         = $false
-                            Message         = $null
+                            Replayed = $true
+                            ExitCode = 0
+                            Failed = $false
+                            Completed = $false
+                            Blocked = $false
+                            Message = $null
                         }
                     }
 
@@ -1707,18 +1818,18 @@ function Invoke-EpicAutopilotHostLoopCore {
                     if ($null -eq $rollup.NextChild) {
                         if (-not [bool]$rollup.Rollup.IsComplete) {
                             return [pscustomobject]@{
-                                State           = $existing
-                                NextChild       = $null
-                                Resumed         = $true
-                                StatePath       = $stateFile
-                                Launch          = $false
+                                State = $existing
+                                NextChild = $null
+                                Resumed = $true
+                                StatePath = $stateFile
+                                Launch = $false
                                 LaunchAttempted = $false
-                                Replayed        = $true
-                                ExitCode        = 42
-                                Failed          = $false
-                                Completed       = $false
-                                Blocked         = $true
-                                Message         = 'Epic graph is incomplete but has no eligible NextChild; prior success checkpoint is retained for explicit resume.'
+                                Replayed = $true
+                                ExitCode = 42
+                                Failed = $false
+                                Completed = $false
+                                Blocked = $true
+                                Message = 'Epic graph is incomplete but has no eligible NextChild; prior success checkpoint is retained for explicit resume.'
                             }
                         }
 
@@ -1748,19 +1859,19 @@ function Invoke-EpicAutopilotHostLoopCore {
                             throw "Epic autopilot completed-state delete failed with status '$status'."
                         }
                         return [pscustomobject]@{
-                            State           = $null
-                            NextChild       = $null
-                            Resumed         = $true
-                            StatePath       = $stateFile
-                            Launch          = $false
+                            State = $null
+                            NextChild = $null
+                            Resumed = $true
+                            StatePath = $stateFile
+                            Launch = $false
                             LaunchAttempted = $false
-                            Replayed        = $false
-                            ExitCode        = 0
-                            Failed          = $false
-                            Completed       = $true
-                            Blocked         = $false
+                            Replayed = $false
+                            ExitCode = 0
+                            Failed = $false
+                            Completed = $true
+                            Blocked = $false
                             FinalCrosscheck = $finalCrosscheck
-                            Message         = 'Epic graph is complete after the operator merge and final crosscheck.'
+                            Message = 'Epic graph is complete after the operator merge and final crosscheck.'
                         }
                     }
 
@@ -1769,12 +1880,12 @@ function Invoke-EpicAutopilotHostLoopCore {
                     }
 
                     $selected = [pscustomobject][ordered]@{
-                        epic         = [string]$rollup.EpicId
-                        target       = $targetCommit
+                        epic = [string]$rollup.EpicId
+                        target = $targetCommit
                         currentChild = [string]$rollup.NextChild.Id
-                        branch       = "feature/$($rollup.NextChild.FolderName)"
-                        run          = [string](& $RunFactory)
-                        outcome      = 'selected'
+                        branch = "feature/$($rollup.NextChild.FolderName)"
+                        run = [string](& $RunFactory)
+                        outcome = 'selected'
                     }
                     $selectedWrite = Set-EpicAutopilotState -Path $stateFile `
                         -State $selected -ExpectedGeneration $generation `
@@ -1829,16 +1940,16 @@ function Invoke-EpicAutopilotHostLoopCore {
                             -ExpectedGeneration $generation `
                             -Operation 'running-state reconciliation')
                     return [pscustomobject]@{
-                        State           = $reconciled
-                        NextChild       = $rollup.NextChild
-                        Resumed         = $true
-                        StatePath       = $stateFile
-                        Launch          = $false
+                        State = $reconciled
+                        NextChild = $rollup.NextChild
+                        Resumed = $true
+                        StatePath = $stateFile
+                        Launch = $false
                         LaunchAttempted = $false
-                        Replayed        = $true
-                        ExitCode        = $null
-                        Failed          = $true
-                        Message         = "Interrupted epic autopilot run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
+                        Replayed = $true
+                        ExitCode = 1
+                        Failed = $true
+                        Message = "Interrupted epic child '$($existing.currentChild)' on branch '$($existing.branch)' in run '$($existing.run)' has no active container '$containerName'; reconciled to invocation-failed without relaunch."
                     }
                 }
             }
@@ -1857,19 +1968,19 @@ function Invoke-EpicAutopilotHostLoopCore {
                 }
                 else { $null }
                 return [pscustomobject]@{
-                    State           = $null
-                    NextChild       = $null
-                    Resumed         = $false
-                    StatePath       = $stateFile
-                    Launch          = $false
+                    State = $null
+                    NextChild = $null
+                    Resumed = $false
+                    StatePath = $stateFile
+                    Launch = $false
                     LaunchAttempted = $false
-                    Replayed        = $false
-                    ExitCode        = $null
-                    Failed          = $false
-                    Completed       = [bool]$rollup.Rollup.IsComplete
-                    Blocked         = -not [bool]$rollup.Rollup.IsComplete
+                    Replayed = $false
+                    ExitCode = if ([bool]$rollup.Rollup.IsComplete) { 0 } else { 42 }
+                    Failed = $false
+                    Completed = [bool]$rollup.Rollup.IsComplete
+                    Blocked = -not [bool]$rollup.Rollup.IsComplete
                     FinalCrosscheck = $finalCrosscheck
-                    Message         = if ([bool]$rollup.Rollup.IsComplete) {
+                    Message = if ([bool]$rollup.Rollup.IsComplete) {
                         'Epic graph is complete; no child launch is needed.'
                     }
                     else {
@@ -1882,12 +1993,12 @@ function Invoke-EpicAutopilotHostLoopCore {
             $selected = $existing
             if (-not $selected) {
                 $selected = [pscustomobject][ordered]@{
-                    epic         = [string]$rollup.EpicId
-                    target       = $targetCommit
+                    epic = [string]$rollup.EpicId
+                    target = $targetCommit
                     currentChild = [string]$rollup.NextChild.Id
-                    branch       = "feature/$($rollup.NextChild.FolderName)"
-                    run          = [string](& $RunFactory)
-                    outcome      = 'selected'
+                    branch = "feature/$($rollup.NextChild.FolderName)"
+                    run = [string](& $RunFactory)
+                    outcome = 'selected'
                 }
                 $selectedWrite = Set-EpicAutopilotState -Path $stateFile -State $selected `
                     -ExpectedGeneration 'absent' -Operation 'selected state write'
@@ -1901,17 +2012,17 @@ function Invoke-EpicAutopilotHostLoopCore {
                 -ExpectedGeneration $generation -Operation 'running state write'
 
             return [pscustomobject]@{
-                State           = $running
-                NextChild       = $rollup.NextChild
-                Resumed         = $resumed
-                StatePath       = $stateFile
-                Launch          = $true
+                State = $running
+                NextChild = $rollup.NextChild
+                Resumed = $resumed
+                StatePath = $stateFile
+                Launch = $true
                 LaunchAttempted = $false
-                Replayed        = $false
-                ExitCode        = $null
-                Failed          = $false
-                Message         = $null
-                Generation      = $runningWrite.Generation
+                Replayed = $false
+                ExitCode = $null
+                Failed = $false
+                Message = $null
+                Generation = $runningWrite.Generation
             }
         }
 
@@ -1928,15 +2039,18 @@ function Invoke-EpicAutopilotHostLoopCore {
             '-ExpectedStartCommit', [string]$admission.State.target,
             '-Run', [string]$admission.State.run
         )
+        $launchFailureKind = 'start-failed'
         try {
             $launcherOutput = @(
                 & $LauncherInvoker $launchScript $launchArguments $repoRootPath
             )
             if ($launcherOutput.Count -ne 1) {
+                $launchFailureKind = 'result-count-invalid'
                 throw 'Per-plan launcher invoker must return exactly one exit code.'
             }
             $launcherExitText = [string]$launcherOutput[0]
             if ($launcherExitText -cnotmatch $script:PortableExitCodePattern) {
+                $launchFailureKind = 'exit-code-invalid'
                 throw "Per-plan launcher invoker returned invalid exit code '$($launcherOutput[0])'."
             }
             $launcherExit = [int]::Parse(
@@ -1946,26 +2060,26 @@ function Invoke-EpicAutopilotHostLoopCore {
             )
         }
         catch {
-            $launchError = $_.Exception.Message
+            $launchErrorType = $_.Exception.GetType().Name
             try {
                 $failedState = Set-EpicAutopilotTerminalState -Path $stateFile `
                     -RunningState $admission.State -RunningGeneration $admission.Generation `
                     -Outcome 'invocation-failed'
             }
             catch {
-                throw "Per-plan launcher invocation failed ('$launchError') and its terminal state could not be persisted: $($_.Exception.Message)"
+                throw "Per-plan launcher invocation failed for child '$($admission.State.currentChild)' in run '$($admission.State.run)' ($launchErrorType), and its terminal checkpoint could not be persisted."
             }
             return [pscustomobject]@{
-                State           = $failedState
-                NextChild       = $admission.NextChild
-                Resumed         = $admission.Resumed
-                StatePath       = $stateFile
-                Launch          = $false
+                State = $failedState
+                NextChild = $admission.NextChild
+                Resumed = $admission.Resumed
+                StatePath = $stateFile
+                Launch = $false
                 LaunchAttempted = $true
-                Replayed        = $false
-                ExitCode        = $null
-                Failed          = $true
-                Message         = "Per-plan launcher invocation failed: $launchError"
+                Replayed = $false
+                ExitCode = 1
+                Failed = $true
+                Message = "Per-plan launcher invocation failed for child '$($admission.State.currentChild)' on branch '$($admission.State.branch)' in run '$($admission.State.run)' ($launchFailureKind/$launchErrorType); the invocation-failed checkpoint is immutable."
             }
         }
 
@@ -1979,16 +2093,24 @@ function Invoke-EpicAutopilotHostLoopCore {
             -RunningState $admission.State -RunningGeneration $admission.Generation `
             -Outcome $terminalOutcome
         return [pscustomobject]@{
-            State           = $terminal
-            NextChild       = $admission.NextChild
-            Resumed         = $admission.Resumed
-            StatePath       = $stateFile
-            Launch          = $true
+            State = $terminal
+            NextChild = $admission.NextChild
+            Resumed = $admission.Resumed
+            StatePath = $stateFile
+            Launch = $true
             LaunchAttempted = $true
-            Replayed        = $false
-            ExitCode        = $launcherExit
-            Failed          = $false
-            Message         = $null
+            Replayed = $false
+            ExitCode = $launcherExit
+            Failed = $launcherExit -ne 0
+            Message = if ($launcherExit -eq 0) {
+                $null
+            }
+            elseif ($launcherExit -eq 42) {
+                "Epic child '$($terminal.currentChild)' on branch '$($terminal.branch)' in run '$($terminal.run)' stopped for operator action with exit code 42."
+            }
+            else {
+                "Epic child '$($terminal.currentChild)' on branch '$($terminal.branch)' in run '$($terminal.run)' failed with exit code $launcherExit."
+            }
         }
     }
     finally {

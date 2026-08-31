@@ -241,35 +241,49 @@ exit `$LASTEXITCODE
             Should -Throw '*expected*abcdef*'
     }
 
-    It 'test:EvidenceTruth.FocusedStructuredResults reports pass, skip, degraded, missing, and discovery outcomes' {
+    It 'test:EvidenceTruth.FocusedStructuredResults reports bounded pass and every non-pass runner outcome' {
         $fixture = New-RunnerFixture -Content @'
 Describe 'focused evidence' {
     It 'test:EvidenceTruth.Pass works' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed passes' { $true | Should -BeTrue }
     It 'test:EvidenceTruth.Mixed skips' { Set-ItResult -Skipped -Because seeded }
     It 'test:EvidenceTruth.Skip skips' { Set-ItResult -Skipped -Because seeded }
+    It 'test:EvidenceTruth.Fail fails' { $false | Should -BeTrue }
+    It 'test:EvidenceTruth.Inconclusive does not run' { Set-ItResult -Inconclusive -Because seeded }
 }
 '@
         $result = Invoke-EvidenceRunner -Root $fixture -Id @(
             'EvidenceTruth.Pass',
             'EvidenceTruth.Mixed',
             'EvidenceTruth.Skip',
+            'EvidenceTruth.Fail',
+            'EvidenceTruth.Inconclusive',
             'EvidenceTruth.Missing'
         )
-        $result.ExitCode | Should -Be 8 -Because $result.Output
+        $result.ExitCode | Should -Be 1 -Because $result.Output
         $result.Result | Should -Not -BeNullOrEmpty -Because $result.Output
         $byMarker = @{}
         foreach ($record in $result.Result.results) { $byMarker[[string]$record.marker] = $record }
-        $byMarker['test:EvidenceTruth.Pass'].status | Should -Be 'passed'
-        $byMarker['test:EvidenceTruth.Mixed'].status | Should -Be 'degraded'
-        $byMarker['test:EvidenceTruth.Skip'].status | Should -Be 'skipped'
-        $byMarker['test:EvidenceTruth.Missing'].status | Should -Be 'unrun'
-        $byMarker['test:EvidenceTruth.Mixed'].selectedCount | Should -Be 2
-        $byMarker['test:EvidenceTruth.Mixed'].executedCount | Should -Be 1
+        foreach ($case in @(
+                @{ Marker = 'test:EvidenceTruth.Pass'; Status = 'passed'; Selected = 1; Executed = 1 },
+                @{ Marker = 'test:EvidenceTruth.Mixed'; Status = 'degraded'; Selected = 2; Executed = 1 },
+                @{ Marker = 'test:EvidenceTruth.Skip'; Status = 'skipped'; Selected = 1; Executed = 0 },
+                @{ Marker = 'test:EvidenceTruth.Fail'; Status = 'failed'; Selected = 1; Executed = 1 },
+                @{ Marker = 'test:EvidenceTruth.Inconclusive'; Status = 'unrun'; Selected = 1; Executed = 0 },
+                @{ Marker = 'test:EvidenceTruth.Missing'; Status = 'unrun'; Selected = 0; Executed = 0 }
+            )) {
+            $byMarker[$case.Marker].status | Should -Be $case.Status -Because $case.Marker
+            $byMarker[$case.Marker].selectedCount | Should -Be $case.Selected -Because $case.Marker
+            $byMarker[$case.Marker].executedCount | Should -Be $case.Executed -Because $case.Marker
+        }
+        $result.Result.selectedCount | Should -Be 6
+        $result.Result.executedCount | Should -Be 3
 
         $passed = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Pass')
         $passed.ExitCode | Should -Be 0 -Because $passed.Output
         $passed.Result.results[0].status | Should -Be 'passed'
+        $passed.Result.selectedCount | Should -Be 1
+        $passed.Result.executedCount | Should -Be 1
 
         Set-Content -LiteralPath (Join-Path $fixture 'tests/Fixture.Tests.ps1') -Value @'
 Describe 'broken' {
@@ -278,6 +292,8 @@ Describe 'broken' {
         $broken = Invoke-EvidenceRunner -Root $fixture -Id @('EvidenceTruth.Broken')
         $broken.ExitCode | Should -Be 4 -Because $broken.Output
         $broken.Result.results[0].status | Should -Be 'unrun'
+        $broken.Result.selectedCount | Should -Be 0
+        $broken.Result.executedCount | Should -Be 0
         $broken.Result.results[0].message | Should -Match 'discovery error'
     }
 
