@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-31T06:00:39.1148901Z",
+  "generatedAt": "2026-08-31T06:24:38.4753707Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -227,7 +227,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/EpicAutopilot.psm1",
-          "sha256": "05e259462b2fe012b2d2f09e766f284d459dd44ec8d474157510f8624f298aa9",
+          "sha256": "7a153e422d9fab9516af07ee60baf9d7a081488f84b10556698a7ca968df4b5f",
           "src": "skills/autopilot/scripts/EpicAutopilot.psm1"
         },
         {
@@ -391,7 +391,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.86"
+      "version": "1.2.89"
     },
     {
       "author": "jIRI-san",

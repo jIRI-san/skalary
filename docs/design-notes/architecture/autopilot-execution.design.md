@@ -131,11 +131,13 @@ launch semantics then apply. A replacement race fails without overwriting the wi
 When the refreshed rollup is complete, completion is gated before the generation-checked checkpoint
 delete. The host recognizes only the fixed optional installed entry point
 `.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1`; its exact process exit code is the review
-result. Presence with a start failure, malformed result, or nonzero result blocks completion and never
-falls back. When that entry point is absent, the bounded deterministic fallback requires the trusted
-complete rollup plus regular, repository-confined canonical `epic.md` and final-child `plan.md` files,
-then checks a valid UTF-8 epic of at most 1 MiB for non-placeholder `Goal` and `Definition of done`
-sections. Epic text is data only and is never included in commands or evidence.
+result. Availability and all reviewed epic/plan bytes are resolved from the reviewed target tree;
+ignored or otherwise target-absent filesystem copies cannot become executable review input. Presence
+with a start failure, malformed result, or nonzero result blocks completion and never falls back. When
+that entry point is absent from the reviewed target, the bounded deterministic fallback requires the
+trusted complete rollup plus regular, repository-confined canonical `epic.md` and final-child `plan.md`
+files, then checks a valid UTF-8 epic of at most 1 MiB for non-placeholder `Goal` and `Definition of
+done` sections. Epic text is data only and is never included in commands or evidence.
 
 After either path passes, the existing installed `Add-WorkflowNote.ps1` records one deterministic
 phase-0 Capture entry against the final child plan; only its zero process result permits completion.

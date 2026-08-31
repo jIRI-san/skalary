@@ -1030,7 +1030,7 @@ Describe 'Epic autopilot child launcher state machine' {
             -FinalEvidenceRecorder {
             param($ScriptPath, $PlanDir, $Message, $ReviewType, $Root)
             [void]$fallbackRecords.Add([pscustomobject]@{
-                    Message = $Message
+                    Message    = $Message
                     ReviewType = $ReviewType
                 })
             return 0
@@ -1068,15 +1068,34 @@ Describe 'Epic autopilot child launcher state machine' {
                 Should -BeExactly $before -Because $case.Name
         }
 
+        $startFailurePath = New-StatePath -Name 'final-review-start-failure'
+        [System.IO.File]::WriteAllText(
+            $startFailurePath,
+            (New-StateJson -Outcome 'awaiting-merge')
+        )
+        $startFailureBefore = [System.IO.File]::ReadAllBytes($startFailurePath)
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $script:repoRoot -StatePath $startFailurePath `
+                -PlanStateInvoker { $completeRollup } -TargetResolver $resolveB `
+                -AncestorTester $forward -ReviewScriptPath $reviewScript `
+                -ReviewInvoker { throw 'synthetic installed-review start failure' } `
+                -FinalEvidenceRecorder {
+                throw 'review start failure must not record a pass'
+            } -LauncherInvoker { throw 'review start failure must not launch' }
+        } | Should -Throw '*synthetic installed-review start failure*'
+        [System.IO.File]::ReadAllBytes($startFailurePath) |
+            Should -Be $startFailureBefore
+
         foreach ($invalidEpic in @(
                 @{
-                    Name = 'missing-goal'
-                    Text = "# abc123`n`n## Definition of done`n`nComplete.`n"
+                    Name  = 'missing-goal'
+                    Text  = "# abc123`n`n## Definition of done`n`nComplete.`n"
                     Match = "*non-empty 'Goal' section*"
                 },
                 @{
-                    Name = 'missing-done'
-                    Text = "# abc123`n`n## Goal`n`nShip.`n"
+                    Name  = 'missing-done'
+                    Text  = "# abc123`n`n## Goal`n`nShip.`n"
                     Match = "*non-empty 'Definition of done' section*"
                 }
             )) {
@@ -1307,9 +1326,9 @@ Describe 'Epic autopilot child launcher state machine' {
         $capture | Should -Match '\[review:none\]'
         $capture | Should -Match '\[source-record:[0-9a-f]{64}\]'
         ([regex]::Matches(
-                $capture,
-                'Epic final crosscheck passed via fallback'
-            )).Count | Should -Be 1
+            $capture,
+            'Epic final crosscheck passed via fallback'
+        )).Count | Should -Be 1
 
         $wrongHeadState = Join-Path $script:fixtureRoot (
             'final-evidence-wrong-head-state.json'
@@ -1371,10 +1390,169 @@ Describe 'Epic autopilot child launcher state machine' {
         @(& git -C $evidenceRoot status --porcelain=v1) |
             Should -HaveCount 0
 
+        $ignoredReviewPath = Join-Path $evidenceRoot (
+            '.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1'
+        )
+        [void](New-Item -ItemType Directory -Path (
+                Split-Path -Parent $ignoredReviewPath
+            ) -Force)
+        [System.IO.File]::WriteAllText(
+            (Join-Path $evidenceRoot '.git/info/exclude'),
+            "/.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1`n"
+        )
+        [System.IO.File]::WriteAllText(
+            (Join-Path $evidenceRoot 'ignored-review-operator-merge.txt'),
+            "operator merge`n"
+        )
+        & git -C $evidenceRoot add -- ignored-review-operator-merge.txt
+        & git -C $evidenceRoot commit --quiet -m 'operator merge before ignored review'
+        $ignoredReviewTarget = (& git -C $evidenceRoot rev-parse HEAD).Trim()
+        [System.IO.File]::WriteAllText(
+            $ignoredReviewPath,
+            "throw 'ignored mutable review must never execute'`n"
+        )
+        @(& git -C $evidenceRoot status --porcelain=v1) |
+            Should -HaveCount 0
+        $ignoredReviewState = Join-Path $script:fixtureRoot (
+            'final-evidence-ignored-review-state.json'
+        )
+        [System.IO.File]::WriteAllText(
+            $ignoredReviewState,
+            (New-StateJson -Target $concurrentCommit.Value `
+                -Outcome 'awaiting-merge')
+        )
+        $ignoredReview = Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+            -RepoRoot $evidenceRoot -StatePath $ignoredReviewState `
+            -PlanStateInvoker { $integrationRollup } `
+            -UseDefaultFinalEvidenceTransaction `
+            -UseDefaultWorktreeValidator `
+            -ReviewInvoker {
+            throw 'target-absent ignored review must not be invoked'
+        } -FinalEvidenceRecorder {
+            param($ScriptPath, $PlanDir)
+            [System.IO.File]::AppendAllText(
+                (Join-Path $PlanDir 'capture.md'),
+                "target-bound fallback replay`n"
+            )
+            return 0
+        } -LauncherInvoker { throw 'ignored review crosscheck must not launch' }
+        $ignoredReview.Completed | Should -BeTrue
+        $ignoredReview.FinalCrosscheck | Should -BeExactly 'fallback'
+        Test-Path -LiteralPath $ignoredReviewState | Should -BeFalse
+        Remove-Item -LiteralPath $ignoredReviewPath -Force
+        @(& git -C $evidenceRoot status --porcelain=v1) |
+            Should -HaveCount 0
+        $ignoredReviewEvidence = (& git -C $evidenceRoot rev-parse HEAD).Trim()
+        (& git -C $evidenceRoot rev-parse "$ignoredReviewEvidence^").Trim() |
+            Should -BeExactly $ignoredReviewTarget
+
+        [System.IO.File]::WriteAllText(
+            $ignoredReviewPath,
+            @'
+param(
+    [string]$EpicFile,
+    [string]$TargetCommit,
+    [string]$RepoRoot
+)
+if (-not (Test-Path -LiteralPath $EpicFile -PathType Leaf) -or
+    $TargetCommit -notmatch '^[0-9a-f]{40}$' -or
+    -not (Test-Path -LiteralPath $RepoRoot -PathType Container)) {
+    exit 9
+}
+exit 0
+'@
+        )
+        & git -C $evidenceRoot add -f -- (
+            '.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1'
+        )
+        & git -C $evidenceRoot commit --quiet -m 'install simplified review'
+        $installedReviewTarget = (& git -C $evidenceRoot rev-parse HEAD).Trim()
+        & git -C $evidenceRoot branch preserved-ref $installedReviewTarget
+        & git -C $evidenceRoot tag preserved-tag $installedReviewTarget
+        $refInventory = @(
+            & git -C $evidenceRoot for-each-ref `
+                '--format=%(refname) %(objectname)' refs
+        )
+        $installedReviewState = Join-Path $script:fixtureRoot (
+            'final-evidence-installed-review-state.json'
+        )
+        [System.IO.File]::WriteAllText(
+            $installedReviewState,
+            (New-StateJson -Target $ignoredReviewEvidence `
+                -Outcome 'awaiting-merge')
+        )
+        $installedReviewStateBefore = [System.IO.File]::ReadAllText(
+            $installedReviewState
+        )
+        {
+            Invoke-TestEpicHostLoop -Epic 'abc123' -Target 'main' `
+                -RepoRoot $evidenceRoot -StatePath $installedReviewState `
+                -PlanStateInvoker { $integrationRollup } `
+                -UseDefaultFinalEvidenceRecorder `
+                -UseDefaultFinalEvidenceTransaction `
+                -UseDefaultWorktreeValidator `
+                -StateDeleteInvoker {
+                [pscustomobject]@{ Status = 'cas-conflict' }
+            } -LauncherInvoker { throw 'installed review must not launch a child' }
+        } | Should -Throw "*delete failed with status 'cas-conflict'*"
+        [System.IO.File]::ReadAllText($installedReviewState) |
+            Should -BeExactly $installedReviewStateBefore
+        $installedReviewEvidence = (& git -C $evidenceRoot rev-parse HEAD).Trim()
+        (& git -C $evidenceRoot rev-parse "$installedReviewEvidence^").Trim() |
+            Should -BeExactly $installedReviewTarget
+        @(
+            & git -C $evidenceRoot diff-tree --no-commit-id --name-only -r `
+                $installedReviewTarget $installedReviewEvidence
+        ) | Should -BeExactly @(
+            'docs/implementation-plans/2026-08-31-111111-first-child/capture.md'
+        )
+        $installedCapture = [System.IO.File]::ReadAllText($capturePath)
+        $installedCapture |
+            Should -Match 'passed via installed simplified epic coherency review'
+
+        $installedReplay = Invoke-TestEpicHostLoop -Epic 'abc123' `
+            -Target 'main' -RepoRoot $evidenceRoot `
+            -StatePath $installedReviewState `
+            -PlanStateInvoker { $integrationRollup } `
+            -UseDefaultFinalEvidenceRecorder `
+            -UseDefaultFinalEvidenceTransaction `
+            -UseDefaultWorktreeValidator `
+            -LauncherInvoker { throw 'installed review replay must not launch' }
+        $installedReplay.Completed | Should -BeTrue
+        $installedReplay.FinalCrosscheck | Should -BeExactly 'review'
+        Test-Path -LiteralPath $installedReviewState | Should -BeFalse
+        (& git -C $evidenceRoot rev-parse HEAD).Trim() |
+            Should -BeExactly $installedReviewEvidence
+        ([regex]::Matches(
+            [System.IO.File]::ReadAllText($capturePath),
+            'passed via installed simplified epic coherency review'
+        )).Count | Should -Be 1
+        $refsAfter = @(
+            & git -C $evidenceRoot for-each-ref `
+                '--format=%(refname) %(objectname)' refs
+        )
+        @($refsAfter | ForEach-Object { ($_ -split ' ', 2)[0] }) |
+            Should -BeExactly @(
+                $refInventory | ForEach-Object { ($_ -split ' ', 2)[0] }
+            )
+        @($refsAfter | Where-Object { $_ -notmatch '^refs/heads/main ' }) |
+            Should -BeExactly @(
+                $refInventory |
+                    Where-Object { $_ -notmatch '^refs/heads/main ' }
+                )
+        $refsAfter | Should -Not -Match '(?i)finalization|evidence'
+        @(& git -C $evidenceRoot status --porcelain=v1) |
+            Should -HaveCount 0
+
         $moduleText = [System.IO.File]::ReadAllText($script:modulePath)
         $moduleText | Should -Not -Match '(?i)\bgit\s+(?:push|merge|checkout)\b'
         $moduleText | Should -Not -Match '(?i)\bgh\s+(?:api|pr)\b'
         $moduleText | Should -Not -Match '(?i)\b(?:new|create).*(?:branch|pull request|pr)\b'
+        $moduleText | Should -Not -Match '(?i)&\s*gh(?:\.exe)?\b'
+        $moduleText | Should -Not -Match (
+            '(?i)&\s*git(?:\.exe)?\b[^\r\n]*\s' +
+            '(?:push|pull|fetch|remote|branch|switch|checkout)\b'
+        )
     }
 
     It 'test:EpicAutopilot.AbruptEvidenceRecovery admits only exact writer or staging residue' {
@@ -1447,12 +1625,12 @@ Describe 'Epic autopilot child launcher state machine' {
                 PlanFile   = $planFile
             }
             return [pscustomobject]@{
-                Root          = $root
-                PlanDir       = $planDir
-                CapturePath   = $capturePath
-                StatePath     = $statePath
-                TargetCommit  = $targetCommit
-                Rollup        = New-RollupJson -NextChild $null `
+                Root         = $root
+                PlanDir      = $planDir
+                CapturePath  = $capturePath
+                StatePath    = $statePath
+                TargetCommit = $targetCommit
+                Rollup       = New-RollupJson -NextChild $null `
                     -Children @($completeChild) -IsComplete $true `
                     -EpicFile $epicFile
             }
@@ -1499,9 +1677,9 @@ Describe 'Epic autopilot child launcher state machine' {
                 )) | Should -Be 1
             $capture = [System.IO.File]::ReadAllText($fixture.CapturePath)
             ([regex]::Matches(
-                    $capture,
-                    'Epic final crosscheck passed via fallback'
-                )).Count | Should -Be 1
+                $capture,
+                'Epic final crosscheck passed via fallback'
+            )).Count | Should -Be 1
         }
 
         $forged = New-AbruptEvidenceFixture -Name 'abrupt-forged'

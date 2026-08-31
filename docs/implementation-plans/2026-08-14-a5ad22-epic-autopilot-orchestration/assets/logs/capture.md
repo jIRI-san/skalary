@@ -26,3 +26,4 @@ Phase: 2
 Phase: 3
 
 - [3.1] [src:note] [concern:correctness-reliability] [req:REQ-5] [review:none] [source-record:a3238cc5e5e545a15995c38fa470b0e44cc5a190bc50e519b75752f61018d78e] Fleet attendance: planned=4; started=4; completed=3; failed=1; retried=0; cancelled=0; ci-designer=completed; ci-validator=completed; ci-implementor=completed; ci-judge=failed.
+- [3.1] [src:note] [concern:correctness-reliability] [req:REQ-5] [review:none] [source-record:2e00b3d550b3b09b8e57a265f513ed0b479f4c62015d9a4e403d121886a3be5c] Fleet attendance: planned=4; started=4; completed=4; failed=0; retried=0; cancelled=0; ci-designer=completed; ci-validator=completed; ci-implementor=completed; ci-judge=completed.

@@ -715,7 +715,7 @@ function Get-EpicAutopilotCapturePath {
     )
 
     $planDirectory = Split-Path -Parent $PlanFile
-    $matches = [System.Collections.Generic.List[object]]::new()
+    $captureMatches = [System.Collections.Generic.List[object]]::new()
     foreach ($candidate in @(
             (Join-Path $planDirectory 'capture.md'),
             (Join-Path $planDirectory 'assets/logs/capture.md')
@@ -729,7 +729,7 @@ function Get-EpicAutopilotCapturePath {
             throw "Unable to inspect Capture path '$relative' at '$Commit'."
         }
         if ($treeEntry.Count -eq 1 -and ([string]$treeEntry[0]).Trim() -ceq $relative) {
-            $matches.Add([pscustomobject]@{
+            $captureMatches.Add([pscustomobject]@{
                     FullPath     = [System.IO.Path]::GetFullPath($candidate)
                     RelativePath = $relative
                 })
@@ -738,13 +738,13 @@ function Get-EpicAutopilotCapturePath {
             throw "Capture path lookup returned an unexpected result for '$relative'."
         }
     }
-    if ($matches.Count -ne 1) {
-        throw "Final child plan must have exactly one tracked Capture path; found $($matches.Count)."
+    if ($captureMatches.Count -ne 1) {
+        throw "Final child plan must have exactly one tracked Capture path; found $($captureMatches.Count)."
     }
-    [void](Resolve-EpicAutopilotTrustedFile -Path $matches[0].FullPath `
+    [void](Resolve-EpicAutopilotTrustedFile -Path $captureMatches[0].FullPath `
             -RepoRoot $RepoRoot -ExpectedName 'capture.md' `
             -Label 'Final crosscheck Capture')
-    return $matches[0]
+    return $captureMatches[0]
 }
 
 function Get-EpicAutopilotTreeEntry {
@@ -809,7 +809,7 @@ function Get-EpicAutopilotRecoveryDescriptor {
     }
     $folder = ([string]$State.branch).Substring($branchPrefix.Length)
     $childPattern = '^\d{4}-\d{2}-\d{2}-' +
-        [regex]::Escape([string]$State.currentChild) + '(?:-[^/]+)?$'
+    [regex]::Escape([string]$State.currentChild) + '(?:-[^/]+)?$'
     if ($folder -cnotmatch $childPattern) {
         throw 'Retained epic checkpoint branch does not identify its canonical final child.'
     }
@@ -833,8 +833,8 @@ function Get-EpicAutopilotRecoveryDescriptor {
         throw "Unable to inspect canonical epic sources at '$TargetCommit'."
     }
     $epicPattern = '^docs/implementation-plans/epics/' +
-        '\d{4}-\d{2}-\d{2}-' + [regex]::Escape([string]$State.epic) +
-        '(?:-[^/]+)?/epic\.md$'
+    '\d{4}-\d{2}-\d{2}-' + [regex]::Escape([string]$State.epic) +
+    '(?:-[^/]+)?/epic\.md$'
     $epicPaths = @($epicTree | Where-Object { [string]$_ -cmatch $epicPattern })
     if ($epicPaths.Count -ne 1) {
         throw "Canonical target must contain exactly one epic source for '$($State.epic)'."
@@ -880,15 +880,15 @@ function Get-EpicAutopilotRecoveryDescriptor {
     }
 
     return [pscustomobject]@{
-        CapturePath  = $capturePath
+        CapturePath   = $capturePath
         PlanDirectory = $planDirectory
-        Message      = if ($null -ne $reviewEntry) {
+        Message       = if ($null -ne $reviewEntry) {
             'Epic final crosscheck passed via installed simplified epic coherency review.'
         }
         else {
             'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.'
         }
-        ReviewType   = if ($null -ne $reviewEntry) { 'dr' } else { 'none' }
+        ReviewType    = if ($null -ne $reviewEntry) { 'dr' } else { 'none' }
     }
 }
 
@@ -957,9 +957,9 @@ function Repair-EpicAutopilotFinalEvidenceResidue {
         -ReviewScriptPath $ReviewScriptPath
     $capturePath = [string]$descriptor.CapturePath
     $isUnstaged = $unstaged.Count -eq 1 -and $cached.Count -eq 0 -and
-        ([string]$unstaged[0]).Trim() -ceq $capturePath
+    ([string]$unstaged[0]).Trim() -ceq $capturePath
     $isStaged = $unstaged.Count -eq 0 -and $cached.Count -eq 1 -and
-        ([string]$cached[0]).Trim() -ceq $capturePath
+    ([string]$cached[0]).Trim() -ceq $capturePath
     if (-not $isUnstaged -and -not $isStaged) {
         throw "Abrupt final evidence recovery permits only sole unstaged or staged Capture residue '$capturePath'."
     }
@@ -1146,10 +1146,10 @@ function Assert-EpicAutopilotEvidenceStatus {
     $expectedCached = if ($Staged) { 1 } else { 0 }
     if ($unstaged.Count -ne $expectedUnstaged -or
         ($expectedUnstaged -eq 1 -and
-            ([string]$unstaged[0]).Trim() -cne $CapturePath) -or
+        ([string]$unstaged[0]).Trim() -cne $CapturePath) -or
         $cached.Count -ne $expectedCached -or
         ($expectedCached -eq 1 -and
-            ([string]$cached[0]).Trim() -cne $CapturePath) -or
+        ([string]$cached[0]).Trim() -cne $CapturePath) -or
         $untracked.Count -ne 0) {
         throw "Final crosscheck must change exactly tracked Capture path '$CapturePath'."
     }
@@ -1276,7 +1276,8 @@ function Invoke-EpicAutopilotFinalCrosscheck {
         [Parameter(Mandatory)][scriptblock]$ReviewInvoker,
         [Parameter(Mandatory)][scriptblock]$EvidenceRecorder,
         [Parameter(Mandatory)][scriptblock]$EvidenceCommitResolver,
-        [Parameter(Mandatory)][scriptblock]$EvidenceManager
+        [Parameter(Mandatory)][scriptblock]$EvidenceManager,
+        [switch]$RequireTargetBoundSources
     )
 
     if (-not [bool]$Rollup.Rollup.IsComplete -or $null -ne $Rollup.NextChild) {
@@ -1302,11 +1303,45 @@ function Invoke-EpicAutopilotFinalCrosscheck {
         throw 'Epic final evidence resolver returned an invalid result.'
     }
     $reviewedTarget = [string]$descriptor.ReviewedTarget
+    $reviewAvailable = Test-Path -LiteralPath $ReviewScriptPath -PathType Any
+    if ($RequireTargetBoundSources) {
+        foreach ($source in @(
+                @{
+                    Path  = $epicFile
+                    Label = 'Canonical epic'
+                },
+                @{
+                    Path  = $planFile
+                    Label = 'Final child plan'
+                }
+            )) {
+            $relative = ConvertTo-EpicAutopilotRepoRelativePath `
+                -Path $source.Path -RepoRoot $RepoRoot -Label $source.Label
+            $entry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+                -Commit $reviewedTarget -Path $relative
+            Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
+                -TreeEntry $entry
+        }
+        $reviewRelative = ConvertTo-EpicAutopilotRepoRelativePath `
+            -Path $ReviewScriptPath -RepoRoot $RepoRoot `
+            -Label 'Installed epic coherency review'
+        $reviewEntry = Get-EpicAutopilotTreeEntry -RepoRoot $RepoRoot `
+            -Commit $reviewedTarget -Path $reviewRelative -Optional
+        $reviewAvailable = $null -ne $reviewEntry
+        if ($reviewAvailable) {
+            [void](Resolve-EpicAutopilotTrustedFile -Path $ReviewScriptPath `
+                    -RepoRoot $RepoRoot `
+                    -ExpectedName 'Invoke-EpicCoherencyReview.ps1' `
+                    -Label 'Installed epic coherency review')
+            Assert-EpicAutopilotWorktreeFileMatchesTree -RepoRoot $RepoRoot `
+                -TreeEntry $reviewEntry
+        }
+    }
 
     $mode = 'fallback'
     $reviewType = 'none'
     $message = 'Epic final crosscheck passed via fallback: complete merged rollup and non-empty canonical Goal and Definition of done.'
-    if (Test-Path -LiteralPath $ReviewScriptPath -PathType Any) {
+    if ($reviewAvailable) {
         $reviewScript = Resolve-EpicAutopilotTrustedFile -Path $ReviewScriptPath `
             -RepoRoot $RepoRoot -ExpectedName 'Invoke-EpicCoherencyReview.ps1' `
             -Label 'Installed epic coherency review'
@@ -1337,8 +1372,8 @@ function Invoke-EpicAutopilotFinalCrosscheck {
         throw "Epic final crosscheck evidence writer not found: $EvidenceScriptPath"
     }
     [void](& $EvidenceManager $descriptor $TargetBranch $TargetCommit $RepoRoot `
-            ([string]$Rollup.EpicId) $EvidenceScriptPath `
-            (Split-Path -Parent $planFile) $message $reviewType $EvidenceRecorder)
+        ([string]$Rollup.EpicId) $EvidenceScriptPath `
+        (Split-Path -Parent $planFile) $message $reviewType $EvidenceRecorder)
     return $mode
 }
 
@@ -1695,7 +1730,8 @@ function Invoke-EpicAutopilotHostLoopCore {
                             -ReviewInvoker $ReviewInvoker `
                             -EvidenceRecorder $FinalEvidenceRecorder `
                             -EvidenceCommitResolver $FinalEvidenceCommitResolver `
-                            -EvidenceManager $FinalEvidenceManager
+                            -EvidenceManager $FinalEvidenceManager `
+                            -RequireTargetBoundSources:$usesDefaultWorktreeValidator
                         $deleteOutput = @(
                             & $StateDeleteInvoker $stateFile $generation
                         )
@@ -1816,7 +1852,8 @@ function Invoke-EpicAutopilotHostLoopCore {
                         -ReviewInvoker $ReviewInvoker `
                         -EvidenceRecorder $FinalEvidenceRecorder `
                         -EvidenceCommitResolver $FinalEvidenceCommitResolver `
-                        -EvidenceManager $FinalEvidenceManager
+                        -EvidenceManager $FinalEvidenceManager `
+                        -RequireTargetBoundSources:$usesDefaultWorktreeValidator
                 }
                 else { $null }
                 return [pscustomobject]@{
