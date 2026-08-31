@@ -113,3 +113,31 @@ success-shaped "started" wording for an interrupted or failed run.
 Every runtime adapter delegates admission and close-state interpretation to the installed
 `.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1` contract; adapters must not replace it
 with local checkbox or receipt-existence predicates.
+
+## Epic host routing
+
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` is delivered for the host-owned epic
+flow. When `/ci`'s single state result has `Kind: epic`, `/ci` invokes this fixed installed wrapper
+directly with the canonical `EpicId`, literal target `HEAD`, and the same canonical repository root;
+it does not select a child, present the ordinary plan runtime/extent menus, or enter this skill's
+bootstrap and per-plan handoff. `AUTOPILOT_CONTAINER=true` fails closed before the wrapper is invoked
+and must never fall through to ordinary child selection.
+
+The wrapper atomically selects or resumes the exact `Get-PlanState` `NextChild`, marks that run
+`running`, and invokes the installed `launch.ps1` once in a separate PowerShell process with fixed
+`whole-plan` / `container` arguments, the normalized caller target branch, and the admitted target
+commit as `-ExpectedStartCommit`. Selection requires a clean worktree whose HEAD equals that commit.
+The container creates a fresh work branch directly from the verified fetched object and rejects an
+existing remote work branch; only an exit-43 rebundle retry inside that same launcher invocation may
+resume it. The persisted `run` derives the exact container name. A repeated host call probes only that
+container: active means refuse, while absent/exited reconciles the same run to `invocation-failed`
+without relaunch. Nonzero launcher codes are stored as `exit:<1..255>`, the portable process-exit
+domain; launch-start failures and out-of-domain invocation results return a structured
+`invocation-failed` receipt. Verified zero becomes `awaiting-merge` and stops for an operator merge.
+On a later call, only that outcome and legacy `exit:0` can advance: the target must move forward and a
+fresh rollup must prove the prior child complete and no longer current. The helper CAS-selects one new
+child and launches it, CAS-clears state for a complete epic, or returns blocked exit 42 while retaining
+the prior checkpoint when the incomplete graph has no eligible child. Non-success terminal outcomes
+remain unchanged for explicit resume. Target refresh never fetches, pulls, checks out, merges, pushes,
+or calls a provider. Ordinary plan `/ci` behavior remains on the runtime/extent and bootstrap flow
+above; only an epic-kind state result takes this host route.

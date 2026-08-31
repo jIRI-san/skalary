@@ -18,6 +18,121 @@
 
 Set-StrictMode -Version Latest
 
+function Get-AutopilotContainerAttemptParameters {
+    param(
+        [string]$ExpectedStartCommit,
+        [int]$Attempt
+    )
+
+    return [pscustomobject]@{
+        TrustedInternalRetry = [bool]($ExpectedStartCommit -and $Attempt -gt 0)
+    }
+}
+
+function Get-AutopilotContainerName {
+    param([string]$Run)
+
+    if (-not $Run) {
+        return "autopilot-run-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    }
+    $parsedRun = [guid]::Empty
+    if (-not [guid]::TryParseExact($Run, 'D', [ref]$parsedRun) -or
+        $parsedRun.ToString('D') -cne $Run) {
+        throw "Invalid container run '$Run'. Use a canonical GUID."
+    }
+    return "autopilot-run-$Run"
+}
+
+function Get-AutopilotExpectedStartEnvironment {
+    param(
+        [string]$ExpectedStartCommit,
+        [bool]$TrustedInternalRetry = $false
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    if ($ExpectedStartCommit) {
+        if ($ExpectedStartCommit -cnotmatch '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
+            throw "Invalid expected start commit '$ExpectedStartCommit'. Use a full Git commit id."
+        }
+        $lines.Add("EXPECTED_START_COMMIT=$($ExpectedStartCommit.ToLowerInvariant())")
+        if ($TrustedInternalRetry) {
+            $lines.Add('AUTOPILOT_TRUSTED_INTERNAL_RETRY=true')
+        }
+    }
+    elseif ($TrustedInternalRetry) {
+        throw 'A trusted internal retry requires an expected start commit.'
+    }
+    return [string[]]$lines
+}
+
+function ConvertTo-AutopilotEnvFileContent {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$Entry
+    )
+
+    foreach ($line in $Entry) {
+        $separator = $line.IndexOf('=')
+        if ($separator -le 0 -or
+            $line.Substring(0, $separator) -cnotmatch '^[A-Z][A-Z0-9_]*$') {
+            throw 'Container environment entries must use NAME=value syntax.'
+        }
+        $value = $line.Substring($separator + 1)
+        if ($value.IndexOfAny([char[]]@(0, 10, 13)) -ge 0) {
+            $name = $line.Substring(0, $separator)
+            throw "Container environment value '$name' contains an unsupported line break or NUL."
+        }
+    }
+    return $Entry -join "`n"
+}
+
+function Assert-AutopilotRepositoryRemote {
+    param([Parameter(Mandatory)][string]$Remote)
+
+    if ($Remote.IndexOfAny([char[]]"`r`n") -ge 0) {
+        throw 'Repository remote URL must not contain line breaks.'
+    }
+    if ($Remote -match '^(?i:https?)://') {
+        $uri = $null
+        if (-not [uri]::TryCreate($Remote, [System.UriKind]::Absolute, [ref]$uri)) {
+            throw 'Repository HTTP(S) remote URL is invalid.'
+        }
+        if (-not [string]::IsNullOrEmpty($uri.UserInfo)) {
+            throw 'Repository HTTP(S) remote URL must not contain userinfo; authentication is supplied separately.'
+        }
+    }
+}
+
+function Wait-AutopilotProcessUntil {
+    param(
+        [Parameter(Mandatory)][System.Diagnostics.Process]$Process,
+        [Parameter(Mandatory)][datetime]$Deadline
+    )
+
+    if ($Process.HasExited) {
+        return $true
+    }
+    while ($true) {
+        $remainingMilliseconds = [Math]::Ceiling(
+            ($Deadline - [datetime]::Now).TotalMilliseconds
+        )
+        if ($remainingMilliseconds -le 0) {
+            return $Process.HasExited
+        }
+        $waitMilliseconds = [int][Math]::Min(
+            $remainingMilliseconds,
+            [int]::MaxValue
+        )
+        if ($Process.WaitForExit($waitMilliseconds)) {
+            return $true
+        }
+        if ($remainingMilliseconds -le [int]::MaxValue) {
+            return $false
+        }
+    }
+}
+
 function Resolve-OfflinePackagesConfig {
     param([Parameter(Mandatory)][psobject]$Config)
 
@@ -74,7 +189,7 @@ function Invoke-AutopilotDispatch {
 
     $attempt = 0
     while ($true) {
-        $code = [int](& $Launch $feedPath)
+        $code = [int](& $Launch $feedPath $attempt)
 
         # No offline loop for host / disabled runs: first result is final.
         if (-not $Offline) { return $code }

@@ -11,7 +11,6 @@ Describe 'Autopilot timeout configuration' {
         $script:hostLauncher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch-host.ps1') -Raw
         $script:entrypoint = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/container-entrypoint.sh') -Raw
         $script:envPrep = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/prepare-env-file.ps1') -Raw
-        $script:agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
     }
 
     It 'documents timeout as per phase and planTimeout as the whole run' {
@@ -40,6 +39,9 @@ Describe 'Autopilot timeout configuration' {
         # silently turned a documented per-phase budget into a whole-run one.
         $containerLauncher | Should -Not -Match '\$TimeoutMinutes = \$Config\.timeout'
         $containerLauncher | Should -Match '\$TimeoutMinutes = if \(\$Config\.PSObject\.Properties\.Name -contains ''planTimeout''\)'
+        $containerLauncher | Should -Match 'Wait-AutopilotProcessUntil'
+        $containerLauncher | Should -Not -Match 'docker inspect'
+        $containerLauncher | Should -Not -Match 'Start-Sleep -Seconds 2'
     }
 
     It 'keeps host mode enforcing the per-phase budget around each invocation' {
@@ -89,7 +91,7 @@ Describe 'Autopilot work preservation' {
 
     It 'retains the container when preservation cannot commit or push' {
         $entrypoint | Should -Match 'autopilot-preservation-failed'
-        $entrypoint | Should -Match 'preserve_work \|\| exit 125'
+        $entrypoint | Should -Match 'preserve_work \|\| exit 70'
         $containerLauncher | Should -Match 'Retaining container'
         $containerLauncher | Should -Match 'autopilot-preservation-failed'
     }

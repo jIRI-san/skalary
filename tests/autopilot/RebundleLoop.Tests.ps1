@@ -103,10 +103,11 @@ Describe 'Autopilot.RebundleLoop' {
         }
 
         It 're-preps and relaunches on exit 43, then returns the resumed code' {
-            $state = @{ launch = 0; prep = 0; rebundle = 0; feeds = @(); codes = @(43, 0) }
+            $state = @{ launch = 0; prep = 0; rebundle = 0; feeds = @(); attempts = @(); codes = @(43, 0) }
             $launch = {
-                param([string]$FeedPath)
+                param([string]$FeedPath, [int]$Attempt)
                 $state.feeds += , $FeedPath
+                $state.attempts += $Attempt
                 $code = $state.codes[$state.launch]
                 $state.launch = $state.launch + 1
                 return $code
@@ -121,6 +122,7 @@ Describe 'Autopilot.RebundleLoop' {
             $state.rebundle | Should -Be 1
             $state.feeds[0] | Should -Be 'feed-initial'
             $state.feeds[1] | Should -Be 'feed-rebundle-1'
+            $state.attempts | Should -BeExactly @(0, 1)
         }
 
         It 'enforces the maxRebundles cap and returns 43 when never satisfied' {

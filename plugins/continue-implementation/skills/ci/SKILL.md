@@ -9,9 +9,8 @@ context: fork
 
 # Continue Implementation
 
-Requires agent mode. Edits files, runs commands, and commits. Use `vscode_askQuestions`
-with `options` for every multiple-choice prompt. In user-facing text, identify plans and epics
-as `<canonical-id> <slug>`; commands may use only the id.
+Requires agent mode. Use `vscode_askQuestions` with `options` for each multiple-choice prompt.
+Identify plans and epics in user-facing text as `<canonical-id> <slug>`; commands use only the id.
 
 ## Step 1: Select plan and load context
 
@@ -36,7 +35,7 @@ as `<canonical-id> <slug>`; commands may use only the id.
    If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder,
    stop and return the plan to `/cip` instead of guessing.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-4. If legacy loose plan files exist, detect them now but defer migration until the read-only phase admission in Step 2 returns `ready`. Then migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
+4. Defer detected legacy loose-plan migration until Step 2 admission is `ready`, then run `.github/skills/ci/scripts/Repair-Plans.ps1`; do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
@@ -47,18 +46,39 @@ If it exits non-zero, stop immediately.
 
 ## Step 2: Plan state and next step (always)
 
-Surface deterministic state before any work. Invoke the production state command once in JSON mode,
-then render its progress, next-step, planning-context, and admission fields for the operator from that
-single result:
+Surface deterministic state before any work. Resolve the repository root to one canonical absolute
+path, invoke the production state command once in JSON mode with that root, then render its progress,
+next-step, planning-context, and admission fields for the operator from that single result:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 <plan-or-epic-reference> -RepoRoot . -Json
+pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 `
+    <plan-or-epic-reference> -RepoRoot <canonical-repo-root> -Json
 ```
 
-For an epic, use its ordered, dependency-ready `NextChild`; an empty value means all children
-are complete or a dependency is unresolved. Re-run state against that child. For a plan, state
-reports progress and the first non-`[x]` step, including `@human`, `[discovery]`, and
-`blocked-by-after`; it never silently skips blocked work. Add only this judgment:
+### Epic host routing (hard branch)
+
+When the JSON result has `Kind: epic`, route it directly to the fixed installed host wrapper. Do not
+select `NextChild`, re-run state against a child, bootstrap ordinary plan autopilot, or present the
+plan mode/runtime menus. The wrapper owns the authoritative `Get-PlanState -Epic` refresh, child
+selection, state, launcher, container, terminal stop, target refresh, failure, and final crosscheck:
+
+```powershell
+$epicLauncher = Join-Path (
+    Join-Path <canonical-repo-root> '.github/skills/autopilot/scripts'
+) 'Invoke-EpicAutopilot.ps1'
+pwsh -NoProfile -File $epicLauncher -Epic <state.EpicId> `
+    -Target HEAD -RepoRoot <canonical-repo-root>
+```
+
+Bind `-Epic` to the canonical `EpicId` from the state result, keep `-Target` as the literal local
+`HEAD` target, and bind `-RepoRoot` to the same canonical absolute repository root used for the state
+call. Never interpolate the original reference or plan content into this command. If
+`AUTOPILOT_CONTAINER=true`, stop: the epic wrapper is host-only and must never run or fall through to
+ordinary child selection inside the container. Block on the wrapper, preserve its exact process exit
+status, report its emitted awaiting-merge/completed/blocked/failure outcome, and exit `/ci`.
+
+For a plan, state reports progress and the first non-`[x]` step, including `@human`, `[discovery]`,
+and `blocked-by-after`; it never silently skips blocked work. Add only this judgment:
 
 - **Confirmed planning context:** an enrolled plan must report `Context: confirmed`. Stop before branch or file
   mutation on `pending`, `stale`, `missing`, or `invalid` and return the plan to `/cip` for the affected
@@ -126,10 +146,11 @@ branch/worktree mutation, `[~]`, or log initialization. Every other result stops
 Before implementing a step, run the validation reconcile gate:
 
 ```powershell
-npm run validate-plan
+pwsh -NoProfile -File .github/skills/ci/scripts/Test-Plan.ps1 `
+    -PlanPath <selected-plan-path> -RepoRoot <canonical-repo-root>
 ```
 
-If it reports blocking failures, fix them before starting execution. This gate — not in-context memory — is the authority on whether the plan is internally consistent. Do not add inline validation logic in this orchestrator; all plan validation delegates to `.github/skills/ci/scripts/Test-Plan.ps1` via `npm run validate-plan` or `scripts/validate.ps1`.
+Fix blocking failures before execution. This bundled gate is the plan-consistency authority; do not add inline validation logic.
 
 Use the execution asset for the implement/build/test/code-review/commit loop.
 
@@ -152,6 +173,6 @@ Long runs drift; re-anchor every step instead of trusting context memory:
 
 - **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
 - **Intent authority:** the plan's intent asset — not remembered context — is the anchor for *why* a step exists. Re-read it before each step and at every crosscheck.
-- **Consistency authority:** the `npm run validate-plan` reconcile gate (Step 4) is the only authority on plan/evidence consistency — resolve any divergence by re-running it, not by reasoning from context.
+- **Consistency authority:** the bundled Step 4 gate owns plan/evidence consistency; re-run it to resolve divergence.
 - **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
 - **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.

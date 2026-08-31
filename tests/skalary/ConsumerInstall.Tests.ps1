@@ -71,11 +71,11 @@ Describe 'foreign consumer plugin installation' {
             foreach ($file in @($script:fixture.Catalog.Files)) {
                 if ($file -eq $installedFile) {
                     [pscustomobject]@{
-                        Plugin     = [string]$file.Plugin
-                        Src        = [string]$file.Src
-                        Dest       = '../consumer-install-escape.txt'
-                        Sha256     = [string]$file.Sha256
-                        Install    = [bool]$file.Install
+                        Plugin = [string]$file.Plugin
+                        Src = [string]$file.Src
+                        Dest = '../consumer-install-escape.txt'
+                        Sha256 = [string]$file.Sha256
+                        Install = [bool]$file.Install
                         SourcePath = [string]$file.SourcePath
                     }
                 }
@@ -86,9 +86,9 @@ Describe 'foreign consumer plugin installation' {
         )
         $escapedCatalog = [pscustomobject]@{
             SourceRepoRoot = $script:fixture.Catalog.SourceRepoRoot
-            Plugins        = $script:fixture.Catalog.Plugins
-            Files          = $escapedFiles
-            PluginNames    = $script:fixture.Catalog.PluginNames
+            Plugins = $script:fixture.Catalog.Plugins
+            Files = $escapedFiles
+            PluginNames = $script:fixture.Catalog.PluginNames
         }
         $escaping = Test-ConsumerInstallInventory -Fixture $script:fixture -Catalog $escapedCatalog
         $escaping.Escaping | Should -Contain "$($installedFile.Plugin):../consumer-install-escape.txt"
@@ -267,7 +267,7 @@ Describe 'foreign consumer plugin installation' {
                 name = 'fixture'; version = '1.0.0'; description = 'Fixture.'
                 author = 'test'; license = 'MIT'; tags = @('skill'); dependencies = @()
                 status = 'partial'
-                files  = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
+                files = @([ordered]@{ src = 'skills/demo/SKILL.md'; dest = 'skills/demo/SKILL.md' })
             }
             Set-Content -LiteralPath (Join-Path $pluginRoot 'plugin.json') -Value (
                 $manifest | ConvertTo-Json -Depth 10
@@ -321,6 +321,152 @@ Describe 'foreign consumer plugin installation' {
         }
         (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
             Should -BeTrue -Because 'installed smokes must leave the shared foreign fixture unchanged'
+    }
+
+    It 'test:EpicAutopilot.ConsumerInstall preserves epic routing across source, dogfood, and a foreign consumer' {
+        $ciRelative = 'skills/ci/SKILL.md'
+        $wrapperRelative = 'skills/autopilot/scripts/Invoke-EpicAutopilot.ps1'
+        $sourceCi = Join-Path $script:repoRoot "plugins/continue-implementation/$ciRelative"
+        $dogfoodCi = Join-Path $script:repoRoot ".github/$ciRelative"
+        $foreignCi = Join-Path $script:fixture.Root ".github/$ciRelative"
+        $sourceWrapper = Join-Path $script:repoRoot (
+            "plugins/autopilot/$wrapperRelative"
+        )
+        $dogfoodWrapper = Join-Path $script:repoRoot ".github/$wrapperRelative"
+        $foreignWrapper = Join-Path $script:fixture.Root ".github/$wrapperRelative"
+
+        foreach ($path in @(
+                $sourceCi,
+                $dogfoodCi,
+                $foreignCi,
+                $sourceWrapper,
+                $dogfoodWrapper,
+                $foreignWrapper
+            )) {
+            Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
+        }
+        foreach ($copy in @($dogfoodCi, $foreignCi)) {
+            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+                Should -BeExactly (
+                    Get-FileHash -LiteralPath $sourceCi -Algorithm SHA256
+                ).Hash
+        }
+        foreach ($copy in @($dogfoodWrapper, $foreignWrapper)) {
+            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+                Should -BeExactly (
+                    Get-FileHash -LiteralPath $sourceWrapper -Algorithm SHA256
+                ).Hash
+        }
+
+        $routeText = [System.IO.File]::ReadAllText($foreignCi)
+        $routeText | Should -Match 'Kind: epic'
+        $routeText | Should -Match ([regex]::Escape(
+                "'.github/skills/autopilot/scripts'"
+            ))
+        $routeText | Should -Match "'Invoke-EpicAutopilot\.ps1'"
+        $routeText | Should -Match '-Epic <state\.EpicId>'
+        $routeText | Should -Match '-Target HEAD -RepoRoot <canonical-repo-root>'
+        $routeText | Should -Match 'AUTOPILOT_CONTAINER=true'
+        $routeText | Should -Match 'Do not\s+select `NextChild`'
+
+        $routingRoot = Join-Path $script:fixture.Root 'epic-routing-execution'
+        $originalContainerFlag = $env:AUTOPILOT_CONTAINER
+        try {
+            $plansRoot = Join-Path $routingRoot 'docs/implementation-plans'
+            $epicDir = Join-Path $plansRoot 'epics/2026-08-31-abc123-consumer-epic'
+            $childFolder = '2026-08-31-111111-consumer-child'
+            $childDir = Join-Path $plansRoot $childFolder
+            $launcherDir = Join-Path $routingRoot '.github/skills/autopilot/scripts'
+            [void](New-Item -ItemType Directory -Path $epicDir -Force)
+            [void](New-Item -ItemType Directory -Path $childDir -Force)
+            [void](New-Item -ItemType Directory -Path $launcherDir -Force)
+            [System.IO.File]::WriteAllText(
+                (Join-Path $epicDir 'epic.md'),
+                "# abc123: Consumer epic`n<!-- epic-id: abc123 -->`n"
+            )
+            [System.IO.File]::WriteAllText(
+                (Join-Path $childDir 'plan.md'),
+                @(
+                    '# 111111: Consumer child'
+                    '<!-- plan-id: 111111 -->'
+                    '<!-- epic: abc123 -->'
+                    ''
+                    '## Requirements'
+                    ''
+                    '| ID | Requirement | Acceptance Criteria | Phases/Steps |'
+                    '|----|-------------|---------------------|--------------|'
+                    '| REQ-1 | Exercise routing | `test:consumer` | 1.1 |'
+                    ''
+                    '## Phase 1: Consumer'
+                    ''
+                    '- [ ] 1.1 Execute fixture (REQ-1) `S`'
+                ) -join "`n"
+            )
+            [System.IO.File]::WriteAllText(
+                (Join-Path $launcherDir 'launch.ps1'),
+                @'
+param(
+    [string]$PlanSlug,
+    [string]$Mode,
+    [string]$Runtime,
+    [string]$Branch,
+    [string]$ExpectedStartCommit,
+    [string]$Run
+)
+$root = (Resolve-Path (Join-Path $PSScriptRoot '../../../..')).Path
+$capture = [ordered]@{
+    PlanSlug = $PlanSlug
+    Mode = $Mode
+    Runtime = $Runtime
+    Branch = $Branch
+    ExpectedStartCommit = $ExpectedStartCommit
+    Run = $Run
+    WorkingDirectory = [System.IO.Path]::GetFullPath((Get-Location).Path)
+}
+[System.IO.File]::WriteAllText(
+    (Join-Path $root '.git/launch-capture.json'),
+    ($capture | ConvertTo-Json -Compress)
+)
+exit 37
+'@
+            )
+            & git -C $routingRoot init -q -b main
+            & git -C $routingRoot config user.name fixture
+            & git -C $routingRoot config user.email fixture@example.invalid
+            & git -C $routingRoot add .
+            & git -C $routingRoot commit -q -m fixture
+            $targetCommit = (& git -C $routingRoot rev-parse HEAD).Trim()
+
+            $env:AUTOPILOT_CONTAINER = $null
+            $output = @(
+                & (Get-Process -Id $PID).Path -NoProfile -File $foreignWrapper `
+                    -Epic abc123 -Target HEAD -RepoRoot $routingRoot 2>&1
+            ) | Out-String
+            $LASTEXITCODE | Should -Be 37
+            $output | Should -Match '"epic":"abc123"'
+            $output | Should -Match '"outcome":"exit:37"'
+
+            $capture = Get-Content -LiteralPath (
+                Join-Path $routingRoot '.git/launch-capture.json'
+            ) -Raw | ConvertFrom-Json
+            $capture.PlanSlug | Should -BeExactly $childFolder
+            $capture.Mode | Should -BeExactly 'whole-plan'
+            $capture.Runtime | Should -BeExactly 'container'
+            $capture.Branch | Should -BeExactly 'main'
+            $capture.ExpectedStartCommit | Should -BeExactly $targetCommit
+            $capture.Run | Should -Match '^[0-9a-f-]{36}$'
+            $capture.WorkingDirectory | Should -BeExactly (
+                [System.IO.Path]::GetFullPath($routingRoot)
+            )
+        }
+        finally {
+            $env:AUTOPILOT_CONTAINER = $originalContainerFlag
+            Remove-Item -LiteralPath $routingRoot -Recurse -Force `
+                -ErrorAction SilentlyContinue
+        }
+
+        (Test-ConsumerInstallInventory -Fixture $script:fixture).IsClean |
+            Should -BeTrue -Because 'the installed epic route must leave the consumer inventory intact'
     }
 
     It 'test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo' {

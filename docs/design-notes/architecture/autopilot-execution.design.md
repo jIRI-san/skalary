@@ -9,6 +9,8 @@ globs:
   - .autopilot.host.json
   - plugins/autopilot/schemas/autopilot.schema.json
   - plugins/autopilot/schemas/autopilot.host.schema.json
+  - scripts/skalary/EpicAutopilot.psm1
+  - scripts/skalary/Invoke-EpicAutopilot.ps1
   - scripts/skalary/Invoke-ContainerToolchainGate.ps1
 ---
 
@@ -46,6 +48,152 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 └───────────────────┘ └─────────┘ └──────────────────────┘
 ```
 
+### Epic host child launch
+
+`Invoke-EpicAutopilot.ps1` is a host-only wrapper above the existing per-plan launcher. It invokes
+`Get-PlanState.ps1 -Epic -Json` with bound arguments and treats that command's `NextChild` as
+authoritative; it never parses plans or calls Docker, auth, rebundling, runtime adapters, or child
+execution directly. `AUTOPILOT_CONTAINER=true` fails closed before selection or launch.
+
+Selection is serialized through `AtomicStore` and persisted at
+`<git-common-dir>/skalary/epic-autopilot.json`. The location is host-owned Git metadata, not
+consumer-repository content materialized by plugin installation; the arbitrary `StatePath` seam is
+private to the module's test core and is not exposed by the installed production command. The
+record has exactly six case-sensitive string fields:
+
+| Field | Meaning |
+|---|---|
+| `epic` | Canonical six-hex `Get-PlanState.EpicId` |
+| `target` | Full commit id resolved from the caller's target Git ref at selection |
+| `currentChild` | Canonical six-hex `Get-PlanState.NextChild.Id` |
+| `branch` | Reserved per-child branch, `feature/<NextChild.FolderName>` |
+| `run` | Canonical GUID allocated once for this sequential run |
+| `outcome` | `selected`, `running`, `awaiting-merge`, `invocation-failed`, or `exit:<0..255>` |
+
+A fresh process resumes `selected` or reconciles `running` only when canonical epic, resolved target
+commit, exact `NextChild`, and derived branch still match. Malformed state or a different epic fails
+loudly before mutation. Non-success terminal records (`invocation-failed` and nonzero `exit:*`) are
+immutable retry stops even when the target or graph changed; they never skip to a sibling. When the
+requested epic is already the canonical six-hex id, schema and exact epic identity are the only
+admission needed to replay that stop: target resolution, worktree inspection, and `Get-PlanState`
+are not called, and the replay contains no graph-derived child context. Noncanonical references
+retain full resolution so their epic identity is never guessed. A null
+`NextChild` with no state returns a typed complete or blocked stop without creating a record.
+
+Under the `AtomicStore` lock, after the immutable terminal fast path above, the wrapper resolves the
+target commit first, requires the repository worktree to be clean with HEAD at that exact commit, and
+only then invokes `Get-PlanState`. It creates
+or resumes `selected`, acquires a run-scoped host lease, then CAS-transitions that same run to
+`running`. The short state lock is released before the blocking launcher call, while the run lease
+stays held through image preparation, container execution, transcript extraction, and terminal-state
+publication. Resume treats either a live host lease or active deterministic container as running, so
+container absence alone cannot overwrite a launcher that is still starting or finishing. The launcher
+runs once as a separate PowerShell process from repo root,
+using `ProcessStartInfo.ArgumentList` with exact arguments `-PlanSlug <NextChild.FolderName> -Mode
+whole-plan -Runtime container -Branch <normalized-target-branch> -ExpectedStartCommit
+<persisted-target-commit> -Run <persisted-run>`. `HEAD` normalizes to its local branch and detached
+HEAD is refused; `refs/heads/` is stripped and other Git object expressions are rejected. The first
+epic container initializes an empty repository, fetches the selected branch once into `FETCH_HEAD`,
+proves that object equals the persisted commit, rejects any existing remote work branch, and creates
+the work branch directly from the verified object. Existing callers that omit `-ExpectedStartCommit`
+retain ordinary launch behavior. Only a later exit-43 attempt inside the same host launcher invocation
+receives the internal retry flag and may fetch/resume the remote work branch; a fresh invocation cannot
+claim that provenance. After it returns, the wrapper reacquires the lock and CAS-transitions the same
+`running` generation: zero becomes `awaiting-merge`, while nonzero becomes `exit:<1..255>`. The
+per-plan launcher's zero is the authoritative close proof: its existing chain requires canonical
+evidence and review receipts, an exact committed archive transition, and pre-probe publication of
+the expected work branch. Final close then proves the checked-out branch and full local `HEAD`,
+exactly one same-OID `refs/heads/<work-branch>` on origin, and exactly one typed open PR row whose
+head name/OID match. `EXPECTED_START_COMMIT` is the epic-provenance signal: when it is present,
+`REPO_BRANCH` is mandatory and must match the PR base, including on trusted internal retries.
+Ordinary launches retain `REPO_BRANCH` for checkout but omit the base constraint. Command failures
+and malformed typed provider/ref output fail loudly; valid nonmatching state remains close-pending.
+The epic layer does not repeat those probes, parse transcripts, call a provider, push, merge, or
+check out another branch.
+`Process.ExitCode` after `WaitForExit` is the production authority. The persisted/replay exit domain
+is limited to 0..255 because POSIX exposes only that portable range. Legacy `exit:0` records remain
+merge-success checkpoints equivalent to `awaiting-merge`.
+An injected out-of-domain result follows the launch-error path, attempts the same CAS to
+`invocation-failed`, and returns a structured failure receipt; zero is never substituted.
+A start exception does the same and uses stable process exit `1`; every structured blocked stop uses
+`42`. The wrapper validates that every terminal result carries a portable code consistent with its
+state and failure flag, so a missing/null/mismatched code cannot cast to false success. Every nonzero
+launcher result has `Failed=true` and a bounded message naming child, run, branch, and either the
+operator stop or failing code; raw exception text is not returned. A terminal-write failure still
+throws, including after launcher exit zero. The run GUID deterministically names its container.
+Existing `running` state probes only that container: `running`, `restarting`, `paused`, and `removing`
+are active; `created`, `exited`, and `dead` are stale/inactive when the host lease is inactive;
+unknown Docker states fail closed. Active state refuses a second launch, inactive state
+CAS-reconciles the same run to `invocation-failed` and replays that terminal receipt without relaunch,
+and probe uncertainty fails without changing bytes. Existing non-success terminal state is replayed
+without selecting a sibling.
+
+Only `awaiting-merge` and legacy `exit:0` may advance. An unchanged target remains at the merge stop.
+For a changed target, the loop uses `git merge-base --is-ancestor` to prove the new commit moves
+forward. Before any state mutation, the rollup parser requires unique canonical child ids, consistent
+boolean child states, exact derived nonnegative counts and completion, and `NextChild` equal to the
+first received incomplete, unblocked child (including its folder when present in `Children`). It then
+requires the prior child to occur exactly once, be complete, and no longer be `NextChild`. Any invalid
+or contradictory graph or non-forward target leaves the six-field record byte-identical and launches
+nothing. When another child is eligible, one CAS replaces the prior checkpoint directly with a fresh
+`selected` record for the new target/child/run; normal `selected` restart and `selected` → `running`
+launch semantics then apply. A replacement race fails without overwriting the winner.
+
+When the refreshed rollup is complete, completion is gated before the generation-checked checkpoint
+delete. The host recognizes only the fixed optional installed entry point
+`.github/skills/cep/scripts/Invoke-EpicCoherencyReview.ps1`; its exact process exit code is the review
+result. Availability and all reviewed epic/plan bytes are resolved from the reviewed target tree;
+ignored or otherwise target-absent filesystem copies cannot become executable review input. Presence
+with a start failure, malformed result, or nonzero result blocks completion and never falls back. When
+that entry point is absent from the reviewed target, the bounded deterministic fallback requires the
+trusted complete rollup plus regular, repository-confined canonical `epic.md` and final-child `plan.md`
+files, then checks a valid UTF-8 epic of at most 1 MiB for non-placeholder `Goal` and `Definition of
+done` sections. Epic text is data only and is never included in commands or evidence.
+
+After either path passes, the existing installed `Add-WorkflowNote.ps1` records one deterministic
+phase-0 Capture entry against the final child plan; only its zero process result permits completion.
+The epic host then makes that tracked evidence durable through one narrow local exception to the
+otherwise target-read-only contract. The worktree must be attached to the selected local target ref
+and clean at the reviewed target. Exactly one existing tracked Capture path may change. Git plumbing
+creates a single-parent commit containing only that path, with the reviewed target as its parent, and
+advances the checked-out local target ref by compare-and-swap. The index and worktree must be clean at
+the new commit before state deletion. There is no checkout, branch creation, merge, push, PR, or
+provider call, and this local commit does not bypass protected-target publication: an operator may
+publish it only through the repository's normal protected-target workflow when that workflow already
+permits the resulting commit.
+
+Recording and local publication occur while the exact six-field checkpoint still exists. Review,
+fallback, writer, staging, commit creation, or pre-publication CAS failures leave its bytes unchanged
+and restore only the Capture worktree/index entry against current `HEAD`. A delete failure retains the
+checkpoint but not an uncommitted Capture. Before the normal cleanliness gate, restart recovery is
+available only to a retained successful checkpoint and only for the canonical final-child Capture
+resolved from regular-file entries in the current target tree. It admits the sole unstaged or sole
+staged forms that an abrupt writer/publication exit can leave, regenerates the deterministic bytes from
+clean canonical sources to reject forgery, restores only that Capture/index entry, and then repeats the
+normal validation, crosscheck, writer, and target-ref CAS. Mixed states, untracked or other path/index
+changes, noncanonical source bytes/modes, and concurrent target movement fail closed without changing
+checkpoint bytes. Recovery accepts current unprefixed `<date>-<child-id>-<slug>` and epic-prefixed
+`<epic-id>-<date>-<child-id>-<slug>` folders only after the target-tree `plan.md` proves the exact
+six-character plan id and epic-membership header; `standalone` or a different epic prefix is refused.
+Legacy `NNN-<slug>` plans can remain epic members for ordinary rollups but cannot be represented by
+this host's immutable six-character `currentChild` field, so they are an explicit epic-autopilot
+recovery boundary rather than guessed into a mapping. On restart after publication, only an exact marker-bearing single-parent target
+commit whose sole delta is the expected Capture path is recognized; the coherency check is repeated
+against its recorded parent, the typed writer must report a byte-clean deduplicated replay, and no
+second record or commit is created before deletion retries. Malformed evidence metadata, detached/wrong
+`HEAD`, or concurrent ref movement fails closed. No seventh state field, evidence-only branch/PR,
+concern family, receipt, or finalization platform is introduced. With no pre-existing checkpoint, the
+same gate and idempotent local publication run before the typed complete return against the last rollup
+child.
+
+When the rollup is incomplete but has no `NextChild`, the loop returns an explicit blocked stop
+(wrapper exit 42) and deliberately retains the prior success checkpoint. That checkpoint is the retry
+anchor: a later invocation can re-evaluate the same merge against a repaired dependency graph without
+a seventh persisted field or a second state family. A delete race likewise fails without deleting the
+competing state. Target refresh remains remote-read-only: apart from the bounded final Capture
+commit above, the epic layer never mutates the local target and never fetches, pulls, checks out,
+merges, pushes, or invokes a provider API.
+
 ## Modes
 
 ### Host Mode
@@ -59,11 +207,13 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 ### Container Mode
 
 - Builds image from `.github/skills/autopilot/devcontainer/Dockerfile`
-- Passes auth via env file (prepared by `prepare-env-file.ps1`)
+- Passes auth via env file (prepared by `prepare-env-file.ps1`); centralized serialization rejects
+  malformed names and CR, LF, or NUL in every value before the writer receives the payload
 - Container entry point: `container-entrypoint.sh` handles clone, branch, and targets selected by
   the deterministic `plan-dispatch.sh` helper
-- Sourcing `container-entrypoint.sh` exposes only its pure phase-state and recovery probes; bootstrap
-  remains executable-only. Target selection and completion handoff policy stay in `plan-dispatch.sh`.
+- Sourcing `container-entrypoint.sh` exposes its testable phase-state, recovery, and checkout
+  helpers without running bootstrap; callers must treat checkout helpers as mutating. Target
+  selection and completion handoff policy stay in `plan-dispatch.sh`.
 - Phase selection follows the one-phase autonomy contract in
   [plan-workflow.design.md](plan-workflow.design.md); container resume additionally requires the
   phase's canonically validated durable harvest receipt before skipping checked work. The validator
@@ -73,9 +223,14 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
   commit and push them fail-loud, then preserve the original phase status; preservation failure exits
   `70` for container recovery instead of claiming the work is durable
 - Zero-exit targets are not terminal until committed phase-close proof is valid. The entrypoint uses
-  bounded same-session handoffs for pending completion, and finalization additionally requires
-  terminal phase gates, an exact committed archive transition, and an open branch PR.
-- Timeout via `docker inspect` polling + `docker stop`/`docker kill`
+  bounded same-session handoffs for pending completion and publishes the work branch before every
+  close probe. Finalization additionally requires terminal phase gates, an exact committed archive
+  transition, local/remote work-branch OID equality, and one typed open PR matching the work
+  branch's name and OID. Epic initial launches and trusted internal retries use
+  `EXPECTED_START_COMMIT` to bind `REPO_BRANCH` as the exact PR base; a missing epic target is an
+  input error. Ordinary launches still use `REPO_BRANCH` for checkout but pass no PR-base constraint.
+- Timeout uses the native `docker run` process wait handle; `docker stop`/`docker kill` run only after
+  the whole-run deadline
 - Transcripts extracted via `docker cp`; containers are removed after normal outcomes and retained
   with recovery commands when exit `70` says publication durability could not be established
 
@@ -353,8 +508,10 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 
 | Script | Purpose |
 |--------|---------|
+| `EpicAutopilot.psm1` | Host-only epic child admission/state machine; refreshes and CAS-advances only merge-proven success, gates complete rollups through the optional fixed coherency-review entry point or bounded intent/done fallback, publishes exactly one local Capture-only evidence commit by checked-out-target CAS before deleting state, preserves terminal failures and blocked retry anchors, exports only the three-argument production host loop, and keeps test adapters private |
+| `Invoke-EpicAutopilot.ps1` | Executable epic wrapper; validates structured exit/state consistency and distinguishes awaiting merge, clean completion, blocked exit 42, stable invocation failure exit 1, and portable child exit codes |
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
-| `autopilot-dispatch.ps1` | `param()`-less library dot-sourced by `launch.ps1`: `Resolve-OfflinePackagesConfig` (StrictMode-safe config parsing) + `Invoke-AutopilotDispatch` (runtime dispatch + offline rebundle loop) |
+| `autopilot-dispatch.ps1` | `param()`-less library with deterministic container-name, expected-start env/retry, remote-URL, process-wait seams plus offline config and dispatch/rebundle helpers |
 | `prepare-packages.ps1` | Host package-feed builder (dot-sourceable): restores NuGet/npm to a per-branch read-only feed; `-Branch` rebundle mode regenerates + commits + pushes the lockfile |
 | `launch-host.ps1` | Host-mode orchestrator (worktree + per-phase CLI) |
 | `launch-container.ps1` | Container-mode orchestrator (docker build/run/cp) |
@@ -363,10 +520,11 @@ The agent's `model:` frontmatter uses a **bare Copilot CLI model slug** (e.g. `g
 | `host-command.ps1` | `param()`-less helper exporting `Resolve-HostCommand` (custom host command resolution); dot-sourced by `launch-host.ps1` only |
 | `clean-sandbox-cache.ps1` | Remove sandbox toolchain cache (~700MB) |
 | `get-credential.ps1` | Read tokens from Windows Credential Manager |
-| `prepare-env-file.ps1` | Create temp env file with restrictive ACL |
+| `Invoke-SiDueEnqueue.ps1` | Non-blocking headless finalization wrapper for the installed SI due writer |
+| `prepare-env-file.ps1` | Create a restrictive-ACL temp env file; reject remote userinfo and env line/NUL injection |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
 | `container-entrypoint.sh` | Container bootstrap (clone, branch, phase loop) |
-| `run-smoke-test.ps1` | End-to-end smoke test runner |
+| `plan-dispatch.sh` | Container phase-resume and completion dispatch helper sourced by the entrypoint |
 
 ## Trust Boundaries
 
@@ -384,7 +542,10 @@ The worktree persists at `<repo>.worktrees/feature-<slug>`. Re-running `launch.p
 
 ### Container mode — interrupted run
 
-If the remote branch exists, container resumes from it (entrypoint checks `git ls-remote`). If the container was killed mid-run, `docker rm` is attempted on next launch.
+Ordinary per-plan launches resume an existing remote branch. Epic launches never infer provenance from
+branch existence: only an internal exit-43 retry may resume. Re-entering an epic `running` record checks
+the host run lease before probing the deterministic container; active work is left alone, while proven
+host-and-container inactivity becomes terminal `invocation-failed` without an automatic child relaunch.
 
 ### Sandbox mode — interrupted run
 

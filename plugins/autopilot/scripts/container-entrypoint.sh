@@ -51,6 +51,121 @@ phase_needs_execution() {
     esac
 }
 
+verify_expected_start_commit() {
+    local repo_path="$1"
+    local expected="${2:-}"
+    local object="${3:-FETCH_HEAD}"
+    local branch_label="${4:-selected start branch}"
+    local actual
+
+    [ -z "${expected}" ] && return 0
+    if [[ ! "${expected}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+        echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
+        return 2
+    fi
+    if ! actual="$(git -C "${repo_path}" rev-parse --verify \
+        "${object}^{commit}" 2>/dev/null)"; then
+        echo "ERROR: Unable to resolve fetched start branch '${branch_label}'." >&2
+        return 1
+    fi
+    if [ "${actual,,}" != "${expected}" ]; then
+        echo "ERROR: Fetched start branch '${branch_label}' resolved to '${actual,,}', expected '${expected}'." >&2
+        return 1
+    fi
+    printf '%s\n' "${actual,,}"
+}
+
+remote_branch_exists() {
+    local repo_path="$1"
+    local branch="$2"
+    local output
+
+    if ! output="$(
+        git -C "${repo_path}" ls-remote --refs origin \
+            "refs/heads/${branch}" 2>/dev/null
+    )"; then
+        echo "ERROR: Unable to inspect work branch '${branch}' on origin." >&2
+        return 2
+    fi
+    [ -n "${output}" ]
+}
+
+checkout_epic_work_branch() {
+    local repo_path="$1"
+    local start_branch="$2"
+    local expected="$3"
+    local work_branch="$4"
+    local trusted_retry="${5:-false}"
+    local verified_start
+    local retry_ref="refs/autopilot/internal-retry"
+
+    if [ "${trusted_retry}" = "true" ]; then
+        remote_branch_exists "${repo_path}" "${work_branch}" || {
+            local probe_status=$?
+            if [ "${probe_status}" -eq 1 ]; then
+                echo "ERROR: Trusted internal retry cannot find work branch '${work_branch}' on origin." >&2
+            fi
+            return "${probe_status}"
+        }
+        git -C "${repo_path}" fetch --no-tags origin \
+            "refs/heads/${work_branch}:${retry_ref}"
+        git -C "${repo_path}" checkout -b "${work_branch}" "${retry_ref}"
+        return 0
+    fi
+
+    if ! git -C "${repo_path}" fetch --no-tags origin \
+        "refs/heads/${start_branch}"; then
+        echo "ERROR: Selected start branch '${start_branch}' is not available on origin." >&2
+        return 1
+    fi
+    verified_start="$(
+        verify_expected_start_commit "${repo_path}" "${expected}" FETCH_HEAD "${start_branch}"
+    )" || return $?
+
+    remote_branch_exists "${repo_path}" "${work_branch}" && {
+        echo "ERROR: Work branch '${work_branch}' already exists on origin; a fresh epic launch will not resume it." >&2
+        return 1
+    }
+    local probe_status=$?
+    if [ "${probe_status}" -ne 1 ]; then
+        return "${probe_status}"
+    fi
+
+    git -C "${repo_path}" checkout -b "${work_branch}" "${verified_start}"
+}
+
+autopilot_expected_close_target_branch() {
+    local expected_start_commit="${1:-}"
+    local repo_branch="${2:-}"
+
+    if [ -z "${expected_start_commit}" ]; then
+        printf '\n'
+        return 0
+    fi
+    if [ -z "${repo_branch}" ]; then
+        echo "ERROR: REPO_BRANCH is required when EXPECTED_START_COMMIT is set." >&2
+        return 2
+    fi
+    printf '%s\n' "${repo_branch}"
+}
+
+autopilot_entrypoint_target_close_state() {
+    local plan_path="$1"
+    local target="$2"
+    local final_phase_number="$3"
+    local review_gate="$4"
+    local work_branch="$5"
+    local expected_close_target_branch
+
+    expected_close_target_branch="$(
+        autopilot_expected_close_target_branch \
+            "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}"
+    )" || return $?
+    autopilot_target_close_state \
+        "${plan_path}" "${target}" "${final_phase_number}" "${review_gate}" \
+        "${work_branch}" "${expected_close_target_branch}"
+}
+
 # Expose the pure phase-progress and recovery probes to focused tests.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -60,6 +175,28 @@ PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
 REPO_REMOTE="${REPO_REMOTE:?REPO_REMOTE env var required}"
+if ! git check-ref-format --branch "${BRANCH}" > /dev/null 2>&1; then
+    echo "ERROR: REPO_BRANCH is not a valid branch name." >&2
+    exit 2
+fi
+if [ -n "${EXPECTED_START_COMMIT:-}" ] &&
+    [[ ! "${EXPECTED_START_COMMIT}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+    echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
+    exit 2
+fi
+autopilot_expected_close_target_branch \
+    "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}" >/dev/null || exit $?
+TRUSTED_INTERNAL_RETRY="${AUTOPILOT_TRUSTED_INTERNAL_RETRY:-false}"
+if [ "${TRUSTED_INTERNAL_RETRY}" != "false" ] &&
+    [ "${TRUSTED_INTERNAL_RETRY}" != "true" ]; then
+    echo "ERROR: AUTOPILOT_TRUSTED_INTERNAL_RETRY must be 'true' or unset." >&2
+    exit 2
+fi
+if [ "${TRUSTED_INTERNAL_RETRY}" = "true" ] &&
+    [ -z "${EXPECTED_START_COMMIT:-}" ]; then
+    echo "ERROR: A trusted internal retry requires EXPECTED_START_COMMIT." >&2
+    exit 2
+fi
 
 . /usr/local/lib/autopilot/plan-dispatch.sh
 
@@ -83,14 +220,22 @@ if [ -n "${ADO_TOKEN:-}" ]; then
 fi
 
 # --- Clone and branch ---
-echo "Cloning ${REPO_REMOTE}..."
-git clone "${REPO_REMOTE}" /work
+echo "Preparing configured origin..."
+if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
+    git init -q /work
+    git -C /work remote add origin "${REPO_REMOTE}"
+else
+    git clone --no-checkout "${REPO_REMOTE}" /work
+fi
 cd /work
 
 # Determine target branch
 WORK_BRANCH="feature/${PLAN_SLUG}"
 
-if git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
+if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
+    checkout_epic_work_branch /work "${BRANCH}" "${EXPECTED_START_COMMIT}" \
+        "${WORK_BRANCH}" "${TRUSTED_INTERNAL_RETRY}"
+elif git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
     echo "Work branch ${WORK_BRANCH} exists on remote — resuming..."
     git fetch origin "${WORK_BRANCH}"
     git checkout "${WORK_BRANCH}"
@@ -263,7 +408,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         else
             echo "Phase ${PHASE_NUM} review requires an operator decision — stopping."
         fi
-        preserve_work || exit 125
+        preserve_work || exit 70
         git push origin "${WORK_BRANCH}" || true
         exit 42
     elif [ "${TARGET}" = "completion-only" ]; then
@@ -281,7 +426,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             fi
             if [ "${GATE_STATUS}" -eq 42 ]; then
                 echo "Plan completion requires an operator review decision — stopping."
-                preserve_work || exit 125
+                preserve_work || exit 70
                 git push origin "${WORK_BRANCH}" || true
                 exit 42
             fi
@@ -381,9 +526,16 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
 
         CLOSE_STATE=""
         if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "Publishing ${WORK_BRANCH} before terminal close proof..."
+            if ! git push origin "${WORK_BRANCH}"; then
+                echo "ERROR: Failed to publish successful child work before close proof."
+                preserve_work || true
+                exit 70
+            fi
             if ! CLOSE_STATE=$(
-                autopilot_target_close_state \
-                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}"
+                autopilot_entrypoint_target_close_state \
+                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}" \
+                    "${WORK_BRANCH}"
             ); then
                 echo "ERROR: Unable to verify terminal close state for ${TARGET_LABEL}."
                 preserve_work
@@ -411,7 +563,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
                 ;;
             human-stop)
                 echo "${TARGET_LABEL} requires operator action — stopping."
-                preserve_work || exit 125
+                preserve_work || exit 70
                 git push origin "${WORK_BRANCH}" || true
                 exit 42
                 ;;
@@ -427,12 +579,13 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
                 ;;
             target-failed)
                 echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
+                preserve_work || exit 70
                 COMPLETION_ALLOWED=0
                 if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
                     RUN_EXIT_CODE="${EXIT_CODE}"
                 fi
                 git push origin "${WORK_BRANCH}" || true
-                break
+                break 2
                 ;;
         esac
     done
@@ -447,8 +600,8 @@ if ! git push origin "${WORK_BRANCH}"; then
     exit 70
 fi
 
-# Note: PR creation is handled by the autopilot agent in its Plan Completion step
-# with a structured title and body. The entrypoint only ensures the branch is pushed.
+# PR creation remains the autopilot agent's responsibility. The entrypoint publishes
+# the branch and verifies the resulting PR metadata before accepting final close.
 
 echo "Done."
 exit "${RUN_EXIT_CODE}"

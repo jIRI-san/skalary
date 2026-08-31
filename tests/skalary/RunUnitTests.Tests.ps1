@@ -71,22 +71,22 @@ Describe 'run unit tests' {
             $fingerprint = Get-SuiteInputFingerprint -RepoRoot $root
             $platform = if ($IsWindows) { 'Windows' } elseif ($IsMacOS) { 'MacOS' } else { 'Linux' }
             $runtime = [ordered]@{
-                schema          = 'skalary/suite-runtime@2'
+                schema = 'skalary/suite-runtime@2'
                 measuredCommand = 'npm test'
-                platforms       = [ordered]@{
+                platforms = [ordered]@{
                     $platform = [ordered]@{
-                        schema              = 'skalary/suite-runtime-row@2'
-                        platform            = $platform
-                        measuredCommand     = 'npm test'
+                        schema = 'skalary/suite-runtime-row@2'
+                        platform = $platform
+                        measuredCommand = 'npm test'
                         fingerprintProtocol = $fingerprint.Protocol
-                        inputFingerprint    = $fingerprint.Fingerprint
-                        seconds             = 1
-                        succeeded           = $true
-                        measuredAt          = '2026-08-10T00:00:00Z'
-                        commit              = 'fixture'
-                        source              = 'test'
-                        note                = ''
-                        environment         = [ordered]@{}
+                        inputFingerprint = $fingerprint.Fingerprint
+                        seconds = 1
+                        succeeded = $true
+                        measuredAt = '2026-08-10T00:00:00Z'
+                        commit = 'fixture'
+                        source = 'test'
+                        note = ''
+                        environment = [ordered]@{}
                     }
                 }
             }
@@ -149,7 +149,7 @@ Describe 'run unit tests' {
 
             return [pscustomobject]@{
                 ExitCode = $exitCode
-                Output   = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
+                Output = (($output | Out-String) -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', '')
             }
         }
 
@@ -238,7 +238,7 @@ Describe 'sandbox' {
         $script:environmentCreatingTestFile = @'
 Describe 'sandbox' {
     It 'creates a variable that was never set' {
-        $env:SKALARY_LEAK_PROBE = ''
+        $env:SKALARY_LEAK_PROBE = 'synthetic-secret-do-not-print'
         $true | Should -BeTrue
     }
 }
@@ -439,6 +439,45 @@ Describe 'focused slow file' {
         $named.ExitCode | Should -Be 0 -Because $named.Output
         $named.Output | Should -Match 'Tests Passed: 1'
 
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'focused slow evidence file' {
+    It 'test:SlowEvidence.Selected passes' { $true | Should -BeTrue }
+    It 'test:SlowEvidence.Unselected fails' { $true | Should -BeFalse }
+}
+'@
+        $evidence = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Slow.Tests.ps1'",
+            "-EvidenceTestId 'SlowEvidence.Selected'",
+            "-EvidenceResultPath 'artifacts/slow-evidence.json'"
+        )
+        $evidence.ExitCode | Should -Be 0 -Because $evidence.Output
+        $evidence.Output | Should -Match 'Tests Passed: 1'
+        $evidenceResult = Get-Content -LiteralPath (
+            Join-Path $sandbox 'artifacts/slow-evidence.json'
+        ) -Raw | ConvertFrom-Json
+        $evidenceResult.schema | Should -BeExactly 'skalary/evidence-test-results@1'
+        $evidenceResult.executedCount | Should -Be 1
+        $evidenceResult.results[0].marker | Should -BeExactly 'test:SlowEvidence.Selected'
+        $evidenceResult.results[0].status | Should -BeExactly 'passed'
+
+        Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'focused slow evidence case mismatch' {
+    It 'test:slowevidence.Selected passes' { $true | Should -BeTrue }
+    It 'prefix test:SlowEvidence.Selected passes' { $true | Should -BeTrue }
+}
+'@
+        $caseMismatch = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Slow.Tests.ps1'",
+            "-EvidenceTestId 'SlowEvidence.Selected'",
+            "-EvidenceResultPath 'artifacts/case-mismatch.json'"
+        )
+        $caseMismatch.ExitCode | Should -Be 8 -Because $caseMismatch.Output
+        $caseMismatchResult = Get-Content -LiteralPath (
+            Join-Path $sandbox 'artifacts/case-mismatch.json'
+        ) -Raw | ConvertFrom-Json
+        $caseMismatchResult.results[0].selectedCount | Should -Be 0
+        $caseMismatchResult.results[0].status | Should -BeExactly 'unrun'
+
         $manifestPath = Join-Path $sandbox 'tools/suite-tier.psd1'
         $manifestText = Get-Content -LiteralPath $manifestPath -Raw
         $manifestText.Replace('FastFocusedHardCeilingSeconds = 60', 'FastFocusedHardCeilingSeconds = 0.001') |
@@ -447,6 +486,71 @@ Describe 'focused slow file' {
         $overBudget.ExitCode | Should -Be 0 -Because $overBudget.Output
         $overBudget.Output | Should -Match 'OverBudget:'
         $overBudget.Output | Should -Match 'advisory ceiling'
+    }
+
+    It 'test:RunUnitTests.PhysicalPathConfinement rejects linked parents and leaves for test and evidence paths' {
+        $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $outside = New-RunnerSandbox -TestFileContent $script:passingTestFile
+        $tests = Join-Path $sandbox 'tests'
+        $outsideTest = Join-Path $outside 'tests/Sandbox.Tests.ps1'
+        $linkedParent = Join-Path $tests 'linked-parent'
+        $linkedLeaf = Join-Path $tests 'LinkedLeaf.Tests.ps1'
+        $evidenceParent = Join-Path $sandbox 'linked-evidence-parent'
+        $evidenceLeafDirectory = Join-Path $sandbox 'artifacts'
+        $evidenceLeaf = Join-Path $evidenceLeafDirectory 'linked-result.json'
+        $outsideEvidence = Join-Path $outside 'evidence-result.json'
+        [System.IO.File]::WriteAllText($outsideEvidence, "outside remains`n")
+        [void](New-Item -ItemType Directory -Path $evidenceLeafDirectory)
+        try {
+            [void](New-Item -ItemType SymbolicLink -Path $linkedParent `
+                    -Target (Join-Path $outside 'tests') -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $linkedLeaf `
+                    -Target $outsideTest -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $evidenceParent `
+                    -Target $outside -ErrorAction Stop)
+            [void](New-Item -ItemType SymbolicLink -Path $evidenceLeaf `
+                    -Target $outsideEvidence -ErrorAction Stop)
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'the filesystem or account does not permit symlink creation'
+            return
+        }
+
+        foreach ($case in @(
+                @{
+                    Name = 'test parent'
+                    Arguments = @("-TestPath 'tests/linked-parent/Sandbox.Tests.ps1'")
+                },
+                @{
+                    Name = 'test leaf'
+                    Arguments = @("-TestPath 'tests/LinkedLeaf.Tests.ps1'")
+                },
+                @{
+                    Name = 'evidence parent'
+                    Arguments = @(
+                        "-TestPath 'tests/Sandbox.Tests.ps1'",
+                        "-EvidenceTestId 'RunUnitTests.LinkProbe'",
+                        "-EvidenceResultPath 'linked-evidence-parent/result.json'"
+                    )
+                },
+                @{
+                    Name = 'evidence leaf'
+                    Arguments = @(
+                        "-TestPath 'tests/Sandbox.Tests.ps1'",
+                        "-EvidenceTestId 'RunUnitTests.LinkProbe'",
+                        "-EvidenceResultPath 'artifacts/linked-result.json'"
+                    )
+                }
+            )) {
+            $result = Invoke-Runner -SandboxRoot $sandbox `
+                -ExtraArguments $case.Arguments
+            $result.ExitCode |
+                Should -Be 12 -Because "$($case.Name) must fail confinement: $($result.Output)"
+            $result.Output | Should -Match 'FocusedScopeRequired'
+            $result.Output | Should -Match 'link or reparse point'
+        }
+        [System.IO.File]::ReadAllText($outsideEvidence) |
+            Should -BeExactly "outside remains`n"
     }
 
     It 'test:RunUnitTests.UndiscoverableTestFileFails fails when a test file never loads, even beside files that did' {
@@ -507,10 +611,6 @@ Describe 'focused slow file' {
     }
 
     It 'test:RunUnitTests.EnvironmentCreationIsALeak treats a variable that did not exist before as leaked' {
-        # Setting an absent variable to '' is still a change, and it is the case a developer box
-        # hides: locally the variable is usually already set, so the restore looks correct and only a
-        # clean environment disagrees. The report has to distinguish unset from empty, or the
-        # difference renders as "('' -> '')" and reads like a bug in the check.
         foreach ($tier in @('Fast', 'Slow')) {
             $sandbox = New-RunnerSandbox -TestFileContent $script:environmentCreatingTestFile
             $tierArgs = Set-SandboxTier -SandboxRoot $sandbox -Tier $tier
@@ -519,7 +619,9 @@ Describe 'focused slow file' {
             $result.ExitCode |
                 Should -Be 7 -Because "$tier must treat environment creation as a leak: $($result.Output)"
             $result.Output | Should -Match 'SKALARY_LEAK_PROBE'
-            $result.Output | Should -Match '<unset>'
+            $result.Output | Should -Match 'SKALARY_LEAK_PROBE \(added\)'
+            $result.Output |
+                Should -Not -Match 'synthetic-secret-do-not-print' -Because 'environment diagnostics must never reveal values'
         }
     }
 

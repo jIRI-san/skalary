@@ -34,7 +34,23 @@ Describe 'Skill contract token guards' {
     It 'test:ci-skill-planstate routes ci/SKILL.md state through Get-PlanState and the validate-plan gate' {
         $text = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/SKILL.md'
         $text | Should -Match 'Get-PlanState'
-        $text | Should -Match 'validate-plan'
+        $text | Should -Match ([regex]::Escape(
+                '.github/skills/ci/scripts/Test-Plan.ps1'
+            ))
+    }
+
+    It 'test:ci-skill-epic-host-route keeps epic selection inside the fixed installed host wrapper' {
+        $text = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/SKILL.md'
+        $text | Should -Match 'Kind: epic'
+        $text | Should -Match ([regex]::Escape(
+                "'.github/skills/autopilot/scripts'"
+            ))
+        $text | Should -Match "'Invoke-EpicAutopilot\.ps1'"
+        $text | Should -Match '-Epic <state\.EpicId>'
+        $text | Should -Match '-Target HEAD -RepoRoot <canonical-repo-root>'
+        $text | Should -Match 'Do not\s+select `NextChild`'
+        $text | Should -Match 'AUTOPILOT_CONTAINER=true'
+        $text | Should -Match 'preserve its exact process exit\s+status'
     }
 
     It 'test:cip-skill-scripts routes cip/SKILL.md through the deterministic plan scripts' {

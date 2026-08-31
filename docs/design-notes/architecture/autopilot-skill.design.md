@@ -15,11 +15,12 @@ The `autopilot` plugin ships two same-named customizations distinguished by type
 
 | Concern | Owner | Notes |
 |---|---|---|
-| Runtime and execution-extent selection | `/ci` | Presents the runtime menu, then explicit One phase / Whole plan |
+| Runtime and execution-extent selection | plan-kind `/ci` | Presents the runtime menu, then explicit One phase / Whole plan |
 | Autonomous handoff | skill | Accepts the selected runtime/mode; asks only for container/sandbox start branch |
 | First-run `.autopilot.json` bootstrap | skill | Uses handed-off runtime, interviews remaining config, writes and validates |
 | Per-phase code execution | agent | Loaded by Copilot CLI inside the launcher loop; owns the per-step Designer + Validator -> Implementor -> Judge fleet after environment admission |
 | Headless launch + dispatch | `launch.ps1` | Validates config, dispatches to mode orchestrator |
+| Epic child launch | `/ci` -> `Invoke-EpicAutopilot.ps1` | Epic-kind state routes directly to the fixed installed host wrapper; it atomically selects/resumes one child, maps verified launcher zero to an operator merge stop, and advances after a proven operator merge |
 | `.autopilot.host.json` read | `launch-host.ps1` only | Sole reader — neither skill nor agent touches it |
 
 ## Key Patterns
@@ -54,6 +55,42 @@ same-session-resuming the agent, while an explicit pre-existing Reopen makes the
 `close-pending` handoff remains valid for unfinished validation/archive work but carries no operator
 authority.
 
+**Epic child launch is a hard `/ci` route.** After `/ci`'s single state call returns `Kind: epic`, it
+does not consume `NextChild`, re-run state against a child, present ordinary plan runtime/extent
+menus, or enter the autopilot bootstrap. It invokes the fixed installed
+`.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1` wrapper with bound arguments:
+`-Epic <canonical EpicId from state> -Target HEAD -RepoRoot <the same canonical absolute repo root>`.
+The original user reference and epic content never enter the command. `AUTOPILOT_CONTAINER=true`
+stops before invocation and never falls through to ordinary child selection. The wrapper's blocking
+process status is propagated exactly and its emitted awaiting-merge, completion, blocked, or failure
+outcome is reported. Ordinary plan-kind state retains the existing menu, bootstrap, and per-plan
+launcher path.
+
+The helper atomically selects or resumes the
+exact `NextChild`, transitions `selected` to `running`, then invokes the installed per-plan launcher
+once in a separate PowerShell process. Its launcher arguments are fixed to the selected folder,
+`whole-plan`, `container`, the normalized caller target branch, and the admitted target commit as
+`-ExpectedStartCommit` plus the persisted run id; the epic wrapper exposes no mode/runtime override.
+Selection requires clean HEAD at the resolved target. The first container fetches that target once,
+creates directly from its verified object, and rejects an existing work branch; only a later exit-43
+retry inside that launcher invocation may resume the branch. A repeated host call uses the run-derived
+container name to refuse active work or reconcile proven inactive work to `invocation-failed` without
+relaunch. The existing per-plan launcher owns terminal evidence, review, archive, exact child-branch
+publication, and typed open-PR proof. It pushes before probing, then requires checked-out/local/origin
+OID equality and one PR whose head name/OID match; an explicitly selected target must match its base.
+Provider/command or typed-output failures are errors, while valid mismatches resume as close-pending.
+The epic helper does not duplicate this chain: launcher zero becomes `awaiting-merge`, then the host
+stops for operator merge without push, merge, checkout, provider API, or transcript parsing. Nonzero portable process codes remain `exit:<1..255>`; malformed launcher results and launch failures
+become `invocation-failed`. Those non-success terminal records remain byte-identical retry stops even
+when the target or graph changes. Only `awaiting-merge` and legacy `exit:0` can advance: after the
+operator moves the clean target forward, a fresh rollup must contain the prior child exactly once,
+mark it complete, and select a different child. The helper then CAS-replaces the old checkpoint with a
+fresh six-field `selected` record and reuses the normal launch path. Complete rollups CAS-delete state;
+incomplete no-next-child rollups return blocked exit 42 while retaining the prior checkpoint as the
+explicit resume anchor. The helper only resolves local refs and proves ancestry; it never fetches,
+pulls, checks out, merges, pushes, or calls a provider. The skill names the installed helper so
+plugin bundling carries its canonical `Get-PlanState`, `EpicAutopilot`, and `AtomicStore` closure.
+
 **First-run bootstrap is in-editor only.** The skill checks for repo-root `.autopilot.json`; if absent
 it takes `runtime` from `/ci`, interviews for the remaining auth/build/test/model/context/effort/timeout
 fields, writes from `.autopilot.json.example`, then **structurally validates** required fields/types —
@@ -70,10 +107,11 @@ missing.
 
 **Skill ships in `autopilot`, not `ci`.** It co-locates with the scripts it drives (reverses an earlier `ci`-ownership decision). `ci` keeps its existing `autopilot` dependency. This makes `autopilot` a single self-contained plugin — agent + skill + scripts + schemas + devcontainer + config templates all install under `.github/skills/autopilot/**` (agent stays at `.github/agents/`).
 
-**`/ci` owns autonomous selection.** Its menu exposes Host / Container / Sandbox directly, then asks
-One phase / Whole plan. The autopilot skill owns bootstrap and invocation only, preventing duplicate
-runtime prompts. `AUTOPILOT_CONTAINER=true` suppresses all autonomous choices in `/ci` because execution
-is already inside an autonomous container.
+**Plan-kind `/ci` owns autonomous selection.** Its menu exposes Host / Container / Sandbox directly,
+then asks One phase / Whole plan. The autopilot skill owns bootstrap and invocation only, preventing
+duplicate runtime prompts. Epic-kind state bypasses this menu for the fixed host wrapper.
+`AUTOPILOT_CONTAINER=true` suppresses every autonomous choice and refuses the epic route because
+execution is already inside an autonomous container.
 
 **Static Host label.** `/ci` shows a fixed "Host autopilot" label, and neither workflow skill reads
 `.autopilot.host.json` — preserving the "launcher is sole reader" invariant and the agent/skill no-read

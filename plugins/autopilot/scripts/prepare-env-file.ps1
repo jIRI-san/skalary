@@ -25,6 +25,10 @@ param(
 
     [string]$Branch,
 
+    [string]$ExpectedStartCommit,
+
+    [switch]$TrustedInternalRetry,
+
     # When set, inject offline-restore env so the entrypoint restores from the
     # read-only /feed mount instead of the network.
     [switch]$Offline
@@ -32,6 +36,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'autopilot-dispatch.ps1')
+
+$expectedStartEnvironment = @(
+    Get-AutopilotExpectedStartEnvironment `
+        -ExpectedStartCommit $ExpectedStartCommit `
+        -TrustedInternalRetry:$TrustedInternalRetry
+)
 
 # Create per-session random subdirectory
 $sessionId = [System.IO.Path]::GetRandomFileName().Replace('.', '')
@@ -82,12 +93,16 @@ if ($remote) {
     if ($remote -match '^git@github\.com:(.+)$') {
         $remote = "https://github.com/$($Matches[1])"
     }
+    Assert-AutopilotRepositoryRemote -Remote $remote
     $envContent += "REPO_REMOTE=$remote"
 }
 
 # Pass target branch if specified
 if ($Branch) {
     $envContent += "REPO_BRANCH=$Branch"
+}
+if ($expectedStartEnvironment.Count -gt 0) {
+    $envContent += $expectedStartEnvironment
 }
 
 # Offline restore: point the entrypoint at the read-only feed mount.
@@ -96,7 +111,8 @@ if ($Offline) {
     $envContent += "AUTOPILOT_FEED=/feed"
 }
 
-Set-Content -Path $envFilePath -Value ($envContent -join "`n") -NoNewline -Encoding UTF8
+$serializedEnvironment = ConvertTo-AutopilotEnvFileContent -Entry $envContent
+Set-Content -Path $envFilePath -Value $serializedEnvironment -NoNewline -Encoding UTF8
 
 Write-Host "Env file created: $envFilePath (ACL restricted to $currentUser)"
 return $envFilePath

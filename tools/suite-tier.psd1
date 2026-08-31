@@ -22,6 +22,7 @@
     # Process-heavy integration suites. Fast is the derived complement, so a new
     # test file cannot silently disappear: it starts in Fast until deliberately moved.
     SlowFiles = @(
+        'tests/autopilot/EpicAutopilot.Tests.ps1'
         'tests/skalary/Add-LedgerEntry.Tests.ps1'
         'tests/skalary/ArchitectureRetirementBaseline.Tests.ps1'
         'tests/skalary/ArchitectureTestRetirement.Tests.ps1'
