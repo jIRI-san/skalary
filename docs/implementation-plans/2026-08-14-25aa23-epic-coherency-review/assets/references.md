@@ -11,6 +11,10 @@
 - `docs/architecture-notes/arch-review-run-v1.md`: authoritative frozen scope, publication, verified delivery, and compact retained evidence.
 - `docs/design-notes/architecture/review-reporting.design.md`: existing DR agents, review lifecycle, and retained evidence.
 - `docs/design-notes/architecture/plan-workflow.design.md`: epic membership, generated mirror, lifecycle stages, and typed evidence.
+- `docs/design-notes/architecture/fleet-dispatch.design.md`: exact frozen-task projection and
+  invocation-local attendance boundary.
+- `plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md`: committed canonical
+  fixed-scope, exact-source, and proportionality handoff.
 - Plan `8a0644`: pure dispatch planner and run-scoped adapter used by existing design review.
 
 ## Dependency rationale

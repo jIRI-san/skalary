@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-30T20:12:13.7059911Z",
+  "generatedAt": "2026-08-31T00:07:38.3235170Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -789,7 +789,7 @@
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "ebb7c1255b2fb9edb4c83bd0a70a590d0af607d3b1b9f638e4be254915cef46f",
+          "sha256": "d44758aff063cfee8a72126d25a1de08369690c4d82afdb3f2284464f03859ec",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.78"
+      "version": "1.0.79"
     },
     {
       "author": "jIRI-san",

@@ -755,7 +755,7 @@ Ready order: design -> validate -> implement
         $startIndex = $handoff.IndexOf('Start-FleetDispatchRun', [System.StringComparison]::Ordinal)
         $preViewIndex = $handoff.IndexOf('PreView', [System.StringComparison]::Ordinal)
         $stepIndex = $handoff.IndexOf('Step-FleetDispatchRun', [System.StringComparison]::Ordinal)
-        $doneIndex = $handoff.IndexOf('Done', [System.StringComparison]::Ordinal)
+        $doneIndex = $handoff.IndexOf('`Done`', [System.StringComparison]::Ordinal)
         $completeIndex = $handoff.IndexOf(
             'Complete-FleetDispatchRun',
             [System.StringComparison]::Ordinal

@@ -32,3 +32,27 @@
 - Issues found: 66 raw — 36 High, 30 Medium — heavily duplicated across seven concerns.
 - Fixed: moved activation after convergence; reused shared review-cycle policy and existing epic writers; bounded RFC, rounds, cost, retention, locks, and suites; added operation lifecycle/reconciliation, no-tool concerns, finalization matrix checks, inert projections, existing-child edge refusal, typed terminals, crash repair, gitignore, exact contracts, and stronger evidence markers.
 - Known plan issue: the third DR run itself has no published manifest because collation violated the review schema. Plan validation remains authoritative for plan structure; implementation must include the malformed-result path in `RISK-14` and `test:Epic.CoherencyConcernRegistryV2AndFleet`.
+
+### Implementation crosscheck review — 2026-08-30
+
+- Review run: `cc141283-2977-4ddc-91f3-7f5aed383e27`; clean publication and 6/6 completed tasks,
+  with 33 findings (20 High, 12 Medium, 1 Low).
+- Resolved in the plan before replacement review: canonical epic-only source materialization before
+  child scaffolding; exact-byte verified review authority and fail-closed degraded/stale handling;
+  no sibling-body ingestion; one confined existing-writer verdict loop; mandatory re-review after
+  source-changing resolutions; no post-clean-review mutation; and metadata-only `/ci` preflight
+  subordinate to deterministic admission.
+- The review run remains non-qualifying because it contains findings. A fresh finding-free verified
+  run is required for `review:dr`.
+
+### Phase 1 evidence reviews — 2026-08-30
+
+- Replacement run `596e7b14-8e6c-48a3-91cb-9ec2ec13bb93` degraded when 2 of 14 reviewer tasks
+  failed repository reads; it is non-qualifying.
+- Final automatic run `81be21ce-4b53-44e2-9976-d42f391fad7f` completed 14/14 tasks but reported 10
+  findings. Corrections make the pre-scaffold accepted-child tables authoritative, add canonical
+  regular-file confinement, record demonstrated invariants in a fixed mechanism table, remove an
+  unsupported secret-screening claim, make speculative triggers precede shared-contract admission,
+  and strengthen structural evidence.
+- The automatic design-review round cap is exhausted. These corrections require an operator-approved
+  future review before `review:dr` can qualify; no finding-bearing run is treated as approval.

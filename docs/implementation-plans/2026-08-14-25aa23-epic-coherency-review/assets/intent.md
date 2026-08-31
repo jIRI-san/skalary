@@ -15,7 +15,8 @@ After the operator accepts a proposed cut, `/cep` uses the shared bounded fleet 
 - Missing, redundant, overlapping, horizontal, or non-revertible children are surfaced before implementation plans are drafted.
 - Shared contracts have one owning child and dependency edges are necessary, direct, and acyclic.
 - Both an early usable path and the epic's complete outcome are covered.
-- The review uses the shared four-in-flight scheduler and records attendance and degradation.
+- The review uses the shared four-in-flight scheduler; verified review-run v1 authority records
+  durable attendance and degradation while Fleet attendance remains invocation-local.
 
 ## Non-goals
 
