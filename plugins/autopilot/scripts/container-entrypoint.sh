@@ -78,9 +78,16 @@ verify_expected_start_commit() {
 remote_branch_exists() {
     local repo_path="$1"
     local branch="$2"
+    local output
 
-    git -C "${repo_path}" ls-remote --exit-code origin \
-        "refs/heads/${branch}" > /dev/null 2>&1
+    if ! output="$(
+        git -C "${repo_path}" ls-remote --refs origin \
+            "refs/heads/${branch}" 2>/dev/null
+    )"; then
+        echo "ERROR: Unable to inspect work branch '${branch}' on origin." >&2
+        return 2
+    fi
+    [ -n "${output}" ]
 }
 
 checkout_epic_work_branch() {
@@ -93,10 +100,13 @@ checkout_epic_work_branch() {
     local retry_ref="refs/autopilot/internal-retry"
 
     if [ "${trusted_retry}" = "true" ]; then
-        if ! remote_branch_exists "${repo_path}" "${work_branch}"; then
-            echo "ERROR: Trusted internal retry cannot find work branch '${work_branch}' on origin." >&2
-            return 1
-        fi
+        remote_branch_exists "${repo_path}" "${work_branch}" || {
+            local probe_status=$?
+            if [ "${probe_status}" -eq 1 ]; then
+                echo "ERROR: Trusted internal retry cannot find work branch '${work_branch}' on origin." >&2
+            fi
+            return "${probe_status}"
+        }
         git -C "${repo_path}" fetch --no-tags origin \
             "refs/heads/${work_branch}:${retry_ref}"
         git -C "${repo_path}" checkout -b "${work_branch}" "${retry_ref}"
@@ -112,9 +122,13 @@ checkout_epic_work_branch() {
         verify_expected_start_commit "${repo_path}" "${expected}" FETCH_HEAD "${start_branch}"
     )" || return $?
 
-    if remote_branch_exists "${repo_path}" "${work_branch}"; then
+    remote_branch_exists "${repo_path}" "${work_branch}" && {
         echo "ERROR: Work branch '${work_branch}' already exists on origin; a fresh epic launch will not resume it." >&2
         return 1
+    }
+    local probe_status=$?
+    if [ "${probe_status}" -ne 1 ]; then
+        return "${probe_status}"
     fi
 
     git -C "${repo_path}" checkout -b "${work_branch}" "${verified_start}"
@@ -565,12 +579,13 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
                 ;;
             target-failed)
                 echo "${TARGET_LABEL} exited with code ${EXIT_CODE}"
+                preserve_work || exit 70
                 COMPLETION_ALLOWED=0
                 if [ "${RUN_EXIT_CODE}" -eq 0 ]; then
                     RUN_EXIT_CODE="${EXIT_CODE}"
                 fi
                 git push origin "${WORK_BRANCH}" || true
-                break
+                break 2
                 ;;
         esac
     done
@@ -585,8 +600,8 @@ if ! git push origin "${WORK_BRANCH}"; then
     exit 70
 fi
 
-# Note: PR creation is handled by the autopilot agent in its Plan Completion step
-# with a structured title and body. The entrypoint only ensures the branch is pushed.
+# PR creation remains the autopilot agent's responsibility. The entrypoint publishes
+# the branch and verifies the resulting PR metadata before accepting final close.
 
 echo "Done."
 exit "${RUN_EXIT_CODE}"

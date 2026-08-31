@@ -13,7 +13,6 @@ Describe 'Autopilot.ContainerOffline' {
         $script:entrypoint = Get-Content -LiteralPath $entrypointPath -Raw
         . (Join-Path $scriptsDir 'autopilot-dispatch.ps1')
     }
-
     Context 'launch-container.ps1' {
         It 'passes the validated start branch to the container environment' {
             $launcher | Should -Match '\[string\]\$StartBranch'
@@ -44,13 +43,13 @@ Describe 'Autopilot.ContainerOffline' {
     Context 'executable container launch contract' {
         It 'enables work-branch resume only for a later internal expected-start attempt' {
             (Get-AutopilotContainerAttemptParameters `
-                    -ExpectedStartCommit ('A' * 40) -Attempt 0
+                -ExpectedStartCommit ('A' * 40) -Attempt 0
             ).TrustedInternalRetry | Should -BeFalse
             (Get-AutopilotContainerAttemptParameters `
-                    -ExpectedStartCommit ('A' * 40) -Attempt 1
+                -ExpectedStartCommit ('A' * 40) -Attempt 1
             ).TrustedInternalRetry | Should -BeTrue
             (Get-AutopilotContainerAttemptParameters `
-                    -ExpectedStartCommit $null -Attempt 1
+                -ExpectedStartCommit $null -Attempt 1
             ).TrustedInternalRetry | Should -BeFalse
         }
 
@@ -163,6 +162,10 @@ Describe 'Autopilot.ContainerOffline' {
             $entrypoint | Should -Match 'human-stop\)'
             $entrypoint | Should -Match 'exit 42'
         }
+        It 'preserves in-flight work after a failed target' {
+            $entrypoint | Should -Match '(?s)target-failed\).*?preserve_work \|\| exit 70'
+            $entrypoint | Should -Match '(?s)target-failed\).*?break 2'
+        }
         It 'fails when the selected start branch is unavailable instead of using the clone default' {
             $entrypoint | Should -Match "Selected start branch '\$\{BRANCH\}' is not available on origin"
             $entrypoint | Should -Not -Match 'Creating new branch \$\{WORK_BRANCH\} from \$\(git branch --show-current\)'
@@ -250,6 +253,20 @@ checkout_epic_work_branch "$2" main "$3" feature/existing true
                 $LASTEXITCODE | Should -Be 0
                 (& git -C $retry rev-parse HEAD).Trim() |
                     Should -BeExactly $workCommit
+
+                $probeFailure = Join-Path $fixture 'probe-failure'
+                [void](New-Item -ItemType Directory -Path $probeFailure)
+                & git -C $probeFailure init -q
+                & git -C $probeFailure remote add origin (
+                    Join-Path $fixture 'missing-origin.git'
+                )
+                $probeFailureOutput = & bash -c @'
+source "$1"
+remote_branch_exists "$2" feature/probe-failure
+'@ bash $script:entrypointPath $probeFailure 2>&1
+                $LASTEXITCODE | Should -Be 2
+                ($probeFailureOutput | Out-String) |
+                    Should -Match 'Unable to inspect work branch'
                 (& git -C $retry branch --show-current).Trim() |
                     Should -BeExactly 'feature/existing'
             }
