@@ -253,9 +253,9 @@ flowchart TD
             )) {
             $admissionText | Should -Match ([regex]::Escape($token))
         }
-        $skill | Should -Match 'Get-PlanState\.ps1 <plan-or-epic-reference> -RepoRoot \. -Json'
+        $skill | Should -Match '<plan-or-epic-reference> -RepoRoot <canonical-repo-root> -Json'
         $admissionText | Should -Match 'Only `ready` permits'
-        @([regex]::Matches($skill, 'Get-PlanState\.ps1 <plan-or-epic-reference>')).Count |
+        @([regex]::Matches($skill, 'Get-PlanState\.ps1')).Count |
             Should -Be 1
 
         $ready = New-AdmissionFixture

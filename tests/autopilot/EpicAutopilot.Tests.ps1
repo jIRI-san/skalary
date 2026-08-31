@@ -358,6 +358,7 @@ Describe 'Epic autopilot child launcher state machine' {
         $resolveTarget = { param($Reference, $Root) $script:targetA }
 
         foreach ($exitCode in @(0, 1, 42, 43, 124, 143, 255)) {
+            $planCallCountBeforeLaunch = $planCalls.Count
             $expectedOutcome = if ($exitCode -eq 0) {
                 'awaiting-merge'
             }
@@ -384,6 +385,7 @@ Describe 'Epic autopilot child launcher state machine' {
                 -PlanStateInvoker $invoker -TargetResolver $resolveTarget `
                 -RunFactory { $script:runA } -LauncherInvoker $launcher
 
+            $planCalls | Should -HaveCount ($planCallCountBeforeLaunch + 1)
             $launchCalls | Should -HaveCount 1
             $launchCalls[0].Script | Should -BeExactly (
                 Join-Path $script:repoRoot '.github/skills/autopilot/scripts/launch.ps1'
@@ -412,6 +414,7 @@ Describe 'Epic autopilot child launcher state machine' {
                 -Outcome $expectedOutcome
 
             $persisted = [System.IO.File]::ReadAllText($statePath)
+            $planCallCountBeforeReplay = $planCalls.Count
             $replay = Invoke-TestEpicHostLoop -Epic 'abc123' `
                 -Target 'refs/heads/main' -RepoRoot $script:repoRoot -StatePath $statePath `
                 -PlanStateInvoker $invoker -TargetResolver $resolveTarget `
@@ -423,8 +426,11 @@ Describe 'Epic autopilot child launcher state machine' {
             Assert-ExactState -State $replay.State -Outcome $expectedOutcome
             [System.IO.File]::ReadAllText($statePath) | Should -BeExactly $persisted
             $launchCalls | Should -HaveCount 1
+            $expectedReplayCalls = if ($exitCode -eq 0) { 1 } else { 0 }
+            $planCalls | Should -HaveCount (
+                $planCallCountBeforeReplay + $expectedReplayCalls
+            )
         }
-        $planCalls | Should -HaveCount 14
 
         $nonePath = New-StatePath -Name 'no-child'
         $noneRollup = New-RollupJson -NextChild $null

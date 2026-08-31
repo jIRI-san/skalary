@@ -9,9 +9,8 @@ context: fork
 
 # Continue Implementation
 
-Requires agent mode. Edits files, runs commands, and commits. Use `vscode_askQuestions`
-with `options` for every multiple-choice prompt. In user-facing text, identify plans and epics
-as `<canonical-id> <slug>`; commands may use only the id.
+Requires agent mode. Use `vscode_askQuestions` with `options` for each multiple-choice prompt.
+Identify plans and epics in user-facing text as `<canonical-id> <slug>`; commands use only the id.
 
 ## Step 1: Select plan and load context
 
@@ -36,7 +35,7 @@ as `<canonical-id> <slug>`; commands may use only the id.
    If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder,
    stop and return the plan to `/cip` instead of guessing.
 3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-4. If legacy loose plan files exist, detect them now but defer migration until the read-only phase admission in Step 2 returns `ready`. Then migrate them deterministically with `.github/skills/ci/scripts/Repair-Plans.ps1` — do not hand-migrate.
+4. Defer detected legacy loose-plan migration until Step 2 admission is `ready`, then run `.github/skills/ci/scripts/Repair-Plans.ps1`; do not hand-migrate.
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
@@ -101,7 +100,7 @@ Admission has the closed states `ready`, `blocked`, `missing`, `ambiguous`, and 
 branch/worktree mutation, `[~]`, or log initialization. Every other result stops with
 `Admission.Reason` and leaves the plan tree byte-for-byte unchanged.
 
-## Step 3: Determine plan execution mode and branch/worktree
+## Step 3: Determine execution mode and branch/worktree
 
 1. **Read the plan's declared execution mode.** Parse the plan header for `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->`. This marker is a *runtime* selector, not a pacing hint — `*-autopilot` means the plan is meant to run autonomously, not interactively with approvals.
 
