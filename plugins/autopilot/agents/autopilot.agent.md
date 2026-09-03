@@ -36,6 +36,14 @@ returns `closed`; any degraded migration is a hard stop.
      module for the resolved plan folder. An enrolled plan must report `confirmed`; on `pending`, `stale`,
      `missing`, or `invalid`, report that operator confirmation is needed and exit `42` before marking a step,
      writing logs, or running repository code. Marker-less legacy plans retain existing behavior.
+   - **Epic current-child simplicity check before mutation.** When the plan carries
+     `<!-- epic: <id> -->`, follow the **Active `/ci` current-child check** in
+     `.github/skills/cep/assets/decomposition-guide.md` after deterministic admission succeeds. Read only
+     this plan and its resolved local intent/design/decisions, the parent epic rollup/verdict metadata,
+     and the Git history needed for the last clean reviewed accepted-cut baseline; never read sibling
+     plan bodies or assets. Apply the exact three proportionality classes. A clean check writes nothing.
+     This headless agent cannot resolve an overcomplication finding: emit one bounded blocked outcome and
+     exit `42` before marking a step, writing logs, creating a branch/worktree, or running repository code.
 2. **Read config** — open `.autopilot.json` in the repo root. Extract `build`, `test`, and `maxIterationsPerStep`. The configured complete commands are finalization-only; phase validation is selected from changed surfaces.
 3. **Identify phase** — find the phase number from the prompt (e.g. "phase 3"). Only work on steps in that phase.
 4. **Find next step** — scan for the first `- [ ]` or `- [~]` step in the target phase.

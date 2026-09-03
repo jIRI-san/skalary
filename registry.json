@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-08-31T14:06:35.0770297Z",
+  "generatedAt": "2026-09-03T05:10:58.6203448Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -158,6 +158,7 @@
       "author": "jIRI-san",
       "dependencies": [
         "code-review",
+        "create-implementation-plan",
         "self-improvement"
       ],
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
@@ -167,7 +168,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "b79fd5885ad37193accb20f08a5a0482f116b639546cdabf87adb44e375561e6",
+          "sha256": "653485e321b0d362cfea820ba1e8dc2b2fface76fc3c27f2de20236fbdfa1d6d",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -391,7 +392,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.93"
+      "version": "1.2.94"
     },
     {
       "author": "jIRI-san",
@@ -596,7 +597,8 @@
       "author": "jIRI-san",
       "dependencies": [
         "autopilot",
-        "code-review"
+        "code-review",
+        "create-implementation-plan"
       ],
       "description": "Code implementation workflow skill with autonomous execution guidance.",
       "evals": {
@@ -605,7 +607,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "018bec885ede8911caaaf8d57dcf2c28f341f2622d0465aba2da299af207bdc1",
+          "sha256": "779343e8e12137b161952484f3ed6a895d563d67651ebba5421e739a655cc13e",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -785,7 +787,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.95"
+      "version": "1.0.96"
     },
     {
       "author": "jIRI-san",
@@ -799,12 +801,12 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "8b73231ec12042b4c0731a893bb620427ca0c79078d4f559cb5aced7135c1f48",
+          "sha256": "126d2f27d6ea432c3e37ae025654a3965b58d364ac7472bf1d1fc121cdf6a93b",
           "src": "skills/cep/SKILL.md"
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "d44758aff063cfee8a72126d25a1de08369690c4d82afdb3f2284464f03859ec",
+          "sha256": "cf7b7e9a401cb0619111c021722b407c793f99fc65f013452b2c995282c92540",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -816,6 +818,11 @@
           "dest": "skills/cep/assets/plan-template.md",
           "sha256": "0d0d8295fd387afdbecc602f2a597fcfc6a90075cb0971ec59bfd4564557dcbc",
           "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cep/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/cep/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/cep/scripts/Get-PlanArtifactConsumerContext.ps1",
@@ -834,7 +841,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "94a9fbf062ac7fe7d5cbb26a1472f0aad07cc23a1e9f58448e4f25cdd065cb71",
+          "sha256": "b2990ae72196d68b8e6622e4e764899e3cfd5a5adb204ef53b858d27eea051e9",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
@@ -1011,7 +1018,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.79"
+      "version": "1.0.80"
     },
     {
       "author": "jIRI-san",

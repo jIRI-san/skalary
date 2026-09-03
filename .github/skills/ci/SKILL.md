@@ -100,6 +100,29 @@ Admission has the closed states `ready`, `blocked`, `missing`, `ambiguous`, and 
 branch/worktree mutation, `[~]`, or log initialization. Every other result stops with
 `Admission.Reason` and leaves the plan tree byte-for-byte unchanged.
 
+### Epic current-child simplicity check
+
+For a `ready` plan carrying `<!-- epic: <id> -->`, run this semantic check before Step 3 and before
+any repair, branch/worktree creation, checklist write, or log initialization. Read and follow the
+**Active `/ci` current-child check** in
+`.github/skills/cep/assets/decomposition-guide.md`.
+
+The read boundary is closed: the current child `plan.md`; its resolved plan-local intent, design, and
+decisions assets; the parent epic's generated rollup and marker-managed verdict metadata; and Git
+history needed to recover the last clean reviewed accepted-cut bytes and source digest. Never open a
+sibling child body or sibling asset. Compare only evidence available inside that boundary against the
+same eight labels and the exact three proportionality classes: `speculative platform`,
+`required shared contract`, and `local fix`. This is agent judgment subordinate to deterministic
+admission, not a new model dispatch, classifier, parser, receipt, cache, or lifecycle.
+
+Record a local disposition as compact `keep`, `simplify`, `split`, or `defer` prose in the current
+plan's existing decisions asset. An epic-baseline disposition uses only the installed
+`New-Epic.ps1 -SetCoherencyVerdict` full-block writer; because it changes the reviewed source, stop
+and return to `/cep` for operator reconfirmation and a fresh ordinary design review. Unresolved
+overcomplication stops before mutation in every mode: return the concrete choice to the interactive
+operator, or emit one bounded blocked outcome and stop headless execution. A clean check performs no
+write and proceeds to Step 3.
+
 ## Step 3: Determine execution mode and branch/worktree
 
 1. **Read the plan's declared execution mode.** Parse the plan header for `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->`. This marker is a *runtime* selector, not a pacing hint — `*-autopilot` means the plan is meant to run autonomously, not interactively with approvals.

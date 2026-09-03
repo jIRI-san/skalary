@@ -40,7 +40,9 @@ context: fork
 
 ## Step 2: Interview at epic altitude (`./assets/decomposition-guide.md`)
 
-Follow the epic question bank and the `epic-intent` and `seams` gates in the decomposition asset. Capture the goal, desired outcome, success signals, non-goals, and definition of done into the epic's **Goal** section before proposing any cut, then read it back for confirmation.
+Follow the epic question bank and the `epic-intent` and `seams` gates in the decomposition asset.
+Capture the goal, desired outcome, success signals, non-goals, and definition of done, read them back
+for confirmation, and materialize them in the epic's **Goal** section at Step 4.
 
 Per-child implementation interviews belong to `/cip`, but accepted epic discussion must not disappear. While interviewing and decomposing, keep a preliminary context record for every proposed child: the operator discussion points that motivated it, the slice and outcome, boundaries and non-goals, dependency rationale, settled decisions, rejected alternatives, and named uncertainties. This is planning provenance, not a substitute for the later `/cip` interview.
 
@@ -48,22 +50,40 @@ Per-child implementation interviews belong to `/cip`, but accepted epic discussi
 
 Propose the cut, present it for confirmation, and revise until the operator accepts. Apply the independent-executability test, the vertical-slice rule, the dependency rules, and the anti-pattern list from the decomposition asset. Before scaffolding, pass the asset's `child-context` gate: every accepted child has enough recorded context to explain weeks later why it exists and what was decided. Never scaffold a cut the operator has not confirmed.
 
-## Step 4: Scaffold and wire the children
+## Step 4: Materialize and review the accepted cut
 
-Only once the cut is accepted. For a new epic, create the epic folder and `epic.md` first, then write the confirmed goal into its **Goal** section:
+Only once the cut is accepted. For a new epic, create the epic folder and `epic.md` first:
 
 ```powershell
 pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Title "<epic title>" -Slug "<slug>" -RepoRoot .
 ```
 
-Then, for each accepted child, in dependency order:
+Materialize the decomposition guide's complete canonical accepted-cut shape in that `epic.md`:
+confirmed goal/success/done content, accepted child and mechanism tables, direct dependencies, delivery
+routes, and prior-art dispositions. Do not scaffold a child yet.
+
+Follow the guide's **Epic coherency review** contract. Write the initial verdict only through
+`New-Epic.ps1 -SetCoherencyVerdict`, then run the ordinary `/dr` Freeze, fourteen-task dispatch,
+Publish, and verified Summary/Full lifecycle over the exact resulting bytes. Decision-changing
+findings return to the interactive operator for `keep`, `simplify`, `split`, or `defer`. Every
+accepted source change requires cut reconfirmation and a fresh review UUID. Stop on stale source,
+incomplete attendance, unverified output, unresolved blockers, or the existing three-round cap. A
+clean final review causes no follow-up `epic.md` write.
+Commit the exact clean reviewed `epic.md` alone, with `Epic-Coherency-Review: <run-uuid>` and
+`Epic-Coherency-Source: sha256:<digest>` trailers, before creating a child. The verified live review
+run remains authority at this boundary; the trailers only make that accepted baseline locatable by
+the later bounded Git-history check.
+
+## Step 5: Scaffold and wire the reviewed children
+
+Only after that clean no-write boundary, scaffold each accepted child in dependency order:
 
 ```powershell
 pwsh -NoProfile -File .github/skills/cep/scripts/New-Plan.ps1 -Title "<child title>" -Slug "<child slug>" -EpicId <epic-id> -RepoRoot .
 pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -ChildPlan <child-ref> -DependsOn <dep-ref> -RepoRoot .
 ```
 
-`New-Plan.ps1 -EpicId` creates each child directly under its final `<epic-id>-<date>-<plan-id>-<slug>` name and writes membership in the same operation; there is no temporary standalone folder or rename. `-DependsOn` takes one child per `New-Epic.ps1` invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk.
+`New-Plan.ps1 -EpicId` creates each child directly under its final `<epic-id>-<date>-<plan-id>-<slug>` name and writes membership in the same operation; there is no temporary standalone folder or rename. `-DependsOn` takes one child per `New-Epic.ps1` invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk. Require that generated child/dependency mirror to equal the reviewed accepted-cut tables; a mismatch returns to cut reconfirmation and fresh ordinary design review.
 
 Immediately after `New-Plan.ps1` creates each child, replace the scaffold-only content in these assets before moving to the next child:
 
@@ -74,7 +94,7 @@ Immediately after `New-Plan.ps1` creates each child, replace the scaffold-only c
 
 Prefix preliminary sections with `Preliminary context captured by /cep; /cip must confirm and refine it.` Do not leave a `TBD` placeholder where the epic discussion supplied an answer. Never invent missing operator intent: mark it as an unresolved question with the surrounding discussion that made it relevant. `/cip` extends these assets in place and must not reset them to templates.
 
-## Step 5: Draft each child and finish
+## Step 6: Draft each child and finish
 
 1. Hand each child to `/cip <child-ref>` to confirm and refine the captured preliminary context, then add requirements, risks, evidence, steps, and DR rounds. Draft dependency-free children first — their decisions constrain the ones that follow.
 2. Confirm each drafted child passes:
@@ -88,6 +108,8 @@ Prefix preliminary sections with `Preliminary context captured by /cep; /cip mus
 ## Anti-drift contract
 
 - **Structure authority:** `New-Epic.ps1` owns epic folders, membership markers, dependency markers, and the child table. Hand-editing any of them is drift.
+- **Review authority:** ordinary review-run v1 Freeze/Publish and verified readers remain authoritative; the marker-managed verdict is written only by `New-Epic.ps1`.
+- **Clean boundary:** no child is scaffolded before a clean complete accepted-cut review, and a clean final review never triggers an epic write.
 - **Membership authority:** the `<!-- epic: <id> -->` marker in each child plan — not `epic.md` — decides what belongs to the epic.
 - **Context authority:** `/cep` owns the preliminary discussion provenance and accepted decomposition decisions in child intent, decisions, and references; `/cip` preserves, confirms, and refines them.
 - **Drafting authority:** `/cip` owns child requirements, risks, evidence, and steps; `/cep` never writes those sections.

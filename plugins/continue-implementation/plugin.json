@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.95",
+  "version": "1.0.96",
   "description": "Code implementation workflow skill with autonomous execution guidance.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -11,7 +11,8 @@
   ],
   "dependencies": [
     "code-review",
-    "autopilot"
+    "autopilot",
+    "create-implementation-plan"
   ],
   "status": "stable",
   "files": [

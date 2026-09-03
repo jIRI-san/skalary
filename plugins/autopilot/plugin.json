@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.2.93",
+  "version": "1.2.94",
   "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -12,7 +12,8 @@
   ],
   "dependencies": [
     "self-improvement",
-    "code-review"
+    "code-review",
+    "create-implementation-plan"
   ],
   "status": "partial",
   "files": [

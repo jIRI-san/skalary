@@ -134,18 +134,16 @@ Present the proposed cut before scaffolding anything, as one table plus the edge
 Then ask for confirmation with `vscode_askQuestions`. On rejection, revise the cut and present again;
 never scaffold folders to "show" a cut.
 
-## Epic-review extension handoff (inactive)
+## Epic coherency review
 
-This is an explicitly inactive conformance shape for the later consumer, plan
-`25aa23 epic-coherency-review`. It activates nothing in the current `/cep`, and it neither edits nor otherwise mutates that dependent plan.
-Activation belongs to phase 2 of that plan. Plan `25aa23 epic-coherency-review` remains the owner of
-the fixed epic-coherency scope, richer findings and outcomes, compact verdict, operator-resolution
-and blocking behavior, and activation timing. The proportionality rubric below is inactive reviewer
-criteria within that fixed scope; it is not a `/ci` check.
+This is the active accepted-cut review contract. It extends the ordinary design-review path at one
+bounded `/cep` handoff point; it does not create another review type, concern family, schema,
+scheduler, lifecycle, or state store. The proportionality rubric below is reviewer criteria within
+the fixed scope and is reused by `/ci` only for its bounded current-child check.
 
 ### Canonical accepted-cut source
 
-At the future activation point, the sole accepted-cut design source is the existing canonical
+At the activation point, the sole accepted-cut design source is the existing canonical
 `docs/implementation-plans/epics/<yyyy-mm-dd>-<epic-id>-<slug>/epic.md`. Do not assemble a packet
 from chat, session memory, child plans, related-plan content, or excerpts. The canonical file has
 exactly one each of these existing H2 sections, in this order:
@@ -247,10 +245,8 @@ prose; no new finding shape is introduced. A mechanism that passes need not prod
 listed above; without independent `required shared contract` proof, such a recommendation is
 `speculative platform`.
 
-Phase 2 owns `keep`/`simplify`/`split`/`defer` rendering, resolution persistence, operator return,
-blocking integration, activation, and same-step synchronization of its source payload changes.
-Phase 3 owns broader fixtures and final generated-drift proof. Nothing in this rubric activates
-current `/cep`, adds a `/ci` check, or changes either phase boundary.
+The same classes govern `keep`/`simplify`/`split`/`defer` rendering, resolution persistence,
+operator return, and blocking behavior. They add no classifier call or extra persisted authority.
 
 ### Existing design-review path
 
@@ -313,3 +309,82 @@ review outcome projects to Fleet `failed`; richer review outcomes and findings s
 `Publish`. Fleet attendance is invocation-local and non-authoritative. Review-run `Freeze`,
 `Publish`, persistence, and rendering remain authoritative, and provider-global concurrency is
 unobserved.
+
+### Marker-managed verdict and operator resolution
+
+Only the installed bounded writer may create or replace the verdict:
+
+```powershell
+pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 `
+    -Epic <canonical-epic-id> -SetCoherencyVerdict -VerdictJson <bounded-json> `
+    -RepoRoot <canonical-repository-root>
+```
+
+The JSON object has schema `skalary/epic-coherency-verdict@1` and exactly `schema`,
+`sourceDigest`, `reviewRunId`, `decision`, `blocking`, `action`, and `findings`. Each finding has
+exactly `taskId`, `title`, `proportionalityClass`, `blocking`, `operatorDecision`, and `action`.
+The initial accepted-cut write uses the exact prior byte digest, `reviewRunId: null`, and no
+findings. A post-review resolution uses the verified run UUID and exact `(taskId, title)` identities
+from the verified Full view.
+
+The writer confines its sole write to the resolved epic's regular canonical `epic.md`, rejects
+links/reparse points, stale source, malformed or duplicate markers, unknown properties,
+duplicate/conflicting finding identities, invalid closed values, control/marker injection, and
+oversize data, and atomically replaces the full marker block. Never hand-edit or incrementally patch
+that block.
+
+### Active `/cep` handoff
+
+After the operator confirms the cut and before any child plan is scaffolded:
+
+1. Scaffold the epic only, then materialize the complete accepted-cut source shape above. Compute the
+   SHA-256 digest from one immutable byte read.
+2. Write the initial non-blocking verdict through `New-Epic.ps1`; reread once and compute the new
+   exact digest because verdict insertion changes the source.
+3. Run the ordinary design-review workflow above. Require successful Freeze before dispatch, all
+   fourteen frozen tasks, one Publish, verified Summary and Full reads, complete attendance, and a
+   current exact source digest. A degraded, incomplete, stale, invalid, or unpublished run stops
+   before child creation.
+4. Surface every decision-changing finding with its proportionality class and proposed action. The
+   interactive operator chooses `keep`, `simplify`, `split`, or `defer`; the agent never impersonates
+   this decision.
+5. Apply accepted source changes, atomically replace the verdict with exact verified identities and
+   dispositions, and reconfirm the revised cut with the operator.
+6. Every source-changing resolution starts a fresh UUID, Freeze, dispatch, and Publish over the new
+   exact digest. Never resume or reinterpret the previous run.
+7. Keep the existing `/cip` three-round DR cap. At the cap, retain unresolved issues and stop for
+   operator direction.
+8. A clean final review with complete attendance and no unresolved blocker performs no follow-up
+   `epic.md` write. Commit that exact file alone before child scaffolding, retaining the clean run UUID
+   and exact digest in `Epic-Coherency-Review:` and `Epic-Coherency-Source:` commit trailers. These
+   trailers identify the already-verified baseline in ordinary Git history; they are not review
+   authority and cannot substitute for the verified live run at this boundary. Carry those exact
+   reviewed bytes into child scaffolding.
+
+Only then scaffold children with the reviewed identities and dependency map. The later generated
+child-table refresh is membership bookkeeping; it must exactly match the reviewed accepted-child and
+direct-dependency tables and must not alter the reviewed decomposition or verdict.
+
+### Active `/ci` current-child check
+
+After deterministic admission reports `ready`, and before mode selection, branch/worktree creation,
+checklist mutation, repair, logs, or execution:
+
+1. Read only the current child `plan.md`, its resolved plan-local intent/design/decisions, the parent
+   epic rollup/verdict metadata, and Git history needed to locate the last clean reviewed source from
+   the two fixed commit trailers. Never read sibling plan bodies or sibling assets. Missing,
+   duplicated, malformed, or unreachable baseline trailers block rather than fall back to current
+   prose.
+2. Evaluate the same eight labels only where those bounded sources provide evidence. Ownership and
+   overlap conclusions come from the verified accepted-cut tables and generated rollup, not sibling
+   bodies.
+3. Apply the same three-class rubric. Persist compact `keep`/`simplify`/`split`/`defer` prose in the
+   current plan's existing decisions asset for a local issue, or through the existing epic verdict
+   writer when the accepted epic baseline changes. Add no sidecar, receipt, schema, lifecycle,
+   scheduler, or model call.
+4. An epic-source change invalidates the reviewed baseline and returns to `/cep` reconfirmation plus
+   a fresh ordinary design review.
+5. Unresolved overcomplication blocks interactive and headless execution before mutation.
+   Interactive mode returns the concrete decision to the operator; headless mode emits one bounded
+   blocked outcome.
+6. A clean check performs no write and continues through the existing `/ci` flow.
