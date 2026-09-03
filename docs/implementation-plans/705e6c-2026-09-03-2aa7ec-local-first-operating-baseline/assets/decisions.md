@@ -10,12 +10,21 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - **Whole-suite execution is explicit-only.** Skills and routine scripts must use the smallest
   affected-plugin subset. Only the operator may select the separate full-repository path.
 - **Focused timing contract.** Target under 30 seconds per selected command and return a distinct
-  timeout result above 60 seconds; do not create an aggregate suite gate.
+  timeout result at 60 seconds; one timer owns the directly launched child process tree and returns
+  exit `13` (`FocusedTimeout`) after termination. Do not create an aggregate suite gate or recovery
+  state.
+- **Extend existing focused entry points.** Use `Run-UnitTests.ps1 -TestPath`,
+  `Test-Evals.ps1 -Plugin`, and `validate.ps1 -Path`; keep
+  `Invoke-WazaEvals.ps1 -Plugin` premium and operator-invoked. Do not add `focus-*` wrappers.
+- **Wide execution has one explicit spelling.** Keep `-FullRepository` as the operator-only route and
+  remove package aliases or skill instructions that pass it implicitly. Operator-only means direct
+  explicit CLI use, not an identity/authentication mechanism.
 - **Tests require user value.** Keep only deterministic coverage of current behavior, required
   external formats, or high-impact regressions. Ask the operator about uncertain rows.
 - **One temporary ownership inventory.** It classifies all active JSON, gates, tests, notes, and
-  contracts once; each child closes its assigned rows. The inventory is planning evidence, not a new
-  runtime authority.
+  contracts once with category counts and reasons; each transfer names a canonical child ID and
+  updates that child's references. The inventory is planning evidence, not a new runtime authority or
+  permanent parser.
 - **Internal formats use strict Markdown.** Keep JSON only where an external consumer requires it.
   Do not add schemas or migrations for retired internal formats.
 - **Direct stable scripts.** Read-only and focused scripts may be pre-approved by exact path.
@@ -25,9 +34,22 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - **Bounded prior context.** Reuse the existing bounded artifact adapter instead of creating another
   history service. Current intent and active contracts outrank explicit supersession, which outranks
   older accepted decisions; unresolved conflicts are shown.
-- **Cost budgets are operator decisions.** Produce a short RFC, then apply the selected budgets in
-  consumer children without adding a policy engine.
+- **Flexible cost budget selected by the operator.** Default to 2 agent calls and cap at 5; use a
+  primary model plus availability fallback and add reviewers only when justified; load the current
+  plan/epic plus at most 5 supporting artifacts; target 600 instruction words and cap at 1,200.
+  Record the rationale in a short advisory RFC and use focused consumer fixtures, not a policy engine.
+- **Supersedes `31a3ef` Decisions bullets 1-3.** Fast/Slow tiers and mandatory hosted execution no
+  longer hold because the operator requires explicit affected-plugin scope and no GitHub workflows.
+- **Supersedes `c21cdc` D2-D7 and D13-D17 for repository-owned internal operational formats.**
+  Content-addressed JSON, schema authority, manifests, canonicalization, and receipt handshakes are
+  not the baseline format. Review-specific removal remains owned by sibling `367e9a`.
 - **Rejected:** mandatory CI, Fast/Slow tier machinery, receipt authority, exhaustive review
   matrices, compatibility layers, and reviewer requests to restore platform-scale controls.
-- **Unresolved for `/cip`:** exact focused command names and the concrete budget options to present
-  to the operator.
+- **No unresolved architecture decisions remain.** Test rows that the implementation audit cannot
+  classify are an explicit operator disposition gate, not a design decision delegated to execution.
+- **Execution defaults to manual, with no new packages.** The test-disposition gate requires operator
+  input, and this plan changes repository scripts and documentation only.
+- **DR round 1 local fixes accepted; platform expansion rejected.** Physically confine focused paths,
+  update each changed format with its producer/consumers, synchronize workflow-authoritative guidance
+  with workflow deletion, and bind transfer rows to children. Do not add authentication, transaction,
+  receipt, or durable inventory machinery.

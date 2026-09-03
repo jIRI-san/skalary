@@ -17,6 +17,18 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 | `a5ad22` | Reuse evidence | Use the 76-minute suite profile and 14-hour orchestration record to prioritize deletion. |
 | `c21cdc` | Reject | Schema/receipt authority is intentionally removed by another child. |
 
+### Consumed artifacts
+
+| Plan ID | Artifact kind | Path | Relationship |
+|---|---|---|---|
+| `2366ad` | `Decisions` | `docs/implementation-plans/archived/2026-08-02-2366ad-cross-repo-si-and-standards/assets/decisions.md` | `reuses` |
+| `25aa23` | `Decisions` | `docs/implementation-plans/2026-08-14-25aa23-epic-coherency-review/assets/decisions.md` | `reuses` |
+| `31a3ef` | `Decisions` | `docs/implementation-plans/archived/2026-08-16-31a3ef-post-merge-suite-budget-recovery/assets/decisions.md` | `supersedes` |
+| `768d7b` | `Decisions` | `docs/implementation-plans/archived/2026-08-02-768d7b-gates-real-and-affordable/assets/decisions.md` | `extends` |
+| `a5ad22` | `Decisions` | `docs/implementation-plans/archived/2026-08-14-a5ad22-epic-autopilot-orchestration/assets/decisions.md` | `reuses` |
+| `a5ad22` | `Evidence` | `docs/implementation-plans/archived/2026-08-14-a5ad22-epic-autopilot-orchestration/assets/evidence.md` | `reuses` |
+| `c21cdc` | `Decisions` | `docs/implementation-plans/archived/2026-08-02-c21cdc-review-report-as-data/assets/decisions.md` | `supersedes` |
+
 ## Relevant repository guidance
 
 - `docs/design-notes/.design-notes.md`
