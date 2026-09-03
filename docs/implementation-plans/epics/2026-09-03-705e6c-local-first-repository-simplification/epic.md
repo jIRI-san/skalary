@@ -51,7 +51,10 @@ operator review.
 <!-- child-plans:start -->
 | Plan | Slug | Depends on |
 |---|---|---|
-| _(none yet)_ | | |
+| `2aa7ec` | local-first-operating-baseline | — |
+| `367e9a` | simple-review-to-plan-workflow | `2aa7ec` |
+| `3a4498` | simple-self-improvement | `367e9a` |
+| `623cc2` | simple-plugin-lifecycle | `2aa7ec` |
 <!-- child-plans:end -->
 
 Membership is the `<!-- epic: 705e6c -->` marker in each child `plan.md`; the table above is a generated
