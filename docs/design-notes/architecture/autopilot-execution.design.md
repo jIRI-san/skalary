@@ -369,12 +369,25 @@ Classic PATs (`ghp_*`) are **not supported** by Copilot CLI — a fine-grained P
    - **Contents**: Read and write
    - **Pull requests**: Read and write
    - **Copilot Requests**: Read (enables Copilot API access)
-2. Store in Windows Credential Manager:
+2. Store in Windows Credential Manager. On the current Windows development machine, use the
+  built-in `cmdkey` command and omit `/pass` so it prompts without recording the PAT in terminal
+  history:
+  ```powershell
+  cmdkey /generic:copilot-autopilot /user:autopilot
+  ```
+  The non-interactive format is available when command-history exposure is acceptable:
+  ```powershell
+  cmdkey /generic:copilot-autopilot /user:autopilot /pass:"<PAT>"
+  ```
+  To replace an existing credential, delete it first with
+  `cmdkey /delete:copilot-autopilot`. The `CredentialManager` PowerShell module remains an
+  alternative:
    ```powershell
    Install-Module CredentialManager -Scope CurrentUser
    New-StoredCredential -Target "copilot-autopilot" -UserName "autopilot" -Password "<PAT>" -Type Generic -Persist LocalMachine
    ```
-3. Verify: `Get-StoredCredential -Target "copilot-autopilot"` returns the credential.
+3. Verify with `cmdkey /list:copilot-autopilot`; when using the PowerShell module,
+  `Get-StoredCredential -Target "copilot-autopilot"` returns the credential.
 
 ### GitHub OAuth (alternative)
 
