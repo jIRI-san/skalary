@@ -85,16 +85,6 @@ Describe 'Invoke-WazaEvals' {
             Set-Content -LiteralPath $stray -Value 'skill: nope' -Encoding utf8NoBOM
         }
 
-        It 'test:runner-selectors discovers only plugins NAME evals waza eval.yaml' {
-            $specs = @(Get-WazaEvalSpec -PluginsRoot $script:fakeRoot)
-            $specs.Count | Should -Be 2
-            $hasStray = $false
-            foreach ($s in $specs) {
-                if ($s.Replace('\', '/') -match '/other/') { $hasStray = $true }
-            }
-            $hasStray | Should -BeFalse
-        }
-
         It 'test:runner-selectors filters discovery by -Plugin' {
             $specs = @(Get-WazaEvalSpec -PluginsRoot $script:fakeRoot -Plugin 'code-review')
             $specs.Count | Should -Be 1
@@ -125,11 +115,6 @@ Describe 'Invoke-WazaEvals' {
             ($a -join ' ') | Should -Match '--on-unsafe-outcome fail'
             ($a -join ' ') | Should -Not -Match '--trials'
             ($a -join ' ') | Should -Not -Match '--task'
-        }
-
-        It 'test:runner-selectors extracts changed plugin names from git paths' {
-            $names = Select-ChangedPlugin -ChangedPaths @('plugins/code-review/agents/cr.agent.md', 'scripts/x.ps1', 'plugins/code-review/evals/waza/eval.yaml')
-            $names | Should -Be @('code-review')
         }
 
         It 'test:runner-selectors detects a top-level adversarial block' {

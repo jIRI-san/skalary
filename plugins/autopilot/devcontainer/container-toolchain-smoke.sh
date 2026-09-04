@@ -30,10 +30,12 @@ add_reason() {
 run_case() {
     local case_id="$1"
     shift
-    if "$@" >/dev/null 2>&1; then
+    local diagnostic
+    if diagnostic="$("$@" 2>&1)"; then
         case_states["$case_id"]=pass
     else
         case_states["$case_id"]=fail
+        printf 'toolchain case %s failed: %.2048s\n' "$case_id" "$diagnostic" >&2
     fi
 }
 

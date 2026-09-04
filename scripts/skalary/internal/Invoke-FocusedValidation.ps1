@@ -37,10 +37,11 @@ function Resolve-ConfinedValidationPath {
         throw "$Label does not exist: '$full'."
     }
 
-    $cursor = [System.IO.Path]::GetPathRoot($full)
-    foreach ($segment in $full.Substring($cursor.Length).Split(
+    $cursor = $rootFull
+    $segments = @(if ($relative -eq '.') { @() } else { $relative.Split(
             [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
-            [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            [System.StringSplitOptions]::RemoveEmptyEntries) })
+    foreach ($segment in $segments) {
         $cursor = Join-Path $cursor $segment
         $item = Get-Item -LiteralPath $cursor -Force
         if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
@@ -88,7 +89,7 @@ function Get-FocusedValidationFile {
             foreach ($file in [System.IO.Directory]::EnumerateFiles($current)) {
                 $fileItem = Get-Item -LiteralPath $file -Force
                 if (($fileItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-                    continue
+                    throw "Focused validation path must not contain linked files: '$file'."
                 }
                 if ($supported.Contains($fileItem.Extension)) {
                     $files.Add($fileItem.FullName)
@@ -96,9 +97,10 @@ function Get-FocusedValidationFile {
             }
             foreach ($directory in [System.IO.Directory]::EnumerateDirectories($current)) {
                 $directoryItem = Get-Item -LiteralPath $directory -Force
-                if (($directoryItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
-                    $pending.Push($directoryItem.FullName)
+                if (($directoryItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                    throw "Focused validation path must not contain linked directories: '$directory'."
                 }
+                $pending.Push($directoryItem.FullName)
             }
         }
     }

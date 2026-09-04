@@ -19,7 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.7"
+      "version": "1.0.8"
     },
     {
       "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.97"
+      "version": "1.2.98"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.100"
+      "version": "1.0.101"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",

@@ -33,5 +33,7 @@ implementation with `/cr plan-finalization` using primary + secondary.
 - Capture writes are script-only via `Add-WorkflowNote`; missing required sections/placeholders fail loud, but `No entries for this phase.` is valid and must not fail.
 - The three-cycle CR cap applies independently to `phase-*` and `plan-finalization`. A continuation decision authorizes one cycle only; no context reset, new session, or model change resets the durable count.
 - **Plan layout is resolved, never assumed.** Logs and the evidence receipt live under `assets/logs/` and `assets/evidence.md` in the current layout and at the plan-folder root in legacy plans. Always resolve through `Resolve-PlanAssetPath` (or the scripts that call it) so writers and readers can never disagree — a hand-built path is how split-brain starts.
-- **Locked architecture content is validated, not executed.** Contract changes must pass the architecture-notes write gate and repository integrity sweep. Human promotion remains reviewer-enforced policy; no plan evidence marker or toolchain receipt substitutes for that review.
+- **Locked architecture content is reviewed, not swept.** Contract changes follow the
+  architecture-notes write gate. Human promotion remains reviewer-enforced policy; no plan evidence
+  marker or toolchain receipt substitutes for that review.
 - **Offline rebundle (sealed container/sandbox only).** When `AUTOPILOT_OFFLINE=true` and a step needs a package missing from the feed, stage the **manifest only** (never the lockfile), leave the step `[~]`, make one rebundle-request commit, and `exit 43`. The host launcher regenerates + pushes the lockfile and relaunches (capped by `maxRebundles`). This is distinct from the `42` @human stop. See `.github/skills/autopilot/SKILL.md`.

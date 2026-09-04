@@ -22,8 +22,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot '..' '_Common.ps1')
-
 function Resolve-ConfinedEvalPath {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -46,10 +44,11 @@ function Resolve-ConfinedEvalPath {
         throw "$Label must stay inside the repository: '$candidate'."
     }
 
-    $cursor = [System.IO.Path]::GetPathRoot($candidate)
-    foreach ($segment in $candidate.Substring($cursor.Length).Split(
+    $cursor = $rootFull
+    $segments = @(if ($relative -eq '.') { @() } else { $relative.Split(
             [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
-            [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            [System.StringSplitOptions]::RemoveEmptyEntries) })
+    foreach ($segment in $segments) {
         $cursor = Join-Path $cursor $segment
         $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue
         if ($null -eq $item) {
@@ -300,6 +299,18 @@ function Invoke-SkalaryEvalRun {
         }
         $pluginsRoot = Resolve-ConfinedEvalPath -Root $repoRootPath `
             -Path $(if ($PluginsRoot) { $PluginsRoot } else { 'plugins' }) -Label 'Plugins root' -Directory
+        if (-not $FullRepository) {
+            $expectedPluginsRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRootPath 'plugins'))
+            $comparison = if ($IsWindows) {
+                [System.StringComparison]::OrdinalIgnoreCase
+            }
+            else {
+                [System.StringComparison]::Ordinal
+            }
+            if (-not $pluginsRoot.Equals($expectedPluginsRoot, $comparison)) {
+                throw 'Focused structural evals require the repository plugins directory.'
+            }
+        }
         $outputRootPath = Resolve-ConfinedEvalPath -Root $repoRootPath `
             -Path $(if ($OutputRoot) { $OutputRoot } else { 'tests/evals/output' }) `
             -Label 'Eval output root' -AllowMissing -Directory
@@ -360,7 +371,8 @@ function Invoke-SkalaryEvalRun {
 
     if ($evalTestFiles.Count -gt 0) {
         if (-not (Get-Command Invoke-Pester -ErrorAction SilentlyContinue)) {
-            throw 'Pester is required to run eval tests. Install Pester and rerun.'
+            Write-Host 'PesterNotInstalled: Pester is required to run eval tests. Install Pester and rerun.' -ForegroundColor Red
+            exit 2
         }
 
         $testResult = Invoke-Pester -Path $evalTestFiles.FullName -PassThru
@@ -383,7 +395,7 @@ function Invoke-SkalaryEvalRun {
                 }
             })
         $invalidEntries = @($requiredLines | Where-Object {
-                $_ -match '^\s*-\s+' -and $_ -notmatch '^- `eval:[A-Za-z0-9][A-Za-z0-9_.-]*`$'
+                $_ -match '`eval:' -and $_ -notmatch '^- `eval:[A-Za-z0-9][A-Za-z0-9_.-]*`$'
             })
         if ($invalidEntries.Count -gt 0) {
             $requiredFailures.Add('required structural-eval list contains an invalid entry')
@@ -445,15 +457,17 @@ function Invoke-SkalaryEvalRun {
     Write-Host "  fail:  $($summary.fail)" -ForegroundColor Red
     Write-Host "  skip:  $($summary.skip)" -ForegroundColor Yellow
     Write-Host "  error: $($summary.error)" -ForegroundColor Red
-    Write-Host "  required: $($requiredCaseIds.Count - $requiredFailures.Count)/$($requiredCaseIds.Count)"
+    $requiredPassed = @($requiredCaseIds | Where-Object {
+            $caseId = $_
+            $matches = @($entryArray | Where-Object {
+                    [regex]::IsMatch([string]$_.case, "(?:^|\.)$([regex]::Escape($caseId))(?:\s|$)")
+                })
+            $matches.Count -eq 1 -and [string]$matches[0].outcome -eq 'pass'
+        }).Count
+    Write-Host "  required: $requiredPassed/$($requiredCaseIds.Count)"
     Write-Host "  run dir: $runDir"
     Write-Host "  report:  $reportPath"
     Write-Host "  summary: $reportMdPath"
-
-    if ($summary.fail -gt 0 -or $summary.error -gt 0 -or $requiredFailures.Count -gt 0) {
-        foreach ($failure in $requiredFailures) { Write-Host "  required failure: $failure" -ForegroundColor Red }
-        exit 1
-    }
 
     # The focused selection has the same zero-assertion hole as the unit runner: eval files that
     # load but declare nothing, or files that never load at all, leave a clean zero-failure summary
@@ -468,6 +482,11 @@ function Invoke-SkalaryEvalRun {
             Write-Host "NoEvalsDiscovered: plugin '$Plugin' discovered 0 structural eval case(s). A run that asserts nothing is not a pass." -ForegroundColor Red
             exit 3
         }
+    }
+
+    if ($summary.fail -gt 0 -or $summary.error -gt 0 -or $requiredFailures.Count -gt 0) {
+        foreach ($failure in $requiredFailures) { Write-Host "  required failure: $failure" -ForegroundColor Red }
+        exit 1
     }
 
     exit 0

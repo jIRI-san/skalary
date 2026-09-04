@@ -68,10 +68,10 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 <!-- BEGIN SKALARY PLUGIN CATALOG -->
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
-| `architecture-notes` | 1.0.7 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.2.97 | partial | code-review, create-implementation-plan, self-improvement | 40 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
+| `architecture-notes` | 1.0.8 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
+| `autopilot` | 1.2.98 | partial | code-review, create-implementation-plan, self-improvement | 40 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.66 | stable | — | 36 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
-| `continue-implementation` | 1.0.100 | stable | autopilot, code-review, create-implementation-plan | 21 | Code implementation workflow skill with autonomous execution guidance. |
+| `continue-implementation` | 1.0.101 | stable | autopilot, code-review, create-implementation-plan | 21 | Code implementation workflow skill with autonomous execution guidance. |
 | `create-implementation-plan` | 1.0.84 | stable | design-review | 39 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.65 | stable | — | 34 | Design review orchestrator with model-agnostic concern reviewers. |

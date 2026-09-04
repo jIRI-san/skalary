@@ -94,6 +94,60 @@ Describe 'unselected' {
 
     }
 
+    It 'rejects invalid selected content and empty structural evals' {
+        $invalidJson = Join-Path $script:repoRoot 'artifacts/focused-invalid.json'
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $invalidJson) -Force)
+        try {
+            Set-Content -LiteralPath $invalidJson -Value '{ invalid' -Encoding utf8NoBOM
+            $invalidValidation = Invoke-CapturedPowerShell -ArgumentList @(
+                '-File', $script:validator, '-Path', 'artifacts/focused-invalid.json'
+            )
+            $invalidValidation.ExitCode | Should -Be 1
+            $invalidValidation.Output | Should -Match 'invalid JSON'
+        }
+        finally {
+            Remove-Item -LiteralPath $invalidJson -Force -ErrorAction SilentlyContinue
+        }
+
+        $fixtureRoot = Join-Path $TestDrive 'empty-eval-repo'
+        [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'plugins/empty/evals') -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'tests/evals/output') -Force)
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'plugins/empty/evals/empty.Tests.ps1') `
+            -Value '# intentionally declares no tests' -Encoding utf8NoBOM
+        $emptyEval = Invoke-CapturedPowerShell -ArgumentList @(
+            '-File', $script:evalRunner,
+            '-RepoRoot', $fixtureRoot,
+            '-PluginsRoot', (Join-Path $fixtureRoot 'plugins'),
+            '-OutputRoot', (Join-Path $fixtureRoot 'tests/evals/output'),
+            '-Plugin', 'empty'
+        )
+        $emptyEval.ExitCode | Should -Be 3
+        $emptyEval.Output | Should -Match 'NoEvalsDiscovered'
+
+        [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'plugins/broken/evals') -Force)
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'plugins/broken/evals/broken.Tests.ps1') `
+            -Value 'this is not valid PowerShell {' -Encoding utf8NoBOM
+        $brokenEval = Invoke-CapturedPowerShell -ArgumentList @(
+            '-File', $script:evalRunner,
+            '-RepoRoot', $fixtureRoot,
+            '-PluginsRoot', (Join-Path $fixtureRoot 'plugins'),
+            '-OutputRoot', (Join-Path $fixtureRoot 'tests/evals/output'),
+            '-Plugin', 'broken'
+        )
+        $brokenEval.ExitCode | Should -Be 3
+        $brokenEval.Output | Should -Match 'NoEvalsDiscovered'
+
+        $expandedEval = Invoke-CapturedPowerShell -ArgumentList @(
+            '-File', $script:evalRunner,
+            '-RepoRoot', $fixtureRoot,
+            '-PluginsRoot', $fixtureRoot,
+            '-OutputRoot', (Join-Path $fixtureRoot 'tests/evals/output'),
+            '-Plugin', 'plugins'
+        )
+        $expandedEval.ExitCode | Should -Be 12
+        $expandedEval.Output | Should -Match 'require the repository plugins directory'
+    }
+
     It 'test:LocalFirst.BaselineContract removes hosted and implicit broad entry points while retaining direct explicit routes' {
         @(Get-ChildItem -LiteralPath (Join-Path $script:repoRoot '.github/workflows') `
                 -File -ErrorAction SilentlyContinue).Count | Should -Be 0
@@ -209,6 +263,11 @@ Describe 'unselected' {
                 Should -BeExactly ((@($entry.Value) | Sort-Object) -join ',') `
                     -Because "$($entry.Key) must expose exactly its documented scope parameters and nothing that selects a worker mode"
         }
+        foreach ($path in @($script:unitRunner, $script:evalRunner, $script:validator)) {
+            $text = Get-Content -LiteralPath $path -Raw
+            $text | Should -Match '\$FocusedWarningSeconds\s*=\s*30'
+            $text | Should -Match '\$FocusedTimeoutSeconds\s*=\s*60'
+        }
 
         # Public dispatch must not read a caller-controlled variable or environment value at all.
         foreach ($path in @($script:unitRunner, $script:evalRunner, $script:validator)) {
@@ -252,15 +311,36 @@ Describe 'fast' {
 '@
 
         $supervision = & (Join-Path $script:repoRoot 'scripts/skalary/internal/FocusedSupervision.ps1')
+        $missingBodyCode = & $supervision.InvokeSupervisedBody `
+            -BodyPath (Join-Path $fixtureRoot 'missing-body.ps1') -Request @{} `
+            -Label 'missing worker probe' -WarningSeconds 0.2 -TimeoutSeconds 2
+        $missingBodyCode | Should -Be 14
+        (Get-Content -LiteralPath (
+                Join-Path $script:repoRoot 'scripts/skalary/internal/FocusedSupervision.ps1'
+            ) -Raw) | Should -Match 'FocusedWorkerStartFailed'
+
         $timeoutCode = & $supervision.InvokeSupervisedBody -BodyPath $timeoutBody `
             -Request @{ PidFile = $pidFile } -Label 'timeout probe' `
-            -WarningSeconds 0.2 -TimeoutSeconds 1
+            -WarningSeconds 0.2 -TimeoutSeconds 2
         $timeoutCode | Should -Be 13
         Test-Path -LiteralPath $pidFile -PathType Leaf | Should -BeTrue
         $descendantPid = [int](Get-Content -LiteralPath $pidFile -Raw)
         Start-Sleep -Milliseconds 200
         Get-Process -Id $descendantPid -ErrorAction SilentlyContinue |
             Should -BeNullOrEmpty -Because 'the timeout terminates the current child process tree'
+
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
+Describe 'slow' {
+    It 'waits' { Start-Sleep -Seconds 30 }
+}
+'@
+        $publicTimeout = Invoke-CapturedPowerShell -ArgumentList @(
+            '-File', $script:unitRunner, '-RepoRoot', $fixtureRoot,
+            '-TestPath', 'tests/Slow.Tests.ps1',
+            '-FocusedWarningSeconds', '0.2', '-FocusedTimeoutSeconds', '2'
+        )
+        $publicTimeout.ExitCode | Should -Be 13
+        $publicTimeout.Output | Should -Match 'FocusedTimeout'
 
         # The supervised path still runs the requested work rather than only refusing it.
         $supervisedPass = Invoke-CapturedPowerShell -ArgumentList @(

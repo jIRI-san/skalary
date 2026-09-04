@@ -9,8 +9,9 @@ globs:
 
 # Agent Cost Optimization
 
-Simplicity and useful output outrank additional review voices. These budgets are operator-approved
-defaults, not runtime gates.
+Simplicity and useful output outrank additional review voices. These are operator-approved targets
+for the later review/autopilot simplification child `367e9a`, not claims that the current CR/DR
+dispatch already complies. They remain advisory and add no runtime gate.
 
 ## Advisory budgets
 
@@ -34,6 +35,10 @@ calls only for concrete risk, not role attendance.
 Use the configured primary model for a role. An availability fallback replaces it; it does not run in
 parallel. Multi-model panels, duplicated review passes, and agents that merely repeat repository
 searches are outside the default.
+
+The current CR/DR dispatch is a known transitional exception: post-phase review still fans out by
+concern, and plan finalization still adds a second model. Child `367e9a` owns reducing that existing
+orchestration. New work must not copy or expand it.
 
 ## Context selection
 

@@ -49,6 +49,7 @@ $invokeSupervisedBody = {
     $stdoutTask = $null
     $stderrTask = $null
     $timedOut = $false
+    $started = $false
     $exitCode = 14
 
     try {
@@ -79,6 +80,7 @@ $invokeSupervisedBody = {
         $process = [System.Diagnostics.Process]::new()
         $process.StartInfo = $startInfo
         [void]$process.Start()
+        $started = $true
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
 
@@ -117,8 +119,14 @@ $invokeSupervisedBody = {
         if ($null -ne $process -and -not $process.HasExited) {
             try { $process.Kill($true) } catch { }
         }
-        [System.Console]::Out.WriteLine("FocusedWorkerStartFailed: $Label could not run: $($_.Exception.Message)")
-        $exitCode = 14
+        if ($started) {
+            [System.Console]::Out.WriteLine("FocusedWorkerFailed: $Label failed after start: $($_.Exception.Message)")
+            $exitCode = 1
+        }
+        else {
+            [System.Console]::Out.WriteLine("FocusedWorkerStartFailed: $Label could not run: $($_.Exception.Message)")
+            $exitCode = 14
+        }
     }
     finally {
         $clock.Stop()

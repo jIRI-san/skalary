@@ -5,6 +5,7 @@ globs:
   - scripts/skalary/Run-UnitTests.ps1
   - scripts/skalary/Test-Evals.ps1
   - scripts/skalary/Invoke-WazaEvals.ps1
+  - scripts/skalary/internal/*.ps1
   - package.json
   - .autopilot.json
 ---
@@ -84,3 +85,4 @@ one passing run, one warning, one zero-selection failure, and one timeout that t
 explicit direct switches remain, and Waza rejects an intermediate linked directory.
 `test:LocalFirst.ActiveAuthorityReferences` keeps active architecture notes from asserting authority the
 removed workflows carried.
+`test:LocalFirst.PackageScriptReferences` keeps active guidance free of removed package aliases.

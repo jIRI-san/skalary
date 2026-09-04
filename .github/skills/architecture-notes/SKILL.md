@@ -57,7 +57,7 @@ context: fork
    - **adr-harvest** — turn a finalized plan's decisions into proposed ADRs (Step 9).
 2. If `docs/architecture-notes/.architecture-notes.md` does not exist and the operation is not
    **seed**, scaffold the tier first:
-   - `pwsh -NoProfile -File <scripts>/Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>`
+   - `<scripts>/Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>`
 3. Load the index and only the note(s)/contract(s) relevant to the task. Keep context lean.
 
 ## Step 2: Create a contract
@@ -98,9 +98,9 @@ context: fork
    whose review record cannot be established as pending re-review.
 6. Report only; do not mutate. Recommend the next incremental lock.
 
-## Steps 6-9: Seed, legacy human-doc regen, ADR harvest
+## Steps 6, 8, and 9: Seed, legacy human-doc regen, ADR harvest
 
-These four operations run rarely and their detail lives in `./assets/tier-operations-guide.md`.
+These three operations run rarely and their detail lives in `./assets/tier-operations-guide.md`.
 Read that file when — and only when — the requested operation is one of them; do not run any of
 them from memory.
 

@@ -17,7 +17,7 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
 2. Run a short seeding interview (system type, top-level layers, primary module boundaries).
    Follow `./assets/interview-guide.md` for the canonical question set. Record the answers into a
    temporary seed-spec JSON (shape documented in the guide; it is input, not repository state).
-3. Materialize the seed: `pwsh -NoProfile -File <scripts>/New-ArchSeed.ps1 -TargetRoot <repoRoot>
+3. Materialize the seed: `<scripts>/New-ArchSeed.ps1 -TargetRoot <repoRoot>
    -SeedSpecPath <seed.json>`. It writes **1–2 `draft` Markdown contract notes** — never a `locked`
    contract, never overwriting existing files.
 4. Thereafter `/can` grows the tier one contract at a time (with `/cip` planning driving which
@@ -30,7 +30,7 @@ for the two transferred legacy JSON contracts. Markdown contract notes are alrea
 and are not duplicated into this generated file. Remove this operation when the owning children
 convert or delete the final legacy JSON contracts.
 
-1. Run the generator: `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
+1. Run the generator: `<scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
    It materializes the doc from the template on first run, then rebuilds only the region between
    the `BEGIN/END GENERATED: contracts` markers (diagram + component summary) from the contract
    sources, preserving the hand-authored Purpose / Decision Records / Resources sections.
@@ -49,7 +49,7 @@ Decision Records. The plan's decision records — `assets/decisions/*.md` in the
 `decisions/*.md` for legacy plan folders — are the source of truth; each becomes one ADR. Pass the
 plan folder to `-PlanDir`; the script resolves which of the two locations is in use.
 
-1. Run the harvest: `pwsh -NoProfile -File <scripts>/Import-ArchAdr.ps1 -PlanDir <plan-folder>
+1. Run the harvest: `<scripts>/Import-ArchAdr.ps1 -PlanDir <plan-folder>
    -RepoRoot <repoRoot>`. It writes one **proposed** ADR per decision under
    `docs/architecture-notes/.staging/adr/` from `./assets/adr-template.md`, plus an `ADR-HARVEST.md`
    manifest carrying `reviewed: false`. It never edits `.architecture-notes.md` and never marks an

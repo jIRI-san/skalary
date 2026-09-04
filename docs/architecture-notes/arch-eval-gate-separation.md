@@ -2,6 +2,7 @@
 description: Architecture note for Two-tier eval gate separation — its interface-level boundary and the contracts that govern it. Load when working on code under the scope globs below.
 globs:
   - "scripts/skalary/{Test-Evals,Invoke-WazaEvals}.ps1"
+  - "scripts/skalary/internal/Invoke-EvalRun.ps1"
 ---
 
 # Two-tier eval gate separation — Architecture Note

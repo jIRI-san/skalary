@@ -32,7 +32,7 @@ function Resolve-DependencyId {
             }
         }
         catch {
-            # No unambiguous plan match; fall back to literal token comparison below.
+            throw "Dependency reference '$Reference' could not be resolved: $($_.Exception.Message)"
         }
     }
     return $literal
@@ -49,13 +49,7 @@ function Test-PlanDependsOnTarget {
         [string]$TargetReference
     )
 
-    $inventory = @()
-    try {
-        $inventory = @(Get-PlanInventory -RepoRoot $Root)
-    }
-    catch {
-        $inventory = @()
-    }
+    $inventory = @(Get-PlanInventory -RepoRoot $Root)
 
     # Resolve the guarded plan reference and every declared dependency to a canonical id so a
     # legacy 3-digit number, a hash (prefix), a slug, or a date all trigger identical behavior.

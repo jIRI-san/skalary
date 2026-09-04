@@ -12,7 +12,7 @@
     resolution. A child-start failure exits 14. The direct operator-only -FullRepository route runs in
     this process and retains the repository-wide parse and supporting checks.
     The full file set comes from PayloadScope.psm1, which enumerates an allowlist of
-    payload roots so both platforms see the same files (REQ-8).
+    payload roots so supported hosts see the same files (REQ-8).
     Full scope is opt-in through -FullRepository so a focused phase check cannot
     accidentally expand into this repository-wide scan.
     No external modules are required, so it runs identically on the Windows host
@@ -66,9 +66,8 @@ if (-not $FullRepository) {
 $errors = [System.Collections.Generic.List[string]]::new()
 
 # REQ-8/RISK-5: the file set is an allowlist of payload roots, canonicalised, with
-# reparse points refused. Without it `.github` was parsed on Windows and skipped on
-# Linux — where pwsh treats dot-prefixed entries as hidden — so the two CI legs passed
-# over different files while both reported success.
+# reparse points refused. Without it hosts can enumerate dot-prefixed payloads differently and
+# report success over different file sets.
 Import-Module (Join-Path $PSScriptRoot 'skalary/PayloadScope.psm1') -Force -DisableNameChecking
 
 Write-Host '== Validating PowerShell scripts =='

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T18:46:40.0605199Z",
+  "generatedAt": "2026-09-04T20:12:28.1053739Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "bdc9fbae5d458e75dcf05c4b948f8f6423e1797650be4ddeb64d890a411027b9",
+          "sha256": "1e40db4585bbc55e38cdc4dd7b33d6a9742628bb68ff895f37e1771a7961b892",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -56,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "779c3d3e7e8a339fc2ea6bcf20295fdf5f0fcb9e2cc0950d3f4594109a958268",
+          "sha256": "a9d2f2f8bc7b52bbb3da34ef58c849cb757f4c8c36786472fa46df54c72cf643",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
@@ -130,7 +130,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.7"
+      "version": "1.0.8"
     },
     {
       "author": "jIRI-san",
@@ -146,7 +146,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "69a950dfd311c815b9605ecb5f56761a99fb6ac33b8d7bae6a731d2a24489e1f",
+          "sha256": "c45c1dcfb4df638bf6267d2c1bbcd75dfcb0efa59c73c36a389c13c0cb78b11f",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -171,7 +171,7 @@
         },
         {
           "dest": "skills/autopilot/devcontainer/container-toolchain-smoke.sh",
-          "sha256": "5ff94ab4e5bf279ae425c72594bf603ac75889cc53ff50bccf4e989996d4c8ef",
+          "sha256": "8f38211152754a5677fd83f9fd55ce987d4a7e8bfcbf505d3de1dc1a7e67d3c8",
           "src": "devcontainer/container-toolchain-smoke.sh"
         },
         {
@@ -271,7 +271,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "bda4663d7bbf327066542257e6a157ca34910b6b53346bf9ef6416d1b7ad6368",
+          "sha256": "d1a376221044cc6ddcaaed021c9c7b3db583c134e2eb53ac255f85c1e353f40f",
           "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -370,7 +370,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.97"
+      "version": "1.2.98"
     },
     {
       "author": "jIRI-san",
@@ -595,7 +595,7 @@
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "5622a1797ae0e27ae9ac7ac438624f132c58690caa8750a968b692f9a53721db",
+          "sha256": "d7e034293373e74fb3dfcee0980a7eaa225827c7d7aa9917a9aae440856db1c5",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -680,7 +680,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "bda4663d7bbf327066542257e6a157ca34910b6b53346bf9ef6416d1b7ad6368",
+          "sha256": "d1a376221044cc6ddcaaed021c9c7b3db583c134e2eb53ac255f85c1e353f40f",
           "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -765,7 +765,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.100"
+      "version": "1.0.101"
     },
     {
       "author": "jIRI-san",

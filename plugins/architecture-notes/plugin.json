@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",

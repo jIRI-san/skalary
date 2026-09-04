@@ -485,6 +485,7 @@ Describe 'Autopilot container toolchain' {
         $smokeContent | Should -Match 'readlink /usr/local/bin/bat\)" == /usr/bin/batcat'
 
         $smokeContent | Should -Match 'skalary/container-toolchain-smoke@1'
+        $smokeContent | Should -Match 'toolchain case %s failed'
         $smokeContent | Should -Match '\$\{package_version:0:128\}'
         $smokeContent | Should -Match 'head -c 64'
         $smokeContent | Should -Match '\.\[0:253\]'

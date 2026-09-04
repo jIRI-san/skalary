@@ -79,8 +79,9 @@ function Assert-WazaFocusedScope {
         throw "Selected plugin does not exist inside the repository: '$Plugin'."
     }
     $spec = Join-Path $pluginRoot 'evals/waza/eval.yaml'
-    $cursor = [System.IO.Path]::GetPathRoot($spec)
-    foreach ($segment in $spec.Substring($cursor.Length).Split(
+    $cursor = $root
+    $specRelative = [System.IO.Path]::GetRelativePath($root, $spec)
+    foreach ($segment in $specRelative.Split(
             [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
             [System.StringSplitOptions]::RemoveEmptyEntries)) {
         $cursor = Join-Path $cursor $segment
@@ -111,6 +112,7 @@ function Get-WazaEvalSpec {
         [Parameter(Mandatory)]
         [string]$PluginsRoot,
 
+        [Parameter(Mandatory)]
         [string]$Plugin
     )
 
@@ -118,17 +120,9 @@ function Get-WazaEvalSpec {
         return @()
     }
 
-    $specs = Get-ChildItem -LiteralPath $PluginsRoot -Recurse -File -Filter 'eval.yaml' -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName.Replace('\', '/') -match '/plugins/(?<plugin>[^/]+)/evals/waza/eval\.yaml$' } |
-        Sort-Object FullName
-
-    if (-not [string]::IsNullOrWhiteSpace($Plugin)) {
-        $specs = $specs | Where-Object {
-            $_.FullName.Replace('\', '/') -match "/plugins/$([regex]::Escape($Plugin))/evals/waza/eval\.yaml$"
-        }
-    }
-
-    return @($specs | ForEach-Object { $_.FullName })
+    $spec = Join-Path $PluginsRoot (Join-Path $Plugin 'evals/waza/eval.yaml')
+    if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) { return @() }
+    return @((Get-Item -LiteralPath $spec).FullName)
 }
 
 function Get-PluginFromSpecPath {
@@ -370,45 +364,6 @@ function New-WazaRunArgument {
         $runArgs.Add($Case)
     }
     return $runArgs.ToArray()
-}
-
-function Select-ChangedPlugin {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyCollection()]
-        [string[]]$ChangedPaths
-    )
-
-    $plugins = [System.Collections.Generic.List[string]]::new()
-    foreach ($path in $ChangedPaths) {
-        if ($path.Replace('\', '/') -match '(^|/)plugins/(?<plugin>[^/]+)/') {
-            $name = [string]$Matches.plugin
-            if (-not $plugins.Contains($name)) {
-                $plugins.Add($name)
-            }
-        }
-    }
-    return @($plugins)
-}
-
-function Get-ChangedPluginName {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RepoRoot
-    )
-
-    Push-Location $RepoRoot
-    try {
-        $changed = @(& git diff --name-only 2>$null) +
-        @(& git diff --name-only --cached 2>$null) +
-        @(& git ls-files --others --exclude-standard 2>$null)
-    }
-    finally {
-        Pop-Location
-    }
-    return Select-ChangedPlugin -ChangedPaths @($changed)
 }
 
 function Get-WazaCostEstimate {

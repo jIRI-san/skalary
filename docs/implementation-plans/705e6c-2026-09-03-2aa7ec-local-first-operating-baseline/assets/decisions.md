@@ -53,3 +53,22 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
   update each changed format with its producer/consumers, synchronize workflow-authoritative guidance
   with workflow deletion, and bind transfer rows to children. Do not add authentication, transaction,
   receipt, or durable inventory machinery.
+
+## Final review triage
+
+- **Fix direct local regressions only.** Remove the dead architecture sweep, make dependency resolution
+  fail loud, keep focused plugin selection confined, reject linked validation descendants, preserve
+  useful worker/container diagnostics, remove dead Waza discovery, correct stale architecture-skill
+  text, narrow the default test, and add focused evidence for malformed input, empty evals, defaults,
+  and public timeout forwarding.
+- **Keep the cost RFC as a target, not a false current-state claim.** Existing CR/DR fan-out is a
+  transitional exception owned by child `367e9a`; this plan does not rework review orchestration.
+- **Defer unrelated pre-existing subsystem issues.** ADR filename collision behavior belongs to the
+  architecture-notes subsystem, not this local validation baseline.
+- **Reject framework and broad-test expansion.** Do not replace four small local confinement checks
+  with a new shared abstraction, add output-streaming infrastructure for trusted focused commands, or
+  execute broad operator-only routes as routine evidence. Measured focused commands remain the
+  authority for performance; speculative scale concerns do not justify machinery.
+- **Accept the documented timeout boundary.** Detached descendant output can be incomplete after a
+  timeout; the trusted single-operator threat model does not justify process-group or output-pump
+  infrastructure.

@@ -25,15 +25,14 @@ function Resolve-ConfinedRegularPath {
         throw "$Label must stay inside the repository: '$candidate'."
     }
 
-    $volumeRoot = [System.IO.Path]::GetPathRoot($candidate)
-    $cursor = $volumeRoot
-    $segments = $candidate.Substring($volumeRoot.Length).Split(
+    $cursor = $rootFull
+    $segments = @(if ($relative -eq '.') { @() } else { $relative.Split(
         [char[]]@(
             [System.IO.Path]::DirectorySeparatorChar,
             [System.IO.Path]::AltDirectorySeparatorChar
         ),
         [System.StringSplitOptions]::RemoveEmptyEntries
-    )
+    ) })
     for ($index = 0; $index -lt $segments.Count; $index++) {
         $cursor = Join-Path $cursor $segments[$index]
         $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue

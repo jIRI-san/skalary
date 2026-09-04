@@ -32,7 +32,7 @@ function Resolve-DependencyId {
             }
         }
         catch {
-            # No unambiguous plan match; fall back to literal token comparison below.
+            throw "Dependency reference '$Reference' could not be resolved: $($_.Exception.Message)"
         }
     }
     return $literal
@@ -49,22 +49,18 @@ function Test-PlanDependsOnTarget {
         [string]$TargetReference
     )
 
-    $inventory = @()
-    try {
-        $inventory = @(Get-PlanInventory -RepoRoot $Root)
-    }
-    catch {
-        $inventory = @()
-    }
-
-    # Resolve the guarded plan reference and every declared dependency to a canonical id so a
-    # legacy 3-digit number, a hash (prefix), a slug, or a date all trigger identical behavior.
-    $targetId = Resolve-DependencyId -Reference $TargetReference -Root $Root -Inventory $inventory
+    $inventory = @(Get-PlanInventory -RepoRoot $Root)
 
     $content = Get-Content -LiteralPath $Path -Raw -Encoding utf8
     foreach ($match in [regex]::Matches($content, '<!--\s*depends-on:\s*(?<deps>[^>]+?)-->', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
         $deps = $match.Groups['deps'].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
         foreach ($dep in $deps) {
+            if ($dep.Equals($TargetReference, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+            # Non-identical aliases must resolve unambiguously. Resolution failures are blocking
+            # rather than silently degrading to unrelated literal comparisons.
+            $targetId = Resolve-DependencyId -Reference $TargetReference -Root $Root -Inventory $inventory
             if ((Resolve-DependencyId -Reference $dep -Root $Root -Inventory $inventory) -eq $targetId) {
                 return $true
             }
