@@ -32,10 +32,20 @@ Describe 'required structural eval enforcement' {
             [System.IO.File]::WriteAllText(
                 $requiredPath, $requiredContent + "`n", [System.Text.UTF8Encoding]::new($false))
             try {
+                $outputRoot = Join-Path $root 'output'
                 $output = & pwsh -NoProfile -File $script:runner -RepoRoot $root `
                     -PluginsRoot (Join-Path $root 'plugins') -RequiredListPath $requiredPath `
-                    -OutputRoot (Join-Path $root 'output') -FullRepository 2>&1
-                return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
+                    -OutputRoot $outputRoot -FullRepository 2>&1
+                $reportPath = Get-ChildItem -LiteralPath $outputRoot -Recurse -File -Filter 'report.json' |
+                    Select-Object -First 1 -ExpandProperty FullName
+                $report = if ($reportPath) {
+                    Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+                }
+                return [pscustomobject]@{
+                    ExitCode = $LASTEXITCODE
+                    Output = ($output | Out-String)
+                    Report = $report
+                }
             }
             finally { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
         }
@@ -79,5 +89,7 @@ Describe 'fixture' {
         $unloadable.ExitCode | Should -Be 1
         $unloadable.Output | Should -Match 'structural eval file\(s\) failed to load'
         $unloadable.Output | Should -Match 'error:\s+1'
+        $unloadable.Report.summary.error | Should -Be 1
+        $unloadable.Report.requiredCases.failures | Should -Contain '1 structural eval file(s) failed to load'
     }
 }

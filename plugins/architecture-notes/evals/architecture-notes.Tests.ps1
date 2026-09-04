@@ -292,16 +292,18 @@ Describe 'architecture-notes greenfield seeding evals' {
                 'ARCH-Domain-Isolation' = @{
                     Prose = 'Domain owns rules; never references Api or Infrastructure.'
                     Scope = 'src/Domain/**'
+                    Note = 'arch-domain-isolation.md'
                 }
                 'ARCH-Api-Boundary' = @{
                     Prose = 'Api is the only inbound surface; it must not contain business rules.'
                     Scope = 'src/Api/**'
+                    Note = 'arch-api-boundary.md'
                 }
             }
             foreach ($c in $result.Contracts) {
                 $c.Maturity | Should -Be 'draft'
                 Test-Path -LiteralPath $c.Path -PathType Leaf | Should -BeTrue
-                $c.Path | Should -Match '\.md$'
+                $c.Path | Should -Be (Join-Path $target "docs/architecture-notes/$($expected[$c.Id].Note)")
                 $body = Get-Content -LiteralPath $c.Path -Raw
                 $body | Should -Match ([regex]::Escape($c.Id))
                 $body | Should -Match ([regex]::Escape($expected[$c.Id].Prose))
@@ -318,6 +320,7 @@ Describe 'architecture-notes greenfield seeding evals' {
                 $index | Should -Match ([regex]::Escape($c.Id))
                 $index | Should -Match ([regex]::Escape($c.Note))
             }
+            $index | Should -Match '(?s)## Decision Records \(active\).*\| _none yet_ \|'
         }
         finally {
             Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
@@ -364,6 +367,13 @@ Describe 'architecture-notes greenfield seeding evals' {
                 )
             } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $dupSpec
             { & $script:seedScript -TargetRoot $target -SeedSpecPath $dupSpec } | Should -Throw
+
+            $unsafeSpec = Join-Path $target 'unsafe.json'
+            @{ project = 'Unsafe'; boundaries = @(
+                    @{ id = 'ARCH-Unsafe'; title = 'Break: YAML'; prose = 'x'; scope = 'src/**' }
+                ) } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $unsafeSpec
+            { & $script:seedScript -TargetRoot $target -SeedSpecPath $unsafeSpec } | Should -Throw
+            Test-Path -LiteralPath (Join-Path $target 'docs') | Should -BeFalse
         }
         finally {
             Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
@@ -452,12 +462,15 @@ Describe 'architecture-notes human-doc generation evals' {
     It 'HumanDoc-Generated: canonical hash is order-stable and add/delete-sensitive' {
         . $script:hashScript
         $schemasDir = Join-Path $script:fixture 'schemas/architecture'
+        $hashFixturePath = Join-Path $schemasDir 'ARCH-Hash-Fixture.json'
+        @{ id = 'ARCH-Hash-Fixture'; title = 'Hash fixture'; maturity = 'draft'; prose = 'Temporary.' } |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $hashFixturePath
         $a = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
         $b = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
         $a | Should -Be $b   # deterministic
 
         # Deleting a contract changes the digest.
-        Remove-Item -LiteralPath (Join-Path $schemasDir 'ARCH-Infra.json') -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $hashFixturePath -Force
         $c = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
         $c | Should -Not -Be $a
     }
