@@ -38,7 +38,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
 - [x] 1.1 Inventory active gates, JSON, tests, notes, and contracts with category counts, reasons, and canonical child owners (REQ-2, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-4, RISK-5) `M`
-- [ ] 1.2 Resolve every uncertain test disposition before deletion (REQ-5, REQ-6, RISK-1) [after: 1.1] @human `S`
+- [x] 1.2 Resolve every uncertain test disposition before deletion (REQ-5, REQ-6, RISK-1) [after: 1.1] @human `S`
   <details><summary>Details</summary>
 
   **Steps:**

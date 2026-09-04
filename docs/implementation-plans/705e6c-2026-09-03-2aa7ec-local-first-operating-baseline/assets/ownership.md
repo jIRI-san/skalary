@@ -23,7 +23,7 @@ Plan `2aa7ec` step 1.1 snapshot, taken from tracked repository content on 2026-0
 |---|---:|---:|---:|---:|---:|
 | Gate | 23 | 3 | 3 | 17 | 0 |
 | JSON | 111 | 5 | 97 | 9 | 0 |
-| Test | 124 | 22 | 93 | 7 | 2 |
+| Test | 124 | 24 | 93 | 7 | 0 |
 | Design note | 27 | 9 | 18 | 0 | 0 |
 | Architecture contract | 8 | 3 | 4 | 1 | 0 |
 
@@ -237,7 +237,7 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Test | `tests/skalary/LearningLoop.Tests.ps1` | `3a4498` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
 | Test | `tests/skalary/Marketplace.Tests.ps1` | `623cc2` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
 | Test | `tests/skalary/Migrate-PlanFolderPrefixes.Tests.ps1` | `367e9a` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
-| Test | `tests/skalary/ModelAllowlist.Tests.ps1` | `2aa7ec` | `uncertain` | — | Operator must decide whether model allowlisting protects current user behavior after simplification. | — |
+| Test | `tests/skalary/ModelAllowlist.Tests.ps1` | `2aa7ec` | `keep` | current user behavior | Prevents host-incompatible model bindings from breaking agent execution; prune to the small core host-format and runtime-binding cases. | — |
 | Test | `tests/skalary/New-Plan.Tests.ps1` | `367e9a` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
 | Test | `tests/skalary/PayloadScope.Tests.ps1` | `2aa7ec` | `keep` | high-impact regression | Protects shared runner confinement, discovery, or execution from broad breakage. | — |
 | Test | `tests/skalary/PhaseReceiptMigration.Tests.ps1` | `367e9a` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
@@ -282,7 +282,7 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Test | `tests/skalary/SiWriteScope.Tests.ps1` | `3a4498` | `transfer` | — | Subsystem test transfers with the behavior and formats its child owns. | — |
 | Test | `tests/skalary/Skalary.Tests.ps1` | `2aa7ec` | `keep` | high-impact regression | Protects shared runner confinement, discovery, or execution from broad breakage. | — |
 | Test | `tests/skalary/SkillContracts.Tests.ps1` | `2aa7ec` | `keep` | external format | Protects a file contract consumed by Copilot customization tooling. | — |
-| Test | `tests/skalary/SkillSize.Tests.ps1` | `2aa7ec` | `uncertain` | — | Operator must decide whether the size cap protects user behavior or only policy machinery. | — |
+| Test | `tests/skalary/SkillSize.Tests.ps1` | `2aa7ec` | `keep` | high-impact regression | Prevents recurring context-cost growth in always-loaded skills; prune to cap enforcement and hidden-mirror coverage. | — |
 | Test | `tests/skalary/SuiteBudget.Tests.ps1` | `2aa7ec` | `delete` | — | Whole-suite budget machinery conflicts with focused local validation. | — |
 | Test | `tests/skalary/SuiteCoverage.Tests.ps1` | `2aa7ec` | `delete` | — | Coverage-baseline machinery preserves the broad suite, not focused value. | — |
 | Test | `tests/skalary/SuiteFixture.Tests.ps1` | `2aa7ec` | `keep` | high-impact regression | Protects shared runner confinement, discovery, or execution from broad breakage. | — |
@@ -331,11 +331,11 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Architecture contract | `ARCH-Review-Run-V1 @ schemas/architecture/ARCH-Review-Run-V1.json` | `367e9a` | `transfer` | — | Logical review authority contract transfers with review ownership. | — |
 | Architecture contract | `schemas/architecture/architecture-contract.schema.json` | `2aa7ec` | `delete` | — | Internal validation schema has no external consumer; Markdown contracts replace schema machinery. | — |
 
-## Operator step 1.2: unresolved tests
+## Operator step 1.2: resolved tests
 
-Two baseline-owned tests remain unresolved. Decide `keep` or `delete`; if kept, replace `—` with exactly one allowed value category and tighten the reason.
+The operator retained both formerly uncertain tests with targeted pruning:
 
-- `tests/skalary/ModelAllowlist.Tests.ps1` — unclear whether it protects current user behavior after model-choice simplification.
-- `tests/skalary/SkillSize.Tests.ps1` — unclear whether it protects current user behavior or only the retired size-policy mechanism.
+- `tests/skalary/ModelAllowlist.Tests.ps1` — keep the small core that prevents host-incompatible model bindings.
+- `tests/skalary/SkillSize.Tests.ps1` — keep cap enforcement and hidden-mirror coverage to control recurring context cost.
 
-No transferred test is marked uncertain; each later child owns its final test disposition.
+No test is marked uncertain; each later child owns its transferred test disposition.
