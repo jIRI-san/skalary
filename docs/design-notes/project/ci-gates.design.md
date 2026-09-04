@@ -56,8 +56,7 @@ They do not invoke broad or premium routes.
 
 `-FullRepository` is the sole broad selector for `Run-UnitTests.ps1`, `Test-Evals.ps1`, and
 `validate.ps1`. It is available only as an explicit direct script switch: there is no npm alias,
-agent caller, identity check, or authorization layer. Unit Slow/All modes therefore also require
-`-FullRepository`.
+agent caller, identity check, tier, budget, or authorization layer.
 
 Waza is a separate premium, nondeterministic route:
 
@@ -70,11 +69,11 @@ token resolution, or output creation. There is no Waza package or skill alias.
 
 ## Retained broad behavior
 
-The direct broad switches preserve legacy diagnostic capability while later cleanup owns tier,
-profile, coverage, and internal-JSON retirement. `validate.ps1 -FullRepository` still performs its
-repository parse and local consistency checks. `Test-Evals.ps1 -FullRepository` still verifies every
-required structural ID. `Run-UnitTests.ps1 -FullRepository` still derives its selected tier from the
-existing tier manifest. These routes are operator diagnostics, not required gates.
+The direct broad switches remain operator diagnostics, not required gates. `validate.ps1
+-FullRepository` performs repository parse and local consistency checks. `Test-Evals.ps1
+-FullRepository` verifies every ID in `tools/structural-eval-required.md`. `Run-UnitTests.ps1
+-FullRepository` directly selects all `*.Tests.ps1` files under `tests/`; it has no tier, profile,
+coverage, or runtime-budget machinery.
 
 ## Evidence
 

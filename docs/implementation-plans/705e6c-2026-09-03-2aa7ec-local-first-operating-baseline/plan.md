@@ -58,7 +58,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 2.1 Apply baseline test dispositions and delete tier, profile, coverage, and workflow-only support (REQ-2, REQ-4, REQ-5, REQ-6, RISK-1, RISK-2, RISK-5) [after: 1.3] `L`
 - [x] 2.2 Convert or delete baseline-owned internal JSON with its producers/consumers and bind transferred rows into child references (REQ-5, REQ-7, RISK-4, RISK-5) [after: 2.1] `M`
-- [ ] 2.3 Synchronize local-first design notes, architecture indexes, and affected provisional contracts (REQ-1, REQ-2, REQ-7, REQ-11, RISK-2) [after: 2.2] `S`
+- [x] 2.3 Synchronize local-first design notes, architecture indexes, and affected provisional contracts (REQ-1, REQ-2, REQ-7, REQ-11, RISK-2) [after: 2.2] `S`
 
 ## Phase 3: Ergonomic shared rules
 <!-- worktree: (recorded by /ci when worktree is created) -->

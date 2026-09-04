@@ -38,12 +38,10 @@ globs:
   `validate.ps1` gate. A plan that cites one as typed `test:` evidence still executes that named
   Pester case and blocks its crosscheck on failure. Always-on cross-surface invariants belong in
   `tests/` and the existing unit suite.
-- **Runtime rows are measured, never relabeled.** `npm test` is a focused fixed-scope check and
-  reports no suite runtime at all: stale tracked-input fingerprints and runtime overruns surface
-  as advisory warnings only on a direct `Run-UnitTests.ps1 -FullRepository` run. Refresh only
-  through `Measure-SuiteRuntime.ps1`, which emits a fingerprinted candidate afterward. Do not copy
-  an old elapsed figure onto a new fingerprint. Runtime observations never block plan finalization
-  or trigger automatic repair/rerun loops; revisit enforcement with the future test-infrastructure redesign.
+- **Do not maintain suite tiers, runtime baselines, coverage inventories, or budget clocks.** They
+  turned test execution into a subsystem without making routine work cheaper. Keep focused commands
+  below 30 seconds by selecting only affected files or plugins; report a slow command rather than
+  introducing measurement state.
 
 ## Git History
 

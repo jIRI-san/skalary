@@ -276,7 +276,7 @@ the installer's non-runtime `evals/` mappings, and compares that expected set wi
 per-plugin receipts, dependency closure, and `.github/` confinement. It separately compares every
 manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
 make the production installer and its test agree on the same wrong payload. The process-heavy
-evidence lives in the existing Slow suite tier.
+inventory test is an explicit operator diagnostic for installer changes, not routine validation.
 
 `Test-ConsumerRuntimeReferenceClosure` composes that installed inventory with the production
 `Sync-PluginScripts.ps1 -WhatIf` scan. The named evidence proves literal installed references and
