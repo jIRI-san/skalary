@@ -14,6 +14,10 @@ computed review-run temporary JSON inputs permitted by the absolute rule in
 [`./assets/collation-guide.md`](./assets/collation-guide.md).
 The fixed installed writer is `.github/skills/dr/scripts/Build-ReviewReport.ps1`.
 
+**Simplicity gate:** the repository's simplicity-first design note outranks reviewer preferences.
+Prefer deletion, reuse, or a local fix. Do not require speculative infrastructure; when simple and
+safe conflict, preserve the documented simple choice and its dubious-decision record.
+
 ## Step 1: Locate the plan
 
 Read [`./assets/plan-scope-guide.md`](./assets/plan-scope-guide.md). It owns explicit-path, session

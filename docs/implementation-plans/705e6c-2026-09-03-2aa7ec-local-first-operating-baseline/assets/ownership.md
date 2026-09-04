@@ -24,12 +24,12 @@ Plan `2aa7ec` step 1.1 snapshot, taken from tracked repository content on 2026-0
 | Gate | 23 | 2 | 4 | 17 | 0 |
 | JSON | 111 | 5 | 97 | 9 | 0 |
 | Test | 124 | 24 | 93 | 7 | 0 |
-| Design note | 28 | 10 | 18 | 0 | 0 |
+| Design note | 29 | 11 | 18 | 0 | 0 |
 | Architecture contract | 8 | 3 | 4 | 1 | 0 |
 
-**Total category rows:** 294. Rows are counted by category; the four architecture JSON files intentionally also appear as contract/schema decisions.
+**Total category rows:** 295. Rows are counted by category; the four architecture JSON files intentionally also appear as contract/schema decisions.
 
-**Coverage arithmetic:** 267 unique file paths across JSON, tests, notes, and architecture records; 16 workflow-hosted gate/support invocations; and 7 `validate.ps1`-only gate invocations. The four architecture JSON overlaps bring the category-row total to 294.
+**Coverage arithmetic:** 268 unique file paths across JSON, tests, notes, and architecture records; 16 workflow-hosted gate/support invocations; and 7 `validate.ps1`-only gate invocations. The four architecture JSON overlaps bring the category-row total to 295.
 
 ## Items
 
@@ -323,6 +323,7 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Design note | `docs/design-notes/project/copilot-customizations.design.md` | `2aa7ec` | `keep` | — | Active baseline or unaffected-plugin guidance remains human-readable and is updated in place. | — |
 | Design note | `docs/design-notes/project/design-note-writing-style.design.md` | `2aa7ec` | `keep` | — | Active baseline or unaffected-plugin guidance remains human-readable and is updated in place. | — |
 | Design note | `docs/design-notes/project/dev-rules.design.md` | `2aa7ec` | `keep` | — | Active baseline or unaffected-plugin guidance remains human-readable and is updated in place. | — |
+| Design note | `docs/design-notes/project/simplicity-first.design.md` | `2aa7ec` | `keep` | — | The first repository rule keeps implementation and review proportional to a trusted single-operator skill repository. | — |
 | Architecture contract | `docs/architecture-notes/.architecture-notes.md` | `2aa7ec` | `keep` | — | Active human-readable architecture index remains the contract directory. | — |
 | Architecture contract | `docs/architecture-notes/arch-eval-gate-separation.md` | `2aa7ec` | `keep` | — | Local structural-versus-LLM eval boundary remains readable guidance. | — |
 | Architecture contract | `docs/architecture-notes/arch-install-confinement.md` | `623cc2` | `transfer` | — | Install confinement belongs with lifecycle and installer changes. | — |
@@ -343,7 +344,7 @@ No test is marked uncertain; each later child owns its transferred test disposit
 
 ## Baseline closure
 
-Step 3.3 closed all 78 rows owned by `2aa7ec`: 44 retained local or external-facing rows and 34
+Step 3.3 closed all 79 rows owned by `2aa7ec`: 45 retained local or external-facing rows and 34
 deletions. Retained paths are present, deleted paths are absent, hosted workflow files are absent,
 and the two retained validation gates remain local. The other 216 rows already name exactly one
 later child (`367e9a`, `3a4498`, or `623cc2`); they are transferred scope, not baseline residue.

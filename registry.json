@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T18:12:16.9198814Z",
+  "generatedAt": "2026-09-04T18:30:43.4159228Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -432,7 +432,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "2e73e189260fb78fac96fdd428421b64e7e777f33fbb7b184b93a7068328b2c4",
+          "sha256": "855666e88303e3ff81fa2a3c0147ff6f52904371a8dd0988883f156f8b60f24b",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -569,7 +569,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.64"
+      "version": "1.0.65"
     },
     {
       "author": "jIRI-san",
@@ -1128,7 +1128,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "4565e193ee99b7969df193407f294dd735464313e49c72dba3d320a9833b0a4c",
+          "sha256": "d19a2bd98a9ae4afac377a9aa1a12956aec55bc3db24ffba69001b6ed7b4e234",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1260,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.63"
+      "version": "1.0.64"
     },
     {
       "author": "jIRI-san",

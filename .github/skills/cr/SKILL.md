@@ -14,6 +14,11 @@ review-run temporary JSON inputs permitted by the absolute rule in
 [`./assets/collation-guide.md`](./assets/collation-guide.md).
 The fixed installed writer is `.github/skills/cr/scripts/Build-ReviewReport.ps1`.
 
+**Simplicity gate:** the repository's simplicity-first design note outranks reviewer preferences.
+Prefer deletion, reuse, or a local fix. Do not report speculative infrastructure as a required
+finding; when simple and safe conflict, preserve the documented simple choice and its dubious-decision
+record.
+
 ## Step 1: Resolve the scope
 
 Parse and remove an optional leading execution profile:

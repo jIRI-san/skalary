@@ -219,7 +219,7 @@ Describe 'Skill contract token guards' {
                     'Force — remove despite named dependents', 'Cancel — preserve the dependency graph',
                     'Force — overwrite local changes', 'Preserve — skip modified files')
             'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md' =
-                @('stop.*preserve the current worktree', 'continue-with-explicit-paths',
+                @('preserve the current worktree', 'continue-with-explicit-paths',
                     'approve-push', 'reject-push', 'approve — post this exact body',
                     'edit — revise before posting', 'skip — leave the thread unchanged')
             'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md' =
@@ -231,9 +231,19 @@ Describe 'Skill contract token guards' {
         }
         foreach ($entry in $scoredSkills.GetEnumerator()) {
             $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
-            foreach ($label in $entry.Value) {
-                $pattern = '(?s){0}.{{0,180}}`effort: (?:10|[1-9])`.{{0,80}}`complexity: (?:10|[1-9])`' -f $label
-                $text | Should -Match $pattern
+            $positions = @(
+                foreach ($label in $entry.Value) {
+                    $index = $text.IndexOf($label, [StringComparison]::Ordinal)
+                    $index | Should -BeGreaterOrEqual 0
+                    [pscustomobject]@{ Label = $label; Index = $index }
+                }
+            ) | Sort-Object Index
+            for ($i = 0; $i -lt $positions.Count; $i++) {
+                $start = $positions[$i].Index
+                $end = if ($i + 1 -lt $positions.Count) { $positions[$i + 1].Index } else { $text.Length }
+                $optionBlock = $text.Substring($start, $end - $start)
+                $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
+                $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'
             }
         }
 
@@ -251,14 +261,24 @@ Describe 'Skill contract token guards' {
             'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md' =
                 @('Confirm — accept this child cut', 'Revise — change the displayed cut')
             'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' =
-                @('\*\*Continue\*\*', '\*\*Revise\*\*', '\*\*Stop\*\*',
+                @('**Continue**', '**Revise**', '**Stop**',
                     'Run `/pfb`', 'Skip `/pfb`', 'Run `/si`', 'Skip `/si`', 'Continue looping', 'Wrap up')
         }
         foreach ($entry in $scoredAssets.GetEnumerator()) {
-            $text = Get-SkillText -RelativePath $entry.Key
-            foreach ($label in $entry.Value) {
-                $pattern = '(?s){0}.{{0,120}}`effort: (?:10|[1-9])`.{{0,80}}`complexity: (?:10|[1-9])`' -f $label
-                $text | Should -Match $pattern
+            $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
+            $positions = @(
+                foreach ($label in $entry.Value) {
+                    $index = $text.IndexOf($label, [StringComparison]::Ordinal)
+                    $index | Should -BeGreaterOrEqual 0
+                    [pscustomobject]@{ Label = $label; Index = $index }
+                }
+            ) | Sort-Object Index
+            for ($i = 0; $i -lt $positions.Count; $i++) {
+                $start = $positions[$i].Index
+                $end = if ($i + 1 -lt $positions.Count) { $positions[$i + 1].Index } else { $text.Length }
+                $optionBlock = $text.Substring($start, $end - $start)
+                $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
+                $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'
             }
         }
 

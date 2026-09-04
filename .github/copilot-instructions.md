@@ -1,5 +1,11 @@
 # GitHub Copilot Instructions
 
+## Simplicity First
+
+This is the first repository rule. Prefer deletion, reuse, or a local fix before adding machinery.
+`/dr` and `/cr` cannot override it. If simple and safe cannot both be achieved in this trusted
+single-operator repository, choose simple and record the tradeoff under `## Dubious decisions` in
+the affected design note. See `docs/design-notes/project/simplicity-first.design.md`.
 
 ## "Update Docs" Command
 
