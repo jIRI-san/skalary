@@ -72,7 +72,7 @@ Describe 'Skill contract token guards' {
         $text = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
         $text | Should -Match 'Build-EvidenceReceipt'
         $text | Should -Match 'capture\.md'
-        $text | Should -Match 'allowlist-clean'
+        $text | Should -Match 'Invoke-PhaseHarvest'
     }
 
     It 'test:review-cycle-cap binds ci and autopilot to three cycles plus an operator decision' {
@@ -105,31 +105,41 @@ Describe 'Skill contract token guards' {
         $drafting = Get-SkillText -RelativePath 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
 
         $autopilot | Should -Match '(?i)affected surface'
-        $autopilot | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
+        $autopilot | Should -Match '(?i)Broad .-FullRepository.*direct operator choices'
         $execution | Should -Match '(?i)affected surface'
         $execution | Should -Match '(?i)direct consumers'
-        $crosscheck | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
+        $execution | Should -Match '(?i)Broad .-FullRepository.*direct operator invocations only'
+        $crosscheck | Should -Match '(?i)Broad .-FullRepository.*direct operator choices'
         $drafting | Should -Match '(?i)focused validation'
     }
 
-    It 'test:validation-cadence bounds focused Fast and reserves full and Slow for plan finalization' {
+    It 'test:validation-cadence keeps routine and final validation local, focused, and operator-bounded' {
         $autopilot = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
         $execution = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
         $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
 
         foreach ($text in @($autopilot, $execution, $crosscheck)) {
-            $text | Should -Match '(?i)Fast'
+            $text | Should -Match '(?i)affected surface|affected-surface'
+            $text | Should -Match '(?i)focused'
+            $text | Should -Match '(?i)direct operator'
             $text | Should -Match '(?i)Slow'
+            $text | Should -Match '(?i)Waza'
+            $text | Should -Not -Match '(?i)Slow.{0,80}(?:reserved|runs only).{0,40}finalization'
         }
-        $autopilot | Should -Match '(?i)runtime observations alone never trigger a retry'
-        $autopilot | Should -Match '(?i)Slow.*exactly once'
-        $autopilot | Should -Match 'AUTOPILOT_CONTAINER=true'
-        $autopilot | Should -Match '(?i)-FullRepository'
-        $execution | Should -Match '(?i)Do not run repository-wide validation.*during a step'
-        $crosscheck | Should -Match '(?i)never rerun solely because of them'
-        $crosscheck | Should -Match '(?i)-TestPath'
-        $crosscheck | Should -Match '(?i)-FullRepository'
-        $crosscheck | Should -Match '(?i)Slow suite exactly once'
+        $autopilot | Should -Match '(?i)never widen scope automatically'
+        $execution | Should -Match '(?i)never automatically retry or widen scope'
+        $crosscheck | Should -Match '(?i)never widen scope automatically'
+        $autopilot | Should -Match '(?i)no hosted-workflow requirement'
+        $crosscheck | Should -Match '(?i)no hosted-workflow requirement'
+
+        $package = Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw |
+            ConvertFrom-Json
+        [string]$package.scripts.build | Should -Match 'validate\.ps1 -Path '
+        [string]$package.scripts.test | Should -Match 'Run-UnitTests\.ps1 -TestPath '
+        (@($package.scripts.PSObject.Properties.Value) -join "`n") |
+            Should -Not -Match 'FullRepository|Invoke-WazaEvals|Test-Evals|-Tier Slow'
+        @(Get-ChildItem -LiteralPath (Join-Path $repoRoot '.github/workflows') `
+                -File -ErrorAction SilentlyContinue).Count | Should -Be 0
     }
 
     It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {

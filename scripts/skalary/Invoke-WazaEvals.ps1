@@ -8,8 +8,8 @@
     Orchestration order:
       1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
       2. Resolve-EvalToken — source a Copilot token into the process env for the waza child.
-      3. Discover plugins/<name>/evals/waza/eval.yaml (optionally filtered by -Plugin /
-         -ChangedOnly). For each spec, run every applicable MODE: a functional `waza run`
+      3. Validate one explicit -Plugin, then discover its evals/waza/eval.yaml. For each
+         spec, run every applicable MODE: a functional `waza run`
          when the spec declares `tasks:`, AND a safety `waza adversarial --spec ... --skill
          <name> --model <model> --on-unsafe-outcome fail` when it declares an `adversarial:`
          block. A spec with both runs BOTH (they are separate signals and must not share a
@@ -33,8 +33,6 @@
     Only run specs for this plugin (directory name under plugins/).
 .PARAMETER Case
     Only run this task/case id within each spec (passed to `waza run --task`).
-.PARAMETER ChangedOnly
-    Only run specs for plugins with changes vs the git working tree / index.
 .PARAMETER Quick
     Force a single trial per task (`--trials 1`) for fast iteration.
 .PARAMETER Approve
@@ -54,6 +52,60 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Assert-WazaFocusedScope {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$Plugin,
+        [switch]$ChangedOnly
+    )
+
+    if ($ChangedOnly) {
+        throw 'Waza requires one explicit -Plugin; -ChangedOnly is not a valid premium scope.'
+    }
+    if ([string]::IsNullOrWhiteSpace($Plugin) -or $Plugin -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw 'Waza requires one explicit lowercase -Plugin directory name.'
+    }
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        throw "Repository root does not exist: '$root'."
+    }
+    $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $root (Join-Path 'plugins' $Plugin)))
+    $relative = [System.IO.Path]::GetRelativePath($root, $pluginRoot)
+    if ([System.IO.Path]::IsPathRooted($relative) -or $relative -eq '..' -or
+        $relative.StartsWith("..$([System.IO.Path]::DirectorySeparatorChar)", [System.StringComparison]::Ordinal) -or
+        -not (Test-Path -LiteralPath $pluginRoot -PathType Container)) {
+        throw "Selected plugin does not exist inside the repository: '$Plugin'."
+    }
+    $cursor = [System.IO.Path]::GetPathRoot($pluginRoot)
+    foreach ($segment in $pluginRoot.Substring($cursor.Length).Split(
+            [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
+            [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        $cursor = Join-Path $cursor $segment
+        $item = Get-Item -LiteralPath $cursor -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Selected plugin must not traverse a link or reparse point: '$cursor'."
+        }
+    }
+    $spec = Join-Path $pluginRoot 'evals/waza/eval.yaml'
+    if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) {
+        throw "Selected plugin has no Waza spec: '$Plugin'."
+    }
+    if (((Get-Item -LiteralPath $spec -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Selected plugin Waza spec must not be a link or reparse point: '$spec'."
+    }
+    $outputCursor = $root
+    foreach ($segment in @('tests', 'evals', 'output')) {
+        $outputCursor = Join-Path $outputCursor $segment
+        $item = Get-Item -LiteralPath $outputCursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) { break }
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Waza output must not traverse a link or reparse point: '$outputCursor'."
+        }
+    }
+    return $pluginRoot
+}
 
 function Get-WazaEvalSpec {
     [CmdletBinding()]
@@ -391,6 +443,8 @@ function Invoke-WazaEvals {
         [switch]$Approve
     )
 
+    [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
+
     . (Join-Path $PSScriptRoot 'Ensure-EvalTools.ps1')
     . (Join-Path $PSScriptRoot 'Resolve-EvalToken.ps1')
 
@@ -405,11 +459,6 @@ function Invoke-WazaEvals {
 
     $pluginsRoot = Join-Path $RepoRoot 'plugins'
     $specs = Get-WazaEvalSpec -PluginsRoot $pluginsRoot -Plugin $Plugin
-
-    if ($ChangedOnly) {
-        $changedPlugins = Get-ChangedPluginName -RepoRoot $RepoRoot
-        $specs = @($specs | Where-Object { $changedPlugins -contains (Get-PluginFromSpecPath -Path $_) })
-    }
 
     $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
     $runDir = Join-Path $RepoRoot (Join-Path 'tests/evals/output' $stamp)
@@ -500,6 +549,13 @@ function Invoke-WazaEvals {
 
 # Execute only when run as a script (not when dot-sourced for testing).
 if ($MyInvocation.InvocationName -ne '.') {
+    try {
+        [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
+    }
+    catch {
+        Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+        exit 12
+    }
     $result = Invoke-WazaEvals -RepoRoot $RepoRoot -Plugin $Plugin -Case $Case -ChangedOnly:$ChangedOnly -Quick:$Quick -Approve:$Approve
     exit $result.ExitCode
 }

@@ -5354,6 +5354,31 @@
   ],
   "removals": [
     {
+      "test": "Invoke-WazaEvals.test:gate-isolation — the waza runner is never wired into always-on gates.test:gate-isolation keeps Invoke-WazaEvals/eval:llm out of build, test, and eval scripts",
+      "reason": "Plan 705e6c step 1.3 removes the eval and eval:llm package scripts; the retained case keeps the same test: id under the name 'keeps Invoke-WazaEvals and premium aliases out of package scripts'.",
+      "step": "705e6c/1.3"
+    },
+    {
+      "test": "Plan dependency start-gate.fails when the test:unit gate is missing",
+      "reason": "Plan 705e6c step 1.3 removes the npm test:unit alias, so the gate the case named no longer exists.",
+      "step": "705e6c/1.3"
+    },
+    {
+      "test": "run unit tests.test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and reports sixty seconds",
+      "reason": "Plan 705e6c step 1.3 replaces the focused Fast runtime ceiling report with the supervised 30/60 second process contract; the retained case keeps the same test: id under the name 'requires explicit paths and runs only them'.",
+      "step": "705e6c/1.3"
+    },
+    {
+      "test": "run unit tests.test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI",
+      "reason": "Plan 705e6c step 1.3 deletes the hosted workflow the case asserted on; the retained case keeps the same test: id under the name 'keeps the expensive matrix outside focused defaults'.",
+      "step": "705e6c/1.3"
+    },
+    {
+      "test": "Skill contract token guards.test:validation-cadence bounds focused Fast and reserves full and Slow for plan finalization",
+      "reason": "Plan 705e6c step 1.3 rewrites the retained test:validation-cadence contract around explicit affected scope and direct operator-only broad, Slow, and Waza routes.",
+      "step": "705e6c/1.3"
+    },
+    {
       "test": "Plan assets layout.layout-aware writers.test:planstate-capture-roots returns an immutable physical path through a plan alias",
       "reason": "Plan 6a629b phase 3 replaces alias acceptance with explicit rejection so layout-aware writers require both logical and physical inventory identity.",
       "step": "6a629b/3.2"

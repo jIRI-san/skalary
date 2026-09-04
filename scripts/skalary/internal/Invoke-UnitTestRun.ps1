@@ -1,0 +1,813 @@
+#requires -Version 7.0
+<#
+.SYNOPSIS
+    Internal implementation body for scripts/skalary/Run-UnitTests.ps1. Not an entry point.
+.DESCRIPTION
+    Holds the whole unit-test operation: scope validation, tier selection, Pester invocation,
+    structured evidence, and the advisory budget report. The public command dot-sources this
+    file for a direct -FullRepository or -StartBudgetClock run, and supervises it as a child
+    process for every focused run. Run as a script it reads one bound request from stdin, so
+    the supervised child performs the validated operation without re-entering public dispatch.
+
+    scripts/skalary/Run-UnitTests.ps1 stays the documented command; this file is its body.
+#>
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Get-BudgetPlatformKey {
+    if ($IsWindows) { return 'Windows' }
+    if ($IsMacOS) { return 'MacOS' }
+    return 'Linux'
+}
+
+function Resolve-ConfinedRegularPath {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Label,
+        [switch]$AllowMissing
+    )
+
+    $rootFull = [System.IO.Path]::GetFullPath($Root)
+    $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
+        [System.IO.Path]::GetFullPath($Path)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $rootFull $Path))
+    }
+    $relative = [System.IO.Path]::GetRelativePath($rootFull, $candidate)
+    if ([System.IO.Path]::IsPathRooted($relative) -or
+        $relative -eq '..' -or
+        $relative.StartsWith(
+            "..$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::Ordinal
+        )) {
+        throw "$Label must stay inside the repository: '$candidate'."
+    }
+
+    $volumeRoot = [System.IO.Path]::GetPathRoot($candidate)
+    $cursor = $volumeRoot
+    $segments = $candidate.Substring($volumeRoot.Length).Split(
+        [char[]]@(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ),
+        [System.StringSplitOptions]::RemoveEmptyEntries
+    )
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+        $cursor = Join-Path $cursor $segments[$index]
+        $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) {
+            if ($AllowMissing) { break }
+            throw "$Label does not exist: '$candidate'."
+        }
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ($item.PSObject.Properties.Name -contains 'LinkType' -and
+            -not [string]::IsNullOrWhiteSpace([string]$item.LinkType))) {
+            throw "$Label must not traverse a link or reparse point: '$cursor'."
+        }
+        $isLeaf = $index -eq ($segments.Count - 1)
+        if ((-not $isLeaf -and $item -isnot [System.IO.DirectoryInfo]) -or
+            ($isLeaf -and $item -isnot [System.IO.FileInfo])) {
+            throw "$Label must name a regular file: '$candidate'."
+        }
+    }
+    return $candidate
+}
+
+function Invoke-SkalaryUnitTestRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+
+        [ValidateSet('Fast', 'Slow', 'All')]
+        [string]$Tier = 'Fast',
+
+        [string[]]$TestPath = @(),
+
+        [string[]]$TestName = @(),
+
+        [string[]]$EvidenceTestId = @(),
+
+        [string]$EvidenceResultPath,
+
+        [bool]$FullRepository,
+
+        [bool]$StartBudgetClock,
+
+        [string]$BudgetClockPath,
+
+        [string]$TestResultPath
+    )
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+
+    $legStart = [DateTimeOffset]::UtcNow
+    $budgetClockSchema = 'skalary/suite-budget-clock@1'
+
+    if (-not $BudgetClockPath) {
+        $rootKey = [System.IO.Path]::GetFullPath($RepoRoot)
+        $digest = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($rootKey))
+        $suffix = ([System.BitConverter]::ToString($digest) -replace '-', '').Substring(0, 12).ToLowerInvariant()
+        $BudgetClockPath = Join-Path ([System.IO.Path]::GetTempPath()) "skalary-suite-budget-clock-$suffix.json"
+    }
+
+    # The clock is a file because the legs of `npm test` are separate processes: an environment
+    # variable set by the first one is gone by the time the last one reads it.
+    if ($StartBudgetClock) {
+        $measurementNonce = $null
+        $hasToken = -not [string]::IsNullOrWhiteSpace(
+            [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_TOKEN')
+        )
+        $hasKey = -not [string]::IsNullOrWhiteSpace(
+            [Environment]::GetEnvironmentVariable('SKALARY_SUITE_MEASUREMENT_KEY')
+        )
+        if ($hasToken -or $hasKey) {
+            $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+            if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
+                Write-Host "MeasurementTokenInvalid: fingerprint verifier '$fingerprintScript' is missing." -ForegroundColor Red
+                exit 11
+            }
+            . $fingerprintScript
+            $fingerprint = Get-SuiteInputFingerprint -RepoRoot $RepoRoot
+            $authorization = Test-SuiteMeasurementAuthorization `
+                -Token $env:SKALARY_SUITE_MEASUREMENT_TOKEN `
+                -Key $env:SKALARY_SUITE_MEASUREMENT_KEY `
+                -ExpectedFingerprint $fingerprint.Fingerprint
+            if ($authorization.Status -ne 'complete') {
+                Write-Host "MeasurementTokenInvalid: $($authorization.Reason)." -ForegroundColor Red
+                exit 11
+            }
+            $claim = Use-SuiteMeasurementNonce -Nonce $authorization.Nonce `
+                -ParentPid $authorization.ParentPid
+            if ($claim.Status -ne 'complete') {
+                Write-Host "MeasurementTokenInvalid: $($claim.Reason)." -ForegroundColor Red
+                exit 11
+            }
+            $measurementNonce = $authorization.Nonce
+        }
+        $clock = [ordered]@{
+            schema = $budgetClockSchema
+            startedAt = $legStart.ToString('o')
+            command = 'npm test'
+            measurementNonce = $measurementNonce
+        }
+        Set-Content -LiteralPath $BudgetClockPath -Value (($clock | ConvertTo-Json -Depth 4) + "`n") -Encoding utf8NoBOM
+        exit 0
+    }
+
+    # RISK-3: an environment without Pester now fails instead of skipping, so the message has to
+    # carry the way out of that state rather than only the diagnosis.
+    $installCommand = 'Install-Module Pester -Scope CurrentUser -Force'
+
+    $hasEvidenceIds = $EvidenceTestId.Count -gt 0
+    $hasEvidencePath = -not [string]::IsNullOrWhiteSpace($EvidenceResultPath)
+    if ($FullRepository -and ($TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
+        Write-Host 'FocusedScopeRequired: choose focused -TestPath/-TestName values or -FullRepository, not both.' -ForegroundColor Red
+        exit 12
+    }
+    if (-not $FullRepository -and -not $StartBudgetClock -and $TestPath.Count -eq 0) {
+        Write-Host 'FocusedScopeRequired: routine unit tests require one or more repository-relative -TestPath values. Use -FullRepository only for a direct broad run.' -ForegroundColor Red
+        exit 12
+    }
+    if ($Tier -ne 'Fast' -and -not $FullRepository) {
+        Write-Host 'FocusedScopeRequired: broad Slow and All tiers require the direct -FullRepository switch.' -ForegroundColor Red
+        exit 12
+    }
+    if ($hasEvidenceIds -ne $hasEvidencePath) {
+        Write-Host 'FocusedScopeRequired: -EvidenceTestId and -EvidenceResultPath must be supplied together.' -ForegroundColor Red
+        exit 12
+    }
+    if ($hasEvidencePath) {
+        try {
+            $EvidenceResultPath = Resolve-ConfinedRegularPath -Root $RepoRoot `
+                -Path $EvidenceResultPath -Label 'Evidence result path' -AllowMissing
+        }
+        catch {
+            Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+            exit 12
+        }
+    }
+
+    # Read and clear the clock only for explicit complete Fast. Focused Fast and Slow must not
+    # consume authorization that belongs to a concurrent or later complete run.
+    $clockStartedAt = $null
+    $clockMeasurementNonce = $null
+    if ($Tier -eq 'Fast' -and $FullRepository -and (Test-Path -LiteralPath $BudgetClockPath -PathType Leaf)) {
+        $clockText = Get-Content -LiteralPath $BudgetClockPath -Raw
+        Remove-Item -LiteralPath $BudgetClockPath -Force -ErrorAction SilentlyContinue
+
+        $clock = $null
+        try { $clock = $clockText | ConvertFrom-Json } catch { $clock = $null }
+        if ($clock -and @($clock.PSObject.Properties.Name) -contains 'startedAt') {
+            if (@($clock.PSObject.Properties.Name) -contains 'measurementNonce') {
+                $clockMeasurementNonce = [string]$clock.measurementNonce
+            }
+            # ConvertFrom-Json coerces an ISO timestamp to [datetime], and casting that back to a
+            # string renders it invariant (MM/dd/yyyy) while TryParse reads the current culture. On
+            # a dd/MM host the two disagree and the clock is misread as ~59 days old, silently
+            # discarded as residue, leaving the budget measuring this leg alone. Use the coerced
+            # value directly, and parse only a value JSON left as text.
+            $raw = $clock.startedAt
+            if ($raw -is [datetime]) {
+                $clockStartedAt = [DateTimeOffset]$raw
+            }
+            else {
+                $parsed = [DateTimeOffset]::MinValue
+                if ([DateTimeOffset]::TryParse(
+                        [string]$raw,
+                        [System.Globalization.CultureInfo]::InvariantCulture,
+                        [System.Globalization.DateTimeStyles]::RoundtripKind,
+                        [ref]$parsed)) {
+                    $clockStartedAt = $parsed
+                }
+            }
+        }
+    }
+
+    $testRootPath = Join-Path $RepoRoot 'tests'
+    if (-not (Test-Path -LiteralPath $testRootPath -PathType Container)) {
+        throw "Unit test path not found: $testRootPath"
+    }
+
+    $allTestFiles = @(Get-ChildItem -LiteralPath $testRootPath -Recurse -File -Filter '*.Tests.ps1')
+    $tierManifestPath = Join-Path $RepoRoot 'tools/suite-tier.psd1'
+    $slowPaths = @()
+    $dedicatedPaths = @()
+
+    if (Test-Path -LiteralPath $tierManifestPath -PathType Leaf) {
+        try {
+            $tierManifest = Import-PowerShellDataFile -LiteralPath $tierManifestPath
+        }
+        catch {
+            Write-Host "SuiteTierInvalid: '$tierManifestPath' could not be imported: $($_.Exception.Message)" -ForegroundColor Red
+            exit 9
+        }
+
+        $requiredTierMembers = @('Schema', 'SlowFiles', 'DedicatedFiles', 'FastFocusedHardCeilingSeconds', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')
+        $missingMembers = @($requiredTierMembers | Where-Object { -not $tierManifest.Contains($_) })
+        if ($missingMembers.Count -gt 0) {
+            Write-Host "SuiteTierInvalid: '$tierManifestPath' is missing required member(s): $($missingMembers -join ', ')." -ForegroundColor Red
+            exit 9
+        }
+        if ([string]$tierManifest['Schema'] -ne 'skalary/suite-tier@1') {
+            Write-Host "SuiteTierInvalid: '$tierManifestPath' has unsupported schema '$($tierManifest['Schema'])'." -ForegroundColor Red
+            exit 9
+        }
+        foreach ($numericMember in @('FastFocusedHardCeilingSeconds', 'SlowHardCeilingSeconds', 'CiSetupAllowanceSeconds')) {
+            $numericValue = 0.0
+            if (-not [double]::TryParse(
+                    [string]$tierManifest[$numericMember],
+                    [System.Globalization.NumberStyles]::Float,
+                    [System.Globalization.CultureInfo]::InvariantCulture,
+                    [ref]$numericValue) -or $numericValue -le 0) {
+                Write-Host "SuiteTierInvalid: '$tierManifestPath' member '$numericMember' must be a positive number." -ForegroundColor Red
+                exit 9
+            }
+        }
+
+        $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
+        $rootPrefix = $repoRootFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+        $pathComparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+        $resolveTierPath = {
+            param([string]$RelativePath)
+
+            if ([string]::IsNullOrWhiteSpace($RelativePath) -or [System.IO.Path]::IsPathRooted($RelativePath)) {
+                throw "Suite tier path must be a non-empty repository-relative path: '$RelativePath'."
+            }
+            $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $RelativePath))
+            if (-not $fullPath.StartsWith($rootPrefix, $pathComparison)) {
+                throw "Suite tier path escapes the repository: '$RelativePath'."
+            }
+            if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                throw "Suite tier path does not exist: '$RelativePath'."
+            }
+            return $fullPath
+        }
+
+        try {
+            $slowPaths = @($tierManifest['SlowFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
+            $dedicatedPaths = @($tierManifest['DedicatedFiles'] | ForEach-Object { & $resolveTierPath ([string]$_) })
+        }
+        catch {
+            Write-Host "SuiteTierInvalid: $($_.Exception.Message)" -ForegroundColor Red
+            exit 9
+        }
+
+        $allDeclared = @($slowPaths) + @($dedicatedPaths)
+        $distinctDeclared = @($allDeclared | Sort-Object -Unique)
+        if ($distinctDeclared.Count -ne $allDeclared.Count) {
+            Write-Host "SuiteTierInvalid: slow and dedicated paths must be unique and disjoint." -ForegroundColor Red
+            exit 9
+        }
+    }
+    else {
+        Write-Host "SuiteTierInvalid: tier '$Tier' requires '$tierManifestPath'." -ForegroundColor Red
+        exit 9
+    }
+
+    $pathComparer = if ($IsWindows) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
+    $slowSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$slowPaths, $pathComparer)
+    $dedicatedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$dedicatedPaths, $pathComparer)
+
+    if ($Tier -ne 'Fast' -and ($TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
+        Write-Host "FocusedScopeRequired: -TestPath and -TestName are valid only with -Tier Fast." -ForegroundColor Red
+        exit 12
+    }
+    if ($Tier -eq 'Fast' -and $FullRepository -and ($TestPath.Count -gt 0 -or $TestName.Count -gt 0)) {
+        Write-Host "FocusedScopeRequired: choose focused -TestPath/-TestName values or -FullRepository, not both." -ForegroundColor Red
+        exit 12
+    }
+    if ($Tier -eq 'Fast' -and -not $FullRepository -and $TestPath.Count -eq 0) {
+        Write-Host "FocusedScopeRequired: Fast requires one or more repository-relative -TestPath values. Use -FullRepository only for an explicit complete Fast run." -ForegroundColor Red
+        exit 12
+    }
+    if ($Tier -eq 'Fast' -and -not $FullRepository -and
+        @($TestName | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
+        Write-Host "FocusedScopeRequired: -TestName values must be non-empty Pester full-name filters." -ForegroundColor Red
+        exit 12
+    }
+    if ($EvidenceTestId.Count -gt 0) {
+        if ($Tier -ne 'Fast' -or $FullRepository -or $TestPath.Count -eq 0 -or $TestName.Count -gt 0) {
+            Write-Host 'FocusedScopeRequired: evidence IDs require focused Fast -TestPath selection and cannot be combined with -TestName or -FullRepository.' -ForegroundColor Red
+            exit 12
+        }
+        $invalidEvidenceIds = @($EvidenceTestId | Where-Object { [string]$_ -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$' })
+        if ($invalidEvidenceIds.Count -gt 0 -or @($EvidenceTestId | Sort-Object -Unique).Count -ne $EvidenceTestId.Count) {
+            Write-Host 'FocusedScopeRequired: evidence IDs must be unique non-empty tokens containing only letters, digits, dot, underscore, or hyphen.' -ForegroundColor Red
+            exit 12
+        }
+    }
+
+    $focusedPaths = @()
+    if ($Tier -eq 'Fast' -and -not $FullRepository) {
+        $testsRootFull = [System.IO.Path]::GetFullPath($testRootPath)
+        $testsRootPrefix = $testsRootFull.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ) + [System.IO.Path]::DirectorySeparatorChar
+        try {
+            $focusedPaths = @($TestPath | ForEach-Object {
+                    $relativePath = [string]$_
+                    if ([string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath)) {
+                        throw "Focused test path must be a non-empty repository-relative path: '$relativePath'."
+                    }
+                    $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $relativePath))
+                    if (-not $fullPath.StartsWith($testsRootPrefix, $pathComparison) -or
+                        -not $fullPath.EndsWith('.Tests.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+                        throw "Focused test path must name a *.Tests.ps1 file under tests/: '$relativePath'."
+                    }
+                    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                        throw "Focused test path does not exist: '$relativePath'."
+                    }
+                    [void](Resolve-ConfinedRegularPath -Root $testsRootFull `
+                            -Path $fullPath -Label "Focused test path '$relativePath'")
+                    if ($dedicatedSet.Contains($fullPath)) {
+                        throw "Focused Fast cannot bypass the dedicated runner for '$relativePath'."
+                    }
+                    if ($slowSet.Contains($fullPath) -and
+                        $TestName.Count -eq 0 -and $EvidenceTestId.Count -eq 0) {
+                        throw "Focused Fast requires -TestName or -EvidenceTestId when selecting a Slow-tier file: '$relativePath'."
+                    }
+                    $fullPath
+                } | Sort-Object -Unique)
+        }
+        catch {
+            Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+            exit 12
+        }
+    }
+
+    $testFiles = @(switch ($Tier) {
+            'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
+            'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
+            default {
+                if ($FullRepository) {
+                    @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) })
+                }
+                else {
+                    @($allTestFiles | Where-Object { $focusedPaths -contains $_.FullName })
+                }
+            }
+        })
+
+    if ($TestResultPath) {
+        try {
+            $TestResultPath = Resolve-ConfinedRegularPath -Root $RepoRoot `
+                -Path $TestResultPath -Label 'Test result path' -AllowMissing
+        }
+        catch {
+            Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+            exit 12
+        }
+    }
+
+    if ($hasEvidencePath -and (Test-Path -LiteralPath $EvidenceResultPath)) {
+        try {
+            [void](Resolve-ConfinedRegularPath -Root $RepoRoot `
+                    -Path $EvidenceResultPath -Label 'Evidence result path')
+            Remove-Item -LiteralPath $EvidenceResultPath -Force
+        }
+        catch {
+            Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+            exit 12
+        }
+    }
+
+    # Pester throws rather than returning a result when the selected tier holds no test file.
+    if ($testFiles.Count -eq 0) {
+        Write-Host "NoTestsDiscovered: tier '$Tier' selected no *.Tests.ps1 file under '$testRootPath'." -ForegroundColor Red
+        exit 3
+    }
+
+    $scopeLabel = if ($Tier -eq 'Fast' -and -not $FullRepository) { 'focused' } elseif ($Tier -eq 'Fast') { 'full repository' } else { 'complete tier' }
+    Write-Host "Suite tier: $Tier $scopeLabel ($($testFiles.Count) file(s))."
+
+    $pesterModule = Get-Module -ListAvailable -Name Pester | Sort-Object Version -Descending | Select-Object -First 1
+    if ($null -eq $pesterModule) {
+        Write-Host "PesterNotInstalled: cannot run the unit tests because Pester is not installed. Install it with: $installCommand" -ForegroundColor Red
+        exit 2
+    }
+
+    Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
+
+    # `-CI` is Pester's shorthand for `Run.Exit` plus `TestResult.Enabled`, and `Run.Exit` makes
+    # Pester exit with the failure count before this script can. That collides a "could not test"
+    # code with "that many tests failed" — the one distinction this script exists to make — so the
+    # NUnit output is kept and the exit is taken back.
+    $configuration = New-PesterConfiguration
+    $configuration.Run.Path = @($testFiles.FullName)
+    $configuration.Run.PassThru = $true
+    $configuration.Run.Exit = $false
+    $configuration.TestResult.Enabled = $true
+    if ($EvidenceTestId.Count -gt 0) {
+        $configuration.Filter.FullName = @($EvidenceTestId | ForEach-Object {
+                "*test:$($_)"
+                "*test:$($_) *"
+            })
+    }
+    elseif ($TestName.Count -gt 0) {
+        $configuration.Filter.FullName = @($TestName)
+    }
+
+    if ($TestResultPath) {
+        $resultDirectory = Split-Path -Parent $TestResultPath
+        if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
+            [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
+        }
+        $configuration.TestResult.OutputPath = $TestResultPath
+    }
+
+    # Pester runs in-process, so a test that assigns $env:X changes this shell and every command run
+    # in it afterwards. That is invisible to the suite itself: the tests pass and the damage lands on
+    # whoever ran them. Snapshotted here and compared below rather than trusted.
+    $environmentBefore = @{}
+    foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
+        $environmentBefore[[string]$entry.Key] = [string]$entry.Value
+    }
+
+    function Write-StructuredEvidenceResult {
+        param(
+            [object]$PesterResult,
+            [string]$FrameworkError
+        )
+
+        if ($EvidenceTestId.Count -eq 0) {
+            return $null
+        }
+
+        $records = [System.Collections.Generic.List[object]]::new()
+        $totalSelected = 0
+        $totalExecuted = 0
+        foreach ($id in $EvidenceTestId) {
+            $pattern = '^test:' + [regex]::Escape($id) + '(?:\s|$)'
+            $tests = @(
+                if ($PesterResult) {
+                    $PesterResult.Tests | Where-Object { [string]$_.Name -cmatch $pattern }
+                }
+            )
+            $selectedCount = $tests.Count
+            $executed = @($tests | Where-Object { [string]$_.Result -in @('Passed', 'Failed') })
+            $totalSelected += $selectedCount
+            $totalExecuted += $executed.Count
+            $results = @($tests | ForEach-Object { [string]$_.Result })
+            $status = 'unrun'
+            $message = $FrameworkError
+            if ([string]::IsNullOrWhiteSpace($FrameworkError)) {
+                if ($selectedCount -eq 0) {
+                    $message = if ($PesterResult -and [int]$PesterResult.FailedContainersCount -gt 0) {
+                        'discovery error: one or more selected test files failed to load'
+                    }
+                    else {
+                        'no exact leading test ID match was discovered'
+                    }
+                }
+                elseif (@($results | Where-Object { $_ -in @('NotRun', 'Inconclusive') }).Count -gt 0) {
+                    $message = 'one or more selected tests were not run'
+                }
+                elseif ($results -contains 'Failed') {
+                    $status = 'failed'
+                    $message = 'one or more selected tests failed'
+                }
+                elseif (($results -contains 'Passed') -and ($results -contains 'Skipped')) {
+                    $status = 'degraded'
+                    $message = 'selected tests were partly passed and partly skipped'
+                }
+                elseif (@($results | Where-Object { $_ -eq 'Skipped' }).Count -eq $selectedCount) {
+                    $status = 'skipped'
+                    $message = 'all selected tests were skipped'
+                }
+                elseif (@($results | Where-Object { $_ -eq 'Passed' }).Count -eq $selectedCount) {
+                    $status = 'passed'
+                    $message = ''
+                }
+                else {
+                    $message = 'selected test outcomes were incomplete'
+                }
+            }
+
+            $records.Add([ordered]@{
+                    marker = "test:$id"
+                    status = $status
+                    selectedCount = $selectedCount
+                    executedCount = $executed.Count
+                    outcomes = $results
+                    message = $message
+                })
+        }
+
+        $payload = [ordered]@{
+            schema = 'skalary/evidence-test-results@1'
+            selectedCount = $totalSelected
+            executedCount = $totalExecuted
+            results = $records.ToArray()
+        }
+        $resultFullPath = [System.IO.Path]::GetFullPath($EvidenceResultPath)
+        $resultDirectory = Split-Path -Parent $resultFullPath
+        [void](Resolve-ConfinedRegularPath -Root $RepoRoot -Path $resultFullPath `
+                -Label 'Evidence result path' -AllowMissing)
+        if ($resultDirectory -and -not (Test-Path -LiteralPath $resultDirectory -PathType Container)) {
+            [void](New-Item -ItemType Directory -Path $resultDirectory -Force)
+        }
+        [void](Resolve-ConfinedRegularPath -Root $RepoRoot -Path $resultFullPath `
+                -Label 'Evidence result path' -AllowMissing)
+        Set-Content -LiteralPath $resultFullPath -Value (($payload | ConvertTo-Json -Depth 8) + "`n") -Encoding utf8NoBOM
+        return [pscustomobject]$payload
+    }
+
+    $result = $null
+    try {
+        $result = Invoke-Pester -Configuration $configuration
+    }
+    catch {
+        $classification = if ($_.Exception -is [System.Management.Automation.PipelineStoppedException] -or
+            $_.Exception -is [System.OperationCanceledException]) { 'interrupted' } else { 'discovery error' }
+        [void](Write-StructuredEvidenceResult -FrameworkError "$classification`: $($_.Exception.Message)")
+        Write-Host "TestFilesNotDiscoverable: $($_.Exception.Message)" -ForegroundColor Red
+        exit 4
+    }
+
+    try {
+        $structuredEvidence = Write-StructuredEvidenceResult -PesterResult $result
+    }
+    catch {
+        Write-Host "FocusedScopeRequired: structured evidence result could not be written: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host $_.ScriptStackTrace -ForegroundColor Red
+        exit 12
+    }
+
+    # A test file that throws while being discovered contributes nothing to either count above:
+    # Pester tracks it separately. Deciding on FailedCount alone therefore reports a pass for a
+    # suite in which a whole file never ran — including this file, which would take the REQ-5
+    # gate down with it and stay green.
+    if ($null -ne $result -and [int]$result.FailedContainersCount -gt 0) {
+        $undiscoverable = @($result.FailedContainers | ForEach-Object { [string]$_.Item })
+        Write-Host "TestFilesNotDiscoverable: $($result.FailedContainersCount) test file(s) failed to load, so their tests never ran: $($undiscoverable -join ', ')" -ForegroundColor Red
+        exit 4
+    }
+
+    # Test files that discover no test are the quieter half of the same failure: Pester returns a
+    # clean zero-failure result, so the run would otherwise be reported as a pass having asserted
+    # nothing (REQ-5).
+    if ($null -eq $result -or [int]$result.TotalCount -le 0) {
+        Write-Host "NoTestsDiscovered: Pester $($pesterModule.Version) discovered 0 tests in $($testFiles.Count) file(s) under '$testRootPath'. A run that asserts nothing is not a pass." -ForegroundColor Red
+        exit 3
+    }
+
+    # A -TestName filter that matches nothing is the same forged pass wearing a different shape:
+    # Pester still counts the excluded cases in TotalCount and leaves every one of them NotRun, so
+    # the check above sees a populated result and the run reports success having asserted nothing.
+    if ($TestName.Count -gt 0) {
+        $runnableCount = @($result.Tests | Where-Object {
+                [string]$_.Result -in @('Passed', 'Failed', 'Skipped', 'Inconclusive')
+            }).Count
+        if ($runnableCount -le 0) {
+            Write-Host "NoTestsDiscovered: -TestName filter(s) '$($TestName -join ''', ''')' matched 0 runnable test(s) in $($testFiles.Count) selected file(s). A run that asserts nothing is not a pass." -ForegroundColor Red
+            exit 3
+        }
+    }
+
+    if ([int]$result.FailedCount -gt 0 -or [int]$result.FailedBlocksCount -gt 0) {
+        exit 1
+    }
+
+    # Stable review-report evidence ids are mandatory on every supported leg. Deterministic seams keep
+    # these cases executable; a skip is an unexecuted evidence marker, not a pass.
+    $skippedReviewEvidence = @($result.Tests | Where-Object {
+            [string]$_.Result -eq 'Skipped' -and [string]$_.Name -match '^test:ReviewReport\.'
+        })
+    if ($skippedReviewEvidence.Count -gt 0) {
+        $names = @($skippedReviewEvidence | ForEach-Object { [string]$_.Name })
+        Write-Host "RequiredEvidenceSkipped: $($skippedReviewEvidence.Count) review-report evidence test(s) did not execute: $($names -join ', ')" -ForegroundColor Red
+        exit 8
+    }
+    if ($structuredEvidence) {
+        $nonPassingEvidence = @($structuredEvidence.results | Where-Object { $_.status -ne 'passed' })
+        if ($nonPassingEvidence.Count -gt 0) {
+            $summary = @($nonPassingEvidence | ForEach-Object { "$($_.marker)=$($_.status)" }) -join ', '
+            Write-Host "RequiredEvidenceSkipped: structured evidence did not fully pass: $summary" -ForegroundColor Red
+            exit 8
+        }
+    }
+
+    # A green suite that leaves HOME pointing at TestDrive is still a defect: it sends git looking for
+    # .gitconfig and .ssh in a deleted temp directory for the rest of the shell's life, and nothing in
+    # the run reports it. Checked after the failure gates so a real test failure keeps the clearer code.
+    $environmentAfter = @{}
+    foreach ($entry in [Environment]::GetEnvironmentVariables().GetEnumerator()) {
+        $environmentAfter[[string]$entry.Key] = [string]$entry.Value
+    }
+
+    $leakedNames = [System.Collections.Generic.List[string]]::new()
+    $candidateNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@($environmentBefore.Keys))
+    $candidateNames.UnionWith([string[]]@($environmentAfter.Keys))
+    foreach ($name in ($candidateNames | Sort-Object)) {
+        $before = if ($environmentBefore.ContainsKey($name)) { $environmentBefore[$name] } else { $null }
+        $after = if ($environmentAfter.ContainsKey($name)) { $environmentAfter[$name] } else { $null }
+        if ($before -ne $after) {
+            $transition = if ($null -eq $before) {
+                'added'
+            }
+            elseif ($null -eq $after) {
+                'removed'
+            }
+            else {
+                'changed'
+            }
+            $leakedNames.Add("$name ($transition)")
+        }
+    }
+
+    if ($leakedNames.Count -gt 0) {
+        Write-Host "EnvironmentLeaked: the suite changed $($leakedNames.Count) environment variable(s) and did not restore them: $($leakedNames -join '; '). Snapshot and restore them in the owning test." -ForegroundColor Red
+        exit 7
+    }
+
+    if ($Tier -eq 'Slow') {
+        $slowSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
+        $slowCeiling = [double]$tierManifest['SlowHardCeilingSeconds']
+        Write-Host "Slow tier runtime: $([math]::Round($slowSeconds, 3))s against a ceiling of ${slowCeiling}s."
+        if ($slowSeconds -gt $slowCeiling) {
+            Write-Warning "OverBudget: Slow tier runtime $([math]::Round($slowSeconds, 3))s exceeded its ${slowCeiling}s advisory ceiling."
+        }
+        exit 0
+    }
+    if ($Tier -eq 'All') {
+        Write-Host "Suite budget: not applied to diagnostic tier 'All'."
+        exit 0
+    }
+    if (-not $FullRepository) {
+        exit 0
+    }
+
+    # Runtime metadata is retained for visibility while enforcement is deferred to a future redesign.
+    $budgetPath = Join-Path $RepoRoot 'tools/suite-budget.psd1'
+    if (-not (Test-Path -LiteralPath $budgetPath -PathType Leaf)) {
+        Write-Warning "BudgetNotDefined: no advisory budget at '$budgetPath'; runtime measurement is unavailable."
+        exit 0
+    }
+
+    try {
+        $budget = Import-PowerShellDataFile -LiteralPath $budgetPath
+    }
+    catch {
+        Write-Warning "BudgetNotDefined: advisory budget '$budgetPath' could not be read: $($_.Exception.Message)"
+        exit 0
+    }
+    $platformKey = Get-BudgetPlatformKey
+
+    # D13: the same suite measured roughly 10x apart between platforms, so observations remain
+    # platform-specific even though a missing entry is advisory.
+    if (-not $budget.Contains('Platforms') -or -not $budget.Platforms.Contains($platformKey)) {
+        Write-Warning "BudgetNotDefined: '$budgetPath' carries no advisory entry for platform '$platformKey'."
+        exit 0
+    }
+
+    $platformBudget = $budget.Platforms[$platformKey]
+
+    # Every field this check reads, named before any of them is read. Under Set-StrictMode a
+    # missing key is a terminating error, which would exit 1 — the code that means "tests failed",
+    # which is the one distinction this script exists to make.
+    foreach ($required in @('MeasuredCommand', 'AbsoluteCapSeconds', 'MeasurementRecord')) {
+        if (-not $budget.Contains($required)) {
+            Write-Warning "BudgetNotDefined: '$budgetPath' is missing advisory field '$required'."
+            exit 0
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$budget.MeasurementRecord)) {
+        Write-Warning "BudgetNotDefined: '$budgetPath' has an empty advisory 'MeasurementRecord'."
+        exit 0
+    }
+    foreach ($required in @('HardCeilingSeconds', 'TargetSeconds')) {
+        if (-not $platformBudget.Contains($required)) {
+            Write-Warning "BudgetNotDefined: the '$platformKey' entry in '$budgetPath' is missing advisory field '$required'."
+            exit 0
+        }
+    }
+
+    try {
+        $hardCeilingSeconds = [double]$platformBudget.HardCeilingSeconds
+        $targetSeconds = [double]$platformBudget.TargetSeconds
+        $staleAfterSeconds = [double]$budget.AbsoluteCapSeconds * 4
+    }
+    catch {
+        Write-Warning "BudgetNotDefined: advisory budget '$budgetPath' contains an invalid numeric value: $($_.Exception.Message)"
+        exit 0
+    }
+
+    $fingerprintScript = Join-Path $RepoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
+    if (-not (Test-Path -LiteralPath $fingerprintScript -PathType Leaf)) {
+        Write-Warning "BudgetNotDefined: '$budgetPath' names a measurement record but advisory fingerprint script '$fingerprintScript' is missing."
+        exit 0
+    }
+    try {
+        . $fingerprintScript
+        $freshness = Test-SuiteRuntimeFreshness -RepoRoot $RepoRoot -Budget $budget `
+            -PlatformKey $platformKey -ExpectedNonce $clockMeasurementNonce `
+            -CurrentProcessId $PID
+        if ($freshness.Status -eq 'measurement-token-invalid') {
+            Write-Host "MeasurementTokenInvalid: $($freshness.Reason)." -ForegroundColor Red
+            exit 11
+        }
+        if ($freshness.Status -ne 'complete') {
+            Write-Warning "StaleMeasurement: $($freshness.Reason). Runtime rows are advisory; refresh them later with scripts/skalary/Measure-SuiteRuntime.ps1."
+        }
+        if ($freshness.PSObject.Properties.Name -contains 'MeasurementMode' -and
+            $freshness.MeasurementMode) {
+            Write-Host "Suite budget: authorized measurement mode for fingerprint $($freshness.Fingerprint.Fingerprint); stale runtime rows are permitted for this run only."
+        }
+    }
+    catch {
+        Write-Warning "StaleMeasurement: advisory runtime freshness could not be evaluated: $($_.Exception.Message)"
+    }
+
+    # The budget measures the whole `npm test` command (D2). This leg can only see the rest of it
+    # through the clock the `pretest` hook started, so the scope is reported with the figure: an
+    # unclocked run measures a subset and must not be read as a verdict on the whole command.
+    $measuredScope = 'test:unit leg'
+    $measuredSeconds = ([DateTimeOffset]::UtcNow - $legStart).TotalSeconds
+
+    # Residue from a run that died before the clock could be read. The bound is the plan-wide
+    # absolute cap rather than this platform's ceiling: bounding it by the ceiling would discard
+    # exactly the clocks that prove a badly over-budget run, which is the case the check exists for.
+    if ($null -ne $clockStartedAt) {
+        $clockedSeconds = ([DateTimeOffset]::UtcNow - $clockStartedAt).TotalSeconds
+        if ($clockedSeconds -gt $staleAfterSeconds) {
+            Write-Warning "Suite budget: ignoring a clock started $([math]::Round($clockedSeconds, 0))s ago, which is past the $($staleAfterSeconds)s no run reaches; it is residue from an abandoned run and has been cleared."
+        }
+        elseif ($clockedSeconds -ge $measuredSeconds) {
+            $measuredScope = [string]$budget.MeasuredCommand
+            $measuredSeconds = $clockedSeconds
+        }
+    }
+
+    $measuredSeconds = [math]::Round($measuredSeconds, 3)
+    $budgetReport = "measured $($measuredSeconds)s ($measuredScope) against a ceiling of $($hardCeilingSeconds)s and a target of $($targetSeconds)s on $platformKey"
+
+    if ($measuredSeconds -gt $hardCeilingSeconds) {
+        Write-Warning "OverBudget: $budgetReport. Runtime budgets are advisory pending test-infrastructure redesign."
+    }
+    elseif ($measuredSeconds -gt $targetSeconds) {
+        Write-Warning "Suite budget: $budgetReport."
+    }
+    else {
+        Write-Host "Suite budget: $budgetReport."
+    }
+
+    if ($measuredScope -ne [string]$budget.MeasuredCommand) {
+        Write-Host "Suite budget: no '$($budget.MeasuredCommand)' clock was found, so the figure above covers this leg only and is a lower bound on the budgeted command." -ForegroundColor Yellow
+    }
+
+    exit 0
+}
+
+# Script mode is the supervised child: one bound request arrives on stdin, and the same body
+# the public command dot-sources runs it. There is no other input path and no re-dispatch.
+if ($MyInvocation.InvocationName -ne '.') {
+    $supervision = & ([System.IO.Path]::Combine($PSScriptRoot, 'FocusedSupervision.ps1'))
+    $request = & $supervision.ReadBodyRequest
+    Invoke-SkalaryUnitTestRun @request
+    exit 0
+}

@@ -10,6 +10,10 @@ Phase: 1
 - [1.3] [src:note] [concern:architecture-patterns] [req:REQ-11] [review:dr] [source-record:711d7fac2566289ab01eda6a90916d9051c83906e1c21bbcdc3fee50c2586b4d] dr: update workflow-authoritative notes and contracts in the same step as workflow deletion
 - [1.1] [src:note] [concern:testing-evidence] [req:REQ-5,REQ-6,REQ-7] [review:none] [source-record:1c7e7c97fa98acc6ce9188ee52455714ca16b4f7ccd3239cd1f491e09900b935] ci fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0
 - [1.1] [src:note] [concern:testing-evidence] [req:REQ-5,REQ-6,REQ-7] [review:none] [source-record:0d7f41a90575c10d2ae8184d242ba39dc155bd617f01e548e69e3ceadec1b095] ci resume fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0
+- [1.3] [src:note] [concern:correctness-reliability] [req:REQ-3] [review:none] [source-record:2653183d7cb500e2308eb75686e88af86fc64525d901f56569d9b1c0c2f31901] Fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0; Judge blocked promotion.
+- [1.3] [src:note] [concern:correctness-reliability] [req:REQ-11,REQ-3] [review:none] [source-record:9f253711322e49aee769af8311fa265d00408286d64be454ffb14b4c677987f8] Resumed fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0; Judge blocked promotion on dot-source timeout bypass, zero-test false pass, and stale active guidance.
+- [1.3] [src:note] [concern:correctness-reliability] [req:REQ-11,REQ-3] [review:none] [source-record:987e0a8d2847453602e376d28e74c3ec114ac8bfba0fd9204f826f2dd9589894] Correction fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0; Judge blocked promotion on command poisoning, descendant-output timeout escape, and stale active authority.
+- [1.3] [src:note] [concern:maintainability-consistency] [req:REQ-11] [review:none] [source-record:bf60ac6755bedd8f53e401dfc386968d4c258bf171cb43313783e964d548a055] Containment fleet attendance: planned 4, started 4, completed 3, failed 1, retried 0, cancelled 0; Judge accepted runner behavior and blocked promotion only on two stale active-authority statements.
 
 ## Capture
 Phase: 2

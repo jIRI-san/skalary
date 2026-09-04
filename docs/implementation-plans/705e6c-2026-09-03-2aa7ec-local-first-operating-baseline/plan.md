@@ -51,7 +51,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Rollback:** restore the affected rows to `uncertain`; no source or test deletion occurs in this step.
 
   </details>
-- [ ] 1.3 Deliver confined focused runners, remove workflows/implicit broad aliases, and update directly invalidated guidance (REQ-1, REQ-2, REQ-3, REQ-4, REQ-11, RISK-2, RISK-3) [after: 1.2] `L`
+- [~] 1.3 Deliver confined focused runners, remove workflows/implicit broad aliases, and update directly invalidated guidance (REQ-1, REQ-2, REQ-3, REQ-4, REQ-11, RISK-2, RISK-3) [after: 1.2] `L`
 
 ## Phase 2: Value and format cleanup
 <!-- worktree: (recorded by /ci when worktree is created) -->

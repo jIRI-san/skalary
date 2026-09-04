@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: e646c14e670f563545b684096b911e0bb8775bf123727f5fa70b3c363bc8198c -->
+<!-- arch-contracts-sha256: 005361f3229a1a3664a86398f11f963eafb324c81e16247cccbeef7aae96b889 -->
 
 # Skalary — Architecture Overview
 
@@ -34,7 +34,7 @@ graph TD
 ### Two-tier eval gate separation
 
 - **Governing contract:** `ARCH-Eval-Gate-Separation` (provisional)
-- **Boundary:** Keeps CI deterministic and offline: no premium-cost, auth-dependent, non-deterministic LLM call can enter the always-on gate. Enforced by Test-Evals.ps1 (Tier-1 only) vs Invoke-WazaEvals.ps1 (Tier-2 only).
+- **Boundary:** Keeps local deterministic validation focused, offline, and zero-cost while preserving a separate explicit plugin-only premium Waza route.
 
 ### Installer .github confinement
 

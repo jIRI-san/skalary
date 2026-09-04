@@ -24,9 +24,9 @@ Describe 'required structural eval enforcement' {
                             caseIds = $RequiredIds
                         } | ConvertTo-Json -Depth 4 -Compress) + "`n"), [System.Text.UTF8Encoding]::new($false))
             try {
-                $output = & pwsh -NoProfile -File $script:runner -RepoRoot $script:repoRoot `
+                $output = & pwsh -NoProfile -File $script:runner -RepoRoot $root `
                     -PluginsRoot (Join-Path $root 'plugins') -RequiredContractPath $requiredPath `
-                    -OutputRoot (Join-Path $root 'output') 2>&1
+                    -OutputRoot (Join-Path $root 'output') -FullRepository 2>&1
                 return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
             }
             finally { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }

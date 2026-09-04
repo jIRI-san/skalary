@@ -8,25 +8,28 @@ globs:
 
 ## Boundary
 
-Deterministic Tier-1 structural evals (Pester) are always-on; Tier-2 LLM (waza) evals are
-**never** part of the deterministic gate. The always-on gate stays offline, deterministic, and
-zero-cost; the premium, auth-dependent LLM tier is strictly opt-in.
+Deterministic Tier-1 structural evals (Pester) are direct and plugin-focused; Tier-2 LLM (waza)
+evals are **never** part of deterministic validation. The deterministic route stays offline and
+zero-cost; the premium, auth-dependent LLM route is direct, explicit, and plugin-only.
 
 ## Contracts
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|
-| `ARCH-Eval-Gate-Separation` | provisional | No waza/LLM run may enter `npm test` / `validate.ps1` / `npm run eval`; Tier-2 is `eval:llm` only |
+| `ARCH-Eval-Gate-Separation` | provisional | No waza/LLM run may enter configured build/test or deterministic scripts; Tier-2 requires direct `Invoke-WazaEvals.ps1 -Plugin` |
 
 ## Invariants
 
-- `npm test`, `scripts/validate.ps1`, and `npm run eval` never invoke a waza/LLM run.
-- Tier-1 runs as a blocking per-platform CI step via `Test-Evals.ps1` (structural Pester only), with
-  exact required-case execution checked from `tools/structural-eval-required.json`; Tier-2 runs via `Invoke-WazaEvals.ps1`
-  (`npm run eval:llm`), which requires auth and incurs premium cost.
+- Configured build/test and deterministic scripts never invoke a waza/LLM run.
+- Tier-1 routine use requires `Test-Evals.ps1 -Plugin`; selected mode runs only that plugin.
+  `-FullRepository` is the direct operator route and checks exact required-case execution from
+  `tools/structural-eval-required.json`.
+- Tier-2 requires direct `Invoke-WazaEvals.ps1 -Plugin`, validates scope before provisioning or
+  output, requires auth, and incurs premium cost.
 - A Tier-2 run that executed zero evals is a distinct non-green outcome, not a silent pass.
 
 ## Depends On / Depended On By
 
 - Depends on: `Test-Evals.ps1` (Tier-1), `Invoke-WazaEvals.ps1` (Tier-2), `Resolve-EvalToken.ps1` (auth).
-- Depended on by: the CI gate; every plugin's `evals/` (Tier-1 `*.Tests.ps1` + Tier-2 `waza/`).
+- Depended on by: direct local operator invocations and every plugin's `evals/`
+  (Tier-1 `*.Tests.ps1` + Tier-2 `waza/`); no hosted workflow depends on either route.

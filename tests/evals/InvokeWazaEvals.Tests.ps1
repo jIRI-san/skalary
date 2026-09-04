@@ -101,6 +101,17 @@ Describe 'Invoke-WazaEvals' {
             $specs[0].Replace('\', '/') | Should -Match '/code-review/evals/waza/eval\.yaml$'
         }
 
+        It 'test:runner-selectors requires one valid plugin before premium side effects' {
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin '' } |
+                Should -Throw '*explicit lowercase -Plugin*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin 'code-review' -ChangedOnly } |
+                Should -Throw '*-ChangedOnly is not a valid premium scope*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin '../outside' } |
+                Should -Throw '*explicit lowercase -Plugin*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin 'code-review' } |
+                Should -Not -Throw
+        }
+
         It 'test:runner-selectors builds a normal run with --trials 1 under -Quick and --task under -Case' {
             $a = New-WazaRunArgument -SpecPath 'e.yaml' -OutputDir 'out' -Quick -Case 'my-case'
             $a[0] | Should -Be 'run'
@@ -202,11 +213,11 @@ Describe 'Invoke-WazaEvals' {
             $script:validate = Get-Content -LiteralPath (Join-Path $script:repoDir 'scripts/validate.ps1') -Raw
         }
 
-        It 'test:gate-isolation keeps Invoke-WazaEvals/eval:llm out of build, test, and eval scripts' {
-            foreach ($name in @('build', 'test', 'eval')) {
+        It 'test:gate-isolation keeps Invoke-WazaEvals and premium aliases out of package scripts' {
+            foreach ($name in @('build', 'test')) {
                 $script:pkg.scripts.$name | Should -Not -Match 'Invoke-WazaEvals'
-                $script:pkg.scripts.$name | Should -Not -Match 'eval:llm'
             }
+            $script:pkg.scripts.PSObject.Properties.Name | Should -Not -Contain 'eval:llm'
         }
 
         It 'test:gate-isolation keeps waza out of scripts/validate.ps1' {

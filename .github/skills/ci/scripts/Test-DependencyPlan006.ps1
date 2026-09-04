@@ -162,7 +162,7 @@ try {
         @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'test:<TestId>' }
         @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'file:<path>#<assertion>' }
         @{ Path = 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'; Pattern = 'review:cr\|dr' }
-        @{ Path = 'plugins/autopilot/agents/autopilot.agent.md'; Pattern = 'allowlist-clean' }
+        @{ Path = 'plugins/autopilot/agents/autopilot.agent.md'; Pattern = 'Run-UnitTests\.ps1 -TestPath' }
     )
     foreach ($anchor in $compatibilityAnchors) {
         Assert-FileContains -Root $resolvedRoot -RelativePath $anchor.Path -Pattern $anchor.Pattern
@@ -174,11 +174,8 @@ try {
     }
 
     $packageJson = Get-Content -LiteralPath $packageJsonPath -Raw -Encoding utf8 | ConvertFrom-Json
-    if (-not $packageJson.scripts.PSObject.Properties.Name.Contains('test:unit')) {
-        throw "package.json is missing the 'test:unit' script."
-    }
-    if ([string]$packageJson.scripts.test -notmatch 'npm run test:unit') {
-        throw "package.json script 'test' must include 'npm run test:unit'."
+    if ([string]$packageJson.scripts.test -notmatch 'Run-UnitTests\.ps1\s+-TestPath') {
+        throw "package.json script 'test' must use focused Run-UnitTests.ps1 -TestPath."
     }
 
     Write-Host "Plan $DependencyReference dependency preflight passed."

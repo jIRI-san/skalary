@@ -46,7 +46,7 @@ engine and is not a second harvest implementation.
    The phase is evidence-green only when every normalized outcome for every applicable requirement is
    `passed` or exactly `waived`. `failed`, `skipped`, `stale`, `unrun`, and `degraded` are unresolved
    and block phase promotion; do not reinterpret an unavailable or missing result as success.
-4. After all phase implementation, fixes, and focused checks are complete, run one **Fast** gate selected from the files and behavior changed in this phase. It must target only the highest-signal relevant tests. In this repository invoke `Run-UnitTests.ps1 -Tier Fast -TestPath <repo-relative-test-files> [-TestName <Pester-full-name-filters>]` through a bound argument array; `-TestName` is required when the owning file belongs to Slow. Never use `npm test`, `scripts/validate.ps1`, `-FullRepository`, or an unfiltered **Slow** suite at a phase boundary. `OverBudget`, `StaleMeasurement`, and `BudgetNotDefined` are advisory: report them, but never change budgets, runtime rows, implementation, or scope, and never rerun solely because of them. A failed assertion or nonzero correctness gate may be retried only after corrective changes; any later implementation change invalidates the successful run and requires one replacement run before phase completion.
+4. After all phase implementation and fixes are complete, run one focused gate selected from the files and behavior changed in this phase. Use `Run-UnitTests.ps1 -TestPath <repo-relative-test-files> [-TestName <Pester-full-name-filters>]` or `scripts/validate.ps1 -Path <repo-relative-paths>` through a bound argument array. Never widen scope or retry without a corrective change. Any later implementation change invalidates the successful run and requires one replacement run before phase completion.
 5. Build the review scope as the union of repo-relative implementation, test, and directly related documentation paths changed by this phase's completed step commits. Exclude plan progress and ephemeral log-only paths. If the exact phase union cannot be recovered, use `branch` scope rather than silently omitting files.
 6. Run the review loop below with stage `phase-<N>` and invoke `@cr post-phase <phase-paths-or-branch>`. The profile is primary-model only; apply clear findings and re-run the focused phase checks before the next round.
 7. Rebuild the evidence receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
@@ -100,7 +100,8 @@ offer Revise and Stop only; Continue is not an available disposition.
 ## Plan crosscheck
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
-2. Run final project validation only after every implementation phase is complete. Full-repository validation must use the repository's explicit opt-in parameter. In this repository run `npm test` only after confirming its committed `test:unit` leg contains `Run-UnitTests.ps1 -Tier Fast -FullRepository`; then run the Slow suite exactly once (`npm run test:slow`). Never infer full scope from an omitted parameter or bypass the complete configured command. A failed final gate may be retried only after corrective changes.
+2. Run final project validation only after every implementation phase is complete. Run the configured `build` and `test` commands (`npm run build` and `npm test` in this repo); they are fixed-scope baseline checks, so also run the affected-surface checks with explicitly named scope (`scripts/validate.ps1 -Path <changed paths>`, `scripts/skalary/Run-UnitTests.ps1 -TestPath <affected test files>`).
+   Broad `-FullRepository`, Slow, and premium Waza validation are direct operator choices and must never be invoked by this skill. These are local commands with no hosted-workflow requirement. A failed final gate may be retried only after corrective changes; never widen scope automatically.
 3. After every implementation phase is complete, run the review loop below with stage `plan-finalization` and invoke `@cr plan-finalization branch`. This is the only primary + secondary execution review and must cover the whole implementation. Apply clear findings and re-run complete project validation before the next round.
 4. Validate all REQ and RISK rows before completion.
 5. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
@@ -174,7 +175,7 @@ For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pest
 pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
-It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the `test:unit` gate, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
+It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the focused unit command, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
 
 ## Interactive harvest trigger (`/ci`) — mirror of canonical autopilot flow
 

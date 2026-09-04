@@ -109,7 +109,8 @@ plugin-owned schema/script sets, refuses root-canonical duplicates, verifies eac
 and dogfood byte, proves autopilot's explicit dependency, and cross-checks scaffold, registry,
 marketplace, version, installed-invocation, and shared phase-harvest bundle state.
 `test:LearningLoop.StructuralEvals` is the Tier-1 plugin eval for both `pfb` and `si`; it validates
-frontmatter, bodies, links, and required declared assets through the normal `npm run eval` path.
+frontmatter, bodies, links, and required declared assets through the focused
+`scripts/skalary/Test-Evals.ps1 -Plugin <name>` path; there is no npm eval alias.
 Neither proof adds a standalone `validate.ps1` gate: ownership drift belongs to the existing unit
 suite, while plugin structural evals retain the separate eval-runner boundary. That boundary is not
 a generic CI gate, but the named test is blocking when a plan cites it as typed evidence during a

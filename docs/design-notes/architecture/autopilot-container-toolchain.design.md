@@ -1,14 +1,19 @@
 ---
-description: Durable contract for the autopilot execution image's agent baseline, its smoke program, the trusted-host attestation of what the image actually contains, and the post-merge comparison gate that measures it. Load before editing plugins/autopilot/devcontainer/**, scripts/skalary/Invoke-ContainerToolchainGate.ps1, or .github/workflows/autopilot-container-ci.yml.
+description: Historical container-toolchain contract and retained direct diagnostics after hosted workflow retirement.
 globs:
   - plugins/autopilot/devcontainer/**
   - .github/skills/autopilot/devcontainer/**
   - scripts/skalary/Invoke-ContainerToolchainGate.ps1
-  - .github/workflows/autopilot-container-ci.yml
   - tests/skalary/AutopilotContainer*.Tests.ps1
 ---
 
 # Autopilot container toolchain
+
+> **Local-first status (plan `2aa7ec`):** the repository-owned hosted workflow was deleted.
+> Container scripts and tests remain only as direct diagnostics pending their owning phase-2
+> disposition. Nothing in this note makes them a required gate or authorizes an agent/package alias
+> to run them. Sections below that describe the former post-merge job are retained as historical
+> implementation context, not active operating authority.
 
 Durable contract for the autopilot execution image's agent baseline, its smoke program, and the
 comparison gate that measures it. This note is the source of truth the structural tests read.
@@ -17,7 +22,7 @@ contract that disappears from its enforcing test's path is a contract that stops
 
 **Applies to:** `plugins/autopilot/devcontainer/**`, `.github/skills/autopilot/devcontainer/**`,
 `scripts/skalary/Invoke-ContainerToolchainGate.ps1`,
-`.github/workflows/autopilot-container-ci.yml`, `tests/skalary/AutopilotContainer*.Tests.ps1`
+`tests/skalary/AutopilotContainer*.Tests.ps1`
 
 ## Acquisition boundary
 

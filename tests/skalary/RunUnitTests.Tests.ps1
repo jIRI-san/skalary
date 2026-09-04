@@ -7,6 +7,7 @@ Describe 'run unit tests' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:runner = Join-Path $script:repoRoot 'scripts/skalary/Run-UnitTests.ps1'
+        $script:runnerBody = Join-Path $script:repoRoot 'scripts/skalary/internal/Invoke-UnitTestRun.ps1'
         $script:fingerprintScript = Join-Path $script:repoRoot 'scripts/skalary/Get-SuiteInputFingerprint.ps1'
         $script:sandboxes = [System.Collections.Generic.List[string]]::new()
         . $script:fingerprintScript
@@ -122,8 +123,7 @@ Describe 'run unit tests' {
             if ($ModulePath) { $lines.Add("`$env:PSModulePath = '$ModulePath'") }
             $argumentText = $ExtraArguments -join ' '
             if (-not $ExactArguments -and
-                $argumentText -notmatch '(?i)-(FullRepository|TestPath|StartBudgetClock)\b' -and
-                $argumentText -notmatch '(?i)-Tier\s+(Slow|All)\b') {
+                $argumentText -notmatch '(?i)-(FullRepository|TestPath|StartBudgetClock)\b') {
                 $ExtraArguments += '-FullRepository'
             }
             $extra = if ($ExtraArguments.Count -gt 0) { ' ' + ($ExtraArguments -join ' ') } else { '' }
@@ -324,19 +324,17 @@ Describe 'sandbox' {
         }
     }
 
-    It 'test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix out of the budgeted unit suite and in blocking CI' {
+    It 'test:ReviewReport.ConsumerInstallDedicatedGate keeps the expensive matrix outside focused defaults' {
         $runnerText = Get-Content -LiteralPath $script:runner -Raw
+        $runnerBodyText = Get-Content -LiteralPath $script:runnerBody -Raw
         $dedicated = Join-Path $script:repoRoot 'scripts/skalary/Test-ReviewConsumerInstall.ps1'
-        $workflow = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/workflows/registry-ci.yml') -Raw
         $tiers = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/suite-tier.psd1')
 
         @($tiers.DedicatedFiles) | Should -Contain 'tests/skalary/ReviewConsumerInstall.Tests.ps1'
-        $runnerText | Should -Match 'DedicatedFiles'
+        $runnerBodyText | Should -Match 'DedicatedFiles'
+        $runnerText | Should -Match 'internal/Invoke-UnitTestRun\.ps1'
         Test-Path -LiteralPath $dedicated -PathType Leaf | Should -BeTrue
         (Get-Content -LiteralPath $dedicated -Raw) | Should -Match 'ReviewConsumerInstall\.Tests\.ps1'
-        $workflow | Should -Match 'name:\s*Review consumer install matrix'
-        $workflow | Should -Match 'scripts/skalary/Test-ReviewConsumerInstall\.ps1'
-        $workflow | Should -Not -Match 'Test-ReviewConsumerInstall\.ps1[^\r\n]*-TestPath'
 
         $sandbox = New-RunnerSandbox -TestFileContent $script:passingTestFile
         $fixture = Join-Path $sandbox 'tests/Sandbox.Tests.ps1'
@@ -410,7 +408,7 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
             Should -BeTrue -Because 'Slow is unbudgeted and cannot consume Fast measurement state'
     }
 
-    It 'test:RunUnitTests.FocusedFastScope requires explicit paths, runs only them, and reports sixty seconds' {
+    It 'test:RunUnitTests.FocusedFastScope requires explicit paths and runs only them' {
         $sandbox = New-RunnerSandbox -TestFileContent $script:failingTestFile
         Set-Content -LiteralPath (Join-Path $sandbox 'tests/Focused.Tests.ps1') -Value $script:passingTestFile -Encoding utf8NoBOM
 
@@ -422,8 +420,6 @@ Export-ModuleMember -Function Finalize-ReviewPlanRun
         $focused = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestPath 'tests/Focused.Tests.ps1'")
         $focused.ExitCode | Should -Be 0 -Because $focused.Output
         $focused.Output | Should -Match 'Suite tier: Fast focused \(1 file\(s\)\)'
-        $focused.Output | Should -Match 'Focused Fast runtime:'
-        $focused.Output | Should -Match 'ceiling of 60s'
 
         Set-Content -LiteralPath (Join-Path $sandbox 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'
 Describe 'focused slow file' {
@@ -478,14 +474,13 @@ Describe 'focused slow evidence case mismatch' {
         $caseMismatchResult.results[0].selectedCount | Should -Be 0
         $caseMismatchResult.results[0].status | Should -BeExactly 'unrun'
 
-        $manifestPath = Join-Path $sandbox 'tools/suite-tier.psd1'
-        $manifestText = Get-Content -LiteralPath $manifestPath -Raw
-        $manifestText.Replace('FastFocusedHardCeilingSeconds = 60', 'FastFocusedHardCeilingSeconds = 0.001') |
-            Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
-        $overBudget = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @("-TestPath 'tests/Focused.Tests.ps1'")
-        $overBudget.ExitCode | Should -Be 0 -Because $overBudget.Output
-        $overBudget.Output | Should -Match 'OverBudget:'
-        $overBudget.Output | Should -Match 'advisory ceiling'
+        $slowComplete = Invoke-Runner -SandboxRoot $sandbox -ExtraArguments @(
+            "-TestPath 'tests/Focused.Tests.ps1'",
+            '-FocusedWarningSeconds 0.05',
+            '-FocusedTimeoutSeconds 5'
+        )
+        $slowComplete.ExitCode | Should -Be 0 -Because $slowComplete.Output
+        $slowComplete.Output | Should -Match 'FocusedSlow:'
     }
 
     It 'test:RunUnitTests.PhysicalPathConfinement rejects linked parents and leaves for test and evidence paths' {

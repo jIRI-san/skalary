@@ -2,6 +2,6 @@
   "id": "ARCH-Eval-Gate-Separation",
   "title": "Two-tier eval gate separation",
   "maturity": "provisional",
-  "prose": "Deterministic Tier-1 structural evals (Pester) are always-on; Tier-2 LLM (waza) evals are never part of the deterministic gate. npm test, scripts/validate.ps1, and npm run eval must never invoke a waza/LLM run; Tier-2 runs only via the opt-in npm run eval:llm (Invoke-WazaEvals.ps1), which requires auth and incurs premium cost.",
-  "description": "Keeps CI deterministic and offline: no premium-cost, auth-dependent, non-deterministic LLM call can enter the always-on gate. Enforced by Test-Evals.ps1 (Tier-1 only) vs Invoke-WazaEvals.ps1 (Tier-2 only)."
+  "prose": "Deterministic Tier-1 structural evals require direct explicit plugin scope and run only the selected plugin; -FullRepository is a direct operator route. Tier-2 LLM evals require direct Invoke-WazaEvals.ps1 -Plugin invocation and must never enter configured build/test or deterministic scripts. Scope is validated before provisioning or output.",
+  "description": "Keeps local deterministic validation focused, offline, and zero-cost while preserving a separate explicit plugin-only premium Waza route."
 }

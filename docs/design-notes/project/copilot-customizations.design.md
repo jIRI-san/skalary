@@ -38,7 +38,7 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/skills/architecture-notes/SKILL.md` | Skill (`architecture-notes`) | Interface-contract tier authoring — create/update/promote/review contracts, seed/harvest, human doc, ADR harvest; `/can` + `/uan` are thin wrappers |
 | `.github/prompts/{can,uan}.prompt.md` | Prompts (`/can`, `/uan`) | Thin wrappers deferring to the architecture-notes skill (create / update; `/uan` also runs finalization ADR harvest) |
 | `.github/skills/pfb/SKILL.md` + `.github/prompts/pfb.prompt.md` | Skill (`pfb`) + Prompt (`/pfb`) | Post-plan feedback — compares delivered work against the plan's captured intent, records the operator's verdict through `Update-FeedbackQueue.ps1`, and can hand off to `/cip` for a correction plan. Offered at the `/ci` archival gate, never blocking; headless runs queue the question instead of asking it |
-| `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Two-tier plugin eval runner (`npm run eval`) for structural + opt-in LLM evals |
+| `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Direct plugin-scoped structural runner; Waza is a separate direct premium route |
 
 ## Design Note Loading Strategy
 
@@ -195,16 +195,18 @@ The writing-style template mirrors this repo's `docs/design-notes/project/design
 
 ## Plugin Eval Workflow
 
-Plugin payload checks run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`.
-This always-on Tier-1 structural gate is separate from `npm test` / `validate.ps1`.
+Plugin payload checks run directly with `scripts/skalary/Test-Evals.ps1 -Plugin <name>`.
+This focused Tier-1 structural command is separate from focused unit and syntax validation.
 
-Tier-2 is the opt-in waza workflow: `npm run eval:llm` calls
-`scripts/skalary/Invoke-WazaEvals.ps1`, provisions the checksum-pinned toolchain through
-`Ensure-EvalTools.ps1`, discovers `plugins/<name>/evals/waza/eval.yaml`, and runs functional and
-declared adversarial modes as separate signals. Optional `-Plugin`, `-Case`, `-ChangedOnly`,
-`-Quick`, and `-Approve` switches are available when invoking the script directly. Models, judges,
-trials, and timeouts come from each waza spec; legacy `.eval.config.json` tuning fields do not
-configure waza.
+Tier-2 is the opt-in waza workflow, run directly as
+`scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <name>` — there is no npm alias for it, and it is a
+direct operator choice that agents never invoke. `-Plugin` is mandatory and names one confined
+plugin directory; the script refuses any other scope before it provisions anything. It then
+provisions the checksum-pinned toolchain through `Ensure-EvalTools.ps1`, discovers
+`plugins/<name>/evals/waza/eval.yaml`, and runs functional and declared adversarial modes as
+separate signals. Optional `-Case`, `-Quick`, and `-Approve` narrow or shortcut a run within that
+one plugin. Models, judges, trials, and timeouts come from each waza spec; legacy
+`.eval.config.json` tuning fields do not configure waza.
 
 `Resolve-EvalToken.ps1` resolves auth in the order `gh auth token` → ambient token →
 Credential Manager fallback. Adversarial mode accepts only the short-lived `gh` OAuth source;

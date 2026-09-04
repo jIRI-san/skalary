@@ -292,7 +292,7 @@ closed-schema JSON line naming each failing case. Image growth is reported again
 `USER autopilot`; keep that anchor stable and keep all root-owned toolchain setup above it.
 
 `Invoke-ContainerToolchainGate.ps1` is the shared Docker-free detector and Docker-backed
-measurement runner for local use and CI. It owns the image-input path set, deriving plugin
+measurement runner, invoked directly by an operator. It owns the image-input path set, deriving plugin
 source/destination pairs from `plugin.json` and local `COPY` sources from the Dockerfile;
 context-level and Dockerfile-specific ignore paths are always relevant and must join parity
 when present.
@@ -301,7 +301,7 @@ forces relevance and a closed candidate-only reason. Candidate payload parity, b
 and bounded output are blocking. Comparable base failure or timeout becomes candidate-only
 evidence, while growth above 250 MiB stays advisory. Every invocation writes a bounded
 `skalary/container-toolchain-receipt@1` terminal receipt from `finally`; process budgets kill
-the process tree and reserve the outer job's upload window.
+the process tree and reserve time for the terminal receipt to be written.
 
 The smoke JSON is written **by the image being judged**, so on its own it is a claim, not
 evidence. The runner therefore attests the claim from the host: it creates a container with
@@ -314,10 +314,10 @@ exactly the case a self-report cannot catch.
 
 Process capture is head+tail bounded (16 KiB head, the remainder as tail, with an explicit
 `...[N characters truncated]...` marker), and a failing build or smoke also writes its bounded
-capture to a diagnostics log the workflow uploads. A truncated middle is stated rather than
-implied, and the exit code of a still-running process is never read.
+capture to a diagnostics log the operator reads next to the receipt. A truncated middle is
+stated rather than implied, and the exit code of a still-running process is never read.
 
-The workflow carries the detector's candidate-only reason and its relevance verdict into
+The runner carries the detector's candidate-only reason and its relevance verdict into
 measurement. A later successful base-checkout retry cannot turn an unusable detection base into
 a comparable run, and a measurement-time re-detection that contradicts the detector's `true`
 resolves toward the blocking path rather than silently skipping the work the truth table still
@@ -479,7 +479,7 @@ Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 4. Loop until phase complete → primary-only `/cr post-phase` review → push
 5. After all phases → primary + secondary `/cr plan-finalization` review over the whole branch
 
-The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step loops run named evidence and focused targets only. Once phase work settles, phase crosscheck runs one highest-signal changed-surface Fast selection and logs its 60-second advisory target; if it is too broad, scope may be reduced and complete coverage deferred. Slow and full-repository validation are forbidden before true plan finalization. Finalization opts into complete Fast through an explicit repository parameter, then runs Slow once. Runtime observations never trigger an automatic repair/rerun loop. The same cadence applies inside container autopilot because the same per-phase agent owns the boundary.
+The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step loops, phase crosschecks, and final validation use configured focused commands with explicit affected scope. They never widen or retry automatically; a corrective change is required before repeating a failed check. Broad `-FullRepository`, Slow, and premium Waza runs remain direct operator invocations and are never agent requirements. Validation is local and does not require a hosted workflow. The same cadence applies inside container autopilot because the same per-phase agent owns the boundary.
 
 CR is not dispatched after individual implementation steps. Post-phase dispatch uses only the
 primary role from `.github/skills/cr/assets/model-preferences.md`; finalization dispatch uses primary
@@ -509,7 +509,7 @@ Absolute rules enforced:
 | Loop participation | Autopilot is a first-class verification participant: it runs `validate-plan`, executes typed evidence checks (`test:`/`file:`/`review:`), and writes `evidence.md` receipts during crosschecks. |
 | Phase budget | One invocation remains one phase/context window; phase-budget points (`S=1/M=2/L=3`, advisory cap 6) are guidance for phase sizing, not a hard launcher block. |
 | Rule 5 trust boundary | `.autopilot.json` complete `test` stays allowlist-clean as `npm test`; plan text remains untrusted and never executable. Focused filters come only from changed files and committed project/test metadata. The committed plan reconcile entry point and named typed-evidence tests are authorized focused checks. |
-| Tiered validation cadence | Phase Fast is not `npm test`: it is an explicit `Run-UnitTests.ps1 -Tier Fast -TestPath ...` selection over changed surfaces. `FastFocusedHardCeilingSeconds` and `SlowHardCeilingSeconds` are advisory observations only. The complete Fast complement requires `-FullRepository`; `package.json` and CI pass that switch explicitly, so omission can never expand scope. The process-heavy `npm run test:slow` gate runs only after all phases complete. Container autopilot follows the same agent contract. |
+| Local validation cadence | Routine and final agent validation use the configured focused build/test commands with explicit affected scope. Selection never widens or retries automatically. Complete `-FullRepository`, Slow, and premium Waza routes are direct operator invocations only; agents, package scripts, and hosted workflows do not require them. Container autopilot follows the same agent contract. |
 | Finalization ordering | Escalation ordering remains strict: commit -> push -> `gh pr create --draft` -> write uncommitted gitignored `.autopilot-finalize-needed` marker -> exit 42. |
 | Finalization resume authority | Target selection and post-target close derivation both read the durable `plan-finalization` gate. Wrap/operator-decision exits 42 without invoking or resuming the agent; `allow` resumes only already-authorized work and `complete` proceeds with archive/PR close proof. A runtime prompt, same-session handoff, or request to finish pending work is never operator Reopen authority. |
 | Container dependency | `.github/skills/autopilot/devcontainer/Dockerfile` installs Pester at an exact pinned version (`Install-PSResource -Name Pester -Version "[5.6.1]"`) so `test:unit` and `test:` evidence are runnable in container-autopilot. |

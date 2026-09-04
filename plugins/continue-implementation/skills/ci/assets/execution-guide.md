@@ -12,10 +12,10 @@
    pwsh -NoProfile -File .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
    ```
 3. Build the affected surface with the narrowest project target that covers the changed component. If no safe focused target exists, defer the complete project build to finalization.
-4. Test the affected surface with the narrowest deterministic checks that can falsify the change. Include the changed behavior, its direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Prefer named `test:` evidence and stable filters derived from committed project metadata. Do not run repository-wide validation or the Slow suite during a step; the phase Fast gate is a focused selection over changed surfaces and the Slow/full-repository gates are reserved for plan finalization.
+4. Test the affected surface with the narrowest deterministic checks that can falsify the change. Include the changed behavior, its direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Prefer named `test:` evidence and stable filters derived from committed project metadata. Broad `-FullRepository`, Slow, and premium Waza validation are direct operator invocations only; this skill never invokes them during a step or at finalization.
 5. Validate step acceptance criteria tied to referenced `REQ-N` rows.
 6. Append to `learnings.md` only on triggers (`rework>1`, `plan-contradiction`, `reusable-pattern`) with typed concern/REQ/review provenance. The writer replaces the phase placeholder, keeps 10 active entries, and persists older records losslessly in content-addressed overflow-first batches. A `legacy-loss` result surfaces old `overflow-summary` data loss.
-7. Re-run the same focused build/test checks when changes are made. Do not widen to Slow or full-repository validation during the step loop.
+7. Re-run the same focused build/test checks only after changes are made. Never automatically retry or widen scope.
 8. Mark step `[x]` and commit atomically with the plan update.
 
 Code review is not dispatched per implementation step. The phase crosscheck reviews the combined
