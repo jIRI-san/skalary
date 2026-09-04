@@ -6,7 +6,7 @@
 
 At phase and plan crosschecks, verify each requirement's typed markers from Acceptance Criteria:
 
-- `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
+- `test:<TestId>` -> invoke the focused runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate). A passed `review:cr` result must carry `ReviewRunId=<finalized-run-uuid>`; the formatter rechecks the retained pair, durable clean cycle, and reviewed commit.
 
@@ -101,7 +101,7 @@ offer Revise and Stop only; Continue is not an available disposition.
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
 2. Run final project validation only after every implementation phase is complete. Run the configured `build` and `test` commands (`npm run build` and `npm test` in this repo); they are fixed-scope baseline checks, so also run the affected-surface checks with explicitly named scope (`scripts/validate.ps1 -Path <changed paths>`, `scripts/skalary/Run-UnitTests.ps1 -TestPath <affected test files>`).
-   Broad `-FullRepository`, Slow, and premium Waza validation are direct operator choices and must never be invoked by this skill. These are local commands with no hosted-workflow requirement. A failed final gate may be retried only after corrective changes; never widen scope automatically.
+   Broad `-FullRepository` and premium Waza validation are direct operator choices and must never be invoked by this skill. These are local commands with no hosted-workflow requirement. A failed final gate may be retried only after corrective changes; never widen scope automatically.
 3. After every implementation phase is complete, run the review loop below with stage `plan-finalization` and invoke `@cr plan-finalization branch`. This is the only primary + secondary execution review and must cover the whole implementation. Apply clear findings and re-run complete project validation before the next round.
 4. Validate all REQ and RISK rows before completion.
 5. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.

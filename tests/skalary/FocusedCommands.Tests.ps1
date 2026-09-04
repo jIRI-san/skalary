@@ -147,6 +147,63 @@ Describe 'unselected' {
             ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
         ($callers -join "`n") | Should -Not -Match 'Run-UnitTests\.ps1[^\r\n]*-FullRepository'
         ($callers -join "`n") | Should -Not -Match 'npm run eval:llm'
+
+        $ownershipPath = Join-Path $script:repoRoot (
+            'docs/implementation-plans/705e6c-2026-09-03-2aa7ec-local-first-operating-baseline/' +
+            'assets/ownership.md'
+        )
+        $inventoryRows = @(
+            Get-Content -LiteralPath $ownershipPath |
+                Where-Object {
+                    $_ -match '^\| (Gate|JSON|Test|Design note|Architecture contract) \|' -and
+                    $_ -match '\| `[0-9a-f]{6}` \|'
+                } |
+                ForEach-Object {
+                    $cells = @($_.Split('|') | ForEach-Object { $_.Trim() })
+                    [pscustomobject]@{
+                        Category = $cells[1]
+                        Owner = $cells[3].Trim('`')
+                        Disposition = $cells[4].Trim('`')
+                        ValueCategory = $cells[5]
+                        Reason = $cells[6]
+                        ExternalConsumer = $cells[7]
+                    }
+                }
+        )
+        $inventoryRows.Count | Should -Be 294
+        @($inventoryRows | Where-Object Owner -NotIn @('2aa7ec', '367e9a', '3a4498', '623cc2')).Count |
+            Should -Be 0
+        @($inventoryRows | Where-Object Disposition -NotIn @('keep', 'transfer', 'delete')).Count |
+            Should -Be 0
+        @($inventoryRows | Where-Object Reason -EQ '—').Count | Should -Be 0
+        @(
+            $inventoryRows |
+                Where-Object Category -EQ 'Test' |
+                Where-Object Disposition -EQ 'keep' |
+                Where-Object ValueCategory -NotIn @(
+                    'current user behavior',
+                    'external format',
+                    'high-impact regression'
+                )
+        ).Count | Should -Be 0
+        @(
+            $inventoryRows |
+                Where-Object Category -EQ 'JSON' |
+                Where-Object Disposition -EQ 'keep' |
+                Where-Object ExternalConsumer -EQ '—'
+        ).Count | Should -Be 0
+
+        $expectedCategoryCounts = @{
+            'Gate' = 23
+            'JSON' = 111
+            'Test' = 124
+            'Design note' = 28
+            'Architecture contract' = 8
+        }
+        foreach ($category in $expectedCategoryCounts.Keys) {
+            @($inventoryRows | Where-Object Category -EQ $category).Count |
+                Should -Be $expectedCategoryCounts[$category]
+        }
     }
 
     It 'test:FocusedCommands.SupervisionIsNotSelectable proves no parameter, variable, or environment marker can reach an unsupervised focused run' {

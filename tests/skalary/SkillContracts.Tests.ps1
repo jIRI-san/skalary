@@ -122,9 +122,8 @@ Describe 'Skill contract token guards' {
             $text | Should -Match '(?i)affected surface|affected-surface'
             $text | Should -Match '(?i)focused'
             $text | Should -Match '(?i)direct operator'
-            $text | Should -Match '(?i)Slow'
             $text | Should -Match '(?i)Waza'
-            $text | Should -Not -Match '(?i)Slow.{0,80}(?:reserved|runs only).{0,40}finalization'
+            $text | Should -Not -Match '(?i)\bSlow\b'
         }
         $autopilot | Should -Match '(?i)never widen scope automatically'
         $execution | Should -Match '(?i)never automatically retry or widen scope'
@@ -140,6 +139,7 @@ Describe 'Skill contract token guards' {
             Should -Not -Match 'FullRepository|Invoke-WazaEvals|Test-Evals|-Tier Slow'
         @(Get-ChildItem -LiteralPath (Join-Path $repoRoot '.github/workflows') `
                 -File -ErrorAction SilentlyContinue).Count | Should -Be 0
+
     }
 
     It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {
@@ -225,6 +225,9 @@ Describe 'Skill contract token guards' {
             'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md' =
                 @('stop — leave the mapping unchanged', 'adopt-exact-issue',
                     'stop — perform no remote writes', 'apply-exact-digest')
+            'plugins/create-implementation-plan/skills/cep/SKILL.md' =
+                @('keep — retain the accepted cut', 'simplify — remove unnecessary mechanism',
+                    'split — separate overlapping ownership', 'defer — leave optional work out')
         }
         foreach ($entry in $scoredSkills.GetEnumerator()) {
             $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
@@ -237,7 +240,11 @@ Describe 'Skill contract token guards' {
         $scoredAssets = @{
             'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md' =
                 @('Confirm intent — use', 'Revise intent — correct', 'Approve design — keep',
-                    'Revise design — correct', 'manual — approve each step', 'whole-plan — continue',
+                    'Revise design — correct', 'manual — approve each step',
+                    'host autopilot — run headlessly on the host',
+                    'container autopilot — run in the local container',
+                    'sandbox autopilot — run in the configured sandbox',
+                    'phase-at-a-time — stop after one phase', 'whole-plan — continue',
                     'Confirm — draft', 'Revise — correct')
             'plugins/create-implementation-plan/skills/cip/assets/dr-guide.md' =
                 @('Continue reviewing — authorize', 'Start implementation — retain')
@@ -267,6 +274,18 @@ Describe 'Skill contract token guards' {
             $text | Should -Not -Match '(?i)(?:pwsh|powershell)\s+(?:-NoProfile\s+)?-File\s+\.github/skills/'
             $text | Should -Not -Match '(?m)^\s*\$\w+\s*=\s*&\s+\.github/skills/'
         }
+    }
+
+    It 'test:LocalFirst.AgentCostBudgets keeps advisory dispatch and context limits explicit' {
+        $text = Get-SkillText -RelativePath 'docs/design-notes/explorations/agent-cost-optimization.design.md'
+
+        $text | Should -Match '\*\*2 default\*\*'
+        $text | Should -Match '\*\*5 maximum\*\*'
+        $text | Should -Match 'Primary plus one availability fallback'
+        $text | Should -Match 'At most \*\*5 supporting artifacts\*\*'
+        $text | Should -Match '\*\*600-word target\*\*'
+        $text | Should -Match '\*\*1,200-word cap\*\*'
+        $text | Should -Match 'No policy engine, receipt, schema, telemetry pipeline, or runtime budget service'
     }
 
     It 'test:manifest-coverage registers every ci/cip skill asset in plugin.json files[]' {
