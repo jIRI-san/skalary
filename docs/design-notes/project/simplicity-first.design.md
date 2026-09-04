@@ -29,3 +29,11 @@ condition that would justify revisiting it.
 | Focused deterministic checks | Routine broad suites and duplicated evidence |
 | One owner and one implementation path | Parallel adapters, compatibility layers, and speculative extension points |
 | Explicit operator decisions | Autonomous policy invented by reviewers |
+
+## Dubious decisions
+
+This rule intentionally permits a simpler design to retain a bounded security tradeoff in the
+operator's trusted local environment. Revisit that choice only when Skalary accepts untrusted
+contributors, runs as a shared service, handles third-party credentials, or exposes command execution
+across a trust boundary. Until then, reviewers must report concrete exploitable defects, not request
+general security machinery or weaken this rule as a design preference.
