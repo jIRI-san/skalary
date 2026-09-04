@@ -6,11 +6,10 @@
     Dependency-free verification that parses selected PowerShell and JSON files.
     Routine use requires -Path and always runs in a supervised child process executing the
     private body `skalary/internal/Invoke-FocusedValidation.ps1`: the run targets less than
-    30 seconds, warns after a 30-60 second completion, and has its owned process group
+    30 seconds, warns after a 30-60 second completion, and has its child process tree
     terminated at 60 seconds. No parameter, variable or environment value selects an
     unsupervised focused run, and no step of the dispatch is reachable by command-name
-    resolution. Containment that cannot be established fails closed with exit 14 rather than
-    running work nothing can terminate. The direct operator-only -FullRepository route runs in
+    resolution. A child-start failure exits 14. The direct operator-only -FullRepository route runs in
     this process and retains the repository-wide parse and supporting checks.
     The full file set comes from PayloadScope.psm1, which enumerates an allowlist of
     payload roots so both platforms see the same files (REQ-8).

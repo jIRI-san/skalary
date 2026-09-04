@@ -36,28 +36,17 @@ service exists.
 ## Supervision, deadline, and containment
 
 Supervision lives in `scripts/skalary/internal/FocusedSupervision.ps1`, which the three public commands
-invoke *by path* and address as an object. Nothing in the focused dispatch is reached by command-name
-resolution: the helper invokes no named command at all, resolves the host executable from
-`[System.Environment]::ProcessPath` under absolute existing-leaf validation, and encodes the request
-with .NET primitives. An alias or function planted in the calling session therefore cannot stand in for
-the host lookup, the body path, the request encoder, or the supervisor itself.
+invoke by path. It starts a clean PowerShell child through `System.Diagnostics.Process`, sends bound
+request data on stdin, and waits against one wall-clock deadline. Exceeding the deadline calls
+`Process.Kill(true)`, waits briefly for shutdown, reports completed output, and exits `13` with
+`FocusedTimeout`. The public commands expose no worker/bypass switch or environment protocol.
 
-One monotonic wall-clock deadline covers process start, the stdin request handoff, root exit, stdout
-EOF, and stderr EOF. Root exit is not completion: a root that exits after spawning a descendant which
-retains the inherited output pipes still reaches the deadline. No result is read from a wait that did
-not complete; after termination a bounded drain reports whatever output did finish. Exceeding the
-deadline terminates the owned containment and exits `13` with `FocusedTimeout`, and a killed run never
-emits `FocusedSlow`.
-
-Containment is native and owned, with no PID or name sweeping and no durable state, service, or
-authorization layer. On Linux the child is launched through a physically validated absolute `setsid`
-so it leads its own session and process group — confirmed with a native `getpgid` before the stdin
-handshake releases it — and termination is a native negative-PGID `SIGKILL`. On Windows the child is
-assigned to a Job Object set kill-on-close, again before the handshake releases it, and termination is
-`TerminateJobObject`. Handles are closed and the containment is disposed on every path, so normal
-completion leaks no descendant and touches nothing the run did not create. Containment that cannot be
-established fails closed: the command exits `14` with `FocusedContainmentUnavailable` rather than
-running work it could not terminate. There is no public bypass or test seam for any of this.
+**Deliberate simple-over-safe tradeoff:** this is a timeout, not a sandbox. `Process.Kill(true)` covers
+the current child process tree on Windows and Linux without native interop, job objects, process groups,
+PID sweeping, services, or durable state. A process that deliberately detaches and is reparented before
+the deadline may escape. That risk is accepted for this single-user repository with trusted local tests;
+revisit it only if the threat model changes. Child-start failure exits `14` with
+`FocusedWorkerStartFailed`.
 
 `package.json` keeps only focused `build` and `test` defaults needed by `.autopilot.json`; neither is an
 aggregate or broad alias. Agents and skills may run these focused defaults or direct focused scripts.
@@ -89,19 +78,10 @@ existing tier manifest. These routes are operator diagnostics, not required gate
 
 ## Evidence
 
-`test:FocusedCommands.Contract` proves scope refusal/confinement, selected-only behavior, post-completion
-warning, exit `13`, and descendant termination with reduced thresholds. `test:LocalFirst.BaselineContract`
-proves workflows and implicit broad/premium callers are absent while the explicit direct switches remain.
-`test:LocalFirst.ActiveAuthorityReferences` keeps the active architecture notes from asserting authority
-the removed workflows carried.
-
-`tests/skalary/FocusedContainment.Tests.ps1` carries the supervision invariants:
-`test:FocusedContainment.NoCommandResolution` parses the helper and proves it invokes nothing by name;
-`test:FocusedContainment.PoisonedCommandsCannotRedirect` preseeds both a function and an alias for every
-plausible dispatch step and still gets the real verdict; `.LeakyDescendantRootExitTimesOut` and
-`.RunningRootTimesOutWithDescendants` prove the single deadline and descendant death across both the
-exited-root and still-running-root shapes while an unrelated process survives;
-`.CompleteOutputPrecedesSlowWarning` pins complete stdout and stderr ahead of `FocusedSlow`;
-`.OwnsDescendantsAcrossRootExit` exercises the real containment on the running platform; and
-`.FailsClosedWithoutContainment`, `.FailsClosedWithoutSessionLauncher`, and
-`.WindowsJobObjectOwnership` pin the closed failures and the Windows mechanism and its ordering.
+`test:FocusedCommands.Contract` proves scope refusal/confinement and selected-only behavior.
+`test:FocusedCommands.SupervisionIsNotSelectable` proves the public surface has no bypass, then exercises
+one passing run, one warning, one zero-selection failure, and one timeout that terminates a descendant.
+`test:LocalFirst.BaselineContract` proves workflows and implicit broad/premium callers are absent, the
+explicit direct switches remain, and Waza rejects an intermediate linked directory.
+`test:LocalFirst.ActiveAuthorityReferences` keeps active architecture notes from asserting authority the
+removed workflows carried.

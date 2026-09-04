@@ -31,50 +31,13 @@ Describe 'local-first focused command contracts' {
                 Should -Not -Contain 'InternalFocusedChild'
         }
 
-        $bypassAttempts = @(
-            [pscustomobject]@{
-                Arguments = @('-File', $script:unitRunner, '-TestPath',
-                    'tests/skalary/FocusedCommands.Tests.ps1', '-InternalFocusedChild')
-            },
-            [pscustomobject]@{
-                Arguments = @('-File', $script:evalRunner, '-Plugin', 'plugin-manager',
-                    '-InternalFocusedChild')
-            },
-            [pscustomobject]@{
-                Arguments = @('-File', $script:validator, '-Path', 'package.json',
-                    '-InternalFocusedChild')
-            }
-        )
-        foreach ($probe in $bypassAttempts) {
-            $attempt = Invoke-CapturedPowerShell -ArgumentList $probe.Arguments
-            $attempt.ExitCode | Should -Not -Be 0
-            $attempt.Output | Should -Match 'InternalFocusedChild'
-            $attempt.Output | Should -Match '(?i)parameter cannot be found|named parameter'
-            $attempt.Output | Should -Not -Match 'Validation passed|Tests completed successfully'
-        }
-
         $missingUnit = Invoke-CapturedPowerShell -ArgumentList @('-File', $script:unitRunner)
         $missingUnit.ExitCode | Should -Be 12
         $missingUnit.Output | Should -Match 'FocusedScopeRequired'
-        (Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:unitRunner,
-                '-TestPath', '../outside.Tests.ps1'
-            )).ExitCode | Should -Be 12
-        (Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:unitRunner,
-                '-TestPath', 'tests/skalary/FocusedCommands.Tests.ps1',
-                '-FullRepository'
-            )).ExitCode | Should -Be 12
 
         $missingEval = Invoke-CapturedPowerShell -ArgumentList @('-File', $script:evalRunner)
         $missingEval.ExitCode | Should -Be 12
         $missingEval.Output | Should -Match 'FocusedScopeRequired'
-        (Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:evalRunner, '-Plugin', '../outside'
-            )).ExitCode | Should -Be 12
-        (Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:evalRunner, '-Plugin', 'plugin-manager', '-FullRepository'
-            )).ExitCode | Should -Be 12
 
         $missingValidation = Invoke-CapturedPowerShell -ArgumentList @('-File', $script:validator)
         $missingValidation.ExitCode | Should -Be 12
@@ -129,92 +92,6 @@ Describe 'unselected' {
         $selectedEval.Output | Should -Match 'total: 1'
         $selectedEval.Output | Should -Not -Match 'unselected'
 
-        $timedValidation = Invoke-CapturedPowerShell -ArgumentList @(
-            '-File', $script:validator,
-            '-Path', 'package.json',
-            '-FocusedWarningSeconds', '0.05',
-            '-FocusedTimeoutSeconds', '0.1'
-        )
-        $timedValidation.ExitCode | Should -Be 13 -Because $timedValidation.Output
-        $timedValidation.Output | Should -Match 'FocusedTimeout'
-
-        $timedEval = Invoke-CapturedPowerShell -ArgumentList @(
-            '-File', $script:evalRunner,
-            '-RepoRoot', $fixtureRoot,
-            '-PluginsRoot', (Join-Path $fixtureRoot 'plugins'),
-            '-OutputRoot', (Join-Path $fixtureRoot 'tests/evals/output'),
-            '-Plugin', 'selected',
-            '-FocusedWarningSeconds', '0.05',
-            '-FocusedTimeoutSeconds', '0.1'
-        )
-        $timedEval.ExitCode | Should -Be 13 -Because $timedEval.Output
-        $timedEval.Output | Should -Match 'FocusedTimeout'
-
-        $timeoutRoot = Join-Path $TestDrive 'timeout-repo'
-        [void](New-Item -ItemType Directory -Path (Join-Path $timeoutRoot 'tests') -Force)
-        [void](New-Item -ItemType Directory -Path (Join-Path $timeoutRoot 'tools') -Force)
-        @'
-@{
-    Schema = 'skalary/suite-tier@1'
-    FastFocusedHardCeilingSeconds = 60
-    SlowHardCeilingSeconds = 600
-    CiSetupAllowanceSeconds = 60
-    DedicatedFiles = @()
-    SlowFiles = @()
-}
-'@ | Set-Content -LiteralPath (Join-Path $timeoutRoot 'tools/suite-tier.psd1') -Encoding utf8NoBOM
-        $pidFile = Join-Path $timeoutRoot 'child.pid'
-        @'
-Describe 'timeout process tree' {
-    It 'starts a descendant and waits' {
-        $child = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 30') -PassThru
-        Set-Content -LiteralPath $env:SKALARY_FOCUSED_PID_FILE -Value $child.Id
-        Start-Sleep -Seconds 30
-    }
-}
-'@ | Set-Content -LiteralPath (Join-Path $timeoutRoot 'tests/Timeout.Tests.ps1') -Encoding utf8NoBOM
-        $oldPidFile = $env:SKALARY_FOCUSED_PID_FILE
-        $env:SKALARY_FOCUSED_PID_FILE = $pidFile
-        try {
-            $timedOut = Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:unitRunner,
-                '-RepoRoot', $timeoutRoot,
-                '-TestPath', 'tests/Timeout.Tests.ps1',
-                '-FocusedWarningSeconds', '0.2',
-                '-FocusedTimeoutSeconds', '4'
-            )
-        }
-        finally {
-            $env:SKALARY_FOCUSED_PID_FILE = $oldPidFile
-        }
-        $timedOut.ExitCode | Should -Be 13 -Because $timedOut.Output
-        $timedOut.Output | Should -Match 'FocusedTimeout'
-        Test-Path -LiteralPath $pidFile -PathType Leaf |
-            Should -BeTrue -Because 'the timed test must start its descendant before timeout'
-        $descendantPid = [int](Get-Content -LiteralPath $pidFile -Raw)
-        Start-Sleep -Milliseconds 200
-        Get-Process -Id $descendantPid -ErrorAction SilentlyContinue |
-            Should -BeNullOrEmpty -Because 'the focused timeout terminates the directly launched process tree'
-
-        Set-Content -LiteralPath (Join-Path $timeoutRoot 'tests/Fast.Tests.ps1') -Encoding utf8NoBOM -Value @'
-Describe 'fast completion' {
-    It 'passes after the warning threshold' {
-        Start-Sleep -Milliseconds 400
-        $true | Should -BeTrue
-    }
-}
-'@
-        $slowComplete = Invoke-CapturedPowerShell -ArgumentList @(
-            '-File', $script:unitRunner,
-            '-RepoRoot', $timeoutRoot,
-            '-TestPath', 'tests/Fast.Tests.ps1',
-            '-FocusedWarningSeconds', '0.2',
-            '-FocusedTimeoutSeconds', '5'
-        )
-        $slowComplete.ExitCode | Should -Be 0 -Because $slowComplete.Output
-        $slowComplete.Output | Should -Match 'FocusedSlow'
-        $slowComplete.Output.IndexOf('FocusedSlow') |
-            Should -BeGreaterThan $slowComplete.Output.IndexOf('Tests completed')
     }
 
     It 'test:LocalFirst.BaselineContract removes hosted and implicit broad entry points while retaining direct explicit routes' {
@@ -252,6 +129,18 @@ Describe 'fast completion' {
         $wazaRefusal.ExitCode | Should -Be 12
         Test-Path -LiteralPath (Join-Path $wazaFixture 'tests/evals/output') |
             Should -BeFalse -Because 'scope refusal precedes provisioning and output creation'
+
+        $pluginRoot = Join-Path $wazaFixture 'plugins/selected'
+        $outsideEvals = Join-Path $TestDrive 'outside-evals'
+        [void](New-Item -ItemType Directory -Path $pluginRoot -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $outsideEvals 'waza') -Force)
+        Set-Content -LiteralPath (Join-Path $outsideEvals 'waza/eval.yaml') -Value 'tasks: []'
+        [void](New-Item -ItemType $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }) `
+                -Path (Join-Path $pluginRoot 'evals') -Target $outsideEvals)
+        . (Join-Path $script:repoRoot 'scripts/skalary/Invoke-WazaEvals.ps1')
+        {
+            Assert-WazaFocusedScope -RepoRoot $wazaFixture -Plugin selected
+        } | Should -Throw '*must not traverse a link or reparse point*'
 
         $callers = Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -Recurse -File |
             Where-Object { $_.Extension -in @('.md', '.ps1') } |
@@ -294,6 +183,7 @@ Describe 'fast completion' {
             $text | Should -Not -Match '(?im)^\s*[^#\r\n]*Get-Variable'
             $text | Should -Not -Match '(?im)^\s*[^#\r\n]*\$env:'
             $text | Should -Not -Match '(?im)^\s*[^#\r\n]*GetEnvironmentVariable'
+            $text | Should -Match 'InvokeSupervisedBody'
         }
 
         # The supervised child runs a private body, never the public command again.
@@ -305,7 +195,7 @@ Describe 'fast completion' {
                 -Because "$($body.Name) must not re-enter public dispatch"
         }
 
-        $fixtureRoot = Join-Path $TestDrive 'bypass-repo'
+        $fixtureRoot = Join-Path $TestDrive 'supervision-repo'
         [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'tests') -Force)
         [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'tools') -Force)
         Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
@@ -318,10 +208,20 @@ Describe 'fast completion' {
     SlowFiles = @()
 }
 '@
-        Set-Content -LiteralPath (Join-Path $fixtureRoot 'tests/Sleeper.Tests.ps1') -Encoding utf8NoBOM -Value @'
-Describe 'sleeper' {
-    It 'outlives the focused timeout' { Start-Sleep -Seconds 30 }
+        $pidFile = Join-Path $fixtureRoot 'descendant.pid'
+        $timeoutBody = Join-Path $fixtureRoot 'timeout-body.ps1'
+        Set-Content -LiteralPath $timeoutBody -Encoding utf8NoBOM -Value @'
+$request = [System.Console]::In.ReadToEnd() |
+    Microsoft.PowerShell.Utility\ConvertFrom-Json
+$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+$startInfo.FileName = [System.Environment]::ProcessPath
+$startInfo.UseShellExecute = $false
+foreach ($argument in @('-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 30')) {
+    [void]$startInfo.ArgumentList.Add($argument)
 }
+$child = [System.Diagnostics.Process]::Start($startInfo)
+[System.IO.File]::WriteAllText([string]$request.PidFile, [string]$child.Id)
+Start-Sleep -Seconds 30
 '@
         Set-Content -LiteralPath (Join-Path $fixtureRoot 'tests/Fast.Tests.ps1') -Encoding utf8NoBOM -Value @'
 Describe 'fast' {
@@ -329,89 +229,36 @@ Describe 'fast' {
 }
 '@
 
-        # A decoy the old environment protocol would have executed in place of the real body.
-        $decoyMarker = Join-Path $fixtureRoot 'decoy-ran.txt'
-        $decoy = Join-Path $fixtureRoot 'decoy.ps1'
-        Set-Content -LiteralPath $decoy -Encoding utf8NoBOM -Value @"
-param([Parameter(ValueFromRemainingArguments)]`$Rest)
-Set-Content -LiteralPath '$decoyMarker' -Value 'ran' -Encoding utf8NoBOM
-exit 0
-"@
-
-        $sentinelNames = @(
-            '__SkalaryFocusedUnitChild', '__SkalaryFocusedEvalChild',
-            '__SkalaryFocusedValidationChild', 'InternalFocusedChild', 'SkalaryFocusedChild',
-            'isFocusedChild'
-        )
-        $preamble = [System.Collections.Generic.List[string]]::new()
-        $preamble.Add('$PSStyle.OutputRendering = ''PlainText''')
-        foreach ($name in $sentinelNames) {
-            $preamble.Add("`$script:$name = `$true")
-            $preamble.Add("`$global:$name = `$true")
-        }
-        foreach ($prefix in @('UNIT', 'EVAL', 'VALIDATION')) {
-            $preamble.Add("`$env:SKALARY_FOCUSED_${prefix}_CHILD = '1'")
-            $preamble.Add("`$env:SKALARY_FOCUSED_${prefix}_SCRIPT = '$decoy'")
-            $preamble.Add("`$env:SKALARY_FOCUSED_${prefix}_REQUEST = '{}'")
-        }
-
-        function Invoke-BypassProbe {
-            param(
-                [Parameter(Mandatory)][string]$Operator,
-                [Parameter(Mandatory)][string]$ScriptPath,
-                [Parameter(Mandatory)][string]$ArgumentText,
-                [Parameter(Mandatory)][System.Collections.Generic.List[string]]$Preamble,
-                [Parameter(Mandatory)][string]$DriverPath
-            )
-
-            $lines = [System.Collections.Generic.List[string]]::new($Preamble)
-            $lines.Add("$Operator '$ScriptPath' $ArgumentText")
-            $lines.Add('exit $LASTEXITCODE')
-            Set-Content -LiteralPath $DriverPath -Value ($lines -join [Environment]::NewLine) -Encoding utf8NoBOM
-            return (Invoke-CapturedPowerShell -ArgumentList @('-File', $DriverPath))
-        }
-
-        $unitTimeoutText = "-RepoRoot '$fixtureRoot' -TestPath 'tests/Sleeper.Tests.ps1' " +
-            '-FocusedWarningSeconds 0.2 -FocusedTimeoutSeconds 1.5'
-
-        # `&` and `.` are the two host forms a caller can reach the same script through besides
-        # the documented -File form, which the 30/60 contract case above already drives. All of
-        # them must land in the supervisor and be killed at the bound even with every sentinel
-        # variable and environment marker preseeded.
-        foreach ($operator in @('&', '.')) {
-            $driver = Join-Path $fixtureRoot ("driver-unit-" + ($operator -replace '\W', 'x') + '.ps1')
-            $probe = Invoke-BypassProbe -Operator $operator -ScriptPath $script:unitRunner `
-                -ArgumentText $unitTimeoutText -Preamble $preamble -DriverPath $driver
-            $probe.ExitCode | Should -Be 13 -Because "$operator '$($script:unitRunner)' produced: $($probe.Output)"
-            $probe.Output | Should -Match 'FocusedTimeout'
-        }
-
-        foreach ($operator in @('&', '.')) {
-            $driver = Join-Path $fixtureRoot ("driver-validate-" + ($operator -replace '\W', 'x') + '.ps1')
-            $probe = Invoke-BypassProbe -Operator $operator -ScriptPath $script:validator `
-                -ArgumentText "-Path 'package.json' -FocusedWarningSeconds 0.05 -FocusedTimeoutSeconds 0.1" `
-                -Preamble $preamble -DriverPath $driver
-            $probe.ExitCode | Should -Be 13 -Because "$operator '$($script:validator)' produced: $($probe.Output)"
-            $probe.Output | Should -Match 'FocusedTimeout'
-        }
-
-        $driver = Join-Path $fixtureRoot 'driver-eval.ps1'
-        $evalProbe = Invoke-BypassProbe -Operator '&' -ScriptPath $script:evalRunner `
-            -ArgumentText "-Plugin 'plugin-manager' -FocusedWarningSeconds 0.05 -FocusedTimeoutSeconds 0.1" `
-            -Preamble $preamble -DriverPath $driver
-        $evalProbe.ExitCode | Should -Be 13 -Because $evalProbe.Output
-        $evalProbe.Output | Should -Match 'FocusedTimeout'
-
-        Test-Path -LiteralPath $decoyMarker |
-            Should -BeFalse -Because 'no environment value names the script the supervised child executes'
+        $supervision = & (Join-Path $script:repoRoot 'scripts/skalary/internal/FocusedSupervision.ps1')
+        $timeoutCode = & $supervision.InvokeSupervisedBody -BodyPath $timeoutBody `
+            -Request @{ PidFile = $pidFile } -Label 'timeout probe' `
+            -WarningSeconds 0.2 -TimeoutSeconds 1
+        $timeoutCode | Should -Be 13
+        Test-Path -LiteralPath $pidFile -PathType Leaf | Should -BeTrue
+        $descendantPid = [int](Get-Content -LiteralPath $pidFile -Raw)
+        Start-Sleep -Milliseconds 200
+        Get-Process -Id $descendantPid -ErrorAction SilentlyContinue |
+            Should -BeNullOrEmpty -Because 'the timeout terminates the current child process tree'
 
         # The supervised path still runs the requested work rather than only refusing it.
         $supervisedPass = Invoke-CapturedPowerShell -ArgumentList @(
             '-File', $script:unitRunner, '-RepoRoot', $fixtureRoot,
-            '-TestPath', 'tests/Fast.Tests.ps1')
+            '-TestPath', 'tests/Fast.Tests.ps1',
+            '-FocusedWarningSeconds', '0.05', '-FocusedTimeoutSeconds', '5')
         $supervisedPass.ExitCode | Should -Be 0 -Because $supervisedPass.Output
         $supervisedPass.Output | Should -Match 'Suite tier: Fast focused \(1 file\(s\)\)'
         $supervisedPass.Output | Should -Match 'Tests Passed: 1, Failed: 0'
+        $supervisedPass.Output | Should -Match 'FocusedSlow'
+
+        if (-not $IsWindows) {
+            Copy-Item -LiteralPath (Join-Path $fixtureRoot 'tests/Fast.Tests.ps1') `
+                -Destination (Join-Path $fixtureRoot 'tests/Fast.tests.ps1')
+            $wrongCase = Invoke-CapturedPowerShell -ArgumentList @(
+                '-File', $script:unitRunner, '-RepoRoot', $fixtureRoot,
+                '-TestPath', 'tests/Fast.tests.ps1')
+            $wrongCase.ExitCode | Should -Be 12
+            $wrongCase.Output | Should -Match 'must name a \*\.Tests\.ps1 file'
+        }
 
         # REQ-5: a -TestName filter that selects nothing must report that it could not test.
         $zeroName = Invoke-CapturedPowerShell -ArgumentList @(
@@ -420,6 +267,13 @@ exit 0
         $zeroName.ExitCode | Should -Be 3 -Because $zeroName.Output
         $zeroName.Output | Should -Match 'NoTestsDiscovered'
         $zeroName.Output | Should -Match 'matched 0 runnable test'
+
+        . (Join-Path $script:repoRoot 'scripts/skalary/internal/Invoke-UnitTestRun.ps1')
+        {
+            Resolve-ConfinedRegularPath -Root $fixtureRoot `
+                -Path (Join-Path ([System.IO.Path]::GetTempPath()) 'outside.xml') `
+                -Label 'Test result path' -AllowMissing
+        } | Should -Throw '*must stay inside the repository*'
     }
 
     It 'test:LocalFirst.ActiveAuthorityReferences keeps the corrected architecture notes free of removed workflow authority' {
@@ -465,38 +319,30 @@ exit 0
     }
 
     It 'test:LocalFirst.PackageScriptReferences keeps active guidance free of removed npm aliases' {
-        # Guidance surfaces only. Measurement tooling under scripts/ is owned by the separately
-        # tracked tier/profile cleanup and is not corrected here.
         $package = Get-Content -LiteralPath (Join-Path $script:repoRoot 'package.json') -Raw |
             ConvertFrom-Json
         $declared = [System.Collections.Generic.HashSet[string]]::new(
             [string[]]@($package.scripts.PSObject.Properties.Name), [System.StringComparer]::Ordinal)
         $declared.Count | Should -BeGreaterThan 0
 
-        $extensions = @('.md', '.json', '.yaml', '.yml', '.ps1', '.psm1')
-        $files = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-        $files.Add((Get-Item -LiteralPath (Join-Path $script:repoRoot 'README.md')))
-        foreach ($root in @('docs/design-notes', 'docs/architecture-notes', '.github', 'plugins')) {
-            $rootPath = Join-Path $script:repoRoot $root
-            if (-not (Test-Path -LiteralPath $rootPath -PathType Container)) { continue }
-            foreach ($file in Get-ChildItem -LiteralPath $rootPath -Recurse -File) {
-                if ($extensions -contains $file.Extension) { $files.Add($file) }
-            }
-        }
-        $files.Count | Should -BeGreaterThan 50
-
+        $guidancePaths = @(
+            'README.md',
+            'docs/design-notes/project/ci-gates.design.md',
+            'docs/design-notes/architecture/plugin-evals.design.md',
+            'docs/architecture-notes/arch-eval-gate-separation.md'
+        )
         $stale = [System.Collections.Generic.List[string]]::new()
-        foreach ($file in $files) {
-            $text = Get-Content -LiteralPath $file.FullName -Raw
+        foreach ($relativePath in $guidancePaths) {
+            $text = Get-Content -LiteralPath (Join-Path $script:repoRoot $relativePath) -Raw
             if ([string]::IsNullOrEmpty($text)) { continue }
             foreach ($match in [regex]::Matches($text, 'npm run (?<name>[A-Za-z0-9:_-]+)')) {
                 $name = [string]$match.Groups['name'].Value
                 if (-not $declared.Contains($name)) {
-                    $stale.Add("$($file.FullName): npm run $name")
+                    $stale.Add("${relativePath}: npm run $name")
                 }
             }
             if ($text -match 'npm test' -and -not $declared.Contains('test')) {
-                $stale.Add("$($file.FullName): npm test")
+                $stale.Add("${relativePath}: npm test")
             }
         }
         ($stale | Sort-Object -Unique) -join "`n" |

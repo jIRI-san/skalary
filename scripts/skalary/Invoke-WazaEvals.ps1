@@ -2,8 +2,8 @@
 <#
 .SYNOPSIS
     Opt-in Tier-2 LLM eval runner (plan 0f666f): provisions tooling, resolves a token,
-    discovers waza specs, runs them, and aggregates results. Never wired into the
-    always-on build/test/eval gates.
+    discovers waza specs, runs them, and aggregates results. Runs only by explicit
+    operator invocation; focused validation and package scripts never invoke it.
 .DESCRIPTION
     Orchestration order:
       1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
@@ -78,22 +78,20 @@ function Assert-WazaFocusedScope {
         -not (Test-Path -LiteralPath $pluginRoot -PathType Container)) {
         throw "Selected plugin does not exist inside the repository: '$Plugin'."
     }
-    $cursor = [System.IO.Path]::GetPathRoot($pluginRoot)
-    foreach ($segment in $pluginRoot.Substring($cursor.Length).Split(
+    $spec = Join-Path $pluginRoot 'evals/waza/eval.yaml'
+    $cursor = [System.IO.Path]::GetPathRoot($spec)
+    foreach ($segment in $spec.Substring($cursor.Length).Split(
             [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
             [System.StringSplitOptions]::RemoveEmptyEntries)) {
         $cursor = Join-Path $cursor $segment
-        $item = Get-Item -LiteralPath $cursor -Force
+        $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) { break }
         if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Selected plugin must not traverse a link or reparse point: '$cursor'."
         }
     }
-    $spec = Join-Path $pluginRoot 'evals/waza/eval.yaml'
     if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) {
         throw "Selected plugin has no Waza spec: '$Plugin'."
-    }
-    if (((Get-Item -LiteralPath $spec -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "Selected plugin Waza spec must not be a link or reparse point: '$spec'."
     }
     $outputCursor = $root
     foreach ($segment in @('tests', 'evals', 'output')) {

@@ -56,9 +56,15 @@ function Get-FocusedValidationFile {
         [string[]]$SelectedPath = @()
     )
 
+    $pathComparer = if ($IsWindows) {
+        [System.StringComparer]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparer]::Ordinal
+    }
     $supported = [System.Collections.Generic.HashSet[string]]::new(
         [string[]]@('.ps1', '.psm1', '.psd1', '.json'),
-        [System.StringComparer]::OrdinalIgnoreCase
+        $pathComparer
     )
     $files = [System.Collections.Generic.List[string]]::new()
     foreach ($selected in $SelectedPath) {
@@ -96,7 +102,7 @@ function Get-FocusedValidationFile {
             }
         }
     }
-    return @($files | Sort-Object -Unique)
+    return @($files | Sort-Object -Unique -CaseSensitive:(-not $IsWindows))
 }
 
 function Invoke-SkalaryFocusedValidation {

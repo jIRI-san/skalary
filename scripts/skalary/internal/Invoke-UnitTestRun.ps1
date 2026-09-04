@@ -356,7 +356,7 @@ function Invoke-SkalaryUnitTestRun {
                     }
                     $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRootFull $relativePath))
                     if (-not $fullPath.StartsWith($testsRootPrefix, $pathComparison) -or
-                        -not $fullPath.EndsWith('.Tests.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+                        -not $fullPath.EndsWith('.Tests.ps1', $pathComparison)) {
                         throw "Focused test path must name a *.Tests.ps1 file under tests/: '$relativePath'."
                     }
                     if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
@@ -372,7 +372,7 @@ function Invoke-SkalaryUnitTestRun {
                         throw "Focused Fast requires -TestName or -EvidenceTestId when selecting a Slow-tier file: '$relativePath'."
                     }
                     $fullPath
-                } | Sort-Object -Unique)
+                })
         }
         catch {
             Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
@@ -380,6 +380,10 @@ function Invoke-SkalaryUnitTestRun {
         }
     }
 
+    $focusedPathSet = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]$focusedPaths,
+        $pathComparer
+    )
     $testFiles = @(switch ($Tier) {
             'Slow' { @($allTestFiles | Where-Object { $slowSet.Contains($_.FullName) }) }
             'All' { @($allTestFiles | Where-Object { -not $dedicatedSet.Contains($_.FullName) }) }
@@ -388,7 +392,7 @@ function Invoke-SkalaryUnitTestRun {
                     @($allTestFiles | Where-Object { -not $slowSet.Contains($_.FullName) -and -not $dedicatedSet.Contains($_.FullName) })
                 }
                 else {
-                    @($allTestFiles | Where-Object { $focusedPaths -contains $_.FullName })
+                    @($allTestFiles | Where-Object { $focusedPathSet.Contains($_.FullName) })
                 }
             }
         })

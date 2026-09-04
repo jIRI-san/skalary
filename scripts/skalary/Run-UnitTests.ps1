@@ -9,7 +9,7 @@
 
     Every focused run is supervised: this script hands the request to a child process running
     the private body `internal/Invoke-UnitTestRun.ps1`, targets less than 30 seconds, warns
-    only after a 30-60 second completion, and terminates the owned process group at 60
+    only after a 30-60 second completion, and terminates the child process tree at 60
     seconds. There is no parameter, variable or environment value that selects an unsupervised
     focused run, and no step of the focused dispatch is reachable by command-name resolution.
     Only the direct `-FullRepository` and `-StartBudgetClock` routes run in this process, and
@@ -31,11 +31,10 @@
         10  Reserved — stale runtime measurements are advisory
      11  MeasurementTokenInvalid — a measurement-mode token failed closed validation
      12  FocusedScopeRequired — Fast did not receive focused test paths or -FullRepository
-     13  FocusedTimeout — a focused run exceeded 60 seconds and its owned process group was
+     13  FocusedTimeout — a focused run exceeded 60 seconds and its child process tree was
             terminated. The same code rejects malformed focused evidence IDs/output paths
             before execution.
-     14  FocusedContainmentUnavailable — the supervisor could not establish ownership of the
-            focused child's descendants, so it refused to start the work
+     14  FocusedWorkerStartFailed — the supervisor could not start the focused child
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestPath tests/skalary/SkillContracts.Tests.ps1
 .EXAMPLE

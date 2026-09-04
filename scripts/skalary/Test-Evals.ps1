@@ -5,8 +5,8 @@
 .DESCRIPTION
     Routine use requires -Plugin and always runs that plugin's eval files in a supervised
     child process executing the private body `internal/Invoke-EvalRun.ps1`: the run targets
-    less than 30 seconds, warns after a 30-60 second completion, and has its owned process
-    group terminated at 60 seconds. No parameter, variable or environment value selects an
+    less than 30 seconds, warns after a 30-60 second completion, and has its child process
+    tree terminated at 60 seconds. No parameter, variable or environment value selects an
     unsupervised focused run, and no step of the focused dispatch is reachable by
     command-name resolution. The direct operator-only -FullRepository route runs in this
     process and retains the global required-ID checks.
@@ -16,10 +16,9 @@
       1  a selected structural eval failed, errored, or a required case did not pass
       3  NoEvalsDiscovered — the selected plugin asserted nothing
      12  FocusedScopeRequired — the selection was not a single confined plugin or -FullRepository
-     13  FocusedTimeout — the supervised run exceeded the focused timeout and its owned
-            process group was terminated
-     14  FocusedContainmentUnavailable — descendant ownership could not be established, so the
-            supervisor refused to start the work
+     13  FocusedTimeout — the supervised run exceeded the focused timeout and its child
+            process tree was terminated
+     14  FocusedWorkerStartFailed — the supervisor could not start the focused child
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Test-Evals.ps1 -Plugin code-review
 .EXAMPLE
