@@ -72,9 +72,7 @@ param(
     # those nested runs consume the clock belonging to the real run that spawned it.
     [string]$BudgetClockPath,
 
-    # Where the NUnit report is written. Pester's default is a fixed name in the working
-    # directory, which two CI matrix legs would both produce and neither could be told apart
-    # from — so CI names it per platform (REQ-9) and everything else keeps the default.
+    # Optional repository-confined NUnit report path. Focused runs write no report by default.
     [string]$TestResultPath,
 
     [ValidateRange(0.05, 30)]

@@ -437,15 +437,14 @@ function Invoke-SkalaryUnitTestRun {
 
     Import-Module Pester -MinimumVersion $pesterModule.Version -ErrorAction Stop
 
-    # `-CI` is Pester's shorthand for `Run.Exit` plus `TestResult.Enabled`, and `Run.Exit` makes
-    # Pester exit with the failure count before this script can. That collides a "could not test"
-    # code with "that many tests failed" — the one distinction this script exists to make — so the
-    # NUnit output is kept and the exit is taken back.
+    # `-CI` also makes Pester own the process exit code, which would collapse this runner's
+    # distinct failure classifications. Focused runs need no report artifact by default;
+    # an explicit confined -TestResultPath enables one when an operator needs it.
     $configuration = New-PesterConfiguration
     $configuration.Run.Path = @($testFiles.FullName)
     $configuration.Run.PassThru = $true
     $configuration.Run.Exit = $false
-    $configuration.TestResult.Enabled = $true
+    $configuration.TestResult.Enabled = [bool]$TestResultPath
     if ($EvidenceTestId.Count -gt 0) {
         $configuration.Filter.FullName = @($EvidenceTestId | ForEach-Object {
                 "*test:$($_)"
