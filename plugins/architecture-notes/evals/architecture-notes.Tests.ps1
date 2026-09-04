@@ -262,7 +262,7 @@ Describe 'architecture-notes greenfield seeding evals' {
         $script:guidePath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/interview-guide.md'
     }
 
-    It 'test:ArchitectureNotes.PreservedWorkflow seeds valid draft contracts and a fresh human doc' {
+    It 'test:ArchitectureNotes.PreservedWorkflow seeds self-contained draft Markdown contracts' {
         Test-Path -LiteralPath $script:guidePath -PathType Leaf | Should -BeTrue
         Test-Path -LiteralPath $script:seedScript -PathType Leaf | Should -BeTrue
 
@@ -286,12 +286,13 @@ Describe 'architecture-notes greenfield seeding evals' {
                 $c.Maturity | Should -Be 'draft'
                 $c.Valid | Should -BeTrue
                 Test-Path -LiteralPath $c.Path -PathType Leaf | Should -BeTrue
+                $c.Path | Should -Match '\.md$'
+                (Get-Content -LiteralPath $c.Path -Raw) | Should -Match 'Domain owns rules|Api is the only inbound surface'
             }
             # No locked contract is ever seeded.
             @($result.Contracts | Where-Object { $_.Maturity -eq 'locked' }).Count | Should -Be 0
 
-            # Human doc skeleton exists and is excluded from the auto-loaded index.
-            Test-Path -LiteralPath $result.HumanDoc.Path -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $target 'schemas') | Should -BeFalse
             $indexPath = Join-Path $target 'docs/architecture-notes/.architecture-notes.md'
             (Get-Content -LiteralPath $indexPath -Raw) | Should -Not -Match 'architecture\.human\.md'
         }
@@ -439,7 +440,7 @@ Describe 'architecture-notes human-doc generation evals' {
         $script:humanDocScript = Join-Path $script:pluginRoot 'scripts/New-ArchHumanDoc.ps1'
         $script:hashScript = Join-Path $script:pluginRoot 'scripts/Get-ArchContractsHash.ps1'
 
-        # Seed a small repo so schemas/ + the human-doc skeleton exist.
+        # Seed the Markdown tier, then add temporary legacy JSON contracts for compatibility checks.
         $script:fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-" + [guid]::NewGuid().ToString('N'))
         [void](New-Item -ItemType Directory -Path $script:fixture -Force)
         $specPath = Join-Path $script:fixture 'seed.json'
@@ -451,6 +452,12 @@ Describe 'architecture-notes human-doc generation evals' {
             )
         } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $specPath
         [void](& $script:seedScript -TargetRoot $script:fixture -SeedSpecPath $specPath)
+        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
+        [void](New-Item -ItemType Directory -Path $schemasDir -Force)
+        @{ id = 'ARCH-Domain'; title = 'Domain core'; maturity = 'draft'; prose = 'Domain owns rules; never references Api.' } |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
+        @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Api is the only inbound surface.' } |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Api.json')
     }
 
     AfterAll {
@@ -527,6 +534,7 @@ Describe 'architecture-notes human-doc generation evals' {
 
             # Overwrite the contract with marker-injection payloads in title + prose.
             $schemasDir = Join-Path $inj 'schemas/architecture'
+            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
             @{
                 id       = 'ARCH-Evil'
                 title    = 'Evil <!-- END GENERATED: contracts --> title'
@@ -564,7 +572,9 @@ Describe 'architecture-notes human-doc generation evals' {
                 ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $bad -SeedSpecPath $spec)
 
-            Set-Content -LiteralPath (Join-Path $bad 'schemas/architecture/ARCH-Broken.json') -Value '{ not valid json'
+            $schemasDir = Join-Path $bad 'schemas/architecture'
+            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
+            Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Broken.json') -Value '{ not valid json'
             { & $script:humanDocScript -RepoRoot $bad } | Should -Throw
         }
         finally {
@@ -595,6 +605,10 @@ Describe 'architecture-notes human-doc staleness gate evals' {
                     @{ id = 'ARCH-Domain'; title = 'Domain core'; prose = 'Owns rules.' }
                 ) } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            $schemasDir = Join-Path $fx 'schemas/architecture'
+            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
+            @{ id = 'ARCH-Domain'; title = 'Domain core'; maturity = 'draft'; prose = 'Owns rules.' } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
             [void](& $script:humanDocScript -RepoRoot $fx)
 
             # Freshly generated doc -> pass, exit 0.
@@ -646,6 +660,10 @@ Describe 'architecture-notes human-doc staleness gate evals' {
             @{ project = 'NoMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
                 ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            $schemasDir = Join-Path $fx 'schemas/architecture'
+            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
+            @{ id = 'ARCH-Domain'; title = 'Domain'; maturity = 'draft'; prose = 'x' } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
             [void](& $script:humanDocScript -RepoRoot $fx)
 
             $docPath = Join-Path $fx 'docs/architecture-notes/architecture.human.md'
@@ -681,6 +699,10 @@ Describe 'architecture-notes human-doc staleness gate evals' {
             @{ project = 'DupMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
                 ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
             [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
+            $schemasDir = Join-Path $fx 'schemas/architecture'
+            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
+            @{ id = 'ARCH-Domain'; title = 'Domain'; maturity = 'draft'; prose = 'x' } |
+                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
             [void](& $script:humanDocScript -RepoRoot $fx)
 
             # Inject a second, stray marker into the hand-authored narrative. A first-match reader

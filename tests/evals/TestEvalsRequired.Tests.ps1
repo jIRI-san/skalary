@@ -11,13 +11,18 @@ Describe 'required structural eval enforcement' {
         function Invoke-RequiredEvalFixture {
             param(
                 [Parameter(Mandatory)][string]$TestBody,
-                [Parameter(Mandatory)][string[]]$RequiredIds
+                [Parameter(Mandatory)][string[]]$RequiredIds,
+                [string]$AdditionalTestBody
             )
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('required-evals-' + [guid]::NewGuid().ToString('N'))
             $evalDir = Join-Path $root 'plugins/fixture/evals'
             [void](New-Item -ItemType Directory -Path $evalDir -Force)
             Set-Content -LiteralPath (Join-Path $evalDir 'fixture.Tests.ps1') -Value $TestBody -Encoding utf8NoBOM
+            if ($AdditionalTestBody) {
+                Set-Content -LiteralPath (Join-Path $evalDir 'additional.Tests.ps1') `
+                    -Value $AdditionalTestBody -Encoding utf8NoBOM
+            }
             $requiredPath = Join-Path $root 'required.md'
             $requiredContent = @(
                 '# Required structural evals'
@@ -68,5 +73,10 @@ Describe 'fixture' {
         $twice = Invoke-RequiredEvalFixture -TestBody $duplicate -RequiredIds @('eval:Fixture.Required')
         $twice.ExitCode | Should -Be 1
         $twice.Output | Should -Match "executed 2 times"
+
+        $unloadable = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') -AdditionalTestBody 'this is not valid PowerShell {'
+        $unloadable.ExitCode | Should -Be 1
+        $unloadable.Output | Should -Match 'structural eval file\(s\) failed to load'
     }
 }

@@ -1,8 +1,7 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-Materializes a greenfield architecture seed: 1-2 draft contracts + arch notes + a human-doc
-skeleton, scaffolding the tier without overwriting existing files.
+Materializes a greenfield architecture seed as 1-2 draft Markdown architecture notes.
 
 .DESCRIPTION
 The seed operation of the architecture-notes skill. An agent runs the interview (see
@@ -10,10 +9,7 @@ The seed operation of the architecture-notes skill. An agent runs the interview 
 script is the script-mediated, deterministic materialization step:
 
   1. Scaffolds the tier index via Copy-ArchScaffold.ps1 (no-overwrite).
-  2. Writes each boundary as a **draft** contract JSON under schemas/ (no-overwrite) and validates
-     it with Test-ArchContract.ps1.
-  3. Writes a terse arch note per boundary from the note template.
-  4. Writes the human-doc skeleton from the human-doc template (no-overwrite).
+  2. Writes each boundary as one terse, self-contained Markdown architecture note (no-overwrite).
 
 It never writes a `locked` contract. The seed-spec must declare 1..MaxBoundaries boundaries
 (default 2) — "no big design upfront". Each shipped/written file is reported with the action
@@ -48,8 +44,7 @@ if (-not (Test-Path -LiteralPath $SeedSpecPath -PathType Leaf)) {
 }
 
 $copyScaffold = Join-Path $PSScriptRoot 'Copy-ArchScaffold.ps1'
-$validateContract = Join-Path $PSScriptRoot 'Test-ArchContract.ps1'
-foreach ($s in @($copyScaffold, $validateContract)) {
+foreach ($s in @($copyScaffold)) {
     if (-not (Test-Path -LiteralPath $s -PathType Leaf)) {
         throw "Required sibling script missing: $s"
     }
@@ -78,8 +73,7 @@ if (-not (Test-Path -LiteralPath $AssetRoot -PathType Container)) {
 }
 
 $noteTemplate = Join-Path $AssetRoot 'templates/architecture-note.template.md'
-$humanDocTemplate = Join-Path $AssetRoot 'templates/architecture-human-doc.template.md'
-foreach ($t in @($noteTemplate, $humanDocTemplate)) {
+foreach ($t in @($noteTemplate)) {
     if (-not (Test-Path -LiteralPath $t -PathType Leaf)) { throw "Required template missing: $t" }
 }
 
@@ -144,7 +138,6 @@ function Write-SeedFile {
 # 1) Scaffold the tier index, no-overwrite.
 $scaffoldResult = & $copyScaffold -TargetRoot $TargetRoot -AssetRoot $AssetRoot
 
-$schemasDir = Join-Path $TargetRoot 'schemas/architecture'
 $notesDir = Join-Path $TargetRoot 'docs/architecture-notes'
 
 $idPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*$'
@@ -165,47 +158,25 @@ foreach ($b in $boundaries) {
     if ([string]::IsNullOrWhiteSpace($title)) { throw "Boundary '$id' is missing a title." }
     if ([string]::IsNullOrWhiteSpace($prose)) { throw "Boundary '$id' is missing prose." }
 
-    # 2) Draft contract (never locked).
-    $contract = [ordered]@{
-        id       = $id
-        title    = $title
-        maturity = 'draft'
-        prose    = $prose
-    }
-    $description = Get-SpecProp $b 'description'
-    if ($description) { $contract['description'] = [string]$description }
-
-    $contractPath = Join-Path $schemasDir ($id + '.json')
-    $json = ($contract | ConvertTo-Json -Depth 10)
-    $action = Write-SeedFile -DestPath $contractPath -Content $json -Cmdlet $PSCmdlet
-
-    $valid = $null
-    if (Test-Path -LiteralPath $contractPath -PathType Leaf) {
-        $res = & $validateContract -ContractPath $contractPath
-        $valid = [bool]$res.Valid
-    }
-    $contracts.Add([pscustomobject]@{ Path = $contractPath; Id = $id; Maturity = 'draft'; Action = $action; Valid = $valid })
-
-    # 3) Terse arch note.
+    # 2) One terse Markdown note is both the human-readable contract and its scoped context.
+    $safeProse = ($prose -replace '[\r\n]+', ' ' -replace '\|', '\|').Trim()
     $noteText = $noteTemplateText.
         Replace('<SUBSYSTEM>', $title).
         Replace('<SCOPE_GLOB>', $scope).
-        Replace('<CONTRACT_ID>', $id)
+        Replace('<CONTRACT_ID>', $id).
+        Replace('<BOUNDARY_PROSE>', $safeProse)
     $noteSlug = ($id.ToLowerInvariant() -replace '[^a-z0-9._-]', '-')
     $notePath = Join-Path $notesDir ($noteSlug + '.md')
     $noteAction = Write-SeedFile -DestPath $notePath -Content $noteText -Cmdlet $PSCmdlet
     $notes.Add([pscustomobject]@{ Path = $notePath; Action = $noteAction })
+    $contracts.Add([pscustomobject]@{
+            Path = $notePath; Id = $id; Maturity = 'draft'; Action = $noteAction; Valid = $true
+        })
 }
-
-# 4) Human-doc skeleton (excluded from the index auto-load path).
-$humanDocText = (Get-Content -LiteralPath $humanDocTemplate -Raw).Replace('<PROJECT_NAME>', $project)
-$humanDocPath = Join-Path $notesDir 'architecture.human.md'
-$humanDocAction = Write-SeedFile -DestPath $humanDocPath -Content $humanDocText -Cmdlet $PSCmdlet
 
 [pscustomobject]@{
     Project   = $project
     Scaffold  = @($scaffoldResult)
     Contracts = @($contracts)
     Notes     = @($notes)
-    HumanDoc  = [pscustomobject]@{ Path = $humanDocPath; Action = $humanDocAction }
 }

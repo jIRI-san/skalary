@@ -107,21 +107,6 @@ if ($jsonFiles.Count -eq 0) {
     $errors.Add('No JSON files were enumerated; the payload allowlist matched nothing, so this run asserted nothing.')
 }
 
-Write-Host '== Validating architecture contract integrity =='
-$contractIntegrityGate = Join-Path $repoRoot 'scripts/skalary/Test-ArchitectureContractIntegrity.ps1'
-try {
-    $contractIntegrity = & $contractIntegrityGate -RepoRoot $repoRoot -NoExit
-    if (-not $contractIntegrity.Valid) {
-        foreach ($message in $contractIntegrity.Errors) {
-            $errors.Add([string]$message)
-        }
-    }
-    Write-Host "  Checked $($contractIntegrity.Count) architecture contract(s)."
-}
-catch {
-    $errors.Add("Architecture contract integrity sweep failed: $($_.Exception.Message)")
-}
-
 Write-Host '== Validating plugin script bundles =='
 $bundleSync = Join-Path $repoRoot 'scripts/skalary/Sync-PluginScripts.ps1'
 try {

@@ -11,7 +11,7 @@ globs:
 
 ## Boundary
 
-<!-- One or two sentences: what this component is responsible for and what it must never do. -->
+<BOUNDARY_PROSE>
 
 ## Contracts
 
@@ -19,7 +19,7 @@ globs:
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|
-| `<CONTRACT_ID>` | draft | <what the contract guarantees> |
+| `<CONTRACT_ID>` | draft | <BOUNDARY_PROSE> |
 
 ## Invariants
 

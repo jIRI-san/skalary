@@ -22,7 +22,7 @@ are auto-loaded (see [copilot-customizations.design.md](../project/copilot-custo
 | Tier index | `docs/architecture-notes/.architecture-notes.md` | Auto-loaded discovery layer: Contracts / Architecture Notes / **Decision Records (active)** tables |
 | Contracts | Terse Markdown architecture notes; two transferred legacy JSON contracts remain temporarily under `schemas/architecture/` | Human-owned boundaries; locked legacy content remains digest-pinned |
 | Arch notes | `docs/architecture-notes/<slug>.md` | Terse per-boundary note; path-scoped `globs` frontmatter |
-| Human doc | `docs/architecture-notes/architecture.human.md` | Derived (Mermaid/prose/links); **excluded from auto-load**; freshness-hashed |
+| Human doc | `docs/architecture-notes/architecture.human.md` | Temporary compatibility view for transferred legacy JSON contracts; excluded from auto-load |
 | Quarantine | `docs/architecture-notes/.staging/` | Harvest/ADR output, `reviewed: false`, never indexed |
 | Scripts | `plugins/architecture-notes/scripts/*.ps1` | **Plugin-owned** (see Script ownership) |
 
@@ -38,14 +38,11 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
 - **Documented convention, not schema authority.** `Test-ArchContract.ps1` performs the small field
   and locked-digest check needed by transferred legacy JSON contracts. No schema is shipped or
   scaffolded. `Copy-ArchScaffold.ps1` creates only the Markdown tier index and never overwrites it.
-- **Human doc freshness by content hash.** `New-ArchHumanDoc.ps1` regenerates only the region
-  between `BEGIN/END GENERATED` markers and embeds the canonical contract-sources digest;
-  `Test-ArchDocFreshness.ps1` recomputes it. Digest binds `(path + NUL + content)` records sorted
-  by normalized relative path, so add/delete of a contract also flags drift (not mtimes).
-- **Harvest (brownfield) and seed (greenfield)** both converge on the same evolution loop but never
-  emit `locked` and never auto-load their output. Harvest quarantines under `.staging/` with a
-  `reviewed: false` manifest and neutralizes each note's `globs` frontmatter so it can't glob-attach
-  before promotion.
+- **No generated copy of Markdown contracts.** The source note is already the human-readable view.
+  `architecture.human.md` and its freshness check cover only the two transferred legacy JSON
+  contracts and disappear when their owning children convert or delete them.
+- **Seed writes Markdown directly.** Greenfield seeding creates at most two draft Markdown notes.
+  Brownfield harvest remains quarantined under `.staging/` and never auto-loads its output.
 
 ## Design Decisions
 
@@ -68,11 +65,10 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
   harvested/contract prose is contained by: quarantine (`.staging/`, not indexed) + `reviewed:false`
   + no-`globs` on staged files + terse template-constrained format + human review before promotion.
 - **The legacy contract check owns lock integrity.** `Test-ArchContract.ps1` checks documented fields
-  and recomputes the canonical digest for every locked contract. `scripts/validate.ps1` runs that check
-  over the complete repository contract set, so locked-content drift cannot bypass authoring flows.
-- **Human-doc generation validates before rendering.** `New-ArchHumanDoc.ps1` sends every contract
-  through `Test-ArchContract.ps1`; malformed fields or locked-content drift cannot become a
-  fresh-looking generated document.
+  and recomputes the canonical digest for a transferred locked JSON contract when its authoring or
+  compatibility operation touches it. It is not a broad repository gate.
+- **Legacy human-doc generation validates before rendering.** `New-ArchHumanDoc.ps1` sends each
+  remaining JSON contract through `Test-ArchContract.ps1`.
 
 ## Constraints
 
@@ -87,4 +83,5 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
   `scripts/skalary/Test-ArchDocFreshness.ps1` is a repo-root validate gate (wired into
   `scripts/validate.ps1`) that calls the plugin-owned `Get-ArchContractsHash.ps1` helper — it is not
   a plugin-bundled script. (Contrast the `ci`/`cip` shared-script model.)
-- **Terse AI tier.** Push prose/diagrams to the human doc, which stays excluded from auto-load.
+- **Terse AI tier.** Keep the index and notes small. Do not create a second generated representation
+  of Markdown contracts.

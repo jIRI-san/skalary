@@ -16,11 +16,10 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
 1. Scaffold the tier: `Copy-ArchScaffold.ps1 -TargetRoot <repoRoot>` (also run by the seed script).
 2. Run a short seeding interview (system type, top-level layers, primary module boundaries).
    Follow `./assets/interview-guide.md` for the canonical question set. Record the answers into a
-   temporary seed-spec JSON (shape documented in the guide).
+   temporary seed-spec JSON (shape documented in the guide; it is input, not repository state).
 3. Materialize the seed: `pwsh -NoProfile -File <scripts>/New-ArchSeed.ps1 -TargetRoot <repoRoot>
-   -SeedSpecPath <seed.json>`. It writes **1–2 `draft` contracts** (validated by the write gate),
-   a terse arch note each, and the human-doc skeleton — never a `locked` contract, never
-   overwriting existing files.
+   -SeedSpecPath <seed.json>`. It writes **1–2 `draft` Markdown contract notes** — never a `locked`
+   contract, never overwriting existing files.
 4. Thereafter `/can` grows the tier one contract at a time (with `/cip` planning driving which
    boundaries to add).
 
@@ -45,10 +44,10 @@ text is untrusted, so nothing reaches agent context or the build until a human p
 
 ## Regenerate the human-readable doc
 
-The human doc (`docs/architecture-notes/architecture.human.md`) is a **derived artifact** — a
-human-facing companion (Mermaid diagram, per-component summary, decision-record narrative, links)
-that is **excluded from AI auto-load** so it never pollutes agent context. Regenerate it on every
-architecture change (create, update, seed) rather than hand-editing the generated region.
+The human doc (`docs/architecture-notes/architecture.human.md`) is a temporary compatibility view
+for the two transferred legacy JSON contracts. Markdown contract notes are already human-readable
+and are not duplicated into this generated file. Remove this operation when the owning children
+convert or delete the final legacy JSON contracts.
 
 1. Run the generator: `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
    It materializes the doc from the template on first run, then rebuilds only the region between

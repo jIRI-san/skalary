@@ -408,6 +408,15 @@ function Invoke-SkalaryEvalRun {
         $requiredFailures.Add("required structural-eval list is missing: $requiredPath")
     }
 
+    $failedContainers = 0
+    if ($null -ne $testResult -and
+        (@($testResult.PSObject.Properties.Name) -contains 'FailedContainersCount')) {
+        $failedContainers = [int]$testResult.FailedContainersCount
+    }
+    if ($FullRepository -and $failedContainers -gt 0) {
+        $requiredFailures.Add("$failedContainers structural eval file(s) failed to load")
+    }
+
     $summary = [ordered]@{
         total = $entryArray.Count
         pass = Get-OutcomeCount -Entries $entryArray -Outcome 'pass'
@@ -451,11 +460,6 @@ function Invoke-SkalaryEvalRun {
     # that would otherwise be reported as a passing plugin gate. The report is written first so the
     # operator still gets the artifacts that name what was selected.
     if (-not $FullRepository) {
-        $failedContainers = 0
-        if ($null -ne $testResult -and
-            (@($testResult.PSObject.Properties.Name) -contains 'FailedContainersCount')) {
-            $failedContainers = [int]$testResult.FailedContainersCount
-        }
         if ($failedContainers -gt 0) {
             Write-Host "NoEvalsDiscovered: $failedContainers structural eval file(s) for plugin '$Plugin' failed to load, so their cases never ran." -ForegroundColor Red
             exit 3

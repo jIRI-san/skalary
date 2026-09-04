@@ -58,7 +58,7 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Gate | `scripts/validate.ps1 :: gate:model-allowlist` | `2aa7ec` | `keep` | — | Retain as a local shared agent-configuration check pending focused-runner integration. | — |
 | Gate | `scripts/validate.ps1 :: gate:skill-size` | `2aa7ec` | `keep` | — | Retain as a local shared instruction-size check pending focused-runner integration. | — |
 | Gate | `scripts/validate.ps1 :: gate:plan-draft-validation` | `367e9a` | `transfer` | — | Plan-state validation belongs with CIP, CI, and plan execution. | — |
-| Gate | `scripts/validate.ps1 :: gate:arch-doc-freshness` | `2aa7ec` | `keep` | — | Retain the local human architecture-document freshness check. | — |
+| Gate | `scripts/validate.ps1 :: gate:arch-doc-freshness` | `623cc2` | `transfer` | — | Temporary compatibility check for the transferred legacy JSON contracts; remove after the owning children convert them. | — |
 | Gate | `scripts/validate.ps1 :: gate:architecture-contract-integrity` | `2aa7ec` | `delete` | — | Schema-and-digest enforcement is internal permanent machinery; preserve contracts in readable Markdown. | — |
 | JSON | `.autopilot.json` | `367e9a` | `transfer` | — | Internal autopilot config transfers for conversion or deletion; it is not an external format. | — |
 | JSON | `.github/plugin/marketplace.json` | `623cc2` | `transfer` | — | Child owns this published catalog or marketplace format and its consumers. | GitHub Copilot CLI marketplace loader |

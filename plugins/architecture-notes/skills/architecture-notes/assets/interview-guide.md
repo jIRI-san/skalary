@@ -1,7 +1,7 @@
 # Greenfield Seeding Interview
 
 Canonical question set for the **seed** operation. Ask these in order. Keep it **short** — the
-goal is 1–2 `draft` contracts and a human-doc skeleton, not a big design upfront. Stop as soon
+goal is 1–2 `draft` Markdown contract notes, not a big design upfront. Stop as soon
 as you have enough to name the top boundaries; do not over-elaborate.
 
 Record the answers into a seed-spec JSON (see *Output* below) and hand it to

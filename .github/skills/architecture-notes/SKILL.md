@@ -38,8 +38,8 @@ context: fork
     locked-content digest; it does **not** authorize a lock (see Step 4).
   - `Get-ArchContractContentHash.ps1` — sole canonical JSON projection and UTF-8 digest owner for
     `lockedContentSha256`. Call it when proposing a lock.
-  - `New-ArchHumanDoc.ps1` — regenerates the human-readable doc from the contracts and embeds the
-    canonical freshness digest (the human-doc generator; see Step 8).
+  - `New-ArchHumanDoc.ps1` — regenerates the temporary compatibility view for transferred legacy
+    JSON contracts (see Step 8).
   - `Get-ArchContractsHash.ps1` — computes the canonical contract-sources digest (shared by the
     generator and the freshness gate). Not called directly.
   - `Import-ArchAdr.ps1` — harvests a finalized plan's decision records (`assets/decisions/*.md`, or
@@ -65,49 +65,33 @@ context: fork
 
 1. Confirm the tier is scaffolded (Step 1.2).
 2. Choose a **stable contract id** (`^[A-Za-z0-9][A-Za-z0-9._-]*$`). Never reuse or renumber an id.
-3. Author the contract JSON at **`maturity: draft`**. Use one or more authoring modes:
-   - `rules` — declarative, machine-derivable rules (forbidden-dependency, layer-boundary, ...).
-   - `prose` — a terse component/boundary description.
-   - `interfaces` — real C#/TS interface stubs the human owns.
-   Fill `targets` when the boundary is path-scoped.
-4. **Check the documented convention:** `id`, `title`, and `maturity` are required; maturity is
-   `draft`, `provisional`, or `locked`; at least one of `rules`, `prose`, or `interfaces` is present;
-   locked contracts include their canonical `lockedContentSha256`.
-   - `pwsh -NoProfile -File <scripts>/Test-ArchContract.ps1 -ContractPath <file>`
-   - Proceed only when `Valid` is true; otherwise fix the reported `Errors` and re-run.
-5. Add a **terse** arch note from `./assets/templates/architecture-note.template.md` describing the
-   boundary and referencing the contract id(s). Keep it context-cheap; no implementation detail.
-6. Update the index tables (Contracts / Architecture Notes) in `.architecture-notes.md`.
-7. Regenerate the human-readable doc via the generator (Step 8):
-   `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
+3. Add one **terse** Markdown note from
+   `./assets/templates/architecture-note.template.md`. The note is the contract: record the stable
+   id, `draft` maturity, boundary, invariants, and scope there. Do not create a parallel JSON file.
+4. Update the Contracts and Architecture Notes tables in `.architecture-notes.md`.
 
 ## Step 3: Update a contract
 
-1. Load the target contract and its note.
-2. Apply the change. If the contract is `locked`, treat all canonical contract content as fixed:
-   - You may propose edits, but changing any field except `lockedContentSha256` invalidates the
-     digest and **requires fresh human review + re-lock**. Do not silently rewrite locked content.
-3. Re-validate with `Test-ArchContract.ps1` (Step 2.4). Keep `maturity` unchanged unless a human
-   is promoting/demoting.
-4. Update the note and index rows; regenerate the human doc via the generator (Step 8):
-   `pwsh -NoProfile -File <scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
+1. Load the target note and its index row.
+2. Apply the change. A `locked` note requires fresh human review before its contract text changes.
+3. Keep the maturity unchanged unless a human is promoting or demoting it.
 
 ## Step 4: Promote a contract to locked (human-only)
 
 1. **Refuse in an autonomous/non-interactive context.** If this is an autopilot/`/ci` run, stop
    with: `lock promotion requires a human-authored commit`. Record a *proposal* instead.
-2. For an interactive human: set `maturity: locked`, compute `lockedContentSha256` with
-   `Get-ArchContractContentHash.ps1`, and record its `Digest`. Validate with
-   `Test-ArchContract.ps1`.
+2. For an interactive human, change the note's indexed maturity to `locked` after review.
+   The two transferred legacy JSON contracts retain their existing digest check until their owning
+   child converts or deletes them.
 3. Promotion is reviewer-enforced policy, not machine-authenticated identity. Git author metadata
    is forgeable and must never be treated as proof that a human approved the promotion.
 
 ## Step 5: Review the tier
 
 1. Read `.architecture-notes.md` and enumerate contracts with their `maturity`.
-2. Validate each contract file with `Test-ArchContract.ps1`; report any invalid ones.
-3. Report drift: contracts without notes, notes without contracts, human-doc staleness, invalid
-   fields, and locked-content digest mismatch. Summarize `locked` vs `draft`/`provisional` counts.
+2. Report notes missing from the index and indexed notes missing from disk.
+3. If transferred legacy JSON contracts remain, validate only those with `Test-ArchContract.ps1`.
+   Summarize `locked` vs `draft`/`provisional` counts.
 4. Treat a locked digest mismatch as blocking integrity drift. Draft/provisional validity remains
    advisory architectural knowledge, not executable fitness evidence.
 5. **Audit locked promotions through review policy.** Confirm reviewer approval outside this
@@ -122,12 +106,11 @@ Read that file when — and only when — the requested operation is one of them
 them from memory.
 
 - **Step 6 — seed** (greenfield init): short interview, then `New-ArchSeed.ps1` writes 1-2 `draft`
-  contracts plus the human-doc skeleton. Never a `locked` contract.
+  Markdown contract notes. Never a `locked` contract.
 - **Step 7 — harvest** (brownfield): `Import-ArchHarvest.ps1` infers boundaries into the
   `docs/architecture-notes/.staging/` quarantine as `draft`, `reviewed: false`. Never auto-loaded.
-- **Step 8 — regenerate the human doc**: `New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>` rebuilds the
-  generated region of `docs/architecture-notes/architecture.human.md` and re-embeds the freshness
-  digest. Run it after every create/update/seed (Steps 2, 3, 6).
+- **Step 8 — regenerate the legacy human doc**: `New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>` rebuilds
+  the temporary compatibility view only when a transferred legacy JSON contract changes.
 - **Step 9 — adr-harvest** (finalization): `Import-ArchAdr.ps1 -PlanDir <plan-folder>` turns a
   finalized plan's decision records (`assets/decisions/*.md`, or legacy `decisions/*.md`) into
   **proposed**, quarantined ADRs for human promotion.
