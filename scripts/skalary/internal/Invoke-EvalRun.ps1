@@ -306,16 +306,22 @@ function Invoke-SkalaryEvalRun {
     }
 
     $evalTestFiles = @(
-        if ($Plugin) {
-            Get-ChildItem -LiteralPath $pluginRoot -Recurse -File -Filter '*.Tests.ps1' |
-                Where-Object { $_.FullName -match '[\\/]evals[\\/]' } |
-                Sort-Object FullName
-        }
-        else {
-            Get-ChildItem -LiteralPath $pluginsRoot -Recurse -File -Filter '*.Tests.ps1' |
-                Where-Object { $_.FullName -match '[\\/]evals[\\/]' } |
-                Sort-Object FullName
-        }
+        @(
+            if ($Plugin) {
+                $evalRoot = Join-Path $pluginRoot 'evals'
+                if (Test-Path -LiteralPath $evalRoot -PathType Container) {
+                    Get-ChildItem -LiteralPath $evalRoot -Recurse -File -Filter '*.Tests.ps1'
+                }
+            }
+            else {
+                foreach ($pluginDirectory in Get-ChildItem -LiteralPath $pluginsRoot -Directory) {
+                    $evalRoot = Join-Path $pluginDirectory.FullName 'evals'
+                    if (Test-Path -LiteralPath $evalRoot -PathType Container) {
+                        Get-ChildItem -LiteralPath $evalRoot -Recurse -File -Filter '*.Tests.ps1'
+                    }
+                }
+            }
+        ) | Sort-Object FullName
     )
     if ($Plugin -and $evalTestFiles.Count -eq 0) {
         Write-Host "FocusedScopeRequired: selected plugin '$Plugin' has no structural eval tests." -ForegroundColor Red

@@ -118,7 +118,7 @@ $invokeSupervisedBody = {
         }
     }
     catch {
-        if ($null -ne $process -and -not $process.HasExited) {
+        if ($started -and $null -ne $process -and -not $process.HasExited) {
             try { $process.Kill($true) } catch { }
         }
         if ($started) {

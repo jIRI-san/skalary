@@ -69,6 +69,18 @@ Describe 'Invoke-WazaEvals' {
             $c = Resolve-SpecTokenSource -IsAdversarial $false -BaseSource 'gh' -BaseToken ''
             $c.ShouldSkip | Should -BeTrue
         }
+
+        It 'captures and restores caller token values around token resolution and execution' {
+            $text = Get-Content -LiteralPath $scriptFile -Raw
+            $capture = $text.IndexOf('$priorCopilotToken =')
+            $resolve = $text.IndexOf('$baseToken = Resolve-EvalToken')
+            $restore = $text.IndexOf(
+                "[System.Environment]::SetEnvironmentVariable('COPILOT_GITHUB_TOKEN', `$priorCopilotToken")
+            $capture | Should -BeGreaterOrEqual 0
+            $capture | Should -BeLessThan $resolve
+            $restore | Should -BeGreaterThan $resolve
+            $text | Should -Match "(?s)finally\s*\{[^}]*SetEnvironmentVariable\('COPILOT_GITHUB_TOKEN'.*SetEnvironmentVariable\('GH_TOKEN'"
+        }
     }
 
     Context 'test:runner-selectors — discovery filters and argument building' {

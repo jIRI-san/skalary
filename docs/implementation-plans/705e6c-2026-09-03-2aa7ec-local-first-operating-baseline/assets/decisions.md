@@ -82,3 +82,9 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
   exit-code tests are not worth expanding routine coverage. Pre-existing plan-dispatch, container,
   sandbox, transcript, and review-cycle parsing concerns remain with `367e9a`; the pre-existing SI
   diagnostic concern remains with `3a4498`. Missing-origin test setup is unrelated to this plan.
+- **Final review cycle 3: close the concrete regression set, then stop.** Run `d5b4c344` reported five
+  single-source findings. The focused eval search now starts at each plugin's direct `evals/`
+  directory, Waza captures caller token values before resolution and restores them in `finally`, and
+  supervisor startup cleanup no longer dereferences an unstarted process. These are local fixes with
+  focused coverage. Per the operator's objection to repeated CR execution, do not start a fourth
+  review; retain the capped review history instead of extending the loop.

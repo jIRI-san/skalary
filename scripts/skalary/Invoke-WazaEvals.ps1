@@ -398,33 +398,30 @@ function Invoke-WazaEvals {
 
     [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
 
-    . (Join-Path $PSScriptRoot 'Ensure-EvalTools.ps1')
-    . (Join-Path $PSScriptRoot 'Resolve-EvalToken.ps1')
-
-    $tools = Invoke-EnsureEvalTools -RepoRoot $RepoRoot -Approve:$Approve
-    foreach ($dir in @($tools.ResolvedPaths)) {
-        if (-not [string]::IsNullOrWhiteSpace($dir) -and ($env:PATH -split [System.IO.Path]::PathSeparator) -notcontains $dir) {
-            $env:PATH = $dir + [System.IO.Path]::PathSeparator + $env:PATH
-        }
-    }
-
-    $baseToken = Resolve-EvalToken -RepoRoot $RepoRoot
-
-    $pluginsRoot = Join-Path $RepoRoot 'plugins'
-    $specs = Get-WazaEvalSpec -PluginsRoot $pluginsRoot -Plugin $Plugin
-
-    $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
-    $runDir = Join-Path $RepoRoot (Join-Path 'tests/evals/output' $stamp)
-    [void](New-Item -ItemType Directory -Path $runDir -Force)
-
-    Write-Host ("Discovered {0} waza spec(s). Estimate: {1}" -f @($specs).Count, (Get-WazaCostEstimate -SpecCount @($specs).Count))
-
-    $executed = 0
-    $failed = 0
-    $skipped = 0
     $priorCopilotToken = [System.Environment]::GetEnvironmentVariable('COPILOT_GITHUB_TOKEN', 'Process')
     $priorGhToken = [System.Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
     try {
+        . (Join-Path $PSScriptRoot 'Ensure-EvalTools.ps1')
+        . (Join-Path $PSScriptRoot 'Resolve-EvalToken.ps1')
+
+        $tools = Invoke-EnsureEvalTools -RepoRoot $RepoRoot -Approve:$Approve
+        foreach ($dir in @($tools.ResolvedPaths)) {
+            if (-not [string]::IsNullOrWhiteSpace($dir) -and ($env:PATH -split [System.IO.Path]::PathSeparator) -notcontains $dir) {
+                $env:PATH = $dir + [System.IO.Path]::PathSeparator + $env:PATH
+            }
+        }
+
+        $baseToken = Resolve-EvalToken -RepoRoot $RepoRoot
+        $pluginsRoot = Join-Path $RepoRoot 'plugins'
+        $specs = Get-WazaEvalSpec -PluginsRoot $pluginsRoot -Plugin $Plugin
+        $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
+        $runDir = Join-Path $RepoRoot (Join-Path 'tests/evals/output' $stamp)
+        [void](New-Item -ItemType Directory -Path $runDir -Force)
+        Write-Host ("Discovered {0} waza spec(s). Estimate: {1}" -f @($specs).Count, (Get-WazaCostEstimate -SpecCount @($specs).Count))
+
+        $executed = 0
+        $failed = 0
+        $skipped = 0
         foreach ($spec in $specs) {
             $pluginName = Get-PluginFromSpecPath -Path $spec
             $hasTasks = Test-WazaSpecHasTasks -Path $spec
@@ -474,29 +471,29 @@ function Invoke-WazaEvals {
                 }
             }
         }
+
+        $outcome = Get-ExecutedOutcome -Executed $executed -Failed $failed -Skipped $skipped
+
+        Write-Host ''
+        Write-Host 'Waza eval summary:' -ForegroundColor Cyan
+        Write-Host "  executed: $executed"
+        Write-Host "  failed:   $failed" -ForegroundColor Red
+        Write-Host "  skipped:  $skipped" -ForegroundColor Yellow
+        Write-Host "  outcome:  $($outcome.Outcome) ($($outcome.Reason))"
+        Write-Host "  run dir:  $runDir"
+
+        return [pscustomobject]@{
+            Executed = $executed
+            Failed = $failed
+            Skipped = $skipped
+            Outcome = $outcome.Outcome
+            ExitCode = $outcome.ExitCode
+            RunDir = $runDir
+        }
     }
     finally {
         [System.Environment]::SetEnvironmentVariable('COPILOT_GITHUB_TOKEN', $priorCopilotToken, 'Process')
         [System.Environment]::SetEnvironmentVariable('GH_TOKEN', $priorGhToken, 'Process')
-    }
-
-    $outcome = Get-ExecutedOutcome -Executed $executed -Failed $failed -Skipped $skipped
-
-    Write-Host ''
-    Write-Host 'Waza eval summary:' -ForegroundColor Cyan
-    Write-Host "  executed: $executed"
-    Write-Host "  failed:   $failed" -ForegroundColor Red
-    Write-Host "  skipped:  $skipped" -ForegroundColor Yellow
-    Write-Host "  outcome:  $($outcome.Outcome) ($($outcome.Reason))"
-    Write-Host "  run dir:  $runDir"
-
-    return [pscustomobject]@{
-        Executed = $executed
-        Failed = $failed
-        Skipped = $skipped
-        Outcome = $outcome.Outcome
-        ExitCode = $outcome.ExitCode
-        RunDir = $runDir
     }
 }
 

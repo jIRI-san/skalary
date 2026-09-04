@@ -77,8 +77,15 @@ Describe 'unselected' {
     It 'fails' { `$false | Should -BeTrue }
 }
 "@ | Set-Content -LiteralPath (Join-Path $badEvalDir 'unselected.Tests.ps1') -Encoding utf8NoBOM
-        "# Required structural evals`n" |
-            Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/required.md') -Encoding utf8NoBOM
+$nestedEvalDir = Join-Path $fixtureRoot 'plugins/selected/nested/evals'
+[void](New-Item -ItemType Directory -Path $nestedEvalDir -Force)
+@"
+Describe 'nested trap' {
+    It 'fails' { `$false | Should -BeTrue }
+}
+"@ | Set-Content -LiteralPath (Join-Path $nestedEvalDir 'trap.Tests.ps1') -Encoding utf8NoBOM
+"# Required structural evals`n" |
+    Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/required.md') -Encoding utf8NoBOM
 
         $selectedEval = Invoke-CapturedPowerShell -ArgumentList @(
             '-File', $script:evalRunner,
@@ -91,6 +98,7 @@ Describe 'unselected' {
         $selectedEval.ExitCode | Should -Be 0 -Because $selectedEval.Output
         $selectedEval.Output | Should -Match 'total: 1'
         $selectedEval.Output | Should -Not -Match 'unselected'
+        $selectedEval.Output | Should -Not -Match 'nested trap'
 
     }
 
