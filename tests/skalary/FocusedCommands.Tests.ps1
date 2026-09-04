@@ -118,6 +118,7 @@ Describe 'unselected' {
         foreach ($text in @($unitText, $evalText, $validatorText)) {
             $text | Should -Not -Match '\$InternalFocusedChild'
         }
+        $validatorText | Should -Not -Match 'Test-ArchitectureContractIntegrity\.ps1|architecture-contract-integrity'
         $wazaText | Should -Match 'Waza requires one explicit -Plugin'
 
         $wazaFixture = Join-Path $TestDrive 'waza-repo'
@@ -166,6 +167,19 @@ Describe 'unselected' {
         }
         $simplicity | Should -Match '/dr.*?/cr.*?cannot override'
         $simplicity | Should -Match '## Dubious decisions'
+        $normalizedSimplicity = $simplicity -replace '\s+', ' '
+        $normalizedSimplicity | Should -Match 'trusted local environment'
+        foreach ($revisitCondition in @(
+                'untrusted contributors',
+                'shared service',
+                'third-party credentials',
+                'trust boundary'
+            )) {
+            $normalizedSimplicity | Should -Match $revisitCondition
+        }
+
+        $readme = Get-Content -LiteralPath (Join-Path $script:repoRoot 'README.md') -Raw
+        $readme | Should -Match '(?s)`code-review` and `design-review`.*PowerShell 7\.6\+'
     }
 
     It 'test:FocusedCommands.SupervisionIsNotSelectable proves no parameter, variable, or environment marker can reach an unsupervised focused run' {
