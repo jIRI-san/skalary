@@ -8,8 +8,6 @@ Describe 'skalary plugin registry scripts' {
         $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $tempRepos = [System.Collections.Generic.List[string]]::new()
 
-        # Cost-model instrumentation; inert unless SKALARY_SUITE_PROFILE names a sink.
-        Import-Module (Join-Path $PSScriptRoot '..' 'SuiteProfile.psm1') -Force -DisableNameChecking
         Import-Module (Join-Path $PSScriptRoot '..' 'SuiteFixture.psm1') -Force -DisableNameChecking
 
         function New-RepoClone {
@@ -26,11 +24,9 @@ Describe 'skalary plugin registry scripts' {
             [CmdletBinding()]
             param()
 
-            Measure-SuiteOperation -Operation 'New-RepoClone' -Body {
-                $path = New-SkalaryFixtureRepo -ProjectRoot $projectRoot
-                $tempRepos.Add($path)
-                return $path
-            }
+            $path = New-SkalaryFixtureRepo -ProjectRoot $projectRoot
+            $tempRepos.Add($path)
+            return $path
         }
 
         function Invoke-ScriptProcess {
@@ -45,25 +41,23 @@ Describe 'skalary plugin registry scripts' {
                 [string[]]$Arguments = @()
             )
 
-            Measure-SuiteOperation -Operation ([System.IO.Path]::GetFileNameWithoutExtension($ScriptName)) -Body {
-                $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
-                if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
-                    throw "Script not found: $scriptPath"
-                }
+            $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
+            if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+                throw "Script not found: $scriptPath"
+            }
 
-                $argList = @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $RepoRoot) + $Arguments
-                Push-Location -LiteralPath $RepoRoot
-                try {
-                    $lines = @(& pwsh @argList 2>&1)
-                }
-                finally {
-                    Pop-Location
-                }
+            $argList = @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $RepoRoot) + $Arguments
+            Push-Location -LiteralPath $RepoRoot
+            try {
+                $lines = @(& pwsh @argList 2>&1)
+            }
+            finally {
+                Pop-Location
+            }
 
-                return [pscustomobject]@{
-                    ExitCode = $LASTEXITCODE
-                    Output = ($lines | ForEach-Object { "$_" }) -join "`n"
-                }
+            return [pscustomobject]@{
+                ExitCode = $LASTEXITCODE
+                Output = ($lines | ForEach-Object { "$_" }) -join "`n"
             }
         }
 
@@ -79,15 +73,13 @@ Describe 'skalary plugin registry scripts' {
                 [hashtable]$Parameters = @{}
             )
 
-            Measure-SuiteOperation -Operation ([System.IO.Path]::GetFileNameWithoutExtension($ScriptName)) -Body {
-                $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
-                Push-Location -LiteralPath $RepoRoot
-                try {
-                    & $scriptPath -RepoRoot $RepoRoot @Parameters
-                }
-                finally {
-                    Pop-Location
-                }
+            $scriptPath = Join-Path $RepoRoot "scripts/skalary/$ScriptName"
+            Push-Location -LiteralPath $RepoRoot
+            try {
+                & $scriptPath -RepoRoot $RepoRoot @Parameters
+            }
+            finally {
+                Pop-Location
             }
         }
 

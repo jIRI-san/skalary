@@ -21,9 +21,8 @@ encoder_failed=false
 
 # A whole-run failure has no case to hang from. Without a named reason, an unreadable manifest, a
 # writable /usr/local/bin, and a run as the wrong user all reported an identical bare `state=fail`,
-# and the gate receipt could say only that smoke had failed. The vocabulary is closed and mirrored
-# by `$script:AllowedSmokeReasons` in Invoke-ContainerToolchainGate.ps1, which rejects anything
-# outside it — so this field cannot become a free-text channel into the job summary.
+# and direct diagnostics could say only that smoke had failed. Keep the vocabulary closed so this
+# field remains predictable for an operator reading the result.
 add_reason() {
     reason_set["$1"]=present
 }

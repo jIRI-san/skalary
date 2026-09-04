@@ -160,9 +160,9 @@ Describe 'unselected' {
             [System.StringComparer]::OrdinalIgnoreCase)
 
         $allowlists = [ordered]@{
-            $script:unitRunner = @('RepoRoot', 'Tier', 'TestPath', 'TestName', 'EvidenceTestId',
-                'EvidenceResultPath', 'FullRepository', 'StartBudgetClock', 'BudgetClockPath',
-                'TestResultPath', 'FocusedWarningSeconds', 'FocusedTimeoutSeconds')
+            $script:unitRunner = @('RepoRoot', 'TestPath', 'TestName', 'EvidenceTestId',
+                'EvidenceResultPath', 'FullRepository', 'TestResultPath',
+                'FocusedWarningSeconds', 'FocusedTimeoutSeconds')
             $script:evalRunner = @('RepoRoot', 'OutputRoot', 'PluginsRoot', 'RequiredContractPath',
                 'Plugin', 'FullRepository', 'FocusedWarningSeconds', 'FocusedTimeoutSeconds')
             $script:validator = @('Path', 'FullRepository', 'FocusedWarningSeconds',
@@ -197,17 +197,6 @@ Describe 'unselected' {
 
         $fixtureRoot = Join-Path $TestDrive 'supervision-repo'
         [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'tests') -Force)
-        [void](New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'tools') -Force)
-        Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/suite-tier.psd1') -Encoding utf8NoBOM -Value @'
-@{
-    Schema = 'skalary/suite-tier@1'
-    FastFocusedHardCeilingSeconds = 60
-    SlowHardCeilingSeconds = 600
-    CiSetupAllowanceSeconds = 60
-    DedicatedFiles = @()
-    SlowFiles = @()
-}
-'@
         $pidFile = Join-Path $fixtureRoot 'descendant.pid'
         $timeoutBody = Join-Path $fixtureRoot 'timeout-body.ps1'
         Set-Content -LiteralPath $timeoutBody -Encoding utf8NoBOM -Value @'
@@ -246,8 +235,7 @@ Describe 'fast' {
             '-TestPath', 'tests/Fast.Tests.ps1',
             '-FocusedWarningSeconds', '0.05', '-FocusedTimeoutSeconds', '5')
         $supervisedPass.ExitCode | Should -Be 0 -Because $supervisedPass.Output
-        $supervisedPass.Output | Should -Match 'Suite tier: Fast focused \(1 file\(s\)\)'
-        $supervisedPass.Output | Should -Match 'Tests Passed: 1, Failed: 0'
+        $supervisedPass.Output | Should -Match 'Unit tests: focused \(1 file\(s\)\)'
         $supervisedPass.Output | Should -Match 'FocusedSlow'
 
         if (-not $IsWindows) {

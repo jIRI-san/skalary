@@ -12,7 +12,6 @@ Describe 'Autopilot container toolchain' {
         $script:dockerfilePath = Join-Path $script:pluginRoot 'devcontainer/Dockerfile'
         $script:smokePath = Join-Path $script:pluginRoot 'devcontainer/container-toolchain-smoke.sh'
         $script:contractPath = Join-Path $script:repoRoot 'docs/design-notes/architecture/autopilot-container-toolchain.design.md'
-        $script:runnerPath = Join-Path $script:repoRoot 'scripts/skalary/Invoke-ContainerToolchainGate.ps1'
 
         function Read-ToolchainRows {
             param([Parameter(Mandatory)][string]$Content)
@@ -393,7 +392,6 @@ Describe 'Autopilot container toolchain' {
         $script:dockerfileContent = Get-Content -LiteralPath $script:dockerfilePath -Raw
         $script:smokeContent = Get-Content -LiteralPath $script:smokePath -Raw
         $script:contractContent = Get-Content -LiteralPath $script:contractPath -Raw
-        $script:runnerContent = Get-Content -LiteralPath $script:runnerPath -Raw
     }
 
     It 'test:AutopilotContainer.ToolchainContract enforces the manifest, image, smoke, and distribution contract' {
@@ -543,19 +541,6 @@ Describe 'Autopilot container toolchain' {
                     -Expected $expectedReasons)) {
             throw $errorText
         }
-        $runnerReasons = @([regex]::Match(
-                $runnerContent,
-                '(?s)\$script:AllowedSmokeReasons = @\((?<body>.*?)\)').Groups['body'].Value |
-                ForEach-Object { [regex]::Matches($_, "'(?<reason>[^']+)'") } |
-                ForEach-Object { $_.Groups['reason'].Value } |
-                Sort-Object -Unique)
-        foreach ($errorText in @(Compare-OrdinalSet `
-                    -Label 'Gate runner smoke reason allow-list' `
-                    -Actual $runnerReasons `
-                    -Expected $expectedReasons)) {
-            throw $errorText
-        }
-
         $fallbackMatch = [regex]::Match(
             $smokeContent,
             "(?m)^\s*fallback_json='(?<json>\{`"schema`":`"skalary/container-toolchain-smoke@1`".+\})'\s*$")
