@@ -23,6 +23,7 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 
 | File | Area | Parked because |
 |---|---|---|
+| [agent-cost-optimization.design.md](agent-cost-optimization.design.md) | Multi-agent skills and agents | Advisory operator-approved baseline; implementation changes remain owned by their subsystem plans |
 | [container-autopilot-watchdog.design.md](container-autopilot-watchdog.design.md) | `plugins/autopilot/scripts/**` | Would restructure autopilot invocation granularity mid-plan; the phase + whole-run caps shipped instead |
 | [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md) | `/cip`, `/cep`, plan `assets/` | Operator notes; builds on `b0c0d3` intent asset, which must land first |
 | [design-rfc-artifacts.design.md](design-rfc-artifacts.design.md) | `/cip`, plan `assets/` | Operator notes; fits the `b0c0d3` assets layout, sequenced after it |
@@ -37,4 +38,5 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 
 ## Scheduled review
 
-The five active explorations above remain candidates for a later align phase. Resolved entries stay indexed separately so their rejected alternatives and implementation decisions remain discoverable.
+Active explorations remain candidates for a later align phase. Resolved entries stay indexed
+separately so their rejected alternatives and implementation decisions remain discoverable.

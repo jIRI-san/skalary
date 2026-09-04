@@ -21,15 +21,15 @@ Plan `2aa7ec` step 1.1 snapshot, taken from tracked repository content on 2026-0
 
 | Category | Count | Keep | Transfer | Delete | Uncertain |
 |---|---:|---:|---:|---:|---:|
-| Gate | 23 | 3 | 3 | 17 | 0 |
+| Gate | 23 | 2 | 4 | 17 | 0 |
 | JSON | 111 | 5 | 97 | 9 | 0 |
 | Test | 124 | 24 | 93 | 7 | 0 |
-| Design note | 27 | 9 | 18 | 0 | 0 |
+| Design note | 28 | 10 | 18 | 0 | 0 |
 | Architecture contract | 8 | 3 | 4 | 1 | 0 |
 
-**Total category rows:** 293. Rows are counted by category; the four architecture JSON files intentionally also appear as contract/schema decisions.
+**Total category rows:** 294. Rows are counted by category; the four architecture JSON files intentionally also appear as contract/schema decisions.
 
-**Coverage arithmetic:** 266 unique file paths across JSON, tests, notes, and architecture records; 16 workflow-hosted gate/support invocations; and 7 `validate.ps1`-only gate invocations. The four architecture JSON overlaps bring the category-row total to 293.
+**Coverage arithmetic:** 267 unique file paths across JSON, tests, notes, and architecture records; 16 workflow-hosted gate/support invocations; and 7 `validate.ps1`-only gate invocations. The four architecture JSON overlaps bring the category-row total to 294.
 
 ## Items
 
@@ -310,6 +310,7 @@ Closed vocabularies: `Owner` is one of `2aa7ec`, `367e9a`, `3a4498`, `623cc2`; `
 | Design note | `docs/design-notes/architecture/review-reporting.design.md` | `367e9a` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
 | Design note | `docs/design-notes/architecture/self-improvement.design.md` | `3a4498` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
 | Design note | `docs/design-notes/architecture/work-hierarchy-sync.design.md` | `367e9a` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
+| Design note | `docs/design-notes/explorations/agent-cost-optimization.design.md` | `2aa7ec` | `keep` | — | Operator-approved advisory cost budgets remain human-readable and add no enforcement service. | — |
 | Design note | `docs/design-notes/explorations/asset-scanner-root-bound.design.md` | `623cc2` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
 | Design note | `docs/design-notes/explorations/container-autopilot-watchdog.design.md` | `367e9a` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
 | Design note | `docs/design-notes/explorations/design-rfc-artifacts.design.md` | `367e9a` | `transfer` | — | Active subsystem guidance transfers to the child that owns the described behavior. | — |
@@ -339,3 +340,13 @@ The operator retained both formerly uncertain tests with targeted pruning:
 - `tests/skalary/SkillSize.Tests.ps1` — keep cap enforcement and hidden-mirror coverage to control recurring context cost.
 
 No test is marked uncertain; each later child owns its transferred test disposition.
+
+## Baseline closure
+
+Step 3.3 closed all 78 rows owned by `2aa7ec`: 44 retained local or external-facing rows and 34
+deletions. Retained paths are present, deleted paths are absent, hosted workflow files are absent,
+and the two retained validation gates remain local. The other 216 rows already name exactly one
+later child (`367e9a`, `3a4498`, or `623cc2`); they are transferred scope, not baseline residue.
+
+This inventory remains plan-local evidence. It does not create a scanner, schema, policy service, or
+recurring repository sweep.

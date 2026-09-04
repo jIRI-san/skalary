@@ -65,4 +65,4 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 3.1 Establish equivalent informed choices, direct-script approval guidance, and focused host fixtures (REQ-8, RISK-6) [after: 2.3] `M`
 - [x] 3.2 Retain the bounded historical adapter and remove conflicting broad-history guidance (REQ-9) [after: 3.1] `M`
-- [ ] 3.3 Publish the advisory cost RFC, close every baseline ownership row, and run only focused evidence (REQ-1, REQ-5, REQ-10, REQ-11, RISK-5, RISK-6) [after: 3.2] `M`
+- [x] 3.3 Publish the advisory cost RFC, close every baseline ownership row, and run only focused evidence (REQ-1, REQ-5, REQ-10, REQ-11, RISK-5, RISK-6) [after: 3.2] `M`
