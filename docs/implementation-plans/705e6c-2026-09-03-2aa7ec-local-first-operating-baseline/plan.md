@@ -31,13 +31,13 @@
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
 ## Phase 1: Usable local-first validation
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: jiri-san-simplify-repository-workflows -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Inventory active gates, JSON, tests, notes, and contracts with category counts, reasons, and canonical child owners (REQ-2, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-4, RISK-5) `M`
+- [x] 1.1 Inventory active gates, JSON, tests, notes, and contracts with category counts, reasons, and canonical child owners (REQ-2, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-4, RISK-5) `M`
 - [ ] 1.2 Resolve every uncertain test disposition before deletion (REQ-5, REQ-6, RISK-1) [after: 1.1] @human `S`
   <details><summary>Details</summary>
 
