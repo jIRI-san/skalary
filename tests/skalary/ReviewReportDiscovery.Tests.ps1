@@ -173,10 +173,12 @@ Describe 'review-report test and eval discovery' {
             @($actual | Sort-Object -Unique).Count | Should -Be $actual.Count
         }
 
-        $required = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tools/structural-eval-required.json') -Raw |
-            ConvertFrom-Json
-        [string]$required.schema | Should -Be 'skalary/structural-eval-required@1'
-        @($required.caseIds) |
+        $required = @(Get-Content -LiteralPath (
+                Join-Path $script:repoRoot 'tools/structural-eval-required.md'
+            ) | ForEach-Object {
+                if ($_ -match '^- `(eval:[A-Za-z0-9][A-Za-z0-9_.-]*)`$') { $Matches[1] }
+            })
+        @($required) |
             Should -Be @($script:expectedEvalIds.CR + $script:expectedEvalIds.Fleet + $script:expectedEvalIds.DR)
         $inventory = Get-ReviewTestInventory
         @($inventory.tests | Where-Object { [string]$_.test -match 'test:ReviewReport\.StructuralEvalEnforcement(?=$|\s)' }).Count |

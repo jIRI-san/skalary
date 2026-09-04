@@ -21,7 +21,6 @@ if (-not (Test-Path -LiteralPath $contractGate -PathType Leaf)) {
 
 $contractFiles = @(
     Get-ChildItem -LiteralPath $contractRoot -File -Filter '*.json' |
-        Where-Object { $_.Name -ne 'architecture-contract.schema.json' } |
         Sort-Object Name
 )
 $errors = [System.Collections.Generic.List[string]]::new()

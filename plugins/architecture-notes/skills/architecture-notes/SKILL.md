@@ -27,15 +27,15 @@ context: fork
 
 - Operate on the current git worktree and branch.
 - Tier index: `docs/architecture-notes/.architecture-notes.md`.
-- Contracts: JSON files under `schemas/architecture/` validated by `schemas/architecture/architecture-contract.schema.json`
-  (scaffolded on init; falls back to the shipped asset).
+- Contracts: existing JSON files under `schemas/architecture/` follow the documented field
+  convention below. Do not add schemas; prefer a terse Markdown architecture note for new boundaries.
 - Scripts (script-mediated mutation). In an installed plugin and the dogfood mirror these live
   next to the skill at `skills/architecture-notes/scripts/`; in the plugin source tree they live
   at `plugins/architecture-notes/scripts/`. Resolve `<scripts>` to whichever exists. **If neither
   resolves, HALT** — never hand-roll validation or write a contract past a missing gate.
-  - `Copy-ArchScaffold.ps1` — scaffolds schema + tier index into the repo, never overwriting.
-  - `Test-ArchContract.ps1` — validates a contract file against the schema (the write gate). It
-    checks shape and locked-content integrity; it does **not** authorize a lock (see Step 4).
+  - `Copy-ArchScaffold.ps1` — scaffolds the tier index into the repo, never overwriting.
+  - `Test-ArchContract.ps1` — checks a legacy contract against the documented field convention and
+    locked-content digest; it does **not** authorize a lock (see Step 4).
   - `Get-ArchContractContentHash.ps1` — sole canonical JSON projection and UTF-8 digest owner for
     `lockedContentSha256`. Call it when proposing a lock.
   - `New-ArchHumanDoc.ps1` — regenerates the human-readable doc from the contracts and embeds the
@@ -63,15 +63,16 @@ context: fork
 
 ## Step 2: Create a contract
 
-1. Confirm the tier is scaffolded (Step 1.2). The schema lives at
-   `schemas/architecture/architecture-contract.schema.json`.
+1. Confirm the tier is scaffolded (Step 1.2).
 2. Choose a **stable contract id** (`^[A-Za-z0-9][A-Za-z0-9._-]*$`). Never reuse or renumber an id.
 3. Author the contract JSON at **`maturity: draft`**. Use one or more authoring modes:
    - `rules` — declarative, machine-derivable rules (forbidden-dependency, layer-boundary, ...).
    - `prose` — a terse component/boundary description.
    - `interfaces` — real C#/TS interface stubs the human owns.
    Fill `targets` when the boundary is path-scoped.
-4. **Validate the write (mandatory gate):**
+4. **Check the documented convention:** `id`, `title`, and `maturity` are required; maturity is
+   `draft`, `provisional`, or `locked`; at least one of `rules`, `prose`, or `interfaces` is present;
+   locked contracts include their canonical `lockedContentSha256`.
    - `pwsh -NoProfile -File <scripts>/Test-ArchContract.ps1 -ContractPath <file>`
    - Proceed only when `Valid` is true; otherwise fix the reported `Errors` and re-run.
 5. Add a **terse** arch note from `./assets/templates/architecture-note.template.md` describing the
@@ -106,7 +107,7 @@ context: fork
 1. Read `.architecture-notes.md` and enumerate contracts with their `maturity`.
 2. Validate each contract file with `Test-ArchContract.ps1`; report any invalid ones.
 3. Report drift: contracts without notes, notes without contracts, human-doc staleness, invalid
-   schema, and locked-content digest mismatch. Summarize `locked` vs `draft`/`provisional` counts.
+   fields, and locked-content digest mismatch. Summarize `locked` vs `draft`/`provisional` counts.
 4. Treat a locked digest mismatch as blocking integrity drift. Draft/provisional validity remains
    advisory architectural knowledge, not executable fitness evidence.
 5. **Audit locked promotions through review policy.** Confirm reviewer approval outside this

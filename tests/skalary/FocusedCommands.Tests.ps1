@@ -77,14 +77,14 @@ Describe 'unselected' {
     It 'fails' { `$false | Should -BeTrue }
 }
 "@ | Set-Content -LiteralPath (Join-Path $badEvalDir 'unselected.Tests.ps1') -Encoding utf8NoBOM
-        '{"schema":"skalary/structural-eval-required@1","caseIds":[]}' |
-            Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/required.json') -Encoding utf8NoBOM
+        "# Required structural evals`n" |
+            Set-Content -LiteralPath (Join-Path $fixtureRoot 'tools/required.md') -Encoding utf8NoBOM
 
         $selectedEval = Invoke-CapturedPowerShell -ArgumentList @(
             '-File', $script:evalRunner,
             '-RepoRoot', $fixtureRoot,
             '-PluginsRoot', (Join-Path $fixtureRoot 'plugins'),
-            '-RequiredContractPath', (Join-Path $fixtureRoot 'tools/required.json'),
+            '-RequiredListPath', (Join-Path $fixtureRoot 'tools/required.md'),
             '-OutputRoot', (Join-Path $fixtureRoot 'tests/evals/output'),
             '-Plugin', 'selected'
         )
@@ -163,7 +163,7 @@ Describe 'unselected' {
             $script:unitRunner = @('RepoRoot', 'TestPath', 'TestName', 'EvidenceTestId',
                 'EvidenceResultPath', 'FullRepository', 'TestResultPath',
                 'FocusedWarningSeconds', 'FocusedTimeoutSeconds')
-            $script:evalRunner = @('RepoRoot', 'OutputRoot', 'PluginsRoot', 'RequiredContractPath',
+            $script:evalRunner = @('RepoRoot', 'OutputRoot', 'PluginsRoot', 'RequiredListPath',
                 'Plugin', 'FullRepository', 'FocusedWarningSeconds', 'FocusedTimeoutSeconds')
             $script:validator = @('Path', 'FullRepository', 'FocusedWarningSeconds',
                 'FocusedTimeoutSeconds')

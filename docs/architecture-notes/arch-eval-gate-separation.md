@@ -23,7 +23,7 @@ zero-cost; the premium, auth-dependent LLM route is direct, explicit, and plugin
 - Configured build/test and deterministic scripts never invoke a waza/LLM run.
 - Tier-1 routine use requires `Test-Evals.ps1 -Plugin`; selected mode runs only that plugin.
   `-FullRepository` is the direct operator route and checks exact required-case execution from
-  `tools/structural-eval-required.json`.
+  the literal list in `tools/structural-eval-required.md`.
 - Tier-2 requires direct `Invoke-WazaEvals.ps1 -Plugin`, validates scope before provisioning or
   output, requires auth, and incurs premium cost.
 - A Tier-2 run that executed zero evals is a distinct non-green outcome, not a silent pass.

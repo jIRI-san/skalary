@@ -49,150 +49,6 @@ Describe 'architecture-notes structural evals' {
     }
 }
 
-Describe 'architecture-contract schema evals' {
-    BeforeAll {
-        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
-        $script:contractSchemaPath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/schemas/architecture-contract.schema.json'
-        $script:scaffoldScript = Join-Path $script:pluginRoot 'scripts/Copy-ArchScaffold.ps1'
-        $script:assetRoot = Join-Path $script:pluginRoot 'skills/architecture-notes/assets'
-        $script:contentHashScript = Join-Path $script:pluginRoot 'scripts/Get-ArchContractContentHash.ps1'
-
-        $script:validContract = @{
-            id       = 'ARCH-Sample-1'
-            title    = 'Sample contract'
-            maturity = 'draft'
-            rules    = @(
-                @{ id = 'no-domain-to-infra'; kind = 'forbidden-dependency'; description = 'Domain must not depend on Infrastructure.' }
-            )
-        } | ConvertTo-Json -Depth 10
-    }
-
-    It 'ContractSchema-Valid: schema file parses, declares maturity enum, and accepts a valid contract' {
-        Test-Path -LiteralPath $script:contractSchemaPath -PathType Leaf | Should -BeTrue
-        $schema = Get-Content -LiteralPath $script:contractSchemaPath -Raw | ConvertFrom-Json -Depth 50
-        @($schema.properties.maturity.enum) | Should -Contain 'locked'
-        @($schema.properties.maturity.enum) | Should -Contain 'draft'
-        @($schema.properties.maturity.enum) | Should -Contain 'provisional'
-
-        { $script:validContract | Test-Json -SchemaFile $script:contractSchemaPath } | Should -Not -Throw
-        $script:validContract | Test-Json -SchemaFile $script:contractSchemaPath | Should -BeTrue
-    }
-
-    It 'ContractSchema-RejectsUnknownMaturity: an out-of-enum maturity fails validation' {
-        $bad = @{
-            id       = 'ARCH-Sample-2'
-            title    = 'Bad maturity'
-            maturity = 'frozen'
-            prose    = 'Some component description.'
-        } | ConvertTo-Json -Depth 10
-
-        $bad | Test-Json -SchemaFile $script:contractSchemaPath -ErrorAction SilentlyContinue | Should -BeFalse
-    }
-
-    It 'ContractSchema-LockedRequiresContentHash: locked contract requires lockedContentSha256' {
-        $lockedNoHash = @{
-            id       = 'ARCH-Locked-1'
-            title    = 'Locked without hash'
-            maturity = 'locked'
-            prose    = 'A locked component description.'
-        } | ConvertTo-Json -Depth 10
-        $lockedNoHash | Test-Json -SchemaFile $script:contractSchemaPath -ErrorAction SilentlyContinue | Should -BeFalse
-
-        $lockedWithHash = @{
-            id               = 'ARCH-Locked-1'
-            title            = 'Locked with hash'
-            maturity         = 'locked'
-            prose            = 'A locked component description.'
-            lockedContentSha256 = ('a' * 64)
-        } | ConvertTo-Json -Depth 10
-        $lockedWithHash | Test-Json -SchemaFile $script:contractSchemaPath | Should -BeTrue
-    }
-
-    It 'test:ArchitectureNotes.HumanAuthorityContract rejects runner fields from the preserved contract schema' {
-        $schema = Get-Content -LiteralPath $script:contractSchemaPath -Raw | ConvertFrom-Json -Depth 50
-        @($schema.properties.PSObject.Properties.Name) | Should -Not -Contain 'frameworks'
-        @($schema.properties.PSObject.Properties.Name) | Should -Not -Contain 'llm'
-        @($schema.properties.PSObject.Properties.Name) | Should -Not -Contain 'lockedBodySha256'
-
-        foreach ($field in @('frameworks', 'llm', 'lockedBodySha256')) {
-            $contract = [ordered]@{
-                id       = 'ARCH-No-Runner'
-                title    = 'No runner fields'
-                maturity = 'draft'
-                prose    = 'Human-owned contract.'
-            }
-            $contract[$field] = if ($field -eq 'frameworks') { @('netarchtest') } elseif ($field -eq 'llm') { @{ promoted = $true } } else { 'a' * 64 }
-            ($contract | ConvertTo-Json -Depth 10) |
-                Test-Json -SchemaFile $script:contractSchemaPath -ErrorAction SilentlyContinue |
-                Should -BeFalse
-        }
-    }
-
-    It 'Schema-ScaffoldsOnInitNoOverwrite: scaffolds the schema and skips a current-version rerun' {
-        Test-Path -LiteralPath $script:scaffoldScript -PathType Leaf | Should -BeTrue
-        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-scaffold-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $target -Force)
-        try {
-            $first = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
-            $created = @($first | Where-Object { $_.Path -like '*architecture-contract.schema.json' })
-            $created.Count | Should -Be 1
-            $created[0].Action | Should -Be 'created'
-            Test-Path -LiteralPath $created[0].Path -PathType Leaf | Should -BeTrue
-
-            $second = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
-            $rerun = @($second | Where-Object { $_.Path -like '*architecture-contract.schema.json' })
-            $rerun.Count | Should -Be 1
-            $rerun[0].Action | Should -Be 'skipped'
-        }
-        finally {
-            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'test:ArchitectureNotes.PreservedWorkflow upgrades the known v1 scaffold and refuses an ambiguous unversioned schema' {
-        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-schema-upgrade-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path (Join-Path $target 'schemas/architecture') -Force)
-        try {
-            $schemaPath = Join-Path $target 'schemas/architecture/architecture-contract.schema.json'
-            $startingCommit = (Get-Content -LiteralPath (Join-Path $script:repoRoot 'tests/skalary/fixtures/plugin-retirement/cda9da-historical-manifest.json') -Raw |
-                    ConvertFrom-Json).startingCommit
-            $legacyLines = @(git -C $script:repoRoot show "${startingCommit}:plugins/architecture-notes/skills/architecture-notes/assets/schemas/architecture-contract.schema.json")
-            $legacyText = ($legacyLines -join "`n") + "`n"
-            [System.IO.File]::WriteAllText($schemaPath, $legacyText, [System.Text.UTF8Encoding]::new($false))
-            (Get-FileHash -LiteralPath $schemaPath -Algorithm SHA256).Hash.ToLowerInvariant() |
-                Should -Be '2ee7b24548076cdcb077ef4ef29cd218c4641a91cbe6e41bd587a2ed3ad9067d'
-
-            $upgrade = & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot
-            @($upgrade | Where-Object { $_.Path -eq $schemaPath })[0].Action | Should -Be 'upgraded'
-            (Get-Content -LiteralPath $schemaPath -Raw | ConvertFrom-Json).'x-skalary-schema-version' |
-                Should -Be 2
-
-            Set-Content -LiteralPath $schemaPath -Value '{ "customized": true }' -NoNewline
-            { & $script:scaffoldScript -TargetRoot $target -AssetRoot $script:assetRoot } |
-                Should -Throw '*refusing unsafe overwrite*'
-        }
-        finally {
-            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'Schema-ScaffoldsResolvesAssetRootFromScriptLocation: locates assets without an explicit -AssetRoot' {
-        $target = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-scaffold-auto-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $target -Force)
-        try {
-            $result = & $script:scaffoldScript -TargetRoot $target
-            $created = @($result | Where-Object { $_.Path -like '*architecture-contract.schema.json' })
-            $created.Count | Should -Be 1
-            $created[0].Action | Should -Be 'created'
-            Test-Path -LiteralPath $created[0].Path -PathType Leaf | Should -BeTrue
-        }
-        finally {
-            Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
 Describe 'architecture-notes tier template evals' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
@@ -253,7 +109,6 @@ Describe 'architecture contract validation gate evals' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
         $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
         $script:validateScript = Join-Path $script:pluginRoot 'scripts/Test-ArchContract.ps1'
-        $script:schemaPath = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/schemas/architecture-contract.schema.json'
         $script:contentHashScript = Join-Path $script:pluginRoot 'scripts/Get-ArchContractContentHash.ps1'
     }
 
@@ -270,7 +125,7 @@ Describe 'architecture contract validation gate evals' {
                 prose    = 'A valid component boundary description.'
             } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $goodPath
 
-            $good = & $script:validateScript -ContractPath $goodPath -SchemaPath $script:schemaPath
+            $good = & $script:validateScript -ContractPath $goodPath
             $good.Valid | Should -BeTrue
 
             $badPath = Join-Path $dir 'bad.json'
@@ -281,7 +136,7 @@ Describe 'architecture contract validation gate evals' {
                 prose    = 'Locked but missing lockedContentSha256.'
             } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $badPath
 
-            $bad = & $script:validateScript -ContractPath $badPath -SchemaPath $script:schemaPath -NoExit
+            $bad = & $script:validateScript -ContractPath $badPath -NoExit
             $bad.Valid | Should -BeFalse
         }
         finally {
@@ -306,7 +161,7 @@ Describe 'architecture contract validation gate evals' {
             $contract.lockedContentSha256 = $digest
             $contract | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $contractPath
 
-            $valid = & $script:validateScript -ContractPath $contractPath -SchemaPath $script:schemaPath -NoExit
+            $valid = & $script:validateScript -ContractPath $contractPath -NoExit
             $valid.Valid | Should -BeTrue
 
             $reorderedPath = Join-Path $dir 'reordered.json'
@@ -331,7 +186,7 @@ Describe 'architecture contract validation gate evals' {
 
             $contract.prose = 'Mutated boundary.'
             $contract | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $contractPath
-            $invalid = & $script:validateScript -ContractPath $contractPath -SchemaPath $script:schemaPath -NoExit
+            $invalid = & $script:validateScript -ContractPath $contractPath -NoExit
             $invalid.Valid | Should -BeFalse
             ($invalid.Errors -join "`n") | Should -Match 'lockedContentSha256 mismatch'
         }
@@ -354,28 +209,6 @@ Describe 'architecture contract validation gate evals' {
         $skill | Should -Not -Match 'architecture-tests|runner-receipt|fitness coverage|arch-test config'
     }
 
-    It 'ArchContract-Validate: resolves the schema from a scaffolded schemas/ dir without -SchemaPath' {
-        $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-repo-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path (Join-Path $repo 'schemas/architecture') -Force)
-        Copy-Item -LiteralPath $script:schemaPath -Destination (Join-Path $repo 'schemas/architecture/architecture-contract.schema.json')
-        try {
-            $contractPath = Join-Path $repo 'contract.json'
-            @{
-                id       = 'ARCH-Resolve-1'
-                title    = 'Resolved via walk-up'
-                maturity = 'draft'
-                prose    = 'A valid boundary.'
-            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $contractPath
-
-            $result = & $script:validateScript -ContractPath $contractPath
-            $result.Valid | Should -BeTrue
-            $result.SchemaPath | Should -Match 'architecture-contract\.schema\.json$'
-        }
-        finally {
-            Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
     It 'ArchContract-Validate: CLI (pwsh -File) invocation exits 1 and reports errors on invalid input' {
         $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-cli-" + [guid]::NewGuid().ToString('N'))
         [void](New-Item -ItemType Directory -Path $dir -Force)
@@ -388,7 +221,7 @@ Describe 'architecture contract validation gate evals' {
                 prose    = 'Locked but missing lockedContentSha256.'
             } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $badPath
 
-            $out = pwsh -NoProfile -File $script:validateScript -ContractPath $badPath -SchemaPath $script:schemaPath 2>&1
+            $out = pwsh -NoProfile -File $script:validateScript -ContractPath $badPath 2>&1
             $LASTEXITCODE | Should -Be 1
             ($out -join "`n") | Should -Match 'invalid'
         }

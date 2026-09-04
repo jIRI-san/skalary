@@ -109,8 +109,7 @@ if (-not (Test-Path -LiteralPath $AssetRoot -PathType Container)) {
 }
 
 $noteTemplate = Join-Path $AssetRoot 'templates/architecture-note.template.md'
-$schemaPath = Join-Path $AssetRoot 'schemas/architecture-contract.schema.json'
-foreach ($f in @($noteTemplate, $schemaPath)) {
+foreach ($f in @($noteTemplate)) {
     if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { throw "Required asset missing: $f" }
 }
 $noteTemplateText = Get-Content -LiteralPath $noteTemplate -Raw
@@ -290,7 +289,7 @@ foreach ($c in $selected) {
 
     $valid = $null
     if (Test-Path -LiteralPath $contractPath -PathType Leaf) {
-        $res = & $validateContract -ContractPath $contractPath -SchemaPath $schemaPath
+        $res = & $validateContract -ContractPath $contractPath
         $valid = [bool]$res.Valid
     }
     $contracts.Add([pscustomobject]@{

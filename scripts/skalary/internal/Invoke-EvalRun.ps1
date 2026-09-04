@@ -278,7 +278,7 @@ function Invoke-SkalaryEvalRun {
         [Parameter(Mandatory)][string]$RepoRoot,
         [string]$OutputRoot,
         [string]$PluginsRoot,
-        [string]$RequiredContractPath,
+        [string]$RequiredListPath,
         [string]$Plugin,
         [bool]$FullRepository
     )
@@ -305,8 +305,8 @@ function Invoke-SkalaryEvalRun {
             -Label 'Eval output root' -AllowMissing -Directory
         $requiredPath = if ($FullRepository) {
             Resolve-ConfinedEvalPath -Root $repoRootPath `
-                -Path $(if ($RequiredContractPath) { $RequiredContractPath } else { 'tools/structural-eval-required.json' }) `
-                -Label 'Required structural-eval contract'
+                -Path $(if ($RequiredListPath) { $RequiredListPath } else { 'tools/structural-eval-required.md' }) `
+                -Label 'Required structural-eval list'
         }
         else {
             $null
@@ -376,11 +376,18 @@ function Invoke-SkalaryEvalRun {
     $requiredCaseIds = @()
     $requiredFailures = [System.Collections.Generic.List[string]]::new()
     if ($FullRepository -and (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-        $requiredContract = Get-Content -LiteralPath $requiredPath -Raw | ConvertFrom-Json -Depth 10
-        if ([string]$requiredContract.schema -ne 'skalary/structural-eval-required@1') {
-            $requiredFailures.Add("required structural-eval contract has unknown schema '$($requiredContract.schema)'")
+        $requiredLines = @(Get-Content -LiteralPath $requiredPath)
+        $requiredCaseIds = @($requiredLines | ForEach-Object {
+                if ($_ -match '^- `(eval:[A-Za-z0-9][A-Za-z0-9_.-]*)`$') {
+                    $Matches[1]
+                }
+            })
+        $invalidEntries = @($requiredLines | Where-Object {
+                $_ -match '^\s*-\s+' -and $_ -notmatch '^- `eval:[A-Za-z0-9][A-Za-z0-9_.-]*`$'
+            })
+        if ($invalidEntries.Count -gt 0) {
+            $requiredFailures.Add('required structural-eval list contains an invalid entry')
         }
-        $requiredCaseIds = @($requiredContract.caseIds | ForEach-Object { [string]$_ })
         if ($requiredCaseIds.Count -eq 0 -or @($requiredCaseIds | Sort-Object -Unique).Count -ne $requiredCaseIds.Count) {
             $requiredFailures.Add('required structural-eval case ids must be non-empty and unique')
         }
@@ -398,7 +405,7 @@ function Invoke-SkalaryEvalRun {
         }
     }
     elseif ($FullRepository) {
-        $requiredFailures.Add("required structural-eval contract is missing: $requiredPath")
+        $requiredFailures.Add("required structural-eval list is missing: $requiredPath")
     }
 
     $summary = [ordered]@{

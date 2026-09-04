@@ -9,7 +9,7 @@ The seed operation of the architecture-notes skill. An agent runs the interview 
 ./assets/interview-guide.md), records the answers into a seed-spec JSON, and hands it here. This
 script is the script-mediated, deterministic materialization step:
 
-  1. Scaffolds the tier (schema + index) via Copy-ArchScaffold.ps1 (no-overwrite).
+  1. Scaffolds the tier index via Copy-ArchScaffold.ps1 (no-overwrite).
   2. Writes each boundary as a **draft** contract JSON under schemas/ (no-overwrite) and validates
      it with Test-ArchContract.ps1.
   3. Writes a terse arch note per boundary from the note template.
@@ -113,7 +113,7 @@ if ([string]::IsNullOrWhiteSpace($project)) { $project = 'Project' }
 # Ids that would shadow a scaffolded artifact or a Windows reserved device name are disallowed.
 $reservedIdBasenames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($n in @(
-        'architecture-contract.schema', '.architecture-notes', 'architecture.human',
+        '.architecture-notes', 'architecture.human',
         'CON', 'PRN', 'AUX', 'NUL',
         'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
         'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9')) {
@@ -141,12 +141,11 @@ function Write-SeedFile {
     return $action
 }
 
-# 1) Scaffold the tier (schema + index), no-overwrite.
+# 1) Scaffold the tier index, no-overwrite.
 $scaffoldResult = & $copyScaffold -TargetRoot $TargetRoot -AssetRoot $AssetRoot
 
 $schemasDir = Join-Path $TargetRoot 'schemas/architecture'
 $notesDir = Join-Path $TargetRoot 'docs/architecture-notes'
-$targetSchema = Join-Path $schemasDir 'architecture-contract.schema.json'
 
 $idPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*$'
 $noteTemplateText = Get-Content -LiteralPath $noteTemplate -Raw
@@ -182,13 +181,7 @@ foreach ($b in $boundaries) {
 
     $valid = $null
     if (Test-Path -LiteralPath $contractPath -PathType Leaf) {
-        $schemaArg = if (Test-Path -LiteralPath $targetSchema -PathType Leaf) { $targetSchema } else { $null }
-        $res = if ($schemaArg) {
-            & $validateContract -ContractPath $contractPath -SchemaPath $schemaArg
-        }
-        else {
-            & $validateContract -ContractPath $contractPath
-        }
+        $res = & $validateContract -ContractPath $contractPath
         $valid = [bool]$res.Valid
     }
     $contracts.Add([pscustomobject]@{ Path = $contractPath; Id = $id; Maturity = 'draft'; Action = $action; Valid = $valid })

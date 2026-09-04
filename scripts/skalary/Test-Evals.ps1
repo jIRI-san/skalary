@@ -29,7 +29,7 @@ param(
     [string]$RepoRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..', '..')),
     [string]$OutputRoot,
     [string]$PluginsRoot,
-    [string]$RequiredContractPath,
+    [string]$RequiredListPath,
     [string]$Plugin,
     [switch]$FullRepository,
     [ValidateRange(0.05, 30)]
@@ -58,7 +58,7 @@ $request = @{
 }
 if ($OutputRoot) { $request.OutputRoot = $OutputRoot }
 if ($PluginsRoot) { $request.PluginsRoot = $PluginsRoot }
-if ($RequiredContractPath) { $request.RequiredContractPath = $RequiredContractPath }
+if ($RequiredListPath) { $request.RequiredListPath = $RequiredListPath }
 if ($Plugin) { $request.Plugin = $Plugin }
 
 # Direct broad runs stay in this process. Everything else is focused and enters the supervisor:

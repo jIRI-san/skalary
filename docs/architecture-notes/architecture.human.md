@@ -6,7 +6,7 @@
 
      Freshness is tracked by the canonical content hash of the contract sources embedded in the
      marker below. Test-ArchDocFreshness recomputes it and flags drift. -->
-<!-- arch-contracts-sha256: 005361f3229a1a3664a86398f11f963eafb324c81e16247cccbeef7aae96b889 -->
+<!-- arch-contracts-sha256: c22d12c67ecce4aaba38c40b09339c3b0d06cc7d9849516870b43fb30bc50a26 -->
 
 # Skalary — Architecture Overview
 
@@ -24,17 +24,11 @@
 
 ```mermaid
 graph TD
-  ARCH_Eval_Gate_Separation["Two-tier eval gate separation"]
   ARCH_Install_Confinement["Installer .github confinement"]
   ARCH_Review_Run_V1["Review-run v1 authority and evidence"]
 ```
 
 ## Components
-
-### Two-tier eval gate separation
-
-- **Governing contract:** `ARCH-Eval-Gate-Separation` (provisional)
-- **Boundary:** Keeps local deterministic validation focused, offline, and zero-cost while preserving a separate explicit plugin-only premium Waza route.
 
 ### Installer .github confinement
 

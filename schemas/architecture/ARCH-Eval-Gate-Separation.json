@@ -1,7 +1,0 @@
-{
-  "id": "ARCH-Eval-Gate-Separation",
-  "title": "Two-tier eval gate separation",
-  "maturity": "provisional",
-  "prose": "Deterministic Tier-1 structural evals require direct explicit plugin scope and run only the selected plugin; -FullRepository is a direct operator route. Tier-2 LLM evals require direct Invoke-WazaEvals.ps1 -Plugin invocation and must never enter configured build/test or deterministic scripts. Scope is validated before provisioning or output.",
-  "description": "Keeps local deterministic validation focused, offline, and zero-cost while preserving a separate explicit plugin-only premium Waza route."
-}

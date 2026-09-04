@@ -7,6 +7,9 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - Epic `705e6c`: `docs/implementation-plans/epics/2026-09-03-705e6c-local-first-repository-simplification/epic.md`
 - Depends on `2aa7ec` for focused commands, external/internal JSON classification, direct-script rules,
   and assigned lifecycle cleanup rows.
+- Transferred rows are enumerated in
+  `docs/implementation-plans/705e6c-2026-09-03-2aa7ec-local-first-operating-baseline/assets/ownership.md`;
+  `623cc2` owns every row carrying that owner id.
 
 ## Accepted prior-art provenance
 

@@ -18,14 +18,17 @@ Describe 'required structural eval enforcement' {
             $evalDir = Join-Path $root 'plugins/fixture/evals'
             [void](New-Item -ItemType Directory -Path $evalDir -Force)
             Set-Content -LiteralPath (Join-Path $evalDir 'fixture.Tests.ps1') -Value $TestBody -Encoding utf8NoBOM
-            $requiredPath = Join-Path $root 'required.json'
-            [System.IO.File]::WriteAllText($requiredPath, (([ordered]@{
-                            schema = 'skalary/structural-eval-required@1'
-                            caseIds = $RequiredIds
-                        } | ConvertTo-Json -Depth 4 -Compress) + "`n"), [System.Text.UTF8Encoding]::new($false))
+            $requiredPath = Join-Path $root 'required.md'
+            $requiredContent = @(
+                '# Required structural evals'
+                ''
+                @($RequiredIds | ForEach-Object { "- ``$_``" })
+            ) -join "`n"
+            [System.IO.File]::WriteAllText(
+                $requiredPath, $requiredContent + "`n", [System.Text.UTF8Encoding]::new($false))
             try {
                 $output = & pwsh -NoProfile -File $script:runner -RepoRoot $root `
-                    -PluginsRoot (Join-Path $root 'plugins') -RequiredContractPath $requiredPath `
+                    -PluginsRoot (Join-Path $root 'plugins') -RequiredListPath $requiredPath `
                     -OutputRoot (Join-Path $root 'output') -FullRepository 2>&1
                 return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
             }

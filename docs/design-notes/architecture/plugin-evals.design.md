@@ -19,9 +19,9 @@ globs:
 | Structural (Tier-1) | Pester evals in `plugins/<name>/evals/*.Tests.ps1` validate frontmatter, required keys, names, links, and referenced assets | Direct `scripts/skalary/Test-Evals.ps1 -Plugin <name>` | Deterministic, selected-plugin-only local command |
 | LLM (Tier-2) | Declarative **waza** specs in `plugins/<name>/evals/waza/eval.yaml` (+ `tasks/*.yaml`) run by the `copilot-sdk` executor and scored by graders | Direct `scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <name>` | Premium opt-in; never part of deterministic validation |
 
-`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Routine runs require one explicit plugin and validate only that plugin. The direct `-FullRepository` operator route verifies every id in `tools/structural-eval-required.json` exactly once. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`, requires one validated plugin before provisioning or output creation, and remains auth-dependent and premium-cost.
+`Test-Evals.ps1` runs Tier-1 only (structural-Pester); the bespoke `EvalLlm.psm1` backend was retired in Phase 4.4. Routine runs require one explicit plugin and validate only that plugin. The direct `-FullRepository` operator route verifies every id in the strict Markdown list `tools/structural-eval-required.md` exactly once. Tier-2 lives entirely under `Invoke-WazaEvals.ps1`, requires one validated plugin before provisioning or output creation, and remains auth-dependent and premium-cost.
 
-`-PluginsRoot` and `-RequiredContractPath` are executable test seams: ordinary tests point them at
+`-PluginsRoot` and `-RequiredListPath` are executable test seams: ordinary tests point them at
 fixture evals to prove missing, skipped, and duplicate required IDs fail. Routine runs omit both,
 so the runner always resolves the repository `plugins/` tree and committed required-ID contract.
 
@@ -51,7 +51,7 @@ Fleet's five installed consumers each own one required structural identifier:
 `eval:FleetDispatch.Autopilot.ConsumerContract`, `eval:FleetDispatch.CR.ConsumerContract`, and
 `eval:FleetDispatch.DR.ConsumerContract`. Each case proves that consumer's pre-dispatch ordering,
 role/task conservation, and native-host/Capture boundaries. Registering all five in
-`tools/structural-eval-required.json` prevents an aggregate Fleet parity check from hiding a missing
+`tools/structural-eval-required.md` prevents an aggregate Fleet parity check from hiding a missing
 consumer contract.
 
 The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. The later-added `plugin-manager` plugin ships a waza spec from the start under the same convention (skill target `install-plugin`, two describe-only tasks, no adversarial block). `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` plugin ships describe-only draft-by-default and human-review cases under the same convention, guarded by a fail-closed shape test. All ten current plugins use the two-tier harness.

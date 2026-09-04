@@ -8,6 +8,9 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - Depends on `367e9a`, which owns and delivers the bounded fenced recent-learning artifact.
 - Also consumes the informed-choice, direct-script, focused-test, and cost-budget conventions from
   transitive dependency `2aa7ec`.
+- Transferred rows are enumerated in
+  `docs/implementation-plans/705e6c-2026-09-03-2aa7ec-local-first-operating-baseline/assets/ownership.md`;
+  `3a4498` owns every row carrying that owner id.
 
 ## Accepted prior-art provenance
 

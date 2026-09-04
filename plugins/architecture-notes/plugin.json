@@ -18,10 +18,6 @@
       "dest": "skills/architecture-notes/SKILL.md"
     },
     {
-      "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-      "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
-    },
-    {
       "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
       "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
     },
@@ -116,12 +112,6 @@
       "mode": "literal",
       "owner": "New-ArchHumanDoc.ps1",
       "trigger": "first human-doc regeneration"
-    },
-    {
-      "path": "schemas/architecture/architecture-contract.schema.json",
-      "mode": "literal",
-      "owner": "Copy-ArchScaffold.ps1",
-      "trigger": "tier scaffold on first run"
     }
   ],
   "evals": {

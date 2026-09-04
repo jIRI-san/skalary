@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T13:26:09.8294767Z",
+  "generatedAt": "2026-09-04T13:37:20.7749702Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "04858eef57efdf2651630146f9cd179d5f1688a872a0c0afb137c8f3becd2722",
+          "sha256": "9293083202e2ed731252e88dd8631e4d2b8641754726d95994549b41441928c0",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -40,11 +40,6 @@
           "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
-          "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-          "sha256": "28be3403dad12fb7992b0ed5799ee3b65c688baa923f4996406650417b9c4e05",
-          "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
-        },
-        {
           "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
           "sha256": "3131df4a3ecee757de98d1073b7b1efa2fa8dbecae7dc53a983010aaf80a6ef4",
           "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
@@ -56,7 +51,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "6c861e909d7f98276759ea81f8e12e3534aa1434a32b9b3a34422e129b4a2e8e",
+          "sha256": "42e6bc8ee81160b14ff7dadffe8557a74abb20b31f9e2eb64185b7f76e746856",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
@@ -66,7 +61,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
-          "sha256": "15d756443b68c4f0429e7f5748a847edb71619c17c4047691bafa7b08677e02f",
+          "sha256": "0aee2a4e6104287af8bdf7174408cad9516cf6f8ec7cff3bc8126f5c260873de",
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
@@ -76,7 +71,7 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
-          "sha256": "bcf90454ef982d409c864690adf1510530c84dc721582868b94ca8117109a2e5",
+          "sha256": "ca1fee15881afbb70aa9d8a39b6b343506928990a4e6863585ddbd3c31f2d52a",
           "src": "scripts/Get-ArchContractsHash.ps1"
         },
         {
@@ -86,22 +81,22 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
-          "sha256": "f3fc84bf4e34fd3f47cba04643b92e638e0450265699cc40d434f20f839852fa",
+          "sha256": "0d76263b39f75f5dcce0202aa97772c76f6aa4ab0d6c98c2206be2b7f5676c39",
           "src": "scripts/Import-ArchHarvest.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
-          "sha256": "2519dfdfc519adc0bfff59fa7b94c9a3692ecfe21299e6ec45917ff5933ef499",
+          "sha256": "6b8eb445e91421b1972cca92a831dfb53469ab13850e43c31f4bf5111e1ec20b",
           "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "ff00e65e11650f866ae82f1acfa47e76793120a4191f79b22b1d09c4bf86820a",
+          "sha256": "2e2403f063311fe68b9e7b42f2d14fdf2944bea23a111153dfb51838042e7731",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "c06c7027cdee983d26f2775afb97f26c2b61c29d611ddb01336854b216be143a",
+          "sha256": "cb12daf006f805314c4a239aab243989048aa8e82bc97281a03fb198165e4242",
           "src": "scripts/Test-ArchContract.ps1"
         }
       ],
@@ -137,12 +132,6 @@
           "owner": "New-ArchHumanDoc.ps1",
           "path": "docs/architecture-notes/architecture.human.md",
           "trigger": "first human-doc regeneration"
-        },
-        {
-          "mode": "literal",
-          "owner": "Copy-ArchScaffold.ps1",
-          "path": "schemas/architecture/architecture-contract.schema.json",
-          "trigger": "tier scaffold on first run"
         }
       ],
       "status": "partial",
