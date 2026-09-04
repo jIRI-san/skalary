@@ -240,7 +240,13 @@ Describe 'Skill contract token guards' {
             ) | Sort-Object Index
             for ($i = 0; $i -lt $positions.Count; $i++) {
                 $start = $positions[$i].Index
-                $end = if ($i + 1 -lt $positions.Count) { $positions[$i + 1].Index } else { $text.Length }
+                $end = if ($i + 1 -lt $positions.Count) {
+                    $positions[$i + 1].Index
+                }
+                else {
+                    $nextHeading = [regex]::Match($text.Substring($start), '\s#{1,6}\s')
+                    if ($nextHeading.Success) { $start + $nextHeading.Index } else { $text.Length }
+                }
                 $optionBlock = $text.Substring($start, $end - $start)
                 $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
                 $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'
@@ -275,7 +281,13 @@ Describe 'Skill contract token guards' {
             ) | Sort-Object Index
             for ($i = 0; $i -lt $positions.Count; $i++) {
                 $start = $positions[$i].Index
-                $end = if ($i + 1 -lt $positions.Count) { $positions[$i + 1].Index } else { $text.Length }
+                $end = if ($i + 1 -lt $positions.Count) {
+                    $positions[$i + 1].Index
+                }
+                else {
+                    $nextHeading = [regex]::Match($text.Substring($start), '\s#{1,6}\s')
+                    if ($nextHeading.Success) { $start + $nextHeading.Index } else { $text.Length }
+                }
                 $optionBlock = $text.Substring($start, $end - $start)
                 $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
                 $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'

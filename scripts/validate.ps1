@@ -13,7 +13,7 @@
     this process and retains the repository-wide parse and supporting checks.
     The full file set comes from PayloadScope.psm1, which enumerates an allowlist of
     payload roots so both platforms see the same files (REQ-8).
-    Full scope is opt-in through -FullRepository so a phase Fast check cannot
+    Full scope is opt-in through -FullRepository so a focused phase check cannot
     accidentally expand into this repository-wide scan.
     No external modules are required, so it runs identically on the Windows host
     and inside the Linux autopilot container (which ships pwsh).

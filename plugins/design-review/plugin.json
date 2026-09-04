@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.64",
+  "version": "1.0.65",
   "description": "Design review orchestrator with model-agnostic concern reviewers.",
   "author": "jIRI-san",
   "license": "MIT",
