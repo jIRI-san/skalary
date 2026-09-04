@@ -50,9 +50,10 @@ context: fork
    .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
    ```
 
-   It covers both layouts and is deterministic (no timestamps, repo-relative paths). Drop `-Filter`
-   only for a genuinely repo-wide topic and use `-Format Json` when selecting canonical plan IDs.
-   After topic, epic/dependency, or operator selection has narrowed the candidates, load only the
+   It covers both layouts and is deterministic (no timestamps, repo-relative paths). A concrete
+   concept filter or explicit canonical plan IDs are required; never run an unfiltered general-history
+   review. Use `-Format Json` when selecting canonical plan IDs. After topic, epic/dependency, or
+   operator selection has narrowed the candidates, load only the
    artifact kinds needed for the current question:
 
    ```powershell

@@ -43,9 +43,9 @@ transcripts or secrets.
 
 ### `prior-art` gate
 
-**Reconcile against what earlier plans already decided, before drafting anything.** Discover candidates
-from the generated cross-plan index — never by opening the plan corpus, which grows without bound and
-hides the archived plans where most superseded decisions live:
+**Consult earlier decisions only when a concrete concept, dependency, epic relationship, or explicit
+plan ID makes them relevant.** Discover candidates from the generated cross-plan index — never by
+opening the plan corpus:
 
 ```powershell
 .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
@@ -53,9 +53,9 @@ hides the archived plans where most superseded decisions live:
 
 `Get-PlanIndex.ps1` covers active **and** archived plans in both layouts and is deterministic (ordinal
 ordering, repo-relative paths, no timestamps), so the same tree always yields the same index. Use
-`-Format Json` to select canonical plan IDs, and drop `-Filter` only when the topic is genuinely
-repo-wide. An `errors` entry means a plan could not be indexed — say so rather than treating the index
-as complete. After the index or operator narrows the candidates, read
+`-Format Json` to select canonical plan IDs. Never run an unfiltered general-history review. An
+`errors` entry means a plan could not be indexed — say so rather than treating the index as complete.
+After the index or operator narrows the candidates, read
 `./assets/plan-artifact-consumer-protocol.md` and load only the artifact kinds needed:
 
 ```powershell

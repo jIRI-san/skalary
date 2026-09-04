@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T17:26:08.7442646Z",
+  "generatedAt": "2026-09-04T17:33:17.2048325Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -457,7 +457,7 @@
         },
         {
           "dest": "skills/cr/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cr/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -569,7 +569,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.63"
+      "version": "1.0.64"
     },
     {
       "author": "jIRI-san",
@@ -789,7 +789,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cep/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -859,7 +859,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "c3f7ad0c934ca344495d7c3d0785280b4f1a1c3958f10817ea1e14d51f1d4594",
+          "sha256": "f54af6f24086955648cbc15aafaee1636d87f85911507e47c4aa190cfd8c39a4",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -889,12 +889,12 @@
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "209674eee58564bc40816dff44c07c2d89b72fc1dc54528c585435d419476aef",
+          "sha256": "ffb40ef59903b7a03cbd5233617d42521e742cc49a00c53669a4e8844ba373ea",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
           "dest": "skills/cip/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cip/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.82"
+      "version": "1.0.83"
     },
     {
       "author": "jIRI-san",
@@ -1148,7 +1148,7 @@
         },
         {
           "dest": "skills/dr/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/dr/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -1260,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.62"
+      "version": "1.0.63"
     },
     {
       "author": "jIRI-san",
