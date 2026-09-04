@@ -14,4 +14,5 @@ Phase: 2
 ## CR Capture
 Phase: 3
 
-No entries for this phase.
+- [3.3] [src:code-review] [sev:Med] [concern:maintainability-consistency] [req:REQ-11,REQ-8,REQ-9] [review:cr] [source-record:8a4a7e94ca3192c5d59838e038e99ff71aa8f36fec0e201ac23b4a99f6f10b8e] review daffe198: fixed per-option score coverage, command-bearing asset coverage, historical precedence assertion, current evolution-log path, mutation-approval wording, and current CI mode documentation; retained direct project paths, opt-in read-only approval, consumer validation paths, uninstall ordering, and normalized resolver exit behavior as existing or deliberate simple contracts assigned to later subsystem work.
+- [-] [src:note] [sev:Low] [concern:maintainability-consistency] [req:-] [review:cr] [source-record:be212850d4fa8cd9511c3ce250c51243569b0eb800d9380be3cf1d621d3f75a1] review-cycle stage=phase-3 cycle=1 outcome=findings summary=run=daffe198-e566-4fb3-af97-51d2cca43bfd; findings=13; fixed=7; rejected-or-transferred=6

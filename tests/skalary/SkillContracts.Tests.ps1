@@ -203,22 +203,35 @@ Describe 'Skill contract token guards' {
                 'Container autopilot',
                 'Sandbox autopilot'
             )) {
-            $pattern = '(?m)^\s*\| \*\*{0}\*\* .*\| `effort: [1-9]` \| `complexity: [1-9]` \|$' -f $option
+            $pattern = '(?m)^\s*\| \*\*{0}\*\* .*\| `effort: (?:10|[1-9])` \| `complexity: (?:10|[1-9])` \|$' -f $option
             $ci | Should -Match $pattern
         }
-        $ci | Should -Match '\*\*One phase\*\* \(`effort: [1-9]`,\s*`complexity: [1-9]`\)'
-        $ci | Should -Match '\*\*Whole plan\*\* \(`effort: [1-9]`, `complexity: [1-9]`\)'
+        $ci | Should -Match '\*\*One phase\*\* \(`effort: (?:10|[1-9])`,\s*`complexity: (?:10|[1-9])`\)'
+        $ci | Should -Match '\*\*Whole plan\*\* \(`effort: (?:10|[1-9])`, `complexity: (?:10|[1-9])`\)'
 
-        foreach ($skill in @(
-                'plugins/plugin-manager/skills/install-plugin/SKILL.md',
-                'plugins/plugin-manager/skills/update-plugin/SKILL.md',
-                'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md',
-                'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md',
-                'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md'
-            )) {
-            $text = Get-SkillText -RelativePath $skill
-            $text | Should -Match '`effort: [1-9]`'
-            $text | Should -Match '`complexity: [1-9]`'
+        $scoredSkills = @{
+            'plugins/plugin-manager/skills/install-plugin/SKILL.md' =
+                @('Yes — add only the listed read-only paths', 'No — keep prompting')
+            'plugins/plugin-manager/skills/update-plugin/SKILL.md' =
+                @('Force — overwrite local changes', 'Preserve — skip modified files')
+            'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md' =
+                @('Proceed — remove the management skills', 'Cancel — leave them installed',
+                    'Force — remove despite named dependents', 'Cancel — preserve the dependency graph',
+                    'Force — overwrite local changes', 'Preserve — skip modified files')
+            'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md' =
+                @('stop.*preserve the current worktree', 'continue-with-explicit-paths',
+                    'approve-push', 'reject-push', 'approve — post this exact body',
+                    'edit — revise before posting', 'skip — leave the thread unchanged')
+            'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md' =
+                @('stop — leave the mapping unchanged', 'adopt-exact-issue',
+                    'stop — perform no remote writes', 'apply-exact-digest')
+        }
+        foreach ($entry in $scoredSkills.GetEnumerator()) {
+            $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
+            foreach ($label in $entry.Value) {
+                $pattern = '(?s){0}.{{0,180}}`effort: (?:10|[1-9])`.{{0,80}}`complexity: (?:10|[1-9])`' -f $label
+                $text | Should -Match $pattern
+            }
         }
 
         $scoredAssets = @{
@@ -237,13 +250,23 @@ Describe 'Skill contract token guards' {
         foreach ($entry in $scoredAssets.GetEnumerator()) {
             $text = Get-SkillText -RelativePath $entry.Key
             foreach ($label in $entry.Value) {
-                $pattern = '(?s){0}.{{0,120}}`effort: [1-9]`.{{0,80}}`complexity: [1-9]`' -f $label
+                $pattern = '(?s){0}.{{0,120}}`effort: (?:10|[1-9])`.{{0,80}}`complexity: (?:10|[1-9])`' -f $label
                 $text | Should -Match $pattern
             }
         }
 
-        $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
-        $crosscheck | Should -Not -Match '(?m)^\s*\$\w+\s*=\s*&\s+\.github/skills/'
+        foreach ($asset in @(
+                'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md',
+                'plugins/continue-implementation/skills/ci/assets/execution-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/dr-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md',
+                'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
+            )) {
+            $text = Get-SkillText -RelativePath $asset
+            $text | Should -Not -Match '(?i)(?:pwsh|powershell)\s+(?:-NoProfile\s+)?-File\s+\.github/skills/'
+            $text | Should -Not -Match '(?m)^\s*\$\w+\s*=\s*&\s+\.github/skills/'
+        }
     }
 
     It 'test:manifest-coverage registers every ci/cip skill asset in plugin.json files[]' {

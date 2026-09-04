@@ -1346,8 +1346,11 @@ Export-ModuleMember -Function Assert-PlanReviewResultReceipt
             $protocol | Should -Match 'explicit key concepts or canonical plan IDs'
             $protocol | Should -Match 'filtered cross-plan index'
             $protocol | Should -Match 'Never run an\s+unfiltered general-history review'
-            $protocol | Should -Match 'explicit supersession'
-            $protocol | Should -Match 'then recency'
+            $protocol | Should -Match (
+                '(?s)Apply precedence in this order:\s*current confirmed intent,\s*' +
+                'current repository state, operator decisions, and active architecture\s*' +
+                'contracts; explicit supersession recorded by those sources; then recency'
+            )
             $protocol | Should -Match 'Surface unresolved conflicts'
             $protocol | Should -Not -Match 'HISTORICAL_CONTEXT_DATA'
 

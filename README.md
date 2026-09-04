@@ -71,10 +71,10 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `autopilot` | 1.2.96 | partial | code-review, create-implementation-plan, self-improvement | 40 | Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer. |
 | `code-review` | 1.0.64 | stable | — | 36 | Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter. |
 | `continue-implementation` | 1.0.99 | stable | autopilot, code-review, create-implementation-plan | 21 | Code implementation workflow skill with autonomous execution guidance. |
-| `create-implementation-plan` | 1.0.83 | stable | design-review | 39 | Implementation plan generation skill for coding workflows. |
+| `create-implementation-plan` | 1.0.84 | stable | design-review | 39 | Implementation plan generation skill for coding workflows. |
 | `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.63 | stable | — | 34 | Design review orchestrator with model-agnostic concern reviewers. |
-| `plugin-manager` | 1.0.22 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
+| `plugin-manager` | 1.0.23 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.71 | stable | create-implementation-plan | 35 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |
 | `work-hierarchy-sync` | 1.0.22 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |

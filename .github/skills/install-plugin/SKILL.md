@@ -25,7 +25,9 @@ context: fork
 
 ## Step 2: Install
 
-Run the bundled installer **directly** (do not wrap with `pwsh -File` — direct invocation keeps terminal auto-approval working) and always pass `-RepoRoot .` so the consuming repo is targeted:
+Run the bundled installer **directly** (do not wrap with `pwsh -File`) and always pass
+`-RepoRoot .` so the consuming repo is targeted. Mutation remains subject to the terminal's
+per-run approval:
 
 ```
 .github/skills/install-plugin/scripts/Install-Plugin.ps1 -Name <name> -RepoRoot . -Repository jIRI-san/skalary -Ref main

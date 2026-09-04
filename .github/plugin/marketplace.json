@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.83"
+      "version": "1.0.84"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -111,7 +111,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.22"
+      "version": "1.0.23"
     },
     {
       "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",

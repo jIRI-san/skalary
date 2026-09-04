@@ -4,7 +4,8 @@
 
 ## Evolution Log
 
-Create/update `evolution-log.md` in the plan folder (e.g. `docs/implementation-plans/NNN-<slug>/evolution-log.md`). After each DR round, append:
+Create/update `assets/evolution-log.md` in the plan folder (legacy flat plans use
+`evolution-log.md`). After each DR round, append:
 - Round number
 - Issues found (brief)
 - Issues fixed

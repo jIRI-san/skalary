@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T17:33:17.2048325Z",
+  "generatedAt": "2026-09-04T17:58:54.1322112Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -869,7 +869,7 @@
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "e93ec357a93781a81fb20f40df423091d0735b01b8bd1a69be97d926de9ac71f",
+          "sha256": "86f4cb88aa11a06d4ea6e0f30eb2eb3383760a8970760424d65aeaabcd9587b0",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.83"
+      "version": "1.0.84"
     },
     {
       "author": "jIRI-san",
@@ -1272,7 +1272,7 @@
       "files": [
         {
           "dest": "skills/install-plugin/SKILL.md",
-          "sha256": "d3a9c907d4b7e92a42e11b2f81c5232dd2570c728a3d411978b0a2e31499a7dd",
+          "sha256": "e9ca301b72d5decdb8c0adeeacac783f2855f2b2db0cf93f711ff98e69c8f112",
           "src": "skills/install-plugin/SKILL.md"
         },
         {
@@ -1354,7 +1354,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.22"
+      "version": "1.0.23"
     },
     {
       "author": "jIRI-san",
