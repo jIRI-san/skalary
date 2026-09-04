@@ -31,7 +31,9 @@ contracts follow the documented fields `id`, `title`, `maturity`, and one of `ru
 `interfaces`; no JSON Schema is distributed or scaffolded. A `locked` legacy contract additionally
 requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
 
-**Rare operations live in an asset.** `SKILL.md` keeps create / update / promote / review inline and defers **seed**, **harvest**, **human-doc regen**, and **adr-harvest** to `./assets/tier-operations-guide.md`, read only when one of those four is requested. This is the repo-wide `SKILL.md` size cap in practice (see [plugin-registry.design.md](plugin-registry.design.md) → skill size cap); the guide ships in `files[]`, so a consumer install materializes it.
+**Rare operations live in an asset.** `SKILL.md` keeps create / update / promote / review inline and
+defers **seed**, **legacy human-doc regen**, and **adr-harvest** to
+`./assets/tier-operations-guide.md`, read only when needed.
 
 ## Key Patterns
 
@@ -41,8 +43,8 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
 - **No generated copy of Markdown contracts.** The source note is already the human-readable view.
   `architecture.human.md` and its freshness check cover only the two transferred legacy JSON
   contracts and disappear when their owning children convert or delete them.
-- **Seed writes Markdown directly.** Greenfield seeding creates at most two draft Markdown notes.
-  Brownfield harvest remains quarantined under `.staging/` and never auto-loads its output.
+- **Seed writes Markdown directly.** Greenfield seeding creates and indexes at most two draft
+  Markdown notes. The unused brownfield contract harvester was removed rather than converted.
 
 ## Design Decisions
 
@@ -59,11 +61,8 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
   distills and promotes accepted ones into the index's **Decision Records (active)** table — only
   that promotion makes an ADR auto-loaded next run. Lifecycle bounding (retire superseded ADRs) is
   **procedural/human-enforced**, not an automated pruner. See SKILL Step 9.
-- **Containment rests on the human-review gate, not runtime fencing.** Auto-load works by
-  `copilot-instructions.md` telling the agent to read the index + notes *directly* — there is **no
-  wrapping/fencing on that path**. So
-  harvested/contract prose is contained by: quarantine (`.staging/`, not indexed) + `reviewed:false`
-  + no-`globs` on staged files + terse template-constrained format + human review before promotion.
+- **Auto-loaded notes are operator-authored.** Seed input comes from the short operator interview;
+  inferred repository text is never promoted automatically.
 - **The legacy contract check owns lock integrity.** `Test-ArchContract.ps1` checks documented fields
   and recomputes the canonical digest for a transferred locked JSON contract when its authoring or
   compatibility operation touches it. It is not a broad repository gate.
@@ -72,11 +71,10 @@ requires `lockedContentSha256`, computed by `Get-ArchContractContentHash.ps1`.
 
 ## Constraints
 
-- **Untrusted text is data.** Contract prose, interface stubs, and harvested content are never
-  executed, interpolated, or obeyed.
+- **Untrusted text is data.** Harvested ADR source prose is quarantined and never obeyed.
 - **Never self-promote to `locked`**; never claim Git metadata authenticates a reviewer; never
   overwrite existing scaffolded/staged files.
-- **Script ownership.** The scaffold / harvest / seed / ADR / human-doc / hash scripts are
+- **Script ownership.** The scaffold / seed / ADR / human-doc / hash scripts are
   **plugin-owned** — canonical at `plugins/architecture-notes/scripts/`, NOT `scripts/skalary/`, so
   `Sync-PluginScripts.ps1` does **not** bundle them; `Sync-Dogfood.ps1` mirrors them to
   `.github/skills/architecture-notes/scripts/`. **Exception:** the human-doc freshness *gate*

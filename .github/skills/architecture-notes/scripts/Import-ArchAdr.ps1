@@ -221,7 +221,7 @@ foreach ($file in $decisionFiles) {
     $slug = ConvertTo-AdrSlug ([System.IO.Path]::GetFileNameWithoutExtension($file.Name))
     $id = "ADR-$slug"
     # Two decision files can normalize to the same slug; suffix -2, -3, ... so the no-overwrite guard
-    # never silently drops a decision (parity with Import-ArchHarvest.ps1's unique-id loop).
+    # never silently drops a decision.
     if (-not $usedIds.Add($id)) {
         $n = 2
         while (-not $usedIds.Add("$id-$n")) { $n++ }

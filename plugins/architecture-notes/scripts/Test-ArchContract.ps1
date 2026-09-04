@@ -28,7 +28,13 @@ catch {
     $errors.Add("invalid JSON: $($_.Exception.Message)")
 }
 
-if ($contract) {
+if ($null -eq $contract -or $contract -isnot [psobject] -or
+    $contract -is [string] -or $contract -is [ValueType]) {
+    if ($errors.Count -eq 0) {
+        $errors.Add('contract root must be a JSON object')
+    }
+}
+else {
     function Get-ContractValue {
         param([Parameter(Mandatory)][string]$Name)
         if ($contract.PSObject.Properties.Name -contains $Name) { return $contract.$Name }

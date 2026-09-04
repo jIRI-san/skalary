@@ -46,10 +46,6 @@
       "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1"
     },
     {
-      "src": "scripts/Import-ArchHarvest.ps1",
-      "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1"
-    },
-    {
       "src": "scripts/Import-ArchAdr.ps1",
       "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1"
     },
@@ -88,12 +84,6 @@
       "mode": "literal",
       "owner": "Copy-ArchScaffold.ps1",
       "trigger": "tier scaffold on first run"
-    },
-    {
-      "path": "docs/architecture-notes/.staging",
-      "mode": "literal",
-      "owner": "Import-ArchHarvest.ps1",
-      "trigger": "brownfield harvest"
     },
     {
       "path": "docs/architecture-notes/.staging/adr",

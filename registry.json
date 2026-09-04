@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T13:37:20.7749702Z",
+  "generatedAt": "2026-09-04T14:28:30.5504555Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -21,12 +21,12 @@
         },
         {
           "dest": "prompts/uan.prompt.md",
-          "sha256": "f1d5a1dbd8136df4991620cbb5de1f22eec068bf58314eaffaae09b667c10389",
+          "sha256": "3865937c666bc03f7072e43e399889e7753adfc0941aa61190076792e4b83268",
           "src": "prompts/uan.prompt.md"
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "9293083202e2ed731252e88dd8631e4d2b8641754726d95994549b41441928c0",
+          "sha256": "bdc9fbae5d458e75dcf05c4b948f8f6423e1797650be4ddeb64d890a411027b9",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -36,27 +36,27 @@
         },
         {
           "dest": "skills/architecture-notes/assets/interview-guide.md",
-          "sha256": "541ec610cbec59d74a6ba54991f144ff2604207ea8c84ca5f5b650bc00d2b33e",
+          "sha256": "199697f554f6fb1626120b40e02a618f00f0751293f31315b2d383ed526bdf05",
           "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-          "sha256": "3131df4a3ecee757de98d1073b7b1efa2fa8dbecae7dc53a983010aaf80a6ef4",
+          "sha256": "c260a941c79ff7089cdc6c0b23fd9b36c2181d34dd7503ccc56ce41ecb50417d",
           "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
-          "sha256": "ba7922421777e8275ad8039fa40f58bd5dd8b3a3dcfb172a57e517ad08e4b183",
+          "sha256": "9e335f84de08d0a994c50e5ca3dfdb3856b8754efaa7b28c01d2ab79ac9471e3",
           "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "42e6bc8ee81160b14ff7dadffe8557a74abb20b31f9e2eb64185b7f76e746856",
+          "sha256": "9aae6d0ed072bad0209fa5a13002b1530a3cc3dbd25af2b249ee40a4ecff1f84",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "f35a8d1c69cc108a6bca3d350fb5ea6c6396bf65e81d9fdc2514209b71e665ac",
+          "sha256": "779c3d3e7e8a339fc2ea6bcf20295fdf5f0fcb9e2cc0950d3f4594109a958268",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
@@ -76,13 +76,8 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
-          "sha256": "ef6bfa1de4fe4eaa4fab4ee8b56d669cfb73f3fdfad20a40f2826fb7b9cac242",
+          "sha256": "bc750b9dbb1824d40a2c0fe08d3817a2ec18396bbdd0c777f444b451ebed6863",
           "src": "scripts/Import-ArchAdr.ps1"
-        },
-        {
-          "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
-          "sha256": "0d76263b39f75f5dcce0202aa97772c76f6aa4ab0d6c98c2206be2b7f5676c39",
-          "src": "scripts/Import-ArchHarvest.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
@@ -91,12 +86,12 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "2e2403f063311fe68b9e7b42f2d14fdf2944bea23a111153dfb51838042e7731",
+          "sha256": "0637b127a5b9e1a0422b1a888f96192b85157e97c8e351815b404075c91671ef",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "cb12daf006f805314c4a239aab243989048aa8e82bc97281a03fb198165e4242",
+          "sha256": "8ea01f4e818d1ab5322ee787aef3cf15b795d8ac54cdac3cdd3f5442c26705b9",
           "src": "scripts/Test-ArchContract.ps1"
         }
       ],
@@ -108,12 +103,6 @@
           "owner": "Copy-ArchScaffold.ps1",
           "path": "docs/architecture-notes/.architecture-notes.md",
           "trigger": "tier scaffold on first run"
-        },
-        {
-          "mode": "literal",
-          "owner": "Import-ArchHarvest.ps1",
-          "path": "docs/architecture-notes/.staging",
-          "trigger": "brownfield harvest"
         },
         {
           "mode": "literal",

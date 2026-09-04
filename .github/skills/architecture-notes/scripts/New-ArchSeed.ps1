@@ -157,6 +157,9 @@ foreach ($b in $boundaries) {
     }
     if ([string]::IsNullOrWhiteSpace($title)) { throw "Boundary '$id' is missing a title." }
     if ([string]::IsNullOrWhiteSpace($prose)) { throw "Boundary '$id' is missing prose." }
+    if ($title -match '[\r\n|]' -or $scope -match '[\r\n"|]') {
+        throw "Boundary '$id' title and scope must be single-line Markdown/YAML-safe text."
+    }
 
     # 2) One terse Markdown note is both the human-readable contract and its scoped context.
     $safeProse = ($prose -replace '[\r\n]+', ' ' -replace '\|', '\|').Trim()
@@ -168,10 +171,34 @@ foreach ($b in $boundaries) {
     $noteSlug = ($id.ToLowerInvariant() -replace '[^a-z0-9._-]', '-')
     $notePath = Join-Path $notesDir ($noteSlug + '.md')
     $noteAction = Write-SeedFile -DestPath $notePath -Content $noteText -Cmdlet $PSCmdlet
-    $notes.Add([pscustomobject]@{ Path = $notePath; Action = $noteAction })
-    $contracts.Add([pscustomobject]@{
-            Path = $notePath; Id = $id; Maturity = 'draft'; Action = $noteAction; Valid = $true
+    $notes.Add([pscustomobject]@{
+            Path = $notePath; File = Split-Path -Leaf $notePath; Scope = $scope; Action = $noteAction
         })
+    $contracts.Add([pscustomobject]@{
+            Path = $notePath; Id = $id; Title = $title; Scope = $scope
+            Note = Split-Path -Leaf $notePath; Maturity = 'draft'; Action = $noteAction; Valid = $true
+        })
+}
+
+$indexPath = Join-Path $notesDir '.architecture-notes.md'
+$indexAction = 'skipped'
+if (Test-Path -LiteralPath $indexPath -PathType Leaf) {
+    $indexText = Get-Content -LiteralPath $indexPath -Raw
+    $contractRows = @($contracts | ForEach-Object {
+            "| ``$($_.Id)`` | $($_.Title) | draft | ``$($_.Scope)`` | [$($_.Note)]($($_.Note)) |"
+        })
+    $noteRows = @($contracts | ForEach-Object {
+            "| [$($_.Note)]($($_.Note)) | ``$($_.Scope)`` | ``$($_.Id)`` |"
+        })
+    $newIndexText = $indexText.Replace('| _none yet_ | | | | |', ($contractRows -join "`n")).
+        Replace('| _none yet_ | | |', ($noteRows -join "`n"))
+    if ($newIndexText -ne $indexText) {
+        $indexAction = 'whatif'
+        if ($PSCmdlet.ShouldProcess($indexPath, 'Index seeded architecture notes')) {
+            Set-Content -LiteralPath $indexPath -Value $newIndexText -NoNewline
+            $indexAction = 'updated'
+        }
+    }
 }
 
 [pscustomobject]@{
@@ -179,4 +206,5 @@ foreach ($b in $boundaries) {
     Scaffold  = @($scaffoldResult)
     Contracts = @($contracts)
     Notes     = @($notes)
+    Index     = [pscustomobject]@{ Path = $indexPath; Action = $indexAction }
 }

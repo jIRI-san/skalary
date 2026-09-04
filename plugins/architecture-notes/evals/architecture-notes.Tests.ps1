@@ -138,6 +138,12 @@ Describe 'architecture contract validation gate evals' {
 
             $bad = & $script:validateScript -ContractPath $badPath -NoExit
             $bad.Valid | Should -BeFalse
+
+            $nullPath = Join-Path $dir 'null.json'
+            Set-Content -LiteralPath $nullPath -Value 'null'
+            $nullContract = & $script:validateScript -ContractPath $nullPath -NoExit
+            $nullContract.Valid | Should -BeFalse
+            ($nullContract.Errors -join "`n") | Should -Match 'root must be a JSON object'
         }
         finally {
             Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
@@ -282,19 +288,36 @@ Describe 'architecture-notes greenfield seeding evals' {
             $result = & $script:seedScript -TargetRoot $target -SeedSpecPath $specPath
 
             @($result.Contracts).Count | Should -Be 2
+            $expected = @{
+                'ARCH-Domain-Isolation' = @{
+                    Prose = 'Domain owns rules; never references Api or Infrastructure.'
+                    Scope = 'src/Domain/**'
+                }
+                'ARCH-Api-Boundary' = @{
+                    Prose = 'Api is the only inbound surface; it must not contain business rules.'
+                    Scope = 'src/Api/**'
+                }
+            }
             foreach ($c in $result.Contracts) {
                 $c.Maturity | Should -Be 'draft'
-                $c.Valid | Should -BeTrue
                 Test-Path -LiteralPath $c.Path -PathType Leaf | Should -BeTrue
                 $c.Path | Should -Match '\.md$'
-                (Get-Content -LiteralPath $c.Path -Raw) | Should -Match 'Domain owns rules|Api is the only inbound surface'
+                $body = Get-Content -LiteralPath $c.Path -Raw
+                $body | Should -Match ([regex]::Escape($c.Id))
+                $body | Should -Match ([regex]::Escape($expected[$c.Id].Prose))
+                $body | Should -Match ([regex]::Escape($expected[$c.Id].Scope))
+                $body | Should -Not -Match '<SUBSYSTEM>|<SCOPE_GLOB>|<CONTRACT_ID>|<BOUNDARY_PROSE>|<invariant>|<component>'
             }
             # No locked contract is ever seeded.
             @($result.Contracts | Where-Object { $_.Maturity -eq 'locked' }).Count | Should -Be 0
 
             Test-Path -LiteralPath (Join-Path $target 'schemas') | Should -BeFalse
             $indexPath = Join-Path $target 'docs/architecture-notes/.architecture-notes.md'
-            (Get-Content -LiteralPath $indexPath -Raw) | Should -Not -Match 'architecture\.human\.md'
+            $index = Get-Content -LiteralPath $indexPath -Raw
+            foreach ($c in $result.Contracts) {
+                $index | Should -Match ([regex]::Escape($c.Id))
+                $index | Should -Match ([regex]::Escape($c.Note))
+            }
         }
         finally {
             Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
@@ -344,90 +367,6 @@ Describe 'architecture-notes greenfield seeding evals' {
         }
         finally {
             Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
-Describe 'architecture-notes brownfield harvest evals' {
-    BeforeAll {
-        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
-        $script:harvestScript = Join-Path $script:pluginRoot 'scripts/Import-ArchHarvest.ps1'
-
-        # Build a small fixture repo: a .NET project and a TS package.
-        $script:fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-harvest-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path (Join-Path $script:fixture 'src/Api') -Force)
-        [void](New-Item -ItemType Directory -Path (Join-Path $script:fixture 'web') -Force)
-        Set-Content -LiteralPath (Join-Path $script:fixture 'src/Api/Api.csproj') -Value '<Project Sdk="Microsoft.NET.Sdk"></Project>'
-        Set-Content -LiteralPath (Join-Path $script:fixture 'web/package.json') -Value '{ "name": "web-frontend" }'
-        Set-Content -LiteralPath (Join-Path $script:fixture 'web/tsconfig.json') -Value '{}'
-
-        $script:harvestResult = & $script:harvestScript -RepoRoot $script:fixture
-    }
-
-    AfterAll {
-        Remove-Item -LiteralPath $script:fixture -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    It 'Harvest-EmitsDraftOnly: every harvested contract is a valid draft' {
-        Test-Path -LiteralPath $script:harvestScript -PathType Leaf | Should -BeTrue
-        @($script:harvestResult.Contracts).Count | Should -BeGreaterThan 0
-        foreach ($c in $script:harvestResult.Contracts) {
-            $c.Maturity | Should -Be 'draft'
-            $c.Valid | Should -BeTrue
-            Test-Path -LiteralPath $c.Path -PathType Leaf | Should -BeTrue
-        }
-    }
-
-    It 'Harvest-NoLockedOnImport: no emitted contract file has locked maturity' {
-        foreach ($c in $script:harvestResult.Contracts) {
-            $onDisk = Get-Content -LiteralPath $c.Path -Raw | ConvertFrom-Json
-            $onDisk.maturity | Should -Be 'draft'
-            $onDisk.maturity | Should -Not -Be 'locked'
-        }
-        @($script:harvestResult.Contracts | Where-Object { $_.Maturity -eq 'locked' }).Count | Should -Be 0
-    }
-
-    It 'Harvest-QuarantinedUntilReviewed: output is staged, marked reviewed:false, and not in the auto-load index' {
-        # Output lands in the .staging quarantine, not the auto-loaded tier.
-        $script:harvestResult.StagingRoot | Should -Match '\.staging$'
-        $script:harvestResult.Reviewed | Should -BeFalse
-        foreach ($c in $script:harvestResult.Contracts) {
-            $c.Path | Should -Match '\.staging'
-        }
-
-        # Manifest carries the reviewed:false promotion gate.
-        $manifestPath = $script:harvestResult.Manifest.Path
-        Test-Path -LiteralPath $manifestPath -PathType Leaf | Should -BeTrue
-        (Get-Content -LiteralPath $manifestPath -Raw) | Should -Match 'reviewed:\s*false'
-
-        # Harvest must NOT create/populate the auto-loaded index — nothing enters agent context.
-        $indexPath = Join-Path $script:fixture 'docs/architecture-notes/.architecture-notes.md'
-        Test-Path -LiteralPath $indexPath -PathType Leaf | Should -BeFalse
-    }
-
-    It 'Harvest-QuarantinedUntilReviewed: staged notes carry no active glob auto-attach trigger' {
-        @($script:harvestResult.Notes).Count | Should -BeGreaterThan 0
-        foreach ($n in $script:harvestResult.Notes) {
-            $body = Get-Content -LiteralPath $n.Path -Raw
-            # The path-scoped auto-attach front-matter must be neutralized while quarantined.
-            $body | Should -Not -Match '(?m)^globs:'
-            $body | Should -Match 'quarantined:\s*true'
-        }
-    }
-
-    It 'Harvest-EmitsDraftOnly: an empty repo yields a reviewed:false manifest without crashing' {
-        $empty = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-harvest-empty-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $empty -Force)
-        try {
-            $res = & $script:harvestScript -RepoRoot $empty
-            @($res.Contracts).Count | Should -Be 0
-            $res.Reviewed | Should -BeFalse
-            Test-Path -LiteralPath $res.Manifest.Path -PathType Leaf | Should -BeTrue
-            (Get-Content -LiteralPath $res.Manifest.Path -Raw) | Should -Match 'reviewed:\s*false'
-        }
-        finally {
-            Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }

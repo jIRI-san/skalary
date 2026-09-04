@@ -78,5 +78,6 @@ Describe 'fixture' {
             -RequiredIds @('eval:Fixture.Required') -AdditionalTestBody 'this is not valid PowerShell {'
         $unloadable.ExitCode | Should -Be 1
         $unloadable.Output | Should -Match 'structural eval file\(s\) failed to load'
+        $unloadable.Output | Should -Match 'error:\s+1'
     }
 }

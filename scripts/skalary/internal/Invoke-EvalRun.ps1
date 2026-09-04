@@ -422,7 +422,7 @@ function Invoke-SkalaryEvalRun {
         pass = Get-OutcomeCount -Entries $entryArray -Outcome 'pass'
         fail = Get-OutcomeCount -Entries $entryArray -Outcome 'fail'
         skip = Get-OutcomeCount -Entries $entryArray -Outcome 'skip'
-        error = Get-OutcomeCount -Entries $entryArray -Outcome 'error'
+        error = (Get-OutcomeCount -Entries $entryArray -Outcome 'error') + $failedContainers
     }
 
     $report = [ordered]@{

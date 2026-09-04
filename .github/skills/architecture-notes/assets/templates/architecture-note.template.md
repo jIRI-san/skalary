@@ -19,18 +19,12 @@ globs:
 
 | Contract Id | Maturity | Enforces |
 |---|---|---|
-| `<CONTRACT_ID>` | draft | <BOUNDARY_PROSE> |
+| `<CONTRACT_ID>` | draft | Boundary and invariants in this note |
 
 ## Invariants
 
-<!-- Bullet the interface-level rules that must always hold. Keep to true contracts, not
-     preferences. -->
-
-- <invariant>
+- Preserve the boundary above.
 
 ## Depends On / Depended On By
 
-<!-- Only the architectural relationships that matter for contract reasoning. -->
-
-- Depends on: <component>
-- Depended on by: <component>
+- None recorded.
