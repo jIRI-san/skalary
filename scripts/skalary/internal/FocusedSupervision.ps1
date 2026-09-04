@@ -50,6 +50,7 @@ $invokeSupervisedBody = {
     $stderrTask = $null
     $timedOut = $false
     $started = $false
+    $outputWritten = $false
     $exitCode = 14
 
     try {
@@ -105,6 +106,7 @@ $invokeSupervisedBody = {
             }
         }
         & $writeOutput $stdoutTask $stderrTask
+        $outputWritten = $true
 
         if ($timedOut) {
             [System.Console]::Out.WriteLine(
@@ -120,6 +122,17 @@ $invokeSupervisedBody = {
             try { $process.Kill($true) } catch { }
         }
         if ($started) {
+            if ($null -ne $process) {
+                try { [void]$process.WaitForExit(5000) } catch { }
+            }
+            foreach ($task in @($stdoutTask, $stderrTask)) {
+                if ($null -ne $task -and -not $task.IsCompleted) {
+                    try { [void]$task.Wait(2000) } catch { }
+                }
+            }
+            if (-not $outputWritten -and $null -ne $stdoutTask -and $null -ne $stderrTask) {
+                & $writeOutput $stdoutTask $stderrTask
+            }
             [System.Console]::Out.WriteLine("FocusedWorkerFailed: $Label failed after start: $($_.Exception.Message)")
             $exitCode = 1
         }

@@ -95,12 +95,13 @@ Describe 'unselected' {
     }
 
     It 'rejects invalid selected content and empty structural evals' {
-        $invalidJson = Join-Path $script:repoRoot 'artifacts/focused-invalid.json'
+        $invalidRelative = 'artifacts/focused-invalid-' + [guid]::NewGuid().ToString('N') + '.json'
+        $invalidJson = Join-Path $script:repoRoot $invalidRelative
         [void](New-Item -ItemType Directory -Path (Split-Path -Parent $invalidJson) -Force)
         try {
             Set-Content -LiteralPath $invalidJson -Value '{ invalid' -Encoding utf8NoBOM
             $invalidValidation = Invoke-CapturedPowerShell -ArgumentList @(
-                '-File', $script:validator, '-Path', 'artifacts/focused-invalid.json'
+                '-File', $script:validator, '-Path', $invalidRelative
             )
             $invalidValidation.ExitCode | Should -Be 1
             $invalidValidation.Output | Should -Match 'invalid JSON'
@@ -325,8 +326,13 @@ Describe 'fast' {
         $timeoutCode | Should -Be 13
         Test-Path -LiteralPath $pidFile -PathType Leaf | Should -BeTrue
         $descendantPid = [int](Get-Content -LiteralPath $pidFile -Raw)
-        Start-Sleep -Milliseconds 200
-        Get-Process -Id $descendantPid -ErrorAction SilentlyContinue |
+        $deadline = [datetime]::UtcNow.AddSeconds(2)
+        do {
+            $descendant = Get-Process -Id $descendantPid -ErrorAction SilentlyContinue
+            if ($null -eq $descendant) { break }
+            Start-Sleep -Milliseconds 50
+        } while ([datetime]::UtcNow -lt $deadline)
+        $descendant |
             Should -BeNullOrEmpty -Because 'the timeout terminates the current child process tree'
 
         Set-Content -LiteralPath (Join-Path $fixtureRoot 'tests/Slow.Tests.ps1') -Encoding utf8NoBOM -Value @'

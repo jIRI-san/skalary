@@ -27,12 +27,12 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 | [container-autopilot-watchdog.design.md](container-autopilot-watchdog.design.md) | `plugins/autopilot/scripts/**` | Would restructure autopilot invocation granularity mid-plan; the phase + whole-run caps shipped instead |
 | [intent-and-domain-capture.design.md](intent-and-domain-capture.design.md) | `/cip`, `/cep`, plan `assets/` | Operator notes; builds on `b0c0d3` intent asset, which must land first |
 | [design-rfc-artifacts.design.md](design-rfc-artifacts.design.md) | `/cip`, plan `assets/` | Operator notes; fits the `b0c0d3` assets layout, sequenced after it |
-| [asset-scanner-root-bound.design.md](asset-scanner-root-bound.design.md) | `Sync-PluginScripts.ps1`, `schemas/{plugin,registry}/**` | Found mid-`b0c0d3`; widening the scanner grammar is a schema change, not a script fix |
 | [review-system-enforcement-gaps.design.md](review-system-enforcement-gaps.design.md) | `Build-ReviewReport.ps1`, `Build-EvidenceReceipt.ps1`, `plugins/{code,design}-review/**`, `.github/workflows/**` | Sourced from the `b0c0d3` step 10.7 gate. A/D resolved by `c21cdc`; B (except evidence skipped), E/H by `768d7b`; C deferred to `34088e`; F/G remain |
 ## Resolved Explorations
 
 | File | Resolution |
 |---|---|
+| [asset-scanner-root-bound.design.md](asset-scanner-root-bound.design.md) | The closed runtime-root grammar shipped; undeclared scaffold roots now fail. |
 | [review-standards-tiering.design.md](review-standards-tiering.design.md) | Plan `2366ad` shipped bounded generic and repository-local review standards while leaving automated ledger promotion deferred. |
 | [si-cross-repo-proposal-protocol.design.md](si-cross-repo-proposal-protocol.design.md) | Plan `2366ad` shipped a bounded typed export and clean upstream-rooted handoff; the broader platform alternatives remain rejected. |
 

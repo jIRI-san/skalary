@@ -80,10 +80,27 @@ function Assert-ReviewResultReceipt {
     )
     Assert-ReviewReceiptPropertySet -Node $receipt['attendance'] -Label 'Review attendance' `
         -Required @('cancelled', 'completed', 'failed', 'omitted', 'pending', 'timed-out')
+    $extendedFindingFields = @('corroboration', 'needsReview', 'rawSeverity', 'similarity')
     Assert-ReviewReceiptPropertySet -Node $receipt['findings'] -Label 'Review findings' `
-        -Required @('merged', 'raw', 'severity')
+        -Required @('merged', 'raw', 'severity') -Optional $extendedFindingFields
     Assert-ReviewReceiptPropertySet -Node $receipt['findings']['severity'] -Label 'Review severity' `
         -Required @('critical', 'high', 'low', 'medium')
+    $presentExtendedFindingFields = @(
+        $extendedFindingFields | Where-Object { $receipt['findings'].Contains($_) }
+    )
+    if ($presentExtendedFindingFields.Count -notin @(0, $extendedFindingFields.Count)) {
+        throw 'Review findings has a partial extended v1 property set.'
+    }
+    $hasExtendedFindings = $presentExtendedFindingFields.Count -eq $extendedFindingFields.Count
+    if ($hasExtendedFindings) {
+        Assert-ReviewReceiptPropertySet -Node $receipt['findings']['rawSeverity'] `
+            -Label 'Review raw severity' -Required @('critical', 'high', 'low', 'medium')
+        Assert-ReviewReceiptPropertySet -Node $receipt['findings']['corroboration'] `
+            -Label 'Review corroboration' `
+            -Required @('corroborated', 'degraded', 'single-source', 'suspicious')
+        Assert-ReviewReceiptPropertySet -Node $receipt['findings']['similarity'] `
+            -Label 'Review similarity' -Required @('exact', 'near-duplicate', 'none')
+    }
     Assert-ReviewReceiptPropertySet -Node $receipt['report'] -Label 'Review report binding' `
         -Required @('bytes', 'digest', 'name')
 
@@ -159,6 +176,32 @@ function Assert-ReviewResultReceipt {
     }
     if ($merged -ne $severityTotal -or $raw -lt $merged -or ($merged -eq 0 -and $raw -ne 0)) {
         throw "Review result receipt for run '$ReviewRunId' has inconsistent finding totals."
+    }
+    if ($hasExtendedFindings) {
+        $rawSeverityTotal = [int64]0
+        foreach ($name in @('critical', 'high', 'medium', 'low')) {
+            $rawSeverityTotal += Get-ReviewReceiptNonNegativeInteger `
+                -Value $receipt['findings']['rawSeverity'][$name] `
+                -Label "Review findings.rawSeverity.$name"
+        }
+        $corroborationTotal = [int64]0
+        foreach ($name in @('corroborated', 'degraded', 'single-source', 'suspicious')) {
+            $corroborationTotal += Get-ReviewReceiptNonNegativeInteger `
+                -Value $receipt['findings']['corroboration'][$name] `
+                -Label "Review findings.corroboration.$name"
+        }
+        $similarityTotal = [int64]0
+        foreach ($name in @('exact', 'near-duplicate', 'none')) {
+            $similarityTotal += Get-ReviewReceiptNonNegativeInteger `
+                -Value $receipt['findings']['similarity'][$name] `
+                -Label "Review findings.similarity.$name"
+        }
+        $needsReview = Get-ReviewReceiptNonNegativeInteger `
+            -Value $receipt['findings']['needsReview'] -Label 'Review findings.needsReview'
+        if ($rawSeverityTotal -ne $raw -or $corroborationTotal -ne $merged -or
+            $similarityTotal -ne $merged -or $needsReview -gt $merged) {
+            throw "Review result receipt for run '$ReviewRunId' has inconsistent extended finding totals."
+        }
     }
     if ($receipt['verdict'] -ceq 'approved' -and
         ($receipt['state'] -cne 'clean' -or $severity['critical'] -ne 0 -or $severity['high'] -ne 0)) {

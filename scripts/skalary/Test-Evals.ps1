@@ -14,6 +14,7 @@
     Exit codes:
       0  the selected structural evals ran and passed
       1  a selected structural eval failed, errored, or a required case did not pass
+      2  PesterNotInstalled — Pester is unavailable
       3  NoEvalsDiscovered — the selected plugin asserted nothing
      12  FocusedScopeRequired — the selection was not a single confined plugin or -FullRepository
      13  FocusedTimeout — the supervised run exceeded the focused timeout and its child

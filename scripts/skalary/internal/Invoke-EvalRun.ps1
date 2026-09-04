@@ -175,10 +175,7 @@ function Get-StructuralEvalEntryList {
                 artifact = Get-TestArtifact -TestResult $test -DefaultArtifact $scriptPath
                 tier = 'structural'
                 outcome = Convert-TestResultToEvalOutcome -Result ([string]$test.Result)
-                score = $null
-                threshold = $null
                 message = $errorMessage
-                transcriptPath = $null
             })
     }
 
@@ -234,36 +231,13 @@ function ConvertTo-EvalMarkdownReport {
     [void]$builder.AppendLine("| $($summary.total) | $($summary.pass) | $($summary.fail) | $($summary.skip) | $($summary.error) |")
     [void]$builder.AppendLine()
 
-    $structural = @($Report.entries | Where-Object { [string]$_.tier -eq 'structural' })
-    $llm = @($Report.entries | Where-Object { [string]$_.tier -eq 'llm' })
-
-    if ($structural.Count -gt 0) {
+    if ($Report.entries.Count -gt 0) {
         [void]$builder.AppendLine('## Structural (Tier 1)')
         [void]$builder.AppendLine()
         [void]$builder.AppendLine('| Plugin | Case | Outcome | Message |')
         [void]$builder.AppendLine('|---|---|---|---|')
-        foreach ($entry in $structural) {
+        foreach ($entry in $Report.entries) {
             [void]$builder.AppendLine("| $(ConvertTo-MarkdownCell ([string]$entry.plugin)) | $(ConvertTo-MarkdownCell ([string]$entry.case)) | $($entry.outcome) | $(ConvertTo-MarkdownCell ([string]$entry.message)) |")
-        }
-        [void]$builder.AppendLine()
-    }
-
-    if ($llm.Count -gt 0) {
-        [void]$builder.AppendLine('## LLM (Tier 2)')
-        [void]$builder.AppendLine()
-        [void]$builder.AppendLine('| Plugin | Case | Outcome | Score | Threshold | Transcript |')
-        [void]$builder.AppendLine('|---|---|---|---|---|---|')
-        foreach ($entry in $llm) {
-            $score = if ($null -ne $entry.score) { '{0:0.00}' -f [double]$entry.score } else { '' }
-            $threshold = if ($null -ne $entry.threshold) { '{0:0.00}' -f [double]$entry.threshold } else { '' }
-            $transcript = if (-not [string]::IsNullOrWhiteSpace([string]$entry.transcriptPath)) { ConvertTo-MarkdownCell ([string]$entry.transcriptPath) } else { '' }
-            [void]$builder.AppendLine("| $(ConvertTo-MarkdownCell ([string]$entry.plugin)) | $(ConvertTo-MarkdownCell ([string]$entry.case)) | $($entry.outcome) | $score | $threshold | $transcript |")
-        }
-        [void]$builder.AppendLine()
-        [void]$builder.AppendLine('### Judge Rationale')
-        [void]$builder.AppendLine()
-        foreach ($entry in $llm) {
-            [void]$builder.AppendLine("- **$(ConvertTo-MarkdownCell ([string]$entry.plugin)) / $(ConvertTo-MarkdownCell ([string]$entry.case))** ($($entry.outcome)): $(ConvertTo-MarkdownCell ([string]$entry.message))")
         }
         [void]$builder.AppendLine()
     }
@@ -395,7 +369,7 @@ function Invoke-SkalaryEvalRun {
                 }
             })
         $invalidEntries = @($requiredLines | Where-Object {
-                $_ -match '`eval:' -and $_ -notmatch '^- `eval:[A-Za-z0-9][A-Za-z0-9_.-]*`$'
+                $_ -match '^\s*-\s+.*eval:' -and $_ -notmatch '^- `eval:[A-Za-z0-9][A-Za-z0-9_.-]*`$'
             })
         if ($invalidEntries.Count -gt 0) {
             $requiredFailures.Add('required structural-eval list contains an invalid entry')
@@ -404,15 +378,15 @@ function Invoke-SkalaryEvalRun {
             $requiredFailures.Add('required structural-eval case ids must be non-empty and unique')
         }
         foreach ($caseId in $requiredCaseIds) {
-            $matches = @($entryArray | Where-Object {
+            $caseMatches = @($entryArray | Where-Object {
                     [regex]::IsMatch([string]$_.case, "(?:^|\.)$([regex]::Escape($caseId))(?:\s|$)")
                 })
-            if ($matches.Count -ne 1) {
-                $requiredFailures.Add("required structural eval '$caseId' executed $($matches.Count) times")
+            if ($caseMatches.Count -ne 1) {
+                $requiredFailures.Add("required structural eval '$caseId' executed $($caseMatches.Count) times")
                 continue
             }
-            if ([string]$matches[0].outcome -ne 'pass') {
-                $requiredFailures.Add("required structural eval '$caseId' completed as '$($matches[0].outcome)'")
+            if ([string]$caseMatches[0].outcome -ne 'pass') {
+                $requiredFailures.Add("required structural eval '$caseId' completed as '$($caseMatches[0].outcome)'")
             }
         }
     }
@@ -459,10 +433,10 @@ function Invoke-SkalaryEvalRun {
     Write-Host "  error: $($summary.error)" -ForegroundColor Red
     $requiredPassed = @($requiredCaseIds | Where-Object {
             $caseId = $_
-            $matches = @($entryArray | Where-Object {
+            $caseMatches = @($entryArray | Where-Object {
                     [regex]::IsMatch([string]$_.case, "(?:^|\.)$([regex]::Escape($caseId))(?:\s|$)")
                 })
-            $matches.Count -eq 1 -and [string]$matches[0].outcome -eq 'pass'
+            $caseMatches.Count -eq 1 -and [string]$caseMatches[0].outcome -eq 'pass'
         }).Count
     Write-Host "  required: $requiredPassed/$($requiredCaseIds.Count)"
     Write-Host "  run dir: $runDir"

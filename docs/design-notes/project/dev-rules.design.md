@@ -38,7 +38,7 @@ globs:
 
 - **Validation logic must live in committed scripts, not markdown orchestration text.** For plan workflows, run `scripts/skalary/Test-Plan.ps1` and `scripts/validate.ps1 -Path <affected-path>`; do not add ad-hoc regex checks to skill/agent markdown.
 - **Routine validation is explicitly focused and local.** Use `Run-UnitTests.ps1 -TestPath`, `Test-Evals.ps1 -Plugin`, or `validate.ps1 -Path`. Never widen or retry. The direct `-FullRepository` switch is operator-only; no skill or package alias invokes it. Repository-owned GitHub workflows are prohibited.
-- **Pester is required for focused unit and typed `test:` evidence.** Keep the pinned Pester install step in `.devcontainer/autopilot/Dockerfile`. `Run-UnitTests.ps1` fails rather than skips when it cannot test — absent Pester (exit 2), zero discovered tests (exit 3), a test file that never loaded (exit 4), or focused timeout (exit 13).
+- **Pester is required for focused unit and typed `test:` evidence.** Keep the pinned Pester install step in `plugins/autopilot/devcontainer/Dockerfile`. `Run-UnitTests.ps1` fails rather than skips when it cannot test — absent Pester (exit 2), zero discovered tests (exit 3), a test file that never loaded (exit 4), or focused timeout (exit 13).
 - **Keep payload ownership explicit.** Shared workflow scripts are edited only under
   `scripts/skalary/` and regenerated with `Sync-PluginScripts.ps1`; plugin-owned executables and
   schemas are edited only under their owning `plugins/<name>/{scripts,schemas}/` roots. After either

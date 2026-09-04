@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.98"
+      "version": "1.2.99"
     },
     {
       "description": "Code review orchestrator with model-agnostic concern reviewers and a single review-scope emitter.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.66"
+      "version": "1.0.67"
     },
     {
       "description": "Code implementation workflow skill with autonomous execution guidance.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.101"
+      "version": "1.0.102"
     },
     {
       "description": "Implementation plan generation skill for coding workflows.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.84"
+      "version": "1.0.85"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.65"
+      "version": "1.0.66"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

@@ -422,62 +422,62 @@ function Invoke-WazaEvals {
     $executed = 0
     $failed = 0
     $skipped = 0
+    $priorCopilotToken = [System.Environment]::GetEnvironmentVariable('COPILOT_GITHUB_TOKEN', 'Process')
+    $priorGhToken = [System.Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+    try {
+        foreach ($spec in $specs) {
+            $pluginName = Get-PluginFromSpecPath -Path $spec
+            $hasTasks = Test-WazaSpecHasTasks -Path $spec
+            $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
+            $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
 
-    foreach ($spec in $specs) {
-        $pluginName = Get-PluginFromSpecPath -Path $spec
-        $hasTasks = Test-WazaSpecHasTasks -Path $spec
-        $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
-        $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
-
-        if (@($modes).Count -eq 0) {
-            $skipped++
-            Write-Host ("  SKIP {0}: spec declares neither tasks nor an adversarial block." -f $pluginName) -ForegroundColor Yellow
-            continue
-        }
-
-        $specSkill = Get-WazaSpecSkill -Path $spec
-        $specModel = Get-WazaSpecModel -Path $spec
-
-        foreach ($mode in $modes) {
-            $isAdversarial = ($mode -eq 'adversarial')
-            $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
-
-            if ($tokenChoice.ShouldSkip) {
+            if (@($modes).Count -eq 0) {
                 $skipped++
-                Write-Host ("  SKIP {0} ({1}): {2}" -f $pluginName, $mode, $tokenChoice.Reason) -ForegroundColor Yellow
+                Write-Host ("  SKIP {0}: spec declares neither tasks nor an adversarial block." -f $pluginName) -ForegroundColor Yellow
                 continue
             }
 
-            # Segregated child-process token for this run only.
-            $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
-            $env:GH_TOKEN = $tokenChoice.Token
+            $specSkill = Get-WazaSpecSkill -Path $spec
+            $specModel = Get-WazaSpecModel -Path $spec
 
-            $specOut = Join-Path $runDir (Join-Path $pluginName $mode)
-            [void](New-Item -ItemType Directory -Path $specOut -Force)
-            $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case -Skill $specSkill -Model $specModel
+            foreach ($mode in $modes) {
+                $isAdversarial = ($mode -eq 'adversarial')
+                $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
 
-            Write-Host ("  RUN  {0} ({1})" -f $pluginName, $mode)
-            # A non-zero waza exit is an expected outcome (failing evals, adversarial --on-unsafe-outcome fail).
-            # Guard against $PSNativeCommandUseErrorActionPreference turning that into a terminating error
-            # under $ErrorActionPreference='Stop', which would abort the REQ-18 aggregation loop.
-            $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
-            $PSNativeCommandUseErrorActionPreference = $false
-            try {
-                # Merge waza's streams to the host so its console output does NOT leak into
-                # this function's output stream (which would make the returned object an array
-                # and break `$result.ExitCode` at the call site).
-                & waza @wazaArgs 2>&1 | Out-Host
-                $exit = $LASTEXITCODE
-            }
-            finally {
-                $PSNativeCommandUseErrorActionPreference = $prevNativePref
-            }
-            $executed++
-            if ($exit -ne 0) {
-                $failed++
-                Write-Host ("  FAIL {0} ({1}): waza exit {2}" -f $pluginName, $mode, $exit) -ForegroundColor Red
+                if ($tokenChoice.ShouldSkip) {
+                    $skipped++
+                    Write-Host ("  SKIP {0} ({1}): {2}" -f $pluginName, $mode, $tokenChoice.Reason) -ForegroundColor Yellow
+                    continue
+                }
+
+                $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
+                $env:GH_TOKEN = $tokenChoice.Token
+
+                $specOut = Join-Path $runDir (Join-Path $pluginName $mode)
+                [void](New-Item -ItemType Directory -Path $specOut -Force)
+                $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case -Skill $specSkill -Model $specModel
+
+                Write-Host ("  RUN  {0} ({1})" -f $pluginName, $mode)
+                $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
+                $PSNativeCommandUseErrorActionPreference = $false
+                try {
+                    & waza @wazaArgs 2>&1 | Out-Host
+                    $exit = $LASTEXITCODE
+                }
+                finally {
+                    $PSNativeCommandUseErrorActionPreference = $prevNativePref
+                }
+                $executed++
+                if ($exit -ne 0) {
+                    $failed++
+                    Write-Host ("  FAIL {0} ({1}): waza exit {2}" -f $pluginName, $mode, $exit) -ForegroundColor Red
+                }
             }
         }
+    }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('COPILOT_GITHUB_TOKEN', $priorCopilotToken, 'Process')
+        [System.Environment]::SetEnvironmentVariable('GH_TOKEN', $priorGhToken, 'Process')
     }
 
     $outcome = Get-ExecutedOutcome -Executed $executed -Failed $failed -Skipped $skipped

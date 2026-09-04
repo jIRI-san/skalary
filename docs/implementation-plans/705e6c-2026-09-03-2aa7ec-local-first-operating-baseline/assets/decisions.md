@@ -72,3 +72,13 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - **Accept the documented timeout boundary.** Detached descendant output can be incomplete after a
   timeout; the trusted single-operator threat model does not justify process-group or output-pump
   infrastructure.
+- **Final review cycle 2: fix only concrete local regressions.** Run `14711538` produced 26
+  single-source findings. Fixed the stale Pester path, current receipt compatibility, structural-only
+  report cleanup, required-list parsing, worker diagnostics, Waza environment restoration, resolved
+  exploration indexing, focused enumeration, collision-prone test path, automatic-variable use,
+  stale hosted-gate wording, bounded process-exit polling, and missing exit-code documentation.
+- **Final review cycle 2: reject or transfer the rest.** The configurable harvest test seam and
+  plan-local ownership summary remain appropriate in this trusted repository. Additional link and
+  exit-code tests are not worth expanding routine coverage. Pre-existing plan-dispatch, container,
+  sandbox, transcript, and review-cycle parsing concerns remain with `367e9a`; the pre-existing SI
+  diagnostic concern remains with `3a4498`. Missing-origin test setup is unrelated to this plan.

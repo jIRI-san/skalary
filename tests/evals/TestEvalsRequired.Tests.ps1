@@ -12,7 +12,9 @@ Describe 'required structural eval enforcement' {
             param(
                 [Parameter(Mandatory)][string]$TestBody,
                 [Parameter(Mandatory)][string[]]$RequiredIds,
-                [string]$AdditionalTestBody
+                [string]$AdditionalTestBody,
+                [string[]]$RequiredPreamble = @('# Required structural evals', ''),
+                [string[]]$AdditionalRequiredLines = @()
             )
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('required-evals-' + [guid]::NewGuid().ToString('N'))
@@ -25,9 +27,9 @@ Describe 'required structural eval enforcement' {
             }
             $requiredPath = Join-Path $root 'required.md'
             $requiredContent = @(
-                '# Required structural evals'
-                ''
+                $RequiredPreamble
                 @($RequiredIds | ForEach-Object { "- ``$_``" })
+                $AdditionalRequiredLines
             ) -join "`n"
             [System.IO.File]::WriteAllText(
                 $requiredPath, $requiredContent + "`n", [System.Text.UTF8Encoding]::new($false))
@@ -60,6 +62,22 @@ Describe 'fixture' {
         $pass = Invoke-RequiredEvalFixture -TestBody $passing -RequiredIds @('eval:Fixture.Required')
         $pass.ExitCode | Should -Be 0 -Because $pass.Output
         $pass.Output | Should -Match 'required: 1/1'
+
+        $prose = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') `
+            -RequiredPreamble @(
+                '# Required structural evals'
+                ''
+                'Keep one literal ``- `eval:...` `` entry per line.'
+                ''
+            )
+        $prose.ExitCode | Should -Be 0 -Because $prose.Output
+
+        $malformed = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') `
+            -AdditionalRequiredLines @('- eval:Fixture.Malformed')
+        $malformed.ExitCode | Should -Be 1
+        $malformed.Output | Should -Match 'required structural-eval list contains an invalid entry'
 
         $missing = Invoke-RequiredEvalFixture -TestBody $passing -RequiredIds @('eval:Fixture.Missing')
         $missing.ExitCode | Should -Be 1

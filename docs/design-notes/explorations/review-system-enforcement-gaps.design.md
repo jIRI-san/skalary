@@ -62,7 +62,9 @@ Common fix direction: give the formatter the *dispatched task set*, not just fin
 
 ## Cluster B — gates that pass without running
 
-**Resolved by plan `768d7b`, except the first row.** The gate inventory that replaced this cluster is `docs/design-notes/project/ci-gates.design.md`, checked against the workflow by `test:CiGates.InventoryMatchesWorkflow`.
+**Resolved by plan `768d7b`, except the first row.** Current local validation behavior is documented
+in `docs/design-notes/project/ci-gates.design.md`; the retired hosted-workflow inventory check no
+longer applies.
 
 | Gap | Consequence | Status |
 |---|---|---|
@@ -229,4 +231,3 @@ An earlier reading of this data claimed the registry was rebuilt *per test case*
 These are the machinery's self-verification, not its function; `b0c0d3` delivers working behaviour. Fixing them first is nonetheless preferable to building on top, because every later plan's evidence receipt inherits Cluster B's trustworthiness problem.
 
 G1–G3 have a sequencing claim of their own: they degrade the evidence every *later* `/si` run reasons from. G1 biases the recurrence axis, G2 destroys the records outright, G3 means the next operator to invoke the skill hits the same three failures. Fixing them is cheap and is a precondition for trusting any subsequent harvest — including the one that would judge whether the rest of this note's clusters were worth fixing.
-

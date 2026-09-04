@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T20:12:28.1053739Z",
+  "generatedAt": "2026-09-04T21:01:30.1482895Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -261,7 +261,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -271,7 +271,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "d1a376221044cc6ddcaaed021c9c7b3db583c134e2eb53ac255f85c1e353f40f",
+          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
           "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -370,7 +370,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.98"
+      "version": "1.2.99"
     },
     {
       "author": "jIRI-san",
@@ -517,7 +517,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cr/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -569,7 +569,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.66"
+      "version": "1.0.67"
     },
     {
       "author": "jIRI-san",
@@ -670,7 +670,7 @@
         },
         {
           "dest": "skills/ci/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/ci/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -680,7 +680,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "d1a376221044cc6ddcaaed021c9c7b3db583c134e2eb53ac255f85c1e353f40f",
+          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
           "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -765,7 +765,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.101"
+      "version": "1.0.102"
     },
     {
       "author": "jIRI-san",
@@ -839,7 +839,7 @@
         },
         {
           "dest": "skills/cep/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cep/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -954,7 +954,7 @@
         },
         {
           "dest": "skills/cip/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cip/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.84"
+      "version": "1.0.85"
     },
     {
       "author": "jIRI-san",
@@ -1208,7 +1208,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/dr/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -1260,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.65"
+      "version": "1.0.66"
     },
     {
       "author": "jIRI-san",

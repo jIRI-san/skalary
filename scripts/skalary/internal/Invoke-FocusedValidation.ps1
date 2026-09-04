@@ -87,13 +87,14 @@ function Get-FocusedValidationFile {
         while ($pending.Count -gt 0) {
             $current = $pending.Pop()
             foreach ($file in [System.IO.Directory]::EnumerateFiles($current)) {
+                if (-not $supported.Contains([System.IO.Path]::GetExtension($file))) {
+                    continue
+                }
                 $fileItem = Get-Item -LiteralPath $file -Force
                 if (($fileItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
                     throw "Focused validation path must not contain linked files: '$file'."
                 }
-                if ($supported.Contains($fileItem.Extension)) {
-                    $files.Add($fileItem.FullName)
-                }
+                $files.Add($fileItem.FullName)
             }
             foreach ($directory in [System.IO.Directory]::EnumerateDirectories($current)) {
                 $directoryItem = Get-Item -LiteralPath $directory -Force
