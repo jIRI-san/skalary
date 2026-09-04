@@ -9,10 +9,21 @@ globs:
 
 ## Terminal Commands
 
+- **Keep operator choices equivalent across hosts.** Define one ordered option list with the same
+  labels and context in VS Code and Copilot CLI. Every option includes any recommendation/default,
+  `effort: <1-10>`, and `complexity: <1-10>`. VS Code uses `vscode_askQuestions`; Copilot CLI shows
+  the same options as a numbered list and accepts the number or exact label. Do not add a picker
+  abstraction. `/cr` treats a missing host path, context, or score as a finding.
+
 - **Never start a PowerShell command with `&` or wrap `.ps1` scripts with `powershell -File`** — both break VS Code Copilot agent auto-approval (it won't approve commands starting with `&` or `powershell`). The terminal is already PowerShell; invoke everything directly:
   - `dotnet build` not `& dotnet build`
   - `.github/agents/scripts/Get-ReviewScope.ps1 -Mode uncommitted` not `powershell -File .github/agents/scripts/Get-ReviewScope.ps1 -Mode uncommitted`
   - If calling a variable-path executable, assign it first then call by name.
+
+- **Installed skill scripts use stable direct paths.** Invoke `.github/skills/<skill>/scripts/<name>.ps1`
+  directly with bound arguments; do not wrap it with `pwsh -File`. Exact read-only and focused paths
+  may be pre-approved. Install, update, remove, set, build, sync, repair, and other mutations remain
+  explicit per invocation.
 
 - **Never use `git add -A`, `git add .`, or `git add --all`** — stage only files the agent directly created or modified. Blanket staging risks committing unrelated or temporary files:
   - `git add src/Foo.cs src/Bar.cs` not `git add -A`

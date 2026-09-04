@@ -6,6 +6,14 @@ globs:
 
 # Copilot Customizations
 
+## Cross-host operator choices
+
+Every predefined operator choice is one ordered data set rendered natively by each host. Each option
+keeps the same label and decision context, any recommendation/default, `effort: <1-10>`, and
+`complexity: <1-10>`. VS Code uses `vscode_askQuestions`; Copilot CLI prints the same options as a
+numbered chat list and accepts the number or exact label. A missing VS Code picker never blocks the
+CLI path. This is a prose contract, not a picker abstraction, schema, or helper.
+
 Customization artifacts are **workspace-local** and centered in `.github/`. The plugin eval harness is the intentional adjacent exception (`scripts/skalary/Test-Evals.ps1`, `plugins/*/evals/**`). No user-level files are created or modified.
 
 ## File Inventory

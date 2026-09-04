@@ -16,7 +16,7 @@ Build the receipt with the shared formatter — do not hand-write receipt lines.
 
 ```powershell
 # $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Status='passed'; Note='' } ...
-$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
+$receipt = .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
 Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
@@ -85,11 +85,11 @@ operator resolves it through Revise or Stop.
 Pass the normalized receipt outcome statuses and high-impact-uncertainty flag to
 `Get-PhaseCheckpointOptions`, then use `vscode_askQuestions` with exactly the returned dispositions:
 
-- **Continue** — available only when the receipt reports `AllPassed` and no high-impact uncertainty
-  remains. Record the disposition, then permit the next phase.
-- **Revise** — record the requested correction, keep the phase incomplete, make the correction, and
-  rerun the affected evidence and checkpoint.
-- **Stop** — record the reason and leave all later-phase work untouched.
+- **Continue** (`effort: 1`, `complexity: 1`) — available only when the receipt reports `AllPassed`
+  and no high-impact uncertainty remains. Record the disposition, then permit the next phase.
+- **Revise** (`effort: 4`, `complexity: 3`) — record the requested correction, keep the phase
+  incomplete, make the correction, and rerun the affected evidence and checkpoint.
+- **Stop** (`effort: 1`, `complexity: 1`) — record the reason and leave all later-phase work untouched.
 
 When `/ci` resumes after Revise or Stop, treat that as **Resume**: reconstruct the checkpoint from
 current plan progress plus Capture, reread intent, and rerun the phase evidence. Never assume the
@@ -124,7 +124,9 @@ offer it. It is not a gate condition: a declined or unanswered `/pfb` never bloc
 and a recorded verdict never substitutes for a `✗` marker.
 
 1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/pfb/SKILL.md`).
-2. Interactive completion: offer the `/pfb` run before the archive commit. If the operator accepts,
+2. Interactive completion: offer **Run `/pfb` — record whether delivery met the intent** (`effort: 4`,
+   `complexity: 2`) or **Skip `/pfb` — archive without feedback** (`effort: 1`, `complexity: 1`)
+   before the archive commit. If the operator accepts,
    read `.github/skills/pfb/SKILL.md` by path and run it against the completing plan, then commit
    `docs/feedback/queue.md` by explicit path where harvest item 4 places it — before branch
    selection, so the `@human` escalation branch (which never makes an archive commit) still commits
@@ -151,7 +153,9 @@ skill is installed.
    dates, declined-before-ranking/no-candidate outcomes, completed disposition counts, and integrity
    states before the offer. A script failure is explicit non-blocking degradation: report it, do not
    claim SI state was surfaced, and continue plan completion without ranking partial state.
-3. Interactive completion: offer the run. On acceptance, read `.github/skills/si/SKILL.md` by path
+3. Interactive completion: offer **Run `/si` — rank and review improvement candidates** (`effort: 6`,
+   `complexity: 5`) or **Skip `/si` — finish without proposals** (`effort: 1`, `complexity: 1`).
+   On acceptance, read `.github/skills/si/SKILL.md` by path
    and follow it. `/si` produces a ranked candidate list and, only with explicit operator consent, a
    **draft** PR on a worktree branch cut from `origin/main` — never from the plan's branch, whose
    diff would otherwise land in the proposal's scope and be refused by the pre-PR guard. It never
@@ -172,7 +176,7 @@ skill is installed.
 For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pester check at plan start and again immediately before any interactive harvest/finalization branch:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
+.github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
 It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the focused unit command, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
@@ -213,8 +217,9 @@ Before dispatch, run `-Action Check`. On `allow`, dispatch the selected profile.
 and triage through `Add-WorkflowNote -Kind CrLog`, then run
 `-Action Record -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. On
 `operator-decision`, do not run a fourth review
-automatically: use `vscode_askQuestions` with exactly **Continue looping** and **Wrap up**. Continue
-authorizes one additional round; Wrap retains residual findings and never produces clean evidence.
+automatically: use `vscode_askQuestions` with exactly **Continue looping** (`effort: 7`,
+`complexity: 5`) and **Wrap up** (`effort: 1`, `complexity: 2`). Continue authorizes one additional
+round; Wrap retains residual findings and never produces clean evidence.
 The automatic cap is three rounds independently for each stage.
 
 Wrap is permanent non-clean history. If the operator later authorizes replacement evidence, invoke

@@ -61,8 +61,8 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 - [x] 2.3 Synchronize local-first design notes, architecture indexes, and affected provisional contracts (REQ-1, REQ-2, REQ-7, REQ-11, RISK-2) [after: 2.2] `S`
 
 ## Phase 3: Ergonomic shared rules
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: jiri-san-simplify-repository-workflows -->
 
-- [ ] 3.1 Establish equivalent informed choices, direct-script approval guidance, and focused host fixtures (REQ-8, RISK-6) [after: 2.3] `M`
+- [x] 3.1 Establish equivalent informed choices, direct-script approval guidance, and focused host fixtures (REQ-8, RISK-6) [after: 2.3] `M`
 - [ ] 3.2 Retain the bounded historical adapter and remove conflicting broad-history guidance (REQ-9) [after: 3.1] `M`
 - [ ] 3.3 Publish the advisory cost RFC, close every baseline ownership row, and run only focused evidence (REQ-1, REQ-5, REQ-10, REQ-11, RISK-5, RISK-6) [after: 3.2] `M`

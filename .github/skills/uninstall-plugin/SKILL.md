@@ -11,12 +11,20 @@ context: fork
 
 > Agent mode. Removes plugin payload from `.github/` and can edit `.vscode/settings.json`.
 
-> **Interaction rule:** every multiple-choice prompt uses `vscode_askQuestions` with `options`.
+> **Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+> includes the same label and decision context in both hosts, any recommendation/default,
+> `effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+> `vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+> number or exact label. Never stop only because the VS Code picker is unavailable. Free-form
+> questions are unchanged.
 
 ## Step 1: Resolve the plugin
 
 1. Determine `<name>` from the user's argument; if missing, ask (run `/list-plugins -Installed` first to browse installed plugins).
-2. **Self-removal guard:** if `<name>` is `plugin-manager`, warn that removing it also removes the `install-plugin` / `uninstall-plugin` / `list-plugins` / `update-plugin` skills themselves. Confirm with `vscode_askQuestions` (**Proceed** / **Cancel**) before continuing.
+2. **Self-removal guard:** if `<name>` is `plugin-manager`, warn that removing it also removes the
+   `install-plugin` / `uninstall-plugin` / `list-plugins` / `update-plugin` skills themselves. Confirm
+   with `vscode_askQuestions`: **Proceed — remove the management skills** (`effort: 3`,
+   `complexity: 3`) or **Cancel — leave them installed** (`effort: 1`, `complexity: 1`).
 
 ## Step 2: Remove auto-approve entries first
 
@@ -34,8 +42,11 @@ This drops the plugin's read-only keys from `.vscode/settings.json` (a no-op if 
 .github/skills/uninstall-plugin/scripts/Remove-Plugin.ps1 -Name <name> -RepoRoot .
 ```
 
-- The remover **refuses** if another installed plugin depends on `<name>`; it lists the dependent plugin(s). Surface that message and stop — only pass `-Force` if the user explicitly confirms after seeing the dependents.
-- Locally-modified installed files are preserved unless the user confirms `-Force`.
+- The remover **refuses** if another installed plugin depends on `<name>`; it lists the dependent
+  plugin(s). Surface that message and offer **Force — remove despite named dependents** (`effort: 5`,
+  `complexity: 6`) or **Cancel — preserve the dependency graph** (`effort: 1`, `complexity: 1`).
+- For locally modified installed files, offer **Force — overwrite local changes** (`effort: 4`,
+  `complexity: 5`) or **Preserve — skip modified files** (`effort: 2`, `complexity: 2`).
 
 ## Step 4: Confirm
 

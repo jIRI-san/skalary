@@ -11,7 +11,12 @@ context: fork
 
 > **Goal:** turn one oversized goal into a set of child plans that each stand on their own, and record the order between them. Decompose here; draft each child in `/cip`.
 
-> **Interaction rule:** every multiple-choice prompt (epic selection, new/extend, cut confirmation) uses `vscode_askQuestions` with `options`. Free-form interview questions stay plain text.
+> **Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+> includes the same label and decision context in both hosts, any recommendation/default,
+> `effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+> `vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+> number or exact label. Never stop only because the VS Code picker is unavailable. Free-form
+> questions are unchanged.
 
 ## non-negotiable epic summary
 
@@ -29,7 +34,7 @@ context: fork
    candidates:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cep/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
+   .github/skills/cep/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
    ```
 
    After topic, epic/dependency, or operator selection narrows the candidates, follow
@@ -55,7 +60,7 @@ Propose the cut, present it for confirmation, and revise until the operator acce
 Only once the cut is accepted. For a new epic, create the epic folder and `epic.md` first:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Title "<epic title>" -Slug "<slug>" -RepoRoot .
+.github/skills/cep/scripts/New-Epic.ps1 -Title "<epic title>" -Slug "<slug>" -RepoRoot .
 ```
 
 Materialize the decomposition guide's complete canonical accepted-cut shape in that `epic.md`:
@@ -65,7 +70,10 @@ routes, and prior-art dispositions. Do not scaffold a child yet.
 Follow the guide's **Epic coherency review** contract. Write the initial verdict only through
 `New-Epic.ps1 -SetCoherencyVerdict`, then run the ordinary `/dr` Freeze, fourteen-task dispatch,
 Publish, and verified Summary/Full lifecycle over the exact resulting bytes. Decision-changing
-findings return to the interactive operator for `keep`, `simplify`, `split`, or `defer`. Every
+findings return to the interactive operator as **keep — retain the accepted cut** (`effort: 1`,
+`complexity: 1`), **simplify — remove unnecessary mechanism** (`effort: 3`, `complexity: 2`),
+**split — separate overlapping ownership** (`effort: 6`, `complexity: 6`), or
+**defer — leave optional work out** (`effort: 1`, `complexity: 1`). Every
 accepted source change requires cut reconfirmation and a fresh review UUID. Stop on stale source,
 incomplete attendance, unverified output, unresolved blockers, or the existing three-round cap. A
 clean final review causes no follow-up `epic.md` write.
@@ -79,8 +87,8 @@ the later bounded Git-history check.
 Only after that clean no-write boundary, scaffold each accepted child in dependency order:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cep/scripts/New-Plan.ps1 -Title "<child title>" -Slug "<child slug>" -EpicId <epic-id> -RepoRoot .
-pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -ChildPlan <child-ref> -DependsOn <dep-ref> -RepoRoot .
+.github/skills/cep/scripts/New-Plan.ps1 -Title "<child title>" -Slug "<child slug>" -EpicId <epic-id> -RepoRoot .
+.github/skills/cep/scripts/New-Epic.ps1 -Epic <epic-id> -ChildPlan <child-ref> -DependsOn <dep-ref> -RepoRoot .
 ```
 
 `New-Plan.ps1 -EpicId` creates each child directly under its final `<epic-id>-<date>-<plan-id>-<slug>` name and writes membership in the same operation; there is no temporary standalone folder or rename. `-DependsOn` takes one child per `New-Epic.ps1` invocation, so every dependency edge is stated explicitly. Re-running is safe: membership and dependency markers merge, and the epic child table is rebuilt from the markers on disk. Require that generated child/dependency mirror to equal the reviewed accepted-cut tables; a mismatch returns to cut reconfirmation and fresh ordinary design review.
@@ -100,7 +108,7 @@ Prefix preliminary sections with `Preliminary context captured by /cep; /cip mus
 2. Confirm each drafted child passes:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cep/scripts/Test-Plan.ps1 -PlanPath <child-plan-path> -RepoRoot . -Stage Draft
+   .github/skills/cep/scripts/Test-Plan.ps1 -PlanPath <child-plan-path> -RepoRoot . -Stage Draft
    ```
 
 3. Tell the operator: **"Run `/ci <epic-id>` — it reports epic rollup and selects the next unblocked child plan."**

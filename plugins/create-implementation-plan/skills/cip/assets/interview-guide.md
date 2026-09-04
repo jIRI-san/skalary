@@ -28,7 +28,9 @@ than assuming either location. All five sections are required:
 | Non-goals | What this explicitly does not do, so scope creep is refusable later. |
 | Definition of done | The operator's own bar for "finished" — not the validator's. |
 
-The gate **blocks drafting** until:
+After reading the five sections back, offer **Confirm intent — use this wording as the plan anchor**
+(`effort: 1`, `complexity: 1`) or **Revise intent — correct the displayed wording** (`effort: 3`,
+`complexity: 2`) with a free-form correction field. The gate **blocks drafting** until:
 1. the resolved `intent.md` exists and carries no `TBD` placeholder in any of the five sections, and
 2. `/cip` has rephrased all five sections, read them back together, and the operator has explicitly confirmed the wording.
 
@@ -46,7 +48,7 @@ from the generated cross-plan index — never by opening the plan corpus, which 
 hides the archived plans where most superseded decisions live:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
+.github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
 ```
 
 `Get-PlanIndex.ps1` covers active **and** archived plans in both layouts and is deterministic (ordinal
@@ -117,8 +119,11 @@ layout-resolved `design.md`:
 - `## Optional call stacks` contains call stacks only when they clarify important control flow; otherwise
   state that the Mermaid flow is sufficient.
 
-Rephrase the domain/design context and important uncertainty to the operator. Revise until they explicitly
-approve it. Design is an agreed high-level program shape, not a substitute for requirements or typed evidence.
+Rephrase the domain/design context and important uncertainty to the operator. Offer
+**Approve design — keep this program shape** (`effort: 1`, `complexity: 2`) or
+**Revise design — correct the displayed shape** (`effort: 4`, `complexity: 3`) with a free-form
+correction field. Revise until they explicitly approve it. Design is an agreed high-level program
+shape, not a substitute for requirements or typed evidence.
 If intent or design changes later, the planning confirmation becomes stale and the affected checkpoint must be
 repeated.
 
@@ -265,9 +270,13 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 - For steps with no clean rollback: note this explicitly as a risk.
 
 **Execution mode** (optional — sets defaults for `/ci` mode selection)
-- Should this plan be executed manually (approve each step), autonomously on host, or autonomously in a container?
+- Offer **manual — approve each step** (`effort: 5`, `complexity: 2`),
+  **host autopilot — run headlessly on the host** (`effort: 2`, `complexity: 3`),
+  **container autopilot — run in the local container** (`effort: 4`, `complexity: 5`), or
+  **sandbox autopilot — run in the configured sandbox** (`effort: 3`, `complexity: 4`).
 - Default is manual. Autonomous modes require `.autopilot.json` and auth setup.
-- If autonomous: whole-plan or phase-at-a-time scope?
+- If autonomous, offer **phase-at-a-time — stop after one phase** (`effort: 3`, `complexity: 2`) or
+  **whole-plan — continue through every admitted phase** (`effort: 8`, `complexity: 6`).
 - Record as `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->` metadata in the plan header.
 
 **Offline package bundling** (autonomous container/sandbox plans only)
@@ -279,6 +288,8 @@ Ask follow-ups on vague or incomplete answers — push for specifics.
 
 Once all areas are covered, verify checkpoint 1 (the `intent` gate), the `prior-art` gate, checkpoint 2
 (`domain-design`), and the objective `no-tbd`/`evidence` gates. Build the provisional MVP-first vertical outline,
-then run checkpoint 3 (`pre-draft`) by asking: **"Does this capture everything? Anything to add or correct?"**
+then run checkpoint 3 (`pre-draft`) by offering **Confirm — draft this exact context** (`effort: 1`,
+`complexity: 1`) or **Revise — correct the displayed context first** (`effort: 3`,
+`complexity: 2`), with a free-form correction field.
 Wait for explicit confirmation. Persist the marker through `Set-PlanStage.ps1 -ConfirmPlanningContext`, verify
 `Get-PlanState` reports `Context: confirmed`, and only then begin detailed drafting.

@@ -37,6 +37,7 @@ back to the authoring-only `plugins/` tree in a consumer repository.
 | Decision | Why |
 |---|---|
 | Interactive-only gates before push and per-reply post | Prevents accidental public actions (wrong push/reply) and keeps the human in final control. |
+| Host-native equivalent choices | VS Code uses `vscode_askQuestions`; Copilot CLI renders the same ordered options and context as a numbered list. Every option carries effort and complexity scores; no picker abstraction is added. |
 | Strict push target (`HEAD:refs/heads/{headRefName}`) + remote match by normalized repo slug | Avoids accidental pushes to wrong remotes/branches and blocks fork/cross-repo writes. |
 | Reviewer text treated as untrusted data at classify/fix/compose | Prevents instruction/prompt injection from review comments. |
 | Marker sanitization in quoted reviewer text | Prevents forged-marker suppression of real work items (confused-deputy dedup bypass). |

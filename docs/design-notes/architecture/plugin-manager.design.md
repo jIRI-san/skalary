@@ -23,6 +23,10 @@ globs:
 
 Skills invoke bundled scripts **directly** by installed path — `​.github/skills/<skill>/scripts/<Script>.ps1 -RepoRoot .` — and never via `pwsh -NoProfile -File`. Rationale: VS Code's `chat.tools.terminal.autoApprove` **prefix-matches** each sub-command, so wrapping the script in `pwsh -File …` makes the command prefix `pwsh`, which no approval key matches. Direct invocation makes the command prefix equal the script path, which is what the plain-string approval key matches. `-RepoRoot .` is mandatory so `Resolve-RepoRoot` anchors on the consuming repo, not the bundle folder.
 
+Predefined install/update/remove choices follow the shared host-equivalent contract: the same option
+labels and context in VS Code and Copilot CLI, with `effort: <1-10>` and `complexity: <1-10>` on every
+option. The CLI renders a numbered list rather than depending on the VS Code picker.
+
 ## Dual install surfaces
 
 The same `plugins/*/plugin.json` sources feed two independent catalogs; neither depends on the other.

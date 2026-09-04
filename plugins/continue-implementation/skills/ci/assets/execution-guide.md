@@ -8,8 +8,8 @@
 2. Initialize the phase capture files with `Add-WorkflowNote` (no `-Message` writes the `## … Capture` header plus the `No entries for this phase.` placeholder and never truncates prior phases). The script resolves the log path itself via `Resolve-PlanAssetPath` — `assets/logs/{cr-log,learnings,capture}.md` in the current layout, the plan-folder root for legacy plans — so pass `-PlanDir` and never hand-build the path:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N>
-   pwsh -NoProfile -File .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
+   .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind CrLog -PlanDir <plan-folder> -Phase <N>
+   .github/skills/ci/scripts/Add-WorkflowNote.ps1 -Kind Learnings -PlanDir <plan-folder> -Phase <N>
    ```
 3. Build the affected surface with the narrowest project target that covers the changed component. If no safe focused target exists, defer the complete project build to finalization.
 4. Test the affected surface with the narrowest deterministic checks that can falsify the change. Include the changed behavior, its direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Prefer named `test:` evidence and stable filters derived from committed project metadata. Broad `-FullRepository`, Slow, and premium Waza validation are direct operator invocations only; this skill never invokes them during a step or at finalization.

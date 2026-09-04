@@ -11,7 +11,12 @@ context: fork
 
 > Agent mode. Refreshes an installed plugin's payload under `.github/`.
 
-> **Interaction rule:** every multiple-choice prompt uses `vscode_askQuestions` with `options`.
+> **Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+> includes the same label and decision context in both hosts, any recommendation/default,
+> `effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+> `vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+> number or exact label. Never stop only because the VS Code picker is unavailable. Free-form
+> questions are unchanged.
 
 ## Step 1: Resolve the plugin
 
@@ -26,7 +31,9 @@ Run the bundled updater **directly** (not via `pwsh -File`) with `-RepoRoot .`:
 ```
 
 - Update installs the resolved source snapshot transactionally and rolls back on any failure.
-- Locally-modified installed files are preserved unless the user confirms `-Force` after being told which files differ.
+- For locally modified installed files, show the differing paths and offer **Force — overwrite local
+  changes** (`effort: 4`, `complexity: 5`) or **Preserve — skip modified files** (`effort: 2`,
+  `complexity: 2`).
 
 ## Step 3: Confirm
 

@@ -11,7 +11,12 @@ context: fork
 
 > **Goal:** produce a concrete, implementation-ready plan with explicit evidence and phase-aware structure. Resolve ambiguity during interview, not during execution.
 
-> **Interaction rule:** Every question that offers predefined choices (e.g. plan selection, new/resume, yes/no confirmations, continue/stop) **must** use the `vscode_askQuestions` tool with `options` — never plain-text prompts. Free-form questions (e.g. interview topics, open-ended design input) can remain as regular text.
+> **Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+> includes the same label and decision context in both hosts, any recommendation/default,
+> `effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+> `vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+> number or exact label. Never stop only because the VS Code picker is unavailable. Free-form
+> questions are unchanged.
 
 ## non-negotiable planning summary
 
@@ -42,7 +47,7 @@ context: fork
    bounded candidates across active and archived plans:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
+   .github/skills/cip/scripts/Get-PlanIndex.ps1 -RepoRoot . -Filter "<topic regex>"
    ```
 
    It covers both layouts and is deterministic (no timestamps, repo-relative paths). Drop `-Filter`
@@ -59,7 +64,7 @@ context: fork
 3. **New plan:** scaffold the folder deterministically with `New-Plan.ps1` — it generates the id, creates `standalone-<yyyy-mm-dd>-<6hex>-<slug>/plan.md`, writes the `<!-- plan-id: <hash> -->` anchor + `# <id>: <Title>` heading, and sanitizes/path-confines the slug. Legacy `NNN-<slug>` folders keep working unchanged.
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cip/scripts/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
+   .github/skills/cip/scripts/New-Plan.ps1 -Title "<plan title>" -Slug "<slug>" -RepoRoot .
    ```
 4. **Resume:** resolve the existing plan via `Resolve-Plan` (accepts a hash prefix, legacy number, slug, or date); exclude `archived/`.
 5. If legacy loose plan files exist, migrate them with `.github/skills/cip/scripts/Repair-Plans.ps1` — do not hand-migrate.
@@ -77,7 +82,7 @@ context: fork
 7. After all three checkpoints pass, persist the one lifecycle-owned confirmation marker without advancing the stage:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage scaffolded -ConfirmPlanningContext
+   .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage scaffolded -ConfirmPlanningContext
    ```
 
    On resume, pass the plan's current stage instead of `scaffolded`. The marker binds the current intent and design; either asset changing makes `Get-PlanState` report `stale` until the affected checkpoint is repeated and the marker is refreshed.
@@ -95,12 +100,12 @@ plan/pre-view/admission/attendance protocol used around native role calls.
 3. Set the stage anchor with `Set-PlanStage.ps1`:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted
+   .github/skills/cip/scripts/Set-PlanStage.ps1 -PlanFile <plan.md path> -Stage drafted
    ```
 4. Run:
 
    ```powershell
-   pwsh -NoProfile -File .github/skills/cip/scripts/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
+   .github/skills/cip/scripts/Test-Plan.ps1 -PlanPath <plan-path> -RepoRoot . -Stage Draft
    ```
 
 ## Step 4: Design review (`./assets/dr-guide.md`)

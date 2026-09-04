@@ -9,7 +9,14 @@ context: fork
 
 # Continue Implementation
 
-Requires agent mode. Use `vscode_askQuestions` with `options` for each multiple-choice prompt.
+Requires agent mode.
+
+**Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+includes the same label and decision context in both hosts, any recommendation/default,
+`effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+`vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+number or exact label. Never stop only because the VS Code picker is unavailable. Free-form questions
+are unchanged.
 Identify plans and epics in user-facing text as `<canonical-id> <slug>`; commands use only the id.
 
 ## Step 1: Select plan and load context
@@ -39,7 +46,7 @@ Identify plans and epics in user-facing text as `<canonical-id> <slug>`; command
 5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
+.github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
 If it exits non-zero, stop immediately.
@@ -51,7 +58,7 @@ path, invoke the production state command once in JSON mode with that root, then
 next-step, planning-context, and admission fields for the operator from that single result:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Get-PlanState.ps1 `
+.github/skills/ci/scripts/Get-PlanState.ps1 `
     <plan-or-epic-reference> -RepoRoot <canonical-repo-root> -Json
 ```
 
@@ -63,10 +70,7 @@ plan mode/runtime menus. The wrapper owns the authoritative `Get-PlanState -Epic
 selection, state, launcher, container, terminal stop, target refresh, failure, and final crosscheck:
 
 ```powershell
-$epicLauncher = Join-Path (
-    Join-Path <canonical-repo-root> '.github/skills/autopilot/scripts'
-) 'Invoke-EpicAutopilot.ps1'
-pwsh -NoProfile -File $epicLauncher -Epic <state.EpicId> `
+.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1 -Epic <state.EpicId> `
     -Target HEAD -RepoRoot <canonical-repo-root>
 ```
 
@@ -115,8 +119,11 @@ same eight labels and the exact three proportionality classes: `speculative plat
 `required shared contract`, and `local fix`. This is agent judgment subordinate to deterministic
 admission, not a new model dispatch, classifier, parser, receipt, cache, or lifecycle.
 
-Record a local disposition as compact `keep`, `simplify`, `split`, or `defer` prose in the current
-plan's existing decisions asset. An epic-baseline disposition uses only the installed
+Record a local disposition as compact **keep — retain the accepted cut** (`effort: 1`,
+`complexity: 1`), **simplify — remove unnecessary mechanism** (`effort: 3`, `complexity: 2`),
+**split — separate overlapping ownership** (`effort: 6`, `complexity: 6`), or
+**defer — leave the optional work out** (`effort: 1`, `complexity: 1`) prose in the current plan's
+existing decisions asset. An epic-baseline disposition uses only the installed
 `New-Epic.ps1 -SetCoherencyVerdict` full-block writer; because it changes the reviewed source, stop
 and return to `/cep` for operator reconfirmation and a fresh ordinary design review. Unresolved
 overcomplication stops before mutation in every mode: return the concrete choice to the interactive
@@ -130,13 +137,13 @@ write and proceeds to Step 3.
 2. **Always present the full mode menu.** Use `vscode_askQuestions`, list every mode below,
    and recommend the declared mode. Missing config does not hide a mode; autopilot bootstraps it.
 
-   | Option | Kind | Description |
-   |---|---|---|
-   | **Interactive (approve each step)** | in-session | Pause for approval at each step. Recommended when marker is `manual` or absent. |
-   | **Autopilot (autoapprove)** | in-session | Run in this session without per-step approval prompts. |
-   | **Host autopilot** | autonomous | Headless via `launch.ps1 -Runtime host`. Recommended when marker is `host-autopilot`. |
-   | **Container autopilot** | autonomous | Headless via `launch.ps1 -Runtime container`. Recommended when marker is `container-autopilot`. |
-   | **Sandbox autopilot** | autonomous | Headless via `launch.ps1 -Runtime sandbox`. Recommended when marker is `sandbox-autopilot`. |
+   | Option | Kind | Description | Effort | Complexity |
+   |---|---|---|---:|---:|
+   | **Interactive (approve each step)** | in-session | Pause for approval at each step. Recommended when marker is `manual` or absent. | `effort: 2` | `complexity: 1` |
+   | **Autopilot (autoapprove)** | in-session | Run in this session without per-step approval prompts. | `effort: 1` | `complexity: 2` |
+   | **Host autopilot** | autonomous | Headless via `launch.ps1 -Runtime host`. Recommended when marker is `host-autopilot`. | `effort: 2` | `complexity: 3` |
+   | **Container autopilot** | autonomous | Headless via `launch.ps1 -Runtime container`. Recommended when marker is `container-autopilot`. | `effort: 4` | `complexity: 5` |
+   | **Sandbox autopilot** | autonomous | Headless via `launch.ps1 -Runtime sandbox`. Recommended when marker is `sandbox-autopilot`. | `effort: 3` | `complexity: 4` |
 
    Never silently downgrade an `*-autopilot` plan to interactive — always confirm with the user via this menu.
 
@@ -144,8 +151,9 @@ write and proceeds to Step 3.
    - `AUTOPILOT_CONTAINER=true` (already inside the autopilot container): omit all autonomous options **and** Autopilot; execute in-place per the marker.
    - `AUTOPILOT_DISABLE_HOST=true`: omit **Host autopilot** only (`launch.ps1` also refuses `-Runtime host`).
 
-4. **Execution extent.** For Host / Container / Sandbox, ask exactly **One phase** or
-   **Whole plan**. `scope: step|phase` recommends One phase; `scope: plan` recommends Whole plan.
+4. **Execution extent.** For Host / Container / Sandbox, ask exactly **One phase** (`effort: 3`,
+   `complexity: 2`) or **Whole plan** (`effort: 8`, `complexity: 6`). `scope: step|phase` recommends
+   One phase; `scope: plan` recommends Whole plan.
    Missing or invalid scope never infers `whole-plan`: report it and recommend One phase. Map the
    answer to `next-phase` or `whole-plan`.
 
@@ -169,7 +177,7 @@ write and proceeds to Step 3.
 Before implementing a step, run the validation reconcile gate:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Test-Plan.ps1 `
+.github/skills/ci/scripts/Test-Plan.ps1 `
     -PlanPath <selected-plan-path> -RepoRoot <canonical-repo-root>
 ```
 

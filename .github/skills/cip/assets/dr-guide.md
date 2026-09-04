@@ -15,7 +15,7 @@ DR agents **must be given the evolution log as context** to prevent re-reporting
 The plan's capture log (`assets/logs/capture.md`; plan-folder root for legacy plans) keeps a separate, durable `## Capture` section for notable/recurring DR findings (not DR-round chronology), written **script-only** via `Add-WorkflowNote.ps1 -Kind Capture` (it owns the header, `No entries for this phase.` placeholder, placeholder-replace, and sanitization):
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Concern <concern> -Requirement <REQ-N...> -ReviewType dr -Message "dr: <notable finding>"
+.github/skills/cip/scripts/Add-WorkflowNote.ps1 -Kind Capture -PlanDir <plan-folder> -Phase <N> -Step <source-step> -Src note -Concern <concern> -Requirement <REQ-N...> -ReviewType dr -Message "dr: <notable finding>"
 ```
 
 Keep capture entries in the capture log only; do not mix them into the DR-round narrative in `assets/evolution-log.md`.
@@ -38,7 +38,8 @@ Flag overengineering explicitly. Reject findings that optimize for theoretical c
 5. If `@dr` raised **High** or **Critical** findings requiring substantial plan changes, run another round (up to 3 total).
 6. After round 3, if issues remain:
    - Record them in a "Known Plan Issues" section at the bottom of the plan.
-   - Ask: **"3 DR rounds complete. Remaining issues recorded as Known Plan Issues. Continue reviewing or start implementation?"**
+   - Offer **Continue reviewing — authorize one more review round** (`effort: 7`, `complexity: 5`) or
+     **Start implementation — retain the recorded known issues** (`effort: 2`, `complexity: 3`).
    - Only continue past 3 if the user explicitly requests more rounds.
 
 ## State Anchor

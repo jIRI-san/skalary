@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-04T14:44:26.2664735Z",
+  "generatedAt": "2026-09-04T17:26:08.7442646Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -585,17 +585,17 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "779343e8e12137b161952484f3ed6a895d563d67651ebba5421e739a655cc13e",
+          "sha256": "b8c0acec40f8e159c18517461374fc7aa1401cb2e40aa4f2b0eccac4a24a1f0c",
           "src": "skills/ci/SKILL.md"
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "611d73c40c21d76743ecdf85e914be3afecbb01fe999ec34fffe858004620701",
+          "sha256": "739610aeaf0cf7d5075ecf1532cdc9dcbdc75763f1ac770b7ea9056e2c1edc4f",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "25f26e0c85f1825be56989a2f1801bcfd2f3aaeffa0a64d32d30d7d5998d235d",
+          "sha256": "b74d0d90f9d2cb0830141c8557d481083c42b69c295c21e325f174b57d012fd1",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -765,7 +765,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.98"
+      "version": "1.0.99"
     },
     {
       "author": "jIRI-san",
@@ -779,12 +779,12 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "126d2f27d6ea432c3e37ae025654a3965b58d364ac7472bf1d1fc121cdf6a93b",
+          "sha256": "013db24d688417d9bf156a78a282ea882dc29f3ce4ffe5cfa080e1e10ee7db03",
           "src": "skills/cep/SKILL.md"
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "cf7b7e9a401cb0619111c021722b407c793f99fc65f013452b2c995282c92540",
+          "sha256": "43f7e85da53c215df607816b7f93cdb83460490fc1440f2029e08b44d93720d4",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
@@ -859,7 +859,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "95d47d505a6652b0cb587e79ec2674bdf02b4680782d82d960bcba4cd6fb2a94",
+          "sha256": "c3f7ad0c934ca344495d7c3d0785280b4f1a1c3958f10817ea1e14d51f1d4594",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -869,12 +869,12 @@
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "8ca525426521f1302afeeef16dd60015716a0ad91650147a8a01fd89d84b0b87",
+          "sha256": "e93ec357a93781a81fb20f40df423091d0735b01b8bd1a69be97d926de9ac71f",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "8f848fe368fb6b717126b21cd1049edd2da54e1cc471764f1256366fcbfa2f4d",
+          "sha256": "8b2ffb6b2498296edce591f57e5af0e15b28e18078894914440a95bb399c95b3",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -889,7 +889,7 @@
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "e5ef452fcbb467fb9f5bf5d6470be5dfaa0ed268360d0c05cc338171d79802bd",
+          "sha256": "209674eee58564bc40816dff44c07c2d89b72fc1dc54528c585435d419476aef",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
@@ -996,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.81"
+      "version": "1.0.82"
     },
     {
       "author": "jIRI-san",
@@ -1272,7 +1272,7 @@
       "files": [
         {
           "dest": "skills/install-plugin/SKILL.md",
-          "sha256": "cec4d665494caf72a1064130c170a24776cf98930f3d2397c14a25b3ac1d223e",
+          "sha256": "d3a9c907d4b7e92a42e11b2f81c5232dd2570c728a3d411978b0a2e31499a7dd",
           "src": "skills/install-plugin/SKILL.md"
         },
         {
@@ -1312,7 +1312,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/SKILL.md",
-          "sha256": "4f93051e88432b164d8b993f46a00c7827ed9c8e167526bfa9b1cc1d6d1ea0d7",
+          "sha256": "f02c6e96a6c4a4428acef83131abd085dab1a69226cb129595be9008e110976d",
           "src": "skills/uninstall-plugin/SKILL.md"
         },
         {
@@ -1332,7 +1332,7 @@
         },
         {
           "dest": "skills/update-plugin/SKILL.md",
-          "sha256": "c2c16193d89df72644b3a8a45ea077125c5424ae4cab1a7a48c975475c04ebd8",
+          "sha256": "567dc49d860e6437635dd03c92f319fde9e15df7802e15a510ea6dc9bdd6d22e",
           "src": "skills/update-plugin/SKILL.md"
         },
         {
@@ -1354,7 +1354,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     },
     {
       "author": "jIRI-san",
@@ -1366,7 +1366,7 @@
       "files": [
         {
           "dest": "skills/process-pr-comments/SKILL.md",
-          "sha256": "c8a9b46c93537358e4c362446885a1d6209d1d57b4f3e506b6fa4a9fb22effa9",
+          "sha256": "a1dbcb87672c57b697143527d22f0299b5c8c6be5abe64e9baf176115399a63c",
           "src": "skills/process-pr-comments/SKILL.md"
         },
         {
@@ -1384,7 +1384,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",
@@ -1692,7 +1692,7 @@
       "files": [
         {
           "dest": "skills/work-hierarchy-sync/SKILL.md",
-          "sha256": "7d5f9479481d431fc49d681889a552d789afb00ac6e51e7cbff7bba2ae591b7b",
+          "sha256": "254f2df2a00e83a9f4620b1e591da83001cbd1237780c26d9926db1c0fe7e589",
           "src": "skills/work-hierarchy-sync/SKILL.md"
         },
         {
@@ -1721,7 +1721,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.21"
+      "version": "1.0.22"
     }
   ],
   "retiredPlugins": [

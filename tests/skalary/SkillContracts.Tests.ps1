@@ -149,6 +149,103 @@ Describe 'Skill contract token guards' {
         ($output -join "`n") | Should -Match 'Changed file count: 0'
     }
 
+    It 'test:LocalFirst.HostErgonomics keeps choices equivalent and script commands directly invokable' {
+        $skills = @(
+            'plugins/continue-implementation/skills/ci/SKILL.md',
+            'plugins/create-implementation-plan/skills/cip/SKILL.md',
+            'plugins/create-implementation-plan/skills/cep/SKILL.md',
+            'plugins/plugin-manager/skills/install-plugin/SKILL.md',
+            'plugins/plugin-manager/skills/update-plugin/SKILL.md',
+            'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md',
+            'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md',
+            'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md'
+        )
+
+        foreach ($skill in $skills) {
+            $text = Get-SkillText -RelativePath $skill
+            $text | Should -Match 'VS Code'
+            $text | Should -Match 'Copilot CLI'
+            $text | Should -Match 'vscode_askQuestions'
+            $text | Should -Match 'numbered'
+            $text | Should -Match '`effort: <1-10>`'
+            $text | Should -Match '`complexity: <1-10>`'
+            $text | Should -Match 'same label and decision context'
+            $text | Should -Not -Match '(?i)(?:pwsh|powershell)\s+(?:-NoProfile\s+)?-File\s+\.github/skills/'
+            $text | Should -Not -Match '(?im)^\s*(?:pwsh|powershell)\b.*\s-File\s'
+
+            $name = Split-Path (Split-Path $skill -Parent) -Leaf
+            $installed = Get-SkillText -RelativePath ".github/skills/$name/SKILL.md"
+            $installed | Should -BeExactly $text
+        }
+
+        $instructions = Get-SkillText -RelativePath '.github/copilot-instructions.md'
+        $devRules = Get-SkillText -RelativePath 'docs/design-notes/project/dev-rules.design.md'
+        foreach ($text in @($instructions, $devRules)) {
+            $text | Should -Match 'VS Code'
+            $text | Should -Match 'Copilot CLI'
+            $text | Should -Match '`effort: <1-10>`'
+            $text | Should -Match '`complexity: <1-10>`'
+            $text | Should -Match '(?i)direct'
+            $text | Should -Match '\.github/skills/'
+        }
+
+        $pluginManager = Get-SkillText -RelativePath 'docs/design-notes/architecture/plugin-manager.design.md'
+        $pluginManager | Should -Match 'directly'
+        $pluginManager | Should -Match 'plain path string'
+        $pluginManager | Should -Match 'Get`/`Find`/`Test`/`Validate'
+        $pluginManager | Should -Match 'Install`/`Uninstall`/`Update`/`Remove`/`Set'
+
+        $ci = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/SKILL.md'
+        foreach ($option in @(
+                'Interactive \(approve each step\)',
+                'Autopilot \(autoapprove\)',
+                'Host autopilot',
+                'Container autopilot',
+                'Sandbox autopilot'
+            )) {
+            $pattern = '(?m)^\s*\| \*\*{0}\*\* .*\| `effort: [1-9]` \| `complexity: [1-9]` \|$' -f $option
+            $ci | Should -Match $pattern
+        }
+        $ci | Should -Match '\*\*One phase\*\* \(`effort: [1-9]`,\s*`complexity: [1-9]`\)'
+        $ci | Should -Match '\*\*Whole plan\*\* \(`effort: [1-9]`, `complexity: [1-9]`\)'
+
+        foreach ($skill in @(
+                'plugins/plugin-manager/skills/install-plugin/SKILL.md',
+                'plugins/plugin-manager/skills/update-plugin/SKILL.md',
+                'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md',
+                'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md',
+                'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md'
+            )) {
+            $text = Get-SkillText -RelativePath $skill
+            $text | Should -Match '`effort: [1-9]`'
+            $text | Should -Match '`complexity: [1-9]`'
+        }
+
+        $scoredAssets = @{
+            'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md' =
+                @('Confirm intent — use', 'Revise intent — correct', 'Approve design — keep',
+                    'Revise design — correct', 'manual — approve each step', 'whole-plan — continue',
+                    'Confirm — draft', 'Revise — correct')
+            'plugins/create-implementation-plan/skills/cip/assets/dr-guide.md' =
+                @('Continue reviewing — authorize', 'Start implementation — retain')
+            'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md' =
+                @('Confirm — accept this child cut', 'Revise — change the displayed cut')
+            'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' =
+                @('\*\*Continue\*\*', '\*\*Revise\*\*', '\*\*Stop\*\*',
+                    'Run `/pfb`', 'Skip `/pfb`', 'Run `/si`', 'Skip `/si`', 'Continue looping', 'Wrap up')
+        }
+        foreach ($entry in $scoredAssets.GetEnumerator()) {
+            $text = Get-SkillText -RelativePath $entry.Key
+            foreach ($label in $entry.Value) {
+                $pattern = '(?s){0}.{{0,120}}`effort: [1-9]`.{{0,80}}`complexity: [1-9]`' -f $label
+                $text | Should -Match $pattern
+            }
+        }
+
+        $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
+        $crosscheck | Should -Not -Match '(?m)^\s*\$\w+\s*=\s*&\s+\.github/skills/'
+    }
+
     It 'test:manifest-coverage registers every ci/cip skill asset in plugin.json files[]' {
         foreach ($plugin in @('continue-implementation', 'create-implementation-plan')) {
             $pluginRoot = Join-Path $repoRoot (Join-Path 'plugins' $plugin)

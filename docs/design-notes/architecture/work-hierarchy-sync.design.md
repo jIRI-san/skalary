@@ -65,6 +65,11 @@ Rendered output contains action summaries and the deterministic action digest, n
 
 ## Confirmed Apply
 
+All predefined operator choices use the shared host-equivalent contract. VS Code renders the ordered
+options with `vscode_askQuestions`; Copilot CLI renders the same labels and context as a numbered list.
+Every option includes `effort: <1-10>` and `complexity: <1-10>`. The apply digest remains mandatory in
+both hosts; host equivalence does not weaken confirmation or add a picker abstraction.
+
 `Invoke-WorkHierarchyApply` accepts the displayed dry run and its exact mapping-file digest. The
 confirmation callback receives that dry run and must return exactly one Boolean. A decline performs no
 reads or writes. After confirmation, apply re-reads the mapping and remote state and requires the

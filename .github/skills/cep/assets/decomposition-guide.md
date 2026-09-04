@@ -131,8 +131,10 @@ Present the proposed cut before scaffolding anything, as one table plus the edge
 |---|---|---|---|
 | `<slug>` | … | — | … |
 
-Then ask for confirmation with `vscode_askQuestions`. On rejection, revise the cut and present again;
-never scaffold folders to "show" a cut.
+Then offer **Confirm — accept this child cut and dependency graph** (`effort: 1`, `complexity: 2`) or
+**Revise — change the displayed cut before scaffolding** (`effort: 4`, `complexity: 4`) through
+`vscode_askQuestions`. On rejection, revise the cut and present again; never scaffold folders to
+"show" a cut.
 
 ## Epic coherency review
 
@@ -315,7 +317,7 @@ unobserved.
 Only the installed bounded writer may create or replace the verdict:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/cep/scripts/New-Epic.ps1 `
+.github/skills/cep/scripts/New-Epic.ps1 `
     -Epic <canonical-epic-id> -SetCoherencyVerdict -VerdictJson <bounded-json> `
     -RepoRoot <canonical-repository-root>
 ```
@@ -346,7 +348,10 @@ After the operator confirms the cut and before any child plan is scaffolded:
    current exact source digest. A degraded, incomplete, stale, invalid, or unpublished run stops
    before child creation.
 4. Surface every decision-changing finding with its proportionality class and proposed action. The
-   interactive operator chooses `keep`, `simplify`, `split`, or `defer`; the agent never impersonates
+   interactive operator chooses **keep — retain the accepted cut** (`effort: 1`, `complexity: 1`),
+   **simplify — remove unnecessary mechanism** (`effort: 3`, `complexity: 2`),
+   **split — separate overlapping ownership** (`effort: 6`, `complexity: 6`), or
+   **defer — leave optional work out** (`effort: 1`, `complexity: 1`); the agent never impersonates
    this decision.
 5. Apply accepted source changes, atomically replace the verdict with exact verified identities and
    dispositions, and reconfirm the revised cut with the operator.
