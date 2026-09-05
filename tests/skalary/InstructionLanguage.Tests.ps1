@@ -62,7 +62,7 @@ Describe 'Decision-ready questions and active policy language' {
             $protocol | Should -Match $pattern
         }
         $audit = Read-RepoText (
-            'docs/implementation-plans/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/' +
+            'docs/implementation-plans/archived/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/' +
             'assets/language-audit.md'
         )
         $audit | Should -Match 'Archived implementation plans/history'
@@ -139,7 +139,7 @@ Describe 'Decision-ready questions and active policy language' {
     }
 
     It 'records a bounded human audit without adding a runtime policy gate' {
-        $audit = Read-RepoText 'docs/implementation-plans/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/assets/language-audit.md'
+        $audit = Read-RepoText 'docs/implementation-plans/archived/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/assets/language-audit.md'
         $audit | Should -Match 'Status: closed in Step 5\.1'
         $audit | Should -Match '\*\*75\*\*'
         $audit | Should -Match '\*\*764\*\*'

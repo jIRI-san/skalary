@@ -26,9 +26,10 @@ automatic Judge, model panel, or unchanged-scope rerun exists. Every call, retry
 toward a three-call ceiling; a fourth requires a new operator decision. Delegated prompts attach at most
 three artifacts, target 400 words, and must be narrowed before 800.
 
-For a complex predefined operator choice, provide context, example, benefits, pros/cons,
-recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when sequence matters. Pass
-the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI.
+For a complex predefined operator choice, provide current context, a concrete example, benefits, pros/cons,
+recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter. Pass
+the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
+input one focused question at a time.
 
 Reviewers are read-only. They may not edit reviewed code, plans, manifests, or policy. The orchestrator's
 only write is a plan-associated report through the installed sibling `DirectWorkflow.psm1` function
@@ -39,12 +40,15 @@ Each selected task ends `complete`, `failed`, `interrupted`, or `stuck`. Collate
 completed tasks, findings, and verdict. Apply the review-reporting design note's **Proportional security
 rubric** and mandatory guards. A blocking security finding requires attacker/untrusted input, reachable
 capability, affected asset, and plausible impact; otherwise label useful advice `optional hardening` or
-omit it. Failed or incomplete security work forces `incomplete`.
+omit it. Missing any link excludes it. Only complete four-part paths enter report Findings. Failed or
+incomplete security work is `incomplete`, never `clean`.
 
-When extra security machinery is proposed, compare it with the simple option and concrete threat; do not
-block only for more defense in depth. Keep prompt/data framing, secret refusal/redaction, read-only
-behavior, destructive-action approval, report confinement, and external-format validation mandatory.
-Do not request controls for boundaries the change does not introduce.
+When machinery grows, compare the simple option, safer option, concrete threat addressed, residual risk,
+benefits, pros/cons, effort, and complexity. Do not block only because more defense in depth exists.
+Keep prompt/data framing, pre-publication secret refusal/redaction, read-only behavior, destructive-action
+approval, physical/canonical report confinement, and external-format validation mandatory. Do not request
+authentication, signing, attestation, audit trails, rollback journals, multi-tenant isolation, remote CI,
+or multi-operator concurrency unless the change introduces that boundary.
 
 The verdict is exactly `clean`, `findings`, or `incomplete`; missing/non-complete tasks cannot be clean.
 Write `phase-N.md` or `final.md` under the canonical plan. If corrective source changes alter the scope,

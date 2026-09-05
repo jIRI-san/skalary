@@ -40,13 +40,13 @@ then stop. Never kill an agent for elapsed time. Retain deterministic build/test
 evidence. Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before
 800.
 
-For a complex predefined operator choice, provide context, example, benefits, pros/cons,
-recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when sequence matters. Pass
+For a complex predefined operator choice, provide current context, a concrete example, benefits, pros/cons,
+recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter. Pass
 the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
-input one question at a time.
+input one focused question at a time.
 
 Run focused validation and call `Invoke-DirectEvidence` for only `test:`, `file:`, and `review:`.
-Supply the active in-memory review result, full current source, and exact requested scope; persisted
+Supply the active in-memory review result, current source, and requested scope; persisted
 Markdown is not authority. Keep completed/refused/blocked/stuck/interrupted outcomes distinct. Exit `0`
 means completed, operator-action stops retain `42`, and other failures are nonzero.
 
@@ -56,7 +56,7 @@ Terra/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhaust
 unresolved/incomplete review stops non-clean.
 During finalization, invoke `.github/skills/autopilot/assets/design-note-compaction.md` once when
 `Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`; other docs do not trigger it.
-At whole-plan completion, run `Write-RecentLearning.ps1` against the source commit with zero to ten
+On completion, run `Write-RecentLearning.ps1` against the source commit with zero to ten
 repo-cited lessons. Commit its replacement of `docs/feedback/recent-learning.md`; create no extra state.
 
 Before interactive archival, offer installed `/pfb` and follow its skill when accepted. A decline,
