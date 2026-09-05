@@ -80,6 +80,6 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `design-review` | 1.0.77 | stable | — | 7 | Risk-selected design review with direct advisory Markdown. |
 | `plugin-manager` | 1.0.24 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
-| `self-improvement` | 1.0.77 | stable | create-implementation-plan | 36 | Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements. |
+| `self-improvement` | 1.0.77 | stable | create-implementation-plan | 37 | Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements. |
 | `work-hierarchy-sync` | 1.0.25 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
 <!-- END SKALARY PLUGIN CATALOG -->

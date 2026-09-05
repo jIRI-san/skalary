@@ -12,8 +12,12 @@
 
 | Surface | Current canonical source or owner |
 |---|---|
-| Autopilot project/runtime | `.autopilot.json`, plugin examples/schemas, autopilot launcher |
-| Models/review | All `33a78a` routine/standard/deep/independent primaries, replacement fallbacks, reasoning efforts, default-context-only policy, autopilot default, CR/DR routing, and waza executor/judge assignments across their canonical skills, agents, configs, allowlists, and eval specs |
+| AI-credit budget and routing policy | `docs/design-notes/explorations/agent-cost-optimization.design.md`; 180K operating, 20K reserve, dated official pricing and workflow links |
+| Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; Luna/medium default with no context override |
+| Workflow model roles | Canonical `autopilot`, `cep`, `cip`, `ci`, `cr`, and `dr` skills; Luna routine, Terra standard, Sol deep, Opus independent; replacement fallbacks and reasoning effort |
+| Review agent bindings | `plugins/{code-review,design-review}/agents/*.agent.md` plus `tools/model-allowlist.psd1`; Terra ordinary review, Opus named independent high risk, host-qualified names and replacements |
+| Eval model bindings | `plugins/*/evals/waza/eval.yaml` and task dispositions; Luna executor, Terra judge only for subjective tasks |
+| Model consumers and validation | `.github/**` dogfood copies, `tests/skalary/AiCreditBudget.Tests.ps1`, `tests/skalary/ModelAllowlist.Tests.ps1`, and `tests/evals/WazaCreditPolicy.Tests.ps1` |
 | Local review policy | Optional `docs/review-standards.md` |
 | Terminal approvals | `.vscode/settings.json` through `scripts/skalary/Set-ScriptApproval.ps1` |
 | Evals | Per-plugin `evals/waza/eval.yaml`, optional `.eval.config.json` credential targets, `tools/eval-tools.psd1` advanced pins |

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T14:30:03.8539722Z",
+  "generatedAt": "2026-09-05T16:08:12.7010731Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -151,7 +151,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "3b4a0107b33387b3b84694e9453cb685b35068fea842f1ea0f1529a1cc88079a",
+          "sha256": "32d59d12c68e0bd05a3d7313574504ef0d332c8b752e245d1dd6c4af52c697d8",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -161,12 +161,12 @@
         },
         {
           "dest": "skills/autopilot/.autopilot.json.example",
-          "sha256": "9abe5e3de7b31c8727efd97e2a6d48045f9df75115f3aeee9ba525eeefa7a1d5",
+          "sha256": "635c53f83b31fa90b46160cc71e25a616a8d3601b7736abec04edad32f2a429e",
           "src": ".autopilot.json.example"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "1391d95d759044ab8c61d22976ded74f25a00e70de8ccd076ed6ea9e23e7b166",
+          "sha256": "6838496f76ef9a16123b28e6dd3bc948a143c8b9b2693f338ea8384c5b326497",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -201,7 +201,7 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "430d894674ed052feb44ec803c314e5293808234200bb6c11d6e44410961c305",
+          "sha256": "9b5718def68b4a8ecdbae46445b58ef681642ee303815740dc1741fd520b8574",
           "src": "schemas/autopilot.schema.json"
         },
         {
@@ -276,7 +276,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "579b8ca04aa112cf552b2f5757f4bedfa0e9f3e0766a8b21e30a49858ffbd644",
+          "sha256": "dd600ea8a8afa5910224d60f320e8c058c0a38f2eee5587a616009a79f1d2359",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -296,17 +296,17 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "3fa5273097f3525909bd34c283c4de2a03fbb39c5cb377a89a8b805fad4977b5",
+          "sha256": "9b3ac973917bf051f470de4ffa0bf526075ca7fdd4227b6181d743f747d9e679",
           "src": "scripts/launch-host.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "7c61da6d32e75bcc87852023a373b3f5f7883d787fcf12260c26e2f93a93978f",
+          "sha256": "06804359808fbba78c49e105278b1f82a08c6278daf0946ab62e90239f7d89a0",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "3363b5a65278778a3ca5db84ba9c1c7ed422446dcbbfd9dd72b9b559a26a1ea5",
+          "sha256": "07d53c4c05c88abd4a7f4af999cbe5aa89c58ae489d5f29e4f1aab86e2dba7e8",
           "src": "scripts/launch.ps1"
         },
         {
@@ -316,7 +316,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
-          "sha256": "3396e7eb38e699ac5a6f66bbb7beabcb1391489852e4d54c55e52c80bb8af7a9",
+          "sha256": "5b115a1e0d253bfd24dfd50a84fe988f165edb5efabc87ff0abc9bb42f9f035f",
           "src": "scripts/prepare-env-file.ps1"
         },
         {
@@ -374,7 +374,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "9f788413173a14584c7f503dca40a76adf917d7b4599d255b49e1968e8da3d45",
+          "sha256": "2e0a2f5359dde2b7ff90f1986dbae6245897b72b90f890d30d7c8861f6a6dbc4",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -422,7 +422,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "3979c19bc22ffdf3c20bc377a36b87d358814958bd3d980c950396faf610173e",
+          "sha256": "332288172c37739c90fbc8a3f89f3862afb9325d37a180cbd91c43d217c6da61",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -483,7 +483,7 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "ab6a2d875f99252966e80bd82a6381e240054360e64a619516d65649e0f80e24",
+          "sha256": "5fd568684b5bbb179b7eb7aa684af0ee88176e8dfc9479257a260c175eca73ee",
           "src": "skills/cep/SKILL.md"
         },
         {
@@ -548,7 +548,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "12e8f78b7727171c588b7e616731b9a502b89a2b80a2362c4df5da9130ddbcd8",
+          "sha256": "4df547a772b95849d97ce5c379df9e183c1bcf91266679e6123d258b21b94b3d",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -727,7 +727,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "6f06f27c5b6e7b917c6f0186e7f46c0acab345c8aa46d8d72edff390459323bc",
+          "sha256": "44b954e87f73a42382a8f0786002d4482e948f42dd5769dcfcedab510bb23b4c",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -937,7 +937,7 @@
         },
         {
           "dest": "skills/si/SKILL.md",
-          "sha256": "49a932e36a21438fd78faa0490816de646877f5c5ae2cba3c858f0eea9388365",
+          "sha256": "ff5166b8fd280fe090785ef924e98694b6e470b42f71a20b2d43d924261a4987",
           "src": "skills/si/SKILL.md"
         },
         {
@@ -949,6 +949,11 @@
           "dest": "skills/si/assets/harvest-guide.md",
           "sha256": "41b453413322f4e532b92fa4d1a5f83f3441918d29af28a2b6e9611e688e430c",
           "src": "skills/si/assets/harvest-guide.md"
+        },
+        {
+          "dest": "skills/si/assets/lifecycle-guide.md",
+          "sha256": "8164594833d50c85363d2f4b0708d0a92bad210938527c71c7c65c29de22193b",
+          "src": "skills/si/assets/lifecycle-guide.md"
         },
         {
           "dest": "skills/si/assets/propose-guide.md",

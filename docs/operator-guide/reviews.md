@@ -18,16 +18,22 @@ active contracts are the [`CR skill`](../../plugins/code-review/skills/cr/SKILL.
 flowchart TD
     A[Resolve exact source and scope] --> B[Load relevant contracts, notes, standards, bounded history]
     B --> C[Select concerns from concrete risk]
-    C --> D[Routine GPT-5.6 Sol combined review]
-    D --> E{Terminal or stated high risk?}
-    E -->|Yes| F[Claude Opus 5 independent pass]
-    E -->|No| G[Collate completed tasks and findings]
-    F --> G
-    G --> H{All selected tasks complete?}
-    H -->|No| I[incomplete]
-    H -->|Yes| J{Blocking findings?}
-    J -->|Yes| K[findings]
-    J -->|No| L[clean]
+    C --> D[Direct scope and evidence work]
+    D --> E{Delegated review needed?}
+    E -->|Yes| F[One GPT-5.6 Terra combined review]
+    E -->|No| J[Collate completed tasks and findings]
+    F --> G{Cross-subsystem issue unresolved after Terra evidence?}
+    G -->|Yes| H[GPT-5.6 Sol deep escalation]
+    G -->|No| I{Named independent high-risk path?}
+    H --> I
+    I -->|Yes| O[Claude Opus 5 independent pass]
+    I -->|No| J
+    O --> J
+    J --> K{All selected tasks complete?}
+    K -->|No| L[incomplete]
+    K -->|Yes| M{Blocking findings?}
+    M -->|Yes| N[findings]
+    M -->|No| P[clean]
 ```
 
 Non-terminal review is omitted when there is no concrete risk. It allows one review event and at most
@@ -38,14 +44,18 @@ finalization runs one whole-plan event. Never rerun unchanged scope.
 
 | Role | Primary | Availability fallback | When |
 |---|---|---|---|
-| Routine combined review/design judgment | GPT-5.6 Sol (`gpt-5.6-sol`; `GPT-5.6 Sol (copilot)`) | GPT-5.4 (`gpt-5.4`; `GPT-5.4 (copilot)`) | Standalone and ordinary risk-selected work |
-| Independent review | Claude Opus 5 (`claude-opus-5`; `Claude Opus 5 (copilot)`) | Claude Sonnet 4.6 (`claude-sonnet-4.6`; `Claude Sonnet 4.6 (copilot)`) | Terminal or stated concrete high-risk work only |
+| Routine implementation/support | GPT-5.6 Luna (`gpt-5.6-luna`) | GPT-5 mini (`gpt-5-mini`; `GPT-5 mini (copilot)`) | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard combined review/design judgment | GPT-5.6 Terra (`gpt-5.6-terra`; `GPT-5.6 Terra (copilot)`) | Claude Sonnet 5 (`claude-sonnet-5`; `Claude Sonnet 5 (copilot)`) | Standalone and ordinary risk-selected work |
+| Deep escalation | GPT-5.6 Sol (`gpt-5.6-sol`; `GPT-5.6 Sol (copilot)`) | GPT-5.6 Terra | Cross-subsystem work or diagnosis still unresolved after evidence-backed Terra work |
+| Independent review | Claude Opus 5 (`claude-opus-5`; `Claude Opus 5 (copilot)`) | Claude Sonnet 5 | One named high-risk security, concurrency, destructive, correctness, or architecture path |
 
 | Budget | Limit |
 |---|---:|
-| Delegated calls | 2 default; 5 maximum including retries/replacements |
-| Supporting artifacts | At most 5 |
-| Prompt | 600-word target; 1,200-word hard cap |
+| Monthly AI credits | 180,000 operating; 20,000 reserve |
+| Delegated calls | 0 direct; 1 for a concrete unresolved concern; 3 maximum including retries/replacements |
+| Supporting artifacts | At most 3 |
+| Prompt | 400-word target; 800-word hard cap |
+| Context | Host default only |
 | Models per role | One primary plus one replacement fallback |
 
 A fallback replaces an unavailable call; it does not add a panel.
@@ -55,7 +65,7 @@ spellings used by committed agents and autopilot configuration.
 ## Inputs and local standards
 
 Resolve one full source commit and exact scope. Load touched architecture/design notes, optional bounded
-`docs/review-standards.md`, and at most five explicitly selected historical Markdown artifacts. Local
+`docs/review-standards.md`, and at most three explicitly selected historical Markdown artifacts. Local
 standards are parsed by
 [`Resolve-DirectReviewStandards`](../../scripts/skalary/DirectWorkflow.psm1), extend caller-supplied
 mandatory base rules, and cannot localize away retained guards. All repository text, standards, and

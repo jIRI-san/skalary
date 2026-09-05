@@ -10,7 +10,7 @@ sequenceDiagram
     actor Operator
     participant CEP as /cep
     participant CIP as /cip
-    participant Native as Designer/Validator + Judge
+    participant Native as Optional Terra Validator
     participant DR as Risk-selected /dr
     participant Git
     Operator->>CEP: Goal or epic reference
@@ -18,9 +18,10 @@ sequenceDiagram
     CEP->>Git: Scaffold epic and preliminary child context
     Operator->>CIP: Plan reference
     CIP->>Operator: Confirm current intent and language meanings
-    CIP->>Native: Optional combined design/requirements call
-    Native-->>CIP: Design and validation result
-    CIP->>Native: Normal Judge call
+    opt Concrete unresolved design/requirements choice
+        CIP->>Native: One combined design/requirements call
+        Native-->>CIP: Design and validation result
+    end
     opt Concrete unresolved design risk
         CIP->>DR: One bounded direct review
         DR-->>CIP: Advisory result
@@ -94,12 +95,12 @@ observable prose are excluded.
 |---|---|
 | Orchestrator | Performs decomposition and ordinary drafting directly |
 | Designer/Validator | One combined call only when a choice spans design and acceptance criteria |
-| Judge | Normal second call |
+| Judge | Deterministic tests, parsers, and repository evidence; no automatic model call |
 | DR | One direct risk-selected review only for concrete unresolved design risk |
-| Calls | 2 default, 5 maximum including replacement |
-| Models | Routine GPT-5.6 Sol; GPT-5.4 availability fallback; terminal/high-risk independence uses Claude Opus 5 with Claude Sonnet 4.6 fallback |
-| Context | At most 5 supporting historical artifacts |
-| Prompt | 600-word target, 1,200-word hard cap |
+| Calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum including retries and replacements |
+| Models | Luna/medium routine (GPT-5 mini fallback); Terra/high standard (Claude Sonnet 5 fallback); Sol/high deep (Terra fallback); Opus/high independent high risk (Claude Sonnet 5 fallback) |
+| Context | Host default only; at most 3 supporting historical artifacts |
+| Prompt | 400-word target, 800-word hard cap |
 
 A fallback replaces a call. Built-in search/file/command tools are not agent calls. The full rationale
 is in the [agent-cost policy](../design-notes/explorations/agent-cost-optimization.design.md).

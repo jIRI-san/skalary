@@ -66,15 +66,24 @@ The plan layout and marker grammar are defined by
 
 | Limit | Active value | Authority |
 |---|---:|---|
-| Delegated calls | 2 default; 5 maximum, including retries and replacements | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
-| Supporting historical artifacts | At most 5 | [Direct workflow architecture](../architecture-notes/arch-direct-workflow.md) |
-| Delegated prompt | 600-word target; 1,200-word hard cap | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Monthly AI credits | 180,000 operating; 20,000 reserve; 200,000 ceiling | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Delegated calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum, including retries and replacements | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Supporting historical artifacts | At most 3 | [Direct workflow architecture](../architecture-notes/arch-direct-workflow.md) |
+| Delegated prompt | 400-word target; 800-word hard cap | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Model ladder | Luna routine; Terra standard; Sol deep; Opus independent; host-default context only | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
 | Observable stuck recovery | 2 no-progress checks, 1 redirect, at most 1 replacement | [`/ci` skill](../../plugins/continue-implementation/skills/ci/SKILL.md) |
 | Non-terminal review | Only on concrete risk; 1 event plus at most 1 changed-scope replacement | [Review design](../design-notes/architecture/review-reporting.design.md) |
 | Terminal review | Exactly 1 whole-plan review event | [Direct workflow contract](../architecture-notes/arch-direct-workflow.md) |
 | Design-note comparison | At most 5 full notes per sequential batch | [Compaction protocol](../../plugins/autopilot/skills/autopilot/assets/design-note-compaction.md) |
 | Recent learning | At most 10 cited items; 16 KiB UTF-8 | [Self-improvement design](../design-notes/architecture/self-improvement.design.md) |
 | Focused commands | 30-second target; 60-second default deadline | [CI gates](../design-notes/project/ci-gates.design.md) |
+
+The pricing snapshot is dated **2026-09-05**. Check the
+[official model pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+and [AI-usage guidance](https://docs.github.com/en/copilot/tutorials/optimize-ai-usage) weekly against
+actual model-level usage. The
+[workflow recommendations](https://movarnell.github.io/Copilot-Links/models.html#workflow-flows) are
+non-authoritative. Static instructions guide spend; they do not enforce the monthly ceiling.
 
 ## Documentation boundary
 

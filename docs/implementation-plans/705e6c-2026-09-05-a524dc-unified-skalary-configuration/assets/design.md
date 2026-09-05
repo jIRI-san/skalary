@@ -34,7 +34,7 @@ flowchart TD
 
 | Category | Normal operations | Restricted behavior |
 |---|---|---|
-| Autopilot | Root project config, model/context/effort, runtime/build/test/iterations, selected bootstrap | Host command and executable values require explicit warning; no automatic executable creation. |
+| Autopilot | Root project config, model/effort, runtime/build/test/iterations, selected bootstrap | Host command and executable values require explicit warning; retired context values are refused. |
 | Models and reviews | Effective assignments and final simplified review profiles | Host allowlist changes are advanced; invalid host/model pairs are refused. |
 | Local review standards | Show, bootstrap strict Markdown, edit localizable entries | Generic/generated standards remain subsystem-owned. |
 | Terminal approvals | Add/remove exact read-only focused script approvals | Mutating or secret-bearing auto-approval is refused. |

@@ -123,18 +123,24 @@ Describe 'SimpleWorkflow.OperatorGuide' {
     }
 
     It 'states the global budgets and exact model matrix' {
-        foreach ($value in @('2 default', '5 maximum', 'At most 5',
-                '600-word target', '1,200-word hard cap', '2 no-progress checks',
+        foreach ($value in @('180,000 operating', '20,000 reserve', '0 for direct work',
+                '3 maximum', 'At most 3', '400-word target', '800-word hard cap',
+                'host-default context', '2 no-progress checks',
                 '1 redirect', 'at most 1 replacement', 'At most 10 cited items',
                 '16 KiB UTF-8')) {
             $script:all | Should -Match ([regex]::Escape($value))
         }
         $reviews = $script:content['reviews.md']
-        foreach ($model in @('GPT-5.6 Sol', 'GPT-5.4', 'Claude Opus 5',
-                'Claude Sonnet 4.6', 'gpt-5.6-sol', 'gpt-5.4', 'claude-opus-5',
-                'claude-sonnet-4.6')) {
+        foreach ($model in @('GPT-5.6 Luna', 'GPT-5 mini', 'GPT-5.6 Terra',
+                'Claude Sonnet 5', 'GPT-5.6 Sol', 'Claude Opus 5',
+                'gpt-5.6-luna', 'gpt-5-mini', 'gpt-5.6-terra',
+                'claude-sonnet-5', 'gpt-5.6-sol', 'claude-opus-5')) {
             $reviews | Should -Match ([regex]::Escape($model))
         }
+        $script:content['README.md'] | Should -Match 'models-and-pricing'
+        $script:content['README.md'] | Should -Match 'optimize-ai-usage'
+        $script:content['README.md'] | Should -Match 'workflow-flows'
+        $script:all | Should -Not -Match 'GPT-5\.4|Claude Sonnet 4\.6'
     }
 
     It 'documents report shape, verdicts, threat links, guards, and closed rerun behavior' {

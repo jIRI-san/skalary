@@ -32,7 +32,7 @@ Autonomous mode validates or creates host-local `.autopilot.json`, accepts an op
 `.autopilot.host.json` command override, and invokes
 [`launch.ps1`](../../plugins/autopilot/scripts/launch.ps1). The
 [configuration schema](../../plugins/autopilot/schemas/autopilot.schema.json) covers auth, Git provider,
-model/context/effort, build/test commands, and optional offline packages. Runtime isolation, branch,
+model/effort, build/test commands, and optional offline packages. Runtime isolation, branch,
 auth, explicit push/staging, and offline rebundle behavior remain launcher responsibilities.
 
 ## Admission and criteria baseline
@@ -80,9 +80,14 @@ flowchart TD
 
 ## Native work, progress, and recovery
 
-The orchestrator performs ordinary implementation. Use a combined Designer/Validator only for an
-unresolved choice spanning design and acceptance criteria; Judge is the normal second call. Limits are
-2 delegated calls by default, 5 maximum, 5 supporting artifacts, and 600/1,200 prompt words.
+The orchestrator performs ordinary implementation directly with no delegated call. Routine bounded work
+uses Luna/medium with GPT-5 mini as a replacement. Use one Terra/high Designer/Validator with Claude
+Sonnet 5 as a replacement only for an unresolved choice spanning design and acceptance criteria. Use
+Sol/high only for cross-subsystem work still unresolved after Terra evidence, and one Opus/high pass only
+for a named independent high-risk concern. Deterministic evidence is the normal Judge. Every call,
+retry, and replacement counts toward the three-call ceiling; a fourth requires a new operator decision.
+Use host-default context, at most three supporting artifacts, a 400-word prompt target, and an 800-word
+hard cap.
 
 For observable background work, meaningful progress is new tool output, a file or commit change, a
 completed subtask, or a materially new blocker. After two checks show no progress:
