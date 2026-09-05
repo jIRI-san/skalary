@@ -94,4 +94,32 @@ Describe 'AI credit budget contracts' {
             Join-Path $script:repoRoot '.github/skills/si/assets/lifecycle-guide.md'
         ) -PathType Leaf | Should -BeTrue
     }
+
+    It 'test:AiCreditBudget.RetainedGuards preserves safety, evidence, and premium-run boundaries' {
+        foreach ($path in @(
+                'plugins/code-review/skills/cr/SKILL.md'
+                'plugins/design-review/skills/dr/SKILL.md'
+            )) {
+            $content = Read-RepoText $path
+            foreach ($guardPattern in @(
+                    'prompt\s+injection'
+                    'secret\s+refusal/redaction'
+                    'read-only'
+                    'destructive\s*-\s*action\s+approval'
+                    'physical/canonical\s+report\s+confinement'
+                    'external-format\s+validation'
+                )) {
+                $content | Should -Match $guardPattern -Because $path
+            }
+        }
+
+        $ci = Read-RepoText 'plugins/continue-implementation/skills/ci/SKILL.md'
+        $ci | Should -Match 'Test-PlanCriteriaBaseline'
+        $ci | Should -Match 'test:.*file:.*review:'
+        $ci | Should -Match 'completed/refused/blocked/stuck/interrupted'
+
+        $waza = Read-RepoText 'scripts/skalary/Invoke-WazaEvals.ps1'
+        $waza | Should -Match 'Waza requires one explicit -Plugin'
+        $waza | Should -Match 'executed ZERO evals'
+    }
 }

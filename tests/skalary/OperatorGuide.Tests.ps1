@@ -122,7 +122,7 @@ Describe 'SimpleWorkflow.OperatorGuide' {
         }
     }
 
-    It 'states the global budgets and exact model matrix' {
+    It 'test:AiCreditBudget.OperatorGuidance states the global budgets and exact model matrix' {
         foreach ($value in @('180,000 operating', '20,000 reserve', '0 for direct work',
                 '3 maximum', 'At most 3', '400-word target', '800-word hard cap',
                 'host-default context', '2 no-progress checks',

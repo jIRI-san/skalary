@@ -72,7 +72,7 @@ Describe 'Autopilot model configuration' {
         }
     }
 
-    It 'defaults routine execution to GPT-5.6 Luna with medium reasoning' {
+    It 'test:AiCreditBudget.AutopilotDefaults uses Luna medium and validates supported overrides' {
         foreach ($config in @($repoConfig, $example)) {
             $config.model | Should -Be 'gpt-5.6-luna'
             $config.reasoningEffort | Should -Be 'medium'
@@ -141,7 +141,7 @@ Describe 'Autopilot model configuration' {
         $sandboxLauncher | Should -Not -Match '\$Config\.context\b'
     }
 
-    It 'contains no retired context override in active autopilot surfaces' {
+    It 'test:AiCreditBudget.LongContextRetired contains no retired context override in active autopilot surfaces' {
         $activePaths = @(
             (Join-Path $repoRoot '.autopilot.json')
             (Join-Path $repoRoot 'plugins/autopilot')
