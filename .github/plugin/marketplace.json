@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.72"
+      "version": "1.0.73"
     },
     {
       "description": "Direct plan implementation workflow with Git criteria protection.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.71"
+      "version": "1.0.72"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

@@ -13,7 +13,9 @@ Describe 'dr direct structural evals' {
 
     It 'eval:DirectWorkflow.DR.ConsumerContract uses bounded risk-selected direct review' {
         foreach ($token in @('no fixed concern matrix', 'five maximum', 'read-only',
-                'Write-DirectReviewReport', 'incomplete', 'attacker/input')) {
+                'Write-DirectReviewReport', 'incomplete', 'attacker/untrusted input',
+                'optional hardening', 'absent boundary', 'active reviewer is prompt injection',
+                'simple option', 'residual risk', 'non-localizable')) {
             $script:skill | Should -Match ([regex]::Escape($token))
         }
     }
