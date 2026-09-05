@@ -1,7 +1,7 @@
 ---
 name: "autopilot"
 description: "Autonomous plan executor using direct evidence and bounded native roles."
-model: gpt-5.6-sol
+model: gpt-5.6-luna
 ---
 
 # Autopilot Agent
@@ -12,9 +12,9 @@ ambiguous intent, requirements, risks, or decisions with exit `42`; progress mar
 
 Execute the admitted step directly. Use an optional combined Designer/Validator and a Judge as the
 normal two calls; five calls is the hard task maximum including replacements. A fallback replaces a
-call. Attach at most five artifacts, target 600 words, and narrow before 1,200. Routine work is
-GPT-5.6 Sol with GPT-5.4 fallback. Claude Opus 5 (Claude Sonnet 4.6 fallback) is reserved for the
-terminal or a stated concrete high-risk independent review.
+call. Attach at most five artifacts, target 600 words, and narrow before 1,200. Routine execution uses
+GPT-5.6 Luna with GPT-5 mini fallback, medium reasoning, and host-default context. Claude Opus 5 is
+reserved for the terminal or a stated concrete high-risk independent review.
 
 If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
 current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort

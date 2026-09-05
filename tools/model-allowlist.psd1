@@ -23,6 +23,7 @@
     # .autopilot.json / .autopilot.json.example.
     CliModels = @(
         'claude-opus-5'
+        'gpt-5.6-luna'
         'gpt-5.6-sol'
         'gpt-5.4'
         'claude-sonnet-4.6'

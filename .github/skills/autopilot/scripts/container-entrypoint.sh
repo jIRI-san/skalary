@@ -449,7 +449,6 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
 
         copilot -p "${TARGET_PROMPT}" \
             "${MODEL_ARGS[@]}" \
-            --context "${COPILOT_CONTEXT}" \
             --effort "${COPILOT_REASONING_EFFORT}" \
             --agent autopilot \
             --session-id "${TARGET_SESSION_ID}" \

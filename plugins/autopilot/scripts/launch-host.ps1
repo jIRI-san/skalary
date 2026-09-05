@@ -148,7 +148,6 @@ function Invoke-CopilotPhase {
         [string]$CopilotType,
         [string[]]$ExtraArgs,
         [string]$Model,
-        [string]$ContextTier,
         [string]$ReasoningEffort,
 
         [switch]$Finalization
@@ -180,8 +179,6 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
-            '--context',
-            (ConvertTo-CmdQuotedToken -Token $ContextTier),
             '--effort',
             (ConvertTo-CmdQuotedToken -Token $ReasoningEffort),
             (ConvertTo-CmdQuotedToken -Token "--share=./$transcriptName")
@@ -209,8 +206,6 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
-            '--context',
-            (ConvertTo-PowerShellQuotedToken -Token $ContextTier),
             '--effort',
             (ConvertTo-PowerShellQuotedToken -Token $ReasoningEffort),
             (ConvertTo-PowerShellQuotedToken -Token "--share=./$transcriptName")
@@ -230,8 +225,6 @@ function Invoke-CopilotPhase {
         $psi.ArgumentList.Add('autopilot')
         $psi.ArgumentList.Add('--no-ask-user')
         $psi.ArgumentList.Add('--allow-all')
-        $psi.ArgumentList.Add('--context')
-        $psi.ArgumentList.Add($ContextTier)
         $psi.ArgumentList.Add('--effort')
         $psi.ArgumentList.Add($ReasoningEffort)
         $psi.ArgumentList.Add("--share=./$transcriptName")
@@ -310,7 +303,6 @@ foreach ($phase in $phaseNumbers) {
         -CopilotType $hostCommand.Type `
         -ExtraArgs $hostCommand.ExtraArgs `
         -Model $Config.model `
-        -ContextTier $Config.context `
         -ReasoningEffort $Config.reasoningEffort
 
     $phasesExecuted++
@@ -369,7 +361,7 @@ if ($executionExitCode -eq 0 -and $Mode -eq 'whole-plan') {
             -CopilotToken $Token -Cwd $WorktreePath -PlanRelPath $PlanPath `
             -CopilotPath $hostCommand.Path -CopilotType $hostCommand.Type `
             -ExtraArgs $hostCommand.ExtraArgs -Model $Config.model `
-            -ContextTier $Config.context -ReasoningEffort $Config.reasoningEffort
+            -ReasoningEffort $Config.reasoningEffort
         if ($result.ExitCode -eq 42) {
             Write-Host '@human step encountered during plan finalization. Stopping.'
             $executionExitCode = 42

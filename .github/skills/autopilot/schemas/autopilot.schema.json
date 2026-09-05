@@ -10,7 +10,6 @@
     "gitProvider",
     "gitAuth",
     "model",
-    "context",
     "reasoningEffort",
     "git",
     "maxIterationsPerStep",
@@ -44,15 +43,7 @@
     },
     "model": {
       "type": "string",
-      "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.6-sol')."
-    },
-    "context": {
-      "type": "string",
-      "enum": [
-        "default",
-        "long_context"
-      ],
-      "description": "Copilot CLI context window tier."
+      "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.6-luna')."
     },
     "reasoningEffort": {
       "type": "string",

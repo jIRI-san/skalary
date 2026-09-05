@@ -382,7 +382,7 @@ foreach (`$phase in `$phaseNumbers) {
     `$prompt = "Execute `$PlanPath, phase `$phase only. Do not run plan finalization; the launcher has a separate completion target."
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
-    & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
+    & copilot -p "`$prompt" --model '$($Config.model)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
     `$exitCode = `$LASTEXITCODE
 
     if (`$exitCode -eq 42) {
@@ -442,7 +442,7 @@ if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
     if (`$runExitCode -eq 0) {
         `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
         Log 'Invoking Copilot CLI for plan finalization...'
-        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share='./session-transcript-finalization.md'
+        & copilot -p "`$prompt" --model '$($Config.model)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share='./session-transcript-finalization.md'
         `$runExitCode = `$LASTEXITCODE
         if (`$runExitCode -eq 42) {
             Log '@human step encountered during plan finalization. Stopping.'
