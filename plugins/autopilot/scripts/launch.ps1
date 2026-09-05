@@ -97,6 +97,23 @@ if ($Config.reasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
     exit 1
 }
 
+$SchemaPath = Join-Path $RepoRoot '.github/skills/autopilot/schemas/autopilot.schema.json'
+if (-not (Test-Path -LiteralPath $SchemaPath -PathType Leaf)) {
+    Write-Error "Autopilot schema not found: $SchemaPath"
+    exit 1
+}
+$Schema = Get-Content -LiteralPath $SchemaPath -Raw | ConvertFrom-Json
+$allowedModels = @($Schema.properties.model.enum)
+if ($allowedModels.Count -eq 0) {
+    Write-Error "Autopilot schema declares no allowed CLI models: $SchemaPath"
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace([string]$Config.model) -or
+    [string]$Config.model -cnotin $allowedModels) {
+    Write-Error "Invalid model '$($Config.model)' in .autopilot.json. Allowed models: $($allowedModels -join ', ')"
+    exit 1
+}
+
 # --- Validate build/test commands against allowlist ---
 $buildPrefixes = @('dotnet build', 'dotnet publish', 'npm run', 'yarn run', 'pnpm run', 'make', 'cargo build', 'gradle ', 'mvn ')
 $testPrefixes = @('dotnet test', 'npm test', 'npm run test', 'yarn test', 'pnpm test', 'make test', 'cargo test', 'gradle test', 'mvn test')

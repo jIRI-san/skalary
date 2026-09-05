@@ -43,6 +43,14 @@
     },
     "model": {
       "type": "string",
+      "enum": [
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5-mini"
+      ],
       "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.6-luna')."
     },
     "reasoningEffort": {

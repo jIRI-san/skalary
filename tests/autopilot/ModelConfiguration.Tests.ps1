@@ -7,13 +7,17 @@ Describe 'Autopilot model configuration' {
         $script:pluginRoot = Join-Path $PSScriptRoot '../../plugins/autopilot'
         $script:repoConfig = Get-Content -LiteralPath (Join-Path $repoRoot '.autopilot.json') -Raw | ConvertFrom-Json
         $script:example = Get-Content -LiteralPath (Join-Path $pluginRoot '.autopilot.json.example') -Raw | ConvertFrom-Json
-        $script:schema = Get-Content -LiteralPath (Join-Path $pluginRoot 'schemas/autopilot.schema.json') -Raw | ConvertFrom-Json
+        $script:schemaPath = Join-Path $pluginRoot 'schemas/autopilot.schema.json'
+        $script:schema = Get-Content -LiteralPath $schemaPath -Raw | ConvertFrom-Json
         $script:launcher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch.ps1') -Raw
         $script:hostLauncher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch-host.ps1') -Raw
         $script:containerEntrypoint = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/container-entrypoint.sh') -Raw
         $script:sandboxLauncher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch-sandbox.ps1') -Raw
         $script:environmentWriter = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/prepare-env-file.ps1') -Raw
         $script:agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
+        $script:allowlist = Import-PowerShellDataFile -LiteralPath (
+            Join-Path $repoRoot 'tools/model-allowlist.psd1'
+        )
     }
 
     It 'defaults routine execution to GPT-5.6 Luna with medium reasoning' {
@@ -31,6 +35,27 @@ Describe 'Autopilot model configuration' {
         $schema.required | Should -Contain 'reasoningEffort'
         $schema.properties.reasoningEffort.enum | Should -Contain 'medium'
         $schema.properties.reasoningEffort.enum | Should -Contain 'high'
+    }
+
+    It 'rejects models outside the shared CLI allowlist before runtime dispatch' {
+        @($schema.properties.model.enum) | Should -Be @($allowlist.CliModels)
+        $invalidConfig = Get-Content -LiteralPath (
+            Join-Path $pluginRoot '.autopilot.json.example'
+        ) -Raw | ConvertFrom-Json
+        $invalidConfig.model = 'unsupported-premium-model'
+        $schemaErrors = $null
+        $isValid = ($invalidConfig | ConvertTo-Json -Depth 20) |
+            Test-Json -SchemaFile $schemaPath -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
+        $isValid | Should -BeFalse
+        @($schemaErrors).Count | Should -BeGreaterThan 0
+        $launcher | Should -Match '\$Config\.model -cnotin \$allowedModels'
+        $launcher | Should -Match 'Invalid model.*in \.autopilot\.json'
+        $modelValidation = $launcher.IndexOf('$Config.model -cnotin $allowedModels')
+        $buildValidation = $launcher.IndexOf('# --- Validate build/test commands against allowlist ---')
+        $runtimeDispatch = $launcher.IndexOf('# --- Determine runtime ---')
+        $modelValidation | Should -BeGreaterOrEqual 0
+        $modelValidation | Should -BeLessThan $buildValidation
+        $modelValidation | Should -BeLessThan $runtimeDispatch
     }
 
     It 'passes model and effort but no context override in host mode' {

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T16:08:12.7010731Z",
+  "generatedAt": "2026-09-05T16:30:45.1732314Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -201,7 +201,7 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "9b5718def68b4a8ecdbae46445b58ef681642ee303815740dc1741fd520b8574",
+          "sha256": "fa658c6a402717561674d5c5a0938d88f8adaef108fb79f4de6db5098c5abfb4",
           "src": "schemas/autopilot.schema.json"
         },
         {
@@ -306,7 +306,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "07d53c4c05c88abd4a7f4af999cbe5aa89c58ae489d5f29e4f1aab86e2dba7e8",
+          "sha256": "502369c3d219cf9b8494705750d8286760069cf2c085d3d4829bc8a8ad3503ff",
           "src": "scripts/launch.ps1"
         },
         {
