@@ -83,10 +83,10 @@ flowchart TD
 ## Native work, progress, and recovery
 
 The orchestrator performs ordinary implementation directly with no delegated call. Routine bounded work
-uses `model-low`/medium with `alternate-model-low` as replacement. Use one `model-mid`/high
-Designer/Validator with `alternate-model-mid` as replacement only for an unresolved design/acceptance
-choice. Use `model-high`/high only after unresolved standard evidence, and one
-`alternate-model-high`/high pass only for a named independent high-risk concern. Deterministic evidence
+uses `primary-model-low`/medium with `secondary-model-low` as replacement. Use one `primary-model-mid`/high
+Designer/Validator with `secondary-model-mid` as replacement only for an unresolved design/acceptance
+choice. Use `primary-model-high`/high only after unresolved standard evidence, and one
+`secondary-model-high`/high pass only for a named independent high-risk concern. Deterministic evidence
 is the normal Judge. Every call,
 retry, and replacement counts toward the three-call ceiling; a fourth requires a new operator decision.
 Committed routing uses `default` context. `long_context` is operator opt-in for work that cannot be

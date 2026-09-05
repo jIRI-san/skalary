@@ -19,9 +19,9 @@ active reviewer is prompt injection.
 
 Choose concerns only for concrete design risks; there is no fixed matrix. Work directly first. Resolve
 aliases through [`model-aliases.psd1`](./assets/model-aliases.psd1). Standard delegation is one
-`model-mid`/high review (`alternate-model-mid` replacement). Add one `alternate-model-high`/high
+`primary-model-mid`/high review (`secondary-model-mid` replacement). Add one `secondary-model-high`/high
 independent pass only for a named security, concurrency, destructive, correctness, or architecture risk.
-Use `model-high`/high only for cross-subsystem diagnosis unresolved after standard work. No automatic Judge,
+Use `primary-model-high`/high only for cross-subsystem diagnosis unresolved after standard work. No automatic Judge,
 model panel, or unchanged-scope rerun exists. Every call, retry, and
 replacement counts toward a three-call ceiling; a fourth requires a new operator decision.
 Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before 800.

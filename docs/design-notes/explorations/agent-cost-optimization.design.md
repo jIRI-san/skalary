@@ -49,10 +49,10 @@ as non-authoritative task guidance.
 
 | Tier | Primary alias | Replacement alias | Effort/context | Admitted work |
 |---|---|---|---|---|
-| Routine | `model-low` | `alternate-model-low` | medium/default | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
-| Standard | `model-mid` | `alternate-model-mid` | high/default | Planning, acceptance validation, ordinary CR/DR, complex bounded implementation |
-| Deep | `model-high` | `model-mid` | high/default | Cross-subsystem orchestration or diagnosis unresolved after evidence-backed standard work |
-| Independent | `alternate-model-high` | `alternate-model-mid` | high/default | One concrete high-risk security, concurrency, destructive, correctness, or architecture pass |
+| Routine | `primary-model-low` | `secondary-model-low` | medium/default | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard | `primary-model-mid` | `secondary-model-mid` | high/default | Planning, acceptance validation, ordinary CR/DR, complex bounded implementation |
+| Deep | `primary-model-high` | `primary-model-mid` | high/default | Cross-subsystem orchestration or diagnosis unresolved after evidence-backed standard work |
+| Independent | `secondary-model-high` | `secondary-model-mid` | high/default | One concrete high-risk security, concurrency, destructive, correctness, or architecture pass |
 
 `tools/model-allowlist.psd1` is the canonical alias-to-host map. Skills and operator configuration use
 aliases; `Sync-ModelBindings.ps1` materializes concrete identifiers only where a host format requires
@@ -84,10 +84,10 @@ Load current intent, state, and active contracts first. Select older material on
 concepts or canonical IDs and keep no more than three supporting artifacts. Start a fresh session
 between research, planning, and implementation when the prior transcript is no longer needed.
 
-Direct repository work is the default. Planning may use one `model-mid` design/requirements validator
-when a choice remains unresolved. Routine implementation uses `model-low` plus deterministic evidence.
-A selected ordinary review is one `model-mid` call. `model-high` coordinates only cross-subsystem work
-or unresolved diagnosis. `alternate-model-high` adds one independent pass only for a concrete high-risk
+Direct repository work is the default. Planning may use one `primary-model-mid` design/requirements validator
+when a choice remains unresolved. Routine implementation uses `primary-model-low` plus deterministic evidence.
+A selected ordinary review is one `primary-model-mid` call. `primary-model-high` coordinates only cross-subsystem work
+or unresolved diagnosis. `secondary-model-high` adds one independent pass only for a concrete high-risk
 path.
 
 Delegated prompts state the outcome, closed scope, acceptance evidence, constraints, and response shape.
@@ -96,8 +96,8 @@ instruction-summary service.
 
 ## Premium evals
 
-Tier-2 waza execution is direct, explicit, and plugin-focused. Use the `model-low` binding for skill
-execution. Retain the `model-mid` binding only where behavior is subjective; use deterministic graders
+Tier-2 waza execution is direct, explicit, and plugin-focused. Use the `primary-model-low` binding for skill
+execution. Retain the `primary-model-mid` binding only where behavior is subjective; use deterministic graders
 for observable output, refusal, injection, or tool-use behavior. Premium full-repository sweeps are
 never routine validation.
 

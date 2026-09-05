@@ -54,9 +54,9 @@ Describe 'Autopilot AI-credit ledger' {
             -Model 'gpt-5.6-luna'
 
         & $recorder -PlanFolder $planFolder -UsagePath $firstUsage `
-            -Target phase-1 -Runtime container -ModelAlias model-low -ContextTier default | Out-Null
+            -Target phase-1 -Runtime container -ModelAlias primary-model-low -ContextTier default | Out-Null
         & $recorder -PlanFolder $planFolder -UsagePath $firstUsage `
-            -Target phase-1 -Runtime container -ModelAlias model-low -ContextTier default | Out-Null
+            -Target phase-1 -Runtime container -ModelAlias primary-model-low -ContextTier default | Out-Null
 
         $secondUsage = Join-Path $TestDrive 'second.json'
         New-UsageFixture -Path $secondUsage `
@@ -64,7 +64,7 @@ Describe 'Autopilot AI-credit ledger' {
             -TotalNanoAiu 1000000000 `
             -Model 'gpt-5.6-terra'
         & $recorder -PlanFolder $planFolder -UsagePath $secondUsage `
-            -Target finalization -Runtime container -ModelAlias model-mid -ContextTier default | Out-Null
+            -Target finalization -Runtime container -ModelAlias primary-model-mid -ContextTier default | Out-Null
 
         $ledger = Get-Content -LiteralPath (Join-Path $planFolder 'assets/ai-credits.json') -Raw |
             ConvertFrom-Json -Depth 20
@@ -74,7 +74,7 @@ Describe 'Autopilot AI-credit ledger' {
         @($ledger.executions).Count | Should -Be 2
         $ledger.totalNanoAiu | Should -Be 1483860000
         $ledger.totalAiCredits | Should -Be 1.48386
-        $ledger.executions[0].modelAlias | Should -BeExactly 'model-low'
+        $ledger.executions[0].modelAlias | Should -BeExactly 'primary-model-low'
         $ledger.executions[0].startedAt.ToUniversalTime().ToString('o') |
             Should -BeExactly '2026-09-05T17:28:57.3200000Z'
         $ledger.executions[0].models[0].model | Should -BeExactly 'gpt-5.6-luna'
@@ -117,7 +117,7 @@ Describe 'Autopilot AI-credit ledger' {
                     '-UsagePath', $usagePaths[$index],
                     '-Target', "phase-$($index + 1)",
                     '-Runtime', 'host',
-                    '-ModelAlias', 'model-low',
+                    '-ModelAlias', 'primary-model-low',
                     '-ContextTier', 'default'
                 )) {
                 [void]$start.ArgumentList.Add($argument)

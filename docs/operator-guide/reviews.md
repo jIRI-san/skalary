@@ -20,13 +20,13 @@ flowchart TD
     B --> C[Select concerns from concrete risk]
     C --> D[Direct scope and evidence work]
     D --> E{Delegated review needed?}
-    E -->|Yes| F[One model-mid combined review]
+    E -->|Yes| F[One primary-model-mid combined review]
     E -->|No| J[Collate completed tasks and findings]
     F --> G{Cross-subsystem issue unresolved after standard evidence?}
-    G -->|Yes| H[model-high deep escalation]
+    G -->|Yes| H[primary-model-high deep escalation]
     G -->|No| I{Named independent high-risk path?}
     H --> I
-    I -->|Yes| O[alternate-model-high independent pass]
+    I -->|Yes| O[secondary-model-high independent pass]
     I -->|No| J
     O --> J
     J --> K{All selected tasks complete?}
@@ -44,10 +44,10 @@ finalization runs one whole-plan event. Never rerun unchanged scope.
 
 | Role | Primary | Availability fallback | When |
 |---|---|---|---|
-| Routine implementation/support | `model-low` | `alternate-model-low` | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
-| Standard combined review/design judgment | `model-mid` | `alternate-model-mid` | Standalone and ordinary risk-selected work |
-| Deep escalation | `model-high` | `model-mid` | Cross-subsystem work or diagnosis still unresolved after evidence-backed standard work |
-| Independent review | `alternate-model-high` | `alternate-model-mid` | One named high-risk security, concurrency, destructive, correctness, or architecture path |
+| Routine implementation/support | `primary-model-low` | `secondary-model-low` | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard combined review/design judgment | `primary-model-mid` | `secondary-model-mid` | Standalone and ordinary risk-selected work |
+| Deep escalation | `primary-model-high` | `primary-model-mid` | Cross-subsystem work or diagnosis still unresolved after evidence-backed standard work |
+| Independent review | `secondary-model-high` | `secondary-model-mid` | One named high-risk security, concurrency, destructive, correctness, or architecture path |
 
 | Budget | Limit |
 |---|---:|

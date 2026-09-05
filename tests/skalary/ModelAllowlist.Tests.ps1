@@ -14,7 +14,7 @@ Describe 'model allowlist validator' {
         $script:validator = Join-Path $script:repoRoot 'scripts/skalary/Test-ModelAllowlist.ps1'
         $script:allowlistPath = Join-Path $script:repoRoot 'tools/model-allowlist.psd1'
         $script:modelPolicy = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
-        $script:vsIndependentModel = [string]$modelPolicy.Aliases['alternate-model-high'].VSCode
+        $script:vsIndependentModel = [string]$modelPolicy.Aliases['secondary-model-high'].VSCode
 
         $script:newFixtureRoot = {
             $path = Join-Path ([System.IO.Path]::GetTempPath()) ('model-allowlist-' + [System.Guid]::NewGuid().ToString('N'))
@@ -66,10 +66,10 @@ Describe 'model allowlist validator' {
             $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
 
             @($allowlist.Aliases.Keys).Count | Should -Be 6
-            $allowlist.Roles.Routine.Primary | Should -Be 'model-low'
-            $allowlist.Roles.Standard.Primary | Should -Be 'model-mid'
-            $allowlist.Roles.Deep.Primary | Should -Be 'model-high'
-            $allowlist.Roles.Independent.Primary | Should -Be 'alternate-model-high'
+            $allowlist.Roles.Routine.Primary | Should -Be 'primary-model-low'
+            $allowlist.Roles.Standard.Primary | Should -Be 'primary-model-mid'
+            $allowlist.Roles.Deep.Primary | Should -Be 'primary-model-high'
+            $allowlist.Roles.Independent.Primary | Should -Be 'secondary-model-high'
 
             foreach ($binding in @($allowlist.Aliases.Values)) {
                 $binding.VSCode | Should -Match '^.+\s\([^)]+\)$'
@@ -77,7 +77,7 @@ Describe 'model allowlist validator' {
             }
 
             $allowlist.AgentHosts['autopilot'] | Should -Be 'Cli'
-            $allowlist.Fallback.VSCode | Should -Be 'alternate-model-mid'
+            $allowlist.Fallback.VSCode | Should -Be 'secondary-model-mid'
         }
 
         It 'keeps independently installed alias assets generated from the canonical map' {
@@ -169,7 +169,7 @@ Describe 'model allowlist validator' {
             $root = & $script:newFixtureRoot
             try {
                 $configPath = Join-Path $root '.autopilot.json'
-                Set-Content -LiteralPath $configPath -Value '{ "model": "model-low" }' -Encoding utf8NoBOM
+                Set-Content -LiteralPath $configPath -Value '{ "model": "primary-model-low" }' -Encoding utf8NoBOM
                 (& $script:invoke -Root $root).ExitCode | Should -Be 0
 
                 # The runtime model comes from this field, not from agent frontmatter, so the
@@ -219,7 +219,7 @@ Describe 'model allowlist validator' {
     Context 'committed autopilot binding' {
         It 'test:model-allowlist-covers-autopilot-config accepts the shipped alias binding unchanged' {
             $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
-            $allowlist.Aliases['model-low'].Cli | Should -Not -BeNullOrEmpty
+            $allowlist.Aliases['primary-model-low'].Cli | Should -Not -BeNullOrEmpty
 
             foreach ($agent in @('plugins/autopilot/agents/autopilot.agent.md', '.github/agents/autopilot.agent.md')) {
                 $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $agent) -Raw
@@ -228,7 +228,7 @@ Describe 'model allowlist validator' {
 
             foreach ($config in @('plugins/autopilot/.autopilot.json.example', '.github/skills/autopilot/.autopilot.json.example')) {
                 $parsed = Get-Content -LiteralPath (Join-Path $script:repoRoot $config) -Raw | ConvertFrom-Json
-                $parsed.model | Should -Be 'model-low'
+                $parsed.model | Should -Be 'primary-model-low'
                 $allowlist.Aliases.ContainsKey($parsed.model) | Should -BeTrue
             }
         }
@@ -245,8 +245,8 @@ Describe 'model allowlist validator' {
             $script:newGuide = {
                 param(
                     [Parameter(Mandatory)][string]$Root,
-                    [string]$ReviewerModel = 'alternate-model-high',
-                    [string]$FallbackModel = 'alternate-model-mid',
+                    [string]$ReviewerModel = 'secondary-model-high',
+                    [string]$FallbackModel = 'secondary-model-mid',
                     [switch]$OmitRosterSection
                 )
 
@@ -287,7 +287,7 @@ $heading
         It 'fails when the guide fallback diverges from the allowlist fallback' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newGuide -Root $root -FallbackModel 'model-high'
+                & $script:newGuide -Root $root -FallbackModel 'primary-model-high'
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'Pro-tier fallback'
@@ -345,8 +345,8 @@ $heading
 | Role | Model | Reasoning effort | Context tier |
 |---|---|---|---|
 | Primary | `Unknown Expensive Model (copilot)` | `high` | `default` |
-| Secondary | `alternate-model-high` | `high` | `default` |
-| Backup | `alternate-model-mid` | `high` | `default` |
+| Secondary | `secondary-model-high` | `high` | `default` |
+| Backup | `secondary-model-mid` | `high` | `default` |
 '@
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1

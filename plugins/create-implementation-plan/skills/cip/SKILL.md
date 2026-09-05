@@ -21,10 +21,10 @@ unobservable fuzzy requirement.
 
 Confirm current intent first and draft directly with zero delegated calls. Resolve aliases through
 [`model-aliases.psd1`](./assets/model-aliases.psd1) before passing a host model. If a concrete unresolved
-choice spans design and acceptance criteria, use one combined `model-mid`/high
-design-and-requirements call; `alternate-model-mid` is its replacement. Use `model-high`/high only for
+choice spans design and acceptance criteria, use one combined `primary-model-mid`/high
+design-and-requirements call; `secondary-model-mid` is its replacement. Use `primary-model-high`/high only for
 cross-subsystem work still unresolved after evidence-backed standard work, and one
-`alternate-model-high`/high pass only for a named high-risk independent concern.
+`secondary-model-high`/high pass only for a named high-risk independent concern.
 No automatic Judge or unchanged-scope rerun exists: deterministic evidence is the normal judge. Every
 call, retry, and replacement counts toward a three-call ceiling; a fourth requires a new operator
 decision. Delegated prompts target 400 words and must be narrowed before 800. Use a direct risk-selected

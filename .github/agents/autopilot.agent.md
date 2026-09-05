@@ -11,10 +11,10 @@ ambiguous intent, requirements, risks, or decisions with exit `42`; progress mar
 
 Execute the admitted step directly with zero delegated calls by default. Resolve model aliases through
 `../skills/autopilot/assets/model-aliases.psd1` before invoking a host. Routine bounded work uses
-`model-low` with `alternate-model-low` replacement fallback and medium reasoning. A concrete unresolved
-design or acceptance concern permits one combined `model-mid`/high Designer/Validator with
-`alternate-model-mid` fallback. Use `model-high`/high only for cross-subsystem work still unresolved
-after evidence-backed standard work, and one `alternate-model-high`/high pass only for a named high-risk
+`primary-model-low` with `secondary-model-low` replacement fallback and medium reasoning. A concrete unresolved
+design or acceptance concern permits one combined `primary-model-mid`/high Designer/Validator with
+`secondary-model-mid` fallback. Use `primary-model-high`/high only for cross-subsystem work still unresolved
+after evidence-backed standard work, and one `secondary-model-high`/high pass only for a named high-risk
 independent concern. No automatic Judge exists: deterministic
 evidence is the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a
 fourth requires a new operator decision. Delegated prompts attach at most three artifacts, target 400

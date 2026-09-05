@@ -70,7 +70,7 @@ The plan layout and marker grammar are defined by
 | Delegated calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum, including retries and replacements | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
 | Supporting historical artifacts | At most 3 | [Direct workflow architecture](../architecture-notes/arch-direct-workflow.md) |
 | Delegated prompt | 400-word target; 800-word hard cap | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
-| Model ladder | `model-low` routine; `model-mid` standard; `model-high` deep; `alternate-model-high` independent; committed context is `default` | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Model ladder | `primary-model-low` routine; `primary-model-mid` standard; `primary-model-high` deep; `secondary-model-high` independent; committed context is `default` | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
 | Observable stuck recovery | 2 no-progress checks, 1 redirect, at most 1 replacement | [`/ci` skill](../../plugins/continue-implementation/skills/ci/SKILL.md) |
 | Non-terminal review | Only on concrete risk; 1 event plus at most 1 changed-scope replacement | [Review design](../design-notes/architecture/review-reporting.design.md) |
 | Terminal review | Exactly 1 whole-plan review event | [Direct workflow contract](../architecture-notes/arch-direct-workflow.md) |

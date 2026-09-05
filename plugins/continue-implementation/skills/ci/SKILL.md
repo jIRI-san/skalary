@@ -29,10 +29,10 @@ resolution. Do not select `NextChild` or fall through to ordinary plan handling.
 preserve its exact exit status and outcome.
 
 Work directly with zero delegated calls. Resolve aliases through
-[`model-aliases.psd1`](./assets/model-aliases.psd1). Routine work uses `model-low`/medium with
-`alternate-model-low` replacement. One unresolved design/acceptance choice permits a combined
-`model-mid`/high Designer/Validator with `alternate-model-mid` replacement. Use `model-high`/high only
-after unresolved standard work, and one `alternate-model-high`/high pass only for a named high-risk
+[`model-aliases.psd1`](./assets/model-aliases.psd1). Routine work uses `primary-model-low`/medium with
+`secondary-model-low` replacement. One unresolved design/acceptance choice permits a combined
+`primary-model-mid`/high Designer/Validator with `secondary-model-mid` replacement. Use `primary-model-high`/high only
+after unresolved standard work, and one `secondary-model-high`/high pass only for a named high-risk
 concern. No automatic Judge exists: deterministic evidence is
 the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a fourth
 requires a new operator decision. For observable background work, compare tool output, file/commit
@@ -51,9 +51,9 @@ Supply the active in-memory review result, current source, and requested scope; 
 Markdown is not authority. Keep completed/refused/blocked/stuck/interrupted outcomes distinct. Exit `0`
 means completed, operator-action stops retain `42`, and other failures are nonzero.
 
-If a concrete changed-scope risk exists, non-terminal review may select one `model-mid`/high event and at most
+If a concrete changed-scope risk exists, non-terminal review may select one `primary-model-mid`/high event and at most
 one corrective replacement. The terminal phase skips post-phase review; finalization runs one
-`model-mid`/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
+`primary-model-mid`/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
 unresolved/incomplete review stops non-clean.
 During finalization, invoke `.github/skills/autopilot/assets/design-note-compaction.md` once when
 `Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`; other docs do not trigger it.

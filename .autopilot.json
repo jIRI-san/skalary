@@ -4,7 +4,7 @@
   "copilotAuth": "pat",
   "gitProvider": "github",
   "gitAuth": "pat-shared",
-  "model": "model-low",
+  "model": "primary-model-low",
   "context": "default",
   "reasoningEffort": "medium",
   "git": {

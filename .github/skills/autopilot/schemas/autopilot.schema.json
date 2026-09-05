@@ -44,7 +44,7 @@
     },
     "model": {
       "type": "string",
-      "pattern": "^(?:model|alternate-model)-(?:low|mid|high)$",
+      "pattern": "^(?:primary-model|secondary-model)-(?:low|mid|high)$",
       "description": "Stable model alias resolved through the installed model-aliases.psd1 asset."
     },
     "context": {

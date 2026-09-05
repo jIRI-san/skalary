@@ -9,10 +9,10 @@ globs:
 # Direct review reporting
 
 CR/DR select concerns from concrete scope risk and perform direct evidence work first. One combined
-`model-mid` call is the ordinary delegated review, with `alternate-model-mid` as its replacement.
-`model-high` is reserved for cross-subsystem diagnosis unresolved after standard evidence.
-`alternate-model-high` adds one independent pass only for a named high-risk path, with
-`alternate-model-mid` as its replacement. Direct work
+`primary-model-mid` call is the ordinary delegated review, with `secondary-model-mid` as its replacement.
+`primary-model-high` is reserved for cross-subsystem diagnosis unresolved after standard evidence.
+`secondary-model-high` adds one independent pass only for a named high-risk path, with
+`secondary-model-mid` as its replacement. Direct work
 uses zero calls; one unresolved concern normally uses one; three is the ceiling including retries and
 replacements, and a fourth requires a new operator decision.
 

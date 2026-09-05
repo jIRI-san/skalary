@@ -35,15 +35,15 @@ Describe 'AI credit budget contracts' {
         $joined = $policy -join "`n"
 
         foreach ($model in @(
-                'model-low', 'model-mid', 'model-high',
-                'alternate-model-low', 'alternate-model-mid', 'alternate-model-high'
+                'primary-model-low', 'primary-model-mid', 'primary-model-high',
+                'secondary-model-low', 'secondary-model-mid', 'secondary-model-high'
             )) {
             $joined | Should -Match ([regex]::Escape($model))
         }
-        $joined | Should -Match 'model-low`?/medium'
-        $joined | Should -Match 'model-mid`?/high'
-        $joined | Should -Match 'model-high`?/high'
-        $joined | Should -Match 'alternate-model-high`?/high'
+        $joined | Should -Match 'primary-model-low`?/medium'
+        $joined | Should -Match 'primary-model-mid`?/high'
+        $joined | Should -Match 'primary-model-high`?/high'
+        $joined | Should -Match 'secondary-model-high`?/high'
     }
 
     It 'test:AiCreditBudget.DelegationLimits defaults direct and removes the automatic Judge' {
@@ -63,8 +63,8 @@ Describe 'AI credit budget contracts' {
                 'plugins/design-review/skills/dr/SKILL.md'
             )) {
             $content = Read-RepoText $path
-            $content | Should -Match '(?i)(?:One combined|Standard delegation is one)\s+`?model-mid`?/high\s+review'
-            $content | Should -Match '(?i)one\s+`?alternate-model-high`?/high\s+independent pass only for\s+a\s+named'
+            $content | Should -Match '(?i)(?:One combined|Standard delegation is one)\s+`?primary-model-mid`?/high\s+review'
+            $content | Should -Match '(?i)one\s+`?secondary-model-high`?/high\s+independent pass only for\s+a\s+named'
             $content | Should -Match 'security,\s*concurrency,\s*destructive,\s*correctness,\s*or architecture risk'
             $content | Should -Match 'No\s+automatic Judge,\s*model panel,\s*or unchanged-scope rerun'
         }

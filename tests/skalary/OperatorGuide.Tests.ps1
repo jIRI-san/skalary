@@ -132,8 +132,8 @@ Describe 'SimpleWorkflow.OperatorGuide' {
         }
         $reviews = $script:content['reviews.md']
         foreach ($model in @(
-                'model-low', 'model-mid', 'model-high',
-                'alternate-model-low', 'alternate-model-mid', 'alternate-model-high'
+                'primary-model-low', 'primary-model-mid', 'primary-model-high',
+                'secondary-model-low', 'secondary-model-mid', 'secondary-model-high'
             )) {
             $reviews | Should -Match ([regex]::Escape($model))
         }

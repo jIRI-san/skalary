@@ -39,9 +39,9 @@ Staged confirmation-marker drift is refused; checklist, stage, and worktree mark
 `Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean exact-scope
 review. Persisted reports are advisory.
 
-Ordinary work is direct and uses no delegated call. One combined `model-mid` Designer/Validator is
-available for a concrete unresolved concern; deterministic evidence is the normal Judge. `model-high`
-is a deep escalation only after unresolved standard evidence, and `alternate-model-high` is one
+Ordinary work is direct and uses no delegated call. One combined `primary-model-mid` Designer/Validator is
+available for a concrete unresolved concern; deterministic evidence is the normal Judge. `primary-model-high`
+is a deep escalation only after unresolved standard evidence, and `secondary-model-high` is one
 independent pass for a named high-risk path.
 Calls, retries, and replacements share a three-call ceiling; a fourth requires a new operator decision.
 Background work gets two evidence checks, one redirect, and one replacement; synchronous calls are host

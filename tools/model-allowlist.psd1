@@ -10,27 +10,27 @@
     ManifestVersion = 2
 
     Aliases = @{
-        'model-low' = @{
+        'primary-model-low' = @{
             Cli    = 'gpt-5.6-luna'
             VSCode = 'GPT-5.6 Luna (copilot)'
         }
-        'model-mid' = @{
+        'primary-model-mid' = @{
             Cli    = 'gpt-5.6-terra'
             VSCode = 'GPT-5.6 Terra (copilot)'
         }
-        'model-high' = @{
+        'primary-model-high' = @{
             Cli    = 'gpt-5.6-sol'
             VSCode = 'GPT-5.6 Sol (copilot)'
         }
-        'alternate-model-low' = @{
+        'secondary-model-low' = @{
             Cli    = 'gpt-5-mini'
             VSCode = 'GPT-5 mini (copilot)'
         }
-        'alternate-model-mid' = @{
+        'secondary-model-mid' = @{
             Cli    = 'claude-sonnet-5'
             VSCode = 'Claude Sonnet 5 (copilot)'
         }
-        'alternate-model-high' = @{
+        'secondary-model-high' = @{
             Cli    = 'claude-opus-5'
             VSCode = 'Claude Opus 5 (copilot)'
         }
@@ -38,27 +38,27 @@
 
     Roles = @{
         Routine = @{
-            Primary         = 'model-low'
-            Fallback        = 'alternate-model-low'
+            Primary         = 'primary-model-low'
+            Fallback        = 'secondary-model-low'
             ReasoningEffort = 'medium'
         }
         Standard = @{
-            Primary         = 'model-mid'
-            Fallback        = 'alternate-model-mid'
+            Primary         = 'primary-model-mid'
+            Fallback        = 'secondary-model-mid'
             ReasoningEffort = 'high'
         }
         Deep = @{
-            Primary         = 'model-high'
-            Fallback        = 'model-mid'
+            Primary         = 'primary-model-high'
+            Fallback        = 'primary-model-mid'
             ReasoningEffort = 'high'
         }
         Independent = @{
-            Primary         = 'alternate-model-high'
-            Fallback        = 'alternate-model-mid'
+            Primary         = 'secondary-model-high'
+            Fallback        = 'secondary-model-mid'
             ReasoningEffort = 'high'
         }
-        WazaExecutor = 'model-low'
-        WazaJudge    = 'model-mid'
+        WazaExecutor = 'primary-model-low'
+        WazaJudge    = 'primary-model-mid'
     }
 
     # Closed, committed agent -> host map. Host is NOT inferable from folder layout:
@@ -89,8 +89,8 @@
 
     # Explicit replacement alias used when the selected model is unavailable.
     Fallback = @{
-        VSCode = 'alternate-model-mid'
-        Cli    = 'alternate-model-mid'
+        VSCode = 'secondary-model-mid'
+        Cli    = 'secondary-model-mid'
     }
 
     # Vendors/models that must not appear anywhere in an agent file — not in

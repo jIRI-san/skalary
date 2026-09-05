@@ -15,10 +15,10 @@
 | AI-credit budget and routing policy | `docs/design-notes/explorations/agent-cost-optimization.design.md`; 180K operating, 20K reserve, dated official pricing and workflow links |
 | Model aliases and roles | `tools/model-allowlist.psd1`; six stable primary/alternate low/mid/high aliases, host bindings, role assignments, fallbacks, and reasoning effort |
 | Generated model bindings | `scripts/skalary/Sync-ModelBindings.ps1`; copied per-skill maps and concrete waza executor/judge identifiers |
-| Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; `model-low`/medium/default shipped, `long_context` opt-in |
+| Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; `primary-model-low`/medium/default shipped, `long_context` opt-in |
 | Workflow model roles | Canonical `autopilot`, `cep`, `cip`, `ci`, `cr`, and `dr` skills use aliases only |
 | Review agent bindings | `plugins/{code-review,design-review}/agents/*.agent.md` plus alias map; host-qualified names remain runtime-only |
-| Eval model bindings | Generated `plugins/*/evals/waza/eval.yaml` and task pins; `model-low` executor, `model-mid` judge only for subjective tasks |
+| Eval model bindings | Generated `plugins/*/evals/waza/eval.yaml` and task pins; `primary-model-low` executor, `primary-model-mid` judge only for subjective tasks |
 | Model consumers and validation | `.github/**` dogfood copies, `tests/skalary/AiCreditBudget.Tests.ps1`, `tests/skalary/ModelAllowlist.Tests.ps1`, and `tests/evals/WazaCreditPolicy.Tests.ps1` |
 | Local review policy | Optional `docs/review-standards.md` |
 | Terminal approvals | `.vscode/settings.json` through `scripts/skalary/Set-ScriptApproval.ps1` |

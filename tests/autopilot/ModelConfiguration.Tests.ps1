@@ -78,7 +78,7 @@ Describe 'Autopilot model configuration' {
 
     It 'test:AiCreditBudget.AutopilotDefaults uses the low alias, medium effort, and default context' {
         foreach ($config in @($repoConfig, $example)) {
-            $config.model | Should -Be 'model-low'
+            $config.model | Should -Be 'primary-model-low'
             $config.context | Should -Be 'default'
             $config.reasoningEffort | Should -Be 'medium'
         }
@@ -95,7 +95,7 @@ Describe 'Autopilot model configuration' {
 
     It 'rejects model aliases outside the canonical map before runtime dispatch' {
         @($script:modelPolicy.Aliases.Keys).Count | Should -Be 6
-        $schema.properties.model.pattern | Should -Be '^(?:model|alternate-model)-(?:low|mid|high)$'
+        $schema.properties.model.pattern | Should -Be '^(?:primary-model|secondary-model)-(?:low|mid|high)$'
         $invalidConfig = Get-Content -LiteralPath (
             Join-Path $pluginRoot '.autopilot.json.example'
         ) -Raw | ConvertFrom-Json

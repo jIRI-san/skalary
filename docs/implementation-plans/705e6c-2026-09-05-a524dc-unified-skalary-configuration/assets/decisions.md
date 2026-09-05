@@ -19,7 +19,7 @@ dependency outputs.
 - **Two audience levels.** Normal project/operator settings are guided; manifests, allowlists, eval pins,
   and toolchains are clearly labeled advanced maintainer policy.
 - **Model routing is a first-class normal category.** Show and edit the stable
-  `model-low|mid|high` and `alternate-model-low|mid|high` host bindings, role assignments, reasoning
+  `primary-model-low|mid|high` and `secondary-model-low|mid|high` host bindings, role assignments, reasoning
   efforts, autopilot defaults, CR/DR routing, and waza executor/judge bindings. Context is separate:
   shipped settings use `default`, while `long_context` remains explicit opt-in.
 - **One alias proposal updates one authority.** The façade edits `tools/model-allowlist.psd1`, then runs

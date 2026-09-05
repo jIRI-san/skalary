@@ -122,12 +122,12 @@ $deniedPatterns = @($allowlist.DeniedPatterns)
 # Manifest self-consistency: all six stable aliases have both host bindings and fallbacks
 # point to aliases rather than duplicating concrete provider names.
 $requiredAliases = @(
-    'model-low'
-    'model-mid'
-    'model-high'
-    'alternate-model-low'
-    'alternate-model-mid'
-    'alternate-model-high'
+    'primary-model-low'
+    'primary-model-mid'
+    'primary-model-high'
+    'secondary-model-low'
+    'secondary-model-mid'
+    'secondary-model-high'
 )
 foreach ($alias in $requiredAliases) {
     if (-not $aliases.ContainsKey($alias)) {
