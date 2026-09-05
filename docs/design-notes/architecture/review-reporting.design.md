@@ -8,9 +8,12 @@ globs:
 
 # Direct review reporting
 
-CR/DR select concerns from concrete scope risk. Routine review uses one combined GPT-5.6 Sol call;
-Claude Opus 5 adds independence only for terminal or concrete high-risk review. Two calls are normal,
-five the maximum including replacements.
+CR/DR select concerns from concrete scope risk and perform direct evidence work first. One combined
+GPT-5.6 Terra call is the ordinary delegated review, with Claude Sonnet 5 as its replacement. GPT-5.6
+Sol is reserved for cross-subsystem diagnosis unresolved after Terra evidence. Claude Opus 5 adds one
+independent pass only for a named high-risk path, with Claude Sonnet 5 as its replacement. Direct work
+uses zero calls; one unresolved concern normally uses one; three is the ceiling including retries and
+replacements, and a fourth requires a new operator decision.
 
 Complex predefined choices remain host-equivalent: context, example, benefits, pros/cons,
 recommendation/default, 1–10 effort/complexity, and Mermaid only when structure matters. Free-form

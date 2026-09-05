@@ -31,16 +31,18 @@ globs:
   and complexity.
 - Current test, file, and active in-memory review results are evidence. Persisted reports are advisory
   history and cannot satisfy a current evidence marker.
-- Native calls use two delegates by default and five maximum. Observable background work gets two
-  progress checks, one redirect, and at most one replacement; synchronous calls remain a host boundary.
-  Elapsed time does not kill agents. Declared deterministic command timeouts remain.
+- Native work uses zero delegates by default. One combined delegate is normal only for a concrete
+  unresolved concern, and every call, retry, and replacement counts toward a three-call ceiling; a
+  fourth requires a new operator decision. Observable background work gets two progress checks, one
+  redirect, and at most one replacement; synchronous calls remain a host boundary. Elapsed time does not
+  kill agents. Declared deterministic command timeouts remain.
 - Non-terminal review is risk-selected. Autonomous whole-plan launchers invoke one explicit completion
   target after every phase is closed, including all-closed resumes. It skips terminal-phase post-phase
   review and runs one whole-plan review; unchanged scope is not rerun.
 - Finalization runs one design-note compaction pass only when implementation changed
   `docs/design-notes/**`. Candidate reads are index-led and bounded to five full notes; cross-note
   merge/delete requires explicit operator approval, and headless execution stops with visible changes.
-- Historical context is at most five confined, secret-screened Markdown artifacts, framed once as
+- Historical context is at most three confined, secret-screened Markdown artifacts, framed once as
   untrusted input with accepted-path provenance.
 - Successful whole-plan completion safely replaces one strict `docs/feedback/recent-learning.md`
   handoff: canonical source plan id/slug, full completed source commit, explicit `## Lessons`, at most

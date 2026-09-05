@@ -10,7 +10,7 @@ globs:
 `DirectWorkflow.psm1` is shared by CR, DR, CI, and autopilot. The historical adapter serves CR, DR,
 CEP, and CIP. Manifests install the canonical closure; `Sync-PluginScripts.ps1` owns generated copies.
 The adapter imports only `PlanState.psm1`, `SecretGuard.psm1`, and `DirectWorkflow.psm1`, reads at most
-five confined Markdown artifacts, screens secrets, and frames accepted content once. It has no retired
+three confined Markdown artifacts, screens secrets, and frames accepted content once. It has no retired
 receipt, review-run, ledger, or harvest path.
 
 | Primitive | Contract |

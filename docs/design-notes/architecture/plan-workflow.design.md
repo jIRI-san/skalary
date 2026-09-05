@@ -25,7 +25,7 @@ Code, quotations, analyzed examples, grammar, and already-observable prose are e
 
 Plans retain six-hex identity, assets, stage markers, dependency syntax, typed `test:`/`file:`/`review:`
 markers, focused validation, and script-owned mutation. History is limited to explicit IDs or the
-filtered index and five confined Markdown artifacts.
+filtered index and three confined Markdown artifacts.
 
 ## Execution
 
@@ -35,11 +35,14 @@ Staged confirmation-marker drift is refused; checklist, stage, and worktree mark
 `Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean exact-scope
 review. Persisted reports are advisory.
 
-Ordinary work may use a combined Designer/Validator and normally a Judge: two calls by default, five
-maximum. Background work gets two evidence checks, one redirect, and one replacement; synchronous
-calls are host boundaries, elapsed time is not a kill signal, and deterministic command timeouts stay.
-Review is risk-selected; the terminal phase skips phase review and runs one whole-plan review.
-Incomplete, exhausted, stuck, or unresolved work stops visibly.
+Ordinary work is direct and uses no delegated call. One combined Terra Designer/Validator is available
+for a concrete unresolved concern; deterministic evidence is the normal Judge. Sol is a deep escalation
+only after unresolved Terra evidence, and Opus is one independent pass for a named high-risk path.
+Calls, retries, and replacements share a three-call ceiling; a fourth requires a new operator decision.
+Background work gets two evidence checks, one redirect, and one replacement; synchronous calls are host
+boundaries, elapsed time is not a kill signal, and deterministic command timeouts stay. Review is
+risk-selected; the terminal phase skips phase review and runs one whole-plan review. Incomplete,
+exhausted, stuck, or unresolved work stops visibly.
 
 Finalization runs compaction exactly once only if `docs/design-notes/**` changed. It inventories the
 active index, reads batches of at most five, preserves unique decisions/contracts/constraints/
