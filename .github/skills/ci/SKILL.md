@@ -37,13 +37,13 @@ the normal judge. Every call, retry, and replacement counts toward a three-call 
 requires a new operator decision. For observable background work, compare tool output, file/commit
 state, completed subtasks, and blockers across two checks; redirect once, replace once within budget,
 then stop. Never kill an agent for elapsed time. Retain deterministic build/test/command timeouts as
-evidence.
+evidence. Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before
+800.
 
-If admission, runtime, review, or recovery needs a complex predefined operator choice, provide current
-context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort 1-10, and
-complexity 1-10; add Mermaid only when relationships or sequencing affect the decision. Pass the same
-ordered list to `vscode_askQuestions` in VS Code or render it numbered in Copilot CLI. Ask free-form
-input as one focused question at a time; keep trivial yes/no prompts concise.
+For a complex predefined operator choice, provide context, example, benefits, pros/cons,
+recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when sequence matters. Pass
+the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
+input one question at a time.
 
 Run focused validation and call `Invoke-DirectEvidence` for only `test:`, `file:`, and `review:`.
 Supply the active in-memory review result, full current source, and exact requested scope; persisted
@@ -54,16 +54,10 @@ If a concrete changed-scope risk exists, non-terminal review may select one Terr
 one corrective replacement. The terminal phase skips post-phase review; finalization runs one
 Terra/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
 unresolved/incomplete review stops non-clean.
-During finalization, invoke the shared
-`.github/skills/autopilot/assets/design-note-compaction.md` protocol exactly once when the bundled
-`.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1 -RepoRoot <canonical-repo-root>`
-reports edited `docs/design-notes/**`.
-Do not invoke it for `docs/operator-guide/**` or other changes alone.
-At successful whole-plan completion, invoke installed
-`.github/skills/ci/scripts/Write-RecentLearning.ps1` against the full completed source commit. Supply
-zero to ten concise lessons with one repo-relative source-commit citation each. The helper replaces
-`docs/feedback/recent-learning.md`; never append or create auxiliary history, recovery, or lifecycle
-state. Commit that replacement as part of completion.
+During finalization, invoke `.github/skills/autopilot/assets/design-note-compaction.md` once when
+`Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`; other docs do not trigger it.
+At whole-plan completion, run `Write-RecentLearning.ps1` against the source commit with zero to ten
+repo-cited lessons. Commit its replacement of `docs/feedback/recent-learning.md`; create no extra state.
 
 Before interactive archival, offer installed `/pfb` and follow its skill when accepted. A decline,
 unanswered offer, or absent skill skips it silently: feedback is never blocking, and never substitutes

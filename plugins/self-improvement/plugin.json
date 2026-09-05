@@ -56,6 +56,10 @@
       "dest": "skills/si/assets/harvest-guide.md"
     },
     {
+      "src": "skills/si/assets/lifecycle-guide.md",
+      "dest": "skills/si/assets/lifecycle-guide.md"
+    },
+    {
       "src": "skills/si/assets/propose-guide.md",
       "dest": "skills/si/assets/propose-guide.md"
     },

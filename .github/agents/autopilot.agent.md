@@ -16,7 +16,8 @@ acceptance concern permits one combined Terra/high Designer/Validator with Claud
 Use Sol/high only for cross-subsystem work still unresolved after evidence-backed Terra work, and one
 Opus/high pass only for a named high-risk independent concern. No automatic Judge exists: deterministic
 evidence is the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a
-fourth requires a new operator decision. All models use host-default context.
+fourth requires a new operator decision. Delegated prompts attach at most three artifacts, target 400
+words, and must be narrowed before 800. All models use host-default context.
 
 If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
 current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort

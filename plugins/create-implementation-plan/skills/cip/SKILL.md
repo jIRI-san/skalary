@@ -10,7 +10,7 @@ context: fork
 # Create Implementation Plan
 
 Resolve/scaffold the plan with existing deterministic scripts. Discover prior work only from a filtered
-index or explicit canonical IDs, then load at most five selected current Markdown artifacts through
+index or explicit canonical IDs, then load at most three selected current Markdown artifacts through
 `.github/skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1`. Keep confinement, secret
 screening, accepted-only provenance, untrusted framing, and current intent/contracts above history.
 
@@ -25,7 +25,8 @@ Claude Sonnet 5 is its replacement fallback. Use Sol/high only for cross-subsyst
 after evidence-backed Terra work, and one Opus/high pass only for a named high-risk independent concern.
 No automatic Judge or unchanged-scope rerun exists: deterministic evidence is the normal judge. Every
 call, retry, and replacement counts toward a three-call ceiling; a fourth requires a new operator
-decision. Use a direct risk-selected DR only for concrete unresolved design risk; no scheduler or fixed
+decision. Delegated prompts target 400 words and must be narrowed before 800. Use a direct risk-selected
+DR only for concrete unresolved design risk; no scheduler or fixed
 matrix. For observable background calls, two no-progress checks permit one same-agent redirect and at
 most one replacement. Elapsed agent time never cancels work; declared deterministic command timeouts
 remain.

@@ -20,7 +20,8 @@ handled by the agent. Preserve recoverable Git and Markdown progress for every n
 Autonomous execution defaults to zero delegated calls and uses the cheap-first model ladder, direct
 evidence, risk-selected non-terminal review, one terminal Terra review, and the three-call ceiling
 described by the autopilot agent. It has no automatic Judge and does not persist auxiliary review or
-learning lifecycle state. If the run needs a complex operator
+learning lifecycle state. Delegated prompts attach at most three artifacts, target 400 words, and must
+be narrowed before 800. If the run needs a complex operator
 decision, the agent stops with `42` and returns the
 host-equivalent context, examples, benefits, pros/cons, recommendation/default, effort, complexity, and
 relationship/sequence diagram defined there; free-form input is one focused question at a time.
