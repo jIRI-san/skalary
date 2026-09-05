@@ -8,8 +8,10 @@ globs:
 
 # Self-improvement
 
-`/pfb` remains an optional non-blocking operator feedback flow. Its queue and write-scope guard are
-unchanged.
+`/pfb` remains an optional non-blocking operator feedback flow. Interactive `/ci` offers it before
+archival; headless autopilot follows the shipped queue guide instead of prompting. Missing integration,
+decline, or queue failure never gates completion, and no agent invents an operator verdict. Its queue
+and write-scope guard are unchanged.
 
 `/si` ingests the pinned `docs/feedback/recent-learning.md` handoff produced by `/ci` or autopilot.
 The compatibility-named `Get-SiHarvest.ps1` is the bounded reader for that single file: it distinguishes

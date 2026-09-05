@@ -61,3 +61,7 @@ At successful whole-plan completion, invoke installed
 zero to ten concise lessons with one repo-relative source-commit citation each. The helper replaces
 `docs/feedback/recent-learning.md`; never append or create auxiliary history, recovery, or lifecycle
 state. Commit that replacement as part of completion.
+
+Before interactive archival, offer installed `/pfb` and follow its skill when accepted. A decline,
+unanswered offer, or absent skill skips it silently: feedback is never blocking, and never substitutes
+for a failed evidence marker. Headless autopilot queues the question instead of prompting.

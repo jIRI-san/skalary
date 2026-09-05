@@ -15,7 +15,7 @@ receipt, review-run, ledger, or harvest path.
 
 | Primitive | Contract |
 |---|---|
-| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker and compares intent, requirements, risks, and decisions through Git clean filters. |
+| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions through Git clean filters. |
 | `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
 | `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. |
 | `Resolve-DirectReviewStandards` | Parses optional bounded local Markdown against caller-supplied base rules. |

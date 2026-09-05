@@ -42,8 +42,9 @@ auth, explicit push/staging, and offline rebundle behavior remain launcher respo
    dependency-blocked, or not confirmed is not admitted.
 3. Before **any** checklist, branch, worktree, log, or source mutation, run
    `Test-PlanCriteriaBaseline`.
-4. It finds the unique Git commit that introduced the current confirmation marker and compares
-   `intent.md`, `requirements.md`, `risks.md`, and `decisions.md` through Git clean filters.
+4. It finds the unique Git commit that introduced the current confirmation marker and compares the Git
+   index and worktree versions of `intent.md`, `requirements.md`, `risks.md`, and `decisions.md`
+   through Git clean filters. Staged confirmation-marker drift is also refused.
 
 Missing, uncommitted, ambiguous, or drifted criteria are refused and returned to `/cip`. Checklist,
 stage, and worktree markers in `plan.md` remain mutable so work can resume.
@@ -133,7 +134,10 @@ interrupted work has readable Git/Markdown progress.
    [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) using
    [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1): zero to ten concise
    lessons, each with a repo-relative source-commit citation, maximum 16 KiB UTF-8.
-7. Commit the handoff. The completed plan can then move to the repository's archived-plan area when the
+7. If `/pfb` is installed, interactive `/ci` offers it before archival; headless autopilot queues its
+   question instead of prompting. Missing, declined, unanswered, or failed feedback never blocks
+   completion and never replaces evidence.
+8. Commit the handoff. The completed plan can then move to the repository's archived-plan area when the
    active completion flow directs it.
 
 ## Outcomes and exit codes

@@ -60,11 +60,8 @@ autopilot_plan_all_steps_complete() {
 
 autopilot_target_owns_finalization() {
     local target="$1"
-    local final_phase_number="$2"
 
-    [ "${target}" = "completion-only" ] ||
-        [ "${target}" = "phase:${final_phase_number}" ] ||
-        [ "${target}" = "phase-completion:${final_phase_number}" ]
+    [ "${target}" = "completion-only" ]
 }
 
 autopilot_branch_has_published_pr() {
@@ -411,15 +408,10 @@ autopilot_execution_targets() {
     local plan_path="$1"
     local mode="$2"
     local phase_number
-    local final_phase_number=""
-    local final_phase_selected=0
     local -a phase_numbers=()
     local -a incomplete_phases=()
 
     mapfile -t phase_numbers < <(autopilot_phase_numbers "${plan_path}")
-    if [ "${#phase_numbers[@]}" -gt 0 ]; then
-        final_phase_number="${phase_numbers[${#phase_numbers[@]} - 1]}"
-    fi
     for phase_number in "${phase_numbers[@]}"; do
         if autopilot_phase_has_unsupported_steps "${plan_path}" "${phase_number}"; then
             printf 'ERROR: phase %s contains an unsupported step state.\n' "${phase_number}" >&2
@@ -443,14 +435,11 @@ autopilot_execution_targets() {
     for phase_number in "${phase_numbers[@]}"; do
         if autopilot_phase_has_incomplete_steps "${plan_path}" "${phase_number}"; then
             printf 'phase:%s\n' "${phase_number}"
-            if [ "${phase_number}" = "${final_phase_number}" ]; then
-                final_phase_selected=1
-            fi
             continue
         fi
     done
 
-    if [ "${mode}" = "whole-plan" ] && [ "${final_phase_selected}" -ne 1 ]; then
+    if [ "${mode}" = "whole-plan" ]; then
         printf '%s\n' 'completion-only'
     fi
 }

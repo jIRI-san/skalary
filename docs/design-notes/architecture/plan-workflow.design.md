@@ -30,9 +30,10 @@ filtered index and five confined Markdown artifacts.
 ## Execution
 
 Before mutation `/ci` and every autopilot mode run `Test-PlanCriteriaBaseline`, locating the unique
-confirmation commit and byte-comparing immutable criteria; checklist, stage, and worktree markers may
-change. `Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean
-exact-scope review. Persisted reports are advisory.
+confirmation commit and comparing both index and worktree immutable criteria through Git clean filters.
+Staged confirmation-marker drift is refused; checklist, stage, and worktree markers may change.
+`Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean exact-scope
+review. Persisted reports are advisory.
 
 Ordinary work may use a combined Designer/Validator and normally a Judge: two calls by default, five
 maximum. Background work gets two evidence checks, one redirect, and one replacement; synchronous

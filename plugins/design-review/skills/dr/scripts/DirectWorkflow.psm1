@@ -158,6 +158,16 @@ function Test-PlanCriteriaBaseline {
     if ($headMarker -cne $marker) {
         throw "Plan '$($resolved.Plan.Id)' has an uncommitted planning-confirmed marker."
     }
+    $indexPlan = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+        'show', ":$relativePlanPath"
+    ) -AllowFailure
+    if ($indexPlan.ExitCode -ne 0) {
+        throw "Plan '$($resolved.Plan.Id)' is missing from the Git index."
+    }
+    $indexMarker = (Get-PlanHeaderMarkers -Content ($indexPlan.Output -join "`n")).PlanningConfirmed
+    if ($indexMarker -cne $marker) {
+        throw "Plan '$($resolved.Plan.Id)' has a staged planning-confirmed marker change."
+    }
 
     $needle = "<!-- planning-confirmed: $marker -->"
     $history = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
@@ -201,6 +211,15 @@ function Test-PlanCriteriaBaseline {
         ).Replace('\', '/')
         $null = Read-GitBlobBytes -RepoRoot $resolved.RepoRoot `
             -Revision $candidates[0] -RelativePath $relativePath
+        $indexComparison = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+            'diff', '--cached', '--quiet', '--no-ext-diff', $candidates[0], '--', $relativePath
+        ) -AllowFailure
+        if ($indexComparison.ExitCode -eq 1) {
+            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from staged Git-filtered baseline commit '$($candidates[0])'. Return to /cip."
+        }
+        if ($indexComparison.ExitCode -ne 0) {
+            throw "Unable to compare staged confirmed $($entry.Key.ToLowerInvariant()) with baseline commit '$($candidates[0])'."
+        }
         $comparison = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
             'diff', '--quiet', '--no-ext-diff', $candidates[0], '--', $relativePath
         ) -AllowFailure

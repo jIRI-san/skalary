@@ -214,6 +214,9 @@ Describe 'Dormant direct workflow core' {
         )
         $plan = $plan.Replace('- [ ] 1.1 Fixture task `S`', '- [x] 1.1 Fixture task `S`')
         Set-Content -LiteralPath $fixture.PlanPath -Value $plan -Encoding utf8NoBOM -NoNewline
+        Invoke-DirectFixtureGit -Root $fixture.Root -Argument @(
+            'add', '--', 'docs/**/plan.md'
+        ) | Out-Null
 
         (Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
                 -PlanReference $fixture.PlanReference).Status | Should -BeExactly 'ready'
@@ -234,6 +237,26 @@ Describe 'Dormant direct workflow core' {
         }
     }
 
+    It 'refuses each protected criteria mutation staged behind baseline checkout bytes' {
+        foreach ($name in @('intent', 'requirements', 'risks', 'decisions')) {
+            $fixture = New-DirectWorkflowFixture -Id (
+                @{ intent = 'a1c111'; requirements = 'a1c112'; risks = 'a1c113'; decisions = 'a1c114' }[$name]
+            )
+            $path = Join-Path $fixture.AssetsDir "$name.md"
+            $baseline = [System.IO.File]::ReadAllBytes($path)
+            Add-Content -LiteralPath $path -Value "`nmutated in index" `
+                -Encoding utf8NoBOM -NoNewline
+            Invoke-DirectFixtureGit -Root $fixture.Root -Argument @('add', '--', $path) |
+                Out-Null
+            [System.IO.File]::WriteAllBytes($path, $baseline)
+
+            {
+                Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+                    -PlanReference $fixture.PlanReference
+            } | Should -Throw "*Confirmed $name differs from staged Git-filtered baseline*"
+        }
+    }
+
     It 'accepts checkout-only CRLF conversion while still protecting canonical criteria' {
         $fixture = New-DirectWorkflowFixture -Id 'a1c105'
         foreach ($name in @('intent', 'requirements', 'risks', 'decisions')) {
@@ -241,6 +264,8 @@ Describe 'Dormant direct workflow core' {
             $content = [System.IO.File]::ReadAllText($path).Replace("`n", "`r`n")
             [System.IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
         }
+        Invoke-DirectFixtureGit -Root $fixture.Root -Argument @('add', '--', 'docs/**/assets/*.md') |
+            Out-Null
         (Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
                 -PlanReference $fixture.PlanReference).Status | Should -BeExactly 'ready'
 
@@ -250,6 +275,28 @@ Describe 'Dormant direct workflow core' {
             Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
                 -PlanReference $fixture.PlanReference
         } | Should -Throw '*Confirmed intent differs from Git-filtered baseline*'
+    }
+
+    It 'refuses a staged confirmation marker hidden behind baseline checkout bytes' {
+        $fixture = New-DirectWorkflowFixture -Id 'a1c106'
+        $baseline = [System.IO.File]::ReadAllBytes($fixture.PlanPath)
+        $staged = [System.IO.File]::ReadAllText($fixture.PlanPath).Replace(
+            $script:marker,
+            ('sha256:' + ('b' * 64))
+        )
+        [System.IO.File]::WriteAllText(
+            $fixture.PlanPath,
+            $staged,
+            [Text.UTF8Encoding]::new($false)
+        )
+        Invoke-DirectFixtureGit -Root $fixture.Root -Argument @('add', '--', $fixture.PlanPath) |
+            Out-Null
+        [System.IO.File]::WriteAllBytes($fixture.PlanPath, $baseline)
+
+        {
+            Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference
+        } | Should -Throw '*staged planning-confirmed marker change*'
     }
 
     It 'refuses missing, uncommitted, and ambiguous confirmation baselines' {

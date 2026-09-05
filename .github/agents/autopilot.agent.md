@@ -53,4 +53,8 @@ exists to replace `docs/feedback/recent-learning.md`. Supply at most 10 concise 
 repo-relative citation to evidence or changed
 context at that commit; zero lessons writes the explicit empty marker. Commit the replacement. Never
 append it or write auxiliary history, recovery, or lifecycle state.
+
+Before headless completion, if `.github/skills/pfb/SKILL.md` is installed, read it and follow its queue
+guide: `/pfb` queues the question instead of prompting and is never blocking. Commit only its queue
+change. Skip silently when absent, and never invent an operator verdict.
 Exit `0` only for complete, `42` for operator action, `43` for offline rebundle, and nonzero otherwise.

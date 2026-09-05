@@ -31,13 +31,17 @@ A complex operator stop exits `42` with context, example, benefits, pros/cons, r
 effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Interactive
 resume shows the same ordered choices; free-form input asks one focused question.
 
-Non-terminal review is risk-selected. Phase targets only close phases. For whole-plan runs, host and
-sandbox launchers invoke one explicit completion target after all phases are closed, including an
-all-closed resume. That target skips terminal-phase review and owns one whole-plan CR without rerunning
-unchanged scope. If design notes changed, finalization runs the shared bounded compaction once before validation;
-cross-note merge/delete requires approval, so headless execution leaves the diff and exits `42`.
+Non-terminal review is risk-selected. Phase targets only close phases. For whole-plan runs, host,
+container, and sandbox launchers invoke exactly one explicit completion target after all phases are
+closed, including an all-closed resume. That target skips terminal-phase review and owns one whole-plan
+CR without rerunning unchanged scope. If design notes changed, finalization runs the shared bounded
+compaction once before validation; cross-note merge/delete requires approval, so headless execution
+leaves the diff and exits `42`.
 
 After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1` replaces—not
 appends—the strict 16-KiB handoff with zero to ten secret-screened lessons and repo-relative
 source-commit citations. Runtime resume otherwise uses committed checklist state. Epic orchestration
 is a separate deterministic wrapper around the same launcher and retains Git/provider close checks.
+Installed `/pfb` remains optional: interactive `/ci` offers it before archival, while headless
+autopilot queues its question without prompting. Absence, decline, or queue failure never blocks
+completion and feedback never replaces evidence.

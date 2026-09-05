@@ -164,10 +164,14 @@ Describe 'Post-plan feedback queue' {
         It 'test:pfb-queues-marker-under-autopilot is the documented autopilot harvest behaviour' {
             # The autopilot agent is the only headless finalization path, so the queue-instead-of-ask
             # rule has to be stated where that run reads it, not only in the skill it may skip.
-            $agent = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/autopilot/agents/autopilot.agent.md'))
-            $agent | Should -Match '/pfb'
-            $agent | Should -Match 'queues the question instead of prompting'
-            $agent | Should -Match 'never blocking'
+            $source = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/autopilot/agents/autopilot.agent.md'))
+            $installed = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/agents/autopilot.agent.md'))
+            foreach ($agent in @($source, $installed)) {
+                $agent | Should -Match '/pfb'
+                $agent | Should -Match 'queues the question instead of prompting'
+                $agent | Should -Match 'never blocking'
+            }
+            $installed | Should -BeExactly $source
         }
     }
 
@@ -262,14 +266,18 @@ Describe 'Post-plan feedback queue' {
         }
 
         It 'test:pfb-consumes-queued-marker is offered at the ci archival gate without gating it' {
-            $crosscheck = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'))
-
-            $crosscheck | Should -Match '/pfb'
-            $crosscheck | Should -Match 'never blocking'
+            $source = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md'))
+            $installed = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/skills/ci/SKILL.md'))
+            foreach ($ci in @($source, $installed)) {
+                $ci | Should -Match '/pfb'
+                $ci | Should -Match 'never blocking'
+                $ci | Should -Match 'queues the question instead of prompting'
+                $ci | Should -Match 'skips it silently'
+                $ci | Should -Match 'never substitutes'
+            }
+            $installed | Should -BeExactly $source
             # A recorded verdict is not evidence: it must never stand in for a failing marker, and a
             # declined offer must never hold up the archive commit.
-            $crosscheck | Should -Match 'never substitutes for a'
-            $crosscheck | Should -Match 'skips it silently'
         }
     }
 
