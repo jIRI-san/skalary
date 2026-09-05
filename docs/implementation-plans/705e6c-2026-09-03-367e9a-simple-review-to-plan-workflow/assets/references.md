@@ -30,7 +30,6 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 - `docs/design-notes/architecture/direct-workflow-core.design.md`
 - `docs/design-notes/architecture/plan-workflow.design.md`
 - `docs/design-notes/architecture/autopilot-execution.design.md`
-- `docs/design-notes/architecture/autopilot-skill.design.md`
 - `docs/design-notes/architecture/self-improvement.design.md`
 - `docs/design-notes/architecture/plugin-registry.design.md`
 - `docs/design-notes/explorations/agent-cost-optimization.design.md`
@@ -95,3 +94,37 @@ direct source plugins and a manifest-built installed `.github` tree. SI proposal
 by `3a4498`, plugin installation/retirement receipts and frozen fixtures owned by `623cc2`, legacy plan
 asset mappings, host/container/Sandbox configuration, published registries, and archived history were
 retained.
+
+## Step 5.3 compaction evidence
+
+On 2026-09-05 the operator approved all within-note proposals from three read-only reviews and the
+cross-note merge/delete described in [decisions.md](decisions.md). Execution used the approved three
+sequential batches (five notes maximum); `self-improvement.design.md` was read and retained unchanged.
+
+| Batch | Note | Before (lines/bytes) | After (lines/bytes) |
+|---|---|---:|---:|
+| 1 | `architecture-notes.design.md` | 86 / 6,088 | 48 / 2,964 |
+| 1 | `autopilot-execution.design.md` | 44 / 2,732 | 42 / 2,575 |
+| 1 | `autopilot-skill.design.md` | 24 / 1,197 | deleted / 0 |
+| 1 | `direct-workflow-core.design.md` | 39 / 2,905 | 34 / 2,407 |
+| 1 | `plan-workflow.design.md` | 73 / 4,675 | 54 / 3,218 |
+| 2 | `plugin-manager.design.md` | 76 / 7,209 | 56 / 2,995 |
+| 2 | `plugin-registry.design.md` | 318 / 28,956 | 145 / 9,530 |
+| 2 | `review-reporting.design.md` | 55 / 3,459 | 45 / 2,602 |
+| 2 | `self-improvement.design.md` | 25 / 1,291 | 25 / 1,291 |
+| 2 | `si-cross-repo-proposal-protocol.design.md` | 181 / 11,189 | 48 / 3,121 |
+| 3 | `copilot-customizations.design.md` | 59 / 3,189 | 43 / 2,364 |
+| 3 | `design-note-writing-style.design.md` | 111 / 4,434 | 57 / 2,153 |
+| 3 | `dev-rules.design.md` | 63 / 4,940 | 40 / 2,119 |
+| **Total** | **13 selected notes** | **1,154 / 82,264** | **637 / 37,339** |
+
+Net reduction is 517 lines and 44,925 UTF-8 bytes. Related ownership links moved duplicated
+distribution completion detail to `plugin-registry.design.md`, unit/Pester policy to
+`ci-gates.design.md`, and structural-eval policy to `plugin-evals.design.md`.
+
+Focused verification covered 34 design-note/direct-workflow Pester cases; 22 structural eval cases for
+design-notes, plugin-manager, autopilot, CI, CR, and DR; architecture-doc freshness; registry validation;
+bundle/marketplace/dogfood drift; and both direct plan validators. All passed. The separately attempted
+architecture-notes structural suite passed 28/30; its two stale cases reference
+`drafting-guide.md`/`crosscheck-guide.md`, files already absent at baseline commit `0bd708e`, so this
+compaction does not widen into that pre-existing test repair.

@@ -1,317 +1,144 @@
 ---
-description: Plugin registry architecture for skalary — plugin manifests, generated registry, install/update/remove flows, integrity and confinement guarantees
+description: Source-first plugin packaging, generated catalogs, transactional lifecycle, confinement, receipts, and dogfood.
 globs:
   - plugins/**
   - registry.json
   - scripts/skalary/**
-  - schemas/plugin/plugin.schema.json
-  - schemas/registry/registry.schema.json
-  - schemas/receipt/receipt.schema.json
+  - schemas/{plugin,registry,receipt,retirement,marketplace}/**/*.json
   - .github/.skalary/**
-  - tests/ConsumerInstallFixture.psm1
-  - tests/skalary/ConsumerInstall.Tests.ps1
+  - .github/plugin/marketplace.json
+  - tests/{ConsumerInstallFixture.psm1,skalary/ConsumerInstall.Tests.ps1}
 ---
 
 # Plugin Registry
 
-The plugin registry is a source-first packaging system: `plugins/` is authoritative, `registry.json` is generated metadata, and `.github/` is a dogfood install target synchronized from plugin sources.
+`plugins/` is authoritative; `registry.json` and `.github/plugin/marketplace.json` are generated, and
+`.github/` is the dogfood install target.
 
-## Bundle Model and Layout
-
-| Layer | Source of truth | Purpose | Files |
-|---|---|---|---|
-| Plugin source | `plugins/<name>/` | Authoring bundle with manifest + payload | `plugins/*/plugin.json`, payload files |
-| Registry index | `registry.json` | Generated install catalog with file hashes and bootstrap metadata | `scripts/skalary/Build-Registry.ps1` output |
-| Runtime state | `.github/.skalary/receipts/<name>.json` | Per-plugin installation tracking, merge-safe | install/update/remove verbs |
-| Retirement state | `.github/.skalary/retirements/<name>.json` | Durable, source-bound preview/apply/result authority | retirement reconciler and shared removal engine |
-| Direct review report | plan `assets/reviews/phase-<N>.md` or `assets/reviews/final.md` | Advisory Markdown written by the installed direct module; never registry authority | installed `cr`/`dr` runtime |
-| Dogfood target | `.github/**` | Installed copies used by local tooling | `Sync-Dogfood.ps1` |
-| Skill script bundle | `plugins/<name>/skills/<skill>/scripts/**` | Per-plugin copies of the workflow scripts a skill invokes at runtime, generated from `scripts/skalary/` | `Sync-PluginScripts.ps1` |
-
-## Schema Contracts
-
-| Schema | Contract |
+| Layer | Contract |
 |---|---|
-| `schemas/plugin/plugin.schema.json` | Declares plugin identity, semver, dependencies, `files[]` as `{src,dest}`, optional `status`, optional `scaffolds[]` (first-use runtime paths outside `.github/`), reserved `evals` block. |
-| `schemas/registry/registry.schema.json` | Generated catalog embeds per-file `sha256`, the plugin's `scaffolds[]`, and bootstrap metadata (`ref`, script URL, one-liner). |
-| `schemas/receipt/receipt.schema.json` | Per-plugin receipt stores resolved source `ref` SHA, version, and per-file `{dest,sha256,outcome}` with optional `degraded` and reserved `evalStatus`. |
-| `schemas/registry/plugin-retirement.schema.json` | Closed permanent tombstone catalog: immutable source/ref/version payload sets plus manual residue remedies. |
-| `schemas/retirement/retirement-state.schema.json` | Closed versioned consumer state for `preview`, `applying`, `retired`, `residue`, and `failed`, including the complete affected path/hash set and prior source/ref/version. |
+| `plugins/<name>/plugin.json` | Identity, semver, dependencies, `{src,dest}` files, optional status/scaffolds/eval reservations. |
+| `registry.json` | Hash-pinned install catalog, scaffolds, bootstrap metadata, and permanent retirements. |
+| `.github/.skalary/receipts/*.json` | Per-plugin source/ref/version and file hash/outcome ownership; avoids a shared lock-file conflict. |
+| `.github/.skalary/retirements/*.json` | Versioned preview/apply/result state; never deletion authority by itself. |
+| `.github/**` | Dogfood installed output, converged from declared plugin files. |
+| skill `scripts/**` | Generated canonical-script closures owned only by `Sync-PluginScripts.ps1`. |
 
-Design choice: per-plugin installation receipts replace a shared lock file to avoid cross-branch
-merge conflicts. Direct review reports are advisory plan Markdown and are never interpreted as
-plugin installation state.
+Standard Copilot metadata stays in `SKILL.md`; packaging metadata stays in `plugin.json`. Evals never
+install. Direct review Markdown is advisory and never registry/receipt state.
 
-Receipt writers use the shared version 1 `sourceIdentity` API in `_Common.ps1`. GitHub sources
-persist only canonical `github.com/<owner>/<repository>` identity; local sources persist only a
-SHA-256 digest of the canonical path. The immutable commit `ref` remains a separate field. Legacy
-`source` labels are accepted for ordinary receipt reads but retirement can upgrade them only when
-their kind and exact `@<ref>` suffix are unambiguous; otherwise reconciliation fails closed.
+## Install, update, remove, and retirement
 
-Retirement state names pass the plugin-name grammar before path construction, and the resulting
-path is resolved through the same `.github` confinement helper as payload destinations. Reads and
-writes validate the closed embedded version 1 schema. Durable state never truncates affected files;
-only summaries cap displayed paths and carry total/omitted counts.
+Dependency resolution is deterministic topological order with name dedupe, lexical ties, and
+pre-copy cycle detection. One immutable SHA supplies each remote or local operation. Apply stages
+under `.github/.skalary/tmp/`, verifies hashes, backs up, atomically moves, then writes the receipt;
+failure restores backups and writes no receipt.
 
-`registry-retirements.json` is the canonical permanent retirement catalog. `Build-Registry.ps1`
-copies it into skalary `registry.json.retiredPlugins`; the Copilot marketplace remains active-only.
-Active and retired names are disjoint. `Test-PluginRetirementHistory.ps1` compares explicit files
-without reading Git. An operator running the check locally supplies the current and historical
-catalog files; a resolvable commit with no catalog is the empty set, while unavailable required
-history is an error.
-Published records are append-only and immutable: removing or changing one, or reusing its name for
-an active plugin, fails the history or registry gate. `Test-Registry.ps1` remains Git-free.
+Receipt `sourceIdentity` is version 1: GitHub stores canonical `github.com/<owner>/<repository>`, local
+sources store a canonical-path SHA-256, and immutable `ref` is separate. Ambiguous legacy source labels
+fail closed for retirement.
 
-## Copilot Skill Metadata Boundary
+Explicit remove and automatic retirement share `Invoke-PluginRemovalPrimitive`: serialize through
+`mutation.lock`; confine payload/state/journal/backup paths and parent chains; write a validated journal
+before mutation; and require plugin/source/transaction identity, receipt hashes, backup paths, and
+backup hashes to match for recovery. Modified files remain with original expected ownership as
+`degraded`/`skipped-modified`; only explicit `Remove-Plugin -Force` deletes them.
 
-To prevent drift with evolving Copilot skill specs, plugin packaging keeps ownership boundaries explicit:
+`registry-retirements.json` is immutable append-only tombstone authority. Build copies it to
+`retiredPlugins`; marketplace remains active-only; active/retired names are disjoint. History checks
+take explicit current/historical files without Git; missing required history errors. State paths use
+the plugin-name grammar plus `.github` confinement and closed embedded schema; affected paths are never
+truncated, only display summaries are.
 
-| Artifact | Allowed metadata |
+Install/update reconcile after source verification and before active lookup or already-current return.
+First observation writes a complete preview; the next exact automatic operation applies it. Stale
+automatic input refreshes without deletion; explicit apply rejects missing/stale preview. Under lock,
+apply rederives the tombstone/source/ref/version intersection with current receipt ownership.
+`failed` returns to preview only after exact journal and observed-content recovery.
+
+One invocation emits at most one `RETIREMENT:` JSON record: exit `20` for a direct retired target,
+`21` for blocking failure. Terminal remedy replay is read-only, never hashes content, handles at most
+eight plugins/64 paths, and advances global and per-state cursors. Recovery covers partial journals and
+post-commit/pre-terminal crashes. Terminal state retains the old ref for manual restore, but tombstones
+still block fresh install and restored receipts remain explicit-removal authority. Repository-relative
+manual residue stays under the consumer root; `~/...` CLI paths stay under the profile; rooted and
+traversing tails are rejected.
+
+## Integrity and deterministic catalogs
+
+| Threat/invariant | Guard |
 |---|---|
-| `SKILL.md` (inside plugin payload) | Standard Copilot skill frontmatter and skill body only. |
-| `plugin.json` | Packaging and install metadata (`version`, dependencies, `files[]`, status, eval reservation). |
-| `registry.json` | Generated install index derived from `plugin.json` + file hashes. |
+| Escape or links | Reject `..`, absolute/UNC/drive-relative/ADS destinations and reparse points in managed paths. |
+| Tamper/collision | Verify staged registry hash; enforce registry-wide destination uniqueness and receipt ownership. |
+| User edits | Update/remove skip modified files unless explicit `-Force`. |
+| Bootstrap execution | Download scripts/catalog only; cloned plugin payload is copied, never executed. |
+| Stable output | All catalog/README ordering uses explicit ordinal comparers; equality is ordinal. |
 
-`plugin.json` must not introduce alternate skill-schema fields into `SKILL.md`; compatibility is preserved by keeping skill spec data standard and packaging data external.
+Registry, marketplace, and README catalog drift checks compare generated content deterministically.
+The Czech-collation fixture proves `en-US`/`cs-CZ` byte identity and non-vacuous divergent IDs.
 
-## Dependency and Install Model
+`PayloadScope.psm1` walks an explicit regular, non-link root allowlist, prunes `.git`, `.skalary`,
+`.worktrees`, `bin`, `node_modules`, and `obj`, fails unreadable files/missing required roots, and rejects
+an empty run. It replaces platform-dependent recursive enumeration.
 
-Install/update behavior is implemented in `scripts/skalary/Install-Plugin.ps1` and `scripts/skalary/Update-Plugin.ps1` using shared helpers in `_Common.ps1`.
+## Distribution and dogfood
 
-| Area | Decision |
-|---|---|
-| Dependency resolution | Deterministic topological order, dedupe by plugin name, lexical tie-breaks, cycle detection before copy. |
-| Source coherence | One resolved SHA per operation; remote clone and local `-Source` both install from a single commit snapshot. |
-| Transactional apply | Stage files under `.github/.skalary/tmp/`, verify staged hashes, back up targets, atomic move, then write receipt. |
-| Rollback | Any failure restores backups, removes staged files, writes no new receipt. |
-| `evals/` handling | Files under `evals/` are always excluded from installation. |
+`Sync-Dogfood.ps1` is copy-only, collision-checked, idempotent, and supports `-WhatIf`; it writes exactly
+declared payloads and does not prune the generator-owned marketplace. Runtime PowerShell lives once in
+`scripts/skalary/`; `Sync-PluginScripts.ps1` copies manifest-declared entry points and `.ps1`/`.psm1`
+closures, prunes stale generated copies, and patch-bumps every affected independently versioned plugin.
+Installed content references installed paths, never authoring paths. `docs/review-standards.md` is the
+exact optional read-only exception for direct-workflow consumers. Autopilot is one self-contained
+plugin (agent, skill, launchers, schemas, devcontainer, and templates), with no separate infra bootstrap.
 
-Explicit uninstall and automatic retirement call one `Invoke-PluginRemovalPrimitive` in
-`_Common.ps1`. The primitive serializes through `.github/.skalary/mutation.lock`, validates all
-payload/state/journal/backup paths and existing parent chains before state reads or mutation, and
-writes a schema-validated journal before backup/delete/receipt boundaries. Recovery treats that
-journal as untrusted: plugin/source/transaction identity, receipt pre/post hashes, confined
-transaction-derived backup paths, and backup content hashes must all agree before rollback.
+Plugin-owned SI lifecycle/schema and architecture-note scripts remain canonical in their plugins and
+dogfood directly. `AtomicStore.psm1` is a normal shared canonical bundle. CI/autopilot bundle
+`Write-RecentLearning.ps1` and scaffold its handoff without depending on SI; SI owns its reader and
+proposal lifecycle. npm aliases are dogfood-only.
 
-Retirement authority is never read from preview or journal state. Under the lock, the primitive
-rederives the exact intersection of the tombstone's immutable source/ref/version destination hashes
-and the current same-source receipt. Modified files remain on disk and retain their original
-expected receipt hash under `degraded`/`skipped-modified` ownership; only explicit
-`Remove-Plugin -Force` can remove them. A `failed` retirement state returns to `preview` only after
-journal recovery and exact source/ref/version, receipt ownership, and observed-content verification.
+After a payload or manifest change, run in order:
+`Sync-PluginScripts.ps1`, `Build-Registry.ps1`, `Build-Marketplace.ps1`, then `Sync-Dogfood.ps1`.
+`Test-Registry.ps1` plus detect-only bundle, marketplace, and dogfood modes verify manifest mappings,
+versions, hashes, and installed snapshots; never hand-edit generated bundles or catalogs.
 
-Install and update invoke reconciliation after source/registry verification but before active-name
-lookup and every already-current return. The first capable operation persists a complete preview;
-the next exact automatic operation applies it. Automatic stale input refreshes preview with zero
-deletion, while `-ApplyRetirements` rejects missing/stale previews. Preview is evidence that the
-consumer observed a specific source/ref/version tombstone and receipt; it never grants deletion
-authority. Apply revalidates those inputs and rederives the pinned intersection under the lock.
+## Runtime asset/scaffold grammar
 
-One invocation emits at most one `RETIREMENT:` JSON record and returns 20 for a direct retired target
-or 21 for a blocking failure; bootstrap propagates both. Terminal residue/manual replay never hashes
-content, processes at most eight plugins and 64 paths globally, and advances both a global plugin
-cursor and per-state path cursor so omitted remedies eventually surface. `applying` recovery handles
-both journal-backed partial transactions and the narrow post-commit/pre-terminal-state crash window.
-The terminal state retains the prior immutable ref so an operator can restore from that exact source
-revision. Restoration is not a rollback of the permanent tombstone: the active catalog still refuses
-fresh acquisition, while the existing terminal state prevents automatic retirement replay against
-operator-restored bytes. The restored receipt remains the authority for later explicit removal.
-Manual-residue presence checks are read-only: repository-relative scaffold/approval paths resolve
-under the consumer root, while `~/...` Copilot CLI paths resolve under the current user profile.
-Both forms reject rooted/traversing tails; neither grants deletion authority.
+Every runtime-read payload must be in some `files[]`. Because installation is confined to `.github/`,
+first-use paths outside it require `scaffolds[]`. Literal entries name fixed paths and forbid a confine
+helper; parameterized `<name>`/`**` entries require a shipped, called helper and may define closed values.
+`owner` and `trigger` are documentation, not enforcement.
 
-## Integrity and Security Model
+The scanner fails closed over four forms: installed `.github/{skills,agents,prompts}` paths;
+skill-relative `./assets/...`; `docs`/`schemas`/`tools` scaffold paths; and forbidden source-tree
+`./plugins`/`./scripts/skalary` reads. Static AST `Join-Path` forms follow the same rules; dynamic
+supported-root composition fails. Fenced examples, comments, and final bare placeholders are excluded;
+an unterminated fence errors. Verified `$PSScriptRoot`/asset-root sidecars are exempt only when installed
+or bundled. The bootstrap-owned `scripts/skalary/registry.json` fallback remains valid.
 
-| Threat | Guard |
-|---|---|
-| Path traversal / escape from `.github/` | Full-path resolution rejects `..`, absolute, UNC, drive-relative, and ADS destinations; managed mutation also rejects links/reparse points in destinations and parent chains. |
-| Payload tampering | Staged payload hash must match `registry.json` before any move. |
-| Cross-plugin overwrite/remove collisions | Registry-wide destination uniqueness validation + runtime ownership map from receipts. |
-| Destructive overwrite/remove of user edits | Update/remove verify receipt hash and mark modified files as skipped unless `-Force`. |
-| Arbitrary code execution in bootstrap flow | `bootstrap.ps1` downloads scripts + `registry.json` only; it does not execute plugin payload. |
+Self-improvement's declared topology includes literal manifests/indexes and confined parameterized
+active/archive/backup/quarantine/repair/receipt paths; installed SI materializes them on first use.
 
-## Catalog Determinism
+## Consumer and size evidence
 
-`registry.json`, `.github/plugin/marketplace.json` and the README catalog table are compared byte for byte by their drift gates, so their ordering must be a property of the build rather than of the host that ran it. PowerShell's `Sort-Object` compares through the current culture: `cs-CZ` reads the digraph `ch` as one letter placed after `h` and sorts accented letters apart from the base letter `en-US` folds them onto.
+The foreign-consumer fixture installs every active manifest into one poisoned empty Git repo. Its
+manifest-derived oracle checks installed hashes, receipts, dependencies, confinement, and registry
+mappings independently. Runtime-reference closure composes that inventory with bundle drift; smoke
+derives one deterministic installed behavior per plugin; first-use lifecycle proves starter content,
+safe rerun, modified-target preservation, bounded output, hostile refusal, and retry. Distribution
+drift composes bundle, registry, marketplace, and dogfood gates without adding a schema or hosted proof.
+This process-heavy inventory is an explicit installer diagnostic, not routine validation.
 
-| Invariant | Rule |
-|---|---|
-| One comparer | Every list reaching a generated catalog is ordered by `Sort-Ordinal` (`_Common.ps1`) with an explicit `[System.StringComparer]::Ordinal`. `Build-Registry.ps1`, `Build-Marketplace.ps1` and `Test-Registry.ps1` each declare `$script:CatalogComparer` and pass it, so the choice is visible where the catalog is owned. |
-| Generator and gate agree | `Test-Registry.ps1` re-derives the README catalog block, so it is a second implementation of the same ordering and must use the same comparer — otherwise the gate rejects a correctly generated README on a differently collating host. |
-| Ordinal equality | Drift and idempotence comparisons use `[string]::Equals(..., [StringComparison]::Ordinal)`, not `-eq`/`-ne`. |
-| Proven, not assumed | `test:BuildRegistry.CzechCollationFixtureIsStable` rebuilds every catalog under `en-US` then `cs-CZ` and requires byte-identical output; `test:BuildRegistry.FixtureIsRedBeforeFix` keeps the fixture's ids genuinely divergent, so the stability assertion cannot pass vacuously. |
+`Test-SkillSize.ps1` enforces `-MaxBytes 12000` over source and dogfood `SKILL.md`; move detail to
+installed assets.
 
-## Validation Payload Scope
+## Copilot CLI and eval seams
 
-`scripts/validate.ps1` parses its file set through `scripts/skalary/PayloadScope.psm1` rather than `Get-ChildItem -Recurse`.
+Marketplace entries share `plugin.json`, use `source: plugins/<name>` and `strict: false`, and install
+as `<name>@skalary`; direct path install is deprecated. `Find-Plugin.ps1`, `Get-Plugin.ps1`, and remove
+dependency checks accept `-RegistryPath`, falling back to bootstrap-owned
+`scripts/skalary/registry.json`; absence of both reports “not a skalary-managed repo”.
 
-| Invariant | Rule |
-|---|---|
-| Allowlist, not denylist | `Get-SkalaryPayloadFile` walks an explicit list of payload roots. A root nobody listed is not scanned, instead of a name nobody thought to exclude being scanned. |
-| Platform parity | Without `-Force` pwsh treats dot-prefixed entries as hidden on Unix and not on Windows, so `.github` was parsed on one platform only. The allowlist walk sees the same set on both. |
-| Pruned subtrees | `.git`, `.skalary`, `.worktrees`, `bin`, `node_modules`, `obj` are pruned wherever they nest. `.github/.skalary` is the installer's gitignored runtime state; parsing it would make the file count a function of local install history. |
-| Reparse points refused | `Path.GetFullPath` normalises `..` and separators but does not resolve links, so directories carrying the reparse-point attribute are not descended into. Unreadable *files* fail loudly rather than vanishing from the set. |
-| No silent empty run | A missing allowlisted root throws under `-RequireRoot`, and a run that enumerated nothing is an error — a gate that parsed nothing has proved nothing. |
-
-## Autopilot Plugin Bundle
-
-`autopilot` is a self-contained plugin: agent, autonomous skill, launch scripts, schema files, devcontainer assets, and config templates ship from `plugins/autopilot/` and install under `.github/agents/` and `.github/skills/autopilot/**`.
-
-No separate autopilot infra bootstrap script exists. Provisioning happens through standard plugin install/update and dogfood sync flows.
-
-## Dogfood Authority and Sync
-
-`plugins/` is authoritative. `.github/` is treated as installed output and can drift.
-
-`scripts/skalary/Sync-Dogfood.ps1` converges `.github/` back to `plugins/` sources, is idempotent,
-and supports `-WhatIf` for explicit local drift inspection. Running sync to convergence makes
-`.github/` byte-equivalent to plugin sources. Destination collision checks in sync mirror registry
-safety rules.
-
-## Skill Script Bundling
-
-Skills and agents that invoke deterministic PowerShell at runtime must ship that code **inside their own plugin**. The canonical sources live once under `scripts/skalary/`; `Sync-PluginScripts.ps1` copies each plugin's manifest-declared scripts and referenced installed entry points plus their `.ps1`/`.psm1` closure into `plugins/<name>/skills/<skill>/scripts/`. The manifest then installs those files under `.github/skills/<skill>/scripts/`. The `ci`, `cip`, `cr`, `dr`, and autopilot plugins use this bundling.
-
-| Invariant | Rule |
-|---|---|
-| Bundle-or-break | Every script a shipped `SKILL.md`/agent invokes at runtime must be listed in that plugin's `files[]` and referenced by its **installed** path (`.github/skills/<skill>/scripts/<Script>.ps1`), never by the repo-root `scripts/skalary/...` path. Repo-root references only work while dogfooding and silently break on install into another repo. |
-| Repo-owned optional input | `docs/review-standards.md` is an exact, read-only exception for plugins carrying `DirectWorkflow.psm1`. It is consumer data, not an installed payload or first-use scaffold: absence is normal, and installers never create or overwrite it. |
-| Managed duplication | Bundled copies are generated, not hand-authored: `scripts/skalary/` is the single source of truth and `Sync-PluginScripts.ps1` is the only writer of `plugins/**/skills/**/scripts/`. It closes and prunes PowerShell script/module dependencies only; retired review-schema sidecars have no bundling path. A `-WhatIf` drift gate (wired into `scripts/validate.ps1`) proves every bundled copy is byte-identical to its source. |
-| Version independence | Plugins install and version independently, so each carries its own copy — duplication across plugins is intentional and accepted (no shared runtime module, no cross-plugin hierarchy). |
-| Version-bump coupling | Because there is exactly one source per script, **any change to a shared script bumps the `version` of every plugin that bundles it.** `Sync-PluginScripts.ps1` performs this patch bump automatically when it re-copies a changed bundle, so the advertised version never lags the payload. A script edit is a content change to each dependent plugin's payload; a stale (unsynced) bundle fails the `-WhatIf` drift gate. |
-| Plugin-owned scripts (exception) | Not every plugin script is a `scripts/skalary/` bundle. The self-improvement lifecycle/schema payload (`plugins/self-improvement/{scripts,schemas}/`) and the `architecture-notes` scripts (`Copy-ArchScaffold`, `Import-ArchHarvest`, `Import-ArchAdr`, …) are canonical inside their own plugins. `Sync-PluginScripts.ps1` does not manage them; `Sync-Dogfood.ps1` mirrors them to `.github/`. Foreign consumers depend on the owning plugin rather than copying its executable. A literal installed path in foreign plugin content can trigger a stray cross-plugin bundle through the bundler's reference scanner, so such references use the installed path only where the dependency contract and drift test explicitly permit it; otherwise use gated wording. |
-
-`AtomicStore.psm1` is another normal root-canonical bundle, shared by PFB, CI, CIP, SI, and
-autopilot. SI remains the owner of its lifecycle scripts and schemas; only their generic atomic
-write dependency comes from `scripts/skalary/`. Every generated copy is explicitly registered in
-the consumer manifest so foreign installs receive the same lock/CAS/replace implementation.
-
-The direct historical adapter and `DirectWorkflow.psm1` closures are manifest-declared canonical
-bundles. CI and autopilot each bundle `Write-RecentLearning.ps1` and scaffold the bounded
-`docs/feedback/recent-learning.md` handoff directly, without a self-improvement plugin dependency.
-The self-improvement plugin owns its separate interactive reader and proposal lifecycle. Existing
-generator, drift, and foreign-consumer gates prove the declared split; no learning-specific
-distribution protocol is added.
-
-
-The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.
-
-## Asset Bootstrap
-
-A skill that reads a file which exists only in this repo's working tree works perfectly when
-dogfooded and fails in every consumer repo — **quietly**. The agent reads nothing, proceeds without
-the guide/map/template, and produces degraded output rather than an error. That failure mode is why
-this is a gate rather than a convention.
-
-| Invariant | Rule |
-|---|---|
-| Installed by default | Every file a payload (`SKILL.md`, `*.agent.md`, `*.prompt.md`, bundled script, or another asset) reads at runtime must appear in some plugin's `files[]` with a `dest` under `.github/`. Installation materializes it, the registry hashes it, install/remove stay transactional. |
-| Scaffolded when installation cannot reach it | `ARCH-Install-Confinement` confines installer writes to `.github/`, and there is no post-install hook. A runtime path outside `.github/` is therefore materialized on **first use** by the owning skill or script and declared in `scaffolds[]`. A post-install hook would be the alternative, and it is precisely what the confinement exists to prevent. |
-| Declarations reach the registry | Consumer installs resolve against `registry.json`, not the source tree, so `Build-Registry.ps1` carries `scaffolds[]` through. A declaration that stops at `plugin.json` never reaches the repo that has to honour it. |
-| Two modes, both explicit | A **literal** entry names a fixed path and forbids a `confine` helper. A **parameterized** entry uses `<name>` (one segment) or `**` (subtree), **requires** a `confine` helper, and may carry a closed `values` domain. The schema enforces both branches, so a variable path cannot be mislabelled as fixed to dodge the helper requirement. |
-| Declarations must be true | The declared `confine` helper has to be shipped **and called** by the declaring plugin's own payload — asserted by test, because a manifest that describes a control nobody implements is worse than no manifest: it passes the gate while the gap stays open. `owner` and `trigger` are **documentation, not assertions**; they name who to go ask, and nothing verifies that the named owner performs the write. |
-
-Self-improvement declares its complete `docs/self-improvement/` runtime topology in this form:
-literal manifest/quarantine-index paths and parameterized active/archive run, backup, quarantine,
-repair-observation/receipt, and resolver-receipt paths. Installation still writes only `.github/`;
-the installed SI scripts materialize these paths on first use through `Resolve-SiStatePath`.
-
-**The scanner grammar is closed** (`Sync-PluginScripts.ps1`, gated by `validate.ps1` via `-WhatIf`):
-
-1. **Installed-path literal** — `.github/` followed by one of the three payload roots (`skills/`, `agents/`, `prompts/`); required `dest` is the same path minus `.github/`. An undeclared `.github/agents/...` or `.github/prompts/...` reference fails exactly like a skill asset does.
-2. **Skill-relative** — `./assets/<file>`, resolved against the payload's **skill root**, so a guide living under `assets/` spells a sibling exactly as its `SKILL.md` does. The leading `./` is load-bearing: a bare `assets/intent.md` names a *plan folder* asset, which is not a payload file at all.
-3. **Scaffold path** — every `docs/`, `schemas/`, or `tools/` runtime path must match a `scaffolds[]` entry. The grammar roots are fixed rather than derived from existing declarations, so a wholly undeclared runtime tree fails instead of becoming invisible. Direct literal child arguments to `Join-Path $PSScriptRoot ...` / asset-root calls are installed sidecars, not repo-level scaffolds; the exemption never covers nested commands or their repo-root reads.
-4. **Source-tree path** — explicit `./plugins/...` / `./scripts/skalary/...` reads and PowerShell `Join-Path` calls that attach either authoring tree to a repo-root variable are rejected because those trees do not exist after plugin installation; payloads use their installed `.github/` destinations. The documented bootstrapped-repository fallback at `scripts/skalary/registry.json` remains valid because bootstrap, rather than plugin installation, owns that runtime file.
-
-Out of grammar, deliberately: fenced code blocks (illustrations, not reads — and an *unterminated*
-fence is an error, because blanking the remainder of the file would silently narrow the gate), and a
-path whose final segment is a bare `<placeholder>` (prose describing a shape). PowerShell comment
-tokens are blanked before matching so fixture examples and documentation are not runtime reads.
-Dynamic composition of a supported root such as `Join-Path './assets' $name` is not out of grammar:
-it fails closed because no finite manifest inventory can prove its target. Static `Join-Path` calls
-are reconstructed and checked through the same installed, skill-relative, scaffold, and source-tree
-rules as direct literals. PowerShell AST binding covers positional, named, inline (`-Path:value`),
-and interpolated arguments; the prose grammar applies the same literal and inline-name rules to
-Markdown payloads. Direct `$PSScriptRoot` and `$AssetRoot` sidecars are exempt from repo-scaffold
-matching only after their resolved destination is found in `files[]` or the verified script bundle.
-
-Bundled `.ps1`/`.psm1` whose canonical source is `scripts/skalary/` are skipped by arm 1 — the
-script-bundler arm materializes them on the same run. A **plugin-local** script has no such owner
-and stays subject to the `files[]` check.
-
-## Foreign Consumer Inventory
-
-`tests/ConsumerInstallFixture.psm1` creates one empty foreign Git repository, poisons the skalary
-source-root shapes, and invokes the production `Install-Plugin.ps1` once for every active
-`plugins/*/plugin.json`. Active attendance is manifest-derived: both `stable` and `partial` bundles
-are installed, while retired plugins have no active manifest and therefore do not enter the set.
-
-The inventory oracle is independent of `registry.json`: it hashes each manifest source, excludes
-the installer's non-runtime `evals/` mappings, and compares that expected set with installed files,
-per-plugin receipts, dependency closure, and `.github/` confinement. It separately compares every
-manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
-make the production installer and its test agree on the same wrong payload. The process-heavy
-inventory test is an explicit operator diagnostic for installer changes, not routine validation.
-
-`Test-ConsumerRuntimeReferenceClosure` composes that installed inventory with the production
-`Sync-PluginScripts.ps1 -WhatIf` scan. The named evidence proves literal installed references and
-canonical script bundles exist with manifest hashes, declared scaffolds remain first-use paths, and
-missing installed files, source-relative reads, or dynamic supported-root reads fail closed.
-
-`Invoke-ConsumerInstalledSmokeMatrix` derives attendance from the same active manifest catalog and
-loads one manifest-hashed installed payload per plugin. Each plugin then runs one bounded,
-deterministic behavior through the installed path (or an exact local refusal preflight); the matrix
-does not use source payloads, network access, provider credentials, or skipped-success results.
-
-`Invoke-ConsumerFirstUseScaffoldLifecycle` derives distinct first-use owners from active
-`scaffolds[]` declarations and runs each installed owner in an isolated copy of the foreign fixture.
-The lifecycle proves non-empty starter content, safe reruns and modified-target preservation where
-applicable, declaration-bound output paths, mutation-free hostile refusal, and successful retry.
-
-`Test-ConsumerDistributionDrift` composes the existing detect-only plugin-script bundle, registry,
-marketplace, and dogfood gates in isolated processes and compares content snapshots of every
-distribution-owned surface across the run. Those production gates remain authoritative for payload
-hashes and plugin versions; the consumer suite adds no parallel distribution schema or hosted proof
-protocol.
-
-## Skill Size Cap
-
-A `SKILL.md` is loaded in full on every invocation of its skill, so its size is a recurring
-per-invocation context cost, not a one-off. `scripts/skalary/Test-SkillSize.ps1` enforces a
-repo-wide **12 KB cap** (`-MaxBytes 12000`, pinned against this note by test) over both the plugin sources and the `.github/` dogfood mirror (the mirror is
-what the hosts actually load), and is wired into `scripts/validate.ps1`. Detail goes into `assets/`
-and is read on demand — which then makes it subject to the asset-bootstrap gate above.
-
-## Copilot CLI Marketplace (dual catalog)
-
-The same `plugins/*/plugin.json` sources feed a second, independent catalog for GitHub Copilot CLI: `.github/plugin/marketplace.json`, generated by `scripts/skalary/Build-Marketplace.ps1` and validated against `schemas/marketplace.schema.json`. This makes the repo installable both ways — skalary's `registry.json` → committed `.github/` (VS Code), and `marketplace.json` → `~/.copilot/installed-plugins/` (`copilot plugin install <name>@skalary`).
-
-| Invariant | Rule |
-|---|---|
-| Shared manifest | Copilot CLI reads the **same** `plugins/<name>/plugin.json`; its skalary-only fields are tolerated (spike-confirmed). Marketplace entries set `strict: false` as a safeguard. |
-| Generator-owned path | `.github/plugin/marketplace.json` is written only by `Build-Marketplace.ps1`. `Sync-Dogfood.ps1` is copy-only and never prunes, so the generated catalog coexists without drift. |
-| Drift gate | `validate.ps1` runs `Build-Marketplace.ps1 -WhatIf` (semantic compare); a stale catalog fails validation. |
-
-### `-RegistryPath` fallback
-
-`Find-Plugin.ps1`, `Get-Plugin.ps1`, and `Remove-Plugin.ps1`'s dependent check accept `-RegistryPath` and fall back to `scripts/skalary/registry.json` (via `Resolve-RegistryPath` in `_Common.ps1`) when no root `registry.json` exists — the bootstrapped-repo layout. With neither present they emit a clear "not a skalary-managed repo" error instead of a terse throw. See [plugin-manager.design.md](./plugin-manager.design.md) for the skills that depend on this.
-
-The runtime-reference scanner treats `docs/operator-guide` mentions in CI/autopilot as optional
-read/exclusion boundaries, like `docs/review-standards.md`; neither reference authorizes plugin install
-to scaffold or mutate that human-documentation tree.
-## Evals Contract
-
-Plan 005 implements the eval harness as **report-only** and keeps registry/receipt seams reserved:
-
-| Surface | Reserved contract |
-|---|---|
-| Plugin manifest | Optional `evals` object with `path`, `status`, `lastRun`. |
-| Registry | Per-plugin `evals.status` summary. |
-| Receipt | Reserved `evalStatus` field. |
-| Validation | `Test-Registry.ps1` emits warn-only informational eval checks. |
-
-The harness writes `.eval-report.json` (and optional `.eval-artifacts/*`) only. It does **not** populate `plugin.json` `evals.status` / `lastRun`, `registry.json` `evals.status`, or receipt `evalStatus`.
-
-Known issue (DR2-#15): structural evals now exist for all plugins, but `registry.json` may still report `evals.status: "none"` because the seam remains reserved. Treat that field as non-authoritative until registry writeback is explicitly implemented.
-
-See [plugin-evals.design.md](./plugin-evals.design.md) for harness behavior, backend isolation, and judge contracts.
+Manifest `evals.status/lastRun`, registry `evals.status`, and receipt `evalStatus` remain reserved and
+non-authoritative. The report-only harness writes none of them; see
+[plugin-evals.design.md](plugin-evals.design.md). Operator-guide and review-standards references never
+authorize installer mutation.

@@ -46,6 +46,10 @@ while deleting or merging one invariant fails loudly. The five direct workflow c
 criteria, review, or installed-closure boundary. Register all five in
 `tools/structural-eval-required.md`.
 
+Adding a plugin structural case does not add a `validate.ps1` gate. A plan citing its stable ID as
+typed `test:` evidence runs that exact Pester case and blocks on failure; cross-surface always-on
+invariants instead belong under `tests/`.
+
 The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. The later-added `plugin-manager` plugin ships a waza spec from the start under the same convention (skill target `install-plugin`, two describe-only tasks, no adversarial block). `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` plugin ships describe-only draft-by-default and human-review cases under the same convention, guarded by a fail-closed shape test. All ten current plugins use the two-tier harness.
 
 ## Backend and Isolation Boundary

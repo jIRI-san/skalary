@@ -2,71 +2,52 @@
 description: Direct plan creation and execution using Git criteria, Markdown progress, and current evidence.
 globs:
   - docs/implementation-plans/**
-  - scripts/skalary/{PlanState,Test-Plan,DirectWorkflow,Get-DirectPlanArtifactConsumerContext}.ps*1
+  - scripts/skalary/{PlanState,Test-Plan,DirectWorkflow,Get-DirectPlanArtifactConsumerContext,Get-DesignNoteCompactionContext,Write-RecentLearning}.ps*1
   - plugins/{create-implementation-plan,continue-implementation}/**
 ---
 
 # Plan workflow
 
-The human tutorial is [`docs/operator-guide/README.md`](../../operator-guide/README.md). That guide is
-not auto-loaded as a design note and `docs/operator-guide/**` never triggers or participates in
-design-note compaction; this note and the active skills remain the implementation guidance.
+Human guidance lives in [`docs/operator-guide/README.md`](../../operator-guide/README.md), outside
+auto-loaded notes and design-note compaction.
 
 ## Planning
 
-`/cep` keeps epics as indexes of sibling plans. `/cip` confirms current intent, requirements, risks,
-and decisions, then writes the existing `planning-confirmed` marker. The shared planning decision
-protocol makes complex predefined choices identical across hosts: context, a concrete example, benefits,
-pros/cons, recommendation/default, effort and complexity from 1–10, and Mermaid only when relationships
-or sequencing matter. Free-form input is one focused question at a time; explicit trivial yes/no prompts
-stay concise.
+`/cep` keeps epics as indexes of sibling plans. `/cip` confirms intent, requirements, risks, and
+decisions before writing `planning-confirmed`. Complex choices use host-equivalent context, example,
+benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
+matters; free-form input remains one focused question.
 
-Before drafting, `/cip` inspects operator requirements and relevant active policy for behavior-asserting
-absolute terms and the seeded fuzzy vocabulary. An already confirmed unconditional rule stays an
-invariant with its reason. Otherwise `/cip` presents a candidate condition, behavior, and exception for
-confirmation. A fuzzy requirement is drafted only after the operator supplies an observable criterion,
-threshold, example, or interpretation. Code keywords, quotations, examples being analyzed, format
-grammar, and already-observable descriptive prose are excluded.
+Before drafting, `/cip` audits requirements and active policy for behavior-asserting absolute or fuzzy
+language. Confirmed unconditional rules retain their reason. Otherwise it confirms condition, behavior,
+and exception; fuzzy language requires an observable criterion, threshold, example, or interpretation.
+Code, quotations, analyzed examples, grammar, and already-observable prose are excluded.
 
-Plans keep the current six-hex identity, assets layout, stage markers, dependency syntax, typed
-`test:`/`file:`/`review:` markers, focused validator, and script-owned scaffolding/stage mutation.
-Historical context comes only from explicit IDs or a filtered index and at most five confined Markdown
-artifacts through `Get-DirectPlanArtifactConsumerContext.ps1`.
+Plans retain six-hex identity, assets, stage markers, dependency syntax, typed `test:`/`file:`/`review:`
+markers, focused validation, and script-owned mutation. History is limited to explicit IDs or the
+filtered index and five confined Markdown artifacts.
 
 ## Execution
 
-Before any mutation, `/ci` and every autopilot mode call `Test-PlanCriteriaBaseline`. It finds the
-unique commit that introduced the current confirmation marker and byte-compares intent, requirements,
-risks, and decisions. Checklist, stage, and worktree markers remain mutable.
+Before mutation `/ci` and every autopilot mode run `Test-PlanCriteriaBaseline`, locating the unique
+confirmation commit and byte-comparing immutable criteria; checklist, stage, and worktree markers may
+change. `Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean
+exact-scope review. Persisted reports are advisory.
 
-`Invoke-DirectEvidence` evaluates supplied current-run test results, current confined file assertions,
-and an active complete clean review for the exact current source/scope. Evidence remains in the active
-crosscheck; persisted review Markdown is advisory.
+Ordinary work may use a combined Designer/Validator and normally a Judge: two calls by default, five
+maximum. Background work gets two evidence checks, one redirect, and one replacement; synchronous
+calls are host boundaries, elapsed time is not a kill signal, and deterministic command timeouts stay.
+Review is risk-selected; the terminal phase skips phase review and runs one whole-plan review.
+Incomplete, exhausted, stuck, or unresolved work stops visibly.
 
-The orchestrator performs ordinary work. A combined Designer/Validator is optional and Judge is the
-normal second call. Two delegated calls are normal and five are the maximum. Observable background work
-gets two evidence checks, one redirect, and at most one replacement; synchronous calls remain a host
-boundary and elapsed time is not a kill signal. Existing deterministic command timeouts remain.
+Finalization runs compaction exactly once only if `docs/design-notes/**` changed. It inventories the
+active index, reads batches of at most five, preserves unique decisions/contracts/constraints/
+exceptions/examples, and shows the diff. Cross-note merge/delete requires approval; headless mode
+leaves the diff and exits `42`.
 
-Non-terminal review occurs only for concrete changed-scope risk. The final phase skips post-phase review
-and finalization runs one whole-plan review. Unchanged scope is not rerun. Incomplete, exhausted, stuck,
-or unresolved outcomes stop visibly.
+After the completed source commit, CI/autopilot run `Write-RecentLearning.ps1`, which checks completion,
+source identity, citations, secrets, and 10-item/16-KiB limits before replacing the strict Markdown
+handoff (`None.` for zero lessons).
 
-Finalization invokes the shared design-note compaction protocol exactly once only when implementation
-changed `docs/design-notes/**`. It inventories `.design-notes.md`, reads candidates in sequential batches
-of at most five, preserves unique decisions/contracts/constraints/exceptions/examples, and shows the
-final Git diff before terminal review. Cross-note merge/delete needs explicit operator approval; a
-headless run leaves the proposal visible and exits `42`. `docs/operator-guide/**` never triggers or
-participates in compaction.
-
-After a successful whole-plan source commit, `/ci` and autopilot invoke the bundled
-`Write-RecentLearning.ps1`. It validates plan completion, source identity, citations, secrets, the
-10-item/16-KiB limits, then atomically replaces `docs/feedback/recent-learning.md`. It writes strict
-Markdown, including explicit `None.` for zero lessons.
-
-## Distribution
-
-`DirectWorkflow.psm1` is root-canonical and bundles with `PlanState.psm1` and `SecretGuard.psm1` into
-CR, DR, CI, and autopilot. The direct historical adapter adds the same closure to CR, DR, CEP, and CIP.
-`Write-RecentLearning.ps1` and its validation closure bundle into CI and autopilot.
-Run `Sync-PluginScripts.ps1`, `Build-Registry.ps1`, then `Sync-Dogfood.ps1` after changing these entries.
+Root-canonical workflow scripts bundle into their consumers. Run script sync, registry/marketplace
+generation, and dogfood sync as owned by [plugin-registry.design.md](plugin-registry.design.md).
