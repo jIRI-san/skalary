@@ -116,9 +116,13 @@ if ($head -cne $SourceCommit) {
 
 $sourcePlanText = Get-GitBlobText -Commit $SourceCommit -Path $planPath
 $sourceId = [regex]::Match($sourcePlanText, '(?m)^<!-- plan-id: (?<id>[0-9a-f]{6}) -->$')
-$steps = @([regex]::Matches($sourcePlanText, '(?m)^- \[(?<mark>[ xX])\] \d+\.\d+\b'))
+$steps = @([regex]::Matches(
+        $sourcePlanText,
+        '(?m)^\s*-\s\[(?<mark>[ xX~])\]\s+\d+\.\d+[a-z]?\s'
+    ))
 if (-not $sourceId.Success -or $sourceId.Groups['id'].Value -cne $planId -or
-    $steps.Count -eq 0 -or @($steps | Where-Object { $_.Groups['mark'].Value -eq ' ' }).Count -gt 0) {
+    $steps.Count -eq 0 -or
+    @($steps | Where-Object { $_.Groups['mark'].Value -in @(' ', '~') }).Count -gt 0) {
     throw "Source commit '$SourceCommit' does not contain the completed source plan '$planId $slug'."
 }
 

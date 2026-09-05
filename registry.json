@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T14:10:02.4719546Z",
+  "generatedAt": "2026-09-05T14:30:03.8539722Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -216,7 +216,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
         },
         {
@@ -261,7 +261,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Write-RecentLearning.ps1",
-          "sha256": "115eadaa0167fd81ff9c51a0a9dcdaf15bc5e350a69fe80df77f11417a1dc3ae",
+          "sha256": "ada218bb8e0120b783289e14cde36a6c5251fd99c7960aabfdb07d58b13960df",
           "src": "skills/autopilot/scripts/Write-RecentLearning.ps1"
         },
         {
@@ -347,7 +347,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.11"
+      "version": "1.3.12"
     },
     {
       "author": "jIRI-san",
@@ -379,7 +379,7 @@
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/cr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -406,7 +406,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.77"
+      "version": "1.0.78"
     },
     {
       "author": "jIRI-san",
@@ -427,7 +427,7 @@
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -457,7 +457,7 @@
         },
         {
           "dest": "skills/ci/scripts/Write-RecentLearning.ps1",
-          "sha256": "115eadaa0167fd81ff9c51a0a9dcdaf15bc5e350a69fe80df77f11417a1dc3ae",
+          "sha256": "ada218bb8e0120b783289e14cde36a6c5251fd99c7960aabfdb07d58b13960df",
           "src": "skills/ci/scripts/Write-RecentLearning.ps1"
         }
       ],
@@ -469,7 +469,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.113"
+      "version": "1.0.114"
     },
     {
       "author": "jIRI-san",
@@ -503,7 +503,7 @@
         },
         {
           "dest": "skills/cep/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/cep/scripts/DirectWorkflow.psm1"
         },
         {
@@ -568,7 +568,7 @@
         },
         {
           "dest": "skills/cip/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/cip/scripts/DirectWorkflow.psm1"
         },
         {
@@ -630,7 +630,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.96"
+      "version": "1.0.97"
     },
     {
       "author": "jIRI-san",
@@ -732,7 +732,7 @@
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
-          "sha256": "3925c26f4e5a7c337928faf2d6acfdf78aa43fddaeef587179592fbda8652b70",
+          "sha256": "461344045412f134d9e6b9b49aa2c66c2a4b47004319a11b18ab862a4a9065d3",
           "src": "skills/dr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -759,7 +759,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.76"
+      "version": "1.0.77"
     },
     {
       "author": "jIRI-san",

@@ -11,19 +11,24 @@ Describe 'SimpleWorkflow.RecentLearning' {
         $script:scratch = [System.Collections.Generic.List[string]]::new()
 
         function New-LearningFixture {
-            param([switch]$Incomplete)
+            param(
+                [switch]$Incomplete,
+                [switch]$InProgress,
+                [switch]$LetteredIncomplete
+            )
             $root = Join-Path $script:repoRoot ('tests\.recent-learning-' + [guid]::NewGuid().ToString('N'))
             $script:scratch.Add($root)
             $planDir = Join-Path $root 'docs\implementation-plans\standalone-2026-01-01-abc123-learning-fixture'
             New-Item -ItemType Directory -Path (Join-Path $planDir 'assets') -Force | Out-Null
-            $mark = if ($Incomplete) { ' ' } else { 'x' }
+            $mark = if ($InProgress) { '~' } elseif ($Incomplete -or $LetteredIncomplete) { ' ' } else { 'x' }
+            $stepId = if ($LetteredIncomplete) { '1.1a' } else { '1.1' }
             Set-Content -LiteralPath (Join-Path $planDir 'plan.md') -Encoding utf8NoBOM -Value @"
 # abc123: Learning fixture
 <!-- plan-id: abc123 -->
 
 ## Phase 1: Complete
 
-- [$mark] 1.1 Fixture step ``S``
+- [$mark] $stepId Fixture step ``S``
 "@
             Set-Content -LiteralPath (Join-Path $planDir 'assets\requirements.md') -Encoding utf8NoBOM `
                 -Value "# Requirements`n`nCurrent evidence."
@@ -237,6 +242,16 @@ Describe 'SimpleWorkflow.RecentLearning' {
     It 'refuses producer metadata for an incomplete source plan' {
         $fixture = New-LearningFixture -Incomplete
         { & $script:writer -RepoRoot $fixture.Root -PlanReference abc123 -SourceCommit $fixture.Source } |
+            Should -Throw '*completed source plan*'
+
+        $inProgress = New-LearningFixture -InProgress
+        { & $script:writer -RepoRoot $inProgress.Root -PlanReference abc123 `
+                -SourceCommit $inProgress.Source } |
+            Should -Throw '*completed source plan*'
+
+        $lettered = New-LearningFixture -LetteredIncomplete
+        { & $script:writer -RepoRoot $lettered.Root -PlanReference abc123 `
+                -SourceCommit $lettered.Source } |
             Should -Throw '*completed source plan*'
     }
 

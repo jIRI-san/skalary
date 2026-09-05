@@ -598,6 +598,10 @@ $script:secret
         $fixture = New-DirectWorkflowFixture
         $sample = Join-Path $fixture.Root 'sample.txt'
         "alpha`nbeta" | Set-Content -LiteralPath $sample -Encoding utf8NoBOM -NoNewline
+        $nested = Join-Path $fixture.Root 'docs\evidence'
+        New-Item -ItemType Directory -Path $nested -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $nested 'nested.txt') `
+            -Value 'portable' -Encoding utf8NoBOM -NoNewline
         $review = Write-DirectReviewReport -RepoRoot $fixture.Root `
             -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
             -Source $fixture.Source -Scope @('sample.txt') `
@@ -608,6 +612,7 @@ $script:secret
             'file:sample.txt#exists'
             'file:sample.txt#contains:^alpha'
             'file:sample.txt#count>=2'
+            'file:docs/evidence/nested.txt#exists'
             'review:cr'
         )
         $results = @(Invoke-DirectEvidence -RepoRoot $fixture.Root -Marker $markers `

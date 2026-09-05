@@ -643,7 +643,9 @@ function Test-DirectFileEvidence {
     }
     $assertion = $Matches.assertion
     $root = (Resolve-Path -LiteralPath ([System.IO.Path]::GetFullPath($RepoRoot))).Path
-    $path = [System.IO.Path]::GetFullPath((Join-Path $root ($relative -replace '/', '\')))
+    $path = [System.IO.Path]::GetFullPath(
+        (Join-Path $root ($relative -replace '/', [System.IO.Path]::DirectorySeparatorChar))
+    )
     $prefix = $root.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
     if (-not $path.StartsWith($prefix, $script:PathComparison)) {
         throw "Evidence path '$relative' escapes the repository."
