@@ -18,6 +18,58 @@ Describe 'Autopilot model configuration' {
         $script:allowlist = Import-PowerShellDataFile -LiteralPath (
             Join-Path $repoRoot 'tools/model-allowlist.psd1'
         )
+
+        function Invoke-InvalidModelLaunch {
+            param([AllowEmptyString()][string]$Model)
+
+            $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $planRoot = Join-Path $fixtureRoot 'docs/implementation-plans/test-plan'
+            $installedSchemaRoot = Join-Path $fixtureRoot '.github/skills/autopilot/schemas'
+            New-Item -ItemType Directory -Path $planRoot, $installedSchemaRoot -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $planRoot 'plan.md') -Value '# test plan' -Encoding utf8NoBOM
+            Copy-Item -LiteralPath $script:schemaPath -Destination (
+                Join-Path $installedSchemaRoot 'autopilot.schema.json'
+            )
+            [ordered]@{
+                runtime = 'host'
+                copilotAuth = 'oauth'
+                gitProvider = 'github'
+                gitAuth = 'oauth'
+                model = $Model
+                reasoningEffort = 'medium'
+                git = [ordered]@{ name = 'Test'; email = 'test@example.com' }
+                maxIterationsPerStep = 1
+                build = 'npm run build'
+                test = 'npm test'
+            } | ConvertTo-Json -Depth 10 |
+                Set-Content -LiteralPath (Join-Path $fixtureRoot '.autopilot.json') -Encoding utf8NoBOM
+            & git -C $fixtureRoot init --quiet
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to initialize launcher test repository.' }
+
+            $start = [System.Diagnostics.ProcessStartInfo]::new()
+            $start.FileName = (Get-Command pwsh -CommandType Application | Select-Object -First 1).Source
+            $start.WorkingDirectory = $fixtureRoot
+            $start.UseShellExecute = $false
+            $start.RedirectStandardOutput = $true
+            $start.RedirectStandardError = $true
+            foreach ($argument in @(
+                    '-NoProfile', '-File', (Join-Path $script:pluginRoot 'scripts/launch.ps1'),
+                    '-PlanSlug', 'test-plan', '-Mode', 'next-phase'
+                )) {
+                [void]$start.ArgumentList.Add($argument)
+            }
+
+            $process = [System.Diagnostics.Process]::new()
+            $process.StartInfo = $start
+            [void]$process.Start()
+            $stdout = $process.StandardOutput.ReadToEndAsync()
+            $stderr = $process.StandardError.ReadToEndAsync()
+            $process.WaitForExit()
+            return [pscustomobject]@{
+                ExitCode = $process.ExitCode
+                Output = $stdout.Result + $stderr.Result
+            }
+        }
     }
 
     It 'defaults routine execution to GPT-5.6 Luna with medium reasoning' {
@@ -56,6 +108,15 @@ Describe 'Autopilot model configuration' {
         $modelValidation | Should -BeGreaterOrEqual 0
         $modelValidation | Should -BeLessThan $buildValidation
         $modelValidation | Should -BeLessThan $runtimeDispatch
+    }
+
+    It 'fails blank and unsupported models before runtime or authentication actions' {
+        foreach ($model in @('', 'unsupported-premium-model')) {
+            $result = Invoke-InvalidModelLaunch -Model $model
+            $result.ExitCode | Should -Be 1
+            $result.Output | Should -Match 'Invalid model'
+            $result.Output | Should -Not -Match 'Runtime:|Fetching credentials|Validating authentication'
+        }
     }
 
     It 'passes model and effort but no context override in host mode' {
