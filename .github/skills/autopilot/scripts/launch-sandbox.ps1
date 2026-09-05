@@ -357,12 +357,11 @@ Log "Plan has `$totalPhases phases (numbers: `$phaseList)."
 
 `$rebundleRequested = `$false
 `$phaseStateScript = 'C:\autopilot-runtime\Get-PhaseExecutionState.ps1'
-`$harvestValidator = 'C:\autopilot-runtime\Invoke-PhaseHarvest.ps1'
 foreach (`$phase in `$phaseNumbers) {
     Log "=== Phase `$phase of `$totalPhases ==="
 
     `$phaseStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+        -Phase `$phase -RepoRoot . 2>&1
     if (`$LASTEXITCODE -ne 0) {
         Log "Phase `${phase}: state check failed: `$(`$phaseStateOutput -join ' ')"
         `$runExitCode = 3
@@ -411,7 +410,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 
     `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+        -Phase `$phase -RepoRoot . 2>&1
     if (`$LASTEXITCODE -ne 0) {
         Log "Phase `${phase}: close state check failed: `$(`$closeStateOutput -join ' ')"
         `$runExitCode = 3
@@ -566,26 +565,18 @@ $sandboxProcess = Start-Process -FilePath 'C:\Windows\System32\WindowsSandbox.ex
 
 Write-Host "Sandbox launched. Monitor progress in the sandbox window."
 
-# --- Block until the bootstrap signals completion (sentinel) or we time out ---
-# The bootstrap writes the sentinel from its finally block so it always fires,
-# even on failure, releasing this poll instead of forcing the full timeout.
-$SandboxTimeoutMinutes = $Config.timeout
-$deadline = (Get-Date).AddMinutes($SandboxTimeoutMinutes)
-Write-Host "Waiting for sandbox bootstrap to complete (timeout ${SandboxTimeoutMinutes}m)..."
+# --- Block until the bootstrap signals completion or the sandbox exits ---
+Write-Host "Waiting for sandbox bootstrap to complete..."
 while (-not (Test-Path $SentinelPath)) {
-    if ((Get-Date) -gt $deadline) {
-        Write-Warning "Sandbox did not signal completion within $SandboxTimeoutMinutes minutes."
-        if (-not $sandboxProcess.HasExited) {
-            $sandboxProcess.Kill($true)
-            $sandboxProcess.WaitForExit()
-        }
+    if ($sandboxProcess.HasExited) {
+        Write-Warning "Sandbox exited without signaling completion."
         break
     }
     Start-Sleep -Seconds 5
 }
 
 $exitCode = if (-not (Test-Path -LiteralPath $SentinelPath -PathType Leaf)) {
-    124
+    1
 }
 elseif (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
     $rawExitCode = (Get-Content -LiteralPath $ExitCodeMarker -Raw).Trim()

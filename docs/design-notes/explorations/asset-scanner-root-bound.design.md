@@ -16,11 +16,10 @@ The bound was removed by plan `34088e` on 2026-08-23. This note retains the prio
 
 | Root | Declared by | Checked |
 |---|---|---|
-| `docs/review-ledger/` | `continue-implementation` | yes |
 | `docs/implementation-plans/` | `create-implementation-plan` | yes |
 | `docs/feedback/` | `self-improvement` | yes |
 | `docs/design-notes/` | nobody | **no** |
-| `docs/architecture-notes/` | nobody | **no** |
+| `docs/architecture-notes/` | `architecture-notes` | yes |
 
 ## The live gap
 

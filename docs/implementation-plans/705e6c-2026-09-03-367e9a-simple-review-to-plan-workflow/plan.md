@@ -2,7 +2,7 @@
 <!-- plan-id: 367e9a -->
 <!-- depends-on: 2aa7ec -->
 <!-- cip-stage: dr-round-1 -->
-<!-- planning-confirmed: sha256:e405c479f71a30f742286a6a6a11c8b6227a560325b06335166883757ad5f8ef -->
+<!-- planning-confirmed: sha256:1bc50f62bec3dde0f712adceb0c4ec9b3e57bc4b3e7c06e265bb1efac10f1edb -->
 <!-- epic: 705e6c -->
 <!-- Folder naming: <epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -25,9 +25,7 @@
 - Risks — [assets/risks.md](assets/risks.md)
 - Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)
 - References — [assets/references.md](assets/references.md)
-- Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
-- Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
-- Review results — compact `assets/reviews/<uuid>.review.md` + `<uuid>.receipt.json`; live `<uuid>/` state is gitignored
+- Review results — advisory `assets/reviews/phase-<N>.md` and `assets/reviews/final.md`
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
@@ -59,7 +57,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 2.1 Prepare every CR/DR, `/cep`, `/cip`, `/ci`, autopilot, direct-evidence, and historical-context consumer for the proven direct shapes while the old path remains active (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 1.3] `L`
-- [ ] 2.2 Activate the direct workflow across all consumers, remove the old producers/schemas/Fleet/generated concerns/receipts/repair paths and stale manifest/docs entries, then commit only after focused residue and installed-consumer checks pass (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 2.1] `L`
+- [x] 2.2 Activate the direct workflow across all consumers, remove the old producers/schemas/Fleet/generated concerns/receipts/repair paths and stale manifest/docs entries, then commit only after focused residue and installed-consumer checks pass (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 2.1] `L`
 
 ## Phase 3: Precise interaction and proportional review
 <!-- worktree: (recorded by /ci when worktree is created) -->

@@ -103,7 +103,7 @@ if (-not (Test-Path $ConfigPath)) {
 $Config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 
 # Validate required fields
-$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'context', 'reasoningEffort', 'git', 'timeout', 'maxIterationsPerStep', 'build', 'test')
+$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'context', 'reasoningEffort', 'git', 'maxIterationsPerStep', 'build', 'test')
 foreach ($field in $requiredFields) {
     if (-not ($Config.PSObject.Properties.Name -contains $field)) {
         Write-Error "Missing required field '$field' in .autopilot.json"
@@ -118,21 +118,6 @@ if ($Config.context -notin @('default', 'long_context')) {
 if ($Config.reasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
     Write-Error "Invalid reasoningEffort '$($Config.reasoningEffort)' in .autopilot.json"
     exit 1
-}
-
-# planTimeout is the whole-run cap; timeout is per phase. A run cap below a single
-# phase's budget would kill every run mid-phase, so reject that combination loudly.
-$planTimeoutMinutes = 1440
-if ($Config.PSObject.Properties.Name -contains 'planTimeout') {
-    $planTimeoutMinutes = [int]$Config.planTimeout
-    if ($planTimeoutMinutes -lt 1) {
-        Write-Error "Invalid planTimeout '$($Config.planTimeout)' in .autopilot.json (must be >= 1)"
-        exit 1
-    }
-    if ($planTimeoutMinutes -lt [int]$Config.timeout) {
-        Write-Error "planTimeout ($planTimeoutMinutes m) is below the per-phase timeout ($($Config.timeout) m) in .autopilot.json"
-        exit 1
-    }
 }
 
 # --- Validate build/test commands against allowlist ---
@@ -272,7 +257,6 @@ Write-Host ""
 Write-Host "=== Launching $effectiveRuntime mode ==="
 Write-Host "Plan: $PlanSlug"
 Write-Host "Mode: $Mode"
-Write-Host "Timeout: $($Config.timeout) minutes/phase"
 Write-Host ""
 
 $dispatchParams = @{

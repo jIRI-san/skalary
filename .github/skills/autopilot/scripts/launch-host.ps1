@@ -2,8 +2,8 @@
 .SYNOPSIS
     Host-mode orchestrator for autonomous plan execution.
 .DESCRIPTION
-    Creates a git worktree on a feature branch, loops over plan phases invoking
-    Copilot CLI once per phase with live output streaming and timeout enforcement.
+    Creates a git worktree on a feature branch and invokes Copilot CLI once per phase
+    with live output streaming. The host call is a synchronous operator boundary.
 .PARAMETER PlanSlug
     The plan folder name (e.g. '002-persistent-storage-for-job-data').
 .PARAMETER Mode
@@ -42,7 +42,6 @@ $RepoRoot = git rev-parse --show-toplevel
 $WorktreeRoot = Join-Path (Split-Path $RepoRoot -Parent) "$((Split-Path $RepoRoot -Leaf)).worktrees"
 $WorktreePath = Join-Path $WorktreeRoot $BranchName.Replace('/', '-')
 $PlanPath = "docs/implementation-plans/$PlanSlug/plan.md"
-$TimeoutMinutes = $Config.timeout
 
 # --- Worktree setup ---
 if (-not (Test-Path $WorktreeRoot)) {
@@ -114,12 +113,11 @@ function Get-CanonicalPhaseState {
         [Parameter(Mandatory)][string]$StateScript,
         [Parameter(Mandatory)][string]$Plan,
         [Parameter(Mandatory)][int]$PhaseNumber,
-        [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string]$Validator
+        [Parameter(Mandatory)][string]$Root
     )
 
     $output = & pwsh -NoProfile -File $StateScript -PlanPath $Plan -Phase $PhaseNumber `
-        -RepoRoot $Root -HarvestValidator $Validator 2>&1
+        -RepoRoot $Root 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "Phase $PhaseNumber state check failed: $(($output -join ' ').Trim())"
     }
@@ -145,7 +143,6 @@ function Invoke-CopilotPhase {
         [string]$CopilotToken,
         [string]$Cwd,
         [string]$PlanRelPath,
-        [int]$TimeoutMin,
         [string]$CopilotPath,
         [ValidateSet('exe', 'bat', 'cmd', 'ps1')]
         [string]$CopilotType,
@@ -159,7 +156,7 @@ function Invoke-CopilotPhase {
     $prompt = "Execute $PlanRelPath, phase $PhaseNumber"
 
     Write-Host ""
-    Write-Host "=== Invoking Copilot CLI for Phase $PhaseNumber (timeout: ${TimeoutMin}m) ==="
+    Write-Host "=== Invoking Copilot CLI for Phase $PhaseNumber ==="
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     if ($CopilotType -eq 'bat' -or $CopilotType -eq 'cmd') {
@@ -264,37 +261,23 @@ function Invoke-CopilotPhase {
     $process.BeginOutputReadLine()
     $process.BeginErrorReadLine()
 
-    # Timeout enforcement via polling
-    $deadline = (Get-Date).AddMinutes($TimeoutMin)
-    while (-not $process.HasExited) {
-        if ((Get-Date) -gt $deadline) {
-            Write-Warning "Phase $PhaseNumber timed out after ${TimeoutMin} minutes. Killing process."
-            $process.Kill()
-            $process.WaitForExit(5000)
-            return @{ ExitCode = -1; TimedOut = $true }
-        }
-        Start-Sleep -Milliseconds 500
-    }
-
-    $process.WaitForExit() # Ensure all output flushed
+    $process.WaitForExit()
     Get-EventSubscriber | Where-Object SourceObject -eq $process | Unregister-Event
 
-    return @{ ExitCode = $process.ExitCode; TimedOut = $false }
+    return @{ ExitCode = $process.ExitCode }
 }
 
 # --- Main execution ---
 $hostCommand = Resolve-HostCommand
 Write-Host "Using Copilot launcher: $($hostCommand.Path) [$($hostCommand.Type)]"
 $phaseStateScript = Join-Path $PSScriptRoot 'Get-PhaseExecutionState.ps1'
-$harvestValidator = Join-Path $PSScriptRoot 'Invoke-PhaseHarvest.ps1'
 
 $phasesExecuted = 0
 $executionExitCode = 0
 foreach ($phase in $phaseNumbers) {
     try {
         $phaseState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
-            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath `
-            -Validator $harvestValidator
+            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath
     }
     catch {
         Write-Warning $_
@@ -312,7 +295,6 @@ foreach ($phase in $phaseNumbers) {
         -CopilotToken $Token `
         -Cwd $WorktreePath `
         -PlanRelPath $PlanPath `
-        -TimeoutMin $TimeoutMinutes `
         -CopilotPath $hostCommand.Path `
         -CopilotType $hostCommand.Type `
         -ExtraArgs $hostCommand.ExtraArgs `
@@ -322,11 +304,6 @@ foreach ($phase in $phaseNumbers) {
 
     $phasesExecuted++
 
-    if ($result.TimedOut) {
-        Write-Warning "Execution stopped due to timeout in Phase $phase."
-        $executionExitCode = 124
-        break
-    }
     if ($result.ExitCode -eq 42) {
         Write-Host "@human step encountered in Phase $phase. Stopping."
         $executionExitCode = 42
@@ -340,8 +317,7 @@ foreach ($phase in $phaseNumbers) {
 
     try {
         $closeState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
-            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath `
-            -Validator $harvestValidator
+            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath
     }
     catch {
         Write-Warning $_

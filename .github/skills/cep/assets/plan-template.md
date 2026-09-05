@@ -21,9 +21,7 @@
 - Risks — [assets/risks.md](assets/risks.md)
 - Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)
 - References — [assets/references.md](assets/references.md)
-- Evidence receipt — `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
-- Run logs — `assets/logs/capture.md`, `assets/logs/cr-log.md`, `assets/logs/learnings.md` (written by `Add-WorkflowNote`)
-- Review results — compact `assets/reviews/<uuid>.review.md` + `<uuid>.receipt.json`; live `<uuid>/` state is gitignored
+- Review results — advisory `assets/reviews/phase-<N>.md` and `assets/reviews/final.md`
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 

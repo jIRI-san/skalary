@@ -14,7 +14,6 @@ Describe 'Plan assets layout' {
         $newPlanScript = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
         $testPlanScript = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
         $workflowNoteScript = Join-Path $repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
-        $receiptScript = Join-Path $repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $plansRoot = Join-Path $repoRoot 'docs/implementation-plans'
 
         $newTempDir = {
@@ -140,8 +139,9 @@ Describe 'Plan assets layout' {
             foreach ($asset in @('assets/intent.md', 'assets/domain.md', 'assets/design.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
                 $template | Should -Match ([regex]::Escape($asset))
             }
-            $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>.review.md'))
-            $template | Should -Match ([regex]::Escape('<uuid>.receipt.json'))
+            $template | Should -Match ([regex]::Escape('assets/reviews/phase-<N>.md'))
+            $template | Should -Match ([regex]::Escape('assets/reviews/final.md'))
+            $template | Should -Not -Match 'receipt'
 
             $template | Should -Match '<!-- plan-id:'
             $template | Should -Match '(?m)^## Phase 1:'
@@ -176,7 +176,7 @@ Describe 'Plan assets layout' {
                     (Get-Content -LiteralPath $assetPath -Raw).Trim() | Should -Not -BeNullOrEmpty
                 }
                 Test-Path -LiteralPath (Join-Path $assetsDir 'reviews') |
-                    Should -BeFalse -Because 'ReviewRuns is conditional output, not an empty scaffold'
+                    Should -BeFalse -Because 'Reviews are conditional output, not an empty scaffold'
 
                 $metadata = Get-PlanMetadata -Path (Join-Path $planDir 'plan.md') -RepoRoot $tempRoot
                 $metadata.Layout | Should -Be 'assets'
@@ -462,14 +462,12 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:ci-loads-assets-on-demand documents on-demand asset loading in the ci skill' {
+        It 'test:ci-loads-assets-on-demand protects the four criteria and uses direct evidence' {
             $skill = Get-Content -LiteralPath (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md') -Raw
-            $skill | Should -Match 'on demand'
-            $skill | Should -Match 'never wholesale'
-            $skill | Should -Match 'assets/intent\.md'
-            $skill | Should -Match 'assets/requirements\.md'
-            $skill | Should -Match 'assets/logs/'
-            $skill | Should -Match 'Resolve-PlanAssetPath'
+            $skill | Should -Match 'intent,\s*requirements, risks, or decisions'
+            $skill | Should -Match 'Test-PlanCriteriaBaseline'
+            $skill | Should -Match 'Invoke-DirectEvidence'
+            $skill | Should -Not -Match 'receipt authority|Build-EvidenceReceipt'
 
             $dogfood = Get-Content -LiteralPath (Join-Path $repoRoot '.github/skills/ci/SKILL.md') -Raw
             $dogfood | Should -Be $skill
@@ -658,32 +656,6 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:evidence-receipt-dual-layout resolves the receipt path for both layouts' {
-            $tempRoot = & $newTempDir
-            try {
-                $assetsPlanDir = Join-Path $tempRoot 'assets-plan'
-                $null = & $newAssetsPlan $assetsPlanDir
-                $legacyPlanDir = Join-Path $tempRoot 'legacy-plan'
-                $null = & $newLegacyPlan $legacyPlanDir
-
-                $results = @([pscustomobject]@{ Req = 'REQ-1'; Marker = 'test:fixture-one'; Success = $true })
-
-                $assetsReceipt = & $receiptScript -Result $results -Commit 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' -Phase 1 -PlanDir $assetsPlanDir
-                $legacyReceipt = & $receiptScript -Result $results -Commit 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' -Phase 1 -PlanDir $legacyPlanDir
-
-                $assetsReceipt.ReceiptPath | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/evidence.md')))
-                $legacyReceipt.ReceiptPath | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'evidence.md')))
-
-                # The formatter stays pure: it resolves the path but never writes it.
-                Test-Path -LiteralPath $assetsReceipt.ReceiptPath | Should -BeFalse
-                $assetsReceipt.Text | Should -Be $legacyReceipt.Text
-                Get-Command Get-PlanLayout -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
-                Get-Command Resolve-PlanAssetPath -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
-            }
-            finally {
-                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
     }
 
     Context 'migration invariants' {
@@ -714,6 +686,7 @@ Describe 'Plan assets layout' {
             foreach ($planFile in @(Get-ChildItem -LiteralPath $plansRoot -Recurse -File -Filter 'plan.md')) {
                 $planDir = Split-Path -Parent $planFile.FullName
                 if ((Get-PlanLayout -PlanDir $planDir) -ne 'assets') { continue }
+                if (-not (Get-PlanValidationDecision -Path $planFile.FullName).ShouldValidate) { continue }
 
                 $output = @(& pwsh -NoProfile -File $testPlanScript -PlanPath $planFile.FullName -RepoRoot $repoRoot -Stage Draft 2>&1)
                 $LASTEXITCODE | Should -Be 0 -Because (($output | ForEach-Object { "$_" }) -join "`n")

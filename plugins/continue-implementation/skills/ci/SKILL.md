@@ -1,7 +1,7 @@
 ---
 name: ci
-description: 'Continue Implementation — execute a plan from docs/implementation-plans/, track step state, implement one step at a time, validate with build/test, review with @cr, and commit progress.'
-argument-hint: 'Optional plan reference (hash prefix, legacy number, slug, or date)'
+description: 'Continue Implementation — execute confirmed plan criteria with direct evidence and bounded review.'
+argument-hint: 'Optional plan reference'
 user-invocable: true
 disable-model-invocation: true
 context: fork
@@ -9,201 +9,26 @@ context: fork
 
 # Continue Implementation
 
-Requires agent mode.
+Resolve state and admission with existing deterministic plan scripts. Before any checklist, branch,
+worktree, log, or source mutation, call installed sibling `DirectWorkflow.psm1`
+`Test-PlanCriteriaBaseline`. Refuse missing, uncommitted, ambiguous, or byte-drifted intent,
+requirements, risks, or decisions and return to `/cip`; checklist, stage, and worktree markers remain
+mutable.
 
-**Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
-includes the same label and decision context in both hosts, any recommendation/default,
-`effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
-`vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
-number or exact label. Never stop only because the VS Code picker is unavailable. Free-form questions
-are unchanged.
-Identify plans and epics in user-facing text as `<canonical-id> <slug>`; commands use only the id.
+Implement ordinary work directly. A combined Designer/Validator is optional and Judge is the normal
+second call. Use two calls by default and five maximum, replacement fallback, at most five supporting
+artifacts, and 600/1,200 prompt bounds. For observable background work, compare tool output, file/commit
+state, completed subtasks, and blockers across two checks; redirect once, replace once within budget,
+then stop. Never kill an agent for elapsed time. Retain deterministic build/test/command timeouts as
+evidence.
 
-## Step 1: Select plan and load context
+Run focused validation and call `Invoke-DirectEvidence` for only `test:`, `file:`, and `review:`.
+Supply the active in-memory review result, full current source, and exact requested scope; persisted
+Markdown is not authority. Keep completed/refused/blocked/stuck/interrupted outcomes distinct. Exit `0`
+means completed, operator-action stops retain `42`, and other failures are nonzero.
 
-1. Resolve a non-archived plan by hash prefix, legacy number, slug, or date through
-   `Resolve-Plan`, then read `plan.md`. An epic id/slug is also valid: `Get-PlanState` (Step 2)
-   returns its rollup and `NextChild`. Do not pick a child yourself; use that result.
-   `<!-- epic: <id> -->` is membership authority, while `epic.md` is generated.
-2. **Load `assets/` on demand, never wholesale.** A plan folder uses either the current `plan.md` + `assets/` layout or the legacy flat layout; `Get-PlanMetadata` resolves requirements/risks/decisions from either, so never hand-parse. Read an asset only when the current work needs it:
-
-   | Asset | Read it when |
-   |---|---|
-   | `assets/intent.md` | **always** — before implementing any step, and again at phase crosscheck to re-anchor |
-   | `assets/requirements.md` | validating the acceptance criteria of the step's `REQ-N` refs |
-   | `assets/risks.md` | the step references a `RISK-N` |
-   | `assets/decisions.md`, `assets/decisions/<topic>.md` | a trade-off call needs prior rationale |
-   | `assets/references.md`, `assets/evolution-log.md` | reconciling against prior review rounds or consulted sources |
-   | `assets/evidence.md` | phase/plan crosscheck and the archival gate |
-   | `assets/logs/{capture,cr-log,learnings}.md` | harvest at plan completion (written only via `Add-WorkflowNote`) |
-
-   Never load the whole tree. Resolve every current or legacy asset with
-   `Resolve-PlanAssetPath`. Intent is mandatory before each step and again at phase crosscheck.
-   If the intent asset is missing, or **any** of its five sections is still a `TBD` placeholder,
-   stop and return the plan to `/cip` instead of guessing.
-3. Read `docs/design-notes/.design-notes.md` and load relevant design notes for the current step.
-4. Defer detected legacy loose-plan migration until Step 2 admission is `ready`, then run `.github/skills/ci/scripts/Repair-Plans.ps1`; do not hand-migrate.
-5. Run dependency preflight as a hard gate when the selected plan declares `depends-on: <id>`:
-
-```powershell
-.github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
-```
-
-If it exits non-zero, stop immediately.
-
-## Step 2: Plan state and next step (always)
-
-Surface deterministic state before any work. Resolve the repository root to one canonical absolute
-path, invoke the production state command once in JSON mode with that root, then render its progress,
-next-step, planning-context, and admission fields for the operator from that single result:
-
-```powershell
-.github/skills/ci/scripts/Get-PlanState.ps1 `
-    <plan-or-epic-reference> -RepoRoot <canonical-repo-root> -Json
-```
-
-### Epic host routing (hard branch)
-
-When the JSON result has `Kind: epic`, route it directly to the fixed installed host wrapper. Do not
-select `NextChild`, re-run state against a child, bootstrap ordinary plan autopilot, or present the
-plan mode/runtime menus. The wrapper owns the authoritative `Get-PlanState -Epic` refresh, child
-selection, state, launcher, container, terminal stop, target refresh, failure, and final crosscheck:
-
-```powershell
-.github/skills/autopilot/scripts/Invoke-EpicAutopilot.ps1 -Epic <state.EpicId> `
-    -Target HEAD -RepoRoot <canonical-repo-root>
-```
-
-Bind `-Epic` to the canonical `EpicId` from the state result, keep `-Target` as the literal local
-`HEAD` target, and bind `-RepoRoot` to the same canonical absolute repository root used for the state
-call. Never interpolate the original reference or plan content into this command. If
-`AUTOPILOT_CONTAINER=true`, stop: the epic wrapper is host-only and must never run or fall through to
-ordinary child selection inside the container. Block on the wrapper, preserve its exact process exit
-status, report its emitted awaiting-merge/completed/blocked/failure outcome, and exit `/ci`.
-
-For a plan, state reports progress and the first non-`[x]` step, including `@human`, `[discovery]`,
-and `blocked-by-after`; it never silently skips blocked work. Add only this judgment:
-
-- **Confirmed planning context:** an enrolled plan must report `Context: confirmed`. Stop before branch or file
-  mutation on `pending`, `stale`, `missing`, or `invalid` and return the plan to `/cip` for the affected
-  confirmation checkpoint. Marker-less legacy plans retain existing behavior.
-- **Resume / reset `[~]`:** resume a `[~]` step from uncommitted changes when the tree is dirty; otherwise reset it to `[ ]` and restart it clean.
-- **Mark active `[~]`:** mark the step you are about to execute as `[~]` first.
-- **Honor stops:** on a `@human` or `[discovery]` flag, stop and hand off to the user — never auto-execute. For `@human`, print the step's full `Handoff:` block from `Get-PlanState` verbatim (**Steps**, **Verify**, **Rollback**), not just the step title: that block is what makes the operator round-trip single-pass. If the block is missing or incomplete, say so — the plan did not clear the `human-step-detail` gate.
-
-### Phase admission (read-only hard gate)
-
-Before branch/worktree creation, checklist edits, `Repair-Plans`, or workflow-log initialization,
-consume the `Admission` result from the single state invocation above. The CLI builds one
-`Get-PlanInventory` snapshot and delegates the complete policy to `Get-PhaseAdmission`: dependency
-completion and resolution, first-incomplete-phase and `[after:]` eligibility, confirmed/legacy intent
-availability, and phase requirement mapping. Do not reconstruct any part of that policy in the skill.
-
-Admission has the closed states `ready`, `blocked`, `missing`, `ambiguous`, and `stale-input`. Report
-`Admission.ApplicableRequirements` before execution. Only `ready` permits deferred repair,
-branch/worktree mutation, `[~]`, or log initialization. Every other result stops with
-`Admission.Reason` and leaves the plan tree byte-for-byte unchanged.
-
-### Epic current-child simplicity check
-
-For a `ready` plan carrying `<!-- epic: <id> -->`, run this semantic check before Step 3 and before
-any repair, branch/worktree creation, checklist write, or log initialization. Read and follow the
-**Active `/ci` current-child check** in
-`.github/skills/cep/assets/decomposition-guide.md`.
-
-The read boundary is closed: the current child `plan.md`; its resolved plan-local intent, design, and
-decisions assets; the parent epic's generated rollup and marker-managed verdict metadata; and Git
-history needed to recover the last clean reviewed accepted-cut bytes and source digest. Never open a
-sibling child body or sibling asset. Compare only evidence available inside that boundary against the
-same eight labels and the exact three proportionality classes: `speculative platform`,
-`required shared contract`, and `local fix`. This is agent judgment subordinate to deterministic
-admission, not a new model dispatch, classifier, parser, receipt, cache, or lifecycle.
-
-Record a local disposition as compact **keep — retain the accepted cut** (`effort: 1`,
-`complexity: 1`), **simplify — remove unnecessary mechanism** (`effort: 3`, `complexity: 2`),
-**split — separate overlapping ownership** (`effort: 6`, `complexity: 6`), or
-**defer — leave the optional work out** (`effort: 1`, `complexity: 1`) prose in the current plan's
-existing decisions asset. An epic-baseline disposition uses only the installed
-`New-Epic.ps1 -SetCoherencyVerdict` full-block writer; because it changes the reviewed source, stop
-and return to `/cep` for operator reconfirmation and a fresh ordinary design review. Unresolved
-overcomplication stops before mutation in every mode: return the concrete choice to the interactive
-operator, or emit one bounded blocked outcome and stop headless execution. A clean check performs no
-write and proceeds to Step 3.
-
-## Step 3: Determine execution mode and branch/worktree
-
-1. **Read the plan's declared execution mode.** Parse the plan header for `<!-- execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot -->` and `<!-- scope: step | phase | plan -->`. This marker is a *runtime* selector, not a pacing hint — `*-autopilot` means the plan is meant to run autonomously, not interactively with approvals.
-
-2. **Always present the full mode menu.** Use `vscode_askQuestions`, list every mode below,
-   and recommend the declared mode. Missing config does not hide a mode; autopilot bootstraps it.
-
-   | Option | Kind | Description | Effort | Complexity |
-   |---|---|---|---:|---:|
-   | **Interactive (approve each step)** | in-session | Pause for approval at each step. Recommended when marker is `manual` or absent. | `effort: 2` | `complexity: 1` |
-   | **Autopilot (autoapprove)** | in-session | Run in this session without per-step approval prompts. | `effort: 1` | `complexity: 2` |
-   | **Host autopilot** | autonomous | Headless via `launch.ps1 -Runtime host`. Recommended when marker is `host-autopilot`. | `effort: 2` | `complexity: 3` |
-   | **Container autopilot** | autonomous | Headless via `launch.ps1 -Runtime container`. Recommended when marker is `container-autopilot`. | `effort: 4` | `complexity: 5` |
-   | **Sandbox autopilot** | autonomous | Headless via `launch.ps1 -Runtime sandbox`. Recommended when marker is `sandbox-autopilot`. | `effort: 3` | `complexity: 4` |
-
-   Never silently downgrade an `*-autopilot` plan to interactive — always confirm with the user via this menu.
-
-3. **Environment suppressions (security, not config gaps):**
-   - `AUTOPILOT_CONTAINER=true` (already inside the autopilot container): omit all autonomous options **and** Autopilot; execute in-place per the marker.
-   - `AUTOPILOT_DISABLE_HOST=true`: omit **Host autopilot** only (`launch.ps1` also refuses `-Runtime host`).
-
-4. **Execution extent.** For Host / Container / Sandbox, ask exactly **One phase** (`effort: 3`,
-   `complexity: 2`) or **Whole plan** (`effort: 8`, `complexity: 6`). `scope: step|phase` recommends
-   One phase; `scope: plan` recommends Whole plan.
-   Missing or invalid scope never infers `whole-plan`: report it and recommend One phase. Map the
-   answer to `next-phase` or `whole-plan`.
-
-5. **Autonomous handoff.** Read `.github/skills/autopilot/SKILL.md`; pass the selected runtime and
-   launcher mode without another menu. Do not create an implementation-role fleet in `/ci` on this
-   path; the launched autopilot agent owns the same per-step fleet so each role is declared once.
-   Block on the launcher, preserve its exit status, report its completion/operator-stop/failure
-   outcome, and exit `/ci`.
-
-   - **Offline rebundle:** container/sandbox exit `43` after committing only a missing package's
-     manifest; host `launch.ps1` runs `prepare-packages.ps1 -Branch`, pushes the lockfile, and
-     relaunches up to `maxRebundles`. Exit `42` remains the `@human` stop.
-   - **Progression contract.** `next-phase` stops after the first admitted phase completes its phase-close flow. `whole-plan` applies the same admission and close contract to each remaining phase and advances only after the current gate passes; an operator or evidence stop leaves checklist progress intact for a later resume.
-
-6. **In-session execution (Interactive / Autopilot).** Validate or create the expected branch/worktree naming, then continue to Step 4. Autopilot skips per-step approval prompts; Interactive pauses at each step.
-
-7. Record `<!-- worktree: <branch> -->` in the current phase when first running in that worktree.
-
-## Step 4: Implement (`./assets/execution-guide.md`)
-
-Before implementing a step, run the validation reconcile gate:
-
-```powershell
-.github/skills/ci/scripts/Test-Plan.ps1 `
-    -PlanPath <selected-plan-path> -RepoRoot <canonical-repo-root>
-```
-
-Fix blocking failures before execution. This bundled gate is the plan-consistency authority; do not add inline validation logic.
-
-Use the execution asset for the implement/build/test/code-review/commit loop.
-
-### Implementation-role fleet dispatch
-
-For in-session execution, read and follow `./assets/fleet-dispatch-guide.md`. It owns the fixed role
-graph and the stepwise plan/pre-view/admission/attendance protocol around native role calls.
-
-## Step 5: Crosscheck and completion (`./assets/crosscheck-guide.md`)
-
-Use the crosscheck asset for:
-- Phase crosscheck
-- Plan crosscheck
-- Evidence receipt (`evidence.md`)
-- `archival-gate` checks before completion
-
-## Anti-drift contract
-
-Long runs drift; re-anchor every step instead of trusting context memory:
-
-- **State authority:** `Get-PlanState` (Step 2) is the only source of progress and next-step selection. Never trust remembered checkbox state.
-- **Intent authority:** the plan's intent asset — not remembered context — is the anchor for *why* a step exists. Re-read it before each step and at every crosscheck.
-- **Consistency authority:** the bundled Step 4 gate owns plan/evidence consistency; re-run it to resolve divergence.
-- **One step at a time:** implement, validate, review, and commit exactly one step, then return to Step 2.
-- **Retained judgment:** resume/reset of `[~]`, `@human` / `[discovery]` stops, and explicit-file staging stay with the orchestrator.
+Non-terminal review is absent unless a concrete changed-scope risk selects one direct event and at most
+one corrective replacement. The terminal phase skips post-phase review; finalization runs one whole-plan
+direct CR. Never rerun unchanged scope. Exhausted calls or unresolved/incomplete review stops non-clean.
+At completion, replace the bounded cited `docs/feedback/recent-learning.md` handoff for `/si`; do not
+append a ledger, receipt, replay, or repair state.

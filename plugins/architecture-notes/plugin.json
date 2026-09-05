@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -80,10 +80,23 @@
   ],
   "scaffolds": [
     {
+      "path": "schemas/architecture/**",
+      "mode": "parameterized",
+      "owner": "New-ArchSeed.ps1",
+      "trigger": "legacy JSON contract creation",
+      "confine": "Resolve-RepoPath"
+    },
+    {
       "path": "docs/architecture-notes/.architecture-notes.md",
       "mode": "literal",
       "owner": "Copy-ArchScaffold.ps1",
       "trigger": "tier scaffold on first run"
+    },
+    {
+      "path": "docs/architecture-notes/.staging",
+      "mode": "literal",
+      "owner": "Import-ArchAdr.ps1",
+      "trigger": "ADR staging"
     },
     {
       "path": "docs/architecture-notes/.staging/adr",

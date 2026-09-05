@@ -66,7 +66,7 @@ $script:PlanAssetMap = [ordered]@{
     Capture = [pscustomobject]@{ Asset = 'logs/capture.md'; Legacy = 'capture.md' }
     LearningOverflowRoot = [pscustomobject]@{ Asset = 'logs/learning-overflow'; Legacy = 'learning-overflow' }
     HarvestReceiptRoot = [pscustomobject]@{ Asset = 'harvest-receipts'; Legacy = 'harvest-receipts' }
-    ReviewRuns = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
+    Reviews = [pscustomobject]@{ Asset = 'reviews'; Legacy = 'reviews' }
 }
 
 function Normalize-PhysicalPathRoot {
@@ -737,7 +737,7 @@ function Resolve-PlanAssetPath {
     Resolves the on-disk path of a plan asset for the plan folder's layout.
 
     .DESCRIPTION
-    Single source of truth so writers (`Add-WorkflowNote`, `Build-EvidenceReceipt`, `/ci`) and readers
+    Single source of truth so plan writers and readers
     (harvest, archival gate) never disagree about where logs and receipts live. Sections that only ever
     exist as assets (requirements/risks/decisions/references) always resolve under `assets/`; their legacy
     form lives inside `plan.md`, not in a sibling file.
@@ -748,7 +748,7 @@ function Resolve-PlanAssetPath {
         [string]$PlanDir,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Intent', 'Domain', 'Design', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvidenceWaivers', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'ReviewRuns')]
+        [ValidateSet('Intent', 'Domain', 'Design', 'Requirements', 'Risks', 'Decisions', 'References', 'Evidence', 'EvidenceWaivers', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'Reviews')]
         [string]$Kind,
 
         [ValidateSet('assets', 'legacy')]
@@ -1889,7 +1889,7 @@ function Assert-IntentReady {
 function Get-PlanningContextDigest {
     <#
         .SYNOPSIS
-        Returns the digest bound to an operator confirmation of a plan's intent and design.
+        Returns the digest bound to confirmed intent, requirements, risks, and decisions.
         #>
     [CmdletBinding()]
     param(
@@ -1904,17 +1904,21 @@ function Get-PlanningContextDigest {
     $assetArgs = @{ PlanDir = $PlanDir }
     if ($RepoRoot) { $assetArgs.RepoRoot = $RepoRoot }
     if ($PSBoundParameters.ContainsKey('Inventory')) { $assetArgs.Inventory = $Inventory }
-    $intentPath = Resolve-PlanAssetPath @assetArgs -Kind Intent
-    $designPath = Resolve-PlanAssetPath @assetArgs -Kind Design
-    foreach ($path in @($intentPath, $designPath)) {
+    $paths = [ordered]@{}
+    foreach ($kind in @('Intent', 'Requirements', 'Risks', 'Decisions')) {
+        $paths[$kind] = Resolve-PlanAssetPath @assetArgs -Kind $kind
+    }
+    foreach ($path in $paths.Values) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Planning context asset not found: $path"
         }
     }
 
-    $intent = (Get-Content -LiteralPath $intentPath -Raw) -replace "`r`n", "`n"
-    $design = (Get-Content -LiteralPath $designPath -Raw) -replace "`r`n", "`n"
-    $payload = "intent.md`n$intent`n--design.md--`n$design"
+    $parts = foreach ($kind in $paths.Keys) {
+        $content = (Get-Content -LiteralPath $paths[$kind] -Raw) -replace "`r`n", "`n"
+        "--$($kind.ToLowerInvariant()).md--`n$content"
+    }
+    $payload = $parts -join "`n"
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
     return [System.Convert]::ToHexString(
         [System.Security.Cryptography.SHA256]::HashData($bytes)

@@ -11,7 +11,6 @@ $ErrorActionPreference = 'Stop'
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
 $scriptsSource = $PSScriptRoot
-$reviewSchemaSource = Join-Path $repoRootPath 'schemas/review'
 $pluginsRoot = Join-Path $repoRootPath 'plugins'
 
 if (-not (Test-Path -LiteralPath $pluginsRoot -PathType Container)) {
@@ -26,7 +25,6 @@ $refRegex = [regex]'\.github/skills/(?<skill>[a-z0-9][a-z0-9-]*)/scripts/(?<name
 # or `. (Join-Path $PSScriptRoot '_Common.ps1')`. `.psm?1` covers both `.psm1` modules
 # and `.ps1` dot-source siblings; the leading `_` allows `_Common.ps1`.
 $moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9_][A-Za-z0-9._-]*\.psm?1)'''
-$schemaRegex = [regex]'\$PSScriptRoot\s+''(?<schema>schemas/review/[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json)'''
 $scannableExtensions = @('.md', '.ps1', '.psm1', '.txt')
 
 # --- Asset reference grammar (REQ-19) -------------------------------------------------
@@ -69,6 +67,18 @@ $repoOwnedOptionalInputs = @{
         [string[]]@('docs/review-standards.md'),
         [System.StringComparer]::OrdinalIgnoreCase
     )
+    'continue-implementation' = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@('docs/review-standards.md'),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    'create-implementation-plan' = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@('docs/review-standards.md'),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    'autopilot' = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@('docs/review-standards.md'),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
 }
 
 function Test-RepoOwnedOptionalInput {
@@ -84,7 +94,7 @@ function Test-RepoOwnedOptionalInput {
 function Get-ScaffoldRoot {
     <#
     .SYNOPSIS
-    First two segments of a repo-relative path, e.g. `docs/review-ledger`. $null when shorter.
+    First two segments of a repo-relative path, e.g. `docs/feedback`. $null when shorter.
     #>
     [CmdletBinding()]
     param(
@@ -104,7 +114,7 @@ function Test-ScaffoldMatch {
     A literal entry matches on equality. A parameterized entry's template is compiled to a
     regex: `<name>` matches one segment, `**` matches any subtree. When the entry declares a
     closed value domain, a *concrete* segment must be a member of it — a reference that is
-    itself the placeholder (`docs/review-ledger/<category>.md`) is the template being quoted,
+    itself the placeholder (`docs/feedback/<category>.md`) is the template being quoted,
     not a value, so it is accepted without a domain check.
     #>
     [CmdletBinding()]
@@ -405,8 +415,7 @@ function Test-IsInstalledSidecarReference {
 function Get-BundleClosure {
     param(
         [Parameter(Mandatory)][string]$ScriptName,
-        [Parameter(Mandatory)][string]$SourceDir,
-        [Parameter(Mandatory)][string]$ReviewSchemaDir
+        [Parameter(Mandatory)][string]$SourceDir
     )
 
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -428,15 +437,6 @@ function Get-BundleClosure {
         foreach ($match in $moduleRegex.Matches($content)) {
             $mod = $match.Groups['mod'].Value
             $work.Enqueue($mod)
-        }
-        foreach ($match in $schemaRegex.Matches($content)) {
-            $relative = $match.Groups['schema'].Value
-            $schemaName = [System.IO.Path]::GetFileName($relative)
-            $schemaPath = Join-Path $ReviewSchemaDir $schemaName
-            if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
-                throw "Bundled review schema source not found in canonical schemas/review/: $schemaPath"
-            }
-            $files[$relative] = $schemaPath
         }
     }
 
@@ -504,10 +504,8 @@ foreach ($manifestPath in $manifestPaths) {
         $ext = [System.IO.Path]::GetExtension($src).ToLowerInvariant()
         if ($scannableExtensions -notcontains $ext) { continue }
 
-        $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath $src
-        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
-
         $dest = ([string]$file.dest).Replace('\', '/')
+        $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath $src
         $scanSourcePath = $sourcePath
         $bundleClosureDests = [System.Collections.Generic.HashSet[string]]::new(
             [System.StringComparer]::OrdinalIgnoreCase
@@ -519,12 +517,28 @@ foreach ($manifestPath in $manifestPaths) {
                 $scanSourcePath = $canonicalScript
                 $managedDirDest = $dest.Substring(0, $dest.LastIndexOf('/'))
                 $managedClosure = Get-BundleClosure -ScriptName $managedScript.Groups['name'].Value `
-                    -SourceDir $scriptsSource -ReviewSchemaDir $reviewSchemaSource
+                    -SourceDir $scriptsSource
+                $managedDir = Join-Path $pluginRoot (
+                    $managedDirDest -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                )
+                $dirKey = ([System.IO.Path]::GetFullPath($managedDir)).ToLowerInvariant()
+                if (-not $expected.ContainsKey($dirKey)) {
+                    $expected[$dirKey] = [pscustomobject]@{
+                        PluginName = $pluginName
+                        PluginRoot = $pluginRoot
+                        ManifestPath = $manifestPath.FullName
+                        Skill = $managedDirDest.Split('/')[1]
+                        Dir = $managedDir
+                        Files = @{}
+                    }
+                }
                 foreach ($relative in $managedClosure.Keys) {
                     [void]$bundleClosureDests.Add("$managedDirDest/$relative")
+                    $expected[$dirKey].Files[$relative] = $managedClosure[$relative]
                 }
             }
         }
+        if (-not (Test-Path -LiteralPath $scanSourcePath -PathType Leaf)) { continue }
         $content = [System.IO.File]::ReadAllText($scanSourcePath)
 
         $stripped = Remove-FencedBlocks -Content $content
@@ -700,8 +714,7 @@ foreach ($manifestPath in $manifestPaths) {
                 continue
             }
 
-            $closure = Get-BundleClosure -ScriptName $name -SourceDir $scriptsSource `
-                -ReviewSchemaDir $reviewSchemaSource
+            $closure = Get-BundleClosure -ScriptName $name -SourceDir $scriptsSource
 
             $managedDir = Join-Path $pluginRoot (Join-Path 'skills' (Join-Path $skill 'scripts'))
             $dirKey = ([System.IO.Path]::GetFullPath($managedDir)).ToLowerInvariant()

@@ -8,9 +8,7 @@ param(
     [ValidateRange(0, 999)]
     [int]$Phase,
 
-    [string]$RepoRoot = (git rev-parse --show-toplevel),
-
-    [string]$HarvestValidator = (Join-Path $PSScriptRoot 'Invoke-PhaseHarvest.ps1')
+    [string]$RepoRoot = (git rev-parse --show-toplevel)
 )
 
 Set-StrictMode -Version Latest
@@ -30,10 +28,6 @@ try {
         throw "Plan file not found: $planPathFull"
     }
     $planDirFull = Split-Path -Parent $planPathFull
-    if (-not (Test-Path -LiteralPath $HarvestValidator -PathType Leaf)) {
-        throw "Phase-harvest validator not found: $HarvestValidator"
-    }
-
     Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
     $metadata = Get-PlanMetadata -Path $planPathFull -RepoRoot $repoRootFull
     $phaseHeading = @(
@@ -92,37 +86,18 @@ try {
         return
     }
 
-    $receiptRoot = Resolve-PlanAssetPath -PlanDir $planDirFull -Kind HarvestReceiptRoot `
-        -RepoRoot $repoRootFull
-    $receiptPath = Join-Path $receiptRoot ('phase-{0:D3}.json' -f $Phase)
-    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+    $relativePath = (& git -C $repoRootFull ls-files --full-name --error-unmatch -- $planPathFull 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($relativePath)) {
         Write-Output 'close-pending'
         return
     }
-
-    foreach ($requiredPath in @($planPathFull, $receiptPath)) {
-        $relativePath = (& git -C $repoRootFull ls-files --full-name --error-unmatch -- $requiredPath 2>$null)
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($relativePath)) {
-            Write-Output 'close-pending'
-            return
-        }
-        $pathStatus = (& git -C $repoRootFull status --porcelain --untracked-files=all -- $requiredPath)
-        if ($LASTEXITCODE -ne 0) {
-            throw "Unable to inspect committed phase-close path '$requiredPath'."
-        }
-        if (-not [string]::IsNullOrWhiteSpace(($pathStatus -join "`n"))) {
-            Write-Output 'close-pending'
-            return
-        }
-    }
-
-    $validationOutput = & pwsh -NoProfile -File $HarvestValidator `
-        -PlanDir $planDirFull -Phase $Phase -ValidateReceipt -RepoRoot $repoRootFull 2>&1
+    $pathStatus = (& git -C $repoRootFull status --porcelain --untracked-files=all -- $planPathFull)
     if ($LASTEXITCODE -ne 0) {
-        [Console]::Error.WriteLine(
-            "Phase $Phase harvest receipt is invalid.`n$($validationOutput -join "`n")"
-        )
-        exit 2
+        throw "Unable to inspect committed phase-close path '$planPathFull'."
+    }
+    if (-not [string]::IsNullOrWhiteSpace(($pathStatus -join "`n"))) {
+        Write-Output 'close-pending'
+        return
     }
 
     Write-Output 'closed'

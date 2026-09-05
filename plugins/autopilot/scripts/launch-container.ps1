@@ -2,8 +2,8 @@
 .SYNOPSIS
     Container-mode orchestrator for autonomous plan execution.
 .DESCRIPTION
-    Builds Docker image, runs container with entrypoint script, enforces timeout
-    via the native process wait handle, extracts transcripts on completion.
+    Builds the Docker image, runs the blocking container process, and extracts
+    transcripts on completion.
 .PARAMETER PlanSlug
     The plan folder name (e.g. '002-persistent-storage-for-job-data').
 .PARAMETER Mode
@@ -55,9 +55,6 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = git rev-parse --show-toplevel
 $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
 $ContainerName = Get-AutopilotContainerName -Run $Run
-# Whole-run cap. `timeout` is the PER-PHASE budget and is enforced inside the
-# container, which is the only place phase boundaries are visible.
-$TimeoutMinutes = if ($Config.PSObject.Properties.Name -contains 'planTimeout') { [int]$Config.planTimeout } else { 1440 }
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 $TranscriptsDir = Join-Path $PlanFolder 'transcripts'
 $EnvFilePath = $null
@@ -143,28 +140,12 @@ try {
         '/usr/local/bin/container-entrypoint.sh', $PlanSlug, $Mode
     )
 
-    # Start container as background process for timeout enforcement
+    # The container call is the synchronous host/operator interruption boundary.
     $dockerProcess = Start-Process -FilePath 'docker' -ArgumentList $dockerArgs -NoNewWindow -PassThru
     # Cache the native process handle now so $dockerProcess.ExitCode remains
     # readable after the process exits. Without this, Start-Process -PassThru
     # returns $null for ExitCode once the process has terminated.
     $null = $dockerProcess.Handle
-
-    # --- Timeout enforcement via the native process wait handle ---
-    $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
-    $completedBeforeDeadline = Wait-AutopilotProcessUntil `
-        -Process $dockerProcess -Deadline $deadline
-    if (-not $completedBeforeDeadline) {
-        Write-Warning "Container exceeded the whole-run cap of $TimeoutMinutes minutes (planTimeout)."
-        Write-Host "Sending SIGTERM (docker stop) — the entrypoint commits and pushes in-flight work before exiting..."
-        docker stop --time 30 $ContainerName 2>$null
-        $gracefulDeadline = (Get-Date).AddSeconds(35)
-        if (-not (Wait-AutopilotProcessUntil `
-                    -Process $dockerProcess -Deadline $gracefulDeadline)) {
-            Write-Warning "Force-killing container..."
-            docker kill $ContainerName 2>$null
-        }
-    }
 
     $dockerProcess.WaitForExit()
     $exitCode = $dockerProcess.ExitCode

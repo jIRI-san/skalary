@@ -33,9 +33,7 @@ Nothing enforces it. `propose-guide.md` allowlists `plugins/**`, `docs/**` and
 `.github/{skills,agents,prompts}/**`, and Step 4 cuts a worktree from the *current* repo's
 `origin/main`. Run in a consumer repo, `/si` therefore does not refuse — it opens a PR against that
 repo's **installed plugin copies**, which the next `Install-Plugin` run overwrites. The proposal is
-silently discarded, upstream never receives it, and no control reports anything. This is the same
-described-but-unenforced shape catalogued throughout
-[review-system-enforcement-gaps.design.md](review-system-enforcement-gaps.design.md).
+silently discarded, upstream never receives it, and no control reports anything.
 
 ## Why "just tell the agent to follow the upstream rules" does not work
 
@@ -99,9 +97,7 @@ nothing downstream can check it against its source.
 
 Consequence: phase 2 should treat cross-repo evidence as *claim*, and promotion to the generic tier
 should require corroboration from upstream's own history rather than the consumer's assertion alone.
-That is the promotion-criteria question already open in
-[review-standards-tiering.design.md](review-standards-tiering.design.md), reached from the other
-direction — the two notes should be resolved together.
+That promotion decision requires corroboration from upstream history.
 
 ## Materializing the upstream checkout during phase 1
 
@@ -181,5 +177,4 @@ Making the artifact the interchange format turns that record from a discipline i
 Depends on `b0c0d3` REQ-14 (`/si`) and its `Test-SiWriteScope` guard, both of which are the
 substrate rather than obstacles. The local-execution variant additionally reuses the `autopilot`
 container and the `/cip` → autopilot pipeline unchanged, which is the point: no new execution mode.
-Should be sequenced with the review-standards-tiering promotion criteria, since both turn on the
-same question of when a consumer-repo rule earns generic status.
+Any later promotion rule must define when a consumer-repo observation earns generic status.

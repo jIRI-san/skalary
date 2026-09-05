@@ -1,7 +1,7 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.102",
-  "description": "Code implementation workflow skill with autonomous execution guidance.",
+  "version": "1.0.107",
+  "description": "Direct plan implementation workflow with Git criteria protection.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -16,158 +16,13 @@
   ],
   "status": "stable",
   "files": [
-    {
-      "src": "skills/ci/SKILL.md",
-      "dest": "skills/ci/SKILL.md"
-    },
-    {
-      "src": "skills/ci/assets/execution-guide.md",
-      "dest": "skills/ci/assets/execution-guide.md"
-    },
-    {
-      "src": "skills/ci/assets/fleet-dispatch-guide.md",
-      "dest": "skills/ci/assets/fleet-dispatch-guide.md"
-    },
-    {
-      "src": "skills/ci/assets/crosscheck-guide.md",
-      "dest": "skills/ci/assets/crosscheck-guide.md"
-    },
-    {
-      "src": "skills/ci/scripts/Add-LedgerEntry.ps1",
-      "dest": "skills/ci/scripts/Add-LedgerEntry.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Add-WorkflowNote.ps1",
-      "dest": "skills/ci/scripts/Add-WorkflowNote.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/FleetDispatch.psm1",
-      "dest": "skills/ci/scripts/FleetDispatch.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/SecretGuard.psm1",
-      "dest": "skills/ci/scripts/SecretGuard.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/AtomicStore.psm1",
-      "dest": "skills/ci/scripts/AtomicStore.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/Build-EvidenceReceipt.ps1",
-      "dest": "skills/ci/scripts/Build-EvidenceReceipt.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Get-PlanState.ps1",
-      "dest": "skills/ci/scripts/Get-PlanState.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Invoke-PhaseHarvest.ps1",
-      "dest": "skills/ci/scripts/Invoke-PhaseHarvest.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/LedgerStore.psm1",
-      "dest": "skills/ci/scripts/LedgerStore.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/PlanEvidence.psm1",
-      "dest": "skills/ci/scripts/PlanEvidence.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/ReviewResultReceipt.psm1",
-      "dest": "skills/ci/scripts/ReviewResultReceipt.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/PlanState.psm1",
-      "dest": "skills/ci/scripts/PlanState.psm1"
-    },
-    {
-      "src": "skills/ci/scripts/ReviewCycleGate.ps1",
-      "dest": "skills/ci/scripts/ReviewCycleGate.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Remove-LedgerEntry.ps1",
-      "dest": "skills/ci/scripts/Remove-LedgerEntry.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Repair-Plans.ps1",
-      "dest": "skills/ci/scripts/Repair-Plans.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-      "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1"
-    },
-    {
-      "src": "skills/ci/scripts/Test-Plan.ps1",
-      "dest": "skills/ci/scripts/Test-Plan.ps1"
-    }
-  ],
-  "scaffolds": [
-    {
-      "path": "docs/review-ledger/.archive",
-      "mode": "literal",
-      "owner": "Remove-LedgerEntry.ps1",
-      "trigger": "first ledger prune"
-    },
-    {
-      "path": "docs/review-ledger/.archive/<category>.md",
-      "mode": "parameterized",
-      "owner": "Remove-LedgerEntry.ps1",
-      "trigger": "first ledger prune",
-      "confine": "Resolve-RepoPath",
-      "values": [
-        "consistency",
-        "error-handling",
-        "observability",
-        "performance",
-        "plan-structure",
-        "security",
-        "testing"
-      ]
-    },
-    {
-      "path": "docs/review-ledger/<category>.md",
-      "mode": "parameterized",
-      "owner": "Add-LedgerEntry.ps1",
-      "trigger": "first harvest append",
-      "confine": "Resolve-LedgerPath",
-      "values": [
-        "consistency",
-        "error-handling",
-        "observability",
-        "performance",
-        "plan-structure",
-        "security",
-        "testing"
-      ]
-    },
-    {
-      "path": "docs/implementation-plans/<plan>/assets/logs/learning-overflow/**",
-      "mode": "parameterized",
-      "owner": "Add-WorkflowNote.ps1",
-      "trigger": "first assets-layout learning overflow",
-      "confine": "Resolve-PlanAssetPath"
-    },
-    {
-      "path": "docs/implementation-plans/<plan>/learning-overflow/**",
-      "mode": "parameterized",
-      "owner": "Add-WorkflowNote.ps1",
-      "trigger": "first legacy-layout learning overflow",
-      "confine": "Resolve-PlanAssetPath"
-    },
-    {
-      "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
-      "mode": "parameterized",
-      "owner": "Invoke-PhaseHarvest.ps1",
-      "trigger": "first assets-layout phase harvest",
-      "confine": "Resolve-PlanAssetPath"
-    },
-    {
-      "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
-      "mode": "parameterized",
-      "owner": "Invoke-PhaseHarvest.ps1",
-      "trigger": "first legacy-layout phase harvest",
-      "confine": "Resolve-PlanAssetPath"
-    }
+    { "src": "skills/ci/SKILL.md", "dest": "skills/ci/SKILL.md" },
+    { "src": "skills/ci/scripts/Get-PlanState.ps1", "dest": "skills/ci/scripts/Get-PlanState.ps1" },
+    { "src": "skills/ci/scripts/Test-DependencyPlan006.ps1", "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1" },
+    { "src": "skills/ci/scripts/Test-Plan.ps1", "dest": "skills/ci/scripts/Test-Plan.ps1" },
+    { "src": "skills/ci/scripts/DirectWorkflow.psm1", "dest": "skills/ci/scripts/DirectWorkflow.psm1" },
+    { "src": "skills/ci/scripts/PlanState.psm1", "dest": "skills/ci/scripts/PlanState.psm1" },
+    { "src": "skills/ci/scripts/SecretGuard.psm1", "dest": "skills/ci/scripts/SecretGuard.psm1" }
   ],
   "evals": {
     "path": "evals/",

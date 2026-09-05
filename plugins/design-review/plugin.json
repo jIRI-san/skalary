@@ -1,7 +1,7 @@
 {
   "name": "design-review",
-  "version": "1.0.66",
-  "description": "Design review orchestrator with model-agnostic concern reviewers.",
+  "version": "1.0.70",
+  "description": "Risk-selected design review with direct advisory Markdown.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -12,142 +12,13 @@
   "dependencies": [],
   "status": "stable",
   "files": [
-    {
-      "src": "prompts/dr.prompt.md",
-      "dest": "prompts/dr.prompt.md"
-    },
-    {
-      "src": "skills/dr/SKILL.md",
-      "dest": "skills/dr/SKILL.md"
-    },
-    {
-      "src": "skills/dr/assets/plan-scope-guide.md",
-      "dest": "skills/dr/assets/plan-scope-guide.md"
-    },
-    {
-      "src": "skills/dr/assets/plan-artifact-consumer-protocol.md",
-      "dest": "skills/dr/assets/plan-artifact-consumer-protocol.md"
-    },
-    {
-      "src": "skills/dr/assets/dispatch-guide.md",
-      "dest": "skills/dr/assets/dispatch-guide.md"
-    },
-    {
-      "src": "skills/dr/assets/review-standards.json",
-      "dest": "skills/dr/assets/review-standards.json"
-    },
-    {
-      "src": "skills/dr/assets/collation-guide.md",
-      "dest": "skills/dr/assets/collation-guide.md"
-    },
-    {
-      "src": "skills/dr/scripts/Build-ReviewReport.ps1",
-      "dest": "skills/dr/scripts/Build-ReviewReport.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/FleetDispatch.psm1",
-      "dest": "skills/dr/scripts/FleetDispatch.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/Get-ReviewRun.ps1",
-      "dest": "skills/dr/scripts/Get-ReviewRun.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/Get-PlanArtifactContext.ps1",
-      "dest": "skills/dr/scripts/Get-PlanArtifactContext.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1",
-      "dest": "skills/dr/scripts/Get-PlanArtifactConsumerContext.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/Remove-ReviewRun.ps1",
-      "dest": "skills/dr/scripts/Remove-ReviewRun.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/PlanEvidence.psm1",
-      "dest": "skills/dr/scripts/PlanEvidence.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/ReviewResultReceipt.psm1",
-      "dest": "skills/dr/scripts/ReviewResultReceipt.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/PlanState.psm1",
-      "dest": "skills/dr/scripts/PlanState.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/ReviewRun.psm1",
-      "dest": "skills/dr/scripts/ReviewRun.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/SecretGuard.psm1",
-      "dest": "skills/dr/scripts/SecretGuard.psm1"
-    },
-    {
-      "src": "skills/dr/scripts/Resolve-ReviewStandards.ps1",
-      "dest": "skills/dr/scripts/Resolve-ReviewStandards.ps1"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/review-admission.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/review-admission.schema.json"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/review-limits.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/review-limits.schema.json"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/review-manifest.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/review-manifest.schema.json"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/review-plan.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/review-plan.schema.json"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/review-run.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/review-run.schema.json"
-    },
-    {
-      "src": "skills/dr/scripts/schemas/review/terminal-status.schema.json",
-      "dest": "skills/dr/scripts/schemas/review/terminal-status.schema.json"
-    },
-    {
-      "src": "skills/dr/assets/concern-ledger-map.md",
-      "dest": "skills/dr/assets/concern-ledger-map.md"
-    },
-    {
-      "src": "agents/dr.agent.md",
-      "dest": "agents/dr.agent.md"
-    },
-    {
-      "src": "agents/dr-security.agent.md",
-      "dest": "agents/dr-security.agent.md"
-    },
-    {
-      "src": "agents/dr-correctness-reliability.agent.md",
-      "dest": "agents/dr-correctness-reliability.agent.md"
-    },
-    {
-      "src": "agents/dr-architecture-patterns.agent.md",
-      "dest": "agents/dr-architecture-patterns.agent.md"
-    },
-    {
-      "src": "agents/dr-performance.agent.md",
-      "dest": "agents/dr-performance.agent.md"
-    },
-    {
-      "src": "agents/dr-testing-evidence.agent.md",
-      "dest": "agents/dr-testing-evidence.agent.md"
-    },
-    {
-      "src": "agents/dr-maintainability-consistency.agent.md",
-      "dest": "agents/dr-maintainability-consistency.agent.md"
-    },
-    {
-      "src": "agents/dr-operability-observability.agent.md",
-      "dest": "agents/dr-operability-observability.agent.md"
-    }
+    { "src": "prompts/dr.prompt.md", "dest": "prompts/dr.prompt.md" },
+    { "src": "skills/dr/SKILL.md", "dest": "skills/dr/SKILL.md" },
+    { "src": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1", "dest": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1" },
+    { "src": "skills/dr/scripts/DirectWorkflow.psm1", "dest": "skills/dr/scripts/DirectWorkflow.psm1" },
+    { "src": "skills/dr/scripts/PlanState.psm1", "dest": "skills/dr/scripts/PlanState.psm1" },
+    { "src": "skills/dr/scripts/SecretGuard.psm1", "dest": "skills/dr/scripts/SecretGuard.psm1" },
+    { "src": "agents/dr.agent.md", "dest": "agents/dr.agent.md" }
   ],
   "evals": {
     "path": "evals/",
