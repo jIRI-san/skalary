@@ -129,16 +129,6 @@ Describe 'Trusted SI proposal synchronization' {
                     receiptId = $receipt
                     payload = $payload
                 })
-            Write-ProposalJson -Path (Join-Path $root (
-                    'docs/self-improvement/harvest-index.json'
-                )) -Value ([ordered]@{
-                    schemaVersion = 1; protocol = 'si-harvest-index-v1'
-                    planId = '1936cb'; planPath = 'docs/implementation-plans/example'
-                    pinnedBaseOid = $pinned; snapshotDigest = 'c' * 64
-                    selectedDigest = 'd' * 64; fileCount = 1
-                    scannedByteCount = 1; sourceCount = 1; recordCount = 1
-                    selectedByteCount = 1; sources = @(); selectedRecords = @()
-                })
             $inputRoot = New-ProposalRoot
             $candidateInput = Join-Path $inputRoot 'candidates.json'
             $choiceInput = Join-Path $inputRoot 'choices.json'

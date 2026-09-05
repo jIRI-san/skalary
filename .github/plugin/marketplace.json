@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.7"
+      "version": "1.3.8"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.73"
+      "version": "1.0.74"
     },
     {
       "description": "Direct plan implementation workflow with Git criteria protection.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.109"
+      "version": "1.0.110"
     },
     {
       "description": "Direct implementation and epic plan creation.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.92"
+      "version": "1.0.93"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.72"
+      "version": "1.0.73"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
@@ -128,7 +128,7 @@
       "version": "1.0.2"
     },
     {
-      "description": "Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves.",
+      "description": "Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements.",
       "license": "MIT",
       "name": "self-improvement",
       "source": "plugins/self-improvement",
@@ -139,7 +139,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.75"
+      "version": "1.0.76"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
@@ -154,7 +154,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.24"
+      "version": "1.0.25"
     }
   ]
 }

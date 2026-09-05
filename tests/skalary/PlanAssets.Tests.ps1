@@ -484,30 +484,17 @@ Describe 'Plan assets layout' {
                 $null = & $newLegacyPlan $legacyPlanDir '001'
                 $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
 
-                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/logs/learning-overflow')))
-                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind HarvestReceiptRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/harvest-receipts')))
-                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'learning-overflow')))
-                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind HarvestReceiptRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'harvest-receipts')))
-
                 $outside = Join-Path $tempRoot 'outside'
                 [void](New-Item -ItemType Directory -Path $outside -Force)
                 {
-                    Resolve-PlanAssetPath -PlanDir $outside -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $outside -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*escapes repository plan corpus*'
 
                 $untracked = Join-Path $tempRoot 'docs/implementation-plans/untracked'
                 [void](New-Item -ItemType Directory -Path $untracked -Force)
                 {
-                    Resolve-PlanAssetPath -PlanDir $untracked -Kind HarvestReceiptRoot `
+                    Resolve-PlanAssetPath -PlanDir $untracked -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -530,7 +517,7 @@ Describe 'Plan assets layout' {
                 [void](New-Item -ItemType Directory -Path $caseDistinctDir -Force)
 
                 {
-                    Resolve-PlanAssetPath -PlanDir $caseDistinctDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $caseDistinctDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -555,7 +542,7 @@ Describe 'Plan assets layout' {
                 }
 
                 {
-                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -581,10 +568,10 @@ Describe 'Plan assets layout' {
 
                 $mountedPlanDir = Join-Path $mountedRoot 'docs/implementation-plans/2026-01-01-abc123-mounted-plan'
                 $inventory = @(Get-PlanInventory -RepoRoot $mountedRoot)
-                $resolved = Resolve-PlanAssetPath -PlanDir $mountedPlanDir -Kind LearningOverflowRoot `
+                $resolved = Resolve-PlanAssetPath -PlanDir $mountedPlanDir -Kind Learnings `
                     -RepoRoot $mountedRoot -Inventory $inventory
                 $expected = [System.IO.Path]::GetFullPath(
-                    (Join-Path $mountedPlanDir 'assets/logs/learning-overflow')
+                    (Join-Path $mountedPlanDir 'assets/logs/learnings.md')
                 )
 
                 $resolved | Should -Be $expected
@@ -614,7 +601,7 @@ Describe 'Plan assets layout' {
 
                 $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
                 {
-                    Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*escapes canonical plan folder*'
             }
@@ -703,7 +690,7 @@ Describe 'Plan assets layout' {
                 if ((Get-PlanLayout -PlanDir $planDir) -ne 'assets') { continue }
                 $asserted++
 
-                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'Intent', 'References')) {
+                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'Intent', 'References')) {
                     $resolved = Resolve-PlanAssetPath -PlanDir $planDir -Kind $kind
                     $resolved | Should -Match ([regex]::Escape([System.IO.Path]::Combine('assets', ''))) -Because "$kind must resolve under assets/ for $planDir"
                 }

@@ -132,24 +132,6 @@ Describe 'Authoritative SI proposal completion' {
             Write-CompletionJson -Path (Join-Path $root (
                     "docs/self-improvement/resolver-receipts/$receipt.json"
                 )) -Value ([ordered]@{ receiptId = $receipt; payload = $payload })
-            Write-CompletionJson -Path (
-                Join-Path $root 'docs/self-improvement/harvest-index.json'
-            ) -Value ([ordered]@{
-                    schemaVersion = 1
-                    protocol = 'si-harvest-index-v1'
-                    planId = '1936cb'
-                    planPath = 'docs/implementation-plans/example'
-                    pinnedBaseOid = $mainOid
-                    snapshotDigest = 'c' * 64
-                    selectedDigest = 'd' * 64
-                    fileCount = 1
-                    scannedByteCount = 1
-                    sourceCount = 1
-                    recordCount = 1
-                    selectedByteCount = 1
-                    sources = @()
-                    selectedRecords = @()
-                })
             $begin = Join-Path $root 'begin.json'
             $choices = Join-Path $root 'choices.json'
             Write-CompletionJson -Path $begin -Value ([ordered]@{
@@ -181,9 +163,6 @@ Describe 'Authoritative SI proposal completion' {
                 Remove-Item -LiteralPath $choices -Force
             }
             Remove-Item -LiteralPath $begin -Force
-            Remove-Item -LiteralPath (
-                Join-Path $root 'docs/self-improvement/harvest-index.json'
-            ) -Force
             $manifestPath = Join-Path $root 'docs/self-improvement/state.json'
             $manifest = Get-Content -LiteralPath $manifestPath -Raw |
                 ConvertFrom-Json -Depth 100

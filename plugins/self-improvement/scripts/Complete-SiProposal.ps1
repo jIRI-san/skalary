@@ -554,8 +554,7 @@ function Assert-SiLifecycleChoiceBinding {
     foreach ($path in @(
             (Get-SiStateRelativePath -Kind Manifest),
             $runRelative,
-            (Get-SiStateRelativePath -Kind ResolverReceipts -Child "$Receipt.json"),
-            (Get-SiStateRelativePath -Kind HarvestIndex)
+            (Get-SiStateRelativePath -Kind ResolverReceipts -Child "$Receipt.json")
         )) {
         [void]$allowed.Add($path)
     }

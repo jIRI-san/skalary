@@ -45,7 +45,10 @@ compaction protocol exactly once if its Git/index helper reports an implementati
 `docs/design-notes/**`. A cross-note merge/delete is never self-approved: leave its proposed Git diff
 visible and exit `42` for operator action. Changes only under `docs/operator-guide/**` do not trigger it.
 
-On successful plan completion, replace one cited `docs/feedback/recent-learning.md` handoff: source plan
-and commit, at most 10 items, at most 16 KiB UTF-8. Distinguish missing, explicit-empty, and stale/source
-mismatch. Do not write a review ledger, receipt, replay, repair, or lifecycle service. Exit `0` only for
-complete, `42` for operator action, `43` for offline rebundle, and nonzero otherwise.
+On successful plan completion, invoke installed
+`.github/skills/autopilot/scripts/Write-RecentLearning.ps1` after the full completed source commit
+exists to replace `docs/feedback/recent-learning.md`. Supply at most 10 concise lessons, each with a
+repo-relative citation to evidence or changed
+context at that commit; zero lessons writes the explicit empty marker. Commit the replacement. Never
+append it or write auxiliary history, recovery, or lifecycle state.
+Exit `0` only for complete, `42` for operator action, `43` for offline rebundle, and nonzero otherwise.

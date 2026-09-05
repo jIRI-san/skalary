@@ -714,16 +714,6 @@ param([string]$RepoRoot, [string]$PlanId, [string]$SourceCommit)
                 receiptId = $receiptId
                 payload = $payload
             })
-        $index = [ordered]@{
-            schemaVersion = 1; protocol = 'si-harvest-index-v1'
-            planId = '1936cb'; planPath = 'docs/implementation-plans/example'
-            pinnedBaseOid = $pinnedOid; snapshotDigest = $snapshotDigest
-            selectedDigest = $selectedDigest; fileCount = 1
-            scannedByteCount = 1; sourceCount = 1; recordCount = 1
-            selectedByteCount = 1; sources = @(); selectedRecords = @()
-        }
-        $indexPath = Join-Path $consumer 'docs/self-improvement/harvest-index.json'
-        Write-SiJson -Path $indexPath -Value $index
         $beginInput = Join-Path $consumer 'begin.json'
         Write-SiJson -Path $beginInput -Value ([ordered]@{
                 candidates = $candidateBodies
@@ -786,16 +776,6 @@ param([string]$RepoRoot, [string]$PlanId, [string]$SourceCommit)
                 -DueId $dueId -RunId $runId -Receipt $staleReceipt `
                 -InputPath $beginInput
         } | Should -Throw '*stale for the current pinned origin/main*'
-
-        $index.snapshotDigest = '2' * 64
-        Write-SiJson -Path $indexPath -Value $index
-        {
-            & $lifecycle -RepoRoot $consumer -Operation Begin `
-                -DueId $dueId -RunId $runId -Receipt $receiptId `
-                -InputPath $beginInput
-        } | Should -Throw '*stale for the current harvest snapshot*'
-        $index.snapshotDigest = $snapshotDigest
-        Write-SiJson -Path $indexPath -Value $index
 
         $candidateCases = @(
             [ordered]@{ candidates = @($candidateBodies[0]) },
@@ -990,16 +970,6 @@ param([string]$RepoRoot, [string]$PlanId, [string]$SourceCommit)
                 "docs/self-improvement/resolver-receipts/$emptyReceipt.json"
             )) -Value ([ordered]@{
                 receiptId = $emptyReceipt; payload = $emptyPayload
-            })
-        Write-SiJson -Path (Join-Path $emptyConsumer (
-                'docs/self-improvement/harvest-index.json'
-            )) -Value ([ordered]@{
-                schemaVersion = 1; protocol = 'si-harvest-index-v1'
-                planId = '1936cb'; planPath = 'docs/implementation-plans/example'
-                pinnedBaseOid = $emptyPinned; snapshotDigest = ('7' * 64)
-                selectedDigest = ('8' * 64); fileCount = 1
-                scannedByteCount = 1; sourceCount = 1; recordCount = 0
-                selectedByteCount = 0; sources = @(); selectedRecords = @()
             })
         $emptyInput = Join-Path $emptyConsumer 'empty-candidates.json'
         Write-SiJson -Path $emptyInput -Value ([ordered]@{ candidates = @() })

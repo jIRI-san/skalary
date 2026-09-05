@@ -42,5 +42,8 @@ During finalization, invoke the shared
 `.github/skills/autopilot/assets/design-note-compaction.md` protocol exactly once when the bundled
 `.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`.
 Do not invoke it for `docs/operator-guide/**` or other changes alone.
-At completion, replace the bounded cited `docs/feedback/recent-learning.md` handoff for `/si`; do not
-append a ledger, receipt, replay, or repair state.
+At successful whole-plan completion, invoke installed
+`.github/skills/ci/scripts/Write-RecentLearning.ps1` against the full completed source commit. Supply
+zero to ten concise lessons with one repo-relative source-commit citation each. The helper replaces
+`docs/feedback/recent-learning.md`; never append or create auxiliary history, recovery, or lifecycle
+state. Commit that replacement as part of completion.

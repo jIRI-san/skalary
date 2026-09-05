@@ -19,8 +19,8 @@ handled by the agent. Preserve recoverable Git and Markdown progress for every n
 
 Autonomous execution uses direct native roles, direct evidence, risk-selected non-terminal review, one
 terminal whole-plan review, and the bounded direct learning handoff described by the autopilot agent.
-It does not use a scheduler, review authority store, evidence receipt, harvest receipt, or review-cycle
-state. If the run needs a complex operator decision, the agent stops with `42` and returns the
+It does not persist auxiliary review or learning lifecycle state. If the run needs a complex operator
+decision, the agent stops with `42` and returns the
 host-equivalent context, examples, benefits, pros/cons, recommendation/default, effort, complexity, and
 relationship/sequence diagram defined there; free-form input is one focused question at a time.
 
@@ -28,3 +28,8 @@ During finalization, invoke `./assets/design-note-compaction.md` exactly once wh
 `.github/skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1` reports edited
 `docs/design-notes/**`. Never self-approve its cross-note merge/delete proposal: preserve the visible
 diff and stop with `42`. Do not invoke it for `docs/operator-guide/**` or other changes alone.
+
+After the completed source commit exists, invoke installed
+`.github/skills/autopilot/scripts/Write-RecentLearning.ps1` with zero to ten concise lessons and one
+repo-relative source-commit citation per lesson. Commit the replacement; never append it or write
+auxiliary history, recovery, or lifecycle state.

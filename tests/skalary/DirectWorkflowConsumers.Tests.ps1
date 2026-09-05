@@ -8,6 +8,7 @@ Describe 'Active direct workflow consumers' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:adapter = Join-Path $script:repoRoot 'scripts/skalary/Get-DirectPlanArtifactConsumerContext.ps1'
         $script:siReader = Join-Path $script:repoRoot '.github/skills/si/scripts/Get-SiHarvest.ps1'
+        $script:learningWriter = Join-Path $script:repoRoot 'scripts/skalary/Write-RecentLearning.ps1'
         $script:active = @(
             'plugins/code-review/skills/cr/SKILL.md'
             'plugins/design-review/skills/dr/SKILL.md'
@@ -70,18 +71,8 @@ clean
             & git -C $root commit -qm initial
             $base = (& git -C $root rev-parse HEAD).Trim()
             if ($Learning) {
-                $feedback = Join-Path $root 'docs\feedback'
-                New-Item -ItemType Directory -Path $feedback -Force | Out-Null
-                Set-Content -LiteralPath (Join-Path $feedback 'recent-learning.md') -Encoding utf8NoBOM -Value @"
-# Recent learning
-
-Source plan: abc123
-Source commit: $base
-
-## Items
-
-- Keep direct evidence bounded. (`tests/example.ps1`)
-"@
+                & $script:learningWriter -RepoRoot $root -PlanReference abc123 -SourceCommit $base `
+                    -Lesson 'Keep direct evidence bounded.' -Citation 'README.md' | Out-Null
                 & git -C $root add .
                 & git -C $root commit -qm learning
             }
@@ -153,7 +144,10 @@ Source commit: $base
         $validResult.Items[0].wrappedContent | Should -Match '^<UNTRUSTED_INPUT_'
 
         $learningPath = Join-Path $valid.Root 'docs\feedback\recent-learning.md'
-        (Get-Content -LiteralPath $learningPath -Raw).Replace('Source plan: abc123', 'Source plan: ffffff') |
+        (Get-Content -LiteralPath $learningPath -Raw).Replace(
+            'Source plan: `abc123 direct-history`',
+            'Source plan: `ffffff other-plan`'
+        ) |
             Set-Content -LiteralPath $learningPath -Encoding utf8NoBOM
         & git -C $valid.Root add .
         & git -C $valid.Root commit -qm stale
@@ -162,18 +156,8 @@ Source commit: $base
                 -PinnedBaseOid $staleHead).Status | Should -Be 'stale'
 
         $empty = New-DirectConsumerFixture
-        $feedback = Join-Path $empty.Root 'docs\feedback'
-        New-Item -ItemType Directory -Path $feedback -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $feedback 'recent-learning.md') -Encoding utf8NoBOM -Value @"
-# Recent learning
-
-Source plan: abc123
-Source commit: $($empty.Base)
-
-## Items
-
-None.
-"@
+        & $script:learningWriter -RepoRoot $empty.Root -PlanReference abc123 `
+            -SourceCommit $empty.Base | Out-Null
         & git -C $empty.Root add .
         & git -C $empty.Root commit -qm empty
         $emptyHead = (& git -C $empty.Root rev-parse HEAD).Trim()

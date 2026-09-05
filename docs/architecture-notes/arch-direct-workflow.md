@@ -39,6 +39,11 @@ globs:
   merge/delete requires explicit operator approval, and headless execution stops with visible changes.
 - Historical context is at most five confined, secret-screened Markdown artifacts, framed once as
   untrusted input without receipt validation.
+- Successful whole-plan completion safely replaces one strict `docs/feedback/recent-learning.md`
+  handoff: canonical source plan id/slug, full completed source commit, explicit `## Lessons`, at most
+  10 cited items, and at most 16 KiB UTF-8. `/si` rejects malformed, oversized, secret-containing, bad
+  citation, and stale input before collision-safe untrusted framing; missing and explicit-empty remain
+  distinct no-candidate states.
 - If a planning, review, CI, or autopilot surface needs a complex predefined operator choice, both hosts
   receive the same context, example, benefits, pros/cons, recommendation/default, effort and complexity
   scores, plus Mermaid only when relationships or sequencing matter. Free-form input remains one focused

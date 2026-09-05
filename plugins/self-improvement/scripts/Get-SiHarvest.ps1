@@ -16,6 +16,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'SecretGuard.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
@@ -23,16 +24,41 @@ Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $root = (Resolve-Path -LiteralPath ([System.IO.Path]::GetFullPath($RepoRoot))).Path
 $relativePath = 'docs/feedback/recent-learning.md'
-$learningPath = Join-Path $root ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-$inventory = @(Get-PlanInventory -RepoRoot $root)
-$plan = Resolve-Plan -Reference $PlanReference -RepoRoot $root -Inventory $inventory
-$planId = [string]$plan.Id
-$planPath = [System.IO.Path]::GetRelativePath($root, [string]$plan.Path).Replace('\', '/')
 
-function Get-ContentDigest {
-    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-    [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+function Invoke-GitBytes {
+    param([Parameter(Mandatory)][string[]]$Argument)
+
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $root
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($item in @('-C', $root) + $Argument) {
+        [void]$start.ArgumentList.Add($item)
+    }
+    $process = [System.Diagnostics.Process]::Start($start)
+    $memory = [System.IO.MemoryStream]::new()
+    try {
+        $process.StandardOutput.BaseStream.CopyTo($memory)
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Bytes = $memory.ToArray()
+            Error = $errorText.Trim()
+        }
+    }
+    finally {
+        $memory.Dispose()
+        $process.Dispose()
+    }
+}
+
+function Test-GitObject {
+    param([Parameter(Mandatory)][string[]]$Argument)
+    & git -C $root @Argument 2>$null
+    return $LASTEXITCODE -eq 0
 }
 
 function New-UntrustedLearningBlock {
@@ -40,107 +66,115 @@ function New-UntrustedLearningBlock {
     do {
         $token = 'UNTRUSTED_INPUT_' + [guid]::NewGuid().ToString('N')
     } while ($Text.Contains($token, [System.StringComparison]::Ordinal))
-    "<$token>`n$Text`n</$token>"
+    return "<$token>`n$Text`n</$token>"
 }
 
-function Invoke-GitText {
-    param([Parameter(Mandatory)][string[]]$Argument)
-    $output = @(& git -C $root @Argument 2>&1)
-    [pscustomobject]@{ ExitCode = $LASTEXITCODE; Text = ($output -join "`n") }
-}
-
-$object = Invoke-GitText -Argument @('cat-file', '-e', "${PinnedBaseOid}:${relativePath}")
-if ($object.ExitCode -ne 0) {
-    $status = if (Test-Path -LiteralPath $learningPath -PathType Leaf) { 'stale' } else { 'missing' }
+function New-ClosedResult {
+    param([Parameter(Mandatory)][ValidateSet('missing', 'empty', 'valid', 'stale')][string]$Status)
     return [pscustomobject][ordered]@{
-        Status = $status
+        Status = $Status
         PlanId = $planId
+        PlanSlug = $slug
         PinnedBaseOid = $PinnedBaseOid
         Items = @()
-        ResolverReceipt = $null
     }
 }
 
-$size = Invoke-GitText -Argument @('cat-file', '-s', "${PinnedBaseOid}:${relativePath}")
-$byteCount = 0L
-if ($size.ExitCode -ne 0 -or
-    -not [long]::TryParse($size.Text.Trim(), [ref]$byteCount) -or
-    $byteCount -gt 16KB) {
-    throw 'Recent-learning input exceeds 16 KiB or has unreadable Git metadata.'
+$inventory = @(Get-PlanInventory -RepoRoot $root)
+$plan = Resolve-Plan -Reference $PlanReference -RepoRoot $root -Inventory $inventory
+$planId = [string]$plan.Id
+$slug = [string]$plan.Slug
+$planPath = [System.IO.Path]::GetRelativePath($root, (Join-Path ([string]$plan.Path) 'plan.md')).Replace('\', '/')
+
+if (-not (Test-GitObject -Argument @('cat-file', '-e', "${PinnedBaseOid}^{commit}"))) {
+    throw "Pinned base '$PinnedBaseOid' is not a readable commit."
 }
-$blob = Invoke-GitText -Argument @('show', "${PinnedBaseOid}:${relativePath}")
+$blob = Invoke-GitBytes -Argument @('show', "${PinnedBaseOid}:${relativePath}")
 if ($blob.ExitCode -ne 0) {
-    throw 'Unable to read recent-learning input from the pinned commit.'
+    return New-ClosedResult -Status missing
 }
-$content = $utf8.GetString([System.Text.Encoding]::UTF8.GetBytes($blob.Text))
-$sourcePlan = [regex]::Match($content, '(?im)^\s*Source plan:\s*`?(?<id>[0-9a-f]{6})`?\s*$')
-$sourceCommit = [regex]::Match(
-    $content,
-    '(?im)^\s*Source commit:\s*`?(?<oid>[0-9a-f]{40}|[0-9a-f]{64})`?\s*$'
-)
-$items = [regex]::Match($content, '(?ims)^##\s+Items\s*$\s*(?<body>.*)$')
-$stale = -not $sourcePlan.Success -or $sourcePlan.Groups['id'].Value -cne $planId -or
-    -not $sourceCommit.Success -or -not $items.Success
-if (-not $stale) {
-    & git -C $root merge-base --is-ancestor $sourceCommit.Groups['oid'].Value $PinnedBaseOid 2>$null
-    $stale = $LASTEXITCODE -ne 0
+if ($blob.Bytes.Length -gt 16KB) {
+    throw 'Recent-learning input exceeds 16 KiB UTF-8.'
 }
-if ($stale) {
-    return [pscustomobject][ordered]@{
-        Status = 'stale'
-        PlanId = $planId
-        PinnedBaseOid = $PinnedBaseOid
-        Items = @()
-        ResolverReceipt = $null
-    }
+try {
+    $content = $utf8.GetString($blob.Bytes)
+}
+catch {
+    throw 'Recent-learning input is not valid UTF-8.'
+}
+$content = $content.Replace("`r`n", "`n")
+
+$pattern = '(?s)\A# Recent learning\n\nSource plan: `(?<id>[0-9a-f]{6}) (?<slug>[a-z0-9][a-z0-9-]*)`\nSource commit: `(?<oid>[0-9a-f]{40}|[0-9a-f]{64})`\n\n## Lessons\n\n(?<body>.+?)\n?\z'
+$document = [regex]::Match($content, $pattern)
+if (-not $document.Success) {
+    throw 'Recent-learning input is malformed; expected strict Markdown metadata and an explicit ## Lessons section.'
+}
+if (@(Find-HighConfidenceSecret -Value $content).Count -gt 0) {
+    throw 'Recent-learning input contains secret material; consumption refused.'
 }
 
-$body = $items.Groups['body'].Value.Trim()
-$explicitEmpty = [string]::IsNullOrWhiteSpace($body) -or $body -match '^(?i:none\.?|no items\.?)$'
-$sourceDigest = Get-ContentDigest -Text $content
-$selectedDigest = Get-ContentDigest -Text $(if ($explicitEmpty) { '' } else { $body })
-$selectedRecords = @(
-    if (-not $explicitEmpty) {
-        [pscustomobject][ordered]@{
-            id = $sourceDigest
-            source = $relativePath
-            content = $content
-        }
-    }
-)
-$sourceRows = @(
-    [pscustomobject][ordered]@{
-        path = $relativePath
-        sha256 = $sourceDigest
-        bytes = $byteCount
-    }
-)
-$index = [pscustomobject][ordered]@{
-    schemaVersion = 1
-    protocol = 'si-harvest-index-v1'
-    planId = $planId
-    planPath = $planPath
-    pinnedBaseOid = $PinnedBaseOid
-    snapshotDigest = $sourceDigest
-    selectedDigest = $selectedDigest
-    fileCount = 1
-    scannedByteCount = $byteCount
-    sourceCount = 1
-    recordCount = $selectedRecords.Count
-    selectedByteCount = if ($explicitEmpty) { 0 } else { $utf8.GetByteCount($body) }
-    sources = $sourceRows
-    selectedRecords = $selectedRecords
+$sourceId = $document.Groups['id'].Value
+$sourceSlug = $document.Groups['slug'].Value
+$sourceCommit = $document.Groups['oid'].Value
+if ($sourceId -cne $planId -or $sourceSlug -cne $slug) {
+    return New-ClosedResult -Status stale
 }
-$stateContract = Get-SiStateContract
-$indexPath = Resolve-SiStatePath -RepoRoot $root -Segments @(
-    [string]$stateContract.Topology.HarvestIndexName
-)
-$indexJson = ($index | ConvertTo-Json -Depth 20 -Compress) + "`n"
-$indexWrite = Invoke-AtomicStoreUpdate -Path $indexPath -Transform { $indexJson }
-if ($indexWrite.Status -ne 'complete') {
-    throw "SI recent-learning index write failed with status '$($indexWrite.Status)'."
+if (-not (Test-GitObject -Argument @('cat-file', '-e', "${sourceCommit}^{commit}"))) {
+    return New-ClosedResult -Status stale
+}
+& git -C $root merge-base --is-ancestor $sourceCommit $PinnedBaseOid 2>$null
+if ($LASTEXITCODE -ne 0) {
+    return New-ClosedResult -Status stale
 }
 
+$sourcePlan = Invoke-GitBytes -Argument @('show', "${sourceCommit}:${planPath}")
+if ($sourcePlan.ExitCode -ne 0) {
+    return New-ClosedResult -Status stale
+}
+$sourcePlanText = $utf8.GetString($sourcePlan.Bytes).Replace("`r`n", "`n")
+$sourcePlanId = [regex]::Match($sourcePlanText, '(?m)^<!-- plan-id: (?<id>[0-9a-f]{6}) -->$')
+$sourceSteps = @([regex]::Matches($sourcePlanText, '(?m)^- \[(?<mark>[ xX])\] \d+\.\d+\b'))
+if (-not $sourcePlanId.Success -or $sourcePlanId.Groups['id'].Value -cne $planId -or
+    $sourceSteps.Count -eq 0 -or
+    @($sourceSteps | Where-Object { $_.Groups['mark'].Value -eq ' ' }).Count -gt 0) {
+    return New-ClosedResult -Status stale
+}
+
+$body = $document.Groups['body'].Value
+if ($body -ceq 'None.') {
+    return New-ClosedResult -Status empty
+}
+
+$lessonRows = @($body -split "`n")
+if ($lessonRows.Count -gt 10) {
+    throw 'Recent-learning input exceeds the 10-lesson limit.'
+}
+$lessons = [System.Collections.Generic.List[object]]::new()
+foreach ($row in $lessonRows) {
+    $item = [regex]::Match($row, '^- (?<lesson>[^`\r\n]+?) — `(?<citation>[^`\r\n]+)`$')
+    if (-not $item.Success -or [string]::IsNullOrWhiteSpace($item.Groups['lesson'].Value)) {
+        throw 'Recent-learning input contains a malformed or empty lesson item.'
+    }
+    $citation = $item.Groups['citation'].Value
+    if ([System.IO.Path]::IsPathRooted($citation) -or $citation.Contains('\') -or
+        $citation.StartsWith('/') -or
+        @($citation.Split('/') | Where-Object { $_ -in @('', '.', '..') }).Count -gt 0 -or
+        -not (Test-GitObject -Argument @('cat-file', '-e', "${sourceCommit}:${citation}"))) {
+        throw "Recent-learning citation '$citation' is missing or is not a confined source-commit path."
+    }
+    $lessons.Add([pscustomobject][ordered]@{
+            lesson = $item.Groups['lesson'].Value.Trim()
+            citation = $citation
+        })
+}
+
+$wrapped = New-UntrustedLearningBlock -Text $body
+$sourceDigest = [Convert]::ToHexString(
+    [System.Security.Cryptography.SHA256]::HashData($blob.Bytes)
+).ToLowerInvariant()
+$selectedDigest = [Convert]::ToHexString(
+    [System.Security.Cryptography.SHA256]::HashData($utf8.GetBytes($body))
+).ToLowerInvariant()
 $issuedReceipt = $null
 if ($IssueReceipt) {
     if (-not $DueId -or -not $RunId) {
@@ -167,11 +201,14 @@ if ($IssueReceipt) {
         candidates = $ranked.CandidateIds
     }
     $receiptId = Get-SiResolverReceiptId -Payload $payload
-    $receipt = [pscustomobject][ordered]@{ receiptId = $receiptId; payload = $payload }
-    $receiptJson = ($receipt | ConvertTo-Json -Depth 20 -Compress) + "`n"
+    $stateContract = Get-SiStateContract
     $receiptPath = Resolve-SiStatePath -RepoRoot $root -Segments (
         @($stateContract.Topology.ResolverReceiptSegments) + "$receiptId.json"
     )
+    $receiptJson = ([pscustomobject][ordered]@{
+            receiptId = $receiptId
+            payload = $payload
+        } | ConvertTo-Json -Depth 20 -Compress) + "`n"
     $write = Invoke-AtomicStoreUpdate -Path $receiptPath -Transform { $receiptJson }
     if ($write.Status -ne 'complete') {
         throw "Resolver receipt write failed with status '$($write.Status)'."
@@ -184,29 +221,19 @@ if ($IssueReceipt) {
     }
 }
 
-return [pscustomobject][ordered]@{
-    Status = if ($explicitEmpty) { 'empty' } else { 'valid' }
+[pscustomobject][ordered]@{
+    Status = 'valid'
     PlanId = $planId
+    PlanSlug = $slug
     PinnedBaseOid = $PinnedBaseOid
-    SnapshotDigest = $sourceDigest
-    SelectedDigest = $selectedDigest
-    FileCount = 1
-    ScannedByteCount = $byteCount
-    SourceCount = 1
-    RecordCount = $selectedRecords.Count
-    SelectedCount = $selectedRecords.Count
-    SelectedByteCount = $index.selectedByteCount
-    InjectionCount = 0
-    IndexPath = $indexPath
+    SourceCommit = $sourceCommit
+    LessonCount = $lessons.Count
     ResolverReceipt = $issuedReceipt
     Items = @(
-        if (-not $explicitEmpty) {
-            [pscustomobject][ordered]@{
-                id = $sourceDigest
-                source = $relativePath
-                wrappedContent = New-UntrustedLearningBlock -Text $content
-            }
+        [pscustomobject][ordered]@{
+            source = $relativePath
+            wrappedContent = $wrapped
+            lessons = $lessons.ToArray()
         }
     )
-    NextCursor = $null
 }

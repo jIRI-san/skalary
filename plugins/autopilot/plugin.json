@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "description": "Self-contained direct-workflow autonomous plan executor.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -28,6 +28,7 @@
     { "src": "skills/autopilot/scripts/PlanState.psm1", "dest": "skills/autopilot/scripts/PlanState.psm1" },
     { "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1", "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1" },
     { "src": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1" },
+    { "src": "skills/autopilot/scripts/Write-RecentLearning.ps1", "dest": "skills/autopilot/scripts/Write-RecentLearning.ps1" },
     { "src": "skills/autopilot/scripts/DirectWorkflow.psm1", "dest": "skills/autopilot/scripts/DirectWorkflow.psm1" },
     { "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1", "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1" },
     { "src": "skills/autopilot/scripts/Test-Plan.ps1", "dest": "skills/autopilot/scripts/Test-Plan.ps1" },
@@ -52,6 +53,14 @@
     { "src": "devcontainer/devcontainer.json", "dest": "skills/autopilot/devcontainer/devcontainer.json" },
     { "src": ".autopilot.json.example", "dest": "skills/autopilot/.autopilot.json.example" },
     { "src": ".autopilot.host.json.example", "dest": "skills/autopilot/.autopilot.host.json.example" }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/feedback/recent-learning.md",
+      "mode": "literal",
+      "owner": "Write-RecentLearning.ps1",
+      "trigger": "successful whole-plan completion"
+    }
   ],
   "evals": {
     "path": "evals/",

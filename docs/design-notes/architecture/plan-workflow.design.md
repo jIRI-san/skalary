@@ -55,8 +55,14 @@ final Git diff before terminal review. Cross-note merge/delete needs explicit op
 headless run leaves the proposal visible and exits `42`. `docs/operator-guide/**` never triggers or
 participates in compaction.
 
+After a successful whole-plan source commit, `/ci` and autopilot invoke the bundled
+`Write-RecentLearning.ps1`. It validates plan completion, source identity, citations, secrets, the
+10-item/16-KiB limits, then atomically replaces `docs/feedback/recent-learning.md`. It writes strict
+Markdown, including explicit `None.` for zero lessons, with no history, receipt, or repair store.
+
 ## Distribution
 
 `DirectWorkflow.psm1` is root-canonical and bundles with `PlanState.psm1` and `SecretGuard.psm1` into
 CR, DR, CI, and autopilot. The direct historical adapter adds the same closure to CR, DR, CEP, and CIP.
+`Write-RecentLearning.ps1` and its validation closure bundle into CI and autopilot.
 Run `Sync-PluginScripts.ps1`, `Build-Registry.ps1`, then `Sync-Dogfood.ps1` after changing these entries.

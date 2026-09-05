@@ -1,5 +1,5 @@
 ---
-description: "Self-improvement — harvest the review ledger, plan learnings, and recorded feedback into ranked improvements to this repo's own customizations. Usage: /si [plan reference]"
+description: "Self-improvement — read the bounded recent-learning handoff and propose improvements to this repo's own customizations. Usage: /si [plan reference]"
 name: si
 agent: agent
 ---

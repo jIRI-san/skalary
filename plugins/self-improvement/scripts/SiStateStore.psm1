@@ -33,7 +33,7 @@ $script:SiStateContract = [pscustomobject]@{
         ActiveCompletedRuns = 32; ActiveInFlightRuns = 16
         ArchivedRuns = 4096; RunsPerShard = 256; RunBytes = 1MB
         RankedCandidates = 5; LockSeconds = 30; CasRetries = 3; InspectionSeconds = 60
-        AuxiliaryRecordsPerKind = 256; ResolverReceipts = 512; HarvestIndexBytes = 8MB
+        AuxiliaryRecordsPerKind = 256; ResolverReceipts = 512
     }
     RunStatuses              = [pscustomobject]@{
         Terminal         = @('declined-before-ranking', 'no-candidates', 'completed')
@@ -55,7 +55,7 @@ $script:SiStateContract = [pscustomobject]@{
         BackupSegments = @('backups'); QuarantineSegments = @('quarantine')
         ObservationSegments = @('repair-observations')
         ReceiptSegments     = @('repair-receipts')
-        ResolverReceiptSegments = @('resolver-receipts'); HarvestIndexName = 'harvest-index.json'
+        ResolverReceiptSegments = @('resolver-receipts')
         CrossRepoExportName = 'cross-repo-export.json'
         ArchiveJournalName = 'archive-journal.json'
         LockName            = '.state.lock'
@@ -91,7 +91,7 @@ function Get-SiStateRelativePath {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Root', 'Manifest', 'ActiveRuns', 'Archive', 'Backups', 'Quarantine',
-            'RepairObservations', 'RepairReceipts', 'ResolverReceipts', 'HarvestIndex',
+            'RepairObservations', 'RepairReceipts', 'ResolverReceipts',
             'ArchiveJournal', 'CrossRepoExport'
         )]
         [string]$Kind,
@@ -140,7 +140,6 @@ function Get-SiStateRelativePath {
             }
         }
         'CrossRepoExport' { $segments.Add([string]$script:SiStateContract.Topology.CrossRepoExportName) }
-        'HarvestIndex' { $segments.Add([string]$script:SiStateContract.Topology.HarvestIndexName) }
         'ArchiveJournal' { $segments.Add([string]$script:SiStateContract.Topology.ArchiveJournalName) }
     }
     foreach ($segment in @($Child)) {
