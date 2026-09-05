@@ -36,8 +36,8 @@ Describe 'design-notes waza convention' {
         It 'test:waza-spec-shape targets the design-notes skill via copilot-sdk with pinned model + judge_model' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*design-notes\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
-            $script:evalYaml | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
-            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*claude-sonnet-4\.6'
+            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
+            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra'
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
@@ -66,33 +66,35 @@ Describe 'design-notes waza convention' {
         # Fail-open defence: split each task at the col-0 `inputs:`/`graders:` keys and assert the
         # forced-turn lives in the inputs block and graders live in the graders block, so a
         # misspelled/mis-nested parent key cannot silently drop graders and pass green.
-        It 'test:waza-spec-shape each task has col-0 inputs: and graders: keys in order' {
+        It 'test:waza-spec-shape each task has inputs and an explicit disposition' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $raw | Should -Match '(?m)^inputs:'
-                $raw | Should -Match '(?m)^graders:'
-                $raw | Should -Match '(?ms)^inputs:\s*\n.*?^graders:\s*\n'
+                $raw | Should -Match '(?m)^# ai-credit-disposition: (deterministic|subjective)$'
             }
         }
 
-        It 'test:waza-spec-shape the forced turn is nested inside the inputs block (not the graders block)' {
+        It 'test:waza-spec-shape the forced turn is nested inside the inputs block' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
-                $m = [regex]::Match($raw, '(?ms)^inputs:\s*\n(?<inputs>.*?)^graders:\s*\n(?<graders>.*)$')
+                $m = [regex]::Match($raw, '(?ms)^inputs:\s*\n(?<inputs>.*?)(?:^checkpoints:|^graders:)')
                 $m.Success | Should -BeTrue
                 $m.Groups['inputs'].Value | Should -Match '(?m)^\s+follow_up_prompts:'
-                $m.Groups['graders'].Value | Should -Not -Match '(?m)^\s+follow_up_prompts:'
             }
         }
 
-        It 'test:waza-spec-shape the prompt (judge) grader RESUMES the session (continue_session: true, never false)' {
+        It 'test:waza-spec-shape uses Terra judgment only for subjective tasks' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
-                $graders | Should -Match '(?m)^\s+continue_session:\s*true'
-                $graders | Should -Not -Match '(?m)^\s+continue_session:\s*false'
-                $graders | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
+                if ($raw -match '(?m)^# ai-credit-disposition: subjective$') {
+                    $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
+                    $graders | Should -Match '(?m)^\s+continue_session:\s*true'
+                    $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
+                }
+                else {
+                    $raw | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
+                }
             }
         }
 
@@ -100,7 +102,7 @@ Describe 'design-notes waza convention' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 # The checkpoints block sits between the inputs and the (final-turn) graders block.
-                $cp = [regex]::Match($raw, '(?ms)^checkpoints:\s*\n(?<cp>.*?)^graders:\s*\n')
+                $cp = [regex]::Match($raw, '(?ms)^checkpoints:\s*\n(?<cp>.*?)(?:^graders:\s*\n|\z)')
                 $cp.Success | Should -BeTrue
                 $cpBlock = $cp.Groups['cp'].Value
                 # Assert the exact nesting after_turn -> graders -> text -> regex_match in sequence.

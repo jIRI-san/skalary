@@ -27,8 +27,8 @@ Describe 'dr waza convention' {
         It 'test:waza-spec-shape targets the dr agent via copilot-sdk with pinned model + judge_model' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*dr\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
-            $script:evalYaml | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
-            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*claude-sonnet-4\.6'
+            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
+            $script:evalYaml | Should -Not -Match '(?m)^\s+judge_model:'
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
@@ -74,17 +74,13 @@ Describe 'dr waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape each prompt (judge) grader RESUMES the session (continue_session: true, never false)' {
-            # 2.1 live evidence: the independent judge (continue_session: false) is flaky — it is
-            # dropped into the workspace without the agent output injected and false-fails. Resuming
-            # the session is the stable, deterministic configuration.
+        It 'test:waza-spec-shape keeps both deterministic tasks free of prompt graders' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
-                $graders | Should -Match '(?m)^\s+continue_session:\s*true'
-                $graders | Should -Not -Match '(?m)^\s+continue_session:\s*false'
-                $graders | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
+                $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic$'
+                $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
+                $graders | Should -Not -Match '(?m)^\s+model:'
             }
         }
 

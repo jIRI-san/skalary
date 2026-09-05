@@ -1,9 +1,10 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Opt-in Tier-2 LLM eval runner (plan 0f666f): provisions tooling, resolves a token,
-    discovers waza specs, runs them, and aggregates results. Runs only by explicit
-    operator invocation; focused validation and package scripts never invoke it.
+    Opt-in Tier-2 LLM eval runner: provisions tooling, resolves a token, discovers one
+    explicitly selected plugin's waza spec, runs it, and aggregates results. Skill execution
+    uses Luna; only tasks marked subjective use a Terra prompt grader. Focused validation,
+    package scripts, and ordinary workflows never invoke this premium path.
 .DESCRIPTION
     Orchestration order:
       1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.

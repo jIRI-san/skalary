@@ -18,8 +18,6 @@
         'GPT-5.6 Terra (copilot)'
         'GPT-5.6 Sol (copilot)'
         'GPT-5 mini (copilot)'
-        'GPT-5.4 (copilot)'
-        'Claude Sonnet 4.6 (copilot)'
     )
 
     # Bare slugs for Copilot CLI-hosted agents and for the `model` field of
@@ -31,8 +29,6 @@
         'gpt-5.6-sol'
         'gpt-5.6-terra'
         'gpt-5-mini'
-        'gpt-5.4'
-        'claude-sonnet-4.6'
     )
 
     # Closed, committed agent -> host map. Host is NOT inferable from folder layout:

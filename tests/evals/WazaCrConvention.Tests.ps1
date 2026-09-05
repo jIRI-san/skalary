@@ -29,8 +29,8 @@ Describe 'cr waza convention' {
         It 'test:waza-spec-shape targets the cr agent via copilot-sdk with pinned model + judge_model' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*cr\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
-            $script:evalYaml | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
-            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*claude-sonnet-4\.6'
+            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
+            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra'
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
@@ -70,18 +70,18 @@ Describe 'cr waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape each prompt (judge) grader RESUMES the session (continue_session: true, never false)' {
-            # 2.1 live evidence: the independent judge (continue_session: false) is flaky — it is
-            # dropped into the workspace without cr's output injected and false-fails. Resuming
-            # the session is the stable, deterministic configuration.
+        It 'test:waza-spec-shape uses Terra judgment only for the subjective policy task' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
-                $graders | Should -Match '(?m)^\s+continue_session:\s*true'
-                $graders | Should -Not -Match '(?m)^\s+continue_session:\s*false'
-                # judge model is pinned explicitly (prompt grader requires `model`).
-                $graders | Should -Match '(?m)^\s+model:\s*claude-sonnet-4\.6'
+                if ($raw -match '(?m)^# ai-credit-disposition: subjective$') {
+                    $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
+                    $graders | Should -Match '(?m)^\s+continue_session:\s*true'
+                    $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
+                }
+                else {
+                    $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
+                }
             }
         }
     }
