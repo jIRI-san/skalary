@@ -18,7 +18,7 @@ standalone workflow; `/can` and `/uan` are thin wrappers.
 |---|---|
 | `docs/architecture-notes/.architecture-notes.md` | Discovery index for contracts, notes, and active ADRs. |
 | `docs/architecture-notes/<slug>.md` | Terse path-scoped source contract; no generated Markdown copy. |
-| `schemas/architecture/` | Temporary home of the one transferred legacy JSON contract. |
+| `schemas/architecture/` | Optional repository-owned home of transferred legacy JSON contracts; it is not a plugin scaffold. |
 | `architecture.human.md` | Compatibility view only for that JSON contract; excluded from auto-load. |
 | `.staging/` | Untrusted proposed ADRs (`reviewed: false`); never indexed. |
 | `plugins/architecture-notes/scripts/*.ps1` | Canonical architecture tooling. |

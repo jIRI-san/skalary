@@ -199,11 +199,16 @@ function Test-PlanCriteriaBaseline {
             $resolved.RepoRoot,
             $confined.Item.FullName
         ).Replace('\', '/')
-        $baseline = Read-GitBlobBytes -RepoRoot $resolved.RepoRoot `
+        $null = Read-GitBlobBytes -RepoRoot $resolved.RepoRoot `
             -Revision $candidates[0] -RelativePath $relativePath
-        $working = [System.IO.File]::ReadAllBytes($confined.Item.FullName)
-        if (-not (Test-ByteArrayEqual -Left $baseline -Right $working)) {
-            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs byte-for-byte from baseline commit '$($candidates[0])'. Return to /cip."
+        $comparison = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+            'diff', '--quiet', '--no-ext-diff', $candidates[0], '--', $relativePath
+        ) -AllowFailure
+        if ($comparison.ExitCode -eq 1) {
+            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from Git-filtered baseline commit '$($candidates[0])'. Return to /cip."
+        }
+        if ($comparison.ExitCode -ne 0) {
+            throw "Unable to compare confirmed $($entry.Key.ToLowerInvariant()) with baseline commit '$($candidates[0])'."
         }
     }
 

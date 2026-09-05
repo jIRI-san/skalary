@@ -149,14 +149,25 @@ function Invoke-CopilotPhase {
         [string[]]$ExtraArgs,
         [string]$Model,
         [string]$ContextTier,
-        [string]$ReasoningEffort
+        [string]$ReasoningEffort,
+
+        [switch]$Finalization
     )
 
-    $transcriptName = "session-transcript-phase$PhaseNumber.md"
-    $prompt = "Execute $PlanRelPath, phase $PhaseNumber"
+    $transcriptName = if ($Finalization) {
+        'session-transcript-finalization.md'
+    } else {
+        "session-transcript-phase$PhaseNumber.md"
+    }
+    $prompt = if ($Finalization) {
+        "Finalize completed plan $PlanRelPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
+    } else {
+        "Execute $PlanRelPath, phase $PhaseNumber only. Do not run plan finalization; the launcher has a separate completion target."
+    }
 
     Write-Host ""
-    Write-Host "=== Invoking Copilot CLI for Phase $PhaseNumber ==="
+    $displayTarget = if ($Finalization) { 'plan finalization' } else { "Phase $PhaseNumber" }
+    Write-Host "=== Invoking Copilot CLI for $displayTarget ==="
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     if ($CopilotType -eq 'bat' -or $CopilotType -eq 'cmd') {
@@ -336,13 +347,47 @@ foreach ($phase in $phaseNumbers) {
     }
 }
 
+if ($executionExitCode -eq 0 -and $Mode -eq 'whole-plan') {
+    foreach ($phase in $phaseNumbers) {
+        try {
+            $closeState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
+                -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath
+        }
+        catch {
+            Write-Warning $_
+            $executionExitCode = 3
+            break
+        }
+        if ($closeState -ne 'closed') {
+            Write-Warning "Plan finalization refused because Phase $phase is '$closeState'."
+            $executionExitCode = 1
+            break
+        }
+    }
+    if ($executionExitCode -eq 0) {
+        $result = Invoke-CopilotPhase -PhaseNumber 0 -Finalization `
+            -CopilotToken $Token -Cwd $WorktreePath -PlanRelPath $PlanPath `
+            -CopilotPath $hostCommand.Path -CopilotType $hostCommand.Type `
+            -ExtraArgs $hostCommand.ExtraArgs -Model $Config.model `
+            -ContextTier $Config.context -ReasoningEffort $Config.reasoningEffort
+        if ($result.ExitCode -eq 42) {
+            Write-Host '@human step encountered during plan finalization. Stopping.'
+            $executionExitCode = 42
+        }
+        elseif ($result.ExitCode -ne 0) {
+            Write-Warning "Plan finalization exited with code $($result.ExitCode). Stopping."
+            $executionExitCode = $result.ExitCode
+        }
+    }
+}
+
 # --- Copy transcripts ---
 $transcriptsDir = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug/transcripts"
 if (-not (Test-Path $transcriptsDir)) {
     New-Item -ItemType Directory -Path $transcriptsDir -Force | Out-Null
 }
 
-Get-ChildItem -Path $WorktreePath -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
+Get-ChildItem -Path $WorktreePath -Filter 'session-transcript-*.md' -ErrorAction SilentlyContinue |
     ForEach-Object { Copy-Item $_.FullName $transcriptsDir -Force }
 
 Write-Host ""

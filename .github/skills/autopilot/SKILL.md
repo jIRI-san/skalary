@@ -25,7 +25,8 @@ host-equivalent context, examples, benefits, pros/cons, recommendation/default, 
 relationship/sequence diagram defined there; free-form input is one focused question at a time.
 
 During finalization, invoke `./assets/design-note-compaction.md` exactly once when the bundled
-`.github/skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1` reports edited
+`.github/skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1 -RepoRoot
+<canonical-repo-root>` reports edited
 `docs/design-notes/**`. Never self-approve its cross-note merge/delete proposal: preserve the visible
 diff and stop with `42`. Do not invoke it for `docs/operator-guide/**` or other changes alone.
 
@@ -33,3 +34,8 @@ After the completed source commit exists, invoke installed
 `.github/skills/autopilot/scripts/Write-RecentLearning.ps1` with zero to ten concise lessons and one
 repo-relative source-commit citation per lesson. Commit the replacement; never append it or write
 auxiliary history, recovery, or lifecycle state.
+
+Phase targets execute and close only their named phase. For `whole-plan`, the launcher follows the
+closed phase set with one explicit completion target. That target alone owns final focused validation,
+the terminal review, compaction, and recent-learning publication; on resume it reuses an unchanged
+terminal result rather than duplicating review.

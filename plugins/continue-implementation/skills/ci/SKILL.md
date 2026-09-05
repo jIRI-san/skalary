@@ -15,6 +15,19 @@ worktree, log, or source mutation, call installed sibling `DirectWorkflow.psm1`
 requirements, risks, or decisions and return to `/cip`; checklist, stage, and worktree markers remain
 mutable.
 
+When installed `Get-PlanState.ps1` returns `Kind: epic`, take the hard host-only route:
+
+```powershell
+$epicScripts = Join-Path <canonical-repo-root> '.github/skills/autopilot/scripts'
+& (Join-Path $epicScripts 'Invoke-EpicAutopilot.ps1') -Epic <state.EpicId> `
+    -Target HEAD -RepoRoot <canonical-repo-root>
+```
+
+Bind the canonical `EpicId`, literal local `HEAD`, and the same canonical root used for state
+resolution. Do not select `NextChild` or fall through to ordinary plan handling. If
+`AUTOPILOT_CONTAINER=true`, refuse because the epic wrapper is host-only. Block on the wrapper and
+preserve its exact exit status and outcome.
+
 Implement ordinary work directly. If an unresolved choice spans design and acceptance criteria, use a
 combined Designer/Validator; otherwise do not add that call. Judge is the normal second call. Use two
 calls by default and five maximum, replacement fallback, at most five supporting artifacts, and
@@ -40,7 +53,8 @@ direct CR. If scope is unchanged, do not rerun it. Exhausted calls or unresolved
 non-clean.
 During finalization, invoke the shared
 `.github/skills/autopilot/assets/design-note-compaction.md` protocol exactly once when the bundled
-`.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`.
+`.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1 -RepoRoot <canonical-repo-root>`
+reports edited `docs/design-notes/**`.
 Do not invoke it for `docs/operator-guide/**` or other changes alone.
 At successful whole-plan completion, invoke installed
 `.github/skills/ci/scripts/Write-RecentLearning.ps1` against the full completed source commit. Supply

@@ -228,4 +228,28 @@ clean
         ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $script:repoRoot $_) -Raw }
         ($runtime -join "`n") | Should -Not -Match 'planTimeout|PHASE_TIMEOUT|timed out after|docker kill'
     }
+
+    It 'runs one explicit finalization target after all-closed host and sandbox resumes' {
+        $hostText = Get-Content -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/autopilot/scripts/launch-host.ps1'
+        ) -Raw
+        $sandboxText = Get-Content -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/autopilot/scripts/launch-sandbox.ps1'
+        ) -Raw
+        foreach ($text in @($hostText, $sandboxText)) {
+            $text | Should -Match "(?s)Mode.*whole-plan.*finalization"
+            $text | Should -Match 'Finalize completed plan'
+            $text | Should -Match 'Do not execute checklist phases'
+            $text | Should -Match 'do not duplicate an unchanged terminal review'
+            $text | Should -Match 'phase .* only\. Do not run plan finalization'
+            ([regex]::Matches($text, 'Finalize completed plan')).Count | Should -Be 1
+        }
+        $hostText | Should -Match ([regex]::Escape(
+                "if (`$executionExitCode -eq 0 -and `$Mode -eq 'whole-plan')"
+            ))
+        $hostText | Should -Match 'Invoke-CopilotPhase -PhaseNumber 0 -Finalization'
+        $tick = [char]96
+        $sandboxGuard = 'if (' + $tick + '$runExitCode -eq 0 -and ''$Mode'' -eq ''whole-plan'')'
+        $sandboxText | Should -Match ([regex]::Escape($sandboxGuard))
+    }
 }

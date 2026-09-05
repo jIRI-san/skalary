@@ -132,6 +132,50 @@ Describe 'SimpleWorkflow.RecentLearning' {
             Should -Be 'stale'
     }
 
+    It 'accepts a pre-archive source commit after the canonical plan moves to archive' {
+        $fixture = New-LearningFixture
+        & $script:writer -RepoRoot $fixture.Root -PlanReference abc123 `
+            -SourceCommit $fixture.Source -Lesson 'Archive-safe lesson.' -Citation 'README.md'
+        & git -C $fixture.Root add .
+        & git -C $fixture.Root commit -qm handoff
+        $activeDir = Split-Path -Parent (Join-Path $fixture.Root $fixture.PlanPath)
+        $archiveRoot = Join-Path $fixture.Root 'docs\implementation-plans\archived'
+        New-Item -ItemType Directory -Path $archiveRoot -Force | Out-Null
+        Move-Item -LiteralPath $activeDir -Destination $archiveRoot
+        & git -C $fixture.Root add -A
+        & git -C $fixture.Root commit -qm archive
+        $head = (& git -C $fixture.Root rev-parse HEAD).Trim()
+
+        $result = & $script:reader -RepoRoot $fixture.Root -PlanReference abc123 `
+            -PinnedBaseOid $head
+        $result.Status | Should -BeExactly 'valid'
+        $result.SourceCommit | Should -BeExactly $fixture.Source
+    }
+
+    It 'refuses a linked feedback directory before creating a target or temporary file' {
+        $fixture = New-LearningFixture
+        $outside = $fixture.Root + '-outside'
+        $script:scratch.Add($outside)
+        New-Item -ItemType Directory -Path $outside -Force | Out-Null
+        $feedback = Join-Path $fixture.Root 'docs\feedback'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $feedback) -Force | Out-Null
+        try {
+            $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+            New-Item -ItemType $linkType -Path $feedback -Target $outside -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'the filesystem or account does not permit directory links'
+            return
+        }
+
+        {
+            & $script:writer -RepoRoot $fixture.Root -PlanReference abc123 `
+                -SourceCommit $fixture.Source
+        } | Should -Throw '*link or reparse point*'
+        Test-Path -LiteralPath (Join-Path $outside 'recent-learning.md') | Should -BeFalse
+        @(Get-ChildItem -LiteralPath $outside -Force).Count | Should -Be 0
+    }
+
     It 'fails visibly for malformed Markdown instead of treating it as empty' {
         $fixture = New-LearningFixture
         $head = Set-LearningDocument -Fixture $fixture -Body 'No lessons'

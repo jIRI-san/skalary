@@ -31,8 +31,10 @@ A complex operator stop exits `42` with context, example, benefits, pros/cons, r
 effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Interactive
 resume shows the same ordered choices; free-form input asks one focused question.
 
-Non-terminal review is risk-selected. The terminal phase skips phase review and owns one whole-plan
-CR. If design notes changed, finalization runs the shared bounded compaction once before validation;
+Non-terminal review is risk-selected. Phase targets only close phases. For whole-plan runs, host and
+sandbox launchers invoke one explicit completion target after all phases are closed, including an
+all-closed resume. That target skips terminal-phase review and owns one whole-plan CR without rerunning
+unchanged scope. If design notes changed, finalization runs the shared bounded compaction once before validation;
 cross-note merge/delete requires approval, so headless execution leaves the diff and exits `42`.
 
 After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1` replaces—not

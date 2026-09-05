@@ -52,7 +52,7 @@ The plan layout and marker grammar are defined by
 | Language gate | Absolutes are confirmed invariants or conditional rules; fuzzy terms are observable | No draft | Clarify through `/cep` or `/cip` |
 | Final planning confirmation | Intent, requirements, risks, and decisions confirmed together | No `planning-confirmed` marker | Revise and reconfirm in `/cip` |
 | Plan validation/admission | Plan structure, dependency, and stage are valid | `refused` or `blocked` | Fix planning/dependency state |
-| Git criteria baseline | Unique marker-introducing commit; four criteria files match byte-for-byte and are committed | `refused`, operator action (`42` in autonomous mode) | Return to `/cip`; commit a new confirmation |
+| Git criteria baseline | Unique marker-introducing commit; four criteria files match through Git clean filters and are committed | `refused`, operator action (`42` in autonomous mode) | Return to `/cip`; commit a new confirmation |
 | Runtime preflight | Config, auth, branch, host/container/sandbox requirements pass | Nonzero failure | Correct the named prerequisite |
 | Focused validation | Selected command completes successfully | `blocked`/failure; timeout is command evidence | Fix and rerun the same focused scope |
 | Direct evidence | Every `test:`, `file:`, and `review:` marker passes current evidence | Phase cannot close | Produce current evidence |

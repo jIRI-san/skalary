@@ -11,6 +11,44 @@ function Get-ConsumerInstallSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-ConsumerInstallCanonicalSha256 {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $relative = [System.IO.Path]::GetRelativePath($RepoRoot, $Path).Replace('\', '/')
+    $output = @(& git -C $RepoRoot hash-object -w "--path=$relative" -- $Path 2>&1)
+    $objectId = @($output | ForEach-Object { ([string]$_).Trim() } |
+            Where-Object { $_ -cmatch '^[0-9a-f]{40,64}$' } | Select-Object -Last 1)
+    if ($LASTEXITCODE -ne 0 -or $objectId.Count -ne 1) {
+        throw "Unable to canonicalize fixture source '$relative': $($output -join ' ')"
+    }
+
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $RepoRoot
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @('-C', $RepoRoot, 'cat-file', 'blob', [string]$objectId[0])) {
+        [void]$start.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::Start($start)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($process.StandardOutput.BaseStream)
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw $errorText }
+        return [Convert]::ToHexString($hash).ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+        $process.Dispose()
+    }
+}
+
 function Test-ConsumerInstallDestination {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Destination)
 
@@ -72,7 +110,7 @@ function Get-ConsumerInstallManifestCatalog {
                 Plugin     = $pluginName
                 Src        = $src
                 Dest       = $dest
-                Sha256     = Get-ConsumerInstallSha256 -Path $sourcePath
+                Sha256     = Get-ConsumerInstallCanonicalSha256 -RepoRoot $sourceRoot -Path $sourcePath
                 Install    = $src -notmatch '^evals(?:/|$)'
                 SourcePath = [System.IO.Path]::GetFullPath($sourcePath)
             }

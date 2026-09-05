@@ -74,6 +74,8 @@ Describe 'Dormant direct workflow core' {
                 Set-Content -LiteralPath (Join-Path $assetsDir "$($entry.Key).md") `
                     -Value $entry.Value -Encoding utf8NoBOM -NoNewline
             }
+            Set-Content -LiteralPath (Join-Path $root '.gitattributes') `
+                -Value '* text=auto eol=lf' -Encoding utf8NoBOM
 
             Invoke-DirectFixtureGit -Root $root -Argument @('init', '--quiet', '--initial-branch=main') |
                 Out-Null
@@ -228,8 +230,26 @@ Describe 'Dormant direct workflow core' {
             {
                 Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
                     -PlanReference $fixture.PlanReference
-            } | Should -Throw "*Confirmed $name differs byte-for-byte*"
+            } | Should -Throw "*Confirmed $name differs from Git-filtered baseline*"
         }
+    }
+
+    It 'accepts checkout-only CRLF conversion while still protecting canonical criteria' {
+        $fixture = New-DirectWorkflowFixture -Id 'a1c105'
+        foreach ($name in @('intent', 'requirements', 'risks', 'decisions')) {
+            $path = Join-Path $fixture.AssetsDir "$name.md"
+            $content = [System.IO.File]::ReadAllText($path).Replace("`n", "`r`n")
+            [System.IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
+        }
+        (Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference).Status | Should -BeExactly 'ready'
+
+        Add-Content -LiteralPath (Join-Path $fixture.AssetsDir 'intent.md') `
+            -Value "`r`nsemantic mutation" -Encoding utf8NoBOM -NoNewline
+        {
+            Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference
+        } | Should -Throw '*Confirmed intent differs from Git-filtered baseline*'
     }
 
     It 'refuses missing, uncommitted, and ambiguous confirmation baselines' {

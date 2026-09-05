@@ -84,7 +84,6 @@ $inventory = @(Get-PlanInventory -RepoRoot $root)
 $plan = Resolve-Plan -Reference $PlanReference -RepoRoot $root -Inventory $inventory
 $planId = [string]$plan.Id
 $slug = [string]$plan.Slug
-$planPath = [System.IO.Path]::GetRelativePath($root, (Join-Path ([string]$plan.Path) 'plan.md')).Replace('\', '/')
 
 if (-not (Test-GitObject -Argument @('cat-file', '-e', "${PinnedBaseOid}^{commit}"))) {
     throw "Pinned base '$PinnedBaseOid' is not a readable commit."
@@ -127,10 +126,23 @@ if ($LASTEXITCODE -ne 0) {
     return New-ClosedResult -Status stale
 }
 
-$sourcePlan = Invoke-GitBytes -Argument @('show', "${sourceCommit}:${planPath}")
-if ($sourcePlan.ExitCode -ne 0) {
+$sourcePlanPaths = @(
+    & git -C $root grep -l -F "<!-- plan-id: $planId -->" $sourceCommit -- `
+        'docs/implementation-plans/**/plan.md' 2>$null |
+        ForEach-Object {
+            $prefix = "${sourceCommit}:"
+            if ([string]$_ -like "$prefix*") {
+                ([string]$_).Substring($prefix.Length)
+            }
+        } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique
+)
+if ($LASTEXITCODE -notin @(0, 1) -or $sourcePlanPaths.Count -ne 1) {
     return New-ClosedResult -Status stale
 }
+$sourcePlan = Invoke-GitBytes -Argument @('show', "${sourceCommit}:$($sourcePlanPaths[0])")
+if ($sourcePlan.ExitCode -ne 0) { return New-ClosedResult -Status stale }
 $sourcePlanText = $utf8.GetString($sourcePlan.Bytes).Replace("`r`n", "`n")
 $sourcePlanId = [regex]::Match($sourcePlanText, '(?m)^<!-- plan-id: (?<id>[0-9a-f]{6}) -->$')
 $sourceSteps = @([regex]::Matches($sourcePlanText, '(?m)^- \[(?<mark>[ xX])\] \d+\.\d+\b'))

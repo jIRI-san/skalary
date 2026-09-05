@@ -1,7 +1,8 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+    [Parameter(Mandatory)]
+    [string]$RepoRoot,
     [string]$BaseRef,
     [string[]]$ChangedPath,
     [string[]]$CandidatePath = @()
@@ -9,6 +10,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
+if (-not (Test-Path -LiteralPath $RepoRoot -PathType Container)) {
+    throw "RepoRoot '$RepoRoot' is not a directory."
+}
 
 function ConvertTo-RepoPath {
     param([Parameter(Mandatory)][string]$Path)

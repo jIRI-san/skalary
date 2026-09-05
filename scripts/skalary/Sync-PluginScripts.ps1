@@ -59,6 +59,10 @@ $assetSourceRegex = [regex]'(?<![A-Za-z0-9._/-])(?<path>\./(?:plugins|scripts/sk
 $assetDynamicRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path(?:\s*:\s*|\s+))?[''"](?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?)[''"]\s+(?:-ChildPath(?:\s*:\s*|\s+))?(?<tail>\$[A-Za-z_][A-Za-z0-9_]*|[''"][^''"\r\n]*\$[A-Za-z_][^''"\r\n]*[''"])'
 $assetLiteralJoinRegex = [regex]'(?i)\bJoin-Path\s+(?:-Path(?:\s*:\s*|\s+))?(?<q>[''"])(?<root>\./assets|\.github/(?:skills|agents|prompts)(?:/[A-Za-z0-9._/-]*)?|(?:docs|schemas|tools)(?:/[A-Za-z0-9._/-]*)?|\./(?:plugins|scripts/skalary)(?:/[A-Za-z0-9._/-]*)?)\k<q>\s+(?:-ChildPath(?:\s*:\s*|\s+))?(?<cq>[''"])(?<child>[^''"\r\n$]+)\k<cq>'
 $repoOwnedOptionalInputs = @{
+    'architecture-notes' = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@('schemas/architecture'),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
     'code-review' = [System.Collections.Generic.HashSet[string]]::new(
         [string[]]@('docs/review-standards.md'),
         [System.StringComparer]::OrdinalIgnoreCase

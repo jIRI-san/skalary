@@ -19,6 +19,10 @@ each of at most 10 non-empty rows ends in one backtick-quoted repo-relative cita
 the file at 16 KiB UTF-8, verifies the completed source commit, ancestry and cited paths, refuses
 secrets/malformed input visibly, and returns accepted lesson text inside a collision-safe
 untrusted-input fence. It does not search other workflow records for replacement learning.
+Plan completion is checked by canonical plan id inside the recorded source commit, so a current
+active-to-archive move does not make a valid pre-archive handoff stale. The producer refuses symlink
+and reparse-point components for the repository, `docs/feedback`, target, and temporary replacement
+paths before writing.
 
 The downstream SI proposal-selection lifecycle remains a separate boundary owned by child plan
 `3a4498 simple-self-improvement`; this workflow only changes its learning input.

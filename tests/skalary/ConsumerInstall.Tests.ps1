@@ -346,16 +346,16 @@ Describe 'foreign consumer plugin installation' {
             Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
         }
         foreach ($copy in @($dogfoodCi, $foreignCi)) {
-            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+            [System.IO.File]::ReadAllText($copy).Replace("`r`n", "`n") |
                 Should -BeExactly (
-                    Get-FileHash -LiteralPath $sourceCi -Algorithm SHA256
-                ).Hash
+                    [System.IO.File]::ReadAllText($sourceCi).Replace("`r`n", "`n")
+                )
         }
         foreach ($copy in @($dogfoodWrapper, $foreignWrapper)) {
-            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+            [System.IO.File]::ReadAllText($copy).Replace("`r`n", "`n") |
                 Should -BeExactly (
-                    Get-FileHash -LiteralPath $sourceWrapper -Algorithm SHA256
-                ).Hash
+                    [System.IO.File]::ReadAllText($sourceWrapper).Replace("`r`n", "`n")
+                )
         }
 
         $routeText = [System.IO.File]::ReadAllText($foreignCi)

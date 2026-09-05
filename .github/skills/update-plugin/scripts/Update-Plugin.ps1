@@ -130,6 +130,11 @@ function Get-ResolvedSourceContext {
 $targetRepoRoot = Resolve-RepoRoot -StartPath $RepoRoot
 $sourceContext = $null
 $mutationLock = $null
+$operationRoot = $null
+$appliedEntries = [System.Collections.Generic.List[object]]::new()
+$receiptPath = $null
+$receiptBackupPath = $null
+$receiptCommitted = $false
 
 try {
     $mutationLock = Enter-PluginMutationLock -RepoRoot $targetRepoRoot
@@ -179,15 +184,51 @@ try {
         $receiptByDest[[string]$receiptFile.dest] = $receiptFile
     }
 
+    $ownerByDest = @{}
+    $receiptsRoot = Join-Path $targetRepoRoot '.github/.skalary/receipts'
+    if (Test-Path -LiteralPath $receiptsRoot -PathType Container) {
+        foreach ($otherReceiptPath in Get-ChildItem -LiteralPath $receiptsRoot -File -Filter '*.json') {
+            $otherReceipt = Read-JsonFile -Path $otherReceiptPath.FullName
+            foreach ($ownedFile in @($otherReceipt.files)) {
+                $ownedPath = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot `
+                    -RelativePath ([string]$ownedFile.dest)
+                Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $ownedPath
+                $ownerKey = [System.IO.Path]::GetFullPath($ownedPath).ToLowerInvariant()
+                $owner = [string]$otherReceipt.name
+                if ($ownerByDest.ContainsKey($ownerKey) -and $ownerByDest[$ownerKey] -cne $owner) {
+                    throw "Existing receipt ownership collision for '$([string]$ownedFile.dest)'."
+                }
+                $ownerByDest[$ownerKey] = $owner
+            }
+        }
+    }
+
+    $operationRoot = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot `
+        -RelativePath (".skalary/tmp/update-" + [guid]::NewGuid().ToString('N'))
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $operationRoot
+    $stagedRoot = Join-Path $operationRoot 'staged'
+    $backupRoot = Join-Path $operationRoot 'backups'
+    [void](New-Item -ItemType Directory -Path $stagedRoot -Force)
+    [void](New-Item -ItemType Directory -Path $backupRoot -Force)
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $stagedRoot
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $backupRoot
+
     $updatedCount = 0
     $skippedCount = 0
     $nextReceiptFiles = @()
+    $operations = [System.Collections.Generic.List[object]]::new()
+    $newDestinations = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $operationIndex = 0
 
     foreach ($file in $registryFiles) {
         $src = [string]$file.src
         $dest = [string]$file.dest
+        [void]$newDestinations.Add($dest)
         $expectedNewSha = [string]$file.sha256
         $targetPath = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot -RelativePath $dest
+        Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $targetPath
         $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath $src
 
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
@@ -200,36 +241,45 @@ try {
 
         $hasTarget = Test-Path -LiteralPath $targetPath -PathType Leaf
         $actualCurrentSha = if ($hasTarget) { Get-FileSha256 -Path $targetPath } else { $null }
-        $expectedCurrentSha = if ($receiptByDest.ContainsKey($dest)) { [string]$receiptByDest[$dest].sha256 } else { $null }
+        $hasReceiptEntry = $receiptByDest.ContainsKey($dest)
+        $expectedCurrentSha = if ($hasReceiptEntry) { [string]$receiptByDest[$dest].sha256 } else { $null }
+        $targetKey = [System.IO.Path]::GetFullPath($targetPath).ToLowerInvariant()
+        if ($ownerByDest.ContainsKey($targetKey) -and
+            [string]$ownerByDest[$targetKey] -cne $Name) {
+            throw "Refusing overwrite of '$dest': owned by installed plugin '$($ownerByDest[$targetKey])'."
+        }
 
         if (-not $Force) {
-            if ([string]::IsNullOrWhiteSpace($expectedCurrentSha)) {
-                throw "Installed receipt for '$Name' is missing destination '$dest'. Use -Force to overwrite."
+            if (-not $hasReceiptEntry -and $hasTarget) {
+                throw "New destination '$dest' already exists and is not owned by '$Name'. Use -Force to overwrite."
             }
-            if (-not $hasTarget) {
+            if ($hasReceiptEntry -and -not $hasTarget) {
                 throw "Installed destination '$dest' is missing on disk. Use -Force to recreate it."
             }
-            if ($actualCurrentSha -ne $expectedCurrentSha) {
+            if ($hasReceiptEntry -and $actualCurrentSha -ne $expectedCurrentSha) {
                 $nextReceiptFiles += [pscustomobject]@{
                     dest = $dest
                     outcome = 'skipped-modified'
-                    sha256 = $actualCurrentSha
+                    sha256 = $expectedCurrentSha
                 }
                 $skippedCount++
                 continue
             }
         }
 
-        $targetDir = Split-Path -Parent $targetPath
-        if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
-            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        $stagePath = Join-Path $stagedRoot ('{0:d5}-{1}' -f $operationIndex, [System.IO.Path]::GetFileName($dest))
+        Copy-Item -LiteralPath $sourcePath -Destination $stagePath -Force
+        if ((Get-FileSha256 -Path $stagePath) -ne $expectedNewSha) {
+            throw "Staged hash mismatch for '$dest'."
         }
-
-        Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
-        $writtenSha = Get-FileSha256 -Path $targetPath
-        if ($writtenSha -ne $expectedNewSha) {
-            throw "Write verification failed for '$dest': expected '$expectedNewSha', got '$writtenSha'."
-        }
+        $operations.Add([pscustomobject]@{
+                Kind = 'write'
+                Dest = $dest
+                TargetPath = $targetPath
+                StagePath = $stagePath
+                BackupPath = Join-Path $backupRoot ('{0:d5}.bak' -f $operationIndex)
+            })
+        $operationIndex++
 
         $nextReceiptFiles += [pscustomobject]@{
             dest = $dest
@@ -239,7 +289,45 @@ try {
         $updatedCount++
     }
 
-    $allUpdated = ($updatedCount -eq $registryFiles.Count -and $skippedCount -eq 0)
+    foreach ($retiredEntry in @($receipt.files)) {
+        $dest = [string]$retiredEntry.dest
+        if ($newDestinations.Contains($dest)) { continue }
+
+        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot -RelativePath $dest
+        Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $targetPath
+        $targetKey = [System.IO.Path]::GetFullPath($targetPath).ToLowerInvariant()
+        if ($ownerByDest.ContainsKey($targetKey) -and
+            [string]$ownerByDest[$targetKey] -cne $Name) {
+            throw "Refusing removal of retired destination '$dest': owned by installed plugin '$($ownerByDest[$targetKey])'."
+        }
+        if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+            continue
+        }
+
+        $expectedCurrentSha = [string]$retiredEntry.sha256
+        $actualCurrentSha = Get-FileSha256 -Path $targetPath
+        if (-not $Force -and $actualCurrentSha -ne $expectedCurrentSha) {
+            $nextReceiptFiles += [pscustomobject]@{
+                dest = $dest
+                outcome = 'skipped-modified'
+                sha256 = $expectedCurrentSha
+            }
+            $skippedCount++
+            Write-Warning "Retired destination '$dest' is modified; preserving it as managed residue."
+            continue
+        }
+
+        $operations.Add([pscustomobject]@{
+                Kind = 'delete'
+                Dest = $dest
+                TargetPath = $targetPath
+                StagePath = $null
+                BackupPath = Join-Path $backupRoot ('{0:d5}.bak' -f $operationIndex)
+            })
+        $operationIndex++
+    }
+
+    $allUpdated = ($skippedCount -eq 0)
     $receiptVersion = if ($allUpdated) { [string]$plugin.version } else { [string]$receipt.version }
     $receiptOutput = [ordered]@{
         evalStatus = if ($receipt.PSObject.Properties.Name -contains 'evalStatus' -and $null -ne $receipt.evalStatus) { [string]$receipt.evalStatus } else { 'none' }
@@ -254,16 +342,68 @@ try {
         $receiptOutput.degraded = $true
     }
 
+    $stagedReceiptPath = Join-Path $operationRoot 'receipt.json'
+    Write-JsonFileStable -Path $stagedReceiptPath -InputObject ([pscustomobject]$receiptOutput)
+
+    foreach ($operation in $operations) {
+        $targetDir = Split-Path -Parent ([string]$operation.TargetPath)
+        if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
+            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        }
+        Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $operation.TargetPath
+        $entry = [pscustomobject]@{ Operation = $operation; HadTarget = $false; WroteTarget = $false }
+        $appliedEntries.Add($entry)
+        if (Test-Path -LiteralPath $operation.TargetPath -PathType Leaf) {
+            Move-Item -LiteralPath $operation.TargetPath -Destination $operation.BackupPath -Force
+            $entry.HadTarget = $true
+        }
+        if ($operation.Kind -eq 'write') {
+            Move-Item -LiteralPath $operation.StagePath -Destination $operation.TargetPath -Force
+            $entry.WroteTarget = $true
+            if ((Get-FileSha256 -Path $operation.TargetPath) -ne
+                [string]$receiptOutput.files.Where({ $_.dest -ceq $operation.Dest }, 'First').sha256) {
+                throw "Write verification failed for '$($operation.Dest)'."
+            }
+        }
+    }
+
     $receiptPath = Get-PluginReceiptPath -RepoRoot $targetRepoRoot -PluginName $Name
-    Write-JsonFileStable -Path $receiptPath -InputObject ([pscustomobject]$receiptOutput)
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $receiptPath
+    $receiptBackupPath = Join-Path $operationRoot 'receipt.backup.json'
+    Move-Item -LiteralPath $receiptPath -Destination $receiptBackupPath -Force
+    Move-Item -LiteralPath $stagedReceiptPath -Destination $receiptPath -Force
+    $receiptCommitted = $true
 
     if ($allUpdated) {
-        Write-Output "Updated plugin '$Name' to version '$($plugin.version)' at '$resolvedSha'."
+        Write-Output "Updated plugin '$Name' to version '$($plugin.version)' at '$resolvedSha' ($updatedCount current file(s), $(@($operations | Where-Object Kind -eq 'delete').Count) retired file(s) removed)."
     }
     else {
         Write-Warning "Plugin '$Name' updated partially: $skippedCount file(s) skipped as modified. Receipt marked degraded."
         Write-Output "Plugin '$Name' remains at version '$($receipt.version)' with refreshed ref '$resolvedSha'."
     }
+}
+catch {
+    if ($receiptCommitted -and -not [string]::IsNullOrWhiteSpace($receiptPath) -and
+        (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+        Remove-Item -LiteralPath $receiptPath -Force
+    }
+    if (-not [string]::IsNullOrWhiteSpace($receiptBackupPath) -and
+        (Test-Path -LiteralPath $receiptBackupPath -PathType Leaf)) {
+        Move-Item -LiteralPath $receiptBackupPath -Destination $receiptPath -Force
+    }
+    foreach ($entry in @($appliedEntries) | Sort-Object { $_.Operation.Dest } -Descending) {
+        if ($entry.WroteTarget -and (Test-Path -LiteralPath $entry.Operation.TargetPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $entry.Operation.TargetPath -Force
+        }
+        if ($entry.HadTarget -and (Test-Path -LiteralPath $entry.Operation.BackupPath -PathType Leaf)) {
+            $targetDir = Split-Path -Parent ([string]$entry.Operation.TargetPath)
+            if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
+                [void](New-Item -ItemType Directory -Path $targetDir -Force)
+            }
+            Move-Item -LiteralPath $entry.Operation.BackupPath -Destination $entry.Operation.TargetPath -Force
+        }
+    }
+    throw
 }
 finally {
     if ($null -ne $mutationLock) {
@@ -271,6 +411,10 @@ finally {
     }
     if ($null -ne $sourceContext -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (-not [string]::IsNullOrWhiteSpace($operationRoot) -and
+        (Test-Path -LiteralPath $operationRoot -PathType Container)) {
+        Remove-Item -LiteralPath $operationRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 exit 0

@@ -132,4 +132,18 @@ $($rows -join "`n")
         $ci | Should -Match '\.github/skills/autopilot/assets/design-note-compaction\.md'
         $autopilot | Should -Match '\./assets/design-note-compaction\.md'
     }
+
+    It 'requires the repository root and runs from each installed layout with it' {
+        { & $script:helper -ChangedPath 'docs/design-notes/note.design.md' } |
+            Should -Throw '*RepoRoot*'
+        $root = New-CompactionFixture
+        foreach ($installed in @(
+                'plugins/continue-implementation/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1',
+                'plugins/autopilot/skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1'
+            )) {
+            $result = & (Join-Path $script:repoRoot $installed) -RepoRoot $root `
+                -ChangedPath 'docs/design-notes/note-1.design.md'
+            $result.ShouldRun | Should -BeTrue
+        }
+    }
 }

@@ -2,8 +2,9 @@
 
 Run this pass once per `/ci` or autopilot finalization invocation, after implementation and before final
 focused validation and the terminal review. Do not run it per step or as a non-terminal review. Use the
-active skill's bundled sibling `Get-DesignNoteCompactionContext.ps1` with the plan criteria-baseline
-commit. Run only when its Git inventory reports a changed path under `docs/design-notes/**`; changes only
+active skill's bundled sibling `Get-DesignNoteCompactionContext.ps1 -RepoRoot
+<canonical-repo-root>` with the plan criteria-baseline commit. Run only when its Git inventory reports
+a changed path under `docs/design-notes/**`; changes only
 under `docs/operator-guide/**` or elsewhere do not trigger it. A resumed cross-note approval continues
 the visible proposal instead of starting a second pass. Keep this an in-memory workflow action: create
 no service, schema, receipt, or corpus cache.

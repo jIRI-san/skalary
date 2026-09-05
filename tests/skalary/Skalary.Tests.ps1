@@ -317,6 +317,59 @@ Describe 'skalary plugin registry scripts' {
         @($receipt.files | Where-Object { [string]$_.outcome -eq 'skipped-modified' }).Count | Should -BeGreaterThan 0
     }
 
+    It 'reconciles added and retired manifest destinations without force and preserves modified residue' {
+        $baseSource = New-RepoClone
+        $updatedSource = New-RepoClone
+        $target = New-RepoClone
+        $install = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Install-Plugin.ps1' `
+            -Arguments @('-Name', 'code-review', '-Source', $baseSource, '-Ref', 'HEAD')
+        $install.ExitCode | Should -Be 0 -Because $install.Output
+
+        $modifiedDest = Join-Path $target '.github/agents/cr.agent.md'
+        [System.IO.File]::WriteAllText($modifiedDest, "consumer modification`n")
+        $retiredDest = Join-Path $target '.github/prompts/cr.prompt.md'
+
+        $pluginRoot = Join-Path $updatedSource 'plugins/code-review'
+        $newSource = Join-Path $pluginRoot 'skills/cr/new-route.md'
+        [System.IO.File]::WriteAllText($newSource, "new route`n")
+        $manifestPath = Join-Path $pluginRoot 'plugin.json'
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+        $parts = $manifest.version.Split('.')
+        $manifest.version = '{0}.{1}.{2}' -f $parts[0], $parts[1], ([int]$parts[2] + 1)
+        $manifest.files = @($manifest.files | Where-Object {
+                [string]$_.dest -notin @('prompts/cr.prompt.md', 'agents/cr.agent.md')
+            }) + @(
+            [pscustomobject]@{ src = 'skills/cr/new-route.md'; dest = 'skills/cr/new-route.md' }
+        )
+        Set-Content -LiteralPath $manifestPath -Value (($manifest | ConvertTo-Json -Depth 100) + "`n") `
+            -Encoding utf8NoBOM
+        Invoke-SkalaryScript -RepoRoot $updatedSource -ScriptName 'Build-Registry.ps1'
+        & git -C $updatedSource add .
+        & git -C $updatedSource commit -qm 'test: migrate code-review manifest'
+
+        $update = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Update-Plugin.ps1' `
+            -Arguments @('-Name', 'code-review', '-Source', $updatedSource, '-Ref', 'HEAD')
+        $update.ExitCode | Should -Be 0 -Because $update.Output
+        Test-Path -LiteralPath (Join-Path $target '.github/skills/cr/new-route.md') |
+            Should -BeTrue
+        Test-Path -LiteralPath $retiredDest | Should -BeFalse
+        [System.IO.File]::ReadAllText($modifiedDest) | Should -BeExactly "consumer modification`n"
+        $update.Output | Should -Match 'managed residue'
+
+        $receiptPath = Join-Path $target '.github/.skalary/receipts/code-review.json'
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 100
+        [bool]$receipt.degraded | Should -BeTrue
+        $residue = @($receipt.files | Where-Object dest -EQ 'agents/cr.agent.md')
+        $residue.Count | Should -Be 1
+        $residue[0].outcome | Should -BeExactly 'skipped-modified'
+        @($receipt.files | Where-Object dest -EQ 'prompts/cr.prompt.md').Count | Should -Be 0
+
+        $again = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Update-Plugin.ps1' `
+            -Arguments @('-Name', 'code-review', '-Source', $updatedSource, '-Ref', 'HEAD')
+        $again.ExitCode | Should -Be 0 -Because $again.Output
+        [System.IO.File]::ReadAllText($modifiedDest) | Should -BeExactly "consumer modification`n"
+    }
+
     It 'blocks removing a plugin while installed dependents still require it' {
         $source = New-RepoClone
         $target = New-RepoClone

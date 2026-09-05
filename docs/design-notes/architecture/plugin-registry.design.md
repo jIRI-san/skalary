@@ -38,6 +38,12 @@ Receipt `sourceIdentity` is version 1: GitHub stores canonical `github.com/<owne
 sources store a canonical-path SHA-256, and immutable `ref` is separate. Ambiguous legacy source labels
 fail closed for retirement.
 
+Update reconciles the old receipt against the new manifest under the mutation lock. A new absent,
+unowned destination installs without `-Force`; an existing unowned or foreign-owned path remains
+protected. Retired destinations are removed only when still equal to their receipt hash (or explicitly
+forced); modified residue remains recorded as `skipped-modified` in a degraded receipt. Payload and
+receipt moves share a rollback transaction and converge idempotently.
+
 Explicit remove and automatic retirement share `Invoke-PluginRemovalPrimitive`: serialize through
 `mutation.lock`; confine payload/state/journal/backup paths and parent chains; write a validated journal
 before mutation; and require plugin/source/transaction identity, receipt hashes, backup paths, and
@@ -74,7 +80,11 @@ traversing tails are rejected.
 | Bootstrap execution | Download scripts/catalog only; cloned plugin payload is copied, never executed. |
 | Stable output | All catalog/README ordering uses explicit ordinal comparers; equality is ordinal. |
 
-Registry, marketplace, and README catalog drift checks compare generated content deterministically.
+Registry payload hashes are SHA-256 over bytes produced by Git clean filters, so CRLF checkout
+conversion cannot disagree with committed or clone bytes while uncommitted canonical source edits
+remain buildable. Local-source installs stage those same clean-filtered bytes; remote installs clone
+with LF checkout. Registry, marketplace, and README catalog drift checks compare generated content
+deterministically.
 The Czech-collation fixture proves `en-US`/`cs-CZ` byte identity and non-vacuous divergent IDs.
 
 `PayloadScope.psm1` walks an explicit regular, non-link root allowlist, prunes `.git`, `.skalary`,
@@ -117,6 +127,8 @@ or bundled. The bootstrap-owned `scripts/skalary/registry.json` fallback remains
 
 Self-improvement's declared topology includes literal manifests/indexes and confined parameterized
 active/archive/backup/quarantine/repair/receipt paths; installed SI materializes them on first use.
+Architecture notes may read a consumer-owned optional `schemas/architecture` legacy-contract directory,
+but no plugin writer owns or scaffolds that path.
 
 ## Consumer and size evidence
 

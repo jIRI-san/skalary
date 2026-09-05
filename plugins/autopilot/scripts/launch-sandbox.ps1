@@ -379,7 +379,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 
     `$transcriptName = "session-transcript-phase`$phase.md"
-    `$prompt = "Execute `$PlanPath, phase `$phase"
+    `$prompt = "Execute `$PlanPath, phase `$phase only. Do not run plan finalization; the launcher has a separate completion target."
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
     & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
@@ -429,6 +429,39 @@ foreach (`$phase in `$phaseNumbers) {
     }
 }
 
+if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
+    foreach (`$phase in `$phaseNumbers) {
+        `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
+            -Phase `$phase -RepoRoot . 2>&1
+        if (`$LASTEXITCODE -ne 0 -or (`$closeStateOutput -join '').Trim() -ne 'closed') {
+            Log "Plan finalization refused because Phase `${phase} is not closed."
+            `$runExitCode = 1
+            break
+        }
+    }
+    if (`$runExitCode -eq 0) {
+        `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
+        Log 'Invoking Copilot CLI for plan finalization...'
+        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share='./session-transcript-finalization.md'
+        `$runExitCode = `$LASTEXITCODE
+        if (`$runExitCode -eq 42) {
+            Log '@human step encountered during plan finalization. Stopping.'
+        } elseif (`$runExitCode -eq 43) {
+            Log 'Offline rebundle requested during plan finalization - pushing manifest and signaling host.'
+            `$pushOutput = @(git push origin `$BranchName 2>&1)
+            `$pushExitCode = `$LASTEXITCODE
+            `$pushOutput | ForEach-Object { Log `$_ }
+            if (`$pushExitCode -ne 0) {
+                throw "Rebundle publication failed with exit code `$pushExitCode."
+            }
+            New-Item -ItemType File -Path (Join-Path `$SessionPath '.autopilot-rebundle-needed') -Force | Out-Null
+            `$rebundleRequested = `$true
+        } elseif (`$runExitCode -ne 0) {
+            Log "Plan finalization exited with code `$runExitCode."
+        }
+    }
+}
+
 # --- Push results ---
 if (`$rebundleRequested) {
     Log '=== Offline rebundle requested - manifest pushed, deferring PR to the post-rebundle run. ==='
@@ -449,7 +482,7 @@ if (`$rebundleRequested) {
     `$runExitCode = 1
 } finally {
     # Copy transcripts and any useful debug output to session dir (survives sandbox teardown)
-    Get-ChildItem -Path C:\work -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
+    Get-ChildItem -Path C:\work -Filter 'session-transcript-*.md' -ErrorAction SilentlyContinue |
         Copy-Item -Destination `$SessionPath -Force -ErrorAction SilentlyContinue
     # Copy copilot CLI logs if they exist
     if (Test-Path "`$env:TEMP\.copilot") {

@@ -21,6 +21,45 @@ $root = (Resolve-Path -LiteralPath ([System.IO.Path]::GetFullPath($RepoRoot))).P
 $relativePath = 'docs/feedback/recent-learning.md'
 $target = Join-Path $root ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
 
+function Assert-RecentLearningWritePath {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$AllowMissing
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    } else {
+        [System.StringComparison]::Ordinal
+    }
+    $relative = [System.IO.Path]::GetRelativePath($root, $fullPath)
+    if ($relative.StartsWith('..') -or [System.IO.Path]::IsPathRooted($relative)) {
+        throw "Recent-learning write path '$Path' escapes the repository root."
+    }
+    $current = $root
+    foreach ($segment in @($relative -split '[\\/]' | Where-Object { $_.Length -gt 0 })) {
+        $current = Join-Path $current $segment
+        if (-not (Test-Path -LiteralPath $current)) {
+            if ($AllowMissing) { continue }
+            throw "Recent-learning write path '$current' does not exist."
+        }
+        $item = Get-Item -LiteralPath $current -Force
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ($item.PSObject.Properties.Name -contains 'LinkType' -and
+                -not [string]::IsNullOrWhiteSpace([string]$item.LinkType))) {
+            throw "Recent-learning write path refuses link or reparse point '$current'."
+        }
+    }
+
+    $physicalRoot = Resolve-PhysicalRepoPath -Path $root
+    $physicalPath = Resolve-PhysicalRepoPath -Path $fullPath
+    $rootPrefix = $physicalRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $physicalPath.StartsWith($rootPrefix, $comparison)) {
+        throw "Recent-learning write path '$Path' escapes the physical repository root."
+    }
+}
+
 function Invoke-GitText {
     param([Parameter(Mandatory)][string[]]$Argument)
     $output = @(& git -C $root @Argument 2>&1)
@@ -124,11 +163,18 @@ if ($bytes.Length -gt 16KB) {
 }
 
 $parent = Split-Path -Parent $target
+[void](Assert-RecentLearningWritePath -Path $parent -AllowMissing)
 [void](New-Item -ItemType Directory -Path $parent -Force)
+[void](Assert-RecentLearningWritePath -Path $parent)
+[void](Assert-RecentLearningWritePath -Path $target -AllowMissing)
 $temp = Join-Path $parent ('.recent-learning.' + [guid]::NewGuid().ToString('N') + '.tmp')
 try {
+    [void](Assert-RecentLearningWritePath -Path $temp -AllowMissing)
     [System.IO.File]::WriteAllBytes($temp, $bytes)
+    [void](Assert-RecentLearningWritePath -Path $temp)
+    [void](Assert-RecentLearningWritePath -Path $target -AllowMissing)
     [System.IO.File]::Move($temp, $target, $true)
+    [void](Assert-RecentLearningWritePath -Path $target)
 }
 finally {
     if (Test-Path -LiteralPath $temp) {

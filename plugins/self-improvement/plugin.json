@@ -1,6 +1,6 @@
 {
   "name": "self-improvement",
-  "version": "1.0.76",
+  "version": "1.0.77",
   "description": "Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements.",
   "author": "jIRI-san",
   "license": "MIT",

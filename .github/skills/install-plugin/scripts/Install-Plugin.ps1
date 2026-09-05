@@ -281,7 +281,8 @@ function Get-InstallOperationPlan {
 
             $relativeStageName = '{0:d5}-{1}' -f $index, ([System.IO.Path]::GetFileName($dest))
             $stagePath = Join-Path $StageRoot $relativeStageName
-            Copy-Item -LiteralPath $sourcePath -Destination $stagePath -Force
+            Copy-GitCanonicalFile -RepoRoot $SourceRepoRoot -Path $sourcePath `
+                -Destination $stagePath
 
             $expectedHash = [string]$file.sha256
             $actualHash = Get-FileSha256 -Path $stagePath
@@ -585,7 +586,7 @@ finally {
     if ($null -ne $mutationLock) {
         $mutationLock.Dispose()
     }
-    if ($null -ne $sourceContext -and $sourceContext.IsRemote -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
+    if ($null -ne $sourceContext -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }
 }

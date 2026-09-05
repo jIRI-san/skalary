@@ -131,8 +131,9 @@ DR is not a fixed review panel. Select it only when a concrete unresolved design
 plan unsafe or not implementation-ready. Its report is advisory; planning owns correction.
 
 The final confirmation marker is the Git checkpoint. Execution later locates the unique commit that
-introduced its current value and byte-compares `intent.md`, `requirements.md`, `risks.md`, and
-`decisions.md`. Therefore commit the confirmed plan before `/ci`.
+introduced its current value and compares `intent.md`, `requirements.md`, `risks.md`, and
+`decisions.md` through Git clean filters. Checkout-only line-ending conversion is ignored; canonical
+changes are refused. Therefore commit the confirmed plan before `/ci`.
 
 | Exit from planning | Next action |
 |---|---|

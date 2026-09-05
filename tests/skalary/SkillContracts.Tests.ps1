@@ -62,7 +62,9 @@ Describe 'Direct workflow skill contracts' {
             $text = Get-SkillText $path
             $text | Should -Match 'read-only'
             $text | Should -Match 'Write-DirectReviewReport'
-            $text | Should -Match 'attacker/input, reachable capability'
+            $text | Should -Match '(?s)attacker/(?:untrusted\s+)?input.*reachable capability'
+            $text | Should -Match '(?s)reachable capability.*affected asset'
+            $text | Should -Match '(?s)affected asset.*plausible impact'
             $text | Should -Match 'clean`, `findings`, or `incomplete'
         }
     }

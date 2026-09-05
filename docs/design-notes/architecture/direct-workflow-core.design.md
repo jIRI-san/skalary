@@ -15,13 +15,13 @@ receipt, review-run, ledger, or harvest path.
 
 | Primitive | Contract |
 |---|---|
-| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker and byte-compares intent, requirements, risks, and decisions. |
+| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker and compares intent, requirements, risks, and decisions through Git clean filters. |
 | `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
 | `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. |
 | `Resolve-DirectReviewStandards` | Parses optional bounded local Markdown against caller-supplied base rules. |
 | `ConvertTo-UntrustedReviewBlock` | Redacts high-confidence secrets and applies collision-safe framing. |
-| `Get-DesignNoteCompactionContext.ps1` | Uses Git paths and the active index to trigger finalization and batch candidates at five maximum. |
-| `Write-RecentLearning.ps1` | Validates a completed source plan/commit and zero to ten cited, secret-free lessons, then safely replaces the 16-KiB handoff. |
+| `Get-DesignNoteCompactionContext.ps1` | Requires the canonical repository root, then uses Git paths and the active index to trigger finalization and batch candidates at five maximum. |
+| `Write-RecentLearning.ps1` | Validates a completed source plan/commit and zero to ten cited, secret-free lessons, physically refuses linked write paths, then safely replaces the 16-KiB handoff. |
 
 Reports at `assets/reviews/phase-<N>.md` or `final.md` are advisory. Native roles, budgets,
 progress-based recovery, one-terminal-review sequencing, and visible non-clean stops remain readable

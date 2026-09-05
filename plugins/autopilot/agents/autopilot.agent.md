@@ -34,11 +34,13 @@ current source/scope. Do not write evidence receipts. Commit each completed step
 checklist mark and preserve current explicit staging/push, destructive-action, auth, container, sandbox,
 offline-rebundle, and external-format guards.
 
-If changed scope has a concrete risk, run one non-terminal direct review
-event and at most one replacement after corrective source changes. The terminal phase skips post-phase
-review, runs final focused validation, then one whole-plan direct CR. If scope is unchanged, do not rerun
-it. Incomplete attendance, unresolved findings, exhausted budget, interruption, or stuck work is
-non-clean and stops.
+If changed scope has a concrete risk, run one non-terminal direct review event and at most one
+replacement after corrective source changes. A launcher phase target closes only that phase and never
+finalizes the plan. Once every phase is closed, the explicit completion target ensures the terminal phase skips post-phase
+review, runs final focused validation, then one whole-plan direct CR. On resume,
+if that exact scope is unchanged, do not rerun it. If scope is unchanged, do not rerun it.
+Incomplete attendance, unresolved findings,
+exhausted budget, interruption, or stuck work is non-clean and stops.
 
 Immediately before final focused validation, run the installed autopilot skill's shared design-note
 compaction protocol exactly once if its Git/index helper reports an implementation change under

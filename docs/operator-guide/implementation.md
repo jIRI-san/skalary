@@ -42,8 +42,8 @@ auth, explicit push/staging, and offline rebundle behavior remain launcher respo
    dependency-blocked, or not confirmed is not admitted.
 3. Before **any** checklist, branch, worktree, log, or source mutation, run
    `Test-PlanCriteriaBaseline`.
-4. It finds the unique Git commit that introduced the current confirmation marker and byte-compares
-   `intent.md`, `requirements.md`, `risks.md`, and `decisions.md`.
+4. It finds the unique Git commit that introduced the current confirmation marker and compares
+   `intent.md`, `requirements.md`, `risks.md`, and `decisions.md` through Git clean filters.
 
 Missing, uncommitted, ambiguous, or drifted criteria are refused and returned to `/cip`. Checklist,
 stage, and worktree markers in `plan.md` remain mutable so work can resume.
@@ -120,18 +120,20 @@ interrupted work has readable Git/Markdown progress.
 
 ## Finalization
 
-1. The terminal phase skips ordinary post-phase review.
-2. If implementation changed `docs/design-notes/**`, run the
+1. Autonomous whole-plan launchers run an explicit completion target after every phase is closed,
+   including all-closed resumes. Phase targets never finalize.
+2. The completion target skips terminal-phase ordinary post-phase review.
+3. If implementation changed `docs/design-notes/**`, run the
    [compaction protocol](../../plugins/autopilot/skills/autopilot/assets/design-note-compaction.md)
    exactly once before final validation. Guide-only changes do not trigger it.
-3. Same-note compression can continue normally. Cross-note merge/delete requires explicit operator
+4. Same-note compression can continue normally. Cross-note merge/delete requires explicit operator
    approval; headless mode leaves the visible diff and exits `42`.
-4. Run final focused validation, then one whole-plan direct CR. Do not rerun unchanged scope.
-5. After the full completed source commit exists, replace
+5. Run final focused validation, then one whole-plan direct CR. Do not rerun unchanged scope.
+6. After the full completed source commit exists, replace
    [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) using
    [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1): zero to ten concise
    lessons, each with a repo-relative source-commit citation, maximum 16 KiB UTF-8.
-6. Commit the handoff. The completed plan can then move to the repository's archived-plan area when the
+7. Commit the handoff. The completed plan can then move to the repository's archived-plan area when the
    active completion flow directs it.
 
 ## Outcomes and exit codes
