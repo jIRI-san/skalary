@@ -84,11 +84,11 @@ Load current intent, state, and active contracts first. Select older material on
 concepts or canonical IDs and keep no more than three supporting artifacts. Start a fresh session
 between research, planning, and implementation when the prior transcript is no longer needed.
 
-Direct repository work is the default. Planning may use one `primary-model-mid` design/requirements validator
-when a choice remains unresolved. Routine implementation uses `primary-model-low` plus deterministic evidence.
-A selected ordinary review is one `primary-model-mid` call. `primary-model-high` coordinates only cross-subsystem work
-or unresolved diagnosis. `secondary-model-high` adds one independent pass only for a concrete high-risk
-path.
+Direct repository work is the default. Headless autopilot uses `primary-model-mid` as its continuing
+analysis/implementation driver so context and cache stay local; bounded delegated implementation may step
+down to `primary-model-low`. A selected ordinary review is one `primary-model-mid` call.
+`primary-model-high` coordinates only cross-subsystem work or unresolved diagnosis.
+`secondary-model-high` adds one independent pass only for a concrete high-risk path.
 
 Delegated prompts state the outcome, closed scope, acceptance evidence, constraints, and response shape.
 Reference authoritative files instead of copying them. Narrow before 800 words; do not add an

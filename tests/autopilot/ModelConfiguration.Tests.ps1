@@ -76,9 +76,9 @@ Describe 'Autopilot model configuration' {
         }
     }
 
-    It 'test:AiCreditBudget.AutopilotDefaults uses the low alias, medium effort, and default context' {
+    It 'test:AiCreditBudget.AutopilotDefaults uses the mid alias, medium effort, and default context' {
         foreach ($config in @($repoConfig, $example)) {
-            $config.model | Should -Be 'primary-model-low'
+            $config.model | Should -Be 'primary-model-mid'
             $config.context | Should -Be 'default'
             $config.reasoningEffort | Should -Be 'medium'
         }

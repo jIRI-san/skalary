@@ -15,7 +15,7 @@
 | AI-credit budget and routing policy | `docs/design-notes/explorations/agent-cost-optimization.design.md`; 180K operating, 20K reserve, dated official pricing and workflow links |
 | Model aliases and roles | `tools/model-allowlist.psd1`; six stable primary/alternate low/mid/high aliases, host bindings, role assignments, fallbacks, and reasoning effort |
 | Generated model bindings | `scripts/skalary/Sync-ModelBindings.ps1`; copied per-skill maps and concrete waza executor/judge identifiers |
-| Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; `primary-model-low`/medium/default shipped, `long_context` opt-in |
+| Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; `primary-model-mid`/medium/default shipped, `long_context` opt-in |
 | Workflow model roles | Canonical `autopilot`, `cep`, `cip`, `ci`, `cr`, and `dr` skills use aliases only |
 | Review agent bindings | `plugins/{code-review,design-review}/agents/*.agent.md` plus alias map; host-qualified names remain runtime-only |
 | Eval model bindings | Generated `plugins/*/evals/waza/eval.yaml` and task pins; `primary-model-low` executor, `primary-model-mid` judge only for subjective tasks |
