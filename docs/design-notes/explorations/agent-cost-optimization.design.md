@@ -9,73 +9,95 @@ globs:
 
 # Agent Cost Optimization
 
-Simplicity and useful output outrank additional review voices. These are operator-approved targets
-implemented by review/autopilot simplification child `367e9a`. They are direct orchestration rules and
-focused-test expectations, not a runtime policy service.
+Simplicity and useful output outrank additional review voices. These are operator-approved direct
+orchestration rules and focused-test expectations, not a runtime model router, price registry, credit
+ledger, or telemetry service.
+
+## Monthly operating contract
+
+The GitHub AI-credit ceiling is **200,000 credits per month**: **180,000** for planned work and
+**20,000** reserved for incidents and month-end completion. Review actual model-level use in GitHub's
+AI-usage dashboard each week. Static repository instructions guide spend but cannot enforce an exact
+monthly total.
+
+One AI credit currently equals USD 0.01. This pricing snapshot is dated **2026-09-05**:
+
+| Model | Input credits / 1M tokens | Cached input | Cache write | Output credits / 1M tokens |
+|---|---:|---:|---:|---:|
+| GPT-5 mini | 25 | 2.5 | — | 200 |
+| GPT-5.6 Luna | 20 | 2 | 25 | 120 |
+| GPT-5.6 Terra | 200 | 20 | 250 | 1,200 |
+| GPT-5.6 Sol | 400 | 40 | 500 | 2,000 |
+| Claude Sonnet 5 | 200 | 20 | 250 | 1,000 |
+| Claude Opus 5 | 500 | 50 | 625 | 2,500 |
+
+The earlier Sol 50%-off promotion ended on 2026-09-03. Use the
+[official pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+as authority and the
+[workflow guide](https://movarnell.github.io/Copilot-Links/models.html#workflow-flows)
+as non-authoritative task guidance.
+
+## Model ladder
+
+| Tier | Primary | Replacement fallback | Effort/context | Admitted work |
+|---|---|---|---|---|
+| Routine | `GPT-5.6 Luna` | `GPT-5 mini` | medium/default | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard | `GPT-5.6 Terra` | `Claude Sonnet 5` | high/default | Planning, acceptance validation, ordinary CR/DR, complex bounded implementation |
+| Deep | `GPT-5.6 Sol` | `GPT-5.6 Terra` | high/default | Cross-subsystem orchestration or diagnosis unresolved after evidence-backed Terra work |
+| Independent | `Claude Opus 5` | `Claude Sonnet 5` | high/default | One concrete high-risk security, concurrency, destructive, correctness, or architecture pass |
+
+A fallback replaces an unavailable call. It never adds a panel. Sol and Opus are not routine
+fallbacks. Escalation names the unresolved evidence or concrete risk; role attendance and disagreement
+alone do not qualify.
 
 ## Advisory budgets
 
-| Area | Default | Maximum | Escalate only when |
-|---|---:|---:|---|
-| Agent calls per task or plan step | **2 default** | **5 maximum** | Independent concerns need separate context or the first result identifies a concrete unresolved risk |
-| Models per role | One primary model | Primary plus one availability fallback | The primary is unavailable; disagreement is not a reason to add a model panel |
-| Supporting historical artifacts | Current plan or epic, plus directly relevant context | At most **5 supporting artifacts** | Each artifact matches an explicit concept, plan ID, dependency, or operator choice |
-| Delegated task instructions | **600-word target** | **1,200-word cap** | A bounded specialist task cannot be made unambiguous by references to repository files |
+| Area | Normal | Maximum |
+|---|---:|---:|
+| Delegated calls per task or plan step | **0 direct**; **1** when a concrete concern needs separate context | **3**, including retries and replacements |
+| Models per role | One primary | One replacement fallback |
+| Supporting artifacts | Current criteria plus directly relevant context | **3 selected artifacts** |
+| Delegated task instructions | **400-word target** | **800-word cap** |
+| High-frequency skill entrypoint | Load only the selected decision path | **4 KiB** for `autopilot`, `cep`, `cip`, `ci`, `cr`, `dr`, and `si` |
 
-Built-in file, search, and command tools are not agent calls. A retry consumes another call. Continue
-with an already-open agent when the follow-up needs its context instead of dispatching a replacement.
+Built-in file, search, and command tools are not delegated calls. Deterministic tests, parsers, linters,
+and repository facts are the normal Judge. A fourth model call requires a new operator decision. Reuse
+an already-open agent when follow-up needs its context instead of paying for a replacement.
 
-## Dispatch shape
+## Context and workflow shape
 
-Direct repository work is the default. Use an agent only when a specialist is required or when an
-independent investigation needs enough context to justify a separate window. A normal reviewed step
-fits two calls: one combined design/validation pass and one final judge. Add implementor or specialist
-calls only for concrete risk, not role attendance.
+Default context is the only active tier. Do not request or expose `long_context`: it increases token
+volume and, above the published thresholds, doubles fresh-input and cache-write rates for Terra and
+Sol while increasing output rates.
 
-Use the configured primary model for a role. An availability fallback replaces it; it does not run in
-parallel. Multi-model panels, duplicated review passes, and agents that merely repeat repository
-searches are outside the default.
+Load current intent, state, and active contracts first. Select older material only through explicit
+concepts or canonical IDs and keep no more than three supporting artifacts. Start a fresh session
+between research, planning, and implementation when the prior transcript is no longer needed.
 
-The current CR/DR dispatch is a known transitional exception: post-phase review still fans out by
-concern, and plan finalization still adds a second model. Child `367e9a` owns reducing that existing
-orchestration. New work must not copy or expand it.
+Direct repository work is the default. Planning may use one Terra design/requirements validator when a
+choice remains unresolved. Routine implementation uses Luna plus deterministic evidence. A selected
+ordinary review is one Terra call. Sol coordinates only cross-subsystem work or unresolved diagnosis.
+Opus adds one independent pass only for a concrete high-risk path.
 
-## Observed model evidence
+Delegated prompts state the outcome, closed scope, acceptance evidence, constraints, and response shape.
+Reference authoritative files instead of copying them. Narrow before 800 words; do not add an
+instruction-summary service.
 
-The first `367e9a` DR sample used eight calls: four concerns across GPT-5.6 Sol and Claude Opus 5.
-Both models were available; served identity remained unverified. GPT reported 25 findings and Claude
-reported 19, but all 44 were single-source. The sample therefore supports cross-vendor independence at
-the terminal boundary, not a repeated two-model concern matrix.
+## Premium evals
 
-Copilot did not expose comparable premium-credit prices or reliable per-model latency for that run.
-The operator's discounted OpenAI subscription is therefore the economic input until comparable billing
-data becomes observable. Do not invent price precision or add telemetry to obtain it.
-
-| Role | Primary | Availability fallback | Reasoning/context | Use |
-|---|---|---|---|---|
-| Direct orchestration and implementation | Current parent model; no extra call | Host-selected | Current session | Routine repository work |
-| Combined design/validation and ordinary judge/review | `GPT-5.6 Sol` | `GPT-5.4` | high/default | OpenAI-first delegated work |
-| Terminal or concrete high-risk independent review | `Claude Opus 5` | `Claude Sonnet 4.6` | high/default | One independent vendor perspective |
-
-The fallback replaces the unavailable call. Claude does not join routine work merely to create a panel.
-
-## Context selection
-
-Load current intent, state, and active contracts first. Select older material through the bounded
-historical adapter using explicit concepts or canonical IDs, then keep no more than five supporting
-artifacts. Prefer the smallest excerpts that preserve the decision. Do not preload sibling plans,
-entire archives, or every design note.
-
-## Instruction form
-
-Delegated prompts state the outcome, closed scope, acceptance evidence, constraints, and expected
-response shape. Reference authoritative files instead of copying them. Remove duplicated repository
-rules already available to the role. If a prompt exceeds 1,200 words, narrow the task or split a
-genuinely independent concern; do not create an instruction-summary service.
+Tier-2 waza execution is direct, explicit, and plugin-focused. Use Luna for skill execution. Retain
+Terra judgment only where behavior is subjective; use deterministic graders for observable output,
+refusal, injection, or tool-use behavior. Premium full-repository sweeps are never routine validation.
 
 ## Decision
 
-Skills implement these budgets directly and focused fixtures hold their instruction shape. When a
-concrete task needs an exception, the skill explains it before dispatch and still respects the five-call
-maximum. No policy engine, receipt, schema, telemetry pipeline, or runtime budget service is added.
-Revisit the numbers or bindings only from observed operator value, availability, and cost.
+Skills implement the table directly and focused fixtures hold the boundaries. Revisit bindings from
+observed quality, availability, current official pricing, and operator value. Do not add a policy
+engine, receipt, schema, telemetry pipeline, or runtime budget service.
+
+## Dubious decisions
+
+Removing the long-context option can force large tasks to be split even when one large request would be
+more convenient. That simplicity and cost tradeoff is intentional for the single-operator 200K-credit
+boundary. Revisit only if a concrete required task cannot be decomposed under default context without
+losing correctness.
