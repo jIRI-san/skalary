@@ -36,4 +36,8 @@ remain.
 Before final drafting, confirm the current intent, requirements, risks, and decisions together. Persist
 the existing planning-confirmed marker only after that confirmation. Typed evidence remains exactly
 `test:`, `file:`, and `review:`. Draft MVP-first vertical steps and retain script-owned validation/stage
-mutations. Any later criteria correction returns to the affected confirmation rather than weakening it.
+mutations. Every discovered edge case must resolve to a requirement, risk, or explicit non-goal. Give
+each nontrivial AI step a compact details block naming its outcome, likely touchpoints, constraints, and
+verification. For uncertain or high-risk work, name the concrete condition that stops execution and
+escalates rather than asking the implementation model to infer it. Any later criteria correction returns
+to the affected confirmation rather than weakening it.

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T18:45:16.2048832Z",
+  "generatedAt": "2026-09-05T18:52:00.4652913Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -503,7 +503,7 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "ce5983afd38fb4d4056f1c7bcfdef047396470feba117a274b937fbd29e22d48",
+          "sha256": "d2f2a8584f84b60883c5568ebc45b1ee78251735b48b313037dbda214cf00a25",
           "src": "skills/cep/SKILL.md"
         },
         {
@@ -518,7 +518,7 @@
         },
         {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "e2b2b59eed4b7c0e08d72c625d96d38c6312befa62a457f3056a50d7ced05cdf",
+          "sha256": "831bc9fee9e1a9da7b4906881d4cf3e5f321ffe049d9ebd4285509df41a917a1",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -548,7 +548,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "6122f7495edb7c654fe94e6f5776f9629b67075237fd4cdf6f3a4623db58038e",
+          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -573,7 +573,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "da63db4baf171571a713da7e7ba7e76b42aa18c802e04f06b1f88a924c1fcbc3",
+          "sha256": "7aea85f7a61c71096618617a6081dfd93c8b4409678d2c12a06b40ed176d36a0",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -588,7 +588,7 @@
         },
         {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "e2b2b59eed4b7c0e08d72c625d96d38c6312befa62a457f3056a50d7ced05cdf",
+          "sha256": "831bc9fee9e1a9da7b4906881d4cf3e5f321ffe049d9ebd4285509df41a917a1",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -613,7 +613,7 @@
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "6122f7495edb7c654fe94e6f5776f9629b67075237fd4cdf6f3a4623db58038e",
+          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -660,7 +660,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.99"
+      "version": "1.0.100"
     },
     {
       "author": "jIRI-san",

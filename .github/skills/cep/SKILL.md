@@ -33,6 +33,8 @@ fixed matrix. Apply the two-check progress rule to observable background calls a
 one redirect and at most one replacement. Never cancel for elapsed agent time; deterministic command
 timeouts remain.
 
-Confirm the accepted epic cut before scaffolding. Child preliminary intent, decisions, references, and
-dependency rationale remain explicit. The later `/cip` confirmation owns each child's current intent,
-requirements, risks, and decisions.
+Confirm the accepted epic cut before scaffolding. For every child, state its owned outcome, non-goals,
+interface boundaries, and dependency rationale. Route each discovered edge case into preliminary intent
+as a requirement candidate, risk, or explicit non-goal rather than leaving it implicit. Child decisions
+and references remain explicit; do not duplicate detailed implementation instructions at epic level.
+The later `/cip` confirmation owns each child's current intent, requirements, risks, and decisions.

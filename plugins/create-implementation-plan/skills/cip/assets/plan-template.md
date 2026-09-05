@@ -29,11 +29,26 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 1: Name
 <!-- worktree: (recorded by /ci when worktree is created) -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
-<!-- Roles: @ai-agent (default, not annotated) or @human (explicit). -->
+<!-- Roles: @ai-agent (default, not annotated) or @human (explicit).
+     Nontrivial AI steps carry a compact details block with Outcome, Likely touchpoints, Constraints,
+     Verify, and—when uncertain or high risk—Stop/escalate when. Omit it for self-explanatory S work. -->
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Step title (REQ-1) `S`
+- [ ] 1.1 Step title (REQ-1) `M`
+  <details><summary>Implementation contract</summary>
+
+  **Outcome:** the observable state this step must leave behind.
+
+  **Likely touchpoints:** expected files, components, or interfaces; guidance, not a closed file list.
+
+  **Constraints:** relevant compatibility, behavior, and boundary requirements.
+
+  **Verify:** the focused evidence that proves the outcome.
+
+  **Stop/escalate when:** concrete unresolved evidence or risk requiring a stronger model/operator; omit when none.
+
+  </details>
 - [ ] 1.2 Step title (REQ-1, RISK-1) @human `M`
   <details><summary>Details</summary>
 

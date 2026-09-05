@@ -11,6 +11,8 @@ Describe 'Plan assets layout' {
 
         $templatePath = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/plan-template.md'
         $dogfoodTemplatePath = Join-Path $repoRoot '.github/skills/cip/assets/plan-template.md'
+        $cepSkillPath = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cep/SKILL.md'
+        $cipSkillPath = Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/SKILL.md'
         $newPlanScript = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
         $testPlanScript = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
         $workflowNoteScript = Join-Path $repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
@@ -146,6 +148,9 @@ Describe 'Plan assets layout' {
             $template | Should -Match '<!-- plan-id:'
             $template | Should -Match '(?m)^## Phase 1:'
             $template | Should -Match '(?m)^- \[ \] 1\.1 '
+            foreach ($field in @('Outcome', 'Likely touchpoints', 'Constraints', 'Verify', 'Stop/escalate when')) {
+                $template | Should -Match ([regex]::Escape("**${field}:**"))
+            }
 
             # The tables moved out of plan.md entirely — no section headings and no rows left behind.
             $template | Should -Not -Match '(?m)^## Requirements\s*$'
@@ -156,6 +161,19 @@ Describe 'Plan assets layout' {
 
         It 'test:plan-assets-template-shape ships the same template to the dogfood install' {
             (Get-Content -LiteralPath $dogfoodTemplatePath -Raw) | Should -Be (Get-Content -LiteralPath $templatePath -Raw)
+        }
+
+        It 'keeps epic and implementation plans explicit enough for lower-tier execution' {
+            $cepSkill = Get-Content -LiteralPath $cepSkillPath -Raw
+            $cipSkill = Get-Content -LiteralPath $cipSkillPath -Raw
+
+            foreach ($term in @('owned outcome', 'non-goals', 'interface boundaries', 'dependency rationale')) {
+                $cepSkill | Should -Match ([regex]::Escape($term))
+            }
+            $cipSkill | Should -Match 'requirement, risk, or explicit non-goal'
+            foreach ($term in @('outcome', 'likely touchpoints', 'constraints', 'verification', 'stop')) {
+                $cipSkill | Should -Match $term
+            }
         }
 
         It 'test:new-plan-scaffolds-assets writes assets/ with non-empty placeholders alongside plan.md' {
@@ -175,6 +193,12 @@ Describe 'Plan assets layout' {
                     # Placeholder, never zero content — "present-but-empty" must stay distinguishable from "authored".
                     (Get-Content -LiteralPath $assetPath -Raw).Trim() | Should -Not -BeNullOrEmpty
                 }
+                (Get-Content -LiteralPath (Join-Path $assetsDir 'domain.md') -Raw) |
+                    Should -Match '(?m)^## Interfaces and ownership$'
+                (Get-Content -LiteralPath (Join-Path $assetsDir 'requirements.md') -Raw) |
+                    Should -Match 'Every discovered edge case'
+                (Get-Content -LiteralPath (Join-Path $assetsDir 'risks.md') -Raw) |
+                    Should -Match 'stop/escalation condition'
                 Test-Path -LiteralPath (Join-Path $assetsDir 'reviews') |
                     Should -BeFalse -Because 'Reviews are conditional output, not an empty scaffold'
 

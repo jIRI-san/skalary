@@ -18,6 +18,12 @@ decisions before writing `planning-confirmed`. Complex choices use host-equivale
 benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
 matters; free-form input remains one focused question.
 
+Each epic child owns one outcome, explicit non-goals and interface boundaries, plus dependency rationale.
+`/cip` disposes every discovered edge case into a requirement, risk, or non-goal. Nontrivial AI steps
+state outcome, likely touchpoints, constraints, and verification in their existing details block;
+uncertain or high-risk steps also name a concrete stop/escalation condition. These are authoring
+requirements in existing artifacts, not new receipts or lifecycle state.
+
 Before drafting, `/cip` audits requirements and active policy for behavior-asserting absolute or fuzzy
 language. Confirmed unconditional rules retain their reason. Otherwise it confirms condition, behavior,
 and exception; fuzzy language requires an observable criterion, threshold, example, or interpretation.
