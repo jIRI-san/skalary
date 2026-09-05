@@ -53,7 +53,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 3.1 Classify each active waza task as deterministic-gradeable or subjective, switch skill execution to Luna, retain Terra judgment only for subjective behavior, and preserve injection, refusal, and tool-use coverage (REQ-2, REQ-6, REQ-10, RISK-1, RISK-6, RISK-7) [after: 2.3] `L`
 - [x] 3.2 Update waza convention tests, model allowlists, and plugin-focused invocation guidance so no deterministic route triggers premium work and no routine premium path selects Sol, Opus, long context, or a full-repository sweep (REQ-2, REQ-6, REQ-9, REQ-10, RISK-2, RISK-4, RISK-6, RISK-7) [after: 3.1] `M`
-- [ ] 3.3 Run structural eval checks plus a no-cost model-availability probe; leave any live premium smoke explicit and operator-initiated rather than making it completion evidence (REQ-6, REQ-8, REQ-10, RISK-3, RISK-6, RISK-7) [after: 3.2] `S`
+- [x] 3.3 Run structural eval checks plus a no-cost model-availability probe; leave any live premium smoke explicit and operator-initiated rather than making it completion evidence (REQ-6, REQ-8, REQ-10, RISK-3, RISK-6, RISK-7) [after: 3.2] `S`
 
 ## Phase 4: Distribution, guidance, and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->
