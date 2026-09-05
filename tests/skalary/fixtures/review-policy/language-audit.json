@@ -1,0 +1,46 @@
+{
+  "absoluteCases": [
+    {
+      "input": "Always deploy after a green build.",
+      "expected": "confirm"
+    }
+  ],
+  "fuzzyCases": [
+    {
+      "input": "Use robust retries.",
+      "expected": "observable clarification"
+    }
+  ],
+  "retainedGuards": [
+    {
+      "path": "plugins/create-implementation-plan/skills/cip/SKILL.md",
+      "pattern": "secret\\s*screening"
+    },
+    {
+      "path": "plugins/autopilot/agents/autopilot.agent.md",
+      "pattern": "destructive-action"
+    },
+    {
+      "path": "docs/architecture-notes/arch-install-confinement.md",
+      "pattern": "mutate files \\*\\*only\\*\\* inside"
+    }
+  ],
+  "excludedExamples": [
+    {
+      "kind": "archived",
+      "input": "Archived plan says always migrate."
+    },
+    {
+      "kind": "code",
+      "input": "if ($required) { return }"
+    },
+    {
+      "kind": "schema",
+      "input": "\"required\": [\"name\"]"
+    },
+    {
+      "kind": "example",
+      "input": "Example being analyzed: never retry."
+    }
+  ]
+}

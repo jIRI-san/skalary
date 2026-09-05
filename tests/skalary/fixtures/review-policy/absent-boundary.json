@@ -1,0 +1,18 @@
+{
+  "demands": [
+    "authentication",
+    "signing",
+    "attestation",
+    "audit trails",
+    "rollback journals",
+    "multi-tenant isolation",
+    "remote CI",
+    "multi-operator concurrency"
+  ],
+  "introducedBoundary": {
+    "AttackerOrInput": "untrusted tenant request",
+    "ReachableCapability": "new tenant-scoped write endpoint",
+    "AffectedAsset": "another tenant's records",
+    "PlausibleImpact": "cross-tenant data modification"
+  }
+}

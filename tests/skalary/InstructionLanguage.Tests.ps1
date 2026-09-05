@@ -10,11 +10,18 @@ Describe 'Decision-ready questions and active policy language' {
             param([Parameter(Mandatory)][string]$Path)
             Get-Content -LiteralPath (Join-Path $script:repoRoot $Path) -Raw
         }
+        function Read-PolicyFixture {
+            param([Parameter(Mandatory)][string]$Name)
+            Get-Content -LiteralPath (
+                Join-Path $script:repoRoot "tests/skalary/fixtures/review-policy/$Name.json"
+            ) -Raw | ConvertFrom-Json
+        }
     }
 
     It 'test:SimpleWorkflow.InstructionLanguage makes CIP resolve seeded absolute and fuzzy examples before drafting' {
         $skill = Read-RepoText 'plugins/create-implementation-plan/skills/cip/SKILL.md'
         $protocol = Read-RepoText 'plugins/create-implementation-plan/skills/cip/assets/decision-protocol.md'
+        $fixture = Read-PolicyFixture 'language-audit'
 
         $skill | Should -Match 'Before drafting'
         $skill | Should -Match 'Do not draft an unconfirmed absolute or an\s*unobservable fuzzy requirement'
@@ -29,20 +36,56 @@ Describe 'Decision-ready questions and active policy language' {
             $protocol | Should -Match "\b$term\b"
         }
         $protocol | Should -Match 'criterion, threshold,\s*or example'
-        $protocol | Should -Match 'always deploy'
-        $protocol | Should -Match 'robust retries'
+        foreach ($case in $fixture.absoluteCases) {
+            $protocol | Should -Match ([regex]::Escape(
+                    ([regex]::Match([string]$case.input, '(?i)always deploy').Value)
+                ))
+            if ($case.expected -ceq 'confirm') {
+                $protocol | Should -Match 'confirm or revise it before drafting'
+            }
+        }
+        foreach ($case in $fixture.fuzzyCases) {
+            $protocol | Should -Match ([regex]::Escape(
+                    ([regex]::Match([string]$case.input, '(?i)robust retries').Value)
+                ))
+            if ($case.expected -ceq 'observable clarification') {
+                $protocol | Should -Match 'criterion, threshold,\s*or example'
+            }
+        }
+
+        foreach ($guard in $fixture.retainedGuards) {
+            Read-RepoText $guard.path | Should -Match $guard.pattern
+        }
+        $excludedKinds = @($fixture.excludedExamples | ForEach-Object kind)
+        $excludedKinds | Should -Be @('archived', 'code', 'schema', 'example')
+        foreach ($pattern in @('code keywords', 'schema fields', 'examples being analyzed')) {
+            $protocol | Should -Match $pattern
+        }
+        $audit = Read-RepoText (
+            'docs/implementation-plans/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/' +
+            'assets/language-audit.md'
+        )
+        $audit | Should -Match 'Archived implementation plans/history'
+        $audit | Should -Match 'External schema/tool keywords, code identifiers'
+        $audit | Should -Match 'examples being analyzed'
     }
 
     It 'test:SimpleWorkflow.DecisionReadyQuestions gives both hosts equivalent rich choices' {
         $protocol = Read-RepoText 'plugins/create-implementation-plan/skills/cip/assets/decision-protocol.md'
-        foreach ($expected in @(
-                'current context', 'concrete example', 'benefits', 'pros and\s*cons',
-                'recommendation/default', 'effort: <1-10>', 'complexity: <1-10>',
-                'Mermaid diagram only', 'vscode_askQuestions', 'numbered list',
-                'one focused question at a time', 'trivial'
-            )) {
-            $protocol | Should -Match $expected
+        $fixture = Read-PolicyFixture 'decision-question'
+        foreach ($expected in @($fixture.orderedLabels)) {
+            $pattern = if ($expected -eq 'pros/cons') { 'pros and\s*cons' } else {
+                [regex]::Escape([string]$expected)
+            }
+            $protocol | Should -Match $pattern
         }
+        $protocol | Should -Match 'Mermaid diagram only'
+        $protocol | Should -Match 'relationships or sequencing affect the decision'
+        $protocol | Should -Match 'one focused question at a time'
+        $protocol | Should -Match 'trivial'
+        $fixture.relationshipCase | Should -Match 'before or after'
+        $fixture.independentCase | Should -Not -Match 'before or after'
+        [regex]::Matches([string]$fixture.freeFormQuestion, '\?').Count | Should -Be 1
 
         foreach ($path in @(
                 '.github/copilot-instructions.md',
@@ -52,13 +95,24 @@ Describe 'Decision-ready questions and active policy language' {
                 'plugins/autopilot/agents/autopilot.agent.md'
             )) {
             $text = Read-RepoText $path
-            foreach ($expected in @(
-                    'context', 'concrete example', 'benefits', 'pros(?:/|\s+and\s+)cons',
-                    'recommendation/default', 'effort', 'complexity', 'Mermaid',
-                    'vscode_askQuestions', 'Copilot\s+CLI', 'one\s+focused question'
-                )) {
-                $text | Should -Match $expected -Because "$path must carry the same decision context"
+            foreach ($expected in @($fixture.orderedLabels)) {
+                $pattern = if ($expected -eq 'pros/cons') {
+                    'pros(?:/|\s+and\s+)cons'
+                }
+                else {
+                    [regex]::Escape([string]$expected)
+                }
+                $text | Should -Match $pattern -Because "$path must carry the same decision context"
             }
+            foreach ($expected in @($fixture.hosts)) {
+                $pattern = if ($expected -eq 'Copilot CLI') { 'Copilot\s+CLI' } else {
+                    [regex]::Escape([string]$expected)
+                }
+                $text | Should -Match $pattern -Because "$path must carry both host renderings"
+            }
+            $text | Should -Match 'Mermaid'
+            $text | Should -Match 'only\s+when\s+relationships or sequencing'
+            $text | Should -Match 'one\s+focused question'
         }
     }
 
