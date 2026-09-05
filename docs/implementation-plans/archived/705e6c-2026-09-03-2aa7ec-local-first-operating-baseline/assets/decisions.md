@@ -88,3 +88,7 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
   supervisor startup cleanup no longer dereferences an unstarted process. These are local fixes with
   focused coverage. Per the operator's objection to repeated CR execution, do not start a fourth
   review; retain the capped review history instead of extending the loop.
+- **Operator-approved archival exception.** On 2026-09-05 the operator explicitly accepted the wrapped
+  three-cycle final-review history and directed that the completed plan be archived. This is not clean
+  review evidence and does not change the recorded gate result; it is the authority for closing this
+  plan without another CR run.
