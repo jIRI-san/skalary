@@ -10,7 +10,7 @@
 | Terminal flow | The final phase skips ordinary post-phase review, optionally compacts edited design notes, runs final focused validation, then writes exactly one whole-plan `assets/reviews/final.md`. |
 | Stuck recovery | For observable background delegation, the orchestrator compares progress evidence across two explicit checks, redirects the same agent once, permits one replacement within budget, then stops for the operator. A synchronous call either returns or is interrupted by the host/operator; the skill does not claim it can poll an opaque blocked call. |
 | Evidence | Existing `test:`, `file:`, and `review:` markers are verified directly during the active crosscheck against current files, commands, and Markdown reports; no evidence or review receipt is written. |
-| Learning handoff | `/ci` or autopilot completion replaces `docs/feedback/recent-learning.md` with a bounded cited summary. Child `3a4498` owns collision-safe fencing and untrusted treatment when `/si` reads it. |
+| Learning handoff | `/ci` or autopilot completion replaces `docs/feedback/recent-learning.md` with source plan/commit plus a bounded cited summary. Missing, explicit-empty, and source-mismatch/stale are distinct. Child `3a4498` owns collision-safe fencing and untrusted treatment when `/si` reads it. |
 | Human documentation | `docs/operator-guide/README.md`, `planning.md`, `implementation.md`, and `reviews.md` document artifacts, gates, sequencing, budgets, models, retries, and stop/resume paths with Mermaid diagrams. |
 
 ## Program flow
@@ -137,6 +137,11 @@ with residual risk for operator choice.
 
 These retained guards ship in the direct review path before activation. They are not deferred to a
 later hardening phase.
+
+Design-note compaction discovers overlap from the active index and touched concepts, then processes at
+most five notes per comparison batch. It shows the ordinary Git diff before cross-note merge/delete;
+cancel or failure leaves that diff for correction or Git revert rather than claiming an isolated
+transaction.
 
 ## Closed review and recovery outcomes
 
