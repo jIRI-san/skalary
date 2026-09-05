@@ -10,8 +10,8 @@ globs:
 
 `.github/copilot-instructions.md` deliberately auto-loads the implementation design-note index and the
 higher architecture-contract index; after each, load only matching notes. Human guidance starts at
-[`docs/operator-guide/README.md`](../../operator-guide/README.md) and is excluded from both indexes and
-compaction.
+[`docs/operator-guide/README.md`](../../operator-guide/README.md); it is absent from both auto-loaded indexes
+and excluded from design-note compaction.
 
 | Surface | Responsibility |
 |---|---|

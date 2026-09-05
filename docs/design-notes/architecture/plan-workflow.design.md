@@ -8,8 +8,8 @@ globs:
 
 # Plan workflow
 
-Human guidance lives in [`docs/operator-guide/README.md`](../../operator-guide/README.md), outside
-auto-loaded notes and design-note compaction.
+Human guidance lives in [`docs/operator-guide/README.md`](../../operator-guide/README.md); it is not auto-loaded
+and is excluded from design-note compaction.
 
 ## Planning
 

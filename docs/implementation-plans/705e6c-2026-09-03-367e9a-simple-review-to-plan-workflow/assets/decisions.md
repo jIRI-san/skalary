@@ -76,16 +76,3 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
   stuck replacement, or unresolved findings produce a non-clean report and operator stop.
 - **Learning trust is consumer-owned.** `/ci` and autopilot write bounded cited Markdown;
   `3a4498` owns fencing and untrusted interpretation when `/si` reads it.
-- **Step 5.3 compaction approval applied.** The operator approved the three read-only review proposals:
-  all within-note compaction across the three recorded batches; merge
-  `autopilot-skill.design.md` into `autopilot-execution.design.md`, preserving the no-second-menu
-  handoff and bounded post-source-commit learning contract; then delete its active index row.
-- **Resolved SI exploration stays active and compact.** Keep instruction-root authority, typed
-  claim-not-authority, source/version identity, upstream re-judgment, installed-copy prohibition, and
-  no autonomous merge/publication. Defer any merge/delete or lifecycle change to `3a4498`.
-- **One owner for repeated completion policy.** `plugin-registry.design.md` owns registry, marketplace,
-  dogfood, and payload completion order while preserving all current `623cc2` lifecycle/receipt
-  behavior. `ci-gates.design.md` owns focused Pester exits and no-suite policy;
-  `plugin-evals.design.md` owns eval-specific structural and typed-evidence behavior.
-- **Step 5.3 remains open after this source commit.** Recent-learning and the one terminal CR are
-  deliberately deferred to the parent; this compaction commit does not claim terminal completion.
