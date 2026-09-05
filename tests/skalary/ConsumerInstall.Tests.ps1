@@ -346,16 +346,16 @@ Describe 'foreign consumer plugin installation' {
             Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
         }
         foreach ($copy in @($dogfoodCi, $foreignCi)) {
-            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+            [System.IO.File]::ReadAllText($copy).Replace("`r`n", "`n") |
                 Should -BeExactly (
-                    Get-FileHash -LiteralPath $sourceCi -Algorithm SHA256
-                ).Hash
+                    [System.IO.File]::ReadAllText($sourceCi).Replace("`r`n", "`n")
+                )
         }
         foreach ($copy in @($dogfoodWrapper, $foreignWrapper)) {
-            (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash |
+            [System.IO.File]::ReadAllText($copy).Replace("`r`n", "`n") |
                 Should -BeExactly (
-                    Get-FileHash -LiteralPath $sourceWrapper -Algorithm SHA256
-                ).Hash
+                    [System.IO.File]::ReadAllText($sourceWrapper).Replace("`r`n", "`n")
+                )
         }
 
         $routeText = [System.IO.File]::ReadAllText($foreignCi)
@@ -472,16 +472,16 @@ exit 37
     It 'test:ConsumerInstall.FirstUseScaffoldLifecycle executes every declared owner safely in a foreign repo' {
         # Transactional state writers intentionally do not leave every declared path present:
         # archive journals are removed after commit, while parameterized run/receipt paths depend
-        # on a selected durable record. Their dedicated SI/harvest suites exercise confinement,
+        # on a selected durable record. Their dedicated SI suites exercise confinement,
         # recovery, and idempotence. This generic starter-content harness owns only persistent
         # first-use scaffolds whose complete declared shape exists after one invocation.
         $transactionalOwners = @(
             'Archive-SiState.ps1',
             'Export-CrossRepoSi.ps1',
             'Get-SiHarvest.ps1',
-            'Invoke-PhaseHarvest.ps1',
             'Repair-SiState.ps1',
             'SiStateStore.psm1'
+            'Write-RecentLearning.ps1'
         )
         $allDeclaredOwners = @(
             $script:fixture.Catalog.Plugins |

@@ -357,12 +357,11 @@ Log "Plan has `$totalPhases phases (numbers: `$phaseList)."
 
 `$rebundleRequested = `$false
 `$phaseStateScript = 'C:\autopilot-runtime\Get-PhaseExecutionState.ps1'
-`$harvestValidator = 'C:\autopilot-runtime\Invoke-PhaseHarvest.ps1'
 foreach (`$phase in `$phaseNumbers) {
     Log "=== Phase `$phase of `$totalPhases ==="
 
     `$phaseStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+        -Phase `$phase -RepoRoot . 2>&1
     if (`$LASTEXITCODE -ne 0) {
         Log "Phase `${phase}: state check failed: `$(`$phaseStateOutput -join ' ')"
         `$runExitCode = 3
@@ -380,7 +379,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 
     `$transcriptName = "session-transcript-phase`$phase.md"
-    `$prompt = "Execute `$PlanPath, phase `$phase"
+    `$prompt = "Execute `$PlanPath, phase `$phase only. Do not run plan finalization; the launcher has a separate completion target."
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
     & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
@@ -411,7 +410,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 
     `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-        -Phase `$phase -RepoRoot . -HarvestValidator `$harvestValidator 2>&1
+        -Phase `$phase -RepoRoot . 2>&1
     if (`$LASTEXITCODE -ne 0) {
         Log "Phase `${phase}: close state check failed: `$(`$closeStateOutput -join ' ')"
         `$runExitCode = 3
@@ -427,6 +426,39 @@ foreach (`$phase in `$phaseNumbers) {
     if ('$Mode' -eq 'next-phase') {
         Log "Mode is 'next-phase' - stopping after Phase `${phase}."
         break
+    }
+}
+
+if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
+    foreach (`$phase in `$phaseNumbers) {
+        `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
+            -Phase `$phase -RepoRoot . 2>&1
+        if (`$LASTEXITCODE -ne 0 -or (`$closeStateOutput -join '').Trim() -ne 'closed') {
+            Log "Plan finalization refused because Phase `${phase} is not closed."
+            `$runExitCode = 1
+            break
+        }
+    }
+    if (`$runExitCode -eq 0) {
+        `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
+        Log 'Invoking Copilot CLI for plan finalization...'
+        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share='./session-transcript-finalization.md'
+        `$runExitCode = `$LASTEXITCODE
+        if (`$runExitCode -eq 42) {
+            Log '@human step encountered during plan finalization. Stopping.'
+        } elseif (`$runExitCode -eq 43) {
+            Log 'Offline rebundle requested during plan finalization - pushing manifest and signaling host.'
+            `$pushOutput = @(git push origin `$BranchName 2>&1)
+            `$pushExitCode = `$LASTEXITCODE
+            `$pushOutput | ForEach-Object { Log `$_ }
+            if (`$pushExitCode -ne 0) {
+                throw "Rebundle publication failed with exit code `$pushExitCode."
+            }
+            New-Item -ItemType File -Path (Join-Path `$SessionPath '.autopilot-rebundle-needed') -Force | Out-Null
+            `$rebundleRequested = `$true
+        } elseif (`$runExitCode -ne 0) {
+            Log "Plan finalization exited with code `$runExitCode."
+        }
     }
 }
 
@@ -450,7 +482,7 @@ if (`$rebundleRequested) {
     `$runExitCode = 1
 } finally {
     # Copy transcripts and any useful debug output to session dir (survives sandbox teardown)
-    Get-ChildItem -Path C:\work -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
+    Get-ChildItem -Path C:\work -Filter 'session-transcript-*.md' -ErrorAction SilentlyContinue |
         Copy-Item -Destination `$SessionPath -Force -ErrorAction SilentlyContinue
     # Copy copilot CLI logs if they exist
     if (Test-Path "`$env:TEMP\.copilot") {
@@ -566,26 +598,18 @@ $sandboxProcess = Start-Process -FilePath 'C:\Windows\System32\WindowsSandbox.ex
 
 Write-Host "Sandbox launched. Monitor progress in the sandbox window."
 
-# --- Block until the bootstrap signals completion (sentinel) or we time out ---
-# The bootstrap writes the sentinel from its finally block so it always fires,
-# even on failure, releasing this poll instead of forcing the full timeout.
-$SandboxTimeoutMinutes = $Config.timeout
-$deadline = (Get-Date).AddMinutes($SandboxTimeoutMinutes)
-Write-Host "Waiting for sandbox bootstrap to complete (timeout ${SandboxTimeoutMinutes}m)..."
+# --- Block until the bootstrap signals completion or the sandbox exits ---
+Write-Host "Waiting for sandbox bootstrap to complete..."
 while (-not (Test-Path $SentinelPath)) {
-    if ((Get-Date) -gt $deadline) {
-        Write-Warning "Sandbox did not signal completion within $SandboxTimeoutMinutes minutes."
-        if (-not $sandboxProcess.HasExited) {
-            $sandboxProcess.Kill($true)
-            $sandboxProcess.WaitForExit()
-        }
+    if ($sandboxProcess.HasExited) {
+        Write-Warning "Sandbox exited without signaling completion."
         break
     }
     Start-Sleep -Seconds 5
 }
 
 $exitCode = if (-not (Test-Path -LiteralPath $SentinelPath -PathType Leaf)) {
-    124
+    1
 }
 elseif (Test-Path -LiteralPath $ExitCodeMarker -PathType Leaf) {
     $rawExitCode = (Get-Content -LiteralPath $ExitCodeMarker -Raw).Trim()

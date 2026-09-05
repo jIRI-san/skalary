@@ -24,9 +24,11 @@ Describe 'Autopilot.SandboxOffline' {
         It 'clears stale sentinel + rebundle markers before launch' {
             $sandbox.Contains("Remove-Item -Path `$SentinelPath, `$RebundleMarker") | Should -BeTrue
         }
-        It 'blocks on the bootstrap completion sentinel with a timeout' {
+        It 'blocks on the bootstrap completion sentinel without an elapsed kill' {
             $sandbox.Contains('while (-not (Test-Path $SentinelPath))') | Should -BeTrue
-            $sandbox.Contains('$Config.timeout') | Should -BeTrue
+            $sandbox.Contains('$sandboxProcess.HasExited') | Should -BeTrue
+            $sandbox.Contains('$Config.timeout') | Should -BeFalse
+            $sandbox.Contains('$sandboxProcess.Kill') | Should -BeFalse
         }
         It 'returns exit 43 when the rebundle marker is present after the poll' {
             $sandbox.Contains('if (Test-Path $RebundleMarker) {') | Should -BeTrue

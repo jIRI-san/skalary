@@ -104,35 +104,6 @@ function Assert-AutopilotRepositoryRemote {
     }
 }
 
-function Wait-AutopilotProcessUntil {
-    param(
-        [Parameter(Mandatory)][System.Diagnostics.Process]$Process,
-        [Parameter(Mandatory)][datetime]$Deadline
-    )
-
-    if ($Process.HasExited) {
-        return $true
-    }
-    while ($true) {
-        $remainingMilliseconds = [Math]::Ceiling(
-            ($Deadline - [datetime]::Now).TotalMilliseconds
-        )
-        if ($remainingMilliseconds -le 0) {
-            return $Process.HasExited
-        }
-        $waitMilliseconds = [int][Math]::Min(
-            $remainingMilliseconds,
-            [int]::MaxValue
-        )
-        if ($Process.WaitForExit($waitMilliseconds)) {
-            return $true
-        }
-        if ($remainingMilliseconds -le [int]::MaxValue) {
-            return $false
-        }
-    }
-}
-
 function Resolve-OfflinePackagesConfig {
     param([Parameter(Mandatory)][psobject]$Config)
 

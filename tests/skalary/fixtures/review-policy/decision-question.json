@@ -1,0 +1,18 @@
+{
+  "orderedLabels": [
+    "context",
+    "concrete example",
+    "benefits",
+    "pros/cons",
+    "recommendation/default",
+    "effort",
+    "complexity"
+  ],
+  "hosts": [
+    "vscode_askQuestions",
+    "Copilot CLI"
+  ],
+  "relationshipCase": "Choose whether validation runs before or after report publication.",
+  "independentCase": "Choose the report heading.",
+  "freeFormQuestion": "Which existing workflow must remain compatible?"
+}

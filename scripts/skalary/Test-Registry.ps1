@@ -390,7 +390,7 @@ foreach ($plugin in $registryPlugins) {
             continue
         }
 
-        $actualSha = Get-FileSha256 -Path $sourcePath
+        $actualSha = Get-GitCanonicalFileSha256 -RepoRoot $repoRootPath -Path $sourcePath
         if ($actualSha -ne [string]$registryFile.sha256) {
             Add-RegistryError -Errors $errors -Message "Plugin '$name' file '$($registryFile.src)' sha mismatch: registry '$($registryFile.sha256)' vs disk '$actualSha'."
         }

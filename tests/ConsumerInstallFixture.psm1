@@ -11,6 +11,44 @@ function Get-ConsumerInstallSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-ConsumerInstallCanonicalSha256 {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $relative = [System.IO.Path]::GetRelativePath($RepoRoot, $Path).Replace('\', '/')
+    $output = @(& git -C $RepoRoot hash-object -w "--path=$relative" -- $Path 2>&1)
+    $objectId = @($output | ForEach-Object { ([string]$_).Trim() } |
+            Where-Object { $_ -cmatch '^[0-9a-f]{40,64}$' } | Select-Object -Last 1)
+    if ($LASTEXITCODE -ne 0 -or $objectId.Count -ne 1) {
+        throw "Unable to canonicalize fixture source '$relative': $($output -join ' ')"
+    }
+
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $RepoRoot
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @('-C', $RepoRoot, 'cat-file', 'blob', [string]$objectId[0])) {
+        [void]$start.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::Start($start)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($process.StandardOutput.BaseStream)
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw $errorText }
+        return [Convert]::ToHexString($hash).ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+        $process.Dispose()
+    }
+}
+
 function Test-ConsumerInstallDestination {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Destination)
 
@@ -72,7 +110,7 @@ function Get-ConsumerInstallManifestCatalog {
                 Plugin     = $pluginName
                 Src        = $src
                 Dest       = $dest
-                Sha256     = Get-ConsumerInstallSha256 -Path $sourcePath
+                Sha256     = Get-ConsumerInstallCanonicalSha256 -RepoRoot $sourceRoot -Path $sourcePath
                 Install    = $src -notmatch '^evals(?:/|$)'
                 SourcePath = [System.IO.Path]::GetFullPath($sourcePath)
             }
@@ -700,12 +738,14 @@ function Invoke-ConsumerInstalledSmokeMatrix {
                     $expectedOutput = 'design-notes:update'
                 }
                 'design-review' {
-                    $probe = 'incomplete-run-preflight'
-                    $scriptPath = Get-InstalledPath -Destination 'skills/dr/scripts/Get-ReviewRun.ps1'
+                    $probe = 'direct-untrusted-framing'
+                    $modulePath = Get-InstalledPath -Destination 'skills/dr/scripts/DirectWorkflow.psm1'
                     $process = Invoke-InstalledProcess -ArgumentList @(
-                        '-NoProfile', '-File', $scriptPath, '-ListIncomplete'
+                        '-NoProfile', '-CommandWithArgs',
+                        'Import-Module $args[0] -Force; $value = ConvertTo-UntrustedReviewBlock -Content ''consumer review''; if ($value -notmatch ''^<UNTRUSTED_INPUT_'' -or $value -notmatch ''consumer review'') { throw ''direct framing failed'' }; ''design-review:direct''',
+                        $modulePath
                     )
-                    $expectedOutput = '[]'
+                    $expectedOutput = 'design-review:direct'
                 }
                 'plugin-manager' {
                     $probe = 'installed-plugin-list'
@@ -959,21 +999,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 )
                 @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $(if ($Hostile) { $missingRoot } else { $Root }))
             }
-            'Add-LedgerEntry.ps1' {
-                $scriptPath = Get-InstalledPath -Root $Root -Destination (
-                    'skills/ci/scripts/Add-LedgerEntry.ps1'
-                )
-                @(
-                    '-NoProfile', '-File', $scriptPath,
-                    '-Category', $(if ($Hostile) { '../testing' } else { 'testing' }),
-                    '-Plan', '007',
-                    '-Src', 'ci',
-                    '-Severity', 'Med',
-                    '-Entry', 'consumer scaffold lifecycle',
-                    '-Date', '2026-01-02',
-                    '-RepoRoot', $Root
-                )
-            }
             'Add-WorkflowNote.ps1' {
                 $scriptPath = Get-InstalledPath -Root $Root -Destination (
                     'skills/ci/scripts/Add-WorkflowNote.ps1'
@@ -996,20 +1021,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     '-NoProfile', '-CommandWithArgs',
                     '$ErrorActionPreference = ''Stop''; $scriptPath, $planDir, $legacyPlanDir, $repoRoot = $args; 1..2 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $legacyPlanDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "legacy learning $_" -MaxLearnings 1 | Out-Null }; 3..4 | ForEach-Object { & $scriptPath -Kind Learnings -PlanDir $planDir -RepoRoot $repoRoot -Phase 1 -Step "1.$_" -Trigger reusable-pattern -Concern maintainability-consistency -Message "assets learning $_" -MaxLearnings 1 | Out-Null }; ''workflow-note:dual-layout''',
                     $scriptPath, $planDir, $legacyPlanDir, $Root
-                )
-            }
-            'Remove-LedgerEntry.ps1' {
-                $scriptPath = Get-InstalledPath -Root $Root -Destination (
-                    'skills/ci/scripts/Remove-LedgerEntry.ps1'
-                )
-                $line = '- [2026-01-01] retired consumer lesson (plan-006, src:ci, sev:Med)'
-                $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($line))
-                @(
-                    '-NoProfile', '-File', $scriptPath,
-                    '-Category', 'testing',
-                    '-MatchBase64', $(if ($Hostile) { '***' } else { $encoded }),
-                    '-CurrentPlan', '007',
-                    '-RepoRoot', $Root
                 )
             }
             'New-Plan.ps1' {
@@ -1099,13 +1110,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     -ArgumentList @('-NoProfile', '-File', $copyScript, '-TargetRoot', $root)
                 if ($setup.ExitCode -ne 0) { throw "Human-doc prerequisite failed: $($setup.Output)" }
             }
-            elseif ($owner -eq 'Remove-LedgerEntry.ps1') {
-                $ledgerPath = Join-Path $root 'docs/review-ledger/testing.md'
-                [void](New-Item -ItemType Directory -Path (Split-Path -Parent $ledgerPath) -Force)
-                Set-Content -LiteralPath $ledgerPath `
-                    -Value "- [2026-01-01] retired consumer lesson (plan-006, src:ci, sev:Med)`n" `
-                    -NoNewline -Encoding utf8NoBOM
-            }
             elseif ($owner -eq 'Add-WorkflowNote.ps1') {
                 $newPlanPath = Get-InstalledPath -Root $root -Destination (
                     'skills/cip/scripts/New-Plan.ps1'
@@ -1164,10 +1168,8 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     Where-Object {
                         (-not $afterFirst.ContainsKey($_) -or $baseline[$_] -cne $afterFirst[$_]) -and
                         -not (Test-OwnerDeclaredEntry `
-                                -RelativePath $_ `
-                                -EntryKind $baseline[$_]) -and
-                        -not ($owner -ceq 'Remove-LedgerEntry.ps1' -and
-                            $_ -ceq 'docs/review-ledger/testing.md')
+                        -RelativePath $_ `
+                        -EntryKind $baseline[$_])
                     }
             )
             $confined = $created.Count -gt 0 -and $unexpectedBaselineMutation.Count -eq 0 -and @(
@@ -1193,12 +1195,7 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     ForEach-Object {
                         $expanded = [string]$_.path
                         $expanded = $expanded.Replace('<category>', 'testing')
-                        $planFolder = if ($expanded -ceq 'docs/implementation-plans/<plan>/learning-overflow/**') {
-                            '007-consumer-scaffold'
-                        }
-                        else {
-                            'standalone-2026-01-02-a1b2c3-consumer-scaffold'
-                        }
+                        $planFolder = 'standalone-2026-01-02-a1b2c3-consumer-scaffold'
                         $expanded = $expanded.Replace('<plan>', $planFolder)
                         $expanded = $expanded.Replace('<epic>', '2026-01-02-d4e5f6-consumer-epic')
                         if ($expanded.EndsWith('/**', [System.StringComparison]::Ordinal)) {
@@ -1256,7 +1253,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 'Import-ArchHarvest.ps1' { 'docs/architecture-notes/.staging/HARVEST.md' }
                 'Import-ArchAdr.ps1' { 'docs/architecture-notes/.staging/adr/ADR-consumer-choice.md' }
                 'New-ArchHumanDoc.ps1' { 'docs/architecture-notes/architecture.human.md' }
-                'Add-LedgerEntry.ps1' { 'docs/review-ledger/testing.md' }
                 'Add-WorkflowNote.ps1' {
                     'docs/implementation-plans/standalone-2026-01-02-a1b2c3-consumer-scaffold/assets/logs/learnings.md'
                 }
@@ -1266,7 +1262,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 'New-Epic.ps1' {
                     'docs/implementation-plans/epics/2026-01-02-d4e5f6-consumer-epic/epic.md'
                 }
-                'Remove-LedgerEntry.ps1' { 'docs/review-ledger/.archive/testing.md' }
                 'Initialize-DesignNotes.ps1' { 'docs/design-notes/.design-notes.md' }
                 'Update-FeedbackQueue.ps1' { 'docs/feedback/queue.md' }
                 default { $null }
@@ -1302,7 +1297,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
             $safeRefusalPattern = switch ($owner) {
                 'New-Plan.ps1' { 'Plan folder already exists' }
                 'New-Epic.ps1' { 'Epic id .* is already taken' }
-                'Remove-LedgerEntry.ps1' { 'No exact ledger entry match' }
                 default { $null }
             }
             $repeatOutcomeExpected = if ($safeRefusalPattern) {

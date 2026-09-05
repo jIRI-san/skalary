@@ -261,44 +261,9 @@ function Read-SiLifecycleInput {
         return ,@($value.$Property)
     }
 
-    function Read-SiHarvestIndex {
-        param([Parameter(Mandatory)][string]$Root)
-
-        $path = Resolve-SiStatePath -RepoRoot $Root `
-            -Segments @([string]$stateContract.Topology.HarvestIndexName)
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-            throw 'Current SI harvest index is absent.'
-        }
-        $bytes = [System.IO.File]::ReadAllBytes($path)
-        if ($bytes.Length -gt (Get-SiStateContract).Limits.HarvestIndexBytes) {
-            throw 'Current SI harvest index exceeds its byte limit.'
-        }
-        try {
-            $json = [System.Text.UTF8Encoding]::new($false, $true).GetString($bytes)
-            $index = $json | ConvertFrom-Json -Depth 100
-        }
-        catch {
-            throw 'Current SI harvest index is malformed.'
-        }
-        $required = @(
-            'schemaVersion', 'protocol', 'planId', 'planPath', 'pinnedBaseOid',
-            'snapshotDigest', 'selectedDigest', 'fileCount', 'scannedByteCount',
-            'sourceCount', 'recordCount', 'selectedByteCount', 'sources', 'selectedRecords'
-        )
-        $names = @($index.PSObject.Properties.Name)
-        if ($names.Count -ne $required.Count -or
-            @($required | Where-Object { $names -notcontains $_ }).Count -gt 0 -or
-            [int]$index.schemaVersion -ne 1 -or
-            [string]$index.protocol -ne 'si-harvest-index-v1') {
-            throw 'Current SI harvest index failed closed-shape validation.'
-        }
-        return $index
-    }
-
     function Assert-SiReceiptBinding {
         param(
             [Parameter(Mandatory)]$VerifiedReceipt,
-            [Parameter(Mandatory)]$HarvestIndex,
             [Parameter(Mandatory)][string]$PinnedOid,
             [Parameter(Mandatory)][string]$ExpectedDueId,
             [Parameter(Mandatory)][string]$ExpectedRunId
@@ -311,11 +276,6 @@ function Read-SiLifecycleInput {
         }
         if ([string]$payload.pinnedBaseOid -ne $PinnedOid) {
             throw 'Resolver receipt is stale for the current pinned origin/main.'
-        }
-        if ([string]$HarvestIndex.pinnedBaseOid -ne $PinnedOid -or
-            [string]$HarvestIndex.snapshotDigest -ne [string]$payload.snapshotDigest -or
-            [string]$HarvestIndex.selectedDigest -ne [string]$payload.selectedDigest) {
-            throw 'Resolver receipt is stale for the current harvest snapshot.'
         }
     }
 
@@ -625,9 +585,8 @@ if ($Operation -ne 'Surface') {
 
     $verifiedReceipt = & (Join-Path $PSScriptRoot 'Test-SiResolverReceipt.ps1') `
         -RepoRoot $root -Receipt $Receipt
-    $harvestIndex = Read-SiHarvestIndex -Root $root
     Assert-SiReceiptBinding -VerifiedReceipt $verifiedReceipt `
-        -HarvestIndex $harvestIndex -PinnedOid $pinnedOid `
+        -PinnedOid $pinnedOid `
         -ExpectedDueId $DueId -ExpectedRunId $RunId
 
     $candidateIds = [string[]]@($verifiedReceipt.Payload.candidates)

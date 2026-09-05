@@ -26,9 +26,9 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
 ## Regenerate the human-readable doc
 
 The human doc (`docs/architecture-notes/architecture.human.md`) is a temporary compatibility view
-for the two transferred legacy JSON contracts. Markdown contract notes are already human-readable
-and are not duplicated into this generated file. Remove this operation when the owning children
-convert or delete the final legacy JSON contracts.
+for the remaining transferred legacy JSON contract. Markdown contract notes are already human-readable
+and are not duplicated into this generated file. Remove this operation when the owning child
+converts or deletes the final legacy JSON contract.
 
 1. Run the generator: `<scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
    It materializes the doc from the template on first run, then rebuilds only the region between

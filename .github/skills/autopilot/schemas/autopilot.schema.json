@@ -13,7 +13,6 @@
     "context",
     "reasoningEffort",
     "git",
-    "timeout",
     "maxIterationsPerStep",
     "build",
     "test"
@@ -73,16 +72,6 @@
         "name": { "type": "string", "description": "Git commit author name." },
         "email": { "type": "string", "description": "Git commit author email." }
       }
-    },
-    "timeout": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Maximum execution time per phase in minutes, also applied to a container completion-only resume invocation. Host mode enforces this around each Copilot CLI invocation; container mode enforces it inside the entrypoint around each selected target."
-    },
-    "planTimeout": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Optional whole-run cap in minutes across all phases (container mode). Defaults to 1440 (24h) when absent. Must be >= timeout."
     },
     "maxIterationsPerStep": {
       "type": "integer",

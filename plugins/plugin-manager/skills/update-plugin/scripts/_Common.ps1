@@ -407,6 +407,107 @@ function Get-FileSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-GitCanonicalBlobObjectId {
+    param([Parameter(Mandatory)][string]$RepoRoot, [Parameter(Mandatory)][string]$Path)
+    $root = Resolve-RepoRoot -StartPath $RepoRoot
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+        throw "File not found: $Path"
+    }
+    $relativePath = [System.IO.Path]::GetRelativePath($root, $fullPath).Replace('\', '/')
+    if ($relativePath.StartsWith('../', [System.StringComparison]::Ordinal) -or
+        [System.IO.Path]::IsPathRooted($relativePath)) {
+        throw "File '$Path' is outside repository '$root'."
+    }
+
+    # --path applies the repository's clean filters (notably text/eol) to the
+    # current working-tree bytes. -w lets cat-file stream those canonical bytes
+    # without touching the index, so uncommitted source edits remain buildable.
+    $hashOutput = @(& git -C $root hash-object -w "--path=$relativePath" -- $fullPath 2>&1)
+    $hashExitCode = $LASTEXITCODE
+    $objectId = @($hashOutput | ForEach-Object { ([string]$_).Trim() } |
+            Where-Object { $_ -cmatch '^[0-9a-f]{40,64}$' } | Select-Object -Last 1)
+    if ($hashExitCode -ne 0 -or $objectId.Count -ne 1) {
+        throw "Unable to canonicalize '$relativePath' through Git clean filters: $($hashOutput -join ' ')"
+    }
+    return [pscustomobject]@{ Root = $root; RelativePath = $relativePath; ObjectId = [string]$objectId[0] }
+}
+
+function Get-GitCanonicalFileSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $blob = Get-GitCanonicalBlobObjectId -RepoRoot $RepoRoot -Path $Path
+
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $blob.Root
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @('-C', $blob.Root, 'cat-file', 'blob', $blob.ObjectId)) {
+        [void]$start.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::Start($start)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($process.StandardOutput.BaseStream)
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to read canonical Git blob '$($blob.ObjectId)' for '$($blob.RelativePath)': $($errorText.Trim())"
+        }
+        return [System.Convert]::ToHexString($hash).ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+        $process.Dispose()
+    }
+}
+
+function Copy-GitCanonicalFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Destination
+    )
+
+    $blob = Get-GitCanonicalBlobObjectId -RepoRoot $RepoRoot -Path $Path
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'git'
+    $start.WorkingDirectory = $blob.Root
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @('-C', $blob.Root, 'cat-file', 'blob', $blob.ObjectId)) {
+        [void]$start.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::Start($start)
+    $stream = [System.IO.File]::Open(
+        $Destination,
+        [System.IO.FileMode]::Create,
+        [System.IO.FileAccess]::Write,
+        [System.IO.FileShare]::None
+    )
+    try {
+        $process.StandardOutput.BaseStream.CopyTo($stream)
+        $stream.Flush()
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to materialize canonical Git blob for '$($blob.RelativePath)': $($errorText.Trim())"
+        }
+    }
+    finally {
+        $stream.Dispose()
+        $process.Dispose()
+    }
+}
+
 function ConvertTo-SemVer {
     [CmdletBinding()]
     param(

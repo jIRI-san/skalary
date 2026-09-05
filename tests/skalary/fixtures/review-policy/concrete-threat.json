@@ -1,0 +1,36 @@
+{
+  "requiredFields": [
+    {
+      "property": "AttackerOrInput",
+      "label": "attacker/untrusted input"
+    },
+    {
+      "property": "ReachableCapability",
+      "label": "reachable capability"
+    },
+    {
+      "property": "AffectedAsset",
+      "label": "affected asset"
+    },
+    {
+      "property": "PlausibleImpact",
+      "label": "plausible impact"
+    }
+  ],
+  "complete": {
+    "AttackerOrInput": "untrusted pull-request text",
+    "ReachableCapability": "review prompt",
+    "AffectedAsset": "review verdict",
+    "PlausibleImpact": "misleading approval"
+  },
+  "simpleVersusSaferLabels": [
+    "simple option",
+    "safer option",
+    "concrete threat addressed",
+    "residual risk",
+    "benefits",
+    "pros/cons",
+    "effort",
+    "complexity"
+  ]
+}

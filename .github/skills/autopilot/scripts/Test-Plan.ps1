@@ -23,7 +23,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'PlanEvidence.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'DirectWorkflow.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
 # Get-TypedEvidenceMarkers now lives in PlanState.psm1 (the shared parser) so the closed vocabulary and its
@@ -78,111 +78,6 @@ function Get-HumanStepDetailGap {
     }
 
     return ''
-}
-
-function Test-PlanEvidenceReceipt {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Metadata
-    )
-
-    $errors = [System.Collections.Generic.List[string]]::new()
-    $receiptPath = Resolve-PlanEvidenceAssetPath -PlanMetadata $Metadata -Kind Evidence
-    try {
-        $entries = @(Read-PlanEvidenceReceipt -Path $receiptPath)
-        $waivers = @(Get-PlanEvidenceWaiver -PlanMetadata $Metadata -PlanDirectory $Metadata.PlanDir)
-    }
-    catch {
-        $errors.Add($_.Exception.Message)
-        return $errors.ToArray()
-    }
-
-    $expected = [ordered]@{}
-    foreach ($requirement in $Metadata.Requirements.Values) {
-        $markers = @(
-            Get-TypedEvidenceMarkers -AcceptanceCriteria $requirement.AcceptanceCriteria |
-                ForEach-Object { $_ }
-        )
-        foreach ($marker in $markers) {
-            $expected["$($requirement.Id)|$marker"] = $true
-        }
-    }
-
-    $head = (& git -C $Metadata.RepoRoot rev-parse HEAD 2>$null)
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
-        $errors.Add('PlanCrosscheck could not resolve HEAD for evidence freshness.')
-        return $errors.ToArray()
-    }
-    $head = $head.Trim().ToLowerInvariant()
-    $allowedCommits = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    [void]$allowedCommits.Add($head)
-    $receiptRelative = [System.IO.Path]::GetRelativePath($Metadata.RepoRoot, $receiptPath).Replace('\', '/')
-    if (-not $receiptRelative.StartsWith('../', [System.StringComparison]::Ordinal)) {
-        $parent = (& git -C $Metadata.RepoRoot rev-parse HEAD^ 2>$null)
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($parent)) {
-            $changedInHead = @(& git -C $Metadata.RepoRoot diff-tree --no-commit-id --name-only -r HEAD 2>$null)
-            if ($LASTEXITCODE -eq 0 -and $changedInHead.Count -eq 1 -and
-                [string]$changedInHead[0] -ceq $receiptRelative) {
-                [void]$allowedCommits.Add($parent.Trim().ToLowerInvariant())
-            }
-        }
-    }
-
-    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($entry in $entries) {
-        $key = "$($entry.Req)|$($entry.Marker)"
-        if (-not $expected.Contains($key)) {
-            $errors.Add("Evidence receipt contains undeclared marker '$key'.")
-            continue
-        }
-        if (-not $seen.Add($key)) {
-            $errors.Add("Evidence receipt contains duplicate marker '$key'.")
-            continue
-        }
-        if (-not $allowedCommits.Contains($entry.Commit)) {
-            $errors.Add("Evidence receipt marker '$key' is stale: commit '$($entry.Commit)' is not the current evidence source for HEAD '$head'.")
-        }
-
-        if ($entry.Status -eq 'passed') {
-            if ($entry.Marker -ceq 'review:cr') {
-                if ($entry.Note -cnotmatch '^review-run:(?<runId>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
-                    $errors.Add("Evidence receipt marker '$key' has no qualifying review-run id.")
-                    continue
-                }
-                try {
-                    [void](Assert-PlanCleanReviewEvidence -PlanDir $Metadata.PlanDir -Stage 'plan-finalization' `
-                            -Commit $entry.Commit -ReviewRunId $Matches.runId -RepoRoot $Metadata.RepoRoot)
-                }
-                catch {
-                    $errors.Add("Evidence receipt marker '$key' is not qualifying clean review evidence: $($_.Exception.Message)")
-                }
-            }
-            continue
-        }
-        if ($entry.Status -eq 'waived') {
-            $matches = @($waivers | Where-Object {
-                    $_.Applies -and $_.Requirement -ceq $entry.Req -and $_.Marker -ceq $entry.Marker
-                })
-            $valid = @($matches | Where-Object {
-                    $entry.Note -ceq "from $($_.Outcome): $($_.Reason)"
-                })
-            if ($valid.Count -eq 1) {
-                continue
-            }
-            $errors.Add("Evidence receipt marker '$key' has no exact valid plan-local waiver.")
-            continue
-        }
-
-        $errors.Add("Evidence receipt marker '$key' is $($entry.Status), not passed or waived.")
-    }
-
-    foreach ($key in $expected.Keys) {
-        if (-not $seen.Contains($key)) {
-            $errors.Add("Evidence receipt is missing required marker '$key' (unrun).")
-        }
-    }
-
-    return $errors.ToArray()
 }
 
 function Test-PlanMetadata {
@@ -460,24 +355,16 @@ function Test-PlanMetadata {
             }
 
             if ($marker.StartsWith('file:')) {
-                try {
-                    $result = Invoke-PlanFileEvidence -RepoRoot $Metadata.RepoRoot -Marker $marker -Stage $Stage
-                    if (-not $result.Success) {
-                        if ($result.Blocking -and $isOptedIn) {
-                            $errors.Add("$($requirement.Id): $($result.Message) [$marker]")
-                        }
-                        else {
-                            $warnings.Add("$($requirement.Id): $($result.Message) [$marker]")
-                        }
-                    }
+                if ($marker -cnotmatch '^file:(?<path>[^#]+)#(?:exists|contains:.+|count>=\d+|dircount>=\d+)$') {
+                    $errors.Add("$($requirement.Id): Invalid file evidence assertion [$marker]")
+                    continue
                 }
-                catch {
-                    if ($isOptedIn) {
-                        $errors.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
-                    }
-                    else {
-                        $warnings.Add("$($requirement.Id): $($_.Exception.Message) [$marker]")
-                    }
+                $relative = $Matches.path.Trim()
+                if ([string]::IsNullOrWhiteSpace($relative) -or
+                    [System.IO.Path]::IsPathRooted($relative) -or
+                    $relative -match '^[A-Za-z]:' -or
+                    ($relative -replace '\\', '/').Split('/') -contains '..') {
+                    $errors.Add("$($requirement.Id): File evidence path must be relative and remain inside repository root [$marker]")
                 }
                 continue
             }
@@ -489,12 +376,6 @@ function Test-PlanMetadata {
             else {
                 $warnings.Add($message)
             }
-        }
-    }
-
-    if ($Stage -eq 'PlanCrosscheck' -and $isOptedIn) {
-        foreach ($receiptError in @(Test-PlanEvidenceReceipt -Metadata $Metadata)) {
-            $errors.Add($receiptError)
         }
     }
 
@@ -534,19 +415,14 @@ function Test-PlanMetadata {
 if ($PSCmdlet.ParameterSetName -eq 'VerifyEvidence') {
     try {
         $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
-        $result = Invoke-PlanFileEvidence -RepoRoot $repoRootPath -Marker $EvidenceMarker -Stage $EvidenceStage
+        $result = @(Invoke-DirectEvidence -RepoRoot $repoRootPath -Marker $EvidenceMarker)[0]
         if ($result.Success) {
             Write-Host "Evidence passed: $EvidenceMarker"
             exit 0
         }
 
-        if ($result.Blocking) {
-            Write-Host "Evidence failed: $($result.Message)" -ForegroundColor Red
-            exit 1
-        }
-
-        Write-Host "Evidence warning: $($result.Message)" -ForegroundColor Yellow
-        exit 0
+        Write-Host "Evidence failed: $EvidenceMarker" -ForegroundColor Red
+        exit 1
     }
     catch {
         Write-Host "Evidence failed: $($_.Exception.Message)" -ForegroundColor Red

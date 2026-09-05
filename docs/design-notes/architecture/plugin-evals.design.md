@@ -41,18 +41,14 @@ so the runner always resolves the repository `plugins/` tree and committed requi
 Structural cases that protect a cross-plugin runtime contract use a stable first token
 (`eval:<Subsystem>.<Consumer>.<Invariant>`) followed by a human-readable description. Discovery gates
 compare those tokens exactly, not Pester's display text, so renaming prose does not rewrite evidence
-while deleting or merging one invariant fails loudly. Review reporting applies this to separate CR
-and DR cases rather than treating one aggregate nonzero eval count as coverage. Their thin per-plugin
-cases call the shared invariant assertions in `EvalCommon.psm1`, preserving plugin attribution without
-copying the contract logic.
+while deleting or merging one invariant fails loudly. The five direct workflow consumers own
+`eval:DirectWorkflow.{CR,DR,CIP,CI,Autopilot}.ConsumerContract`; each checks its native role, budget,
+criteria, review, or installed-closure boundary. Register all five in
+`tools/structural-eval-required.md`.
 
-Fleet's five installed consumers each own one required structural identifier:
-`eval:FleetDispatch.CIP.ConsumerContract`, `eval:FleetDispatch.CI.ConsumerContract`,
-`eval:FleetDispatch.Autopilot.ConsumerContract`, `eval:FleetDispatch.CR.ConsumerContract`, and
-`eval:FleetDispatch.DR.ConsumerContract`. Each case proves that consumer's pre-dispatch ordering,
-role/task conservation, and native-host/Capture boundaries. Registering all five in
-`tools/structural-eval-required.md` prevents an aggregate Fleet parity check from hiding a missing
-consumer contract.
+Adding a plugin structural case does not add a `validate.ps1` gate. A plan citing its stable ID as
+typed `test:` evidence runs that exact Pester case and blocks on failure; cross-surface always-on
+invariants instead belong under `tests/`.
 
 The migration is complete: all six previously-bespoke artifacts (`cr`, `dr`, `autopilot`, `ci`, `cip`, `design-notes`) plus the former coverage gap `process-pr-comments` now ship waza specs; no plugin retains legacy `evals/llm/*.eval.json`. The later-added `plugin-manager` plugin ships a waza spec from the start under the same convention (skill target `install-plugin`, two describe-only tasks, no adversarial block). `design-notes` prompts were consolidated into a single `design-notes` skill (Phase 4.1) so they became testable (copilot-sdk has no prompt executor). The `architecture-notes` plugin ships describe-only draft-by-default and human-review cases under the same convention, guarded by a fail-closed shape test. All ten current plugins use the two-tier harness.
 

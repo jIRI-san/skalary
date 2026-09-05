@@ -64,6 +64,11 @@ Describe 'catalog collation stability' {
             & git -C $root config user.email 'skalary-tests@example.com' | Out-Null
             & git -C $root config commit.gpgsign false | Out-Null
             & git -C $root remote add origin 'https://github.com/jIRI-san/skalary.git' | Out-Null
+            [System.IO.File]::WriteAllText(
+                (Join-Path $root '.gitattributes'),
+                "* text=auto eol=lf`n",
+                [System.Text.UTF8Encoding]::new($false)
+            )
 
             foreach ($name in $script:pluginNames) {
                 $pluginRoot = Join-Path $root "plugins/$name"
@@ -97,7 +102,7 @@ Describe 'catalog collation stability' {
             Set-Content -LiteralPath (Join-Path $root 'registry-retirements.json') `
                 -Value "{`n  `"retiredPlugins`": [],`n  `"version`": 1`n}" -Encoding utf8NoBOM
 
-            & git -C $root add -- plugins schemas/registry/plugin-retirement.schema.json registry-retirements.json | Out-Null
+            & git -C $root add -- .gitattributes plugins schemas/registry/plugin-retirement.schema.json registry-retirements.json | Out-Null
             $previousAuthorDate = $env:GIT_AUTHOR_DATE
             $previousCommitterDate = $env:GIT_COMMITTER_DATE
             $env:GIT_AUTHOR_DATE = '2000-01-01T00:00:00+00:00'
@@ -244,11 +249,42 @@ Set-Location -LiteralPath '$Root'
                 if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
                     throw "Catalog '$relative' was not generated in '$Root'."
                 }
+
                 # Hex of the raw bytes, not the parsed content: encoding and newlines are
                 # part of "byte-identical", and the CI drift gate compares files, not objects.
                 $hashByPath[$relative] = [System.Convert]::ToHexString([System.IO.File]::ReadAllBytes($path))
             }
             return $hashByPath
+        }
+
+        function Get-GitBlobSha256 {
+            param(
+                [Parameter(Mandatory)][string]$Root,
+                [Parameter(Mandatory)][string]$Object
+            )
+
+            $start = [System.Diagnostics.ProcessStartInfo]::new()
+            $start.FileName = 'git'
+            $start.WorkingDirectory = $Root
+            $start.UseShellExecute = $false
+            $start.RedirectStandardOutput = $true
+            $start.RedirectStandardError = $true
+            foreach ($argument in @('-C', $Root, 'cat-file', 'blob', $Object)) {
+                [void]$start.ArgumentList.Add($argument)
+            }
+            $process = [System.Diagnostics.Process]::Start($start)
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = $sha.ComputeHash($process.StandardOutput.BaseStream)
+                $errorText = $process.StandardError.ReadToEnd()
+                $process.WaitForExit()
+                if ($process.ExitCode -ne 0) { throw $errorText }
+                return [Convert]::ToHexString($hash).ToLowerInvariant()
+            }
+            finally {
+                $sha.Dispose()
+                $process.Dispose()
+            }
         }
 
         function Get-CultureSortedOrder {
@@ -284,7 +320,7 @@ Set-Location -LiteralPath '$Root'
     }
 
     AfterAll {
-        foreach ($root in $script:fixtureRoots) {
+        foreach ($root in @($script:fixtureRoots.ToArray())) {
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
@@ -358,5 +394,40 @@ Set-Location -LiteralPath '$Root'
             Invoke-RegistryGateUnderCulture -Root $root -Culture $culture |
                 Should -Be 0 -Because "Test-Registry.ps1 must accept the generated catalogs under $culture (REQ-7)"
         }
+    }
+
+    It 'hashes every payload as canonical Git bytes while retaining uncommitted source generation' {
+        $root = New-CollationFixture
+        Build-CatalogUnderCulture -Root $root -Culture 'en-US'
+        $registry = Get-Content -LiteralPath (Join-Path $root 'registry.json') -Raw |
+            ConvertFrom-Json -Depth 100
+
+        foreach ($plugin in @($registry.plugins)) {
+            foreach ($file in @($plugin.files)) {
+                $relative = "plugins/$($plugin.name)/$($file.src)"
+                $object = (& git -C $root rev-parse "HEAD`:$relative").Trim()
+                [string]$file.sha256 | Should -BeExactly (
+                    Get-GitBlobSha256 -Root $root -Object $object
+                )
+            }
+        }
+
+        $changedRelative = 'plugins/chata/files/Chata.md'
+        $changedPath = Join-Path $root $changedRelative
+        [System.IO.File]::WriteAllText(
+            $changedPath,
+            "uncommitted`ncanonical`n",
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        Build-CatalogUnderCulture -Root $root -Culture 'en-US'
+        $rebuilt = Get-Content -LiteralPath (Join-Path $root 'registry.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $entry = @($rebuilt.plugins | Where-Object name -EQ 'chata')[0].files |
+            Where-Object src -EQ 'files/Chata.md'
+        [string]$entry.sha256 | Should -BeExactly (
+            [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
+                    [Text.Encoding]::UTF8.GetBytes("uncommitted`ncanonical`n")
+                )).ToLowerInvariant()
+        )
     }
 }

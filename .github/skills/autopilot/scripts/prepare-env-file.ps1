@@ -76,7 +76,6 @@ $envContent = @(
     "COPILOT_MODEL=$($Config.model)"
     "COPILOT_CONTEXT=$($Config.context)"
     "COPILOT_REASONING_EFFORT=$($Config.reasoningEffort)"
-    "AUTOPILOT_PHASE_TIMEOUT_MIN=$($Config.timeout)"
     "GIT_USER_NAME=$($Config.git.name)"
     "GIT_USER_EMAIL=$($Config.git.email)"
 )

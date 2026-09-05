@@ -6,7 +6,9 @@ globs:
 
 # Design Note Writing Style
 
-Design notes are **AI agent reference material** first, human digest second. Every content decision should optimize for fast, accurate agent context loading with minimal token consumption.
+Design notes are **AI agent reference material** first, human digest second. Every content decision should
+favor accurate agent context with no duplicated source text and only the decisions, contracts,
+constraints, exceptions, and minimal examples needed for the matched task.
 
 ## Primary Audience: AI Agents
 

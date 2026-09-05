@@ -14,7 +14,6 @@ Describe 'Plan assets layout' {
         $newPlanScript = Join-Path $repoRoot 'scripts/skalary/New-Plan.ps1'
         $testPlanScript = Join-Path $repoRoot 'scripts/skalary/Test-Plan.ps1'
         $workflowNoteScript = Join-Path $repoRoot 'scripts/skalary/Add-WorkflowNote.ps1'
-        $receiptScript = Join-Path $repoRoot 'scripts/skalary/Build-EvidenceReceipt.ps1'
         $plansRoot = Join-Path $repoRoot 'docs/implementation-plans'
 
         $newTempDir = {
@@ -140,8 +139,9 @@ Describe 'Plan assets layout' {
             foreach ($asset in @('assets/intent.md', 'assets/domain.md', 'assets/design.md', 'assets/requirements.md', 'assets/risks.md', 'assets/decisions.md', 'assets/references.md')) {
                 $template | Should -Match ([regex]::Escape($asset))
             }
-            $template | Should -Match ([regex]::Escape('assets/reviews/<uuid>.review.md'))
-            $template | Should -Match ([regex]::Escape('<uuid>.receipt.json'))
+            $template | Should -Match ([regex]::Escape('assets/reviews/phase-<N>.md'))
+            $template | Should -Match ([regex]::Escape('assets/reviews/final.md'))
+            $template | Should -Not -Match 'receipt'
 
             $template | Should -Match '<!-- plan-id:'
             $template | Should -Match '(?m)^## Phase 1:'
@@ -176,7 +176,7 @@ Describe 'Plan assets layout' {
                     (Get-Content -LiteralPath $assetPath -Raw).Trim() | Should -Not -BeNullOrEmpty
                 }
                 Test-Path -LiteralPath (Join-Path $assetsDir 'reviews') |
-                    Should -BeFalse -Because 'ReviewRuns is conditional output, not an empty scaffold'
+                    Should -BeFalse -Because 'Reviews are conditional output, not an empty scaffold'
 
                 $metadata = Get-PlanMetadata -Path (Join-Path $planDir 'plan.md') -RepoRoot $tempRoot
                 $metadata.Layout | Should -Be 'assets'
@@ -462,14 +462,12 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:ci-loads-assets-on-demand documents on-demand asset loading in the ci skill' {
+        It 'test:ci-loads-assets-on-demand protects the four criteria and uses direct evidence' {
             $skill = Get-Content -LiteralPath (Join-Path $repoRoot 'plugins/continue-implementation/skills/ci/SKILL.md') -Raw
-            $skill | Should -Match 'on demand'
-            $skill | Should -Match 'never wholesale'
-            $skill | Should -Match 'assets/intent\.md'
-            $skill | Should -Match 'assets/requirements\.md'
-            $skill | Should -Match 'assets/logs/'
-            $skill | Should -Match 'Resolve-PlanAssetPath'
+            $skill | Should -Match 'intent,\s*requirements, risks, or decisions'
+            $skill | Should -Match 'Test-PlanCriteriaBaseline'
+            $skill | Should -Match 'Invoke-DirectEvidence'
+            $skill | Should -Not -Match 'receipt authority|Build-EvidenceReceipt'
 
             $dogfood = Get-Content -LiteralPath (Join-Path $repoRoot '.github/skills/ci/SKILL.md') -Raw
             $dogfood | Should -Be $skill
@@ -477,7 +475,7 @@ Describe 'Plan assets layout' {
     }
 
     Context 'layout-aware writers' {
-        It 'test:planstate-capture-roots confines overflow and receipt roots to an inventoried plan' {
+        It 'test:planstate-capture-roots confines retained Markdown logs to an inventoried plan' {
             $tempRoot = & $newTempDir
             try {
                 $assetsPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-assets-plan'
@@ -486,30 +484,17 @@ Describe 'Plan assets layout' {
                 $null = & $newLegacyPlan $legacyPlanDir '001'
                 $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
 
-                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/logs/learning-overflow')))
-                Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind HarvestReceiptRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/harvest-receipts')))
-                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind LearningOverflowRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'learning-overflow')))
-                Resolve-PlanAssetPath -PlanDir $legacyPlanDir -Kind HarvestReceiptRoot `
-                    -RepoRoot $tempRoot -Inventory $inventory |
-                    Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'harvest-receipts')))
-
                 $outside = Join-Path $tempRoot 'outside'
                 [void](New-Item -ItemType Directory -Path $outside -Force)
                 {
-                    Resolve-PlanAssetPath -PlanDir $outside -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $outside -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*escapes repository plan corpus*'
 
                 $untracked = Join-Path $tempRoot 'docs/implementation-plans/untracked'
                 [void](New-Item -ItemType Directory -Path $untracked -Force)
                 {
-                    Resolve-PlanAssetPath -PlanDir $untracked -Kind HarvestReceiptRoot `
+                    Resolve-PlanAssetPath -PlanDir $untracked -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -532,7 +517,7 @@ Describe 'Plan assets layout' {
                 [void](New-Item -ItemType Directory -Path $caseDistinctDir -Force)
 
                 {
-                    Resolve-PlanAssetPath -PlanDir $caseDistinctDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $caseDistinctDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -557,7 +542,7 @@ Describe 'Plan assets layout' {
                 }
 
                 {
-                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $aliasPlanDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*not a unique member*'
             }
@@ -583,10 +568,10 @@ Describe 'Plan assets layout' {
 
                 $mountedPlanDir = Join-Path $mountedRoot 'docs/implementation-plans/2026-01-01-abc123-mounted-plan'
                 $inventory = @(Get-PlanInventory -RepoRoot $mountedRoot)
-                $resolved = Resolve-PlanAssetPath -PlanDir $mountedPlanDir -Kind LearningOverflowRoot `
+                $resolved = Resolve-PlanAssetPath -PlanDir $mountedPlanDir -Kind Learnings `
                     -RepoRoot $mountedRoot -Inventory $inventory
                 $expected = [System.IO.Path]::GetFullPath(
-                    (Join-Path $mountedPlanDir 'assets/logs/learning-overflow')
+                    (Join-Path $mountedPlanDir 'assets/logs/learnings.md')
                 )
 
                 $resolved | Should -Be $expected
@@ -616,7 +601,7 @@ Describe 'Plan assets layout' {
 
                 $inventory = @(Get-PlanInventory -RepoRoot $tempRoot)
                 {
-                    Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind LearningOverflowRoot `
+                    Resolve-PlanAssetPath -PlanDir $assetsPlanDir -Kind Learnings `
                         -RepoRoot $tempRoot -Inventory $inventory
                 } | Should -Throw '*escapes canonical plan folder*'
             }
@@ -658,32 +643,6 @@ Describe 'Plan assets layout' {
             }
         }
 
-        It 'test:evidence-receipt-dual-layout resolves the receipt path for both layouts' {
-            $tempRoot = & $newTempDir
-            try {
-                $assetsPlanDir = Join-Path $tempRoot 'assets-plan'
-                $null = & $newAssetsPlan $assetsPlanDir
-                $legacyPlanDir = Join-Path $tempRoot 'legacy-plan'
-                $null = & $newLegacyPlan $legacyPlanDir
-
-                $results = @([pscustomobject]@{ Req = 'REQ-1'; Marker = 'test:fixture-one'; Success = $true })
-
-                $assetsReceipt = & $receiptScript -Result $results -Commit 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' -Phase 1 -PlanDir $assetsPlanDir
-                $legacyReceipt = & $receiptScript -Result $results -Commit 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' -Phase 1 -PlanDir $legacyPlanDir
-
-                $assetsReceipt.ReceiptPath | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $assetsPlanDir 'assets/evidence.md')))
-                $legacyReceipt.ReceiptPath | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $legacyPlanDir 'evidence.md')))
-
-                # The formatter stays pure: it resolves the path but never writes it.
-                Test-Path -LiteralPath $assetsReceipt.ReceiptPath | Should -BeFalse
-                $assetsReceipt.Text | Should -Be $legacyReceipt.Text
-                Get-Command Get-PlanLayout -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
-                Get-Command Resolve-PlanAssetPath -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
-            }
-            finally {
-                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
     }
 
     Context 'migration invariants' {
@@ -714,6 +673,7 @@ Describe 'Plan assets layout' {
             foreach ($planFile in @(Get-ChildItem -LiteralPath $plansRoot -Recurse -File -Filter 'plan.md')) {
                 $planDir = Split-Path -Parent $planFile.FullName
                 if ((Get-PlanLayout -PlanDir $planDir) -ne 'assets') { continue }
+                if (-not (Get-PlanValidationDecision -Path $planFile.FullName).ShouldValidate) { continue }
 
                 $output = @(& pwsh -NoProfile -File $testPlanScript -PlanPath $planFile.FullName -RepoRoot $repoRoot -Stage Draft 2>&1)
                 $LASTEXITCODE | Should -Be 0 -Because (($output | ForEach-Object { "$_" }) -join "`n")
@@ -730,12 +690,14 @@ Describe 'Plan assets layout' {
                 if ((Get-PlanLayout -PlanDir $planDir) -ne 'assets') { continue }
                 $asserted++
 
-                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'LearningOverflowRoot', 'HarvestReceiptRoot', 'Intent', 'References')) {
+                foreach ($kind in @('Evidence', 'EvolutionLog', 'DecisionRecords', 'CrLog', 'Learnings', 'Capture', 'Intent', 'References')) {
                     $resolved = Resolve-PlanAssetPath -PlanDir $planDir -Kind $kind
                     $resolved | Should -Match ([regex]::Escape([System.IO.Path]::Combine('assets', ''))) -Because "$kind must resolve under assets/ for $planDir"
                 }
 
-                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md', 'learning-overflow', 'harvest-receipts', 'evolution-log.md', 'intent.md', 'references.md', 'requirements.md', 'risks.md', 'decisions.md', 'decisions')) {
+                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md',
+                        'evolution-log.md', 'intent.md', 'references.md', 'requirements.md',
+                        'risks.md', 'decisions.md', 'decisions')) {
                     Test-Path -LiteralPath (Join-Path $planDir $stray) | Should -BeFalse -Because "$stray must not linger at the root of migrated plan $planDir"
                 }
             }

@@ -82,7 +82,10 @@ function New-RegistryPluginEntry {
         $Manifest,
 
         [Parameter(Mandatory)]
-        [string]$PluginRoot
+        [string]$PluginRoot,
+
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
     )
 
     $fileEntries = @()
@@ -94,7 +97,7 @@ function New-RegistryPluginEntry {
 
         $fileEntries += [pscustomobject]@{
             dest = [string]$file.dest
-            sha256 = Get-FileSha256 -Path $sourcePath
+            sha256 = Get-GitCanonicalFileSha256 -RepoRoot $RepoRoot -Path $sourcePath
             src = [string]$file.src
         }
     }
@@ -260,7 +263,8 @@ $pluginEntries = @()
 foreach ($manifestPath in $manifestPaths) {
     $manifest = Read-JsonFile -Path $manifestPath.FullName
     $pluginRoot = Split-Path -Parent $manifestPath.FullName
-    $pluginEntries += New-RegistryPluginEntry -Manifest $manifest -PluginRoot $pluginRoot
+    $pluginEntries += New-RegistryPluginEntry -Manifest $manifest -PluginRoot $pluginRoot `
+        -RepoRoot $repoRootPath
 }
 $pluginEntries = @(Sort-Ordinal -InputObject $pluginEntries -Property 'name' -Comparer $script:CatalogComparer)
 

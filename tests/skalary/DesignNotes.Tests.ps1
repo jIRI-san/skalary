@@ -7,6 +7,7 @@ Describe 'design-notes index integrity' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:indexPath = Join-Path $script:repoRoot 'docs/design-notes/.design-notes.md'
+        $script:archIndexPath = Join-Path $script:repoRoot 'docs/architecture-notes/.architecture-notes.md'
         $script:copilotInstructions = Join-Path $script:repoRoot '.github/copilot-instructions.md'
         $script:archNotesDoc = Join-Path $script:repoRoot 'docs/design-notes/architecture/architecture-notes.design.md'
         $script:allowlist = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/model-allowlist.psd1')
@@ -29,37 +30,44 @@ Describe 'design-notes index integrity' {
         $raw | Should -Match '(?s)^---\r?\n.*?description:.*?globs:.*?\r?\n---'
     }
 
-    It 'test:design-note-drops-orchestrator-fence stops describing a guardrail nothing implements' {
-        # /cr no longer extracts or batches content, so there is no orchestrator boundary left to
-        # wrap reviewed bytes in UNTRUSTED_INPUT markers. A note that still described one would
-        # send a reader looking for a control that was relocated into the concern agents.
+    It 'test:design-note-drops-orchestrator-fence documents the active direct guard boundary' {
         $note = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/design-notes/project/copilot-customizations.design.md') -Raw
 
-        $note | Should -Not -Match '(?i)all reviewed content .* is wrapped in'
-        $note | Should -Not -Match '<<<UNTRUSTED_INPUT_START>>>'
-        # The relocation is stated, not merely the deletion.
-        $note | Should -Match '(?i)guardrails live in the reviewers'
-        $note | Should -Match '(?i)data-only directive'
-        # That the reviewers actually carry the relocated directive is asserted by
-        # ConcernAgents.Tests.ps1 over all 14 agents; duplicating a weaker version here would
-        # look like coverage while adding none.
+        $note | Should -Match '(?i)repository\s+content is untrusted data'
+        $note | Should -Match '(?i)secret redaction'
+        $note | Should -Match '(?i)canonical report\s+confinement'
     }
 
-    It 'test:design-note-drops-orchestrator-fence keeps the per-model reviewer roster out of the note' {
+    It 'test:design-note-drops-orchestrator-fence documents direct risk-selected review' {
         $note = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/design-notes/project/copilot-customizations.design.md') -Raw
 
-        # The concern taxonomy replaced the model taxonomy; a stale "Model assignments" table would
-        # point at agent files that no longer exist.
-        $note | Should -Not -Match '(?m)^\| `\*-opus`'
-        $note | Should -Match '(?i)concern roster'
-        # RISK-2: the availability caveat is recorded without pinning a product-plan name that may
-        # change independently; concrete model names stay in the gated allowlist.
-        $note | Should -Match '(?i)Unavailable-model caveat'
-        $note | Should -Match "(?i)operator's tier"
-        $note | Should -Match 'tools/model-allowlist\.psd1'
-        foreach ($model in @($allowlist.VSCodeModels + $allowlist.Fallback.VSCode)) {
-            $note | Should -Not -Match ([regex]::Escape($model)) -Because 'roster names belong to the allowlist, not to prose'
+        $note | Should -Match '(?i)skills select concerns directly from concrete scope\s*risk'
+        $note | Should -Not -Match 'cr-<concern>|dr-<concern>|Sync-ReviewConcerns'
+    }
+
+    It 'lists every active design note and only resolvable architecture sources' {
+        $designRoot = Split-Path -Parent $script:indexPath
+        $designIndex = Get-Content -LiteralPath $script:indexPath -Raw
+        $listedDesign = @(
+            [regex]::Matches($designIndex, '\[[^\]]+\]\((?<path>[^)]+\.design\.md)\)') |
+                ForEach-Object { $_.Groups['path'].Value }
+        )
+        $actualDesign = @(
+            Get-ChildItem -LiteralPath $designRoot -Recurse -File -Filter '*.design.md' |
+                ForEach-Object {
+                    [System.IO.Path]::GetRelativePath($designRoot, $_.FullName).Replace('\', '/')
+                }
+        )
+        @($listedDesign | Sort-Object) | Should -Be @($actualDesign | Sort-Object)
+
+        $archRoot = Split-Path -Parent $script:archIndexPath
+        $archIndex = Get-Content -LiteralPath $script:archIndexPath -Raw
+        $archIndex | Should -Not -Match 'ARCH-Review-Run-V1|arch-review-run-v1'
+        foreach ($match in [regex]::Matches($archIndex, '\[[^\]]+\]\((?<path>[^)]+\.md)\)')) {
+            $match.Groups['path'].Value | Should -Not -Match '^archives/'
+            Join-Path $archRoot $match.Groups['path'].Value | Should -Exist
         }
+        Join-Path $archRoot 'archives/arch-review-run-v1.md' | Should -Exist
     }
 
     It 'test:design-note-drops-orchestrator-fence indexes a note for the self-improvement plugin' {
@@ -70,8 +78,9 @@ Describe 'design-notes index integrity' {
         Test-Path -LiteralPath $note -PathType Leaf | Should -BeTrue
         $raw = Get-Content -LiteralPath $note -Raw
         $raw | Should -Match '(?s)^---\r?\n.*?description:.*?globs:.*?\r?\n---'
-        $raw | Should -Match 'UNTRUSTED_INPUT'
-        $raw | Should -Match 'Test-SiWriteScope\.ps1'
+        $raw | Should -Match 'recent-learning\.md'
+        $raw | Should -Match 'missing, explicit-empty, valid, and stale'
+        $raw | Should -Match 'collision-safe\s+untrusted-input fence'
     }
 
     It 'test:design-note-drops-orchestrator-fence pins the documented skill-size cap to the script default' {

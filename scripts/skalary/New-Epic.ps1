@@ -421,9 +421,9 @@ function ConvertTo-CoherencyVerdictBlock {
     )
 
     Assert-CoherencyPropertySet -Node $Verdict -Label 'Coherency verdict' -Required @(
-        'action', 'blocking', 'decision', 'findings', 'reviewRunId', 'schema', 'sourceDigest'
+        'action', 'blocking', 'decision', 'findings', 'sourceCommit', 'schema', 'sourceDigest'
     )
-    if ($Verdict['schema'] -cne 'skalary/epic-coherency-verdict@1' -or
+    if ($Verdict['schema'] -cne 'skalary/epic-coherency-verdict@2' -or
         $Verdict['sourceDigest'] -isnot [string] -or
         [string]$Verdict['sourceDigest'] -cnotmatch '^sha256:[0-9a-f]{64}$' -or
         $Verdict['blocking'] -isnot [bool] -or
@@ -434,21 +434,16 @@ function ConvertTo-CoherencyVerdictBlock {
         throw 'Coherency verdict has invalid identity, source, or decision metadata.'
     }
 
-    $reviewRunId = $Verdict['reviewRunId']
-    if ($null -ne $reviewRunId -and
-        ($reviewRunId -isnot [string] -or
-            [string]$reviewRunId -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')) {
-        throw 'Coherency verdict reviewRunId must be null or a lowercase UUID.'
+    $sourceCommit = $Verdict['sourceCommit']
+    if ($sourceCommit -isnot [string] -or
+        [string]$sourceCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+        throw 'Coherency verdict sourceCommit must be a full lowercase Git commit id.'
     }
 
     $findings = @($Verdict['findings'])
     if ($findings.Count -gt 64) {
         throw 'Coherency verdict exceeds the 64-finding limit.'
     }
-    if ($findings.Count -gt 0 -and $null -eq $reviewRunId) {
-        throw 'Finding resolutions require the verified design-review run id.'
-    }
-
     $seenFindings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $rows = [System.Collections.Generic.List[string]]::new()
     foreach ($finding in $findings) {
@@ -491,10 +486,9 @@ function ConvertTo-CoherencyVerdictBlock {
         -Label 'Coherency verdict action' -MaximumLength 1024
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add($script:CoherencyBlockStart)
-    $lines.Add('Schema: `skalary/epic-coherency-verdict@1`')
+    $lines.Add('Schema: `skalary/epic-coherency-verdict@2`')
     $lines.Add("Prior source digest: ``$([string]$Verdict['sourceDigest'])``")
-    $reviewRunDisplay = if ($null -eq $reviewRunId) { '_not yet reviewed_' } else { "``$reviewRunId``" }
-    $lines.Add("Review run: $reviewRunDisplay")
+    $lines.Add("Reviewed source: ``$sourceCommit``")
     $lines.Add("Operator decision: **$([string]$Verdict['decision'])**")
     $lines.Add("Blocking: **$(if ($Verdict['blocking']) { 'yes' } else { 'no' })**")
     $lines.Add("Action: $safeAction")

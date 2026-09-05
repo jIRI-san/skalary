@@ -494,8 +494,7 @@ $allowedLifecyclePaths = [System.Collections.Generic.HashSet[string]]::new(
 foreach ($allowedPath in @(
         $manifestRelative,
         $runRelative,
-        $receiptRelative,
-        (Get-SiStateRelativePath -Kind HarvestIndex)
+        $receiptRelative
     )) {
     [void]$allowedLifecyclePaths.Add($allowedPath)
 }

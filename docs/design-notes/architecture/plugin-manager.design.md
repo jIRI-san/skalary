@@ -1,75 +1,55 @@
 ---
-description: Plugin-manager plugin — the four install/uninstall/list/update skills, the dual (skalary + Copilot CLI) install surfaces, and the opt-in read-only terminal auto-approval flow. Load when changing plugin-manager skills, Set-ScriptApproval, bootstrap install, or the marketplace generator.
+description: Plugin-manager skills, dual install surfaces, direct invocation, read-only approval, and bootstrap.
 globs:
   - plugins/plugin-manager/**
-  - scripts/skalary/Set-ScriptApproval.ps1
-  - scripts/skalary/Build-Marketplace.ps1
+  - scripts/skalary/{Set-ScriptApproval,Build-Marketplace}.ps1
   - schemas/marketplace/marketplace.schema.json
   - .github/plugin/**
 ---
 
 # Plugin Manager
 
-`plugin-manager` is a meta-plugin: four user-invocable skills that wrap the existing `scripts/skalary` plugin scripts. It ships no new install logic — the skills are thin orchestration over `Install-Plugin.ps1`, `Remove-Plugin.ps1`, `Update-Plugin.ps1`, `Find-Plugin.ps1`, `Get-Plugin.ps1`, and `Set-ScriptApproval.ps1`.
+The four skills are thin orchestration over existing install/remove/update/find/get/approval scripts.
 
-| Skill | Wraps | Notes |
-|---|---|---|
-| `install-plugin` | `Install-Plugin.ps1` + `Set-ScriptApproval.ps1` | Installs (default `jIRI-san/skalary@main`), then offers opt-in read-only approval. |
-| `uninstall-plugin` | `Remove-Plugin.ps1` + `Set-ScriptApproval.ps1 -Remove` | Removes approval entries **before** deleting payload; self/dependent guard. |
-| `list-plugins` | `Get-Plugin.ps1` + `Find-Plugin.ps1` | Read-only; available + installed + search. |
-| `update-plugin` | `Update-Plugin.ps1` | Version bump with modified-file preservation. |
+| Skill | Contract |
+|---|---|
+| `install-plugin` | Install (default `jIRI-san/skalary@main`), then offer opt-in read-only approval. |
+| `uninstall-plugin` | Remove approvals before payload; retain self/dependent guard. |
+| `list-plugins` | Read-only available, installed, and search views. |
+| `update-plugin` | Version update with modified-file preservation. |
 
-## Direct-invocation contract (non-obvious)
+Skills invoke installed scripts directly as
+`.github/skills/<skill>/scripts/<Script>.ps1 -RepoRoot .`, never through `pwsh -File`. VS Code
+auto-approval prefix-matches each subcommand, so a wrapper would match `pwsh`, not the approved script;
+`-RepoRoot .` anchors resolution in the consumer. Predefined choices remain host-equivalent ordered
+lists with context and 1–10 effort/complexity.
 
-Skills invoke bundled scripts **directly** by installed path — `​.github/skills/<skill>/scripts/<Script>.ps1 -RepoRoot .` — and never via `pwsh -NoProfile -File`. Rationale: VS Code's `chat.tools.terminal.autoApprove` **prefix-matches** each sub-command, so wrapping the script in `pwsh -File …` makes the command prefix `pwsh`, which no approval key matches. Direct invocation makes the command prefix equal the script path, which is what the plain-string approval key matches. `-RepoRoot .` is mandatory so `Resolve-RepoRoot` anchors on the consuming repo, not the bundle folder.
+## Install surfaces
 
-Predefined install/update/remove choices follow the shared host-equivalent contract: the same option
-labels and context in VS Code and Copilot CLI, with `effort: <1-10>` and `complexity: <1-10>` on every
-option. The CLI renders a numbered list rather than depending on the VS Code picker.
+The same `plugin.json` sources independently feed skalary's root `registry.json` (committed `.github/`
+project install) and Copilot CLI's generated `.github/plugin/marketplace.json`
+(`~/.copilot/installed-plugins/`, installed as `<name>@skalary`). Marketplace entries use
+`source: plugins/<name>` and `strict: false` because the shared manifest includes skalary fields.
+See [plugin-registry.design.md](plugin-registry.design.md) for catalog generation, drift, dogfood,
+receipt, confinement, and `-RegistryPath` behavior.
 
-## Dual install surfaces
+## Read-only approval
 
-The same `plugins/*/plugin.json` sources feed two independent catalogs; neither depends on the other.
-
-| Surface | Catalog | Install target | Consumer |
-|---|---|---|---|
-| skalary | `registry.json` (root) | committed `.github/` via `Install-Plugin.ps1` | VS Code Copilot (project-scoped skills) |
-| Copilot CLI | `.github/plugin/marketplace.json` (generated) | `~/.copilot/installed-plugins/` via `copilot plugin install` | Copilot CLI (user-scoped) |
-
-`Build-Marketplace.ps1` generates `marketplace.json` from every `plugins/<name>/plugin.json`, emitting `source: plugins/<name>` and `strict: false`. The `strict:false` is deliberate: Copilot CLI reads the **same shared** `plugin.json` that carries skalary-only fields (`files`/`dependencies`/`status`/`evals`); the 2026-07-05 spike confirmed `copilot plugin install ./plugins/plugin-manager` accepts it and loads all four skills, and `strict:false` keeps marketplace-entry validation relaxed as a safeguard. Direct `copilot plugin install <path>` is deprecated by the CLI, so the marketplace route (`<name>@skalary`) is the supported path.
-
-`.github/plugin/marketplace.json` is **generator-owned**, not a plugin payload. `Sync-Dogfood.ps1` is copy-only (writes exactly each plugin's `files[]`, never prunes), so it leaves the generated catalog untouched — no drift conflict. `validate.ps1` gates it via `Build-Marketplace.ps1 -WhatIf`.
-
-## Read-only terminal auto-approval
-
-`Set-ScriptApproval.ps1` merges/removes `chat.tools.terminal.autoApprove` keys in `.vscode/settings.json`. It is deliberately narrow:
+`Set-ScriptApproval.ps1` comment-safely merges/removes plain installed-path keys in
+`.vscode/settings.json`.
 
 | Guard | Rule |
 |---|---|
-| Verb allowlist | Only `Get`/`Find`/`Test`/`Validate` scripts (read-only). `Install`/`Uninstall`/`Update`/`Remove`/`Set`/`bootstrap` are never approved, so a prompt-injected `-Repository`/`-Ref`/`-Source` cannot ride an approval into a silent remote install. |
-| Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined legacy, unprefixed-hash, or prefixed-hash plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. Approval authorizes only that command shape—it does not provision the writer's PowerShell 7.6+ prerequisite. |
-| Historical-context exclusion | `Get-PlanArtifactConsumerContext.ps1` and its sibling resolver are never auto-approved. The adapter executes an installed resolver/module closure whose bytes are not cryptographically bound at invocation time; approving the adapter command would therefore transitively approve replaceable sibling code. |
-| Sensitive-name deny-list | A script whose name contains `credential`/`secret`/`token`/`password`/`passphrase` is never approved even if its verb is read-only (e.g. `get-credential.ps1`). |
-| Key shape | Plain path string (`.github/skills/<skill>/scripts/<Script>.ps1`), matching the existing settings convention. VS Code prefix-matches it per sub-command, so a chained `<script> ; curl … | sh` still prompts (the second sub-command matches no key). |
-| Confinement | Keys are resolved from registry `files[]`, confined to `.github/`, and only written for scripts that exist on disk. |
-| JSONC safety | The writer preserves comments and trailing commas via a comment-aware brace scan; it never round-trips through `ConvertTo-Json` (which would drop comments). |
+| Eligibility | Only `Get`/`Find`/`Test`/`Validate`; mutating verbs and bootstrap never qualify. |
+| Sensitive names | `credential`, `secret`, `token`, `password`, or `passphrase` always deny. |
+| Confinement | Registry-declared `.github/` script must exist; chained unapproved subcommands still prompt. |
+| JSONC | Preserve comments/trailing commas; keep object-valued exact rules atomic on one line. |
 
-`-All` batches every plugin's read-only scripts plus the two closed review-writer exceptions;
-`-Remove` drops a plugin's keys (uninstall runs it first, while the files still resolve). Approval is
-always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and lists each approvable
-entry before writing. Object-valued entries are stored on one JSONC line so the comment-preserving
-add/remove parser can treat one rule atomically.
+`-All` batches active eligible scripts; `-Remove` drops one plugin's keys before uninstall. Approval is
+always opt-in and previews entries. Historical-context readers qualify as ordinary `Get-` scripts;
+module dependencies need no separate keys. Rewrites remove obsolete earlier key shapes.
 
-Dogfood settings are generated through the same writer. All planning/review consumer adapters and
-their sibling resolvers remain unapproved despite their `Get-` names. The writer also removes obsolete
-plain-path and anchored historical-context entries from earlier versions.
-
-## Bootstrap flow
-
-`bootstrap.ps1` downloads the flat `scripts/skalary` set (now including `Set-ScriptApproval.ps1`) + `registry.json`, then runs `Install-Plugin.ps1 -Name plugin-manager` — which **clones the pinned `-Ref`** and copies payload only (no code execution). It offers read-only approval via an opt-in `-AutoApprove` switch (bootstrap is non-interactive). Net flow: bootstrap → plugin-manager installed → user manages every other plugin through the skills.
-
-## Bundling coupling
-
-The skills bundle their wrapped scripts. `Sync-PluginScripts.ps1` follows `.ps1` dot-source closures (its `Get-ModuleClosure` regex matches `\.psm?1` with a leading `[A-Za-z0-9_]` so `_Common.ps1` is pulled in) but never edits `files[]` — so every co-bundled script (`_Common.ps1` + the wrapped scripts) is enumerated explicitly in `plugin.json`. A stale bundle fails the `Sync-PluginScripts.ps1 -WhatIf` drift gate in `validate.ps1`.
-
-See [plugin-registry.design.md](./plugin-registry.design.md) for the underlying install/receipt/confinement model and the `-RegistryPath` fallback that lets `list`/`uninstall` work in a bootstrapped repo without a root `registry.json`.
+`bootstrap.ps1` downloads flat skalary scripts plus `registry.json`, installs `plugin-manager` from the
+pinned ref without executing payload, and optionally applies non-interactive `-AutoApprove`.
+Manifest-declared bundles explicitly enumerate every generated closure file; drift and completion order
+are owned by [plugin-registry.design.md](plugin-registry.design.md).

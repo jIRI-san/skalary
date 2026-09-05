@@ -1,7 +1,7 @@
 {
   "name": "autopilot",
-  "version": "1.2.99",
-  "description": "Self-contained autopilot plugin payload for agent, skill, scripts, schemas, and devcontainer.",
+  "version": "1.3.12",
+  "description": "Self-contained direct-workflow autonomous plan executor.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -11,187 +11,54 @@
     "automation"
   ],
   "dependencies": [
-    "self-improvement",
     "code-review",
     "create-implementation-plan"
   ],
   "status": "partial",
   "files": [
-    {
-      "src": "agents/autopilot.agent.md",
-      "dest": "agents/autopilot.agent.md"
-    },
-    {
-      "src": "skills/autopilot/SKILL.md",
-      "dest": "skills/autopilot/SKILL.md"
-    },
-    {
-      "src": "skills/autopilot/scripts/AtomicStore.psm1",
-      "dest": "skills/autopilot/scripts/AtomicStore.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/EpicAutopilot.psm1",
-      "dest": "skills/autopilot/scripts/EpicAutopilot.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Get-PlanState.ps1",
-      "dest": "skills/autopilot/scripts/Get-PlanState.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1",
-      "dest": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1",
-      "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/FleetDispatch.psm1",
-      "dest": "skills/autopilot/scripts/FleetDispatch.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/SecretGuard.psm1",
-      "dest": "skills/autopilot/scripts/SecretGuard.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1",
-      "dest": "skills/autopilot/scripts/Invoke-PhaseHarvest.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
-      "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/LedgerStore.psm1",
-      "dest": "skills/autopilot/scripts/LedgerStore.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/PlanState.psm1",
-      "dest": "skills/autopilot/scripts/PlanState.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/ReviewCycleGate.ps1",
-      "dest": "skills/autopilot/scripts/ReviewCycleGate.ps1"
-    },
-    {
-      "src": "scripts/clean-sandbox-cache.ps1",
-      "dest": "skills/autopilot/scripts/clean-sandbox-cache.ps1"
-    },
-    {
-      "src": "scripts/container-entrypoint.sh",
-      "dest": "skills/autopilot/scripts/container-entrypoint.sh"
-    },
-    {
-      "src": "scripts/get-credential.ps1",
-      "dest": "skills/autopilot/scripts/get-credential.ps1"
-    },
-    {
-      "src": "scripts/host-command.ps1",
-      "dest": "skills/autopilot/scripts/host-command.ps1"
-    },
-    {
-      "src": "scripts/Invoke-SiDueEnqueue.ps1",
-      "dest": "skills/autopilot/scripts/Invoke-SiDueEnqueue.ps1"
-    },
-    {
-      "src": "scripts/launch-container.ps1",
-      "dest": "skills/autopilot/scripts/launch-container.ps1"
-    },
-    {
-      "src": "scripts/launch-host.ps1",
-      "dest": "skills/autopilot/scripts/launch-host.ps1"
-    },
-    {
-      "src": "scripts/launch-sandbox.ps1",
-      "dest": "skills/autopilot/scripts/launch-sandbox.ps1"
-    },
-    {
-      "src": "scripts/launch.ps1",
-      "dest": "skills/autopilot/scripts/launch.ps1"
-    },
-    {
-      "src": "scripts/plan-dispatch.sh",
-      "dest": "skills/autopilot/scripts/plan-dispatch.sh"
-    },
-    {
-      "src": "scripts/autopilot-dispatch.ps1",
-      "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1"
-    },
-    {
-      "src": "scripts/prepare-env-file.ps1",
-      "dest": "skills/autopilot/scripts/prepare-env-file.ps1"
-    },
-    {
-      "src": "scripts/prepare-packages.ps1",
-      "dest": "skills/autopilot/scripts/prepare-packages.ps1"
-    },
-    {
-      "src": "scripts/validate-auth.ps1",
-      "dest": "skills/autopilot/scripts/validate-auth.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/PlanEvidence.psm1",
-      "dest": "skills/autopilot/scripts/PlanEvidence.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
-      "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
-      "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
-    },
-    {
-      "src": "skills/autopilot/scripts/Test-Plan.ps1",
-      "dest": "skills/autopilot/scripts/Test-Plan.ps1"
-    },
-    {
-      "src": "schemas/autopilot.schema.json",
-      "dest": "skills/autopilot/schemas/autopilot.schema.json"
-    },
-    {
-      "src": "schemas/autopilot.host.schema.json",
-      "dest": "skills/autopilot/schemas/autopilot.host.schema.json"
-    },
-    {
-      "src": "devcontainer/Dockerfile",
-      "dest": "skills/autopilot/devcontainer/Dockerfile"
-    },
-    {
-      "src": "devcontainer/container-toolchain-smoke.sh",
-      "dest": "skills/autopilot/devcontainer/container-toolchain-smoke.sh"
-    },
-    {
-      "src": "devcontainer/toolchain.tsv",
-      "dest": "skills/autopilot/devcontainer/toolchain.tsv"
-    },
-    {
-      "src": "devcontainer/devcontainer.json",
-      "dest": "skills/autopilot/devcontainer/devcontainer.json"
-    },
-    {
-      "src": ".autopilot.json.example",
-      "dest": "skills/autopilot/.autopilot.json.example"
-    },
-    {
-      "src": ".autopilot.host.json.example",
-      "dest": "skills/autopilot/.autopilot.host.json.example"
-    }
+    { "src": "agents/autopilot.agent.md", "dest": "agents/autopilot.agent.md" },
+    { "src": "skills/autopilot/SKILL.md", "dest": "skills/autopilot/SKILL.md" },
+    { "src": "skills/autopilot/assets/design-note-compaction.md", "dest": "skills/autopilot/assets/design-note-compaction.md" },
+    { "src": "skills/autopilot/scripts/AtomicStore.psm1", "dest": "skills/autopilot/scripts/AtomicStore.psm1" },
+    { "src": "skills/autopilot/scripts/EpicAutopilot.psm1", "dest": "skills/autopilot/scripts/EpicAutopilot.psm1" },
+    { "src": "skills/autopilot/scripts/Get-PlanState.ps1", "dest": "skills/autopilot/scripts/Get-PlanState.ps1" },
+    { "src": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1", "dest": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1" },
+    { "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1", "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1" },
+    { "src": "skills/autopilot/scripts/SecretGuard.psm1", "dest": "skills/autopilot/scripts/SecretGuard.psm1" },
+    { "src": "skills/autopilot/scripts/PlanState.psm1", "dest": "skills/autopilot/scripts/PlanState.psm1" },
+    { "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1", "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1" },
+    { "src": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1" },
+    { "src": "skills/autopilot/scripts/Write-RecentLearning.ps1", "dest": "skills/autopilot/scripts/Write-RecentLearning.ps1" },
+    { "src": "skills/autopilot/scripts/DirectWorkflow.psm1", "dest": "skills/autopilot/scripts/DirectWorkflow.psm1" },
+    { "src": "skills/autopilot/scripts/Test-Plan.ps1", "dest": "skills/autopilot/scripts/Test-Plan.ps1" },
+    { "src": "scripts/clean-sandbox-cache.ps1", "dest": "skills/autopilot/scripts/clean-sandbox-cache.ps1" },
+    { "src": "scripts/container-entrypoint.sh", "dest": "skills/autopilot/scripts/container-entrypoint.sh" },
+    { "src": "scripts/get-credential.ps1", "dest": "skills/autopilot/scripts/get-credential.ps1" },
+    { "src": "scripts/host-command.ps1", "dest": "skills/autopilot/scripts/host-command.ps1" },
+    { "src": "scripts/launch-container.ps1", "dest": "skills/autopilot/scripts/launch-container.ps1" },
+    { "src": "scripts/launch-host.ps1", "dest": "skills/autopilot/scripts/launch-host.ps1" },
+    { "src": "scripts/launch-sandbox.ps1", "dest": "skills/autopilot/scripts/launch-sandbox.ps1" },
+    { "src": "scripts/launch.ps1", "dest": "skills/autopilot/scripts/launch.ps1" },
+    { "src": "scripts/plan-dispatch.sh", "dest": "skills/autopilot/scripts/plan-dispatch.sh" },
+    { "src": "scripts/autopilot-dispatch.ps1", "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1" },
+    { "src": "scripts/prepare-env-file.ps1", "dest": "skills/autopilot/scripts/prepare-env-file.ps1" },
+    { "src": "scripts/prepare-packages.ps1", "dest": "skills/autopilot/scripts/prepare-packages.ps1" },
+    { "src": "scripts/validate-auth.ps1", "dest": "skills/autopilot/scripts/validate-auth.ps1" },
+    { "src": "schemas/autopilot.schema.json", "dest": "skills/autopilot/schemas/autopilot.schema.json" },
+    { "src": "schemas/autopilot.host.schema.json", "dest": "skills/autopilot/schemas/autopilot.host.schema.json" },
+    { "src": "devcontainer/Dockerfile", "dest": "skills/autopilot/devcontainer/Dockerfile" },
+    { "src": "devcontainer/container-toolchain-smoke.sh", "dest": "skills/autopilot/devcontainer/container-toolchain-smoke.sh" },
+    { "src": "devcontainer/toolchain.tsv", "dest": "skills/autopilot/devcontainer/toolchain.tsv" },
+    { "src": "devcontainer/devcontainer.json", "dest": "skills/autopilot/devcontainer/devcontainer.json" },
+    { "src": ".autopilot.json.example", "dest": "skills/autopilot/.autopilot.json.example" },
+    { "src": ".autopilot.host.json.example", "dest": "skills/autopilot/.autopilot.host.json.example" }
   ],
   "scaffolds": [
     {
-      "path": "docs/implementation-plans/<plan>/assets/harvest-receipts/**",
-      "mode": "parameterized",
-      "owner": "Invoke-PhaseHarvest.ps1",
-      "trigger": "first assets-layout phase harvest",
-      "confine": "Resolve-PlanAssetPath"
-    },
-    {
-      "path": "docs/implementation-plans/<plan>/harvest-receipts/**",
-      "mode": "parameterized",
-      "owner": "Invoke-PhaseHarvest.ps1",
-      "trigger": "first legacy-layout phase harvest",
-      "confine": "Resolve-PlanAssetPath"
+      "path": "docs/feedback/recent-learning.md",
+      "mode": "literal",
+      "owner": "Write-RecentLearning.ps1",
+      "trigger": "successful whole-plan completion"
     }
   ],
   "evals": {

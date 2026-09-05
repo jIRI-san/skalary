@@ -1179,8 +1179,7 @@ Describe 'Installed SI state paging and repair' {
                 'docs/self-improvement/quarantine/<observation>/**',
                 'docs/self-improvement/repair-observations/<observation>.json',
                 'docs/self-improvement/repair-receipts/<receipt>.json',
-                'docs/self-improvement/resolver-receipts/<receipt>.json',
-                'docs/self-improvement/harvest-index.json'
+                'docs/self-improvement/resolver-receipts/<receipt>.json'
             )) {
             $declared | Should -Contain $required
         }

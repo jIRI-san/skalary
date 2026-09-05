@@ -26,14 +26,13 @@ phase_needs_execution() {
     local plan_path="$1"
     local phase_number="$2"
     local repo_root="${3:-.}"
-    local validator="${4:-${AUTOPILOT_HARVEST_VALIDATOR:-/usr/local/lib/autopilot/Invoke-PhaseHarvest.ps1}}"
     local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
     local state_output
     local invocation_state
 
     state_output="$(pwsh -NoProfile -File "${state_script}" \
         -PlanPath "${plan_path}" -Phase "${phase_number}" \
-        -RepoRoot "${repo_root}" -HarvestValidator "${validator}" 2>&1)"
+        -RepoRoot "${repo_root}" 2>&1)"
     invocation_state=$?
     if [ "${invocation_state}" -ne 0 ]; then
         echo "ERROR: Phase ${phase_number} close state is invalid." >&2
@@ -153,8 +152,7 @@ autopilot_entrypoint_target_close_state() {
     local plan_path="$1"
     local target="$2"
     local final_phase_number="$3"
-    local review_gate="$4"
-    local work_branch="$5"
+    local work_branch="$4"
     local expected_close_target_branch
 
     expected_close_target_branch="$(
@@ -162,7 +160,7 @@ autopilot_entrypoint_target_close_state() {
             "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}"
     )" || return $?
     autopilot_target_close_state \
-        "${plan_path}" "${target}" "${final_phase_number}" "${review_gate}" \
+        "${plan_path}" "${target}" "${final_phase_number}" \
         "${work_branch}" "${expected_close_target_branch}"
 }
 
@@ -365,8 +363,7 @@ PHASE_NUMS=$(autopilot_phase_numbers "${PLAN_PATH}")
 PHASE_COUNT=$(printf '%s\n' "${PHASE_NUMS}" | grep -c '[0-9]' || echo "0")
 FINAL_PHASE_NUM=$(printf '%s\n' "${PHASE_NUMS}" | tail -n 1)
 echo "Found ${PHASE_COUNT} phases in plan (numbers: $(echo ${PHASE_NUMS} | tr '\n' ' '))."
-REVIEW_GATE=".github/skills/autopilot/scripts/ReviewCycleGate.ps1"
-if ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}" "${REVIEW_GATE}"); then
+if ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}"); then
     echo "ERROR: Unable to resolve safe autopilot execution targets."
     exit 1
 fi
@@ -375,17 +372,10 @@ if [ -n "${TARGET_OUTPUT}" ]; then
     mapfile -t EXECUTION_TARGETS <<< "${TARGET_OUTPUT}"
 fi
 
-PHASE_TIMEOUT_MIN="${AUTOPILOT_PHASE_TIMEOUT_MIN:-0}"
-PHASE_TIMEOUT_SECS=$((PHASE_TIMEOUT_MIN * 60))
 COMPLETION_HANDOFF_LIMIT="${AUTOPILOT_COMPLETION_HANDOFF_LIMIT:-3}"
 if [[ ! "${COMPLETION_HANDOFF_LIMIT}" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: AUTOPILOT_COMPLETION_HANDOFF_LIMIT must be a positive integer."
     exit 1
-fi
-if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
-    echo "Per-phase timeout: ${PHASE_TIMEOUT_MIN}m (whole-run cap is enforced by the host)."
-else
-    echo "Per-phase timeout: disabled (whole-run cap is enforced by the host)."
 fi
 echo "Completion handoff limit: ${COMPLETION_HANDOFF_LIMIT} same-session resume(s) per target."
 
@@ -416,23 +406,6 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             echo "ERROR: Plan completion target is no longer eligible — stopping without finalization."
             exit 1
         fi
-        if autopilot_plan_phase_gates_terminal "${PLAN_PATH}" "${REVIEW_GATE}"; then
-            :
-        else
-            GATE_STATUS=$?
-            if [ "${GATE_STATUS}" -eq 2 ]; then
-                echo "ERROR: Unable to verify plan completion gates."
-                exit 1
-            fi
-            if [ "${GATE_STATUS}" -eq 42 ]; then
-                echo "Plan completion requires an operator review decision — stopping."
-                preserve_work || exit 70
-                git push origin "${WORK_BRANCH}" || true
-                exit 42
-            fi
-            echo "ERROR: Plan completion gates are not terminal — stopping without finalization."
-            exit 1
-        fi
         TARGET_LABEL="Plan completion"
         TRANSCRIPT="session-transcript-completion.md"
         PROMPT="Resume ${PLAN_PATH} at Plan Completion only. Every implementation step is already [x]. Do not replay phase completion or reopen completed steps."
@@ -461,17 +434,9 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
     echo "=== ${TARGET_LABEL} ==="
 
     TARGET_SESSION_ID=$(cat /proc/sys/kernel/random/uuid)
-    TARGET_STARTED_AT=$(date +%s)
     TARGET_PROMPT="${PROMPT}"
     HANDOFF_COUNT=0
     while true; do
-        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ] &&
-            [ "$(($(date +%s) - TARGET_STARTED_AT))" -ge "${PHASE_TIMEOUT_SECS}" ]; then
-            preserve_work
-            echo "Stopping run after the shared timeout budget expired in ${TARGET_LABEL}."
-            exit 124
-        fi
-
         # Pass --model explicitly when set so model selection is deterministic
         # (not just implied by COPILOT_MODEL) and visible in logs.
         MODEL_ARGS=()
@@ -492,37 +457,11 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             --share="./${TRANSCRIPT}" &
         COPILOT_PID=$!
 
-        # Every same-session handoff shares the original target timeout budget.
-        PHASE_TIMED_OUT=0
-        if [ "${PHASE_TIMEOUT_SECS}" -gt 0 ]; then
-            while kill -0 "${COPILOT_PID}" 2>/dev/null; do
-                ELAPSED=$(($(date +%s) - TARGET_STARTED_AT))
-                if [ "${ELAPSED}" -ge "${PHASE_TIMEOUT_SECS}" ]; then
-                    echo "${TARGET_LABEL} exceeded per-phase timeout of ${PHASE_TIMEOUT_MIN}m — terminating."
-                    PHASE_TIMED_OUT=1
-                    kill -TERM "${COPILOT_PID}" 2>/dev/null || true
-                    for _ in 1 2 3 4 5; do
-                        kill -0 "${COPILOT_PID}" 2>/dev/null || break
-                        sleep 1
-                    done
-                    kill -KILL "${COPILOT_PID}" 2>/dev/null || true
-                    break
-                fi
-                sleep 5
-            done
-        fi
-
         set +e
         wait "${COPILOT_PID}"
         EXIT_CODE=$?
         set -e
         COPILOT_PID=""
-
-        if [ "${PHASE_TIMED_OUT}" -eq 1 ]; then
-            preserve_work
-            echo "Stopping run after timeout in ${TARGET_LABEL}."
-            exit 124
-        fi
 
         CLOSE_STATE=""
         if [ "${EXIT_CODE}" -eq 0 ]; then
@@ -534,8 +473,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             fi
             if ! CLOSE_STATE=$(
                 autopilot_entrypoint_target_close_state \
-                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${REVIEW_GATE}" \
-                    "${WORK_BRANCH}"
+                    "${PLAN_PATH}" "${TARGET}" "${FINAL_PHASE_NUM}" "${WORK_BRANCH}"
             ); then
                 echo "ERROR: Unable to verify terminal close state for ${TARGET_LABEL}."
                 preserve_work

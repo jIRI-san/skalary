@@ -53,6 +53,12 @@ revisit it only if the threat model changes. Child-start failure exits `14` with
 aggregate or broad alias. Agents and skills may run these focused defaults or direct focused scripts.
 They do not invoke broad or premium routes.
 
+Pester is required for focused unit execution and typed `test:` evidence; the autopilot devcontainer
+keeps its pinned install. `Run-UnitTests.ps1` fails rather than skips: absent Pester exits `2`, zero
+discovered tests `3`, a selected file that never loaded `4`, and focused timeout `13`. Do not add suite
+tiers, runtime baselines, coverage inventories, or budget clocks. Keep routine selection below the
+30-second target and report slowness rather than introducing measurement state.
+
 ## Direct operator routes
 
 `-FullRepository` is the sole broad selector for `Run-UnitTests.ps1`, `Test-Evals.ps1`, and

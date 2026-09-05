@@ -80,8 +80,8 @@ context: fork
 1. **Refuse in an autonomous/non-interactive context.** If this is an autopilot/`/ci` run, stop
    with: `lock promotion requires a human-authored commit`. Record a *proposal* instead.
 2. For an interactive human, change the note's indexed maturity to `locked` after review.
-   The two transferred legacy JSON contracts retain their existing digest check until their owning
-   child converts or deletes them.
+   The remaining transferred legacy JSON contract retains its existing digest check until its owning
+   child converts or deletes it.
 3. Promotion is reviewer-enforced policy, not machine-authenticated identity. Git author metadata
    is forgeable and must never be treated as proof that a human approved the promotion.
 

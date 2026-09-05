@@ -58,71 +58,10 @@ autopilot_plan_all_steps_complete() {
     return 0
 }
 
-autopilot_review_gate_state() {
-    local plan_path="$1"
-    local phase_number="$2"
-    local stage="$3"
-    local gate_script="$4"
-    local plan_dir
-    local gate_json
-
-    plan_dir=$(dirname "${plan_path}")
-    if ! gate_json=$(pwsh -NoProfile -File "${gate_script}" \
-        -Action Check \
-        -PlanDir "${plan_dir}" \
-        -Phase "${phase_number}" \
-        -Stage "${stage}" \
-        -Json); then
-        printf 'ERROR: review gate failed for stage %s.\n' "${stage}" >&2
-        return 2
-    fi
-    case "${gate_json}" in
-        *'"state":"complete"'*) printf '%s\n' 'complete' ;;
-        *'"state":"wrap"'*) printf '%s\n' 'wrap' ;;
-        *'"state":"allow"'*) printf '%s\n' 'allow' ;;
-        *'"state":"operator-decision"'*) printf '%s\n' 'operator-decision' ;;
-        *'"state":"legacy-clean"'*) printf '%s\n' 'operator-decision' ;;
-        *)
-            printf 'ERROR: review gate returned an unknown state for stage %s.\n' "${stage}" >&2
-            return 2
-            ;;
-    esac
-}
-
-autopilot_phase_gate_state() {
-    autopilot_review_gate_state "$1" "$2" "phase-$2" "$3"
-}
-
-autopilot_plan_finalization_gate_state() {
-    autopilot_review_gate_state "$1" "$2" "plan-finalization" "$3"
-}
-
-autopilot_plan_phase_gates_terminal() {
-    local plan_path="$1"
-    local gate_script="$2"
-    local phase_number
-    local gate_state
-
-    while IFS= read -r phase_number; do
-        if ! gate_state=$(autopilot_phase_gate_state "${plan_path}" "${phase_number}" "${gate_script}"); then
-            return 2
-        fi
-        case "${gate_state}" in
-            complete|wrap) ;;
-            operator-decision) return 42 ;;
-            *) return 1 ;;
-        esac
-    done < <(autopilot_phase_numbers "${plan_path}")
-    return 0
-}
-
 autopilot_target_owns_finalization() {
     local target="$1"
-    local final_phase_number="$2"
 
-    [ "${target}" = "completion-only" ] ||
-        [ "${target}" = "phase:${final_phase_number}" ] ||
-        [ "${target}" = "phase-completion:${final_phase_number}" ]
+    [ "${target}" = "completion-only" ]
 }
 
 autopilot_branch_has_published_pr() {
@@ -257,17 +196,13 @@ autopilot_target_close_state() {
     local plan_path="$1"
     local target="$2"
     local final_phase_number="$3"
-    local gate_script="$4"
-    local expected_work_branch="${5:-}"
-    local target_branch="${6:-}"
+    local expected_work_branch="${4:-}"
+    local target_branch="${5:-}"
     local phase_number
-    local gate_state
-    local gate_status
     local phase_state
     local phase_state_status
     local repo_root="${AUTOPILOT_REPO_ROOT:-.}"
     local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-${repo_root}/.github/skills/autopilot/scripts/Get-PhaseExecutionState.ps1}"
-    local harvest_validator="${AUTOPILOT_HARVEST_VALIDATOR:-${repo_root}/.github/skills/autopilot/scripts/Invoke-PhaseHarvest.ps1}"
     local active_plan_dir
     local plan_root
     local plan_slug
@@ -323,23 +258,22 @@ autopilot_target_close_state() {
         phase_number="${final_phase_number}"
     fi
 
-    if [ ! -f "${state_script}" ] || [ ! -f "${harvest_validator}" ]; then
-        printf 'ERROR: canonical phase close probe or receipt validator is unavailable.\n' >&2
+    if [ ! -f "${state_script}" ]; then
+        printf 'ERROR: canonical phase close probe is unavailable.\n' >&2
         return 2
     fi
     if phase_state=$(
         pwsh -NoProfile -File "${state_script}" \
             -PlanPath "${effective_plan_path}" \
             -Phase "${phase_number}" \
-            -RepoRoot "${repo_root}" \
-            -HarvestValidator "${harvest_validator}"
+            -RepoRoot "${repo_root}"
     ); then
         phase_state_status=0
     else
         phase_state_status=$?
     fi
     if [ "${phase_state_status}" -ne 0 ]; then
-        printf 'ERROR: phase close receipt validation failed for phase %s.\n' "${phase_number}" >&2
+        printf 'ERROR: phase close validation failed for phase %s.\n' "${phase_number}" >&2
         return 2
     fi
     case "${phase_state}" in
@@ -370,41 +304,6 @@ autopilot_target_close_state() {
             printf '%s\n' 'close-pending'
             return
         fi
-        if autopilot_plan_phase_gates_terminal "${effective_plan_path}" "${gate_script}" >/dev/null; then
-            gate_status=0
-        else
-            gate_status=$?
-        fi
-        case "${gate_status}" in
-            0) ;;
-            1)
-                printf '%s\n' 'close-pending'
-                return
-                ;;
-            42)
-                printf '%s\n' 'operator-decision'
-                return
-                ;;
-            *) return 2 ;;
-        esac
-        if ! gate_state=$(
-            autopilot_plan_finalization_gate_state \
-                "${effective_plan_path}" "${final_phase_number}" "${gate_script}"
-        ); then
-            return 2
-        fi
-        case "${gate_state}" in
-            complete) ;;
-            allow)
-                printf '%s\n' 'close-pending'
-                return
-                ;;
-            wrap|operator-decision)
-                printf '%s\n' 'operator-decision'
-                return
-                ;;
-            *) return 2 ;;
-        esac
         if [ "${archive_transition}" -eq 1 ]; then
             if ! repo_root_full=$(git -C "${repo_root}" rev-parse --show-toplevel); then
                 printf 'ERROR: unable to resolve repository root for archived close state.\n' >&2
@@ -476,16 +375,7 @@ autopilot_target_close_state() {
         return
     fi
 
-    if ! gate_state=$(
-        autopilot_phase_gate_state "${effective_plan_path}" "${phase_number}" "${gate_script}"
-    ); then
-        return 2
-    fi
-    case "${gate_state}" in
-        complete|wrap) printf '%s\n' 'closed' ;;
-        allow) printf '%s\n' 'close-pending' ;;
-        operator-decision) printf '%s\n' 'operator-decision' ;;
-    esac
+    printf '%s\n' 'closed'
 }
 
 autopilot_completion_handoff_action() {
@@ -517,19 +407,11 @@ autopilot_completion_handoff_action() {
 autopilot_execution_targets() {
     local plan_path="$1"
     local mode="$2"
-    local gate_script="$3"
     local phase_number
-    local gate_state
-    local finalization_state
-    local final_phase_number=""
-    local final_phase_selected=0
     local -a phase_numbers=()
     local -a incomplete_phases=()
 
     mapfile -t phase_numbers < <(autopilot_phase_numbers "${plan_path}")
-    if [ "${#phase_numbers[@]}" -gt 0 ]; then
-        final_phase_number="${phase_numbers[${#phase_numbers[@]} - 1]}"
-    fi
     for phase_number in "${phase_numbers[@]}"; do
         if autopilot_phase_has_unsupported_steps "${plan_path}" "${phase_number}"; then
             printf 'ERROR: phase %s contains an unsupported step state.\n' "${phase_number}" >&2
@@ -549,53 +431,15 @@ autopilot_execution_targets() {
         return
     fi
 
-    if [ "${mode}" = "whole-plan" ] && [ "${#incomplete_phases[@]}" -eq 0 ]; then
-        if ! finalization_state=$(
-            autopilot_plan_finalization_gate_state \
-                "${plan_path}" "${final_phase_number}" "${gate_script}"
-        ); then
-            return 2
-        fi
-        case "${finalization_state}" in
-            wrap|operator-decision)
-                printf '%s\n' 'operator-stop:plan-finalization'
-                return
-                ;;
-            allow|complete) ;;
-            *) return 2 ;;
-        esac
-    fi
-
     autopilot_plan_has_steps "${plan_path}" || return
     for phase_number in "${phase_numbers[@]}"; do
         if autopilot_phase_has_incomplete_steps "${plan_path}" "${phase_number}"; then
             printf 'phase:%s\n' "${phase_number}"
-            if [ "${phase_number}" = "${final_phase_number}" ]; then
-                final_phase_selected=1
-            fi
             continue
         fi
-        if ! gate_state=$(
-            autopilot_phase_gate_state "${plan_path}" "${phase_number}" "${gate_script}"
-        ); then
-            return 2
-        fi
-        case "${gate_state}" in
-            complete|wrap) ;;
-            allow)
-                printf 'phase-completion:%s\n' "${phase_number}"
-                if [ "${phase_number}" = "${final_phase_number}" ]; then
-                    final_phase_selected=1
-                fi
-                ;;
-            operator-decision)
-                printf 'operator-stop:%s\n' "${phase_number}"
-                return
-                ;;
-        esac
     done
 
-    if [ "${mode}" = "whole-plan" ] && [ "${final_phase_selected}" -ne 1 ]; then
+    if [ "${mode}" = "whole-plan" ]; then
         printf '%s\n' 'completion-only'
     fi
 }

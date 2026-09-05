@@ -16,7 +16,7 @@ Describe 'Autopilot model configuration' {
         $example.model | Should -Be 'gpt-5.6-sol'
         $example.context | Should -Be 'long_context'
         $example.reasoningEffort | Should -Be 'high'
-        $agent | Should -Match '(?m)^model: gpt-5\.6-sol$'
+        $agent | Should -Match '(?m)^model: gpt-5\.6-sol\r?$'
     }
 
     It 'requires and constrains context and reasoning settings in the schema' {
