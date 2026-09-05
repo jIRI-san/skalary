@@ -1,13 +1,11 @@
 # Recent learning
 
-Source plan: `367e9a simple-review-to-plan-workflow`
-Source commit: `bce345567d8eae7e4068af322a4b081d5a575541`
+Source plan: `33a78a ai-credit-budget-optimization`
+Source commit: `41d370d225044e8539e2a2e11a5eaa22bd40e70b`
 
 ## Lessons
 
-- Build replacement paths dormant and prove them before an atomic consumer cutover. — `docs/design-notes/architecture/direct-workflow-core.design.md`
-- Use progress evidence rather than elapsed time to distinguish slow delegated work from stuck work. — `docs/operator-guide/implementation.md`
-- Keep AI-facing design notes bounded through indexed five-note compaction batches and operator-approved merges. — `docs/design-notes/project/design-note-writing-style.design.md`
-- Treat review reports as advisory Markdown while retaining read-only, secret, injection, confinement, and external-format guards. — `docs/design-notes/architecture/review-reporting.design.md`
-- Protect confirmed intent, requirements, risks, and decisions against the Git commit that introduced their confirmation marker. — `docs/design-notes/architecture/plan-workflow.design.md`
-- Canonicalize cross-platform paths and Git-filtered content at deterministic repository boundaries. — `scripts/skalary/DirectWorkflow.psm1`
+- Validate operator-selected models at the launcher boundary before setup or authentication side effects. — `plugins/autopilot/scripts/launch.ps1`
+- Prefer deterministic graders for observable eval behavior and reserve prompt judges for subjective criteria. — `docs/design-notes/architecture/plugin-evals.design.md`
+- Treat default context as a fixed cost boundary and remove override plumbing rather than documenting an expensive option. — `plugins/autopilot/schemas/autopilot.schema.json`
+- Regenerate registry and dogfood surfaces whenever canonical plugin payloads change. — `scripts/skalary/Sync-Dogfood.ps1`
