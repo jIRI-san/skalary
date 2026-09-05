@@ -1,7 +1,7 @@
 ---
 description: Architecture contract for direct review, evidence, criteria protection, and native orchestration.
 globs:
-  - "scripts/skalary/{DirectWorkflow,Get-DirectPlanArtifactConsumerContext}.ps*1"
+  - "scripts/skalary/{DirectWorkflow,Get-DirectPlanArtifactConsumerContext,Get-DesignNoteCompactionContext}.ps*1"
   - "plugins/{code-review,design-review,create-implementation-plan,continue-implementation,autopilot}/**"
 ---
 
@@ -34,6 +34,9 @@ globs:
   Elapsed time does not kill agents. Declared deterministic command timeouts remain.
 - Non-terminal review is risk-selected. The terminal phase skips post-phase review and runs one
   whole-plan review; unchanged scope is not rerun.
+- Finalization runs one design-note compaction pass only when implementation changed
+  `docs/design-notes/**`. Candidate reads are index-led and bounded to five full notes; cross-note
+  merge/delete requires explicit operator approval, and headless execution stops with visible changes.
 - Historical context is at most five confined, secret-screened Markdown artifacts, framed once as
   untrusted input without receipt validation.
 - If a planning, review, CI, or autopilot surface needs a complex predefined operator choice, both hosts

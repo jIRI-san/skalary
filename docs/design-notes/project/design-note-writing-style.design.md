@@ -55,6 +55,19 @@ Do not include:
 
 **Cross-cutting principles live in one place.** Principles shared across many notes (e.g. "composition over inheritance") should live in a single conventions note; other notes reference it with a single sentence at most rather than repeating it.
 
+## Finalization Compaction
+
+When plan implementation edits `docs/design-notes/**`, `/ci` or autopilot performs one bounded semantic
+compaction pass at finalization. Candidate discovery starts from this index, touched notes, indexed
+scopes, and links or concepts found in those notes; it never preloads the corpus. Full text is compared
+in sequential batches of at most five while a concise candidate summary carries forward.
+
+Compaction removes stale narration and duplicate rationale without losing unique active decisions,
+contracts, constraints, exceptions, or minimal examples. Cross-note merge/delete requires an explicit
+operator choice over the proposed Git diff and resulting owner; uncertainty preserves content. The
+shared installed protocol is authoritative for diff, index/link, cancellation, and headless-stop
+behavior. Human-facing `docs/operator-guide/**` is outside this pass.
+
 ## Required Frontmatter
 
 ```yaml

@@ -23,3 +23,8 @@ It does not use a scheduler, review authority store, evidence receipt, harvest r
 state. If the run needs a complex operator decision, the agent stops with `42` and returns the
 host-equivalent context, examples, benefits, pros/cons, recommendation/default, effort, complexity, and
 relationship/sequence diagram defined there; free-form input is one focused question at a time.
+
+During finalization, invoke `./assets/design-note-compaction.md` exactly once when the bundled
+`.github/skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1` reports edited
+`docs/design-notes/**`. Never self-approve its cross-note merge/delete proposal: preserve the visible
+diff and stop with `42`. Do not invoke it for `docs/operator-guide/**` or other changes alone.

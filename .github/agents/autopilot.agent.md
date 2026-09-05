@@ -40,6 +40,11 @@ review, runs final focused validation, then one whole-plan direct CR. If scope i
 it. Incomplete attendance, unresolved findings, exhausted budget, interruption, or stuck work is
 non-clean and stops.
 
+Immediately before final focused validation, run the installed autopilot skill's shared design-note
+compaction protocol exactly once if its Git/index helper reports an implementation change under
+`docs/design-notes/**`. A cross-note merge/delete is never self-approved: leave its proposed Git diff
+visible and exit `42` for operator action. Changes only under `docs/operator-guide/**` do not trigger it.
+
 On successful plan completion, replace one cited `docs/feedback/recent-learning.md` handoff: source plan
 and commit, at most 10 items, at most 16 KiB UTF-8. Distinguish missing, explicit-empty, and stale/source
 mismatch. Do not write a review ledger, receipt, replay, repair, or lifecycle service. Exit `0` only for

@@ -48,6 +48,13 @@ Non-terminal review occurs only for concrete changed-scope risk. The final phase
 and finalization runs one whole-plan review. Unchanged scope is not rerun. Incomplete, exhausted, stuck,
 or unresolved outcomes stop visibly.
 
+Finalization invokes the shared design-note compaction protocol exactly once only when implementation
+changed `docs/design-notes/**`. It inventories `.design-notes.md`, reads candidates in sequential batches
+of at most five, preserves unique decisions/contracts/constraints/exceptions/examples, and shows the
+final Git diff before terminal review. Cross-note merge/delete needs explicit operator approval; a
+headless run leaves the proposal visible and exits `42`. `docs/operator-guide/**` never triggers or
+participates in compaction.
+
 ## Distribution
 
 `DirectWorkflow.psm1` is root-canonical and bundles with `PlanState.psm1` and `SecretGuard.psm1` into

@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "description": "Self-contained direct-workflow autonomous plan executor.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -18,6 +18,7 @@
   "files": [
     { "src": "agents/autopilot.agent.md", "dest": "agents/autopilot.agent.md" },
     { "src": "skills/autopilot/SKILL.md", "dest": "skills/autopilot/SKILL.md" },
+    { "src": "skills/autopilot/assets/design-note-compaction.md", "dest": "skills/autopilot/assets/design-note-compaction.md" },
     { "src": "skills/autopilot/scripts/AtomicStore.psm1", "dest": "skills/autopilot/scripts/AtomicStore.psm1" },
     { "src": "skills/autopilot/scripts/EpicAutopilot.psm1", "dest": "skills/autopilot/scripts/EpicAutopilot.psm1" },
     { "src": "skills/autopilot/scripts/Get-PlanState.ps1", "dest": "skills/autopilot/scripts/Get-PlanState.ps1" },
@@ -26,6 +27,7 @@
     { "src": "skills/autopilot/scripts/SecretGuard.psm1", "dest": "skills/autopilot/scripts/SecretGuard.psm1" },
     { "src": "skills/autopilot/scripts/PlanState.psm1", "dest": "skills/autopilot/scripts/PlanState.psm1" },
     { "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1", "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1" },
+    { "src": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1" },
     { "src": "skills/autopilot/scripts/DirectWorkflow.psm1", "dest": "skills/autopilot/scripts/DirectWorkflow.psm1" },
     { "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1", "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1" },
     { "src": "skills/autopilot/scripts/Test-Plan.ps1", "dest": "skills/autopilot/scripts/Test-Plan.ps1" },

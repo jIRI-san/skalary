@@ -32,5 +32,10 @@ Non-terminal review is risk-selected. The terminal phase skips ordinary phase re
 whole-plan direct CR. Successful completion replaces `docs/feedback/recent-learning.md`. Runtime resume
 uses committed plan checklist state; no review-cycle, phase-receipt, or scheduler state participates.
 
+If implementation changed `docs/design-notes/**`, finalization runs the shared bounded compaction
+protocol once before focused validation. Same-note compression stays under ordinary review. A
+cross-note merge/delete is an operator decision: headless autopilot leaves the proposed Git diff visible
+and exits `42`, then resumes that proposal rather than self-approving or claiming rollback.
+
 Epic host orchestration remains a separate deterministic wrapper. It selects one child, invokes the
 same blocking per-plan launcher, and retains its Git/provider close checks.

@@ -68,7 +68,7 @@ $repoOwnedOptionalInputs = @{
         [System.StringComparer]::OrdinalIgnoreCase
     )
     'continue-implementation' = [System.Collections.Generic.HashSet[string]]::new(
-        [string[]]@('docs/review-standards.md'),
+        [string[]]@('docs/review-standards.md', 'docs/operator-guide'),
         [System.StringComparer]::OrdinalIgnoreCase
     )
     'create-implementation-plan' = [System.Collections.Generic.HashSet[string]]::new(
@@ -76,7 +76,7 @@ $repoOwnedOptionalInputs = @{
         [System.StringComparer]::OrdinalIgnoreCase
     )
     'autopilot' = [System.Collections.Generic.HashSet[string]]::new(
-        [string[]]@('docs/review-standards.md'),
+        [string[]]@('docs/review-standards.md', 'docs/operator-guide'),
         [System.StringComparer]::OrdinalIgnoreCase
     )
 }

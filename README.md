@@ -69,9 +69,9 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.9 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.3.6 | partial | code-review, create-implementation-plan | 34 | Self-contained direct-workflow autonomous plan executor. |
+| `autopilot` | 1.3.7 | partial | code-review, create-implementation-plan | 36 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.73 | stable | — | 8 | Risk-selected code review with direct advisory Markdown. |
-| `continue-implementation` | 1.0.108 | stable | autopilot, code-review, create-implementation-plan | 7 | Direct plan implementation workflow with Git criteria protection. |
+| `continue-implementation` | 1.0.109 | stable | autopilot, code-review, create-implementation-plan | 8 | Direct plan implementation workflow with Git criteria protection. |
 | `create-implementation-plan` | 1.0.92 | stable | design-review | 25 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.72 | stable | — | 7 | Risk-selected design review with direct advisory Markdown. |

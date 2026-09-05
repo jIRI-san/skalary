@@ -302,6 +302,10 @@ The same `plugins/*/plugin.json` sources feed a second, independent catalog for 
 ### `-RegistryPath` fallback
 
 `Find-Plugin.ps1`, `Get-Plugin.ps1`, and `Remove-Plugin.ps1`'s dependent check accept `-RegistryPath` and fall back to `scripts/skalary/registry.json` (via `Resolve-RegistryPath` in `_Common.ps1`) when no root `registry.json` exists — the bootstrapped-repo layout. With neither present they emit a clear "not a skalary-managed repo" error instead of a terse throw. See [plugin-manager.design.md](./plugin-manager.design.md) for the skills that depend on this.
+
+The runtime-reference scanner treats `docs/operator-guide` mentions in CI/autopilot as optional
+read/exclusion boundaries, like `docs/review-standards.md`; neither reference authorizes plugin install
+to scaffold or mutate that human-documentation tree.
 ## Evals Contract
 
 Plan 005 implements the eval harness as **report-only** and keeps registry/receipt seams reserved:

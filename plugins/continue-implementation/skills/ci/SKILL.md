@@ -38,5 +38,9 @@ If a concrete changed-scope risk exists, non-terminal review may select one dire
 one corrective replacement. The terminal phase skips post-phase review; finalization runs one whole-plan
 direct CR. If scope is unchanged, do not rerun it. Exhausted calls or unresolved/incomplete review stops
 non-clean.
+During finalization, invoke the shared
+`.github/skills/autopilot/assets/design-note-compaction.md` protocol exactly once when the bundled
+`.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`.
+Do not invoke it for `docs/operator-guide/**` or other changes alone.
 At completion, replace the bounded cited `docs/feedback/recent-learning.md` handoff for `/si`; do not
 append a ledger, receipt, replay, or repair state.

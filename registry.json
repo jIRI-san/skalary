@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T09:03:23.9452430Z",
+  "generatedAt": "2026-09-05T09:21:23.2413762Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -158,7 +158,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "5ad5ff98756a03d07ad672702746a1442f1ed032b896902028d253244cd63211",
+          "sha256": "0152fe55d17c3eea625af58239e1dca5c9181dbf874e20ea818f00eb27ac79a6",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -173,8 +173,13 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "07dcd5e96bbf2f047a652c1ac03b3be593bdfb23ffbbdd29db4e90840dad7f06",
+          "sha256": "4ce12013b4551f812a93ab54583483b06c4df94732a024d2a6cad08966b5df13",
           "src": "skills/autopilot/SKILL.md"
+        },
+        {
+          "dest": "skills/autopilot/assets/design-note-compaction.md",
+          "sha256": "78b1ee16b7dc1d3d2396565b00d6ee018b833d8cc098b226edcd55c8e71d0f38",
+          "src": "skills/autopilot/assets/design-note-compaction.md"
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
@@ -225,6 +230,11 @@
           "dest": "skills/autopilot/scripts/EpicAutopilot.psm1",
           "sha256": "68292a59141ec18df8e347e843d1c5934139bccf6b7e947615507c1b34203bf8",
           "src": "skills/autopilot/scripts/EpicAutopilot.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1",
+          "sha256": "b18de0b968a2cef0cc1ef46423b458c5a9a9f385137c31cb48557cf2facda07b",
+          "src": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
@@ -336,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.6"
+      "version": "1.3.7"
     },
     {
       "author": "jIRI-san",
@@ -411,13 +421,18 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "78a913bd34b81064482da3fbe9d7541eca54615cd2131001a66cce6f0aa20259",
+          "sha256": "c13e86904209f69bdaa9da41be81d5065ddf86520799cb6ad8111b0b478b820c",
           "src": "skills/ci/SKILL.md"
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
           "sha256": "65552c5f70e4a331f976c61807cdc49abe6ba622629fd5e456312269fd380870",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1",
+          "sha256": "b18de0b968a2cef0cc1ef46423b458c5a9a9f385137c31cb48557cf2facda07b",
+          "src": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1"
         },
         {
           "dest": "skills/ci/scripts/Get-PlanState.ps1",
@@ -453,7 +468,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.108"
+      "version": "1.0.109"
     },
     {
       "author": "jIRI-san",

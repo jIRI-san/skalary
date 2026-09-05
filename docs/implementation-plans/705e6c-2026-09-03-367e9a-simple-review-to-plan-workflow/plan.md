@@ -69,7 +69,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 4: Compact AI context and bounded human handoffs
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 4.1 Add conditional finalization compaction for edited AI design notes with semantic preservation, diff review, and operator approval for cross-note merge/delete (REQ-13, RISK-5, RISK-8) [after: 3.3] `M`
+- [x] 4.1 Add conditional finalization compaction for edited AI design notes with semantic preservation, diff review, and operator approval for cross-note merge/delete (REQ-13, RISK-5, RISK-8) [after: 3.3] `M`
 - [ ] 4.2 Replace durable harvest state with the `/ci`/autopilot-owned bounded cited `docs/feedback/recent-learning.md` handoff and define `/si` read-time fencing for child `3a4498` (REQ-15, RISK-9) [after: 4.1] `M`
 - [ ] 4.3 Publish the complete `docs/operator-guide/README.md`, `planning.md`, `implementation.md`, and `reviews.md` with linked artifact/gate tables and Mermaid flows accumulated alongside earlier behavior changes (REQ-14, RISK-8) [after: 4.2] `M`
 
