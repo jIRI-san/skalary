@@ -1,7 +1,7 @@
 # 367e9a: Simple review-to-plan workflow
 <!-- plan-id: 367e9a -->
 <!-- depends-on: 2aa7ec -->
-<!-- cip-stage: dr-round-1 -->
+<!-- cip-stage: done -->
 <!-- planning-confirmed: sha256:1bc50f62bec3dde0f712adceb0c4ec9b3e57bc4b3e7c06e265bb1efac10f1edb -->
 <!-- epic: 705e6c -->
 <!-- Folder naming: <epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
