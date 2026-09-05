@@ -14,7 +14,10 @@
     # Qualified names for VS Code-hosted agents.
     VSCodeModels = @(
         'Claude Opus 5 (copilot)'
+        'Claude Sonnet 5 (copilot)'
+        'GPT-5.6 Terra (copilot)'
         'GPT-5.6 Sol (copilot)'
+        'GPT-5 mini (copilot)'
         'GPT-5.4 (copilot)'
         'Claude Sonnet 4.6 (copilot)'
     )
@@ -23,8 +26,11 @@
     # .autopilot.json / .autopilot.json.example.
     CliModels = @(
         'claude-opus-5'
+        'claude-sonnet-5'
         'gpt-5.6-luna'
         'gpt-5.6-sol'
+        'gpt-5.6-terra'
+        'gpt-5-mini'
         'gpt-5.4'
         'claude-sonnet-4.6'
     )
@@ -60,8 +66,8 @@
     # fallback array does not help: explicit-param dispatch outranks frontmatter, so the
     # array is never consulted (RISK-2). Each value must be a member of its own list.
     Fallback = @{
-        VSCode = 'Claude Sonnet 4.6 (copilot)'
-        Cli    = 'claude-sonnet-4.6'
+        VSCode = 'Claude Sonnet 5 (copilot)'
+        Cli    = 'claude-sonnet-5'
     }
 
     # Vendors/models that must not appear anywhere in an agent file — not in

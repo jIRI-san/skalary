@@ -28,10 +28,13 @@ resolution. Do not select `NextChild` or fall through to ordinary plan handling.
 `AUTOPILOT_CONTAINER=true`, refuse because the epic wrapper is host-only. Block on the wrapper and
 preserve its exact exit status and outcome.
 
-Implement ordinary work directly. If an unresolved choice spans design and acceptance criteria, use a
-combined Designer/Validator; otherwise do not add that call. Judge is the normal second call. Use two
-calls by default and five maximum, replacement fallback, at most five supporting artifacts, and
-600/1,200 prompt bounds. For observable background work, compare tool output, file/commit
+Implement ordinary work directly with zero delegated calls. Routine bounded work uses Luna/medium with
+GPT-5 mini replacement fallback. If a concrete unresolved choice spans design and acceptance criteria,
+use one combined Terra/high Designer/Validator with Claude Sonnet 5 replacement fallback. Use Sol/high
+only for cross-subsystem work still unresolved after evidence-backed Terra work, and one Opus/high pass
+only for a named high-risk independent concern. No automatic Judge exists: deterministic evidence is
+the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a fourth
+requires a new operator decision. For observable background work, compare tool output, file/commit
 state, completed subtasks, and blockers across two checks; redirect once, replace once within budget,
 then stop. Never kill an agent for elapsed time. Retain deterministic build/test/command timeouts as
 evidence.
@@ -47,10 +50,10 @@ Supply the active in-memory review result, full current source, and exact reques
 Markdown is not authority. Keep completed/refused/blocked/stuck/interrupted outcomes distinct. Exit `0`
 means completed, operator-action stops retain `42`, and other failures are nonzero.
 
-If a concrete changed-scope risk exists, non-terminal review may select one direct event and at most
-one corrective replacement. The terminal phase skips post-phase review; finalization runs one whole-plan
-direct CR. If scope is unchanged, do not rerun it. Exhausted calls or unresolved/incomplete review stops
-non-clean.
+If a concrete changed-scope risk exists, non-terminal review may select one Terra/high event and at most
+one corrective replacement. The terminal phase skips post-phase review; finalization runs one
+Terra/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
+unresolved/incomplete review stops non-clean.
 During finalization, invoke the shared
 `.github/skills/autopilot/assets/design-note-compaction.md` protocol exactly once when the bundled
 `.github/skills/ci/scripts/Get-DesignNoteCompactionContext.ps1 -RepoRoot <canonical-repo-root>`

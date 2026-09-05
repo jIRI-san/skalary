@@ -19,11 +19,13 @@ Before drafting, follow
 choices and the absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an
 unobservable fuzzy requirement.
 
-Confirm current intent first. If a choice spans design and acceptance criteria, use one native combined
-design/requirements call; otherwise the orchestrator drafts it directly. A Judge is the normal second
-call. Use two delegated calls by default, five maximum including replacement, at most five supporting
-artifacts, and 600/1,200 prompt
-bounds. Use a direct risk-selected DR only for concrete unresolved design risk; no scheduler or fixed
+Confirm current intent first and draft directly with zero delegated calls. If a concrete unresolved
+choice spans design and acceptance criteria, use one combined Terra/high design-and-requirements call;
+Claude Sonnet 5 is its replacement fallback. Use Sol/high only for cross-subsystem work still unresolved
+after evidence-backed Terra work, and one Opus/high pass only for a named high-risk independent concern.
+No automatic Judge or unchanged-scope rerun exists: deterministic evidence is the normal judge. Every
+call, retry, and replacement counts toward a three-call ceiling; a fourth requires a new operator
+decision. Use a direct risk-selected DR only for concrete unresolved design risk; no scheduler or fixed
 matrix. For observable background calls, two no-progress checks permit one same-agent redirect and at
 most one replacement. Elapsed agent time never cancels work; declared deterministic command timeouts
 remain.

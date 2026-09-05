@@ -10,11 +10,13 @@ Resolve the selected plan and run installed sibling `DirectWorkflow.psm1`
 `Test-PlanCriteriaBaseline` before every mutation and completion resume. Refuse changed, uncommitted, or
 ambiguous intent, requirements, risks, or decisions with exit `42`; progress markers remain mutable.
 
-Execute the admitted step directly. Use an optional combined Designer/Validator and a Judge as the
-normal two calls; five calls is the hard task maximum including replacements. A fallback replaces a
-call. Attach at most five artifacts, target 600 words, and narrow before 1,200. Routine execution uses
-GPT-5.6 Luna with GPT-5 mini fallback, medium reasoning, and host-default context. Claude Opus 5 is
-reserved for the terminal or a stated concrete high-risk independent review.
+Execute the admitted step directly with zero delegated calls by default. Routine bounded work uses
+GPT-5.6 Luna with GPT-5 mini replacement fallback and medium reasoning. A concrete unresolved design or
+acceptance concern permits one combined Terra/high Designer/Validator with Claude Sonnet 5 fallback.
+Use Sol/high only for cross-subsystem work still unresolved after evidence-backed Terra work, and one
+Opus/high pass only for a named high-risk independent concern. No automatic Judge exists: deterministic
+evidence is the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a
+fourth requires a new operator decision. All models use host-default context.
 
 If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
 current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort

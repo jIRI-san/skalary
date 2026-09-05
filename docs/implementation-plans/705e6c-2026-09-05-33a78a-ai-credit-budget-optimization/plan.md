@@ -44,7 +44,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Cheap-first planning, implementation, and review
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Retune `/cep`, `/cip`, `/ci`, autopilot, CR, and DR to direct-work-first execution, one evidence-triggered combined delegate, a three-call ceiling, and the Luna/Terra/Sol/Opus escalation ladder with no automatic Judge (REQ-2, REQ-3, REQ-4, REQ-5, REQ-10, RISK-1, RISK-2, RISK-7, RISK-9) [after: 1.3] `L`
+- [x] 2.1 Retune `/cep`, `/cip`, `/ci`, autopilot, CR, and DR to direct-work-first execution, one evidence-triggered combined delegate, a three-call ceiling, and the Luna/Terra/Sol/Opus escalation ladder with no automatic Judge (REQ-2, REQ-3, REQ-4, REQ-5, REQ-10, RISK-1, RISK-2, RISK-7, RISK-9) [after: 1.3] `L`
 - [ ] 2.2 Reduce high-frequency `autopilot`, `cep`, `cip`, `ci`, `cr`, `dr`, and `si` entrypoints to at most 4 KiB, three supporting artifacts, a 400-word prompt target, and an 800-word cap by moving rare selected-path detail into installed assets (REQ-3, REQ-7, REQ-9, REQ-10, RISK-5, RISK-8) [after: 2.1] `M`
 - [ ] 2.3 Add focused consumer-contract, call-limit, escalation, prompt/artifact budget, skill-size, and unchanged-retained-guard fixtures (REQ-2, REQ-3, REQ-4, REQ-5, REQ-7, REQ-9, REQ-10, RISK-1, RISK-2, RISK-5, RISK-7, RISK-9) [after: 2.2] `S`
 
