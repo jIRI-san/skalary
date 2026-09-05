@@ -58,7 +58,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Atomic workflow activation
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Prepare every CR/DR, `/cep`, `/cip`, `/ci`, autopilot, direct-evidence, and historical-context consumer for the proven direct shapes while the old path remains active (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 1.3] `L`
+- [x] 2.1 Prepare every CR/DR, `/cep`, `/cip`, `/ci`, autopilot, direct-evidence, and historical-context consumer for the proven direct shapes while the old path remains active (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 1.3] `L`
 - [ ] 2.2 Activate the direct workflow across all consumers, remove the old producers/schemas/Fleet/generated concerns/receipts/repair paths and stale manifest/docs entries, then commit only after focused residue and installed-consumer checks pass (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-16, RISK-1, RISK-2, RISK-3, RISK-4, RISK-6, RISK-8, RISK-10) [after: 2.1] `L`
 
 ## Phase 3: Precise interaction and proportional review

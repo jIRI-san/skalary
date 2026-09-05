@@ -31,6 +31,10 @@ Plan `c21cdc` turns a review run into one versioned data artifact. It owns the s
 gate, the engine that freezes/publishes/reads a run, the shared CR/DR caller lifecycle, distributed
 consumer closure, and the structural/runtime evidence that keeps those installed copies truthful.
 
+The legacy lifecycle remains active through Step 2.1 of `367e9a`. Dormant CR/DR replacements live only
+under `plugins/{code-review,design-review}/skills/{cr,dr}/targets/direct/`; manifests, active skills,
+agents, and dogfood do not reference them. Step 2.2 performs the one-way switch and retirement.
+
 ## Artifacts and their schemas
 
 | Schema | Artifact | Written by |

@@ -411,6 +411,13 @@ Custom agent loaded by Copilot CLI. Implements the single-phase execution loop:
 4. Loop until phase complete → primary-only `/cr post-phase` review → push
 5. After all phases → primary + secondary `/cr plan-finalization` review over the whole branch
 
+The dormant replacement is
+`plugins/autopilot/agents/targets/direct/autopilot.agent.md`, paired with the dormant autopilot skill
+target. It prepares Git criteria-baseline admission, native two-call execution, direct evidence,
+progress-based recovery, risk-selected non-terminal review, one terminal review, and a bounded learning
+handoff. It is not in `plugin.json` or dogfood; current timeout, Fleet, receipt, and harvest behavior
+remains active until the atomic Step 2.2 replacement.
+
 The affected surface includes changed behavior plus direct consumers, generated artifacts, and architecture contracts that the edit can invalidate. Step loops, phase crosschecks, and final validation use configured focused commands with explicit affected scope. They never widen or retry automatically; a corrective change is required before repeating a failed check. Broad `-FullRepository` and premium Waza runs remain direct operator invocations and are never agent requirements. Validation is local and does not require a hosted workflow. The same cadence applies inside container autopilot because the same per-phase agent owns the boundary.
 
 CR is not dispatched after individual implementation steps. Post-phase dispatch uses only the

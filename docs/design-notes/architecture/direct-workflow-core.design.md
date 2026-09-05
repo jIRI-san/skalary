@@ -2,18 +2,21 @@
 description: Dormant direct review and plan-execution primitives staged before the simple workflow cutover.
 globs:
   - scripts/skalary/DirectWorkflow.psm1
-  - scripts/skalary/assets/direct-workflow-core.md
-  - tests/skalary/DirectWorkflow.Tests.ps1
+  - scripts/skalary/Get-DirectPlanArtifactConsumerContext.ps1
+  - scripts/skalary/assets/direct-workflow-*.md
+  - plugins/**/targets/direct/**
+  - tests/skalary/DirectWorkflow*.Tests.ps1
 ---
 
 # Direct workflow core
 
 ## Dormant boundary
 
-`DirectWorkflow.psm1` and `assets/direct-workflow-core.md` are the unactivated replacement core. No
-active CR, DR, CIP, CI, or autopilot skill imports them, and no plugin manifest distributes them. Phase
-2 owns the atomic consumer switch and retirement of review-run, receipt, Fleet, and repair machinery.
-Keeping the path dormant avoids a compatibility layer between old authority and direct advisory output.
+`DirectWorkflow.psm1`, the direct historical adapter, and every `targets/direct/` instruction are the
+unactivated replacement path. No active CR, DR, CEP, CIP, CI, or autopilot entry point imports or links
+them, no plugin manifest distributes them, and dogfood remains unchanged. Step 2.2 owns the atomic
+consumer switch and retirement of review-run, receipt, Fleet, and repair machinery. Keeping the path
+dormant avoids a compatibility layer between old authority and direct advisory output.
 
 ## Deterministic primitives
 
@@ -24,6 +27,7 @@ Keeping the path dormant avoids a compatibility layer between old authority and 
 | `Invoke-DirectEvidence` | Checks supplied test outcomes, current confined file assertions, and an active complete clean review result for the exact source and requested scope. It writes no receipt or state. |
 | `Resolve-DirectReviewStandards` | Parses the optional 16 KiB strict local Markdown file against caller-supplied hand-authored base rules. This path has no generated generic-standard JSON dependency. |
 | `ConvertTo-UntrustedReviewBlock` | Redacts high-confidence secrets and chooses a delimiter absent from the content before framing repository text as untrusted data. |
+| `Get-DirectPlanArtifactConsumerContext.ps1` | Reads at most five explicitly selected current Markdown artifacts through `PlanState` confinement, includes stable `phase-N.md`/`final.md` review files without receipts, screens secrets, and emits content once inside the direct untrusted frame. |
 
 The module contains only repository fact checks and safe writes. Native roles, call limits, recovery,
 review cadence, visible outcomes, and retained guard instructions stay readable in the dormant Markdown
@@ -37,6 +41,19 @@ hostile framing and secret publication guards; strict local standards; live dire
 native recovery, budget, and single-terminal-review scenarios. Reparse escape cases run when the host can
 create directory links. The policy scenarios deliberately remain fixtures over the readable native
 instructions rather than introducing scheduler state into the module.
+
+`DirectWorkflowConsumers.Tests.ps1` invokes the historical adapter and checks secret/budget behavior,
+the complete dormant target set, canonical closure map, and the negative invariant that active plugin
+entry points, manifests, and dogfood do not reference the target before Step 2.2.
+
+## Consumer preparation
+
+The seven canonical target files cover CR, DR, CEP, CIP, CI, the autopilot skill, and the autopilot
+agent. They encode risk-selected direct review, the approved model/call/context budgets, native
+design/judge roles, evidence-based stuck recovery, Git criteria protection, direct evidence, one
+terminal review, bounded learning handoff, and closed visible outcomes. They are intentionally outside
+plugin manifests. `assets/direct-workflow-activation.md` is the exact replacement, closure,
+manifest/registry, and delayed dogfood checklist for Step 2.2; it is not a runtime flag.
 
 ## Direct report contract
 
