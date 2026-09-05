@@ -1,6 +1,6 @@
 # 623cc2: Simple plugin lifecycle
 <!-- plan-id: 623cc2 -->
-<!-- depends-on: 2aa7ec -->
+<!-- depends-on: 2aa7ec, 33a78a -->
 <!-- cip-stage: scaffolded -->
 <!-- planning-confirmed: pending -->
 <!-- epic: 705e6c -->

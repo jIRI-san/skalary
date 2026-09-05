@@ -6,6 +6,8 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 
 - Epic `705e6c`: `docs/implementation-plans/epics/2026-09-03-705e6c-local-first-repository-simplification/epic.md`
 - Depends on `367e9a`, which owns and delivers the bounded fenced recent-learning artifact.
+- Depends on `33a78a` for the final AI-credit budget, default-context rule, and model escalation
+  policy used by the simplified SI flow.
 - Also consumes the informed-choice, direct-script, focused-test, and cost-budget conventions from
   transitive dependency `2aa7ec`.
 - Transferred rows are enumerated in

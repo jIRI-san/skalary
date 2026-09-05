@@ -1,6 +1,6 @@
 # 3a4498: Simple self-improvement
 <!-- plan-id: 3a4498 -->
-<!-- depends-on: 367e9a -->
+<!-- depends-on: 367e9a, 33a78a -->
 <!-- cip-stage: scaffolded -->
 <!-- planning-confirmed: pending -->
 <!-- epic: 705e6c -->

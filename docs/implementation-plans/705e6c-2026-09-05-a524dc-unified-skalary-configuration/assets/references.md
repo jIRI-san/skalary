@@ -4,6 +4,7 @@
 
 - Epic `705e6c`: `docs/implementation-plans/epics/2026-09-03-705e6c-local-first-repository-simplification/epic.md`
 - Depends on `367e9a` for final review/model/autopilot configuration.
+- Depends on `33a78a` for the final default-context, model-routing, and AI-credit guidance surfaces.
 - Depends on `3a4498` for final SI/PFB surfaces and runtime-state exclusions.
 - Depends on `623cc2` for final manifest/catalog/lifecycle synchronization.
 

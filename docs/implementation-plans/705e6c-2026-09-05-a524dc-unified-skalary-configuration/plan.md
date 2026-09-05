@@ -1,6 +1,6 @@
 # a524dc: Unified Skalary configuration
 <!-- plan-id: a524dc -->
-<!-- depends-on: 367e9a, 3a4498, 623cc2 -->
+<!-- depends-on: 367e9a, 33a78a, 3a4498, 623cc2 -->
 <!-- cip-stage: scaffolded -->
 <!-- planning-confirmed: pending -->
 <!-- epic: 705e6c -->
