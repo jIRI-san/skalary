@@ -3,6 +3,7 @@ description: Dormant direct review and plan-execution primitives staged before t
 globs:
   - scripts/skalary/DirectWorkflow.psm1
   - scripts/skalary/assets/direct-workflow-core.md
+  - tests/skalary/DirectWorkflow.Tests.ps1
 ---
 
 # Direct workflow core
@@ -27,6 +28,15 @@ Keeping the path dormant avoids a compatibility layer between old authority and 
 The module contains only repository fact checks and safe writes. Native roles, call limits, recovery,
 review cadence, visible outcomes, and retained guard instructions stay readable in the dormant Markdown
 asset rather than becoming a scheduler or policy engine.
+
+## Focused proof
+
+`DirectWorkflow.Tests.ps1` invokes every exported primitive against isolated Git repositories. It covers
+the four-file confirmation baseline and mutable plan progress; confined phase/final report replacement;
+hostile framing and secret publication guards; strict local standards; live direct evidence; and closed
+native recovery, budget, and single-terminal-review scenarios. Reparse escape cases run when the host can
+create directory links. The policy scenarios deliberately remain fixtures over the readable native
+instructions rather than introducing scheduler state into the module.
 
 ## Direct report contract
 

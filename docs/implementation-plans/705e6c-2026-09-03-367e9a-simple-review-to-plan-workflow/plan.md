@@ -53,7 +53,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
   </details>
 - [x] 1.2 Build the dormant direct report, Git criteria-baseline, native role/stuck-recovery, direct evidence, local review-standards, and retained review-guard paths beside the active workflow (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, RISK-2, RISK-3, RISK-4, RISK-6, RISK-10) [after: 1.1] `L`
-- [ ] 1.3 Prove the dormant core with focused report-shape, path-confinement, hostile-content, secret-redaction, four-file criteria mutation, stuck-recovery, budget-exhaustion, direct-evidence, and terminal-review fixtures (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, RISK-2, RISK-3, RISK-4, RISK-6, RISK-7, RISK-10) [after: 1.2] `S`
+- [x] 1.3 Prove the dormant core with focused report-shape, path-confinement, hostile-content, secret-redaction, four-file criteria mutation, stuck-recovery, budget-exhaustion, direct-evidence, and terminal-review fixtures (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, RISK-2, RISK-3, RISK-4, RISK-6, RISK-7, RISK-10) [after: 1.2] `S`
 
 ## Phase 2: Atomic workflow activation
 <!-- worktree: (recorded by /ci when worktree is created) -->
