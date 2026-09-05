@@ -8,6 +8,10 @@ globs:
 
 # Plan workflow
 
+The human tutorial is [`docs/operator-guide/README.md`](../../operator-guide/README.md). That guide is
+not auto-loaded as a design note and `docs/operator-guide/**` never triggers or participates in
+design-note compaction; this note and the active skills remain the implementation guidance.
+
 ## Planning
 
 `/cep` keeps epics as indexes of sibling plans. `/cip` confirms current intent, requirements, risks,

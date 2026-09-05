@@ -14,6 +14,10 @@ globs:
 implementation guidance and `docs/architecture-notes/.architecture-notes.md` for higher-level
 contracts. The two-index cost is deliberate. Load only matched notes after each index.
 
+Human workflow documentation starts at
+[`docs/operator-guide/README.md`](../../operator-guide/README.md). It is deliberately absent from both
+auto-loaded indexes and excluded from design-note compaction.
+
 ## Active workflow surfaces
 
 | Surface | Responsibility |

@@ -21,6 +21,9 @@ Before running the one-liner:
 
 ## Usage
 
+For the human workflow from planning through implementation and review, start with the
+[operator guide](docs/operator-guide/README.md).
+
 Install a plugin (dependencies are resolved and installed automatically):
 
 ```powershell
