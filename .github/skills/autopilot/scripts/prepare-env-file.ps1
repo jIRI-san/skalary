@@ -74,6 +74,7 @@ $envContent = @(
     "COPILOT_ALLOW_ALL=true"
     "AUTOPILOT_CONTAINER=true"
     "COPILOT_MODEL=$($Config.model)"
+    "COPILOT_CONTEXT=$($Config.context)"
     "COPILOT_REASONING_EFFORT=$($Config.reasoningEffort)"
     "GIT_USER_NAME=$($Config.git.name)"
     "GIT_USER_EMAIL=$($Config.git.email)"

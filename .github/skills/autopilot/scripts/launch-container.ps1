@@ -57,6 +57,15 @@ $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
 $ContainerName = Get-AutopilotContainerName -Run $Run
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 $TranscriptsDir = Join-Path $PlanFolder 'transcripts'
+$planContent = Get-Content -LiteralPath (Join-Path $PlanFolder 'plan.md') -Raw
+$phaseNumbers = @(
+    [regex]::Matches($planContent, '## Phase (\d+)') |
+        ForEach-Object { [int]$_.Groups[1].Value }
+)
+$UsageStagingDir = Join-Path ([System.IO.Path]::GetTempPath()) (
+    "autopilot-usage-$([guid]::NewGuid().ToString('N'))"
+)
+[void](New-Item -ItemType Directory -Path $UsageStagingDir)
 $EnvFilePath = $null
 # Default to failure so any early throw or unread exit code surfaces as non-zero.
 $exitCode = 1
@@ -164,12 +173,24 @@ try {
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     # Copy all transcript files (ignore errors for missing files)
-    for ($i = 1; $i -le 10; $i++) {
+    foreach ($i in $phaseNumbers) {
         docker cp "${ContainerName}:/work/session-transcript-phase${i}.md" $TranscriptsDir 2>$null
         docker cp "${ContainerName}:/work/session-transcript-phase${i}-completion.md" $TranscriptsDir 2>$null
     }
     docker cp "${ContainerName}:/work/session-transcript-completion.md" $TranscriptsDir 2>$null
     $ErrorActionPreference = $prevEAP
+
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    docker cp "${ContainerName}:/tmp/autopilot-usage/." $UsageStagingDir 2>$null
+    $usageCopyExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    if ($usageCopyExit -ne 0) {
+        if ($exitCode -eq 0) {
+            throw "Container completed but AI-credit usage extraction failed; retaining '$ContainerName'."
+        }
+        Write-Warning "AI-credit usage extraction failed after container exit $exitCode; retaining '$ContainerName'."
+    }
 
     # --- Cleanup container ---
     $preservationMarker = Join-Path ([System.IO.Path]::GetTempPath()) (
@@ -179,14 +200,36 @@ try {
     docker cp "${ContainerName}:/tmp/autopilot-preservation-failed" $preservationMarker 2>$null
     $preservationFailed = Test-Path -LiteralPath $preservationMarker -PathType Leaf
     Remove-Item -LiteralPath $preservationMarker -Force -ErrorAction SilentlyContinue
-    if ($preservationFailed) {
-        Write-Warning "Retaining container '$ContainerName' because work preservation failed."
+    if ($preservationFailed -or $usageCopyExit -ne 0) {
+        Write-Warning "Retaining container '$ContainerName' because recovery data was not fully preserved."
     }
     else {
         Write-Host "Removing container: $ContainerName"
         docker rm $ContainerName 2>$null
     }
     $ErrorActionPreference = $prevEAP
+
+    try {
+        foreach ($usageFile in @(Get-ChildItem -LiteralPath $UsageStagingDir -Filter 'session-usage-*.json')) {
+            $target = $usageFile.BaseName.Substring('session-usage-'.Length)
+            $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
+                -PlanFolder $PlanFolder `
+                -UsagePath $usageFile.FullName `
+                -Target $target `
+                -Runtime container `
+                -ModelAlias $Config.modelAlias `
+                -ContextTier $Config.context
+            Remove-Item -LiteralPath $usageFile.FullName -Force
+            Write-Host "AI credits recorded: $($ledger.totalAiCredits) plan total."
+        }
+    }
+    catch {
+        if ($exitCode -eq 0) {
+            throw "AI-credit recording failed; usage sidecars retained at '$UsageStagingDir': $_"
+        }
+        Write-Warning "AI-credit recording failed after container exit ${exitCode}: $_"
+        Write-Warning "Usage sidecars retained at: $UsageStagingDir"
+    }
 
     Write-Host ""
     Write-Host "=== Container-mode execution complete ==="
@@ -204,6 +247,10 @@ finally {
         Remove-Item $EnvFilePath -Force -ErrorAction SilentlyContinue
         Remove-Item $envDir -Force -ErrorAction SilentlyContinue
         Write-Host "Env file cleaned up."
+    }
+    if ((Test-Path -LiteralPath $UsageStagingDir -PathType Container) -and
+        @(Get-ChildItem -LiteralPath $UsageStagingDir -Force).Count -eq 0) {
+        Remove-Item -LiteralPath $UsageStagingDir -Force
     }
 }
 

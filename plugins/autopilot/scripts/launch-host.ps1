@@ -148,7 +148,10 @@ function Invoke-CopilotPhase {
         [string]$CopilotType,
         [string[]]$ExtraArgs,
         [string]$Model,
+        [string]$ContextTier,
         [string]$ReasoningEffort,
+        [string]$ModelAlias,
+        [string]$LedgerPlanFolder,
 
         [switch]$Finalization
     )
@@ -158,6 +161,14 @@ function Invoke-CopilotPhase {
     } else {
         "session-transcript-phase$PhaseNumber.md"
     }
+    $usageName = if ($Finalization) {
+        'session-usage-finalization.json'
+    } else {
+        "session-usage-phase-$PhaseNumber.json"
+    }
+    $usagePath = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "autopilot-$([guid]::NewGuid().ToString('N'))-$usageName"
+    )
     $prompt = if ($Finalization) {
         "Finalize completed plan $PlanRelPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
     } else {
@@ -179,9 +190,13 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
+            '--context',
+            (ConvertTo-CmdQuotedToken -Token $ContextTier),
             '--effort',
             (ConvertTo-CmdQuotedToken -Token $ReasoningEffort),
-            (ConvertTo-CmdQuotedToken -Token "--share=./$transcriptName")
+            (ConvertTo-CmdQuotedToken -Token "--share=./$transcriptName"),
+            '--usage-output-file',
+            (ConvertTo-CmdQuotedToken -Token $usagePath)
         )
         foreach ($arg in $ExtraArgs) {
             $cmdTokens += ConvertTo-CmdQuotedToken -Token $arg
@@ -206,9 +221,13 @@ function Invoke-CopilotPhase {
             'autopilot',
             '--no-ask-user',
             '--allow-all',
+            '--context',
+            (ConvertTo-PowerShellQuotedToken -Token $ContextTier),
             '--effort',
             (ConvertTo-PowerShellQuotedToken -Token $ReasoningEffort),
-            (ConvertTo-PowerShellQuotedToken -Token "--share=./$transcriptName")
+            (ConvertTo-PowerShellQuotedToken -Token "--share=./$transcriptName"),
+            '--usage-output-file',
+            (ConvertTo-PowerShellQuotedToken -Token $usagePath)
         )
         foreach ($arg in $ExtraArgs) {
             $pwshTokens += ConvertTo-PowerShellQuotedToken -Token $arg
@@ -225,9 +244,13 @@ function Invoke-CopilotPhase {
         $psi.ArgumentList.Add('autopilot')
         $psi.ArgumentList.Add('--no-ask-user')
         $psi.ArgumentList.Add('--allow-all')
+        $psi.ArgumentList.Add('--context')
+        $psi.ArgumentList.Add($ContextTier)
         $psi.ArgumentList.Add('--effort')
         $psi.ArgumentList.Add($ReasoningEffort)
         $psi.ArgumentList.Add("--share=./$transcriptName")
+        $psi.ArgumentList.Add('--usage-output-file')
+        $psi.ArgumentList.Add($usagePath)
         foreach ($arg in $ExtraArgs) {
             $psi.ArgumentList.Add($arg)
         }
@@ -268,13 +291,37 @@ function Invoke-CopilotPhase {
     $process.WaitForExit()
     Get-EventSubscriber | Where-Object SourceObject -eq $process | Unregister-Event
 
-    return @{ ExitCode = $process.ExitCode }
+    $copilotExitCode = $process.ExitCode
+    $target = if ($Finalization) { 'finalization' } else { "phase-$PhaseNumber" }
+    try {
+        $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
+            -PlanFolder $LedgerPlanFolder `
+            -UsagePath $usagePath `
+            -Target $target `
+            -Runtime host `
+            -ModelAlias $ModelAlias `
+            -ContextTier $ContextTier
+        Remove-Item -LiteralPath $usagePath -Force
+        Write-Host "AI credits recorded: $($ledger.totalAiCredits) plan total."
+    }
+    catch {
+        if ($copilotExitCode -eq 0) {
+            throw
+        }
+        Write-Warning "AI-credit recording failed after Copilot exit ${copilotExitCode}: $_"
+        if (Test-Path -LiteralPath $usagePath -PathType Leaf) {
+            Write-Warning "Usage sidecar retained at: $usagePath"
+        }
+    }
+
+    return @{ ExitCode = $copilotExitCode }
 }
 
 # --- Main execution ---
 $hostCommand = Resolve-HostCommand
 Write-Host "Using Copilot launcher: $($hostCommand.Path) [$($hostCommand.Type)]"
 $phaseStateScript = Join-Path $PSScriptRoot 'Get-PhaseExecutionState.ps1'
+$ledgerPlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 
 $phasesExecuted = 0
 $executionExitCode = 0
@@ -303,7 +350,10 @@ foreach ($phase in $phaseNumbers) {
         -CopilotType $hostCommand.Type `
         -ExtraArgs $hostCommand.ExtraArgs `
         -Model $Config.model `
-        -ReasoningEffort $Config.reasoningEffort
+        -ContextTier $Config.context `
+        -ReasoningEffort $Config.reasoningEffort `
+        -ModelAlias $Config.modelAlias `
+        -LedgerPlanFolder $ledgerPlanFolder
 
     $phasesExecuted++
 
@@ -361,7 +411,8 @@ if ($executionExitCode -eq 0 -and $Mode -eq 'whole-plan') {
             -CopilotToken $Token -Cwd $WorktreePath -PlanRelPath $PlanPath `
             -CopilotPath $hostCommand.Path -CopilotType $hostCommand.Type `
             -ExtraArgs $hostCommand.ExtraArgs -Model $Config.model `
-            -ReasoningEffort $Config.reasoningEffort
+            -ContextTier $Config.context -ReasoningEffort $Config.reasoningEffort `
+            -ModelAlias $Config.modelAlias -LedgerPlanFolder $ledgerPlanFolder
         if ($result.ExitCode -eq 42) {
             Write-Host '@human step encountered during plan finalization. Stopping.'
             $executionExitCode = 42

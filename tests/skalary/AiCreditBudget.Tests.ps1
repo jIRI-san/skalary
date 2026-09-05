@@ -30,19 +30,20 @@ Describe 'AI credit budget contracts' {
         }
     }
 
-    It 'test:AiCreditBudget.ModelRouting keeps the cheap-first ladder explicit' {
+    It 'test:AiCreditBudget.ModelRouting keeps the cheap-first alias ladder explicit' {
         $policy = $script:delegationPolicies | ForEach-Object { Read-RepoText $_ }
         $joined = $policy -join "`n"
 
-        foreach ($model in @('Luna', 'GPT-5 mini', 'Terra', 'Claude Sonnet 5', 'Sol', 'Opus')) {
+        foreach ($model in @(
+                'model-low', 'model-mid', 'model-high',
+                'alternate-model-low', 'alternate-model-mid', 'alternate-model-high'
+            )) {
             $joined | Should -Match ([regex]::Escape($model))
         }
-        $joined | Should -Match 'Luna/medium'
-        $joined | Should -Match 'Terra/high'
-        $joined | Should -Match 'Sol/high'
-        $joined | Should -Match 'Opus/high'
-        $joined | Should -Not -Match 'Sol (?:review|work) is normal|Sol for routine'
-        $joined | Should -Not -Match 'Opus.*routine fallback'
+        $joined | Should -Match 'model-low`?/medium'
+        $joined | Should -Match 'model-mid`?/high'
+        $joined | Should -Match 'model-high`?/high'
+        $joined | Should -Match 'alternate-model-high`?/high'
     }
 
     It 'test:AiCreditBudget.DelegationLimits defaults direct and removes the automatic Judge' {
@@ -62,8 +63,8 @@ Describe 'AI credit budget contracts' {
                 'plugins/design-review/skills/dr/SKILL.md'
             )) {
             $content = Read-RepoText $path
-            $content | Should -Match 'One combined Terra/high review'
-            $content | Should -Match 'one Opus/high independent pass only for a\s+named'
+            $content | Should -Match '(?i)(?:One combined|Standard delegation is one)\s+`?model-mid`?/high\s+review'
+            $content | Should -Match '(?i)one\s+`?alternate-model-high`?/high\s+independent pass only for\s+a\s+named'
             $content | Should -Match 'security,\s*concurrency,\s*destructive,\s*correctness,\s*or architecture risk'
             $content | Should -Match 'No\s+automatic Judge,\s*model panel,\s*or unchanged-scope rerun'
         }

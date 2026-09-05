@@ -127,6 +127,14 @@ catch {
 }
 
 Write-Host '== Validating agent model declarations =='
+$modelBindingSync = Join-Path $repoRoot 'scripts/skalary/Sync-ModelBindings.ps1'
+try {
+    & $modelBindingSync -RepoRoot $repoRoot -Check *> $null
+    Write-Host '  Generated model bindings match the canonical alias map.'
+}
+catch {
+    $errors.Add("Model binding drift: $($_.Exception.Message)")
+}
 $modelAllowlistGate = Join-Path $repoRoot 'scripts/skalary/Test-ModelAllowlist.ps1'
 & $modelAllowlistGate -RepoRoot $repoRoot | Out-Null
 if ($LASTEXITCODE -ne 0) {

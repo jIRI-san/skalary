@@ -34,6 +34,8 @@ Autonomous mode validates or creates host-local `.autopilot.json`, accepts an op
 [configuration schema](../../plugins/autopilot/schemas/autopilot.schema.json) covers auth, Git provider,
 model/effort, build/test commands, and optional offline packages. Runtime isolation, branch,
 auth, explicit push/staging, and offline rebundle behavior remain launcher responsibilities.
+Each Copilot target records the exact CLI-reported usage in the plan's
+`assets/ai-credits.json`; the plan total is stored there and epic usage is the sum of child-plan ledgers.
 
 ## Admission and criteria baseline
 
@@ -81,13 +83,14 @@ flowchart TD
 ## Native work, progress, and recovery
 
 The orchestrator performs ordinary implementation directly with no delegated call. Routine bounded work
-uses Luna/medium with GPT-5 mini as a replacement. Use one Terra/high Designer/Validator with Claude
-Sonnet 5 as a replacement only for an unresolved choice spanning design and acceptance criteria. Use
-Sol/high only for cross-subsystem work still unresolved after Terra evidence, and one Opus/high pass only
-for a named independent high-risk concern. Deterministic evidence is the normal Judge. Every call,
+uses `model-low`/medium with `alternate-model-low` as replacement. Use one `model-mid`/high
+Designer/Validator with `alternate-model-mid` as replacement only for an unresolved design/acceptance
+choice. Use `model-high`/high only after unresolved standard evidence, and one
+`alternate-model-high`/high pass only for a named independent high-risk concern. Deterministic evidence
+is the normal Judge. Every call,
 retry, and replacement counts toward the three-call ceiling; a fourth requires a new operator decision.
-Use host-default context, at most three supporting artifacts, a 400-word prompt target, and an 800-word
-hard cap.
+Committed routing uses `default` context. `long_context` is operator opt-in for work that cannot be
+decomposed safely. Use at most three supporting artifacts, a 400-word prompt target, and an 800-word cap.
 
 For observable background work, meaningful progress is new tool output, a file or commit change, a
 completed subtask, or a materially new blocker. After two checks show no progress:

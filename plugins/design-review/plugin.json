@@ -1,6 +1,6 @@
 {
   "name": "design-review",
-  "version": "1.0.77",
+  "version": "1.0.78",
   "description": "Risk-selected design review with direct advisory Markdown.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -14,6 +14,7 @@
   "files": [
     { "src": "prompts/dr.prompt.md", "dest": "prompts/dr.prompt.md" },
     { "src": "skills/dr/SKILL.md", "dest": "skills/dr/SKILL.md" },
+    { "src": "skills/dr/assets/model-aliases.psd1", "dest": "skills/dr/assets/model-aliases.psd1" },
     { "src": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1", "dest": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1" },
     { "src": "skills/dr/scripts/DirectWorkflow.psm1", "dest": "skills/dr/scripts/DirectWorkflow.psm1" },
     { "src": "skills/dr/scripts/PlanState.psm1", "dest": "skills/dr/scripts/PlanState.psm1" },

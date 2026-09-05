@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T16:30:45.1732314Z",
+  "generatedAt": "2026-09-05T18:23:08.8327531Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -151,7 +151,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "32d59d12c68e0bd05a3d7313574504ef0d332c8b752e245d1dd6c4af52c697d8",
+          "sha256": "ec62371e0f7c3d5d4d50d322dc142b668057252e8ec21fb35862e9190f3d5b8e",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -161,18 +161,23 @@
         },
         {
           "dest": "skills/autopilot/.autopilot.json.example",
-          "sha256": "635c53f83b31fa90b46160cc71e25a616a8d3601b7736abec04edad32f2a429e",
+          "sha256": "8b00c1ee1ab3499c47dcb41097ec44217d5327f81e9863bb902dacff9418685a",
           "src": ".autopilot.json.example"
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "6838496f76ef9a16123b28e6dd3bc948a143c8b9b2693f338ea8384c5b326497",
+          "sha256": "55540427009903e46f9af51e422b23e072dc95a314415ac7a4448567ac1fb2f3",
           "src": "skills/autopilot/SKILL.md"
         },
         {
           "dest": "skills/autopilot/assets/design-note-compaction.md",
           "sha256": "923e91567f70bed9608b0a202586ba910f01f0905838bb7f9f4ef05633889b52",
           "src": "skills/autopilot/assets/design-note-compaction.md"
+        },
+        {
+          "dest": "skills/autopilot/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/autopilot/assets/model-aliases.psd1"
         },
         {
           "dest": "skills/autopilot/devcontainer/Dockerfile",
@@ -201,7 +206,7 @@
         },
         {
           "dest": "skills/autopilot/schemas/autopilot.schema.json",
-          "sha256": "fa658c6a402717561674d5c5a0938d88f8adaef108fb79f4de6db5098c5abfb4",
+          "sha256": "c50e1ad926bf4281ca5a0c71d95f4c60e52a20b3b69695e806e1963faa35bc37",
           "src": "schemas/autopilot.schema.json"
         },
         {
@@ -250,6 +255,11 @@
           "src": "skills/autopilot/scripts/PlanState.psm1"
         },
         {
+          "dest": "skills/autopilot/scripts/Record-AiCreditUsage.ps1",
+          "sha256": "9d617e54ea47b49b4b2264fa31b0b1f943c5d288c5ecba13e36757cd9245a7d7",
+          "src": "scripts/Record-AiCreditUsage.ps1"
+        },
+        {
           "dest": "skills/autopilot/scripts/SecretGuard.psm1",
           "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "skills/autopilot/scripts/SecretGuard.psm1"
@@ -276,7 +286,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "dd600ea8a8afa5910224d60f320e8c058c0a38f2eee5587a616009a79f1d2359",
+          "sha256": "8e092295093145676afdd743069913bcddad13f605eb3f1a530b362d4761c24b",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -291,22 +301,22 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "1464c97c340bb307ec398aafecd57edc5f898921b6e24801047c1af93f8dd2f8",
+          "sha256": "afc23c617c8928f6868eda6c524a72a2672a561fea77e907a3cea06bae0ec9e8",
           "src": "scripts/launch-container.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "9b3ac973917bf051f470de4ffa0bf526075ca7fdd4227b6181d743f747d9e679",
+          "sha256": "9d8437ae64269d50a0c97b830338d3ea729e4ee972388a4bc4e04a678d984d14",
           "src": "scripts/launch-host.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "06804359808fbba78c49e105278b1f82a08c6278daf0946ab62e90239f7d89a0",
+          "sha256": "b6ee1f58ee4b235655568c99e3d55d39c3ce37e049e047787e1daecf48956570",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "502369c3d219cf9b8494705750d8286760069cf2c085d3d4829bc8a8ad3503ff",
+          "sha256": "f0ee1196bd77945fd46d13f0a7dce6b5b410217db6eb0e2789727c77f203d15d",
           "src": "scripts/launch.ps1"
         },
         {
@@ -316,7 +326,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
-          "sha256": "5b115a1e0d253bfd24dfd50a84fe988f165edb5efabc87ff0abc9bb42f9f035f",
+          "sha256": "3396e7eb38e699ac5a6f66bbb7beabcb1391489852e4d54c55e52c80bb8af7a9",
           "src": "scripts/prepare-env-file.ps1"
         },
         {
@@ -347,7 +357,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.12"
+      "version": "1.3.13"
     },
     {
       "author": "jIRI-san",
@@ -374,8 +384,13 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "2e0a2f5359dde2b7ff90f1986dbae6245897b72b90f890d30d7c8861f6a6dbc4",
+          "sha256": "979700bbbe182fec66bfd8df3fb98b2eae710290537b42672b732b5a153a6aff",
           "src": "skills/cr/SKILL.md"
+        },
+        {
+          "dest": "skills/cr/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/cr/assets/model-aliases.psd1"
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
@@ -406,7 +421,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.78"
+      "version": "1.0.79"
     },
     {
       "author": "jIRI-san",
@@ -422,8 +437,13 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "332288172c37739c90fbc8a3f89f3862afb9325d37a180cbd91c43d217c6da61",
+          "sha256": "a33fcf7fca7cfc7c5905ec19437c8e47b945b63ed36f0062b2628381f255cf8e",
           "src": "skills/ci/SKILL.md"
+        },
+        {
+          "dest": "skills/ci/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/ci/assets/model-aliases.psd1"
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
@@ -469,7 +489,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.114"
+      "version": "1.0.115"
     },
     {
       "author": "jIRI-san",
@@ -483,7 +503,7 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "5fd568684b5bbb179b7eb7aa684af0ee88176e8dfc9479257a260c175eca73ee",
+          "sha256": "a84ed4598709b86691d6609e1b7170a134940f49c722ddd2e9e5e2bc72be9145",
           "src": "skills/cep/SKILL.md"
         },
         {
@@ -492,8 +512,13 @@
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
+          "dest": "skills/cep/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/cip/assets/model-aliases.psd1"
+        },
+        {
           "dest": "skills/cep/assets/plan-template.md",
-          "sha256": "2c5959e3b7fc93276a701cd71b71c52ff4da8bb936610a69bbe00fa8e404e369",
+          "sha256": "e2b2b59eed4b7c0e08d72c625d96d38c6312befa62a457f3056a50d7ced05cdf",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -548,7 +573,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "4df547a772b95849d97ce5c379df9e183c1bcf91266679e6123d258b21b94b3d",
+          "sha256": "3a3baf66ab0c9e20837c09b8bdae4a6b0b3280579c9a61dfa4f3fce54fecaa16",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -557,8 +582,13 @@
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
+          "dest": "skills/cip/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/cip/assets/model-aliases.psd1"
+        },
+        {
           "dest": "skills/cip/assets/plan-template.md",
-          "sha256": "2c5959e3b7fc93276a701cd71b71c52ff4da8bb936610a69bbe00fa8e404e369",
+          "sha256": "e2b2b59eed4b7c0e08d72c625d96d38c6312befa62a457f3056a50d7ced05cdf",
           "src": "skills/cip/assets/plan-template.md"
         },
         {
@@ -630,7 +660,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.97"
+      "version": "1.0.98"
     },
     {
       "author": "jIRI-san",
@@ -727,8 +757,13 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "44b954e87f73a42382a8f0786002d4482e948f42dd5769dcfcedab510bb23b4c",
+          "sha256": "dac0469dc3bd6af8cc114804d6001fab9e9f000985b7fdd2f501a3c6e1f1e6a1",
           "src": "skills/dr/SKILL.md"
+        },
+        {
+          "dest": "skills/dr/assets/model-aliases.psd1",
+          "sha256": "90f975ceb399667ed16cb88ddb29ebb5a54434f2364278b91e5891ef88c5dab7",
+          "src": "skills/dr/assets/model-aliases.psd1"
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
@@ -759,7 +794,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.77"
+      "version": "1.0.78"
     },
     {
       "author": "jIRI-san",

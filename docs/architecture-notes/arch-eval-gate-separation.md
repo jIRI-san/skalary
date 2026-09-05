@@ -26,8 +26,9 @@ zero-cost; the premium, auth-dependent LLM route is direct, explicit, and plugin
   `-FullRepository` is the direct operator route and checks exact required-case execution from
   the literal list in `tools/structural-eval-required.md`.
 - Tier-2 requires direct `Invoke-WazaEvals.ps1 -Plugin`, validates scope before provisioning or
-  output, requires auth, and incurs premium cost. Skill execution uses Luna; deterministic tasks use no
-  prompt judge, while subjective tasks may use one Terra prompt judge.
+  output, requires auth, and incurs premium cost. Skill execution uses `model-low`; deterministic tasks
+  use no prompt judge, while subjective tasks may use one `model-mid` prompt judge. Waza's concrete
+  slugs are generated from the canonical alias map.
 - A Tier-2 run that executed zero evals is a distinct non-green outcome, not a silent pass.
 - Model availability is checked without agent execution through
   `Probe-GhEntitlement.ps1 -SkipTask -NonInteractive`; a live premium smoke is never completion evidence.

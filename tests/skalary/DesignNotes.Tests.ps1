@@ -10,7 +10,6 @@ Describe 'design-notes index integrity' {
         $script:archIndexPath = Join-Path $script:repoRoot 'docs/architecture-notes/.architecture-notes.md'
         $script:copilotInstructions = Join-Path $script:repoRoot '.github/copilot-instructions.md'
         $script:archNotesDoc = Join-Path $script:repoRoot 'docs/design-notes/architecture/architecture-notes.design.md'
-        $script:allowlist = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/model-allowlist.psd1')
     }
 
     It 'DesignNotes-IndexRowsPresent: architecture notes remain indexed and both indexes auto-load' {

@@ -19,9 +19,9 @@ synchronization and focused validators. Direct subsystem configuration remains u
 
 - Autopilot, models/reviews, local review standards, terminal approvals, evals, note scaffolds, and
   advanced plugin/toolchain policy are discoverable from one skill.
-- The complete `33a78a` model ladder is one first-class configuration category: routine, standard,
-  deep, and independent primary models; replacement fallbacks; reasoning effort; default-context-only
-  policy; autopilot default; CR/DR routing; and waza executor/judge assignments.
+- The model ladder is one first-class configuration category: six stable low/mid/high primary and
+  alternate aliases, host bindings, role assignments, reasoning effort, default-first context with
+  explicit long-context opt-in, autopilot default, CR/DR routing, and waza executor/judge assignments.
 - Model configuration shows the 180K operating budget and 20K reserve, current canonical sources,
   effective values, and every generated/dogfood consumer before proposing a change.
 - Missing optional configuration is created only when the operator selects that surface.
@@ -34,13 +34,13 @@ synchronization and focused validators. Direct subsystem configuration remains u
   excluded or explicitly read-only.
 - Focused tests cover discovery, precedence, bootstrap, diff-before-write, cancellation, apply,
   reset, source synchronization, secret refusal, executable-setting confirmation, invalid models,
-  invalid role/fallback combinations, and refusal of retired long context.
+  invalid role/fallback combinations, default context, and explicit long-context opt-in.
 
 ## Non-goals
 
 - Replacing subsystem-owned configuration formats or validators.
-- Creating a central configuration file, database, schema, receipt, migration service, or compatibility
-  layer.
+- Creating a general central configuration file, database, receipt, migration service, or compatibility
+  layer. The existing canonical model alias map is an accepted narrow exception.
 - Managing credentials, tokens, plan-local markers, SI/review runtime state, architecture lock promotion,
   or GitHub workflows.
 - Making every implementation constant operator-configurable.
@@ -52,5 +52,5 @@ synchronization and focused validators. Direct subsystem configuration remains u
   and per-key `reset` flows across the accepted categories; its catalog matches the final repository;
   all mutations are canonical, confirmed, synchronized, focused-validated, and reversible from the
   shown diff; excluded surfaces remain untouched; and uninstalling the skill leaves every subsystem
-  directly configurable. Every model assignment delivered by `33a78a` is visible and changeable through
-  the model category without introducing a central model-policy file.
+  directly configurable. Every alias, host binding, role assignment, and context default is visible and
+  changeable through the model category via the canonical model map and existing synchronizers.

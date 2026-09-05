@@ -9,9 +9,10 @@ globs:
 # Direct review reporting
 
 CR/DR select concerns from concrete scope risk and perform direct evidence work first. One combined
-GPT-5.6 Terra call is the ordinary delegated review, with Claude Sonnet 5 as its replacement. GPT-5.6
-Sol is reserved for cross-subsystem diagnosis unresolved after Terra evidence. Claude Opus 5 adds one
-independent pass only for a named high-risk path, with Claude Sonnet 5 as its replacement. Direct work
+`model-mid` call is the ordinary delegated review, with `alternate-model-mid` as its replacement.
+`model-high` is reserved for cross-subsystem diagnosis unresolved after standard evidence.
+`alternate-model-high` adds one independent pass only for a named high-risk path, with
+`alternate-model-mid` as its replacement. Direct work
 uses zero calls; one unresolved concern normally uses one; three is the ceiling including retries and
 replacements, and a fourth requires a new operator decision.
 

@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.114",
+  "version": "1.0.115",
   "description": "Direct plan implementation workflow with Git criteria protection.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -17,6 +17,7 @@
   "status": "stable",
   "files": [
     { "src": "skills/ci/SKILL.md", "dest": "skills/ci/SKILL.md" },
+    { "src": "skills/ci/assets/model-aliases.psd1", "dest": "skills/ci/assets/model-aliases.psd1" },
     { "src": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1" },
     { "src": "skills/ci/scripts/Write-RecentLearning.ps1", "dest": "skills/ci/scripts/Write-RecentLearning.ps1" },
     { "src": "skills/ci/scripts/Get-PlanState.ps1", "dest": "skills/ci/scripts/Get-PlanState.ps1" },

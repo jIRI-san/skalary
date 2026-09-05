@@ -10,6 +10,7 @@
     "gitProvider",
     "gitAuth",
     "model",
+    "context",
     "reasoningEffort",
     "git",
     "maxIterationsPerStep",
@@ -43,15 +44,16 @@
     },
     "model": {
       "type": "string",
+      "pattern": "^(?:model|alternate-model)-(?:low|mid|high)$",
+      "description": "Stable model alias resolved through the installed model-aliases.psd1 asset."
+    },
+    "context": {
+      "type": "string",
       "enum": [
-        "claude-opus-5",
-        "claude-sonnet-5",
-        "gpt-5.6-luna",
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5-mini"
+        "default",
+        "long_context"
       ],
-      "description": "Model identifier for Copilot CLI (e.g. 'gpt-5.6-luna')."
+      "description": "Copilot CLI context window tier. Shipped configurations use default; long_context is explicit operator opt-in."
     },
     "reasoningEffort": {
       "type": "string",

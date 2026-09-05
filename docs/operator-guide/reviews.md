@@ -20,13 +20,13 @@ flowchart TD
     B --> C[Select concerns from concrete risk]
     C --> D[Direct scope and evidence work]
     D --> E{Delegated review needed?}
-    E -->|Yes| F[One GPT-5.6 Terra combined review]
+    E -->|Yes| F[One model-mid combined review]
     E -->|No| J[Collate completed tasks and findings]
-    F --> G{Cross-subsystem issue unresolved after Terra evidence?}
-    G -->|Yes| H[GPT-5.6 Sol deep escalation]
+    F --> G{Cross-subsystem issue unresolved after standard evidence?}
+    G -->|Yes| H[model-high deep escalation]
     G -->|No| I{Named independent high-risk path?}
     H --> I
-    I -->|Yes| O[Claude Opus 5 independent pass]
+    I -->|Yes| O[alternate-model-high independent pass]
     I -->|No| J
     O --> J
     J --> K{All selected tasks complete?}
@@ -40,14 +40,14 @@ Non-terminal review is omitted when there is no concrete risk. It allows one rev
 one replacement after corrective source changes. The terminal phase skips post-phase review and
 finalization runs one whole-plan event. Never rerun unchanged scope.
 
-## Exact model and budget matrix
+## Model alias and budget matrix
 
 | Role | Primary | Availability fallback | When |
 |---|---|---|---|
-| Routine implementation/support | GPT-5.6 Luna (`gpt-5.6-luna`) | GPT-5 mini (`gpt-5-mini`; `GPT-5 mini (copilot)`) | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
-| Standard combined review/design judgment | GPT-5.6 Terra (`gpt-5.6-terra`; `GPT-5.6 Terra (copilot)`) | Claude Sonnet 5 (`claude-sonnet-5`; `Claude Sonnet 5 (copilot)`) | Standalone and ordinary risk-selected work |
-| Deep escalation | GPT-5.6 Sol (`gpt-5.6-sol`; `GPT-5.6 Sol (copilot)`) | GPT-5.6 Terra | Cross-subsystem work or diagnosis still unresolved after evidence-backed Terra work |
-| Independent review | Claude Opus 5 (`claude-opus-5`; `Claude Opus 5 (copilot)`) | Claude Sonnet 5 | One named high-risk security, concurrency, destructive, correctness, or architecture path |
+| Routine implementation/support | `model-low` | `alternate-model-low` | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard combined review/design judgment | `model-mid` | `alternate-model-mid` | Standalone and ordinary risk-selected work |
+| Deep escalation | `model-high` | `model-mid` | Cross-subsystem work or diagnosis still unresolved after evidence-backed standard work |
+| Independent review | `alternate-model-high` | `alternate-model-mid` | One named high-risk security, concurrency, destructive, correctness, or architecture path |
 
 | Budget | Limit |
 |---|---:|
@@ -55,12 +55,13 @@ finalization runs one whole-plan event. Never rerun unchanged scope.
 | Delegated calls | 0 direct; 1 for a concrete unresolved concern; 3 maximum including retries/replacements |
 | Supporting artifacts | At most 3 |
 | Prompt | 400-word target; 800-word hard cap |
-| Context | Host default only |
+| Context | Committed routing uses `default`; `long_context` is explicit opt-in |
 | Models per role | One primary plus one replacement fallback |
 
 A fallback replaces an unavailable call; it does not add a panel.
-[`tools/model-allowlist.psd1`](../../tools/model-allowlist.psd1) owns the exact host-specific model
-spellings used by committed agents and autopilot configuration.
+[`tools/model-allowlist.psd1`](../../tools/model-allowlist.psd1) owns alias roles and exact host-specific
+bindings. [`Sync-ModelBindings.ps1`](../../scripts/skalary/Sync-ModelBindings.ps1) regenerates Waza pins
+and the independently installable skill copies.
 
 ## Inputs and local standards
 

@@ -70,7 +70,7 @@ Describe 'cr waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape uses Terra judgment only for the subjective policy task' {
+        It 'test:waza-spec-shape uses mid-tier judgment only for the subjective policy task' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value

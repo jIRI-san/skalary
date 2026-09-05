@@ -3,7 +3,7 @@
 .SYNOPSIS
     Opt-in Tier-2 LLM eval runner: provisions tooling, resolves a token, discovers one
     explicitly selected plugin's waza spec, runs it, and aggregates results. Skill execution
-    uses Luna; only tasks marked subjective use a Terra prompt grader. Focused validation,
+    uses the generated model-low binding; only subjective tasks use the model-mid prompt grader. Focused validation,
     package scripts, and ordinary workflows never invoke this premium path.
 .DESCRIPTION
     Orchestration order:

@@ -13,6 +13,8 @@ Describe 'model allowlist validator' {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:validator = Join-Path $script:repoRoot 'scripts/skalary/Test-ModelAllowlist.ps1'
         $script:allowlistPath = Join-Path $script:repoRoot 'tools/model-allowlist.psd1'
+        $script:modelPolicy = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
+        $script:vsIndependentModel = [string]$modelPolicy.Aliases['alternate-model-high'].VSCode
 
         $script:newFixtureRoot = {
             $path = Join-Path ([System.IO.Path]::GetTempPath()) ('model-allowlist-' + [System.Guid]::NewGuid().ToString('N'))
@@ -60,23 +62,36 @@ Describe 'model allowlist validator' {
     }
 
     Context 'allowlist manifest shape' {
-        It 'carries two separately-formatted lists plus a closed agent-to-host map' {
+        It 'carries six aliases with separate host bindings plus a closed agent-to-host map' {
             $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
 
-            $allowlist.VSCodeModels | Should -Contain 'Claude Opus 5 (copilot)'
-            $allowlist.VSCodeModels | Should -Contain 'Claude Sonnet 5 (copilot)'
-            $allowlist.VSCodeModels | Should -Contain 'GPT-5.6 Sol (copilot)'
-            $allowlist.VSCodeModels | Should -Contain 'GPT-5.6 Terra (copilot)'
-            $allowlist.CliModels | Should -Contain 'gpt-5.6-luna'
-            $allowlist.CliModels | Should -Contain 'gpt-5.6-sol'
-            $allowlist.CliModels | Should -Contain 'gpt-5.6-terra'
+            @($allowlist.Aliases.Keys).Count | Should -Be 6
+            $allowlist.Roles.Routine.Primary | Should -Be 'model-low'
+            $allowlist.Roles.Standard.Primary | Should -Be 'model-mid'
+            $allowlist.Roles.Deep.Primary | Should -Be 'model-high'
+            $allowlist.Roles.Independent.Primary | Should -Be 'alternate-model-high'
 
-            # Formats are never normalized into one another.
-            foreach ($model in @($allowlist.VSCodeModels)) { $model | Should -Match '^.+\s\([^)]+\)$' }
-            foreach ($model in @($allowlist.CliModels)) { $model | Should -Not -Match '\)$' }
+            foreach ($binding in @($allowlist.Aliases.Values)) {
+                $binding.VSCode | Should -Match '^.+\s\([^)]+\)$'
+                $binding.Cli | Should -Not -Match '\)$'
+            }
 
             $allowlist.AgentHosts['autopilot'] | Should -Be 'Cli'
-            $allowlist.AgentHosts['cr-security'] | Should -Be 'VSCode'
+            $allowlist.Fallback.VSCode | Should -Be 'alternate-model-mid'
+        }
+
+        It 'keeps independently installed alias assets generated from the canonical map' {
+            $canonical = [System.IO.File]::ReadAllBytes($script:allowlistPath)
+            foreach ($relative in @(
+                    'plugins/autopilot/skills/autopilot/assets/model-aliases.psd1'
+                    'plugins/code-review/skills/cr/assets/model-aliases.psd1'
+                    'plugins/continue-implementation/skills/ci/assets/model-aliases.psd1'
+                    'plugins/create-implementation-plan/skills/cip/assets/model-aliases.psd1'
+                    'plugins/design-review/skills/dr/assets/model-aliases.psd1'
+                )) {
+                [System.IO.File]::ReadAllBytes((Join-Path $script:repoRoot $relative)) |
+                    Should -Be $canonical -Because $relative
+            }
         }
     }
 
@@ -84,7 +99,7 @@ Describe 'model allowlist validator' {
         It 'passes a mapped agent whose model matches its host list' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newAgent -Root $root -Name 'cr-security' -Model 'Claude Opus 5 (copilot)' | Out-Null
+                & $script:newAgent -Root $root -Name 'cr-security' -Model $script:vsIndependentModel | Out-Null
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 0
             }
@@ -122,9 +137,8 @@ Describe 'model allowlist validator' {
         It 'test:model-allowlist-rejects-qualified-name-on-cli-agent fails when a CLI agent carries a qualified name' {
             $root = & $script:newFixtureRoot
             try {
-                # 'Claude Opus 5 (copilot)' is a perfectly valid VS Code name — and a broken one
-                # for the CLI-hosted autopilot agent, which needs the bare slug.
-                & $script:newAgent -Root $root -Name 'autopilot' -Model 'Claude Opus 5 (copilot)' | Out-Null
+                # A valid qualified VS Code name is still broken for the CLI-hosted autopilot agent.
+                & $script:newAgent -Root $root -Name 'autopilot' -Model $script:vsIndependentModel | Out-Null
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'not in the Cli allowlist'
@@ -138,7 +152,7 @@ Describe 'model allowlist validator' {
         It 'test:model-allowlist-fails-on-unmapped-agent refuses to infer a host' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newAgent -Root $root -Name 'cr-brand-new' -Model 'Claude Opus 5 (copilot)' | Out-Null
+                & $script:newAgent -Root $root -Name 'cr-brand-new' -Model $script:vsIndependentModel | Out-Null
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match "absent from the AgentHosts map"
@@ -155,7 +169,7 @@ Describe 'model allowlist validator' {
             $root = & $script:newFixtureRoot
             try {
                 $configPath = Join-Path $root '.autopilot.json'
-                Set-Content -LiteralPath $configPath -Value '{ "model": "gpt-5.6-luna" }' -Encoding utf8NoBOM
+                Set-Content -LiteralPath $configPath -Value '{ "model": "model-low" }' -Encoding utf8NoBOM
                 (& $script:invoke -Root $root).ExitCode | Should -Be 0
 
                 # The runtime model comes from this field, not from agent frontmatter, so the
@@ -164,7 +178,7 @@ Describe 'model allowlist validator' {
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'gpt-5\.3-codex'
-                $result.Output | Should -Match 'not in the Cli allowlist'
+                $result.Output | Should -Match 'not in the alias map'
             }
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -203,21 +217,19 @@ Describe 'model allowlist validator' {
     }
 
     Context 'committed autopilot binding' {
-        It 'test:model-allowlist-covers-autopilot-config accepts the shipped bare-slug binding unchanged' {
-            # This plan validates autopilot's model; it never repoints it. A run must not rewrite
-            # the model of the runtime that is executing it.
+        It 'test:model-allowlist-covers-autopilot-config accepts the shipped alias binding unchanged' {
             $allowlist = Import-PowerShellDataFile -LiteralPath $script:allowlistPath
-            $allowlist.CliModels | Should -Contain 'gpt-5.6-luna'
+            $allowlist.Aliases['model-low'].Cli | Should -Not -BeNullOrEmpty
 
             foreach ($agent in @('plugins/autopilot/agents/autopilot.agent.md', '.github/agents/autopilot.agent.md')) {
                 $raw = Get-Content -LiteralPath (Join-Path $script:repoRoot $agent) -Raw
-                $raw | Should -Match '(?m)^model: gpt-5\.6-luna$'
+                $raw | Should -Not -Match '(?m)^model:'
             }
 
             foreach ($config in @('plugins/autopilot/.autopilot.json.example', '.github/skills/autopilot/.autopilot.json.example')) {
                 $parsed = Get-Content -LiteralPath (Join-Path $script:repoRoot $config) -Raw | ConvertFrom-Json
-                $parsed.model | Should -Be 'gpt-5.6-luna'
-                $allowlist.CliModels | Should -Contain $parsed.model
+                $parsed.model | Should -Be 'model-low'
+                $allowlist.Aliases.ContainsKey($parsed.model) | Should -BeTrue
             }
         }
 
@@ -233,8 +245,8 @@ Describe 'model allowlist validator' {
             $script:newGuide = {
                 param(
                     [Parameter(Mandatory)][string]$Root,
-                    [string]$ReviewerModel = 'Claude Opus 5 (copilot)',
-                    [string]$FallbackModel = 'Claude Sonnet 5 (copilot)',
+                    [string]$ReviewerModel = 'alternate-model-high',
+                    [string]$FallbackModel = 'alternate-model-mid',
                     [switch]$OmitRosterSection
                 )
 
@@ -262,10 +274,10 @@ $heading
             try {
                 # The concern agents are model-agnostic on purpose, so the roster in the dispatch
                 # guide is the only place the dispatched model names exist.
-                & $script:newGuide -Root $root -ReviewerModel 'Claude Opus 4.8 (copilot)'
+                & $script:newGuide -Root $root -ReviewerModel 'retired-model'
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
-                $result.Output | Should -Match "dispatches model 'Claude Opus 4\.8 \(copilot\)'"
+                $result.Output | Should -Match "dispatches model alias 'retired-model'"
             }
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -275,7 +287,7 @@ $heading
         It 'fails when the guide fallback diverges from the allowlist fallback' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newGuide -Root $root -FallbackModel 'GPT-5.6 Sol (copilot)'
+                & $script:newGuide -Root $root -FallbackModel 'model-high'
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'Pro-tier fallback'
@@ -301,7 +313,7 @@ $heading
         It 'test:no-gemini-references applies the denied vendors to dispatch guides too' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newGuide -Root $root -ReviewerModel 'Gemini 3.1 Pro (Preview) (copilot)'
+                & $script:newGuide -Root $root -ReviewerModel 'Gemini-preview'
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'denied model/vendor'
@@ -333,12 +345,12 @@ $heading
 | Role | Model | Reasoning effort | Context tier |
 |---|---|---|---|
 | Primary | `Unknown Expensive Model (copilot)` | `high` | `default` |
-| Secondary | `Claude Opus 5 (copilot)` | `high` | `default` |
-| Backup | `Claude Sonnet 4.6 (copilot)` | `high` | `default` |
+| Secondary | `alternate-model-high` | `high` | `default` |
+| Backup | `alternate-model-mid` | `high` | `default` |
 '@
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
-                $result.Output | Should -Match "role 'Primary'.*not in the VSCode allowlist"
+                $result.Output | Should -Match "role 'Primary'.*not in the alias map"
             }
             finally {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -354,15 +366,15 @@ $heading
                 # past it, and since Sync-Dogfood never prunes, a deleted plugin agent lingers
                 # there indefinitely. That is precisely the drift REQ-7 exists to catch.
                 New-Item -ItemType Directory -Path (Join-Path $root '.github/agents') -Force | Out-Null
-                Set-Content -LiteralPath (Join-Path $root '.github/agents/autopilot.agent.md') -Encoding utf8NoBOM -Value @'
+                Set-Content -LiteralPath (Join-Path $root '.github/agents/autopilot.agent.md') -Encoding utf8NoBOM -Value @"
 ---
 description: "Dogfood copy."
 name: "autopilot"
-model: Claude Opus 5 (copilot)
+model: $($script:vsIndependentModel)
 ---
 
 Body.
-'@
+"@
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match '\.github/agents/autopilot\.agent\.md'

@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.3.12",
+  "version": "1.3.13",
   "description": "Self-contained direct-workflow autonomous plan executor.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -19,6 +19,7 @@
     { "src": "agents/autopilot.agent.md", "dest": "agents/autopilot.agent.md" },
     { "src": "skills/autopilot/SKILL.md", "dest": "skills/autopilot/SKILL.md" },
     { "src": "skills/autopilot/assets/design-note-compaction.md", "dest": "skills/autopilot/assets/design-note-compaction.md" },
+    { "src": "skills/autopilot/assets/model-aliases.psd1", "dest": "skills/autopilot/assets/model-aliases.psd1" },
     { "src": "skills/autopilot/scripts/AtomicStore.psm1", "dest": "skills/autopilot/scripts/AtomicStore.psm1" },
     { "src": "skills/autopilot/scripts/EpicAutopilot.psm1", "dest": "skills/autopilot/scripts/EpicAutopilot.psm1" },
     { "src": "skills/autopilot/scripts/Get-PlanState.ps1", "dest": "skills/autopilot/scripts/Get-PlanState.ps1" },
@@ -43,6 +44,7 @@
     { "src": "scripts/autopilot-dispatch.ps1", "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1" },
     { "src": "scripts/prepare-env-file.ps1", "dest": "skills/autopilot/scripts/prepare-env-file.ps1" },
     { "src": "scripts/prepare-packages.ps1", "dest": "skills/autopilot/scripts/prepare-packages.ps1" },
+    { "src": "scripts/Record-AiCreditUsage.ps1", "dest": "skills/autopilot/scripts/Record-AiCreditUsage.ps1" },
     { "src": "scripts/validate-auth.ps1", "dest": "skills/autopilot/scripts/validate-auth.ps1" },
     { "src": "schemas/autopilot.schema.json", "dest": "skills/autopilot/schemas/autopilot.schema.json" },
     { "src": "schemas/autopilot.host.schema.json", "dest": "skills/autopilot/schemas/autopilot.host.schema.json" },

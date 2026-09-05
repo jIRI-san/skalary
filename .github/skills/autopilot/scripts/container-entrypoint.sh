@@ -8,6 +8,7 @@
 #   ADO_ORG, ADO_PROJECT (optional) — ADO config
 #   COPILOT_ALLOW_ALL=true
 #   COPILOT_MODEL — model override
+#   COPILOT_CONTEXT — context tier (default or long_context)
 #   REPO_REMOTE — git remote URL to clone
 
 set -euo pipefail
@@ -380,6 +381,8 @@ fi
 echo "Completion handoff limit: ${COMPLETION_HANDOFF_LIMIT} same-session resume(s) per target."
 
 # Per-target copilot invocations
+USAGE_OUTPUT_DIR="/tmp/autopilot-usage"
+mkdir -p "${USAGE_OUTPUT_DIR}"
 COMPLETION_ALLOWED=1
 RUN_EXIT_CODE=0
 for TARGET in "${EXECUTION_TARGETS[@]}"; do
@@ -431,6 +434,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
         PROMPT="Execute ${PLAN_PATH}, phase ${PHASE_NUM}"
     fi
+    USAGE_OUTPUT="${USAGE_OUTPUT_DIR}/session-usage-${TARGET//:/-}.json"
     echo "=== ${TARGET_LABEL} ==="
 
     TARGET_SESSION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -449,10 +453,12 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
 
         copilot -p "${TARGET_PROMPT}" \
             "${MODEL_ARGS[@]}" \
+            --context "${COPILOT_CONTEXT}" \
             --effort "${COPILOT_REASONING_EFFORT}" \
             --agent autopilot \
             --session-id "${TARGET_SESSION_ID}" \
             --no-ask-user \
+            --usage-output-file="${USAGE_OUTPUT}" \
             --share="./${TRANSCRIPT}" &
         COPILOT_PID=$!
 

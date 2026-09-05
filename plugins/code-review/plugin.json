@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.78",
+  "version": "1.0.79",
   "description": "Risk-selected code review with direct advisory Markdown.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -14,6 +14,7 @@
   "files": [
     { "src": "prompts/cr.prompt.md", "dest": "prompts/cr.prompt.md" },
     { "src": "skills/cr/SKILL.md", "dest": "skills/cr/SKILL.md" },
+    { "src": "skills/cr/assets/model-aliases.psd1", "dest": "skills/cr/assets/model-aliases.psd1" },
     { "src": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1", "dest": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1" },
     { "src": "skills/cr/scripts/DirectWorkflow.psm1", "dest": "skills/cr/scripts/DirectWorkflow.psm1" },
     { "src": "skills/cr/scripts/PlanState.psm1", "dest": "skills/cr/scripts/PlanState.psm1" },

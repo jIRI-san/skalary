@@ -21,11 +21,12 @@ Exit `0` means complete, `42` operator action, `43` offline rebundle, and other 
 Agent or phase elapsed time never cancels work. Host/container waits are synchronous boundaries;
 Sandbox waits for its sentinel or process exit. Deterministic command timeouts remain and become agent
 evidence. Progress recovery uses two evidence checks, one redirect, and at most one replacement within
-the five-call budget.
+the three-call budget.
 
-Before mutation `/ci` passes, and every mode repeats, `Test-PlanCriteriaBaseline`. Execution uses
-direct current evidence, optional combined design/validation plus a normal Judge, native bounded roles,
-and one commit per completed step. There is no plan-006 compatibility preflight.
+Before mutation `/ci` passes, and every mode repeats, `Test-PlanCriteriaBaseline`. Execution uses direct
+current evidence, optional combined design/validation, no automatic Judge, native bounded roles, and one
+commit per completed step. Model configuration uses stable aliases; launchers resolve a concrete host
+identifier. Shipped configs select `default` context, while `long_context` remains explicit opt-in.
 
 A complex operator stop exits `42` with context, example, benefits, pros/cons, recommendation/default,
 effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Interactive
@@ -45,3 +46,9 @@ is a separate deterministic wrapper around the same launcher and retains Git/pro
 Installed `/pfb` remains optional: interactive `/ci` offers it before archival, while headless
 autopilot queues its question without prompting. Absence, decline, or queue failure never blocks
 completion and feedback never replaces evidence.
+
+Each Copilot CLI target also writes an exact local usage sidecar. The launcher immediately normalizes
+it into the plan-local `assets/ai-credits.json` ledger and removes the sidecar. Re-importing a target
+execution is idempotent. The ledger retains per-execution and per-model credits and token classes;
+an epic total is the sum of its child-plan ledgers. No provider usage API or telemetry service is
+part of this path.

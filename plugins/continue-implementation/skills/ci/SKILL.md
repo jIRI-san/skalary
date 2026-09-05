@@ -28,11 +28,12 @@ resolution. Do not select `NextChild` or fall through to ordinary plan handling.
 `AUTOPILOT_CONTAINER=true`, refuse because the epic wrapper is host-only. Block on the wrapper and
 preserve its exact exit status and outcome.
 
-Implement ordinary work directly with zero delegated calls. Routine bounded work uses Luna/medium with
-GPT-5 mini replacement fallback. If a concrete unresolved choice spans design and acceptance criteria,
-use one combined Terra/high Designer/Validator with Claude Sonnet 5 replacement fallback. Use Sol/high
-only for cross-subsystem work still unresolved after evidence-backed Terra work, and one Opus/high pass
-only for a named high-risk independent concern. No automatic Judge exists: deterministic evidence is
+Work directly with zero delegated calls. Resolve aliases through
+[`model-aliases.psd1`](./assets/model-aliases.psd1). Routine work uses `model-low`/medium with
+`alternate-model-low` replacement. One unresolved design/acceptance choice permits a combined
+`model-mid`/high Designer/Validator with `alternate-model-mid` replacement. Use `model-high`/high only
+after unresolved standard work, and one `alternate-model-high`/high pass only for a named high-risk
+concern. No automatic Judge exists: deterministic evidence is
 the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a fourth
 requires a new operator decision. For observable background work, compare tool output, file/commit
 state, completed subtasks, and blockers across two checks; redirect once, replace once within budget,
@@ -40,7 +41,7 @@ then stop. Never kill an agent for elapsed time. Retain deterministic build/test
 evidence. Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before
 800.
 
-For a complex predefined operator choice, provide current context, a concrete example, benefits, pros/cons,
+For a complex predefined operator choice, provide context, an example, benefits, pros/cons,
 recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter. Pass
 the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
 input one focused question at a time.
@@ -50,9 +51,9 @@ Supply the active in-memory review result, current source, and requested scope; 
 Markdown is not authority. Keep completed/refused/blocked/stuck/interrupted outcomes distinct. Exit `0`
 means completed, operator-action stops retain `42`, and other failures are nonzero.
 
-If a concrete changed-scope risk exists, non-terminal review may select one Terra/high event and at most
+If a concrete changed-scope risk exists, non-terminal review may select one `model-mid`/high event and at most
 one corrective replacement. The terminal phase skips post-phase review; finalization runs one
-Terra/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
+`model-mid`/high whole-plan direct CR. If scope is unchanged, do not rerun it. Exhausted calls or
 unresolved/incomplete review stops non-clean.
 During finalization, invoke `.github/skills/autopilot/assets/design-note-compaction.md` once when
 `Get-DesignNoteCompactionContext.ps1` reports edited `docs/design-notes/**`; other docs do not trigger it.

@@ -16,6 +16,11 @@ Describe 'waza AI credit policy' {
                 Where-Object { $_.FullName -match '[\\/]evals[\\/]waza[\\/]tasks[\\/]' } |
                 Sort-Object FullName
         )
+        $script:modelPolicy = Import-PowerShellDataFile -LiteralPath (
+            Join-Path $script:repoRoot 'tools/model-allowlist.psd1'
+        )
+        $script:executorModel = [string]$modelPolicy.Aliases[[string]$modelPolicy.Roles.WazaExecutor].Cli
+        $script:judgeModel = [string]$modelPolicy.Aliases[[string]$modelPolicy.Roles.WazaJudge].Cli
     }
 
     It 'test:AiCreditBudget.WazaRouting classifies every active task' {
@@ -26,10 +31,12 @@ Describe 'waza AI credit policy' {
         }
     }
 
-    It 'uses Luna execution and Terra only for subjective judgment' {
+    It 'uses generated low-tier execution and mid-tier subjective judgment' {
         foreach ($spec in $script:specFiles) {
             $specRaw = [System.IO.File]::ReadAllText($spec.FullName)
-            $specRaw | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna\s*$' -Because $spec.FullName
+            $specRaw | Should -Match (
+                '(?m)^\s+model:\s*' + [regex]::Escape($script:executorModel) + '\s*$'
+            ) -Because $spec.FullName
             $specRaw | Should -Not -Match '(?i)gpt-5\.6-sol|claude-opus|long_context|full.repository'
 
             $tasks = @(Get-ChildItem -LiteralPath (Join-Path $spec.DirectoryName 'tasks') -File -Filter '*.yaml')
@@ -45,7 +52,9 @@ Describe 'waza AI credit policy' {
                 if ($disposition -eq 'subjective') {
                     $hasSubjective = $true
                     $promptGraders | Should -Be 1 -Because $task.FullName
-                    $raw | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra\s*$' -Because $task.FullName
+                    $raw | Should -Match (
+                        '(?m)^\s+model:\s*' + [regex]::Escape($script:judgeModel) + '\s*$'
+                    ) -Because $task.FullName
                 }
                 else {
                     $promptGraders | Should -Be 0 -Because $task.FullName
@@ -55,7 +64,9 @@ Describe 'waza AI credit policy' {
             }
 
             if ($hasSubjective) {
-                $specRaw | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra\s*$'
+                $specRaw | Should -Match (
+                    '(?m)^\s+judge_model:\s*' + [regex]::Escape($script:judgeModel) + '\s*$'
+                )
             }
             else {
                 $specRaw | Should -Not -Match '(?m)^\s+judge_model:'

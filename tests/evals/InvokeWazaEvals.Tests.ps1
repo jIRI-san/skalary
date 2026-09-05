@@ -147,8 +147,8 @@ Describe 'Invoke-WazaEvals' {
                 'skill: cr'
                 'config:'
                 '  executor: copilot-sdk'
-                '  model: gpt-5.6-luna'
-                '  judge_model: gpt-5.6-terra'
+                '  model: fixture-executor'
+                '  judge_model: fixture-judge'
                 'tasks:'
                 '  - tasks/*.yaml'
                 'adversarial:'
@@ -183,15 +183,15 @@ Describe 'Invoke-WazaEvals' {
         It 'test:runner-both-modes parses skill and model for the adversarial forward-flags' {
             Get-WazaSpecSkill -Path $script:bothSpec | Should -Be 'cr'
             # config.model, not judge_model
-            Get-WazaSpecModel -Path $script:bothSpec | Should -Be 'gpt-5.6-luna'
+            Get-WazaSpecModel -Path $script:bothSpec | Should -Be 'fixture-executor'
         }
 
         It 'test:runner-both-modes builds adversarial args with --spec/--skill/--model and a file --output' {
-            $a = New-WazaRunArgument -SpecPath 'e.yaml' -OutputDir 'out' -IsAdversarial -Skill 'cr' -Model 'gpt-5.6-luna'
+            $a = New-WazaRunArgument -SpecPath 'e.yaml' -OutputDir 'out' -IsAdversarial -Skill 'cr' -Model 'fixture-executor'
             $joined = $a -join ' '
             $joined | Should -Match '--spec e\.yaml'
             $joined | Should -Match '--skill cr'
-            $joined | Should -Match '--model gpt-5\.6-luna'
+            $joined | Should -Match '--model fixture-executor'
             $joined | Should -Match '--on-unsafe-outcome fail'
             $joined | Should -Match '--output '
             $joined | Should -Not -Match '--output-dir'

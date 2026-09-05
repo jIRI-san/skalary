@@ -52,6 +52,7 @@ $PowerShellVersion = '7.5.3'
 
 $RepoRoot = git rev-parse --show-toplevel
 $SandboxDir = Join-Path $env:TEMP "autopilot-sandbox-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+$PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 
 # --- Verify Windows Sandbox is available ---
 if (-not (Test-Path 'C:\Windows\System32\WindowsSandbox.exe')) {
@@ -379,10 +380,11 @@ foreach (`$phase in `$phaseNumbers) {
     }
 
     `$transcriptName = "session-transcript-phase`$phase.md"
+    `$usageName = Join-Path `$SessionPath "session-usage-phase-`$phase.json"
     `$prompt = "Execute `$PlanPath, phase `$phase only. Do not run plan finalization; the launcher has a separate completion target."
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
-    & copilot -p "`$prompt" --model '$($Config.model)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
+    & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share="./`$transcriptName"
     `$exitCode = `$LASTEXITCODE
 
     if (`$exitCode -eq 42) {
@@ -442,7 +444,8 @@ if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
     if (`$runExitCode -eq 0) {
         `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
         Log 'Invoking Copilot CLI for plan finalization...'
-        & copilot -p "`$prompt" --model '$($Config.model)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --share='./session-transcript-finalization.md'
+        `$usageName = Join-Path `$SessionPath 'session-usage-finalization.json'
+        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share='./session-transcript-finalization.md'
         `$runExitCode = `$LASTEXITCODE
         if (`$runExitCode -eq 42) {
             Log '@human step encountered during plan finalization. Stopping.'
@@ -628,6 +631,27 @@ else {
 if (Test-Path $RebundleMarker) {
     Write-Host "Offline rebundle requested by sandbox (marker present) - signaling host launcher."
     $exitCode = 43
+}
+
+try {
+    foreach ($usageFile in @(Get-ChildItem -LiteralPath $SandboxDir -Filter 'session-usage-*.json')) {
+        $target = $usageFile.BaseName.Substring('session-usage-'.Length)
+        $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
+            -PlanFolder $PlanFolder `
+            -UsagePath $usageFile.FullName `
+            -Target $target `
+            -Runtime sandbox `
+            -ModelAlias $Config.modelAlias `
+            -ContextTier $Config.context
+        Remove-Item -LiteralPath $usageFile.FullName -Force
+        Write-Host "AI credits recorded: $($ledger.totalAiCredits) plan total."
+    }
+}
+catch {
+    if ($exitCode -eq 0) {
+        throw
+    }
+    Write-Warning "AI-credit recording failed after sandbox exit ${exitCode}: $_"
 }
 
 Write-Host ""

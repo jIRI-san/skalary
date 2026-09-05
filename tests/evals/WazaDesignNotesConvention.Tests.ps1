@@ -83,7 +83,7 @@ Describe 'design-notes waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape uses Terra judgment only for subjective tasks' {
+        It 'test:waza-spec-shape uses mid-tier judgment only for subjective tasks' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value

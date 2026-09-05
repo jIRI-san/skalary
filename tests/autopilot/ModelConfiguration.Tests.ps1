@@ -15,9 +15,8 @@ Describe 'Autopilot model configuration' {
         $script:sandboxLauncher = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/launch-sandbox.ps1') -Raw
         $script:environmentWriter = Get-Content -LiteralPath (Join-Path $pluginRoot 'scripts/prepare-env-file.ps1') -Raw
         $script:agent = Get-Content -LiteralPath (Join-Path $pluginRoot 'agents/autopilot.agent.md') -Raw
-        $script:allowlist = Import-PowerShellDataFile -LiteralPath (
-            Join-Path $repoRoot 'tools/model-allowlist.psd1'
-        )
+        $script:modelPolicyPath = Join-Path $repoRoot 'tools/model-allowlist.psd1'
+        $script:modelPolicy = Import-PowerShellDataFile -LiteralPath $modelPolicyPath
 
         function Invoke-InvalidModelLaunch {
             param([AllowEmptyString()][string]$Model)
@@ -25,10 +24,14 @@ Describe 'Autopilot model configuration' {
             $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
             $planRoot = Join-Path $fixtureRoot 'docs/implementation-plans/test-plan'
             $installedSchemaRoot = Join-Path $fixtureRoot '.github/skills/autopilot/schemas'
-            New-Item -ItemType Directory -Path $planRoot, $installedSchemaRoot -Force | Out-Null
+            $installedAssetRoot = Join-Path $fixtureRoot '.github/skills/autopilot/assets'
+            New-Item -ItemType Directory -Path $planRoot, $installedSchemaRoot, $installedAssetRoot -Force | Out-Null
             Set-Content -LiteralPath (Join-Path $planRoot 'plan.md') -Value '# test plan' -Encoding utf8NoBOM
             Copy-Item -LiteralPath $script:schemaPath -Destination (
                 Join-Path $installedSchemaRoot 'autopilot.schema.json'
+            )
+            Copy-Item -LiteralPath $script:modelPolicyPath -Destination (
+                Join-Path $installedAssetRoot 'model-aliases.psd1'
             )
             [ordered]@{
                 runtime = 'host'
@@ -36,6 +39,7 @@ Describe 'Autopilot model configuration' {
                 gitProvider = 'github'
                 gitAuth = 'oauth'
                 model = $Model
+                context = 'default'
                 reasoningEffort = 'medium'
                 git = [ordered]@{ name = 'Test'; email = 'test@example.com' }
                 maxIterationsPerStep = 1
@@ -72,25 +76,26 @@ Describe 'Autopilot model configuration' {
         }
     }
 
-    It 'test:AiCreditBudget.AutopilotDefaults uses Luna medium and validates supported overrides' {
+    It 'test:AiCreditBudget.AutopilotDefaults uses the low alias, medium effort, and default context' {
         foreach ($config in @($repoConfig, $example)) {
-            $config.model | Should -Be 'gpt-5.6-luna'
+            $config.model | Should -Be 'model-low'
+            $config.context | Should -Be 'default'
             $config.reasoningEffort | Should -Be 'medium'
-            $config.PSObject.Properties.Name | Should -Not -Contain 'context'
         }
-        $agent | Should -Match '(?m)^model: gpt-5\.6-luna\r?$'
+        $agent | Should -Not -Match '(?m)^model:'
     }
 
-    It 'leaves context at the host default and constrains reasoning settings' {
-        $schema.required | Should -Not -Contain 'context'
-        $schema.properties.PSObject.Properties.Name | Should -Not -Contain 'context'
+    It 'keeps long context available as an explicit opt-in' {
+        $schema.required | Should -Contain 'context'
+        $schema.properties.context.enum | Should -Be @('default', 'long_context')
         $schema.required | Should -Contain 'reasoningEffort'
         $schema.properties.reasoningEffort.enum | Should -Contain 'medium'
         $schema.properties.reasoningEffort.enum | Should -Contain 'high'
     }
 
-    It 'rejects models outside the shared CLI allowlist before runtime dispatch' {
-        @($schema.properties.model.enum) | Should -Be @($allowlist.CliModels)
+    It 'rejects model aliases outside the canonical map before runtime dispatch' {
+        @($script:modelPolicy.Aliases.Keys).Count | Should -Be 6
+        $schema.properties.model.pattern | Should -Be '^(?:model|alternate-model)-(?:low|mid|high)$'
         $invalidConfig = Get-Content -LiteralPath (
             Join-Path $pluginRoot '.autopilot.json.example'
         ) -Raw | ConvertFrom-Json
@@ -100,9 +105,10 @@ Describe 'Autopilot model configuration' {
             Test-Json -SchemaFile $schemaPath -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
         $isValid | Should -BeFalse
         @($schemaErrors).Count | Should -BeGreaterThan 0
-        $launcher | Should -Match '\$Config\.model -cnotin \$allowedModels'
-        $launcher | Should -Match 'Invalid model.*in \.autopilot\.json'
-        $modelValidation = $launcher.IndexOf('$Config.model -cnotin $allowedModels')
+        $launcher | Should -Match '\$Config\.model -cnotin \$allowedAliases'
+        $launcher | Should -Match 'Invalid model alias.*in \.autopilot\.json'
+        $launcher | Should -Match '\$Config\.model = \$resolvedModel'
+        $modelValidation = $launcher.IndexOf('$Config.model -cnotin $allowedAliases')
         $buildValidation = $launcher.IndexOf('# --- Validate build/test commands against allowlist ---')
         $runtimeDispatch = $launcher.IndexOf('# --- Determine runtime ---')
         $modelValidation | Should -BeGreaterOrEqual 0
@@ -114,56 +120,41 @@ Describe 'Autopilot model configuration' {
         foreach ($model in @('', 'unsupported-premium-model')) {
             $result = Invoke-InvalidModelLaunch -Model $model
             $result.ExitCode | Should -Be 1
-            $result.Output | Should -Match 'Invalid model'
+            $result.Output | Should -Match 'Invalid model alias'
             $result.Output | Should -Not -Match 'Runtime:|Fetching credentials|Validating authentication'
         }
     }
 
-    It 'passes model and effort but no context override in host mode' {
+    It 'passes resolved model, effort, and context in host mode' {
         $hostLauncher | Should -Match "\['COPILOT_MODEL'\]\s*=\s*\`$Model"
         $hostLauncher | Should -Match "ArgumentList\.Add\('--effort'\)"
         $hostLauncher | Should -Match 'ConvertTo-PowerShellQuotedToken -Token \$ReasoningEffort'
-        $hostLauncher | Should -Not -Match '(?m)(?:^|\s)--context(?:\s|$)'
-        $hostLauncher | Should -Not -Match '\bContextTier\b'
+        $hostLauncher | Should -Match "ArgumentList\.Add\('--context'\)"
+        $hostLauncher | Should -Match '\bContextTier\b'
     }
 
-    It 'passes model and effort but no context override in container mode' {
+    It 'passes resolved model, effort, and context in container mode' {
         $containerEntrypoint | Should -Match 'MODEL_ARGS=\(--model "\$\{COPILOT_MODEL\}"\)'
         $containerEntrypoint | Should -Match '--effort "\$\{COPILOT_REASONING_EFFORT\}"'
-        $containerEntrypoint | Should -Not -Match '(?m)(?:^|\s)--context(?:\s|$)'
-        $environmentWriter | Should -Not -Match '\bCOPILOT_CONTEXT\b'
+        $containerEntrypoint | Should -Match '--context "\$\{COPILOT_CONTEXT\}"'
+        $environmentWriter | Should -Match '\bCOPILOT_CONTEXT\b'
     }
 
-    It 'passes model and effort but no context override in sandbox mode' {
+    It 'passes resolved model, effort, and context in sandbox mode' {
         $sandboxLauncher.Contains("--model '`$(`$Config.model)'") | Should -BeTrue
         $sandboxLauncher.Contains("--effort '`$(`$Config.reasoningEffort)'") | Should -BeTrue
-        $sandboxLauncher | Should -Not -Match '(?m)(?:^|\s)--context(?:\s|$)'
-        $sandboxLauncher | Should -Not -Match '\$Config\.context\b'
+        $sandboxLauncher.Contains("--context '`$(`$Config.context)'") | Should -BeTrue
     }
 
-    It 'test:AiCreditBudget.LongContextRetired contains no retired context override in active autopilot surfaces' {
-        $activePaths = @(
-            (Join-Path $repoRoot '.autopilot.json')
-            (Join-Path $repoRoot 'plugins/autopilot')
-            (Join-Path $repoRoot '.github/agents/autopilot.agent.md')
-            (Join-Path $repoRoot '.github/skills/autopilot')
+    It 'test:AiCreditBudget.LongContextOptIn keeps every committed autopilot config on default' {
+        $configPaths = @(
+            (Join-Path $repoRoot '.autopilot.json'),
+            (Join-Path $pluginRoot '.autopilot.json.example'),
+            (Join-Path $repoRoot '.github/skills/autopilot/.autopilot.json.example')
         )
-        $files = foreach ($path in $activePaths) {
-            if (Test-Path -LiteralPath $path -PathType Container) {
-                Get-ChildItem -LiteralPath $path -File -Recurse -Force
-            }
-            else {
-                Get-Item -LiteralPath $path -Force
-            }
-        }
-
-        foreach ($file in $files) {
-            $content = [System.IO.File]::ReadAllText($file.FullName)
-            $content | Should -Not -Match '\blong_context\b' -Because $file.FullName
-            $content | Should -Not -Match '\bCOPILOT_CONTEXT\b' -Because $file.FullName
-            $content | Should -Not -Match '\$Config\.context\b' -Because $file.FullName
-            $content | Should -Not -Match '\bContextTier\b' -Because $file.FullName
-            $content | Should -Not -Match '(?m)(?:^|\s)--context(?:\s|$)' -Because $file.FullName
+        foreach ($path in $configPaths) {
+            (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).context |
+                Should -Be 'default' -Because $path
         }
     }
 }

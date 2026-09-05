@@ -3,19 +3,18 @@
 .SYNOPSIS
     Validates every committed agent model declaration against the closed model allowlist.
 .DESCRIPTION
-    Plan b0c0d3 REQ-7. Two model-name formats exist and are never normalized: VS Code-hosted
-    agents use the qualified `Model Name (vendor)` form, while Copilot CLI-hosted agents (and
-    the `model` field of `.autopilot.json`) use a bare slug. The host is selected from the
-    closed agent -> host map in `tools/model-allowlist.psd1`, never inferred from folder
-    layout, and an agent missing from that map is a hard error rather than a silent default.
+    Model aliases resolve through tools/model-allowlist.psd1. Host-facing agent bindings retain
+    the exact qualified VS Code name or bare CLI slug, while operator-facing autopilot configs
+    and dispatch guidance use stable aliases. Agent host is selected from the closed map and
+    is never inferred from folder layout.
 
     Checks performed:
       * every `*.agent.md` declares a frontmatter `name`, and that name is mapped to a host;
       * a declared `model:` is a member of that host's list (so a qualified name on a CLI
         agent, or a bare slug on a VS Code agent, fails loud);
       * no agent file references a denied model/vendor anywhere in its text;
-      * every `.autopilot.json` / `.autopilot.json.example` `model` is an allowed CLI slug;
-      * the manifest itself is self-consistent (fallbacks are members of their own list).
+      * every `.autopilot.json` / `.autopilot.json.example` `model` is a known alias;
+      * the alias map and fallback aliases are self-consistent.
 .EXAMPLE
     pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist.ps1
 #>
@@ -100,30 +99,82 @@ catch {
     exit 1
 }
 
-foreach ($key in @('VSCodeModels', 'CliModels', 'AgentHosts', 'Fallback', 'DeniedPatterns')) {
+foreach ($key in @('Aliases', 'Roles', 'AgentHosts', 'Fallback', 'DeniedPatterns')) {
     if (-not $allowlist.ContainsKey($key)) {
         Write-Host "Test-ModelAllowlist failed: allowlist is missing required key '$key'." -ForegroundColor Red
         exit 1
     }
 }
 
-$modelsByHost = @{
-    'VSCode' = @($allowlist.VSCodeModels)
-    'Cli'    = @($allowlist.CliModels)
+$aliases = $allowlist.Aliases
+$modelsByHost = @{}
+foreach ($hostKey in @('VSCode', 'Cli')) {
+    $modelsByHost[$hostKey] = @(
+        $aliases.Values |
+            ForEach-Object { [string]$_[$hostKey] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
 }
 $agentHosts = $allowlist.AgentHosts
 $deniedPatterns = @($allowlist.DeniedPatterns)
 
-# Manifest self-consistency: a fallback the orchestrator would pass as the explicit model
-# parameter must itself be an allowed name for that host.
+# Manifest self-consistency: all six stable aliases have both host bindings and fallbacks
+# point to aliases rather than duplicating concrete provider names.
+$requiredAliases = @(
+    'model-low'
+    'model-mid'
+    'model-high'
+    'alternate-model-low'
+    'alternate-model-mid'
+    'alternate-model-high'
+)
+foreach ($alias in $requiredAliases) {
+    if (-not $aliases.ContainsKey($alias)) {
+        $violations.Add("allowlist: missing required model alias '$alias'.")
+        continue
+    }
+    foreach ($hostKey in @('VSCode', 'Cli')) {
+        if ([string]::IsNullOrWhiteSpace([string]$aliases[$alias][$hostKey])) {
+            $violations.Add("allowlist: alias '$alias' has no $hostKey binding.")
+        }
+    }
+}
+foreach ($alias in @($aliases.Keys)) {
+    if ($alias -notin $requiredAliases) {
+        $violations.Add("allowlist: unexpected model alias '$alias'; the public alias set is closed.")
+    }
+}
+foreach ($roleName in @('Routine', 'Standard', 'Deep', 'Independent')) {
+    $role = $allowlist.Roles[$roleName]
+    if ($null -eq $role) {
+        $violations.Add("allowlist: missing required role '$roleName'.")
+        continue
+    }
+    foreach ($field in @('Primary', 'Fallback')) {
+        $roleAlias = [string]$role[$field]
+        if (-not $aliases.ContainsKey($roleAlias)) {
+            $violations.Add("allowlist: role '$roleName' $field '$roleAlias' is not a known alias.")
+        }
+    }
+    if ([string]$role.ReasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
+        $violations.Add("allowlist: role '$roleName' has invalid reasoning effort '$($role.ReasoningEffort)'.")
+    }
+}
+foreach ($roleName in @('WazaExecutor', 'WazaJudge')) {
+    $roleAlias = [string]$allowlist.Roles[$roleName]
+    if (-not $aliases.ContainsKey($roleAlias)) {
+        $violations.Add("allowlist: role '$roleName' alias '$roleAlias' is not known.")
+    }
+}
 foreach ($hostKey in @($allowlist.Fallback.Keys)) {
     if (-not $modelsByHost.ContainsKey($hostKey)) {
         $violations.Add("allowlist: Fallback declares unknown host '$hostKey' (expected 'VSCode' or 'Cli').")
         continue
     }
-    $fallbackModel = [string]$allowlist.Fallback[$hostKey]
-    if ($modelsByHost[$hostKey] -notcontains $fallbackModel) {
-        $violations.Add("allowlist: Fallback['$hostKey'] = '$fallbackModel' is not a member of the $hostKey list.")
+    $fallbackAlias = [string]$allowlist.Fallback[$hostKey]
+    if (-not $aliases.ContainsKey($fallbackAlias)) {
+        $violations.Add("allowlist: Fallback['$hostKey'] = '$fallbackAlias' is not a known alias.")
     }
 }
 
@@ -187,7 +238,7 @@ foreach ($file in $agentFiles) {
     $detail = "$relative declares model '$model', which is not in the $agentHost allowlist."
     $looksQualified = $model -match '^.+\s\([^)]+\)$'
     if ($agentHost -eq 'Cli' -and $looksQualified) {
-        $detail += " CLI-hosted agents take a bare slug (e.g. 'claude-opus-5'), never a qualified 'Model Name (vendor)'."
+        $detail += " CLI-hosted agents take a bare slug, never a qualified 'Model Name (vendor)'."
     }
     elseif ($agentHost -eq 'VSCode' -and -not $looksQualified) {
         $detail += " VS Code-hosted agents take the qualified 'Model Name (vendor)' form."
@@ -225,21 +276,20 @@ foreach ($file in $guideFiles) {
         continue
     }
 
-    $fallbackModel = [string]$allowlist.Fallback['VSCode']
+    $fallbackAlias = [string]$allowlist.Fallback['VSCode']
     $sawFallback = $false
     foreach ($row in $rows) {
         $role = $row.Groups['role'].Value
         $model = $row.Groups['model'].Value
 
-        # Dispatch guides drive VS Code-hosted subagents, so the qualified list applies.
-        if ($modelsByHost['VSCode'] -notcontains $model) {
-            $violations.Add("$relative dispatches model '$model' (row '$role'), which is not in the VSCode allowlist.")
+        if (-not $aliases.ContainsKey($model)) {
+            $violations.Add("$relative dispatches model alias '$model' (row '$role'), which is not in the alias map.")
         }
 
         if ($role -match '(?i)fallback') {
             $sawFallback = $true
-            if ($model -ne $fallbackModel) {
-                $violations.Add("$relative names Pro-tier fallback '$model' but the allowlist declares '$fallbackModel'.")
+            if ($model -ne $fallbackAlias) {
+                $violations.Add("$relative names Pro-tier fallback '$model' but the allowlist declares '$fallbackAlias'.")
             }
         }
     }
@@ -277,8 +327,8 @@ foreach ($file in $preferenceFiles) {
         $role = $row.Groups['role'].Value
         $model = $row.Groups['model'].Value
         $roles[$role] = $model
-        if ($modelsByHost['VSCode'] -notcontains $model) {
-            $violations.Add("$relative selects model '$model' (role '$role'), which is not in the VSCode allowlist.")
+        if (-not $aliases.ContainsKey($model)) {
+            $violations.Add("$relative selects model alias '$model' (role '$role'), which is not in the alias map.")
         }
     }
 
@@ -312,10 +362,8 @@ foreach ($file in $configFiles) {
     if ($null -eq $config -or -not $config.ContainsKey('model')) { continue }
 
     $model = [string]$config['model']
-    # The runtime model of an autopilot run comes from this field, not from agent
-    # frontmatter, so it is checked against the CLI list.
-    if ($modelsByHost['Cli'] -notcontains $model) {
-        $violations.Add("$relative declares model '$model', which is not in the Cli allowlist.")
+    if (-not $aliases.ContainsKey($model)) {
+        $violations.Add("$relative declares model alias '$model', which is not in the alias map.")
     }
     foreach ($pattern in $deniedPatterns) {
         if ($model -match $pattern) {

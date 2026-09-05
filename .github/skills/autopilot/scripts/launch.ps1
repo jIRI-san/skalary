@@ -84,12 +84,17 @@ if (-not (Test-Path $ConfigPath)) {
 $Config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 
 # Validate required fields
-$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'reasoningEffort', 'git', 'maxIterationsPerStep', 'build', 'test')
+$requiredFields = @('runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'context', 'reasoningEffort', 'git', 'maxIterationsPerStep', 'build', 'test')
 foreach ($field in $requiredFields) {
     if (-not ($Config.PSObject.Properties.Name -contains $field)) {
         Write-Error "Missing required field '$field' in .autopilot.json"
         exit 1
     }
+}
+
+if ($Config.context -notin @('default', 'long_context')) {
+    Write-Error "Invalid context '$($Config.context)' in .autopilot.json"
+    exit 1
 }
 
 if ($Config.reasoningEffort -notin @('low', 'medium', 'high', 'xhigh', 'max')) {
@@ -102,17 +107,26 @@ if (-not (Test-Path -LiteralPath $SchemaPath -PathType Leaf)) {
     Write-Error "Autopilot schema not found: $SchemaPath"
     exit 1
 }
-$Schema = Get-Content -LiteralPath $SchemaPath -Raw | ConvertFrom-Json
-$allowedModels = @($Schema.properties.model.enum)
-if ($allowedModels.Count -eq 0) {
-    Write-Error "Autopilot schema declares no allowed CLI models: $SchemaPath"
+$ModelAliasesPath = Join-Path $RepoRoot '.github/skills/autopilot/assets/model-aliases.psd1'
+if (-not (Test-Path -LiteralPath $ModelAliasesPath -PathType Leaf)) {
+    Write-Error "Autopilot model aliases not found: $ModelAliasesPath"
     exit 1
 }
+$ModelPolicy = Import-PowerShellDataFile -LiteralPath $ModelAliasesPath
+$allowedAliases = @($ModelPolicy.Aliases.Keys)
 if ([string]::IsNullOrWhiteSpace([string]$Config.model) -or
-    [string]$Config.model -cnotin $allowedModels) {
-    Write-Error "Invalid model '$($Config.model)' in .autopilot.json. Allowed models: $($allowedModels -join ', ')"
+    [string]$Config.model -cnotin $allowedAliases) {
+    Write-Error "Invalid model alias '$($Config.model)' in .autopilot.json. Allowed aliases: $($allowedAliases -join ', ')"
     exit 1
 }
+$modelAlias = [string]$Config.model
+$resolvedModel = [string]$ModelPolicy.Aliases[$modelAlias].Cli
+if ([string]::IsNullOrWhiteSpace($resolvedModel)) {
+    Write-Error "Model alias '$($Config.model)' has no Copilot CLI binding in $ModelAliasesPath"
+    exit 1
+}
+$Config | Add-Member -NotePropertyName modelAlias -NotePropertyValue $modelAlias -Force
+$Config.model = $resolvedModel
 
 # --- Validate build/test commands against allowlist ---
 $buildPrefixes = @('dotnet build', 'dotnet publish', 'npm run', 'yarn run', 'pnpm run', 'make', 'cargo build', 'gradle ', 'mvn ')

@@ -4,7 +4,8 @@
   "copilotAuth": "pat",
   "gitProvider": "github",
   "gitAuth": "pat-shared",
-  "model": "gpt-5.6-luna",
+  "model": "model-low",
+  "context": "default",
   "reasoningEffort": "medium",
   "git": {
     "name": "jIRI",

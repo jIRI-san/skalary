@@ -1,17 +1,19 @@
 ---
-description: Advisory budgets for agent dispatch, model fallback, historical context, and delegated instruction size. Load when designing or reviewing multi-agent skill behavior.
+description: Advisory budgets, stable model aliases, context tiers, and delegated instruction size. Load when designing or reviewing multi-agent skill behavior.
 globs:
   - plugins/**/skills/**
   - plugins/**/agents/**
   - .github/skills/**
   - .github/agents/**
+  - tools/model-allowlist.psd1
+  - scripts/skalary/Sync-ModelBindings.ps1
 ---
 
 # Agent Cost Optimization
 
 Simplicity and useful output outrank additional review voices. These are operator-approved direct
-orchestration rules and focused-test expectations, not a runtime model router, price registry, credit
-ledger, or telemetry service.
+orchestration rules and focused-test expectations, with only a plan-local execution ledger—not a
+telemetry service.
 
 ## Monthly operating contract
 
@@ -19,6 +21,12 @@ The GitHub AI-credit ceiling is **200,000 credits per month**: **180,000** for p
 **20,000** reserved for incidents and month-end completion. Review actual model-level use in GitHub's
 AI-usage dashboard each week. Static repository instructions guide spend but cannot enforce an exact
 monthly total.
+
+Autopilot records exact CLI-reported target usage in `assets/ai-credits.json`. The Markdown transcript
+does not contain billing totals, so the same invocation writes a temporary `--usage-output-file`
+sidecar; the launcher folds it into the ledger and deletes it. Records retain model and token-class
+breakdowns for later routing decisions. A plan total is stored directly; an epic total is the sum of
+its child-plan ledgers. Activity outside Skalary-launched execution is intentionally out of scope.
 
 One AI credit currently equals USD 0.01. This pricing snapshot is dated **2026-09-05**:
 
@@ -39,16 +47,17 @@ as non-authoritative task guidance.
 
 ## Model ladder
 
-| Tier | Primary | Replacement fallback | Effort/context | Admitted work |
+| Tier | Primary alias | Replacement alias | Effort/context | Admitted work |
 |---|---|---|---|---|
-| Routine | `GPT-5.6 Luna` | `GPT-5 mini` | medium/default | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
-| Standard | `GPT-5.6 Terra` | `Claude Sonnet 5` | high/default | Planning, acceptance validation, ordinary CR/DR, complex bounded implementation |
-| Deep | `GPT-5.6 Sol` | `GPT-5.6 Terra` | high/default | Cross-subsystem orchestration or diagnosis unresolved after evidence-backed Terra work |
-| Independent | `Claude Opus 5` | `Claude Sonnet 5` | high/default | One concrete high-risk security, concurrency, destructive, correctness, or architecture pass |
+| Routine | `model-low` | `alternate-model-low` | medium/default | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
+| Standard | `model-mid` | `alternate-model-mid` | high/default | Planning, acceptance validation, ordinary CR/DR, complex bounded implementation |
+| Deep | `model-high` | `model-mid` | high/default | Cross-subsystem orchestration or diagnosis unresolved after evidence-backed standard work |
+| Independent | `alternate-model-high` | `alternate-model-mid` | high/default | One concrete high-risk security, concurrency, destructive, correctness, or architecture pass |
 
-A fallback replaces an unavailable call. It never adds a panel. Sol and Opus are not routine
-fallbacks. Escalation names the unresolved evidence or concrete risk; role attendance and disagreement
-alone do not qualify.
+`tools/model-allowlist.psd1` is the canonical alias-to-host map. Skills and operator configuration use
+aliases; `Sync-ModelBindings.ps1` materializes concrete identifiers only where a host format requires
+them. A fallback replaces an unavailable call; it never adds a panel. High tiers are not routine
+fallbacks. Escalation names unresolved evidence or concrete risk.
 
 ## Advisory budgets
 
@@ -66,18 +75,20 @@ an already-open agent when follow-up needs its context instead of paying for a r
 
 ## Context and workflow shape
 
-Default context is the only active tier. Do not request or expose `long_context`: it increases token
-volume and, above the published thresholds, doubles fresh-input and cache-write rates for Terra and
-Sol while increasing output rates.
+Both `default` and `long_context` remain supported. Every shipped config and workflow selects `default`;
+`long_context` is an explicit operator opt-in for a concrete task that cannot be decomposed safely. It
+increases token volume and, above published thresholds, doubles fresh-input and cache-write rates for
+some models while increasing output rates.
 
 Load current intent, state, and active contracts first. Select older material only through explicit
 concepts or canonical IDs and keep no more than three supporting artifacts. Start a fresh session
 between research, planning, and implementation when the prior transcript is no longer needed.
 
-Direct repository work is the default. Planning may use one Terra design/requirements validator when a
-choice remains unresolved. Routine implementation uses Luna plus deterministic evidence. A selected
-ordinary review is one Terra call. Sol coordinates only cross-subsystem work or unresolved diagnosis.
-Opus adds one independent pass only for a concrete high-risk path.
+Direct repository work is the default. Planning may use one `model-mid` design/requirements validator
+when a choice remains unresolved. Routine implementation uses `model-low` plus deterministic evidence.
+A selected ordinary review is one `model-mid` call. `model-high` coordinates only cross-subsystem work
+or unresolved diagnosis. `alternate-model-high` adds one independent pass only for a concrete high-risk
+path.
 
 Delegated prompts state the outcome, closed scope, acceptance evidence, constraints, and response shape.
 Reference authoritative files instead of copying them. Narrow before 800 words; do not add an
@@ -85,19 +96,19 @@ instruction-summary service.
 
 ## Premium evals
 
-Tier-2 waza execution is direct, explicit, and plugin-focused. Use Luna for skill execution. Retain
-Terra judgment only where behavior is subjective; use deterministic graders for observable output,
-refusal, injection, or tool-use behavior. Premium full-repository sweeps are never routine validation.
+Tier-2 waza execution is direct, explicit, and plugin-focused. Use the `model-low` binding for skill
+execution. Retain the `model-mid` binding only where behavior is subjective; use deterministic graders
+for observable output, refusal, injection, or tool-use behavior. Premium full-repository sweeps are
+never routine validation.
 
 ## Decision
 
-Skills implement the table directly and focused fixtures hold the boundaries. Revisit bindings from
-observed quality, availability, current official pricing, and operator value. Do not add a policy
-engine, receipt, schema, telemetry pipeline, or runtime budget service.
+Skills use aliases directly and focused fixtures hold the boundaries. Repoint aliases from observed
+quality, availability, current official pricing, and operator value, then regenerate host-required
+bindings. Do not add a policy engine, telemetry pipeline, or runtime budget service.
 
 ## Dubious decisions
 
-Removing the long-context option can force large tasks to be split even when one large request would be
-more convenient. That simplicity and cost tradeoff is intentional for the single-operator 200K-credit
-boundary. Revisit only if a concrete required task cannot be decomposed under default context without
-losing correctness.
+Generated copies of the alias map exist so independently installed skills can resolve aliases without
+repo-root dependencies. `Sync-ModelBindings.ps1 -Check` fails drift; this small duplication is preferred
+to a new routing plugin or service.

@@ -1,7 +1,6 @@
 ---
 name: "autopilot"
 description: "Autonomous plan executor using direct evidence and bounded native roles."
-model: gpt-5.6-luna
 ---
 
 # Autopilot Agent
@@ -10,14 +9,16 @@ Resolve the selected plan and run installed sibling `DirectWorkflow.psm1`
 `Test-PlanCriteriaBaseline` before every mutation and completion resume. Refuse changed, uncommitted, or
 ambiguous intent, requirements, risks, or decisions with exit `42`; progress markers remain mutable.
 
-Execute the admitted step directly with zero delegated calls by default. Routine bounded work uses
-GPT-5.6 Luna with GPT-5 mini replacement fallback and medium reasoning. A concrete unresolved design or
-acceptance concern permits one combined Terra/high Designer/Validator with Claude Sonnet 5 fallback.
-Use Sol/high only for cross-subsystem work still unresolved after evidence-backed Terra work, and one
-Opus/high pass only for a named high-risk independent concern. No automatic Judge exists: deterministic
+Execute the admitted step directly with zero delegated calls by default. Resolve model aliases through
+`../skills/autopilot/assets/model-aliases.psd1` before invoking a host. Routine bounded work uses
+`model-low` with `alternate-model-low` replacement fallback and medium reasoning. A concrete unresolved
+design or acceptance concern permits one combined `model-mid`/high Designer/Validator with
+`alternate-model-mid` fallback. Use `model-high`/high only for cross-subsystem work still unresolved
+after evidence-backed standard work, and one `alternate-model-high`/high pass only for a named high-risk
+independent concern. No automatic Judge exists: deterministic
 evidence is the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a
 fourth requires a new operator decision. Delegated prompts attach at most three artifacts, target 400
-words, and must be narrowed before 800. All models use host-default context.
+words, and must be narrowed before 800. All committed routing uses `default` context.
 
 If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
 current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort

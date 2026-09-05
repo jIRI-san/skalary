@@ -10,7 +10,7 @@ sequenceDiagram
     actor Operator
     participant CEP as /cep
     participant CIP as /cip
-    participant Native as Optional Terra Validator
+    participant Native as Optional model-mid Validator
     participant DR as Risk-selected /dr
     participant Git
     Operator->>CEP: Goal or epic reference
@@ -98,8 +98,8 @@ observable prose are excluded.
 | Judge | Deterministic tests, parsers, and repository evidence; no automatic model call |
 | DR | One direct risk-selected review only for concrete unresolved design risk |
 | Calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum including retries and replacements |
-| Models | Luna/medium routine (GPT-5 mini fallback); Terra/high standard (Claude Sonnet 5 fallback); Sol/high deep (Terra fallback); Opus/high independent high risk (Claude Sonnet 5 fallback) |
-| Context | Host default only; at most 3 supporting historical artifacts |
+| Models | `model-low`/medium routine (`alternate-model-low` fallback); `model-mid`/high standard (`alternate-model-mid` fallback); `model-high`/high deep; `alternate-model-high`/high independent |
+| Context | Committed routing uses `default`; `long_context` is explicit opt-in; at most 3 supporting historical artifacts |
 | Prompt | 400-word target, 800-word hard cap |
 
 A fallback replaces a call. Built-in search/file/command tools are not agent calls. The full rationale

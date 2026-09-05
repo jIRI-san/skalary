@@ -7,7 +7,8 @@ dependency outputs.
   every plugin and depends on final subsystem surfaces; it owns only the façade and catalog.
 - **One guided entry point plus direct subcommands.** Support `/skalary-config`, `show`, `bootstrap`,
   `edit`, `validate`, `diff`, `apply`, and per-key `reset`.
-- **No central configuration file or service.** Existing subsystem files remain authoritative.
+- **No general central configuration file or service.** Existing subsystem files remain authoritative;
+  the accepted exception is `tools/model-allowlist.psd1`, the one canonical model alias map.
 - **Canonical-source writes only.** Generated/dogfood/catalog outputs change through existing
   synchronizers.
 - **One proposal and one Apply/Cancel gate.** Read-only discovery precedes every mutation; the operator
@@ -17,15 +18,15 @@ dependency outputs.
   unrelated settings.
 - **Two audience levels.** Normal project/operator settings are guided; manifests, allowlists, eval pins,
   and toolchains are clearly labeled advanced maintainer policy.
-- **Model routing is a first-class normal category.** Show and edit every role assignment from `33a78a`:
-  Luna routine, Terra standard, Sol deep, Opus independent, all replacement fallbacks and reasoning
-  efforts, the default-context-only rule, autopilot defaults, CR/DR routing, and waza executor/judge
-  bindings. The underlying host allowlists remain advanced.
-- **One model proposal may update several authorities.** The façade groups the category for the operator,
-  but writes each owning canonical skill, agent, config example, allowlist, or eval spec and then invokes
-  existing synchronization. It does not create a consolidated model-policy file.
-- **Model reset follows delivered defaults.** Per-role reset derives from `33a78a`'s shipped canonical
-  defaults, and retired `long_context` values are refused rather than restored.
+- **Model routing is a first-class normal category.** Show and edit the stable
+  `model-low|mid|high` and `alternate-model-low|mid|high` host bindings, role assignments, reasoning
+  efforts, autopilot defaults, CR/DR routing, and waza executor/judge bindings. Context is separate:
+  shipped settings use `default`, while `long_context` remains explicit opt-in.
+- **One alias proposal updates one authority.** The façade edits `tools/model-allowlist.psd1`, then runs
+  `Sync-ModelBindings.ps1` and existing distribution synchronization. Concrete host identifiers in waza
+  specs and installed skill assets are generated bindings, not independent policy.
+- **Model reset follows delivered aliases.** Per-role reset restores the shipped six-alias map and
+  `default` context. It may accept `long_context` only as an explicit operator choice with its cost shown.
 - **Secrets are availability-only.** Never read values into the model or write credential material.
 - **Executable configuration gets extra confirmation.** Autopilot build/test/host command and container
   extension values are never silently created or applied.

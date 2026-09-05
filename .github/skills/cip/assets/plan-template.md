@@ -22,6 +22,7 @@
 - Decisions — [assets/decisions.md](assets/decisions.md) (extended rationale in `assets/decisions/<topic>.md`)
 - References — [assets/references.md](assets/references.md)
 - Review results — advisory `assets/reviews/phase-<N>.md` and `assets/reviews/final.md`
+- AI-credit ledger — `assets/ai-credits.json` (created by autonomous execution)
 
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
