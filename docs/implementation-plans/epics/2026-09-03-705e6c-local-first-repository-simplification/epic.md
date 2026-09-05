@@ -56,7 +56,7 @@ human-readable documentation for every supported category.
 | Plan | Slug | Depends on |
 |---|---|---|
 | `2aa7ec` | local-first-operating-baseline _(archived)_ | — |
-| `367e9a` | simple-review-to-plan-workflow | `2aa7ec` |
+| `367e9a` | simple-review-to-plan-workflow _(archived)_ | `2aa7ec` |
 | `3a4498` | simple-self-improvement | `367e9a` |
 | `623cc2` | simple-plugin-lifecycle | `2aa7ec` |
 | `a524dc` | unified-skalary-configuration | `367e9a`, `3a4498`, `623cc2` |
