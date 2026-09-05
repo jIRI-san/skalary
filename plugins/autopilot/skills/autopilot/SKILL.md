@@ -20,4 +20,6 @@ handled by the agent. Preserve recoverable Git and Markdown progress for every n
 Autonomous execution uses direct native roles, direct evidence, risk-selected non-terminal review, one
 terminal whole-plan review, and the bounded direct learning handoff described by the autopilot agent.
 It does not use a scheduler, review authority store, evidence receipt, harvest receipt, or review-cycle
-state.
+state. If the run needs a complex operator decision, the agent stops with `42` and returns the
+host-equivalent context, examples, benefits, pros/cons, recommendation/default, effort, complexity, and
+relationship/sequence diagram defined there; free-form input is one focused question at a time.

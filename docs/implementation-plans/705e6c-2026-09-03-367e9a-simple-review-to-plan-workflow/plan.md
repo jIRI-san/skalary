@@ -62,7 +62,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Precise interaction and proportional review
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Make complex questions decision-ready across both hosts and convert active absolute/fuzzy policy language into confirmed invariants or observable conditional rules (REQ-10, REQ-11, RISK-8) [after: 2.2] `L`
+- [x] 3.1 Make complex questions decision-ready across both hosts and convert active absolute/fuzzy policy language into confirmed invariants or observable conditional rules (REQ-10, REQ-11, RISK-8) [after: 2.2] `L`
 - [ ] 3.2 Apply the concrete threat-path security rubric and simple-versus-safer operator choice to the retained direct review guards (REQ-12, RISK-2, RISK-6, RISK-8) [after: 3.1] `M`
 - [ ] 3.3 Add focused decision-question, language-audit, concrete-threat, absent-boundary, and retained-guard fixtures (REQ-10, REQ-11, REQ-12, RISK-2, RISK-6, RISK-8) [after: 3.2] `S`
 

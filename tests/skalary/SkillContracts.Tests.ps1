@@ -50,7 +50,7 @@ Describe 'Direct workflow skill contracts' {
             $text = Get-SkillText $path
             $text | Should -Match 'terminal phase skips post-phase'
             $text | Should -Match 'one whole-plan\s+direct CR'
-            $text | Should -Match 'Never rerun unchanged scope'
+            $text | Should -Match 'If scope is unchanged, do not rerun'
         }
     }
 

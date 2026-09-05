@@ -14,14 +14,15 @@ filtered index or explicit IDs; load at most five selected current Markdown arti
 `.github/skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1`. Preserve confinement, secret
 screening, untrusted framing, accepted-only provenance, and current-intent/contract precedence.
 
-Make every complex question decision-ready in both hosts: context, concrete examples, benefits,
-pros/cons, effort 1-10, complexity 1-10, and Mermaid when relationships or sequencing matter. Audit
-absolute wording as invariant or explicit condition/behavior/exception. Ask for an observable threshold,
-criterion, example, or operator interpretation for fuzzy wording.
+Before drafting, follow the shared planning protocol installed at
+`.github/skills/cep/assets/decision-protocol.md`. It defines host-equivalent complex choices and the
+absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an unobservable fuzzy
+requirement.
 
-After intent confirmation, use one native combined design/requirements call when useful and a Judge as
-the normal second call. The orchestrator performs ordinary decomposition. Use two calls by default and
-five maximum, with replacement fallback, at most five supporting artifacts, and 600/1,200 prompt bounds.
+After intent confirmation, if a choice spans design and acceptance criteria, use one native combined
+design/requirements call; otherwise the orchestrator performs the decomposition. A Judge is the normal
+second call. Use two calls by default and five maximum, with replacement fallback, at most five
+supporting artifacts, and 600/1,200 prompt bounds.
 Use one direct risk-selected DR only when a concrete unresolved design risk remains; no scheduler or
 fixed matrix. Apply the two-check progress rule to observable background calls and stop visibly after
 one redirect and at most one replacement. Never cancel for elapsed agent time; deterministic command

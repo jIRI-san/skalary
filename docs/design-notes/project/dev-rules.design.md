@@ -9,11 +9,14 @@ globs:
 
 ## Terminal Commands
 
-- **Keep operator choices equivalent across hosts.** Define one ordered option list with the same
-  labels and context in VS Code and Copilot CLI. Every option includes any recommendation/default,
-  `effort: <1-10>`, and `complexity: <1-10>`. VS Code uses `vscode_askQuestions`; Copilot CLI shows
-  the same options as a numbered list and accepts the number or exact label. Do not add a picker
-  abstraction. `/cr` treats a missing host path, context, or score as a finding.
+- **Keep operator choices equivalent across hosts.** If a predefined choice is complex because its
+  consequences, terminology, relationships, or sequencing are not obvious, include current context, a
+  concrete example, benefits, each option's pros/cons, recommendation/default, `effort: <1-10>`, and
+  `complexity: <1-10>`; add Mermaid only when relationships or sequencing affect the decision. Define
+  one ordered option list: VS Code passes it to `vscode_askQuestions`, while Copilot CLI shows the same
+  labels and context as a numbered list and accepts the number or exact label. Free-form input is one
+  focused question at a time; explicit trivial yes/no prompts stay concise. Do not add a picker
+  abstraction. `/cr` treats a missing host path, context, or required decision detail as a finding.
 
 - **Never start a PowerShell command with `&` or wrap `.ps1` scripts with `powershell -File`** — both break VS Code Copilot agent auto-approval (it won't approve commands starting with `&` or `powershell`). The terminal is already PowerShell; invoke everything directly:
   - `dotnet build` not `& dotnet build`

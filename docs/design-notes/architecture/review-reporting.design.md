@@ -13,6 +13,11 @@ CR and DR select concerns from concrete scope risk instead of a fixed roster. Ro
 combined GPT-5.6 Sol call; Claude Opus 5 adds independence only for terminal or stated high-risk review.
 Two calls are normal and five are the hard maximum, including replacements.
 
+If scope, risk, or correction requires a complex predefined operator choice, CR/DR present the same
+ordered decision brief in both hosts: context, example, benefits, pros/cons, recommendation/default,
+effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Free-form
+input remains one focused question at a time.
+
 Plan-associated reports are advisory Markdown at `assets/reviews/phase-<N>.md` or
 `assets/reviews/final.md`. `Write-DirectReviewReport` confines the path and emits fixed `Source`,
 `Scope`, `Completed tasks`, `Findings`, and `Verdict` headings. Verdict is `clean`, `findings`, or

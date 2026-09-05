@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.91",
+  "version": "1.0.92",
   "description": "Direct implementation and epic plan creation.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -14,6 +14,7 @@
   "status": "stable",
   "files": [
     { "src": "skills/cip/SKILL.md", "dest": "skills/cip/SKILL.md" },
+    { "src": "skills/cip/assets/decision-protocol.md", "dest": "skills/cip/assets/decision-protocol.md" },
     { "src": "skills/cip/assets/plan-template.md", "dest": "skills/cip/assets/plan-template.md" },
     { "src": "skills/cip/scripts/AtomicStore.psm1", "dest": "skills/cip/scripts/AtomicStore.psm1" },
     { "src": "skills/cip/scripts/Get-PlanIndex.ps1", "dest": "skills/cip/scripts/Get-PlanIndex.ps1" },
@@ -25,6 +26,7 @@
     { "src": "skills/cip/scripts/Set-PlanStage.ps1", "dest": "skills/cip/scripts/Set-PlanStage.ps1" },
     { "src": "skills/cip/scripts/Test-Plan.ps1", "dest": "skills/cip/scripts/Test-Plan.ps1" },
     { "src": "skills/cep/SKILL.md", "dest": "skills/cep/SKILL.md" },
+    { "src": "skills/cip/assets/decision-protocol.md", "dest": "skills/cep/assets/decision-protocol.md" },
     { "src": "skills/cip/assets/plan-template.md", "dest": "skills/cep/assets/plan-template.md" },
     { "src": "skills/cep/scripts/Get-PlanIndex.ps1", "dest": "skills/cep/scripts/Get-PlanIndex.ps1" },
     { "src": "skills/cep/scripts/New-Epic.ps1", "dest": "skills/cep/scripts/New-Epic.ps1" },

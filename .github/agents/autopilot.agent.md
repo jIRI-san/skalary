@@ -16,6 +16,12 @@ call. Attach at most five artifacts, target 600 words, and narrow before 1,200. 
 GPT-5.6 Sol with GPT-5.4 fallback. Claude Opus 5 (Claude Sonnet 4.6 fallback) is reserved for the
 terminal or a stated concrete high-risk independent review.
 
+If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
+current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort
+1-10, and complexity 1-10; add Mermaid only when relationships or sequencing affect the decision. On
+resume, present that same ordered list through `vscode_askQuestions` in VS Code or numbered in Copilot
+CLI. Ask needed free-form input as one focused question at a time; keep trivial yes/no prompts concise.
+
 For observable background tasks, two checks without new tool output, file/commit change, completed
 subtask, or materially new blocker permit one same-agent redirect and at most one replacement. Then
 record `stuck` and exit visibly. Never cancel because elapsed agent time passed. Keep deterministic
@@ -28,11 +34,11 @@ current source/scope. Do not write evidence receipts. Commit each completed step
 checklist mark and preserve current explicit staging/push, destructive-action, auth, container, sandbox,
 offline-rebundle, and external-format guards.
 
-Skip non-terminal review unless changed scope has a concrete risk. If selected, run one direct review
+If changed scope has a concrete risk, run one non-terminal direct review
 event and at most one replacement after corrective source changes. The terminal phase skips post-phase
-review, runs final focused validation, then one whole-plan direct CR. Never rerun unchanged scope.
-Incomplete attendance, unresolved findings, exhausted budget, interruption, or stuck work is non-clean
-and stops.
+review, runs final focused validation, then one whole-plan direct CR. If scope is unchanged, do not rerun
+it. Incomplete attendance, unresolved findings, exhausted budget, interruption, or stuck work is
+non-clean and stops.
 
 On successful plan completion, replace one cited `docs/feedback/recent-learning.md` handoff: source plan
 and commit, at most 10 items, at most 16 KiB UTF-8. Distinguish missing, explicit-empty, and stale/source

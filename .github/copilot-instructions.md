@@ -31,11 +31,15 @@ When the user says **"update docs"**:
 
 ## Operator Choices and Commands
 
-- For predefined choices, build one ordered option list. Every option includes its consequence, any
-  recommendation/default, `effort: <1-10>`, and `complexity: <1-10>`.
-- In VS Code, pass that list to `vscode_askQuestions`. In Copilot CLI, render the same labels and
-  context as a numbered list and accept the number or exact label. Never stop only because the VS Code
-  picker is unavailable. Free-form questions are unchanged.
+- If a predefined choice is complex because its consequences, terminology, relationships, or sequencing
+  are not obvious, include current context, a concrete example, expected benefits, each option's pros and
+  cons, a recommendation/default, `effort: <1-10>`, and `complexity: <1-10>`. Add Mermaid only when
+  relationships or sequencing affect the decision. A trivial yes/no whose consequence is explicit does
+  not need this expansion.
+- For a predefined choice, build one ordered option list. In VS Code, pass it to
+  `vscode_askQuestions`. In Copilot CLI, render the same labels and context as a numbered list and accept
+  the number or exact label. If the VS Code picker is unavailable, use the CLI form instead of stopping.
+  For free-form input, ask one focused question at a time.
 - Invoke installed scripts directly by stable repo-relative path with bound arguments. Never wrap
   `.github/skills/**` scripts in `pwsh -File` or `powershell -File`. Read-only and focused script paths
   may be pre-approved; mutating scripts remain explicit.

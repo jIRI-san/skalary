@@ -69,12 +69,12 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.9 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.3.5 | partial | code-review, create-implementation-plan | 34 | Self-contained direct-workflow autonomous plan executor. |
-| `code-review` | 1.0.71 | stable | — | 8 | Risk-selected code review with direct advisory Markdown. |
-| `continue-implementation` | 1.0.107 | stable | autopilot, code-review, create-implementation-plan | 7 | Direct plan implementation workflow with Git criteria protection. |
-| `create-implementation-plan` | 1.0.91 | stable | design-review | 23 | Direct implementation and epic plan creation. |
-| `design-notes` | 1.1.3 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
-| `design-review` | 1.0.70 | stable | — | 7 | Risk-selected design review with direct advisory Markdown. |
+| `autopilot` | 1.3.6 | partial | code-review, create-implementation-plan | 34 | Self-contained direct-workflow autonomous plan executor. |
+| `code-review` | 1.0.72 | stable | — | 8 | Risk-selected code review with direct advisory Markdown. |
+| `continue-implementation` | 1.0.108 | stable | autopilot, code-review, create-implementation-plan | 7 | Direct plan implementation workflow with Git criteria protection. |
+| `create-implementation-plan` | 1.0.92 | stable | design-review | 25 | Direct implementation and epic plan creation. |
+| `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
+| `design-review` | 1.0.71 | stable | — | 7 | Risk-selected design review with direct advisory Markdown. |
 | `plugin-manager` | 1.0.23 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.75 | stable | create-implementation-plan | 35 | Self-improvement loop — /pfb compares delivered work against the plan's captured intent and records the operator's verdict; /si harvests the review ledger, plan learnings, and recorded feedback into ranked improvements to the customizations themselves. |

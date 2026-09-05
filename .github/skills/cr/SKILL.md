@@ -21,6 +21,12 @@ independent pass. GPT-5.4 and Claude Sonnet 4.6 are replacement fallbacks. Use t
 five maximum including retries/replacements; a fallback replaces a call. Attach at most five supporting
 artifacts, target 600 prompt words, and narrow before 1,200.
 
+If scope, risk, or correction needs a complex predefined operator choice, provide current context, a
+concrete example, benefits, each option's pros/cons, recommendation/default, effort 1-10, and complexity
+1-10; add Mermaid only when relationships or sequencing affect the decision. Pass the same ordered list
+to `vscode_askQuestions` in VS Code or render it numbered in Copilot CLI. Ask free-form input as one
+focused question at a time; keep trivial yes/no prompts concise.
+
 Reviewers are read-only. They may not edit reviewed code, plans, manifests, or policy. The orchestrator's
 only write is a plan-associated report through the installed sibling `DirectWorkflow.psm1` function
 `Write-DirectReviewReport`; generic reviews return chat output unless explicitly saved. Resolve local
@@ -30,5 +36,6 @@ Each selected task ends `complete`, `failed`, `interrupted`, or `stuck`. Collate
 completed tasks, findings, and verdict. A security finding names attacker/input, reachable capability,
 affected asset, and plausible impact. The verdict is exactly `clean`, `findings`, or `incomplete`;
 missing/non-complete tasks cannot be clean. Write `phase-N.md` or `final.md` under the canonical plan.
-A corrective source change replaces that stage file; unchanged scope is never rerun. Exhausted budget
-or unresolved findings stops visibly. The in-memory result, not persisted Markdown, feeds direct evidence.
+If corrective source changes alter the scope, replace that stage file; otherwise do not rerun unchanged
+scope. Exhausted budget or unresolved findings stops visibly. The in-memory result, not persisted
+Markdown, feeds direct evidence.

@@ -64,8 +64,9 @@ Convert the name to lowercase kebab-case and append `.design.md`. Examples:
    - Relevant source files already in the workspace that relate to the named topic
    - Anything discussed in this chat session about the topic
    - If neither applies, generate a well-structured skeleton with placeholder sections
-4. **Create `docs/design-notes/<subfolder>/<derived-filename>`** choosing the appropriate subfolder
-   (`architecture/`, `testing/`, `orchestration/`, `ui/`, or `project/`) based on the topic:
+4. **Create `docs/design-notes/<subfolder>/<derived-filename>`** by primary scope:
+   `architecture/` for component boundaries, `testing/` for test infrastructure, `orchestration/` for
+   workflow/agent coordination, `ui/` for user-facing interfaces, or `project/` for repo-wide tooling:
    - YAML frontmatter (`description`, `globs` covering the relevant source paths)
    - An _Overview_ section explaining what the subsystem/topic is
    - An _Implementation_ section with current patterns and code examples

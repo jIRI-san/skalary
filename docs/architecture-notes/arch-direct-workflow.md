@@ -30,3 +30,7 @@ globs:
   whole-plan review; unchanged scope is not rerun.
 - Historical context is at most five confined, secret-screened Markdown artifacts, framed once as
   untrusted input without receipt validation.
+- If a planning, review, CI, or autopilot surface needs a complex predefined operator choice, both hosts
+  receive the same context, example, benefits, pros/cons, recommendation/default, effort and complexity
+  scores, plus Mermaid only when relationships or sequencing matter. Free-form input remains one focused
+  question at a time.

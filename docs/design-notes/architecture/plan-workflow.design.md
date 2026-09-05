@@ -11,10 +11,18 @@ globs:
 ## Planning
 
 `/cep` keeps epics as indexes of sibling plans. `/cip` confirms current intent, requirements, risks,
-and decisions, then writes the existing `planning-confirmed` marker. Complex questions include context,
-examples, benefits, pros/cons, effort and complexity from 1–10, and Mermaid when relationships matter.
-Conditional absolutes become condition/behavior/exception rules; fuzzy requirements gain observable
-criteria.
+and decisions, then writes the existing `planning-confirmed` marker. The shared planning decision
+protocol makes complex predefined choices identical across hosts: context, a concrete example, benefits,
+pros/cons, recommendation/default, effort and complexity from 1–10, and Mermaid only when relationships
+or sequencing matter. Free-form input is one focused question at a time; explicit trivial yes/no prompts
+stay concise.
+
+Before drafting, `/cip` inspects operator requirements and relevant active policy for behavior-asserting
+absolute terms and the seeded fuzzy vocabulary. An already confirmed unconditional rule stays an
+invariant with its reason. Otherwise `/cip` presents a candidate condition, behavior, and exception for
+confirmation. A fuzzy requirement is drafted only after the operator supplies an observable criterion,
+threshold, example, or interpretation. Code keywords, quotations, examples being analyzed, format
+grammar, and already-observable descriptive prose are excluded.
 
 Plans keep the current six-hex identity, assets layout, stage markers, dependency syntax, typed
 `test:`/`file:`/`review:` markers, focused validator, and script-owned scaffolding/stage mutation.

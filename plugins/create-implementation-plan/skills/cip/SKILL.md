@@ -14,14 +14,15 @@ index or explicit canonical IDs, then load at most five selected current Markdow
 `.github/skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1`. Keep confinement, secret
 screening, accepted-only provenance, untrusted framing, and current intent/contracts above history.
 
-Every complex question supplies context, examples, benefits, pros/cons, effort 1-10, complexity 1-10,
-and Mermaid when relationships or sequencing affect the choice. Audit absolute wording: preserve a
-confirmed invariant, otherwise state condition, behavior, and exception. Replace fuzzy requirements
-with an observable criterion, threshold, example, or operator-confirmed interpretation.
+Before drafting, follow
+[`./assets/decision-protocol.md`](./assets/decision-protocol.md). It defines host-equivalent complex
+choices and the absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an
+unobservable fuzzy requirement.
 
-Confirm current intent first. Use one native combined design/requirements call when useful, then a Judge
-as the normal second call; ordinary drafting remains with the orchestrator. Use two delegated calls by
-default, five maximum including replacement, at most five supporting artifacts, and 600/1,200 prompt
+Confirm current intent first. If a choice spans design and acceptance criteria, use one native combined
+design/requirements call; otherwise the orchestrator drafts it directly. A Judge is the normal second
+call. Use two delegated calls by default, five maximum including replacement, at most five supporting
+artifacts, and 600/1,200 prompt
 bounds. Use a direct risk-selected DR only for concrete unresolved design risk; no scheduler or fixed
 matrix. For observable background calls, two no-progress checks permit one same-agent redirect and at
 most one replacement. Elapsed agent time never cancels work; declared deterministic command timeouts

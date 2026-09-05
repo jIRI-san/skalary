@@ -23,6 +23,11 @@ uses optional combined design/validation plus a normal Judge, verifies current e
 commits each completed step. Background stuck recovery uses progress evidence, one redirect, and at most
 one replacement within the five-call budget.
 
+If autonomous work reaches a complex operator decision, it exits `42` with a decision brief containing
+context, example, benefits, pros/cons, recommendation/default, effort and complexity from 1–10, and a
+Mermaid diagram only when relationships or sequencing matter. A resumed VS Code or CLI interaction shows
+the same ordered options; free-form input remains one focused question at a time.
+
 Non-terminal review is risk-selected. The terminal phase skips ordinary phase review and owns the one
 whole-plan direct CR. Successful completion replaces `docs/feedback/recent-learning.md`. Runtime resume
 uses committed plan checklist state; no review-cycle, phase-receipt, or scheduler state participates.

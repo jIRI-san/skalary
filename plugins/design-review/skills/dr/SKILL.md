@@ -19,6 +19,12 @@ Use GPT-5.6 Sol for routine design judgment and Claude Opus 5 only for terminal 
 independence. GPT-5.4 and Claude Sonnet 4.6 replace unavailable calls. Use two calls by default and
 five maximum, at most five supporting artifacts, a 600-word target, and a 1,200-word hard cap.
 
+If scope, risk, or correction needs a complex predefined operator choice, provide current context, a
+concrete example, benefits, each option's pros/cons, recommendation/default, effort 1-10, and complexity
+1-10; add Mermaid only when relationships or sequencing affect the decision. Pass the same ordered list
+to `vscode_askQuestions` in VS Code or render it numbered in Copilot CLI. Ask free-form input as one
+focused question at a time; keep trivial yes/no prompts concise.
+
 Reviewers are read-only and cannot revise the plan. Resolve optional local Markdown standards with
 `Resolve-DirectReviewStandards`. Every selected task has a closed completion status. Findings must be
 specific and simplicity-first; security findings name attacker/input, reachable capability, affected
