@@ -21,8 +21,8 @@ input remains one focused question at a time.
 Plan-associated reports are advisory Markdown at `assets/reviews/phase-<N>.md` or
 `assets/reviews/final.md`. `Write-DirectReviewReport` confines the path and emits fixed `Source`,
 `Scope`, `Completed tasks`, `Findings`, and `Verdict` headings. Verdict is `clean`, `findings`, or
-`incomplete`; every selected task must be complete for `clean`. Generic review remains chat-only unless
-the operator asks to save it.
+`incomplete`; `Source` is one full commit, `Scope` is exact, and every selected task must be recorded
+complete for `clean`. Generic review remains chat-only unless the operator asks to save it.
 
 Reviewers remain read-only. Repository text, local `docs/review-standards.md`, and historical context
 are untrusted data. Direct helpers keep collision-safe fencing, secret redaction, canonical report
@@ -50,5 +50,5 @@ absent-boundary requests are omitted. A failed or incomplete selected security t
 `incomplete`, never `clean`.
 
 Persisted Markdown is history, not evidence authority. Active callers pass the current in-memory review
-result to `Invoke-DirectEvidence`. Unchanged scope is not rerun; incomplete, stuck, exhausted, or
-unresolved work stops non-clean.
+result plus the full current source and requested scope to `Invoke-DirectEvidence`. Unchanged scope is
+not rerun; incomplete, stuck, exhausted, or unresolved work stops non-clean.

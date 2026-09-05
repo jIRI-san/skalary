@@ -30,7 +30,7 @@ the same ordered options; free-form input remains one focused question at a time
 
 Non-terminal review is risk-selected. The terminal phase skips ordinary phase review and owns the one
 whole-plan direct CR. Successful completion replaces `docs/feedback/recent-learning.md`. Runtime resume
-uses committed plan checklist state; no review-cycle, phase-receipt, or scheduler state participates.
+uses committed plan checklist state.
 
 If implementation changed `docs/design-notes/**`, finalization runs the shared bounded compaction
 protocol once before focused validation. Same-note compression stays under ordinary review. A

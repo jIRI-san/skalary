@@ -35,7 +35,7 @@ what wins when prose and executable state disagree.
 | AI design notes | Implementer/design-note flow | [`docs/design-notes/`](../design-notes/) | Updated with implementation; conditionally compacted at whole-plan finalization | [Design-note index](../design-notes/.design-notes.md) | Agents working in matching scope |
 | Local review standards | Repository operator | `docs/review-standards.md`, when present | Optional bounded Markdown; editable local policy | Base review guards plus [`Resolve-DirectReviewStandards`](../../scripts/skalary/DirectWorkflow.psm1) | CR and DR |
 | Phase/final review report | CR or DR orchestrator | `assets/reviews/phase-<N>.md` or `assets/reviews/final.md` | Replaced only after changed-scope correction; advisory history | Active in-memory review result for evidence; report for history | Operator and historical-context adapter |
-| Current evidence | `/ci` or autopilot | Current command result, current file, active in-memory review | Exists for the active crosscheck; not persisted as a receipt | [`Invoke-DirectEvidence`](../../scripts/skalary/DirectWorkflow.psm1) inputs | Phase/plan close |
+| Current evidence | `/ci` or autopilot | Current command result, current file, active in-memory review | Exists only for the active crosscheck | [`Invoke-DirectEvidence`](../../scripts/skalary/DirectWorkflow.psm1) inputs | Phase/plan close |
 | Recent-learning handoff | `/ci` or autopilot | [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) | Atomically replaced after successful whole-plan source commit; never appended | [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1) validation | `/si` |
 | Autonomous configuration | Operator and `/ci` | `.autopilot.json`; optional `.autopilot.host.json` | Host-local, validated before launch; not plan criteria | [Autopilot schemas](../../plugins/autopilot/schemas/) and launcher | Autopilot launcher |
 | Baseline and progress history | Git plus executor | Git commits | Confirmation commit is immutable history; completed work is committed step-by-step | Git object database | Criteria baseline, resume, rollback |
@@ -82,5 +82,6 @@ The plan layout and marker grammar are defined by
 **design-note compaction does not apply here**. Guide-only changes neither trigger nor participate in
 compaction. Keep this guide linked to active sources rather than copying large implementation details.
 
-Migration note: older archived plans may contain review-run, Fleet, receipt, ledger, or harvest files.
-They are historical data only; the active workflow does not use them as authority.
+Retired workflow contracts remain only as non-indexed history under
+[`docs/architecture-notes/archives/`](../architecture-notes/archives/). Archived plans and evidence
+remain historical records and never become active authority.

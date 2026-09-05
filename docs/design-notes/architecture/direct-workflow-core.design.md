@@ -23,11 +23,10 @@ adapter is active for CR, DR, CEP, and CIP. Plugin manifests install the canonic
 
 Plan reports are `assets/reviews/phase-<N>.md` or `assets/reviews/final.md`; persisted reports are
 advisory. The historical adapter reads at most five selected current Markdown artifacts through
-`PlanState` confinement, screens secrets, and frames accepted content once. It has no receipt
-dependency.
+`PlanState` confinement, screens secrets, and frames accepted content once.
 
 Native roles, budgets, progress-based recovery, one-terminal-review sequencing, and visible non-clean
-stops remain readable instructions rather than scheduler state.
+stops are readable workflow instructions.
 
 The CI and autopilot consumers share the installed design-note compaction protocol. It is a single
 conditional finalization action, not a service or durable state machine; model judgment owns semantic

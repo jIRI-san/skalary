@@ -27,8 +27,8 @@ globs:
   Enterprise controls require an introduced boundary; material safer machinery is an operator choice
   comparing the simple and safer options, concrete threat, residual risk, benefits, pros/cons, effort,
   and complexity.
-- Current test, file, and active in-memory review results are evidence. Persisted reports are advisory;
-  there is no receipt, run store, generated concern registry, or repair authority.
+- Current test, file, and active in-memory review results are evidence. Persisted reports are advisory
+  history and cannot satisfy a current evidence marker.
 - Native calls use two delegates by default and five maximum. Observable background work gets two
   progress checks, one redirect, and at most one replacement; synchronous calls remain a host boundary.
   Elapsed time does not kill agents. Declared deterministic command timeouts remain.
@@ -38,7 +38,7 @@ globs:
   `docs/design-notes/**`. Candidate reads are index-led and bounded to five full notes; cross-note
   merge/delete requires explicit operator approval, and headless execution stops with visible changes.
 - Historical context is at most five confined, secret-screened Markdown artifacts, framed once as
-  untrusted input without receipt validation.
+  untrusted input with accepted-path provenance.
 - Successful whole-plan completion safely replaces one strict `docs/feedback/recent-learning.md`
   handoff: canonical source plan id/slug, full completed source commit, explicit `## Lessons`, at most
   10 cited items, and at most 16 KiB UTF-8. `/si` rejects malformed, oversized, secret-containing, bad

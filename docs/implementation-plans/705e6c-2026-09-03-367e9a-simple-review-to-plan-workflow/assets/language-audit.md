@@ -1,28 +1,52 @@
 # Active policy-language audit
 
+**Status: closed in Step 5.1.** Unresolved policy absolutes: **0**. Unresolved fuzzy requirements:
+**0**. This is a reviewed documentation inventory, not an executable gate.
+
 ## Scope and counts
 
-Case-insensitive whole-word scan after the Step 3.1 edits. Counts are lexical inventory, not defect
-counts; each hit was classified by the rule families below rather than copied into a noisy line-by-line
-dump.
+Case-insensitive whole-word rescan at Step 5.1 closure. Counts are lexical inventory, not defect
+counts. Scope is the manifest-declared canonical plugin Markdown, `.github/copilot-instructions.md`,
+the design-note index plus every indexed design note, and the architecture index plus every indexed
+architecture note. Generated `.github` copies, non-indexed architecture archives/staging, the
+non-authoritative generated architecture compatibility view, and human operator docs are excluded.
 
 | Active authority | Files scanned | Files with hits | Matching lines | Term occurrences |
 |---|---:|---:|---:|---:|
-| Manifest-declared canonical plugin Markdown | 43 | 41 | 262 | 324 |
+| Manifest-declared canonical plugin Markdown | 44 | 42 | 294 | 358 |
 | `.github/copilot-instructions.md` | 1 | 1 | 8 | 11 |
-| `docs/design-notes/**` | 26 | 25 | 287 | 366 |
-| `docs/architecture-notes/**` | 6 | 5 | 19 | 19 |
-| **Total** | **76** | **72** | **576** | **720** |
+| Active design-note index and indexed notes | 26 | 25 | 297 | 374 |
+| Active architecture index and indexed notes | 4 | 4 | 21 | 21 |
+| **Total** | **75** | **72** | **620** | **764** |
 
 The scan vocabulary was `always`, `never`, `must`, `shall`, `required`, `only`, `cannot`, `do not`,
 `refuse`, `prohibit*`, `detailed`, `thorough`, `robust`, `appropriate`, `comprehensive`, `fast`, and
 `secure`. The 11 remaining seeded-fuzzy hits are protocol vocabulary/examples (8), the Git term
 `non-fast-forward` (2), and descriptive text introducing the design-note index (1); no active behavioral
-requirement relies on a seeded fuzzy word.
+requirement relies on a seeded fuzzy word. The architecture archive, staging area, compatibility
+view, archived plans/evidence, and operator tutorial are retained documentation, not active policy
+authority.
 
-Counts by normalized match: `always` 21; `never` 168; `must` 72; `shall` 1; `required` 36; `only` 299;
-`cannot` 41; `do not` 62; `refuse` 7; `prohibit`/`prohibited` 2; `detailed` 2; `thorough` 1; `robust` 2;
+Counts by normalized match: `always` 21; `never` 182; `must` 71; `shall` 1; `required` 36; `only` 321;
+`cannot` 43; `do not` 69; `refuse` 7; `prohibit`/`prohibited` 2; `detailed` 2; `thorough` 1; `robust` 2;
 `appropriate` 1; `comprehensive` 1; `fast` 3; `secure` 1.
+
+## Closure classification
+
+Every one of the 764 lexical occurrences was reviewed with this mutually exclusive precedence:
+
+1. syntax, identifiers, quotations, examples under analysis, historical text, and already-observable
+   descriptions are intentional non-policy exclusions;
+2. a fuzzy term used as policy must carry its criterion, threshold, example, or explicit
+   interpretation, otherwise it is unresolved;
+3. a behavior rule with a stated trigger or exception is a rewritten conditional rule;
+4. every remaining behavior-asserting absolute is a retained invariant and belongs to one of the
+   reasoned families below.
+
+Closure found no occurrence outside those four classes. The 11 fuzzy-term hits are all intentional
+non-policy exclusions: protocol vocabulary/examples (8), Git's `non-fast-forward` term (2), and the
+descriptive introduction to the design-note index (1). The previously fuzzy requirements are now
+expressed through observable wording recorded below.
 
 ## Confirmed unconditional invariants retained
 
@@ -61,6 +85,10 @@ Counts by normalized match: `always` 21; `never` 168; `must` 72; `shall` 1; `req
 - Archived implementation plans/history: historical evidence, not active policy.
 - `.github/skills`, `.github/agents`, and `.github/prompts`: generated dogfood, synchronized from plugin
   sources rather than treated as edit authority.
+- `docs/operator-guide/**`: human tutorial, explicitly excluded from auto-loading and design-note
+  compaction.
+- `docs/architecture-notes/archives/**`, `docs/architecture-notes/.staging/**`, and
+  `architecture.human.md`: historical, quarantined, or generated non-authority.
 - `plugins/**/evals/**/fixtures`: quoted test inputs, including intentionally bad policy.
 - External schema/tool keywords, code identifiers, command flags, and format grammar such as PowerShell
   `Mandatory`, JSON Schema `required`, and Git `non-fast-forward`.

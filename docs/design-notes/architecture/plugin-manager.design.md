@@ -47,22 +47,22 @@ The same `plugins/*/plugin.json` sources feed two independent catalogs; neither 
 | Guard | Rule |
 |---|---|
 | Verb allowlist | Only `Get`/`Find`/`Test`/`Validate` scripts (read-only). `Install`/`Uninstall`/`Update`/`Remove`/`Set`/`bootstrap` are never approved, so a prompt-injected `-Repository`/`-Ref`/`-Source` cannot ride an approval into a silent remote install. |
-| Review-writer exception | Exactly two anchored, object-valued `matchCommandLine` rules admit the installed CR/DR `Build-ReviewReport.ps1` with only `-Mode Freeze\|Publish`, a lowercase UUID, and optional confined legacy, unprefixed-hash, or prefixed-hash plan directory in fixed order. The broad script-prefix boolean is forbidden; add/remove owns these rules with the plugin. Approval authorizes only that command shape—it does not provision the writer's PowerShell 7.6+ prerequisite. |
-| Historical-context exclusion | `Get-PlanArtifactConsumerContext.ps1` and its sibling resolver are never auto-approved. The adapter executes an installed resolver/module closure whose bytes are not cryptographically bound at invocation time; approving the adapter command would therefore transitively approve replaceable sibling code. |
+| Direct workflow readers | Manifest-declared `Get-DirectPlanArtifactConsumerContext.ps1` is eligible under the read-only verb rule. Approval remains opt-in and covers the installed command prefix; its confinement, secret screening, and untrusted framing remain runtime checks. |
 | Sensitive-name deny-list | A script whose name contains `credential`/`secret`/`token`/`password`/`passphrase` is never approved even if its verb is read-only (e.g. `get-credential.ps1`). |
 | Key shape | Plain path string (`.github/skills/<skill>/scripts/<Script>.ps1`), matching the existing settings convention. VS Code prefix-matches it per sub-command, so a chained `<script> ; curl … | sh` still prompts (the second sub-command matches no key). |
 | Confinement | Keys are resolved from registry `files[]`, confined to `.github/`, and only written for scripts that exist on disk. |
 | JSONC safety | The writer preserves comments and trailing commas via a comment-aware brace scan; it never round-trips through `ConvertTo-Json` (which would drop comments). |
 
-`-All` batches every plugin's read-only scripts plus the two closed review-writer exceptions;
-`-Remove` drops a plugin's keys (uninstall runs it first, while the files still resolve). Approval is
-always opt-in — the `install-plugin` skill asks via `vscode_askQuestions` and lists each approvable
-entry before writing. Object-valued entries are stored on one JSONC line so the comment-preserving
-add/remove parser can treat one rule atomically.
+`-All` batches every active plugin's eligible read-only scripts; `-Remove` drops a plugin's keys
+(uninstall runs it first, while the files still resolve). Approval is always opt-in — the
+`install-plugin` skill asks via `vscode_askQuestions` and lists each approvable entry before writing.
+Object-valued entries, when present for exact command rules, are stored on one JSONC line so the
+comment-preserving add/remove parser can treat one rule atomically.
 
-Dogfood settings are generated through the same writer. All planning/review consumer adapters and
-their sibling resolvers remain unapproved despite their `Get-` names. The writer also removes obsolete
-plain-path and anchored historical-context entries from earlier versions.
+Dogfood settings are generated through the same writer. The direct historical-context adapters are
+ordinary read-only `Get-` entries in the current settings; their non-`Get` module dependencies are not
+separate approval keys. The writer removes obsolete plain-path and anchored entries from earlier
+versions when it rewrites settings.
 
 ## Bootstrap flow
 

@@ -38,8 +38,8 @@ finalization runs one whole-plan event. Never rerun unchanged scope.
 
 | Role | Primary | Availability fallback | When |
 |---|---|---|---|
-| Routine combined review/design judgment | GPT-5.6 Sol | GPT-5.4 | Standalone and ordinary risk-selected work |
-| Independent review | Claude Opus 5 | Claude Sonnet 4.6 | Terminal or stated concrete high-risk work only |
+| Routine combined review/design judgment | GPT-5.6 Sol (`gpt-5.6-sol`; `GPT-5.6 Sol (copilot)`) | GPT-5.4 (`gpt-5.4`; `GPT-5.4 (copilot)`) | Standalone and ordinary risk-selected work |
+| Independent review | Claude Opus 5 (`claude-opus-5`; `Claude Opus 5 (copilot)`) | Claude Sonnet 4.6 (`claude-sonnet-4.6`; `Claude Sonnet 4.6 (copilot)`) | Terminal or stated concrete high-risk work only |
 
 | Budget | Limit |
 |---|---:|
@@ -49,6 +49,8 @@ finalization runs one whole-plan event. Never rerun unchanged scope.
 | Models per role | One primary plus one replacement fallback |
 
 A fallback replaces an unavailable call; it does not add a panel.
+[`tools/model-allowlist.psd1`](../../tools/model-allowlist.psd1) owns the exact host-specific model
+spellings used by committed agents and autopilot configuration.
 
 ## Inputs and local standards
 
@@ -142,5 +144,5 @@ flowchart LR
 ```
 
 Budget exhaustion, incomplete selected work, stuck/interrupted calls, or unresolved findings stop
-visibly with a non-clean verdict. There is no review-run store, Fleet scheduler, receipt, generated
-concern registry, or repair authority in the active path.
+visibly with a non-clean verdict. The direct report and active in-memory result are the complete
+review interface.

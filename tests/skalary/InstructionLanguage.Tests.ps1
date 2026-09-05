@@ -140,7 +140,12 @@ Describe 'Decision-ready questions and active policy language' {
 
     It 'records a bounded human audit without adding a runtime policy gate' {
         $audit = Read-RepoText 'docs/implementation-plans/705e6c-2026-09-03-367e9a-simple-review-to-plan-workflow/assets/language-audit.md'
-        $audit | Should -Match '\*\*76\*\*'
+        $audit | Should -Match 'Status: closed in Step 5\.1'
+        $audit | Should -Match '\*\*75\*\*'
+        $audit | Should -Match '\*\*764\*\*'
+        $audit | Should -Match 'Unresolved policy absolutes:\s+\*\*0\*\*'
+        $audit | Should -Match 'Unresolved fuzzy requirements:\s*\r?\n\*\*0\*\*'
+        $audit | Should -Match 'Every one of the 764 lexical occurrences was reviewed'
         $audit | Should -Match 'Confirmed unconditional invariants retained'
         $audit | Should -Match 'Conditional rules rewritten'
         $audit | Should -Match 'Clarified fuzzy requirements'

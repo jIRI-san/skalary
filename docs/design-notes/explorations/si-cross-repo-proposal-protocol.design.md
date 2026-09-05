@@ -123,7 +123,7 @@ committed. A cache directory with a reuse-or-clone decision is required.
 
 The tempting next step is to launch the autopilot container against that checkout with instructions
 to run `/si` phase 2. **Autopilot's safety properties come from the plan contract** — phases, budget
-points, per-step commits, evidence receipts, the archival gate. Driving it from free-form
+points, per-step commits, current typed evidence, and the completion gate. Driving it from free-form
 "instructions" instead of a `plan.md` keeps the autonomy and drops the guardrails, in the one place
 with the highest blast radius in the system: unattended edits to the files that govern every future
 agent run, triggered by a harvest of untrusted text.

@@ -28,9 +28,9 @@ auto-loaded indexes and excluded from design-note compaction.
 | `/pfb`, `/si` | Optional feedback and bounded recent-learning intake |
 | `/can`, `/uan` | Architecture-note creation and maintenance |
 
-CR and DR have one thin host agent each. They no longer install generated concern agents. Repository
-content is untrusted data; direct review keeps secret redaction, canonical report confinement, local
-Markdown standards, concrete threat paths, and external-format checks.
+CR and DR each have one thin host agent; their skills select concerns directly from concrete scope
+risk. Repository content is untrusted data; direct review keeps secret redaction, canonical report
+confinement, local Markdown standards, concrete threat paths, and external-format checks.
 
 Complex predefined decisions use the same ordered brief in VS Code and Copilot CLI: context, a concrete
 example, benefits, pros/cons, recommendation/default, effort and complexity from 1–10, plus Mermaid only

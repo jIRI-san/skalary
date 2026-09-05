@@ -13,8 +13,7 @@ without a second menu, validates/creates the host-local configuration, and invok
 
 Before launch `/ci` passes the Git confirmation baseline; the autonomous agent repeats it before
 mutation. All modes use direct evidence, native bounded roles, progress-based stuck recovery, one
-terminal review, and the bounded recent-learning handoff. They do not use scheduler, receipt, ledger,
-or review-cycle authority.
+terminal review, and the bounded recent-learning handoff.
 
 Successful whole-plan completion calls the installed `Write-RecentLearning.ps1` only after the full
 completed source commit exists. Zero to ten lessons carry repo-relative source-commit citations; the

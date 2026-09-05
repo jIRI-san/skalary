@@ -131,7 +131,8 @@ Describe 'SimpleWorkflow.OperatorGuide' {
         }
         $reviews = $script:content['reviews.md']
         foreach ($model in @('GPT-5.6 Sol', 'GPT-5.4', 'Claude Opus 5',
-                'Claude Sonnet 4.6')) {
+                'Claude Sonnet 4.6', 'gpt-5.6-sol', 'gpt-5.4', 'claude-opus-5',
+                'claude-sonnet-4.6')) {
             $reviews | Should -Match ([regex]::Escape($model))
         }
     }
@@ -178,7 +179,7 @@ Describe 'SimpleWorkflow.OperatorGuide' {
             )) {
             $script:all | Should -Not -Match $pattern
         }
-        $script:all | Should -Match 'active workflow does not use them as authority'
-        $script:all | Should -Match 'no review-run store, Fleet scheduler, receipt'
+        $script:all | Should -Match 'Retired workflow contracts remain only as non-indexed history'
+        $script:all | Should -Match 'direct report and active in-memory result are the complete'
     }
 }

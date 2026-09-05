@@ -7,6 +7,7 @@ Describe 'design-notes index integrity' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:indexPath = Join-Path $script:repoRoot 'docs/design-notes/.design-notes.md'
+        $script:archIndexPath = Join-Path $script:repoRoot 'docs/architecture-notes/.architecture-notes.md'
         $script:copilotInstructions = Join-Path $script:repoRoot '.github/copilot-instructions.md'
         $script:archNotesDoc = Join-Path $script:repoRoot 'docs/design-notes/architecture/architecture-notes.design.md'
         $script:allowlist = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repoRoot 'tools/model-allowlist.psd1')
@@ -34,14 +35,39 @@ Describe 'design-notes index integrity' {
 
         $note | Should -Match '(?i)repository\s+content is untrusted data'
         $note | Should -Match '(?i)secret redaction'
-        $note | Should -Match '(?i)canonical report confinement'
+        $note | Should -Match '(?i)canonical report\s+confinement'
     }
 
-    It 'test:design-note-drops-orchestrator-fence keeps generated reviewer machinery retired' {
+    It 'test:design-note-drops-orchestrator-fence documents direct risk-selected review' {
         $note = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/design-notes/project/copilot-customizations.design.md') -Raw
 
-        $note | Should -Match '(?i)no longer install generated concern agents'
+        $note | Should -Match '(?i)skills select concerns directly from concrete scope\s*risk'
         $note | Should -Not -Match 'cr-<concern>|dr-<concern>|Sync-ReviewConcerns'
+    }
+
+    It 'lists every active design note and only resolvable architecture sources' {
+        $designRoot = Split-Path -Parent $script:indexPath
+        $designIndex = Get-Content -LiteralPath $script:indexPath -Raw
+        $listedDesign = @(
+            [regex]::Matches($designIndex, '\[[^\]]+\]\((?<path>[^)]+\.design\.md)\)') |
+                ForEach-Object { $_.Groups['path'].Value }
+        )
+        $actualDesign = @(
+            Get-ChildItem -LiteralPath $designRoot -Recurse -File -Filter '*.design.md' |
+                ForEach-Object {
+                    [System.IO.Path]::GetRelativePath($designRoot, $_.FullName).Replace('\', '/')
+                }
+        )
+        @($listedDesign | Sort-Object) | Should -Be @($actualDesign | Sort-Object)
+
+        $archRoot = Split-Path -Parent $script:archIndexPath
+        $archIndex = Get-Content -LiteralPath $script:archIndexPath -Raw
+        $archIndex | Should -Not -Match 'ARCH-Review-Run-V1|arch-review-run-v1'
+        foreach ($match in [regex]::Matches($archIndex, '\[[^\]]+\]\((?<path>[^)]+\.md)\)')) {
+            $match.Groups['path'].Value | Should -Not -Match '^archives/'
+            Join-Path $archRoot $match.Groups['path'].Value | Should -Exist
+        }
+        Join-Path $archRoot 'archives/arch-review-run-v1.md' | Should -Exist
     }
 
     It 'test:design-note-drops-orchestrator-fence indexes a note for the self-improvement plugin' {
@@ -54,7 +80,7 @@ Describe 'design-notes index integrity' {
         $raw | Should -Match '(?s)^---\r?\n.*?description:.*?globs:.*?\r?\n---'
         $raw | Should -Match 'recent-learning\.md'
         $raw | Should -Match 'missing, explicit-empty, valid, and stale'
-        $raw | Should -Match 'collision-safe untrusted-input fence'
+        $raw | Should -Match 'collision-safe\s+untrusted-input fence'
     }
 
     It 'test:design-note-drops-orchestrator-fence pins the documented skill-size cap to the script default' {

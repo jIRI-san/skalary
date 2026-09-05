@@ -114,9 +114,9 @@ to broad or premium routes automatically. Direct evidence accepts only:
 | `file:` | Current confined file assertion |
 | `review:` | Active, complete, clean in-memory review for the exact current source and scope |
 
-Persisted review Markdown is advisory and no evidence receipt is written. A phase closes only when its
-work, focused validation, and typed evidence pass. Commit the completed step atomically with its
-checklist mark so interrupted work has readable Git/Markdown progress.
+Persisted review Markdown is advisory. A phase closes only when its work, focused validation, and
+typed current evidence pass. Commit the completed step atomically with its checklist mark so
+interrupted work has readable Git/Markdown progress.
 
 ## Finalization
 

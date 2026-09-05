@@ -40,8 +40,8 @@ unique commit that introduced the current confirmation marker and byte-compares 
 risks, and decisions. Checklist, stage, and worktree markers remain mutable.
 
 `Invoke-DirectEvidence` evaluates supplied current-run test results, current confined file assertions,
-and an active complete clean review for the exact current source/scope. It writes no receipt. Persisted
-review Markdown is advisory.
+and an active complete clean review for the exact current source/scope. Evidence remains in the active
+crosscheck; persisted review Markdown is advisory.
 
 The orchestrator performs ordinary work. A combined Designer/Validator is optional and Judge is the
 normal second call. Two delegated calls are normal and five are the maximum. Observable background work
@@ -62,7 +62,7 @@ participates in compaction.
 After a successful whole-plan source commit, `/ci` and autopilot invoke the bundled
 `Write-RecentLearning.ps1`. It validates plan completion, source identity, citations, secrets, the
 10-item/16-KiB limits, then atomically replaces `docs/feedback/recent-learning.md`. It writes strict
-Markdown, including explicit `None.` for zero lessons, with no history, receipt, or repair store.
+Markdown, including explicit `None.` for zero lessons.
 
 ## Distribution
 

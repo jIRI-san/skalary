@@ -38,10 +38,9 @@ The plugin registry is a source-first packaging system: `plugins/` is authoritat
 | `schemas/registry/plugin-retirement.schema.json` | Closed permanent tombstone catalog: immutable source/ref/version payload sets plus manual residue remedies. |
 | `schemas/retirement/retirement-state.schema.json` | Closed versioned consumer state for `preview`, `applying`, `retired`, `residue`, and `failed`, including the complete affected path/hash set and prior source/ref/version. |
 
-Design choice: per-plugin receipts replace a shared lock file to avoid cross-branch merge conflicts.
-Review manifests are a separate runtime authority: plan-associated runs are durable evidence and
-generic runs are transient delivery state. Installer rollback/removal must never treat either as
-plugin receipt data.
+Design choice: per-plugin installation receipts replace a shared lock file to avoid cross-branch
+merge conflicts. Direct review reports are advisory plan Markdown and are never interpreted as
+plugin installation state.
 
 Receipt writers use the shared version 1 `sourceIdentity` API in `_Common.ps1`. GitHub sources
 persist only canonical `github.com/<owner>/<repository>` identity; local sources persist only a
@@ -188,17 +187,11 @@ write dependency comes from `scripts/skalary/`. Every generated copy is explicit
 the consumer manifest so foreign installs receive the same lock/CAS/replace implementation.
 
 The direct historical adapter and `DirectWorkflow.psm1` closures are manifest-declared canonical
-bundles. Autopilot writes the bounded recent-learning handoff directly and no longer depends on the
-self-improvement plugin for completion.
-
-Autopilot's installed `Invoke-SiDueEnqueue.ps1` remains an orchestration boundary rather than an SI
-lifecycle owner: it invokes the dependency writer and converts exceptions or non-complete statuses
-into an explicit non-blocking `degraded` result without reading or mutating SI state itself.
-
-`test:LearningLoop.PayloadOwnershipAndDrift` is the cross-surface proof for this split. It enumerates
-the closed SI-owned sets, shared harvest consumers, dependency edges, installed calls, scaffolds,
-dogfood bytes, catalog hashes, and manifest/catalog versions. The existing generator and drift
-gates remain authoritative; no learning-loop-specific validation gate is added.
+bundles. CI and autopilot each bundle `Write-RecentLearning.ps1` and scaffold the bounded
+`docs/feedback/recent-learning.md` handoff directly, without a self-improvement plugin dependency.
+The self-improvement plugin owns its separate interactive reader and proposal lifecycle. Existing
+generator, drift, and foreign-consumer gates prove the declared split; no learning-specific
+distribution protocol is added.
 
 
 The npm aliases (`plan-state`, `new-plan`, `validate-plan`, etc.) target `scripts/skalary/` directly and remain a **dogfood-only** developer convenience; installed skills never depend on npm.

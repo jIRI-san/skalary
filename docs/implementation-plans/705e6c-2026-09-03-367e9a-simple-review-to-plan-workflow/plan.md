@@ -76,6 +76,6 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 5: Contract retirement and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 5.1 Retire or rewrite obsolete architecture contracts and design notes, close the active absolute/fuzzy audit, and reconcile the operator guide with final executable behavior (REQ-10, REQ-11, REQ-12, REQ-13, REQ-14, RISK-5, RISK-6, RISK-8) [after: 4.3] `L`
+- [x] 5.1 Retire or rewrite obsolete architecture contracts and design notes, close the active absolute/fuzzy audit, and reconcile the operator guide with final executable behavior (REQ-10, REQ-11, REQ-12, REQ-13, REQ-14, RISK-5, RISK-6, RISK-8) [after: 4.3] `L`
 - [ ] 5.2 Remove remaining stale manifests, generated copies, tests, and historical-adapter dependencies; run focused residue and consumer-install checks (REQ-4, REQ-8, REQ-16, RISK-1, RISK-4) [after: 5.1] `M`
 - [ ] 5.3 Run direct plan evidence and affected-plugin checks, perform compaction if design notes changed, write the bounded learning handoff, and execute the single whole-plan terminal CR with a closed clean/findings/incomplete outcome (REQ-1, REQ-2, REQ-3, REQ-6, REQ-7, REQ-8, REQ-9, REQ-12, REQ-13, REQ-14, REQ-15, REQ-16, RISK-1, RISK-2, RISK-4, RISK-5, RISK-6, RISK-7, RISK-9, RISK-10) [after: 5.2] `S`

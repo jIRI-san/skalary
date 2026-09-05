@@ -20,7 +20,7 @@ are auto-loaded (see [copilot-customizations.design.md](../project/copilot-custo
 | Piece | Location | Role |
 |---|---|---|
 | Tier index | `docs/architecture-notes/.architecture-notes.md` | Auto-loaded discovery layer: Contracts / Architecture Notes / **Decision Records (active)** tables |
-| Contracts | Terse Markdown architecture notes; two transferred legacy JSON contracts remain temporarily under `schemas/architecture/` | Human-owned boundaries; locked legacy content remains digest-pinned |
+| Contracts | Terse Markdown architecture notes; one transferred legacy JSON contract remains temporarily under `schemas/architecture/` | Human-owned boundaries; locked legacy content remains digest-pinned |
 | Arch notes | `docs/architecture-notes/<slug>.md` | Terse per-boundary note; path-scoped `globs` frontmatter |
 | Human doc | `docs/architecture-notes/architecture.human.md` | Temporary compatibility view for transferred legacy JSON contracts; excluded from auto-load |
 | Quarantine | `docs/architecture-notes/.staging/` | Harvest/ADR output, `reviewed: false`, never indexed |
@@ -41,8 +41,8 @@ defers **seed**, **legacy human-doc regen**, and **adr-harvest** to
   and locked-digest check needed by transferred legacy JSON contracts. No schema is shipped or
   scaffolded. `Copy-ArchScaffold.ps1` creates only the Markdown tier index and never overwrites it.
 - **No generated copy of Markdown contracts.** The source note is already the human-readable view.
-  `architecture.human.md` and its freshness check cover only the two transferred legacy JSON
-  contracts and disappear when their owning children convert or delete them.
+  `architecture.human.md` and its freshness check cover only the remaining transferred legacy JSON
+  contract and disappear when its owning child converts or deletes it.
 - **Seed writes Markdown directly.** Greenfield seeding creates and indexes at most two draft
   Markdown notes. The unused brownfield contract harvester was removed rather than converted.
 

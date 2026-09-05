@@ -27,14 +27,16 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 ## Relevant repository guidance
 
 - `docs/design-notes/architecture/review-reporting.design.md`
+- `docs/design-notes/architecture/direct-workflow-core.design.md`
 - `docs/design-notes/architecture/plan-workflow.design.md`
 - `docs/design-notes/architecture/autopilot-execution.design.md`
 - `docs/design-notes/architecture/autopilot-skill.design.md`
-- `docs/design-notes/architecture/fleet-dispatch.design.md`
-- `docs/design-notes/architecture/review-concern-authoring.design.md`
+- `docs/design-notes/architecture/self-improvement.design.md`
+- `docs/design-notes/architecture/plugin-registry.design.md`
 - `docs/design-notes/explorations/agent-cost-optimization.design.md`
 - `docs/design-notes/project/design-note-writing-style.design.md`
-- `docs/architecture-notes/arch-review-run-v1.md`
+- `docs/architecture-notes/arch-direct-workflow.md`
+- Historical predecessor: `docs/architecture-notes/archives/arch-review-run-v1.md`
 
 ## Epic discussion provenance
 
@@ -60,3 +62,20 @@ command timeouts; the absolute/fuzzy vocabulary and if/then rule; the concrete p
 rules; conditional design-note compaction with approval for cross-note merge/delete; stage-specific
 review reports plus `final.md`; `docs/feedback/recent-learning.md` at 10 items/16 KiB; and an operator
 guide split into README, planning, implementation, and reviews.
+
+## Step 5.1 compaction preparation
+
+`Get-DesignNoteCompactionContext.ps1` was run against the current criteria baseline
+`a652134251e217e8227e184dae1bf49a32b294df`. It returned `ShouldRun: true` and three sequential
+candidate batches:
+
+1. `architecture-notes`, `autopilot-execution`, `autopilot-skill`, `direct-workflow-core`, and
+   `plan-workflow`;
+2. `plugin-manager`, `plugin-registry`, `review-reporting`, `self-improvement`, and the resolved
+   `si-cross-repo-proposal-protocol` exploration;
+3. `copilot-customizations`, `design-note-writing-style`, and `dev-rules`.
+
+The notes retain distinct owners, but the first two batches contain repeated direct-workflow and
+distribution explanations; the resolved SI exploration is the only plausible archive/merge candidate.
+No cross-note merge or deletion was performed in Step 5.1. Step 5.3 must rerun discovery after Step 5.2
+and execute the plan's one final compaction pass, with operator approval for any cross-note merge/delete.
