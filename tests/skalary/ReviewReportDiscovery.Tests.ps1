@@ -102,12 +102,31 @@ Describe 'review-report test and eval discovery' {
             return $false
         }
 
-        function Script:Get-TestInventory {
-            $inventoryJson = & pwsh -NoProfile -File (
-                Join-Path $script:repoRoot 'scripts/skalary/Get-TestInventory.ps1'
-            ) -RepoRoot $script:repoRoot -PassThru
-            $LASTEXITCODE | Should -Be 0
-            return ($inventoryJson -join "`n") | ConvertFrom-Json -Depth 20
+        function Script:Get-ReviewTestInventory {
+            $tests = [System.Collections.Generic.List[object]]::new()
+            foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'tests') `
+                        -Recurse -File -Filter '*.Tests.ps1')) {
+                $tokens = $null
+                $errors = $null
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                    $file.FullName, [ref]$tokens, [ref]$errors)
+                @($errors).Count | Should -Be 0 -Because "$($file.FullName) must parse"
+                foreach ($case in $ast.FindAll({
+                            param($node)
+                            $node -is [System.Management.Automation.Language.CommandAst] -and
+                            $node.GetCommandName() -eq 'It'
+                        }, $true)) {
+                    if ($case.CommandElements.Count -lt 2 -or
+                        $case.CommandElements[1] -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                        continue
+                    }
+                    $tests.Add([pscustomobject]@{
+                            file = [System.IO.Path]::GetRelativePath($script:repoRoot, $file.FullName)
+                            test = [string]$case.CommandElements[1].Value
+                        })
+                }
+            }
+            return [pscustomobject]@{ tests = $tests.ToArray() }
         }
 
         function Script:Test-FileHasActiveEvidenceId {
@@ -154,12 +173,14 @@ Describe 'review-report test and eval discovery' {
             @($actual | Sort-Object -Unique).Count | Should -Be $actual.Count
         }
 
-        $required = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tools/structural-eval-required.json') -Raw |
-            ConvertFrom-Json
-        [string]$required.schema | Should -Be 'skalary/structural-eval-required@1'
-        @($required.caseIds) |
+        $required = @(Get-Content -LiteralPath (
+                Join-Path $script:repoRoot 'tools/structural-eval-required.md'
+            ) | ForEach-Object {
+                if ($_ -match '^- `(eval:[A-Za-z0-9][A-Za-z0-9_.-]*)`$') { $Matches[1] }
+            })
+        @($required) |
             Should -Be @($script:expectedEvalIds.CR + $script:expectedEvalIds.Fleet + $script:expectedEvalIds.DR)
-        $inventory = Get-TestInventory
+        $inventory = Get-ReviewTestInventory
         @($inventory.tests | Where-Object { [string]$_.test -match 'test:ReviewReport\.StructuralEvalEnforcement(?=$|\s)' }).Count |
             Should -Be 1 -Because 'the runtime gate must be executed against missing, skipped, and duplicate required outcomes'
     }
@@ -173,9 +194,12 @@ Describe 'review-report test and eval discovery' {
             }
         ) | Where-Object {
             $_ -match '^test:(?:ReviewReport\.[A-Za-z0-9]+|Epic\.ReviewRunConsumerEdgesAndState)$'
+        # The local-first baseline retired the workflow-only dedicated gate.
+        } | Where-Object {
+            $_ -ne 'test:ReviewReport.ConsumerInstallDedicatedGate'
         } | Sort-Object -Unique
         $required = @($required)
-        $inventory = Get-TestInventory
+        $inventory = Get-ReviewTestInventory
 
         $required.Count | Should -BeGreaterThan 0
         foreach ($id in $required) {

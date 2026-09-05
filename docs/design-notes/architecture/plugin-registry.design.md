@@ -58,8 +58,9 @@ only summaries cap displayed paths and carry total/omitted counts.
 `registry-retirements.json` is the canonical permanent retirement catalog. `Build-Registry.ps1`
 copies it into skalary `registry.json.retiredPlugins`; the Copilot marketplace remains active-only.
 Active and retired names are disjoint. `Test-PluginRetirementHistory.ps1` compares explicit files
-without reading Git; CI alone materializes the pull-request base or previous-push commit, treating a
-resolvable commit with no catalog as the empty set and failing when a required commit is unavailable.
+without reading Git. An operator running the check locally supplies the current and historical
+catalog files; a resolvable commit with no catalog is the empty set, while unavailable required
+history is an error.
 Published records are append-only and immutable: removing or changing one, or reusing its name for
 an active plugin, fails the history or registry gate. `Test-Registry.ps1` remains Git-free.
 
@@ -164,7 +165,10 @@ No separate autopilot infra bootstrap script exists. Provisioning happens throug
 
 `plugins/` is authoritative. `.github/` is treated as installed output and can drift.
 
-`scripts/skalary/Sync-Dogfood.ps1` converges `.github/` back to `plugins/` sources, is idempotent, and supports `-WhatIf` for CI drift detection. Running sync to convergence produces the expected state for CI drift-check pass criteria (`.github/` byte-equivalent to plugin sources). Destination collision checks in sync mirror registry safety rules.
+`scripts/skalary/Sync-Dogfood.ps1` converges `.github/` back to `plugins/` sources, is idempotent,
+and supports `-WhatIf` for explicit local drift inspection. Running sync to convergence makes
+`.github/` byte-equivalent to plugin sources. Destination collision checks in sync mirror registry
+safety rules.
 
 The generated concern agents and `concern-ledger-map.md` files are a narrow exception to direct plugin
 authorship. `tools/review-concerns.json` supplies their policy; the shared template supplies agent
@@ -201,8 +205,8 @@ phase-receipt scaffolds, and carry the same root-canonical bytes.
 Autopilot declares `self-improvement` as a plugin dependency rather than copying SI-owned lifecycle
 scripts into its payload. Dependency installation supplies `skills/si/scripts/Enqueue-SiDue.ps1`
 at an independently versioned SI release, preserving SI's sole ownership and allowing standalone SI
-installs to use the same due writer. Interactive CI receives the same dependency transitively
-through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor CI bundles a
+installs to use the same due writer. Interactive `/ci` receives the same dependency transitively
+through autopilot and invokes SI-owned `Invoke-SiLifecycle.ps1`; neither autopilot nor `/ci` bundles a
 foreign lifecycle copy.
 
 Autopilot's installed `Invoke-SiDueEnqueue.ps1` remains an orchestration boundary rather than an SI
@@ -272,7 +276,7 @@ the installer's non-runtime `evals/` mappings, and compares that expected set wi
 per-plugin receipts, dependency closure, and `.github/` confinement. It separately compares every
 manifest mapping, including eval mappings, with the generated registry so a stale catalog cannot
 make the production installer and its test agree on the same wrong payload. The process-heavy
-evidence lives in the existing Slow suite tier.
+inventory test is an explicit operator diagnostic for installer changes, not routine validation.
 
 `Test-ConsumerRuntimeReferenceClosure` composes that installed inventory with the production
 `Sync-PluginScripts.ps1 -WhatIf` scan. The named evidence proves literal installed references and

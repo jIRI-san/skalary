@@ -72,7 +72,7 @@ Describe 'Skill contract token guards' {
         $text = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
         $text | Should -Match 'Build-EvidenceReceipt'
         $text | Should -Match 'capture\.md'
-        $text | Should -Match 'allowlist-clean'
+        $text | Should -Match 'Invoke-PhaseHarvest'
     }
 
     It 'test:review-cycle-cap binds ci and autopilot to three cycles plus an operator decision' {
@@ -105,31 +105,41 @@ Describe 'Skill contract token guards' {
         $drafting = Get-SkillText -RelativePath 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
 
         $autopilot | Should -Match '(?i)affected surface'
-        $autopilot | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
+        $autopilot | Should -Match '(?i)Broad .-FullRepository.*direct operator choices'
         $execution | Should -Match '(?i)affected surface'
         $execution | Should -Match '(?i)direct consumers'
-        $crosscheck | Should -Match '(?i)Full-repository validation.*explicit opt-in parameter'
+        $execution | Should -Match '(?i)Broad .-FullRepository.*direct operator invocations only'
+        $crosscheck | Should -Match '(?i)Broad .-FullRepository.*direct operator choices'
         $drafting | Should -Match '(?i)focused validation'
     }
 
-    It 'test:validation-cadence bounds focused Fast and reserves full and Slow for plan finalization' {
+    It 'test:validation-cadence keeps routine and final validation local, focused, and operator-bounded' {
         $autopilot = Get-SkillText -RelativePath 'plugins/autopilot/agents/autopilot.agent.md'
         $execution = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/execution-guide.md'
         $crosscheck = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
 
         foreach ($text in @($autopilot, $execution, $crosscheck)) {
-            $text | Should -Match '(?i)Fast'
-            $text | Should -Match '(?i)Slow'
+            $text | Should -Match '(?i)affected surface|affected-surface'
+            $text | Should -Match '(?i)focused'
+            $text | Should -Match '(?i)direct operator'
+            $text | Should -Match '(?i)Waza'
+            $text | Should -Not -Match '(?i)\bSlow\b'
         }
-        $autopilot | Should -Match '(?i)runtime observations alone never trigger a retry'
-        $autopilot | Should -Match '(?i)Slow.*exactly once'
-        $autopilot | Should -Match 'AUTOPILOT_CONTAINER=true'
-        $autopilot | Should -Match '(?i)-FullRepository'
-        $execution | Should -Match '(?i)Do not run repository-wide validation.*during a step'
-        $crosscheck | Should -Match '(?i)never rerun solely because of them'
-        $crosscheck | Should -Match '(?i)-TestPath'
-        $crosscheck | Should -Match '(?i)-FullRepository'
-        $crosscheck | Should -Match '(?i)Slow suite exactly once'
+        $autopilot | Should -Match '(?i)never widen scope automatically'
+        $execution | Should -Match '(?i)never automatically retry or widen scope'
+        $crosscheck | Should -Match '(?i)never widen scope automatically'
+        $autopilot | Should -Match '(?i)no hosted-workflow requirement'
+        $crosscheck | Should -Match '(?i)no hosted-workflow requirement'
+
+        $package = Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw |
+            ConvertFrom-Json
+        [string]$package.scripts.build | Should -Match 'validate\.ps1 -Path '
+        [string]$package.scripts.test | Should -Match 'Run-UnitTests\.ps1 -TestPath '
+        (@($package.scripts.PSObject.Properties.Value) -join "`n") |
+            Should -Not -Match 'FullRepository|Invoke-WazaEvals|Test-Evals|-Tier Slow'
+        @(Get-ChildItem -LiteralPath (Join-Path $repoRoot '.github/workflows') `
+                -File -ErrorAction SilentlyContinue).Count | Should -Be 0
+
     }
 
     It 'test:dogfood-no-drift keeps .github/skills/ in sync with plugins/ sources' {
@@ -137,6 +147,177 @@ Describe 'Skill contract token guards' {
         $output = & $sync -WhatIf *>&1
         $LASTEXITCODE | Should -Be 0
         ($output -join "`n") | Should -Match 'Changed file count: 0'
+    }
+
+    It 'test:LocalFirst.HostErgonomics keeps choices equivalent and script commands directly invokable' {
+        $skills = @(
+            'plugins/continue-implementation/skills/ci/SKILL.md',
+            'plugins/create-implementation-plan/skills/cip/SKILL.md',
+            'plugins/create-implementation-plan/skills/cep/SKILL.md',
+            'plugins/plugin-manager/skills/install-plugin/SKILL.md',
+            'plugins/plugin-manager/skills/update-plugin/SKILL.md',
+            'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md',
+            'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md',
+            'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md'
+        )
+
+        foreach ($skill in $skills) {
+            $text = Get-SkillText -RelativePath $skill
+            $text | Should -Match 'VS Code'
+            $text | Should -Match 'Copilot CLI'
+            $text | Should -Match 'vscode_askQuestions'
+            $text | Should -Match 'numbered'
+            $text | Should -Match '`effort: <1-10>`'
+            $text | Should -Match '`complexity: <1-10>`'
+            $text | Should -Match 'same label and decision context'
+            $text | Should -Not -Match '(?i)(?:pwsh|powershell)\s+(?:-NoProfile\s+)?-File\s+\.github/skills/'
+            $text | Should -Not -Match '(?im)^\s*(?:pwsh|powershell)\b.*\s-File\s'
+
+            $name = Split-Path (Split-Path $skill -Parent) -Leaf
+            $installed = Get-SkillText -RelativePath ".github/skills/$name/SKILL.md"
+            $installed | Should -BeExactly $text
+        }
+
+        $instructions = Get-SkillText -RelativePath '.github/copilot-instructions.md'
+        $devRules = Get-SkillText -RelativePath 'docs/design-notes/project/dev-rules.design.md'
+        foreach ($text in @($instructions, $devRules)) {
+            $text | Should -Match 'VS Code'
+            $text | Should -Match 'Copilot CLI'
+            $text | Should -Match '`effort: <1-10>`'
+            $text | Should -Match '`complexity: <1-10>`'
+            $text | Should -Match '(?i)direct'
+            $text | Should -Match '\.github/skills/'
+        }
+
+        $pluginManager = Get-SkillText -RelativePath 'docs/design-notes/architecture/plugin-manager.design.md'
+        $pluginManager | Should -Match 'directly'
+        $pluginManager | Should -Match 'plain path string'
+        $pluginManager | Should -Match 'Get`/`Find`/`Test`/`Validate'
+        $pluginManager | Should -Match 'Install`/`Uninstall`/`Update`/`Remove`/`Set'
+
+        $ci = Get-SkillText -RelativePath 'plugins/continue-implementation/skills/ci/SKILL.md'
+        foreach ($option in @(
+                'Interactive \(approve each step\)',
+                'Autopilot \(autoapprove\)',
+                'Host autopilot',
+                'Container autopilot',
+                'Sandbox autopilot'
+            )) {
+            $pattern = '(?m)^\s*\| \*\*{0}\*\* .*\| `effort: (?:10|[1-9])` \| `complexity: (?:10|[1-9])` \|$' -f $option
+            $ci | Should -Match $pattern
+        }
+        $ci | Should -Match '\*\*One phase\*\* \(`effort: (?:10|[1-9])`,\s*`complexity: (?:10|[1-9])`\)'
+        $ci | Should -Match '\*\*Whole plan\*\* \(`effort: (?:10|[1-9])`, `complexity: (?:10|[1-9])`\)'
+
+        $scoredSkills = @{
+            'plugins/plugin-manager/skills/install-plugin/SKILL.md' =
+                @('Yes — add only the listed read-only paths', 'No — keep prompting')
+            'plugins/plugin-manager/skills/update-plugin/SKILL.md' =
+                @('Force — overwrite local changes', 'Preserve — skip modified files')
+            'plugins/plugin-manager/skills/uninstall-plugin/SKILL.md' =
+                @('Proceed — remove the management skills', 'Cancel — leave them installed',
+                    'Force — remove despite named dependents', 'Cancel — preserve the dependency graph',
+                    'Force — overwrite local changes', 'Preserve — skip modified files')
+            'plugins/process-pr-comments/skills/process-pr-comments/SKILL.md' =
+                @('preserve the current worktree', 'continue-with-explicit-paths',
+                    'approve-push', 'reject-push', 'approve — post this exact body',
+                    'edit — revise before posting', 'skip — leave the thread unchanged')
+            'plugins/work-hierarchy-sync/skills/work-hierarchy-sync/SKILL.md' =
+                @('stop — leave the mapping unchanged', 'adopt-exact-issue',
+                    'stop — perform no remote writes', 'apply-exact-digest')
+            'plugins/create-implementation-plan/skills/cep/SKILL.md' =
+                @('keep — retain the accepted cut', 'simplify — remove unnecessary mechanism',
+                    'split — separate overlapping ownership', 'defer — leave optional work out')
+        }
+        foreach ($entry in $scoredSkills.GetEnumerator()) {
+            $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
+            $positions = @(
+                foreach ($label in $entry.Value) {
+                    $index = $text.IndexOf($label, [StringComparison]::Ordinal)
+                    $index | Should -BeGreaterOrEqual 0
+                    [pscustomobject]@{ Label = $label; Index = $index }
+                }
+            ) | Sort-Object Index
+            for ($i = 0; $i -lt $positions.Count; $i++) {
+                $start = $positions[$i].Index
+                $end = if ($i + 1 -lt $positions.Count) {
+                    $positions[$i + 1].Index
+                }
+                else {
+                    $nextHeading = [regex]::Match($text.Substring($start), '\s#{1,6}\s')
+                    if ($nextHeading.Success) { $start + $nextHeading.Index } else { $text.Length }
+                }
+                $optionBlock = $text.Substring($start, $end - $start)
+                $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
+                $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'
+            }
+        }
+
+        $scoredAssets = @{
+            'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md' =
+                @('Confirm intent — use', 'Revise intent — correct', 'Approve design — keep',
+                    'Revise design — correct', 'manual — approve each step',
+                    'host autopilot — run headlessly on the host',
+                    'container autopilot — run in the local container',
+                    'sandbox autopilot — run in the configured sandbox',
+                    'phase-at-a-time — stop after one phase', 'whole-plan — continue',
+                    'Confirm — draft', 'Revise — correct')
+            'plugins/create-implementation-plan/skills/cip/assets/dr-guide.md' =
+                @('Continue reviewing — authorize', 'Start implementation — retain')
+            'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md' =
+                @('Confirm — accept this child cut', 'Revise — change the displayed cut')
+            'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md' =
+                @('**Continue**', '**Revise**', '**Stop**',
+                    'Run `/pfb`', 'Skip `/pfb`', 'Run `/si`', 'Skip `/si`', 'Continue looping', 'Wrap up')
+        }
+        foreach ($entry in $scoredAssets.GetEnumerator()) {
+            $text = (Get-SkillText -RelativePath $entry.Key) -replace '\s+', ' '
+            $positions = @(
+                foreach ($label in $entry.Value) {
+                    $index = $text.IndexOf($label, [StringComparison]::Ordinal)
+                    $index | Should -BeGreaterOrEqual 0
+                    [pscustomobject]@{ Label = $label; Index = $index }
+                }
+            ) | Sort-Object Index
+            for ($i = 0; $i -lt $positions.Count; $i++) {
+                $start = $positions[$i].Index
+                $end = if ($i + 1 -lt $positions.Count) {
+                    $positions[$i + 1].Index
+                }
+                else {
+                    $nextHeading = [regex]::Match($text.Substring($start), '\s#{1,6}\s')
+                    if ($nextHeading.Success) { $start + $nextHeading.Index } else { $text.Length }
+                }
+                $optionBlock = $text.Substring($start, $end - $start)
+                $optionBlock | Should -Match '`effort: (?:10|[1-9])`'
+                $optionBlock | Should -Match '`complexity: (?:10|[1-9])`'
+            }
+        }
+
+        foreach ($asset in @(
+                'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md',
+                'plugins/continue-implementation/skills/ci/assets/execution-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/dr-guide.md',
+                'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md',
+                'plugins/create-implementation-plan/skills/cep/assets/decomposition-guide.md'
+            )) {
+            $text = Get-SkillText -RelativePath $asset
+            $text | Should -Not -Match '(?i)(?:pwsh|powershell)\s+(?:-NoProfile\s+)?-File\s+\.github/skills/'
+            $text | Should -Not -Match '(?m)^\s*\$\w+\s*=\s*&\s+\.github/skills/'
+        }
+    }
+
+    It 'test:LocalFirst.AgentCostBudgets keeps advisory dispatch and context limits explicit' {
+        $text = Get-SkillText -RelativePath 'docs/design-notes/explorations/agent-cost-optimization.design.md'
+
+        $text | Should -Match '\*\*2 default\*\*'
+        $text | Should -Match '\*\*5 maximum\*\*'
+        $text | Should -Match 'Primary plus one availability fallback'
+        $text | Should -Match 'At most \*\*5 supporting artifacts\*\*'
+        $text | Should -Match '\*\*600-word target\*\*'
+        $text | Should -Match '\*\*1,200-word cap\*\*'
+        $text | Should -Match 'No policy engine, receipt, schema, telemetry pipeline, or runtime budget service'
     }
 
     It 'test:manifest-coverage registers every ci/cip skill asset in plugin.json files[]' {

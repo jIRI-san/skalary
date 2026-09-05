@@ -132,19 +132,8 @@ Describe 'Evidence truth' {
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('evidence-runner-' + [guid]::NewGuid().ToString('N'))
             [void](New-Item -ItemType Directory -Path (Join-Path $root 'tests') -Force)
-            [void](New-Item -ItemType Directory -Path (Join-Path $root 'tools') -Force)
             $script:tempRoots.Add($root)
             Set-Content -LiteralPath (Join-Path $root 'tests/Fixture.Tests.ps1') -Value $Content -Encoding utf8NoBOM
-            @'
-@{
-    Schema = 'skalary/suite-tier@1'
-    FastFocusedHardCeilingSeconds = 60
-    SlowHardCeilingSeconds = 600
-    CiSetupAllowanceSeconds = 60
-    DedicatedFiles = @()
-    SlowFiles = @()
-}
-'@ | Set-Content -LiteralPath (Join-Path $root 'tools/suite-tier.psd1') -Encoding utf8NoBOM
             return $root
         }
 

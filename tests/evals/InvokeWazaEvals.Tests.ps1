@@ -69,6 +69,18 @@ Describe 'Invoke-WazaEvals' {
             $c = Resolve-SpecTokenSource -IsAdversarial $false -BaseSource 'gh' -BaseToken ''
             $c.ShouldSkip | Should -BeTrue
         }
+
+        It 'captures and restores caller token values around token resolution and execution' {
+            $text = Get-Content -LiteralPath $scriptFile -Raw
+            $capture = $text.IndexOf('$priorCopilotToken =')
+            $resolve = $text.IndexOf('$baseToken = Resolve-EvalToken')
+            $restore = $text.IndexOf(
+                "[System.Environment]::SetEnvironmentVariable('COPILOT_GITHUB_TOKEN', `$priorCopilotToken")
+            $capture | Should -BeGreaterOrEqual 0
+            $capture | Should -BeLessThan $resolve
+            $restore | Should -BeGreaterThan $resolve
+            $text | Should -Match "(?s)finally\s*\{[^}]*SetEnvironmentVariable\('COPILOT_GITHUB_TOKEN'.*SetEnvironmentVariable\('GH_TOKEN'"
+        }
     }
 
     Context 'test:runner-selectors — discovery filters and argument building' {
@@ -85,20 +97,21 @@ Describe 'Invoke-WazaEvals' {
             Set-Content -LiteralPath $stray -Value 'skill: nope' -Encoding utf8NoBOM
         }
 
-        It 'test:runner-selectors discovers only plugins NAME evals waza eval.yaml' {
-            $specs = @(Get-WazaEvalSpec -PluginsRoot $script:fakeRoot)
-            $specs.Count | Should -Be 2
-            $hasStray = $false
-            foreach ($s in $specs) {
-                if ($s.Replace('\', '/') -match '/other/') { $hasStray = $true }
-            }
-            $hasStray | Should -BeFalse
-        }
-
         It 'test:runner-selectors filters discovery by -Plugin' {
             $specs = @(Get-WazaEvalSpec -PluginsRoot $script:fakeRoot -Plugin 'code-review')
             $specs.Count | Should -Be 1
             $specs[0].Replace('\', '/') | Should -Match '/code-review/evals/waza/eval\.yaml$'
+        }
+
+        It 'test:runner-selectors requires one valid plugin before premium side effects' {
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin '' } |
+                Should -Throw '*explicit lowercase -Plugin*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin 'code-review' -ChangedOnly } |
+                Should -Throw '*-ChangedOnly is not a valid premium scope*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin '../outside' } |
+                Should -Throw '*explicit lowercase -Plugin*'
+            { Assert-WazaFocusedScope -RepoRoot $script:repoDir -Plugin 'code-review' } |
+                Should -Not -Throw
         }
 
         It 'test:runner-selectors builds a normal run with --trials 1 under -Quick and --task under -Case' {
@@ -114,11 +127,6 @@ Describe 'Invoke-WazaEvals' {
             ($a -join ' ') | Should -Match '--on-unsafe-outcome fail'
             ($a -join ' ') | Should -Not -Match '--trials'
             ($a -join ' ') | Should -Not -Match '--task'
-        }
-
-        It 'test:runner-selectors extracts changed plugin names from git paths' {
-            $names = Select-ChangedPlugin -ChangedPaths @('plugins/code-review/agents/cr.agent.md', 'scripts/x.ps1', 'plugins/code-review/evals/waza/eval.yaml')
-            $names | Should -Be @('code-review')
         }
 
         It 'test:runner-selectors detects a top-level adversarial block' {
@@ -202,11 +210,11 @@ Describe 'Invoke-WazaEvals' {
             $script:validate = Get-Content -LiteralPath (Join-Path $script:repoDir 'scripts/validate.ps1') -Raw
         }
 
-        It 'test:gate-isolation keeps Invoke-WazaEvals/eval:llm out of build, test, and eval scripts' {
-            foreach ($name in @('build', 'test', 'eval')) {
+        It 'test:gate-isolation keeps Invoke-WazaEvals and premium aliases out of package scripts' {
+            foreach ($name in @('build', 'test')) {
                 $script:pkg.scripts.$name | Should -Not -Match 'Invoke-WazaEvals'
-                $script:pkg.scripts.$name | Should -Not -Match 'eval:llm'
             }
+            $script:pkg.scripts.PSObject.Properties.Name | Should -Not -Contain 'eval:llm'
         }
 
         It 'test:gate-isolation keeps waza out of scripts/validate.ps1' {

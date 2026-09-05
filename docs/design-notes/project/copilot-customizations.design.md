@@ -6,6 +6,14 @@ globs:
 
 # Copilot Customizations
 
+## Cross-host operator choices
+
+Every predefined operator choice is one ordered data set rendered natively by each host. Each option
+keeps the same label and decision context, any recommendation/default, `effort: <1-10>`, and
+`complexity: <1-10>`. VS Code uses `vscode_askQuestions`; Copilot CLI prints the same options as a
+numbered chat list and accepts the number or exact label. A missing VS Code picker never blocks the
+CLI path. This is a prose contract, not a picker abstraction, schema, or helper.
+
 Customization artifacts are **workspace-local** and centered in `.github/`. The plugin eval harness is the intentional adjacent exception (`scripts/skalary/Test-Evals.ps1`, `plugins/*/evals/**`). No user-level files are created or modified.
 
 ## File Inventory
@@ -38,7 +46,7 @@ Customization artifacts are **workspace-local** and centered in `.github/`. The 
 | `.github/skills/architecture-notes/SKILL.md` | Skill (`architecture-notes`) | Interface-contract tier authoring — create/update/promote/review contracts, seed/harvest, human doc, ADR harvest; `/can` + `/uan` are thin wrappers |
 | `.github/prompts/{can,uan}.prompt.md` | Prompts (`/can`, `/uan`) | Thin wrappers deferring to the architecture-notes skill (create / update; `/uan` also runs finalization ADR harvest) |
 | `.github/skills/pfb/SKILL.md` + `.github/prompts/pfb.prompt.md` | Skill (`pfb`) + Prompt (`/pfb`) | Post-plan feedback — compares delivered work against the plan's captured intent, records the operator's verdict through `Update-FeedbackQueue.ps1`, and can hand off to `/cip` for a correction plan. Offered at the `/ci` archival gate, never blocking; headless runs queue the question instead of asking it |
-| `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Two-tier plugin eval runner (`npm run eval`) for structural + opt-in LLM evals |
+| `scripts/skalary/Test-Evals.ps1` + `plugins/*/evals/**` | Eval harness | Direct plugin-scoped structural runner; Waza is a separate direct premium route |
 
 ## Design Note Loading Strategy
 
@@ -154,7 +162,7 @@ mapping or activation.
 **`ci` flow:**
 1. Resolve a plan or epic reference and load relevant design notes.
 2. `Get-PlanState.ps1` yields the canonical kind and state. An epic-kind result routes directly to the fixed installed `Invoke-EpicAutopilot.ps1` host wrapper with canonical epic/root binding and literal target `HEAD`; `/ci` never selects its child. `AUTOPILOT_CONTAINER=true` fails closed rather than entering this host route.
-3. For a plan-kind result, enrolled pending/stale/invalid context returns to `/cip` before mutation; marker-less legacy plans retain existing behavior. Choose Approve, Autopilot, or an explicit Autonomous runtime (Host / Container / Sandbox), then choose One phase or Whole plan. `/ci` owns both selections; autopilot consumes the handed-off runtime and extent without a second menu (`AUTOPILOT_CONTAINER=true` suppresses Autonomous).
+3. For a plan-kind result, enrolled pending/stale/invalid context returns to `/cip` before mutation; marker-less legacy plans retain existing behavior. Choose Interactive (approve each step), Autopilot (autoapprove), or an explicit autonomous runtime (Host / Container / Sandbox), then choose One phase or Whole plan. `/ci` owns both selections; autopilot consumes the handed-off runtime and extent without a second menu (`AUTOPILOT_CONTAINER=true` suppresses Autopilot and every autonomous option).
 4. Branch detection: on main/master → create git worktree + open new VS Code window (`code <path>`); on feature branch → continue. Branch recorded as `<!-- worktree: <branch-name> -->` in the plan file.
 5. One step at a time: mark `[~]` → implement → build+test → validate acceptance criteria → explicit commit gate. Code review runs after the complete phase increment rather than after each step.
 6. Commit: `feat(<scope>): <step title> [plan-<plan-id> step X.Y]` (canonical id, dual-format); plan file updated in same commit.
@@ -195,16 +203,18 @@ The writing-style template mirrors this repo's `docs/design-notes/project/design
 
 ## Plugin Eval Workflow
 
-Plugin payload checks run with `npm run eval`, which calls `scripts/skalary/Test-Evals.ps1`.
-This always-on Tier-1 structural gate is separate from `npm test` / `validate.ps1`.
+Plugin payload checks run directly with `scripts/skalary/Test-Evals.ps1 -Plugin <name>`.
+This focused Tier-1 structural command is separate from focused unit and syntax validation.
 
-Tier-2 is the opt-in waza workflow: `npm run eval:llm` calls
-`scripts/skalary/Invoke-WazaEvals.ps1`, provisions the checksum-pinned toolchain through
-`Ensure-EvalTools.ps1`, discovers `plugins/<name>/evals/waza/eval.yaml`, and runs functional and
-declared adversarial modes as separate signals. Optional `-Plugin`, `-Case`, `-ChangedOnly`,
-`-Quick`, and `-Approve` switches are available when invoking the script directly. Models, judges,
-trials, and timeouts come from each waza spec; legacy `.eval.config.json` tuning fields do not
-configure waza.
+Tier-2 is the opt-in waza workflow, run directly as
+`scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <name>` — there is no npm alias for it, and it is a
+direct operator choice that agents never invoke. `-Plugin` is mandatory and names one confined
+plugin directory; the script refuses any other scope before it provisions anything. It then
+provisions the checksum-pinned toolchain through `Ensure-EvalTools.ps1`, discovers
+`plugins/<name>/evals/waza/eval.yaml`, and runs functional and declared adversarial modes as
+separate signals. Optional `-Case`, `-Quick`, and `-Approve` narrow or shortcut a run within that
+one plugin. Models, judges, trials, and timeouts come from each waza spec; legacy
+`.eval.config.json` tuning fields do not configure waza.
 
 `Resolve-EvalToken.ps1` resolves auth in the order `gh auth token` → ambient token →
 Credential Manager fallback. Adversarial mode accepts only the short-lived `gh` OAuth source;

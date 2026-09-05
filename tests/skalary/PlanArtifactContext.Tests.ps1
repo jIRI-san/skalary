@@ -1227,7 +1227,7 @@ Export-ModuleMember -Function Assert-PlanReviewResultReceipt
         }
     }
 
-    It 'test:PlanArtifactContext.Consumers uses one bounded resolver path without changing review-run v1 authority' {
+    It 'test:PlanArtifactContext.BoundedConsumer uses one bounded resolver path without changing review-run v1 authority' {
         $canonicalResolver = Join-Path $repoRoot 'scripts/skalary/Get-PlanArtifactContext.ps1'
         $expectedHash = (Get-FileHash -LiteralPath $canonicalResolver -Algorithm SHA256).Hash
         $catalog = Get-ConsumerInstallManifestCatalog -SourceRepoRoot $repoRoot
@@ -1343,6 +1343,15 @@ Export-ModuleMember -Function Assert-PlanReviewResultReceipt
             $protocol | Should -Match 'not terminal-auto-approved'
             $protocol | Should -Match '<<<UNTRUSTED_INPUT_START>>>'
             $protocol | Should -Match '<<<UNTRUSTED_INPUT_END>>>'
+            $protocol | Should -Match 'explicit key concepts or canonical plan IDs'
+            $protocol | Should -Match 'filtered cross-plan index'
+            $protocol | Should -Match 'Never run an\s+unfiltered general-history review'
+            $protocol | Should -Match (
+                '(?s)Apply precedence in this order:\s*current confirmed intent,\s*' +
+                'current repository state, operator decisions, and active architecture\s*' +
+                'contracts; explicit supersession recorded by those sources; then recency'
+            )
+            $protocol | Should -Match 'Surface unresolved conflicts'
             $protocol | Should -Not -Match 'HISTORICAL_CONTEXT_DATA'
 
             $dogfoodPath = Join-Path (Join-Path $repoRoot '.github') (
@@ -1350,6 +1359,18 @@ Export-ModuleMember -Function Assert-PlanReviewResultReceipt
             )
             (Get-FileHash -LiteralPath $dogfoodPath -Algorithm SHA256).Hash |
                 Should -BeExactly $protocolHash
+        }
+
+        $cipSkill = Get-Content -LiteralPath (
+            Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/SKILL.md'
+        ) -Raw
+        $cipInterview = Get-Content -LiteralPath (
+            Join-Path $repoRoot 'plugins/create-implementation-plan/skills/cip/assets/interview-guide.md'
+        ) -Raw
+        foreach ($text in @($cipSkill, $cipInterview)) {
+            $text | Should -Match 'concrete\s+concept filter|concrete concept'
+            $text | Should -Match 'never run an unfiltered general-history\s+review'
+            $text | Should -Not -Match 'drop `-Filter`'
         }
 
         $cipGuide = Get-Content -LiteralPath (

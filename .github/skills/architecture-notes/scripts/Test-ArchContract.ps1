@@ -1,25 +1,14 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-Validates an architecture contract file against architecture-contract.schema.json.
-
+Checks an architecture contract against the documented repository convention.
 .DESCRIPTION
-The single mutation guard the architecture-notes skill calls after writing or editing a
-contract. It resolves the contract schema (scaffolded copy first, shipped asset as fallback),
-validates the contract JSON against it, verifies a locked contract's canonical content digest,
-and reports the outcome as an object: { Path, Valid, SchemaPath, Errors[] }. Exit code is 0 when
-valid, 1 otherwise, so it doubles as a CLI gate.
-
-It never mutates the contract and does not authenticate who promoted it. Human promotion is a
-reviewer-enforced policy; this gate proves only deterministic shape and content integrity.
+Validates the small JSON contract shape still used by transferred subsystems without a JSON Schema.
+New repository-owned contracts should be written directly as Markdown architecture notes.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ContractPath,
-
-    # Explicit schema path. Auto-resolved when omitted.
-    [string]$SchemaPath,
-
     [switch]$NoExit
 )
 
@@ -30,95 +19,84 @@ if (-not (Test-Path -LiteralPath $ContractPath -PathType Leaf)) {
     throw "Contract file not found: $ContractPath"
 }
 
-if (-not $SchemaPath) {
-    # 1) Prefer a scaffolded schema found by walking up from the contract toward the repo root.
-    $dir = Split-Path -Parent (Resolve-Path -LiteralPath $ContractPath).Path
-    while ($dir) {
-        $candidate = Join-Path $dir 'schemas/architecture/architecture-contract.schema.json'
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-            $SchemaPath = (Resolve-Path -LiteralPath $candidate).Path
-            break
-        }
-        # Stop at the repo/worktree boundary so an unrelated ancestor schemas/ can't bind.
-        if ((Test-Path -LiteralPath (Join-Path $dir '.git')) -or
-            (Test-Path -LiteralPath (Join-Path $dir 'docs/architecture-notes'))) { break }
-        $parent = Split-Path -Parent $dir
-        if (-not $parent -or $parent -eq $dir) { break }
-        $dir = $parent
-    }
-}
-
-if (-not $SchemaPath) {
-    # 2) Fall back to the shipped asset, across authored and installed layouts.
-    $candidates = @(
-        (Join-Path $PSScriptRoot '..' 'skills' 'architecture-notes' 'assets' 'schemas' 'architecture-contract.schema.json'),
-        (Join-Path $PSScriptRoot '..' 'assets' 'schemas' 'architecture-contract.schema.json')
-    )
-    foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-            $SchemaPath = (Resolve-Path -LiteralPath $candidate).Path
-            break
-        }
-    }
-}
-
-if (-not $SchemaPath -or -not (Test-Path -LiteralPath $SchemaPath -PathType Leaf)) {
-    throw "Could not locate architecture-contract.schema.json; pass -SchemaPath explicitly."
-}
-
-$raw = Get-Content -LiteralPath $ContractPath -Raw
 $errors = [System.Collections.Generic.List[string]]::new()
-$valid = $false
-
+$contract = $null
 try {
-    $valid = [bool]($raw | Test-Json -SchemaFile $SchemaPath -ErrorVariable jsonErrors -ErrorAction SilentlyContinue)
-    if (-not $valid -and $jsonErrors) {
-        foreach ($e in $jsonErrors) { $errors.Add([string]$e) }
-    }
+    $contract = Get-Content -LiteralPath $ContractPath -Raw | ConvertFrom-Json -Depth 100
 }
 catch {
-    $errors.Add($_.Exception.Message)
+    $errors.Add("invalid JSON: $($_.Exception.Message)")
 }
 
-if ($valid) {
-    try {
-        $contract = $raw | ConvertFrom-Json -Depth 100
-        if ([string]$contract.maturity -eq 'locked') {
-            $hashScript = Join-Path $PSScriptRoot 'Get-ArchContractContentHash.ps1'
-            if (-not (Test-Path -LiteralPath $hashScript -PathType Leaf)) {
-                throw "Required sibling script missing: $hashScript"
+if ($null -eq $contract -or $contract -isnot [psobject] -or
+    $contract -is [string] -or $contract -is [ValueType]) {
+    if ($errors.Count -eq 0) {
+        $errors.Add('contract root must be a JSON object')
+    }
+}
+else {
+    function Get-ContractValue {
+        param([Parameter(Mandatory)][string]$Name)
+        if ($contract.PSObject.Properties.Name -contains $Name) { return $contract.$Name }
+        return $null
+    }
+
+    $allowed = @(
+        'id', 'title', 'description', 'owner', 'maturity', 'lockedContentSha256',
+        'targets', 'rules', 'prose', 'interfaces'
+    )
+    $unknown = @($contract.PSObject.Properties.Name | Where-Object { $_ -notin $allowed })
+    if ($unknown.Count -gt 0) {
+        $errors.Add("unknown field(s): $($unknown -join ', ')")
+    }
+    if ([string](Get-ContractValue -Name 'id') -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+        $errors.Add('id must contain only letters, digits, dot, underscore, or hyphen')
+    }
+    if ([string]::IsNullOrWhiteSpace([string](Get-ContractValue -Name 'title'))) {
+        $errors.Add('title is required')
+    }
+    if ([string](Get-ContractValue -Name 'maturity') -notin @('locked', 'draft', 'provisional')) {
+        $errors.Add('maturity must be locked, draft, or provisional')
+    }
+    $hasBody = -not [string]::IsNullOrWhiteSpace([string](Get-ContractValue -Name 'prose')) -or
+        @((Get-ContractValue -Name 'rules')).Count -gt 0 -or
+        @((Get-ContractValue -Name 'interfaces')).Count -gt 0
+    if (-not $hasBody) {
+        $errors.Add('at least one of prose, rules, or interfaces is required')
+    }
+    if ([string](Get-ContractValue -Name 'maturity') -eq 'locked') {
+        if ([string](Get-ContractValue -Name 'lockedContentSha256') -notmatch '^[a-f0-9]{64}$') {
+            $errors.Add('locked contracts require a lowercase 64-character lockedContentSha256')
+        }
+        else {
+            try {
+                $hashScript = Join-Path $PSScriptRoot 'Get-ArchContractContentHash.ps1'
+                $actualDigest = (& $hashScript -ContractPath $ContractPath).Digest
+                if (-not [string]::Equals(
+                        [string](Get-ContractValue -Name 'lockedContentSha256'),
+                        $actualDigest,
+                        [System.StringComparison]::Ordinal)) {
+                    $errors.Add("lockedContentSha256 mismatch: expected $actualDigest.")
+                }
             }
-            $actualDigest = (& $hashScript -ContractPath $ContractPath).Digest
-            if (-not [string]::Equals(
-                    [string]$contract.lockedContentSha256,
-                    $actualDigest,
-                    [System.StringComparison]::Ordinal)) {
-                $errors.Add("lockedContentSha256 mismatch: expected $actualDigest.")
-                $valid = $false
+            catch {
+                $errors.Add($_.Exception.Message)
             }
         }
-    }
-    catch {
-        $errors.Add($_.Exception.Message)
-        $valid = $false
     }
 }
 
 $result = [pscustomobject]@{
-    Path       = (Resolve-Path -LiteralPath $ContractPath).Path
-    Valid      = $valid
-    SchemaPath = $SchemaPath
-    Errors     = @($errors)
+    Path = (Resolve-Path -LiteralPath $ContractPath).Path
+    Valid = $errors.Count -eq 0
+    Errors = @($errors)
 }
-
-# Emit the object for in-process (& script) consumers, e.g. evals.
 $result
 
-if (-not $valid -and -not $NoExit) {
-    # `exit` tears down the runspace before the default formatter flushes buffered
-    # pipeline output, so stdout can be empty on the CLI gate path. Write diagnostics
-    # synchronously to stderr so the caller always receives the schema errors.
+if (-not $result.Valid -and -not $NoExit) {
     [Console]::Error.WriteLine("Architecture contract invalid: $($result.Path)")
-    foreach ($e in $result.Errors) { [Console]::Error.WriteLine("  - $e") }
+    foreach ($errorMessage in $result.Errors) {
+        [Console]::Error.WriteLine("  - $errorMessage")
+    }
     exit 1
 }

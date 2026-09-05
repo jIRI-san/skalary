@@ -10,8 +10,7 @@ embedded digest and the recomputed digest can never diverge over an algorithm di
 
 Canonicalization (order- and encoding-stable, add/delete-sensitive):
 
-  1. Enumerate contract sources: ``*.json`` under <SchemasDir>, EXCLUDING the schema definition
-     file (``architecture-contract.schema.json``) and any generated docs (schemas holds no docs).
+  1. Enumerate contract sources: ``*.json`` under <SchemasDir>.
   2. Address each by its normalized relative path (forward slashes), lower-cased for
      case-insensitive filesystems.
   3. Normalize content: strip a UTF-8 BOM, convert CRLF/CR to LF.
@@ -37,8 +36,6 @@ function Get-ArchContractsHash {
         [Parameter(Mandatory)][string]$SchemasDir
     )
 
-    $excludedNames = @('architecture-contract.schema.json')
-
     $files = @()
     if (Test-Path -LiteralPath $SchemasDir -PathType Container) {
         $rootFull = (Resolve-Path -LiteralPath $SchemasDir).Path
@@ -46,7 +43,7 @@ function Get-ArchContractsHash {
             Get-ChildItem -LiteralPath $rootFull -File -Filter '*.json' -ErrorAction SilentlyContinue |
                 # Post-filter the extension: the Windows -Filter '*.json' also matches .jsonc/.json5
                 # and 8.3 aliases, which would diverge from the literal glob on Linux/macOS.
-                Where-Object { $_.Extension -eq '.json' -and $excludedNames -notcontains $_.Name } |
+                Where-Object { $_.Extension -eq '.json' } |
                 ForEach-Object {
                     [pscustomobject]@{
                         Rel      = $_.Name.ToLowerInvariant()

@@ -1,0 +1,139 @@
+# 705e6c: Local-first repository simplification
+<!-- epic-id: 705e6c -->
+<!-- Folder naming: epics/<yyyy-mm-dd>-<6hex>-<slug> · epic-id is the canonical handle. New-Epic.ps1 fills these in. -->
+
+## Goal
+
+Reduce Skalary to a fast, human-readable, single-operator skill repository by deleting automation
+and reliability machinery that costs more than it helps, while retaining focused deterministic
+tests, prompt-injection guards, external-format compatibility, and the minimum controls needed to
+preserve operator intent.
+
+**Desired outcome.** Routine skill changes are understandable and quick: agents run only focused
+tests for affected plugins unless the operator explicitly requests broader testing; no GitHub
+Actions remain; CR/DR and `/si` use small human-readable flows; choices work in VS Code and Copilot
+CLI with enough context plus effort and complexity; and `/ci` preserves accepted criteria without
+signed receipts.
+
+**Success signals.**
+
+- Repository-owned runtime, state, review, and internal-registry JSON is removed or replaced by
+  documented strict Markdown; externally required JSON remains.
+- Whole-suite execution is explicit opt-in only, retained tests have a clear value justification,
+  and uncertain retention cases are decided by the operator.
+- SI/harvest state, repair, CAS, receipt, and remote-lifecycle machinery is removed while
+  prompt-injection protection remains.
+- CR/DR use direct Markdown reports and materially fewer, strategically selected agent/model calls.
+- GitHub workflows are absent and active design guidance prohibits introducing them.
+- Planning and review consult bounded prior-plan context using current intent, explicit
+  supersession, and recency in that order, surfacing rather than silently applying conflicts.
+- Stable direct scripts can be pre-approved and interactive choices expose equivalent context in
+  VS Code and Copilot CLI.
+
+**Non-goals.**
+
+- Converting JSON required by external tools or plugin/package/config interfaces.
+- Preserving runtime compatibility or adding migrations for retired internal formats.
+- GitHub-hosted CI or support for untrusted third-party contributors and multi-operator coordination.
+- Removing prompt-injection guards or weakening the platform's mandatory secret/destructive-action
+  protections.
+- Rewriting archived historical evidence.
+
+**Definition of done.** Every accepted child ships and reverts independently after its declared
+dependencies; active design notes and architecture contracts describe the simplified system; no
+prohibited workflow, receipt, or durable repair/state machinery remains; each skill has a small
+justified deterministic test set; focused commands and cross-host interactions work; and CR/DR
+enforce simplicity while recording any knowingly dubious simple-over-safe decision for later
+operator review.
+
+## Child plans
+
+<!-- child-plans:start -->
+| Plan | Slug | Depends on |
+|---|---|---|
+| `2aa7ec` | local-first-operating-baseline | — |
+| `367e9a` | simple-review-to-plan-workflow | `2aa7ec` |
+| `3a4498` | simple-self-improvement | `367e9a` |
+| `623cc2` | simple-plugin-lifecycle | `2aa7ec` |
+<!-- child-plans:end -->
+
+Membership is the `<!-- epic: 705e6c -->` marker in each child `plan.md`; the table above is a generated
+mirror that `New-Epic.ps1` rewrites. Run `Get-PlanState 705e6c` for live rollup and the next unblocked
+child plan.
+
+## Decomposition notes
+
+### Accepted children
+
+| Child | Slug | Slice | Done bar | Boundaries and non-overlap | Independent delivery and revert |
+|---|---|---|---|---|---|
+| `2aa7ec` | `local-first-operating-baseline` | Deliver the repository-wide local operating baseline and simplify all cross-cutting or otherwise unowned validation, metadata, documentation, and tests. | GitHub workflows and coupled workflow-only checks are removed; whole-suite execution is explicit-only; unaffected plugins have direct focused commands that target under 30 seconds and fail distinctly above 60 seconds; each later owner must meet the same bound; every gate, active JSON path, architecture contract, design note, and test file has exactly one keep/transfer/delete owner; the cost RFC ends with operator-approved agent/model/context budgets whose consumers have focused fixtures. | Owns shared mechanisms, global architecture/index retirement, unaffected skills, and repository-wide residue only; each later child owns its subsystem formats, contracts, docs, scripts, and test dispositions. | It leaves a complete locally operable repository and cheap validation path; later children can land or revert independently without hosted CI or a final sweep. |
+| `367e9a` | `simple-review-to-plan-workflow` | Replace CR/DR plus `/cip`, `/cep`, `/ci`, autopilot state/evidence, and bounded learning capture as one end-to-end Markdown workflow. | Review input remains fenced and reports remain advisory Markdown with explicit source/scope/completion fields; strategic dispatch follows the accepted cost budget; confirmed intent/requirements/risks/decisions are immutable during execution while checklist/worktree fields remain mutable resume state; current Git supplies stale checks; one bounded fenced learning-capture output is delivered for SI; review/evidence/phase/harvest receipts, review schemas/stores/fleet, generated concern registry, JSON checkpoints, and repair machinery are removed; focused negative tests cover criteria mutation and every retained refusal; subsystem contracts/docs/JSON/tests close in the same child. | Owns the atomic review producer, plan consumer, autonomous execution, and learning-capture producer; it does not own SI proposal harvest or plugin management. | The complete review-to-implementation workflow lands and reverts together, with no intermediate receipt dependency or unowned autopilot/learning state. |
+| `3a4498` | `simple-self-improvement` | Replace `/si`, `/pfb`, and proposal harvest with a bounded interactive recent-lessons flow. | `/si` consumes only `367e9a`'s bounded fenced learning output, shows cited proposals and informed choices, and applies only operator-selected local changes through a direct path allowlist; durable state, CAS, repair, receipts, remote PR lifecycle, and schemas are removed; workflow paths remain forbidden; subsystem contracts/docs/JSON/tests close in the same child. | Owns proposal harvest and SI/PFB only; learning capture belongs to `367e9a`. | After its declared dependency, SI is a complete guarded workflow and can be reverted without affecting review, plan execution, or plugin maintenance. |
+| `623cc2` | `simple-plugin-lifecycle` | Simplify install/update/remove, retirement, registry consumption, and plugin lifecycle tests for a trusted single operator. | Before every write, operations physically canonicalize and confine targets to the consumer `.github` tree; stable direct commands verify resulting manifest-owned paths in memory, fail loudly, distinguish refusal, and converge on unchanged rerun; focused negative tests prove escape/refusal and mutation outcomes; journals, signing/install receipts, CAS, repair, and compatibility machinery are removed; externally consumed plugin/registry/marketplace JSON remains while subsystem contracts/docs/internal JSON/tests close in the same child. | Owns plugin-manager and registry lifecycle behavior only. | Plugin maintenance remains a complete user-facing surface and reverts independently without a later metadata or test sweep. |
+
+| Child | Mechanism | Intent anchor | Owner | Consumers | Demonstrated invariant | Prior-art disposition |
+|---|---|---|---|---|---|---|
+| `2aa7ec` | Simplicity-first repository principle | Prefer the smallest design for a single-operator skill repository. | `2aa7ec` | `2aa7ec`, `367e9a`, `3a4498`, `623cc2` | Every child and review uses deletion, reuse, or a local fix before new infrastructure; each affected design note records any dubious simple-over-safe tradeoff in a fixed section. | Reuse `25aa23` proportionality; reject its machinery. |
+| `2aa7ec` | Local-only gate disposition and workflow refusal | The operator will not pay for hosted pipelines. | `2aa7ec` | `2aa7ec`, `367e9a`, `3a4498`, `623cc2` | Workflows are absent; every old workflow gate is explicitly retained as focused, transferred to one child, or deleted; no ordinary command can select a full sweep. | Reject `31a3ef` mandatory CI. |
+| `2aa7ec` | Focused per-plugin command contract | Routine changes validate only affected plugins. | `2aa7ec` | `367e9a`, `3a4498`, `623cc2` | A direct wrapper requires explicit plugin paths, measures each selected command, targets under 30 seconds, returns a distinct timeout result above 60 seconds, and refuses missing scope; `-FullRepository` is a separate explicit operator-only path never called by skills. | Extend `768d7b` focused fail-loud selection; reject tier/budget/profile machinery. |
+| `2aa7ec` | Test value disposition by owner | Tests exist only when they protect current value. | `2aa7ec` | `2aa7ec`, `367e9a`, `3a4498`, `623cc2` | Each child accounts for every in-scope test in a temporary keep/delete/uncertain audit, obtains operator choices for uncertain rows, and maps retained tests to user behavior, an external format, or a high-impact regression. | Reject `31a3ef` complete-tier coverage policy; use `a5ad22` timing evidence. |
+| `2aa7ec` | Strict Markdown and JSON ownership convention | Internal operational artifacts must be readable without tooling. | `2aa7ec` | `2aa7ec`, `367e9a`, `3a4498`, `623cc2` | One baseline inventory is the sole classifier: it assigns every active JSON path and invalidated contract/note to one child or marks a fixed external-required interface; children implement assigned rows without redefining classification. | Reject `c21cdc` schema-first authority. |
+| `2aa7ec` | Cross-host informed-choice contract | VS Code and Copilot CLI must provide equivalent operator context. | `2aa7ec` | `367e9a`, `3a4498`, `623cc2` | Every consumer has focused host fixtures and supplies context plus `effort: 1-10` and `complexity: 1-10`; native pickers have an equivalent numbered/chat CLI path. | Extend existing host behavior without a picker abstraction. |
+| `2aa7ec` | Stable direct-script and approval contract | Script calls must be pre-approvable and failures obvious. | `2aa7ec` | `367e9a`, `3a4498`, `623cc2` | Read-only/focused scripts may be allowlisted by exact stable path; mutating scripts remain explicit; all use bound arguments, exit `0` only on success, and concise nonzero diagnostics. | Extend current direct-invocation guidance. |
+| `2aa7ec` | Bounded historical-context reader | History informs work without overriding current intent. | `2aa7ec` | `2aa7ec`, `367e9a` | One direct read-only command accepts explicit concepts and selected plan IDs, caps index matches/artifacts/bytes, fences and secret-screens content, and returns conflicts without resolving them; the consumer applies current intent/active contracts, explicit supersession, then recency and must show unresolved conflicts. | Extend bounded context from `25aa23`; remove receipt dependencies. |
+| `2aa7ec` | Agent-cost RFC and accepted budgets | Reduce repeated context, latency, and token/credit use strategically. | `2aa7ec` | `367e9a`, `3a4498` | The child cannot close until the operator chooses concrete default/max agent calls, model roles, context bounds, and instruction-size goals; focused consumer fixtures fail when prompts exceed those selected budgets. | Extend `2366ad` bounded-input principle; reject exhaustive matrices. |
+| `367e9a` | Fenced advisory Markdown review | Reviews should guide the operator, not authenticate themselves. | `367e9a` | `367e9a` | Reviewed content stays inside the existing data-only fence; fixed report headings name source commit, scope, completed tasks, findings, and verdict; current Git checks freshness; no signature, content address, receipt, or durable authority is claimed. | Reject `c21cdc` review-run v1 lifecycle. |
+| `367e9a` | Atomic review-to-plan migration | Review producers and plan consumers must never be split. | `367e9a` | `367e9a` | CR/DR, generated concern inputs, `/cip`/`/cep`/`/ci`, autopilot, current plan state, learning capture, docs, JSON, and tests change in one child with explicit absence checks for retired machinery. | Reject `c21cdc` receipt authority and `31a3ef` CI coupling. |
+| `367e9a` | Canonical plan criteria and resume state | Autopilot must preserve operator acceptance criteria without a receipt system. | `367e9a` | `367e9a` | Intent/requirements/risks/decisions are immutable after confirmation; checklist/worktree markers remain mutable; current Git plus those markers drive freshness, stop, resume, and exit; one focused negative test proves criteria mutation is refused before continuation. | Simplify receipt truth to direct prevention and observable comparison. |
+| `367e9a` | Bounded fenced learning capture | SI needs useful recent lessons without durable harvest state. | `367e9a` | `367e9a`, `3a4498` | The producer writes one bounded human-readable recent-learning artifact with fenced content; SI reads only that artifact after `367e9a` lands. | Simplify phase-harvest receipts to one local Markdown handoff. |
+| `3a4498` | Bounded proposal harvest | SI should help the operator, not operate a durable service. | `3a4498` | `3a4498` | One interactive run reads only `367e9a`'s bounded fenced learning artifact and returns cited proposals without persistent lifecycle state. | Reject `2366ad` durable transport/state expansion. |
+| `3a4498` | Prompt-injection and write-scope guard | Harvested text can influence future instructions. | `3a4498` | `3a4498` | Harvested content remains fenced data; the direct scope check uses an explicit allowed-root list and rejects workflow paths; focused negative tests remain. | Reuse `2366ad` untrusted-input guard. |
+| `623cc2` | Direct confined plugin lifecycle | Install/update/remove should optimize one trusted operator. | `623cc2` | `623cc2` | Operations physically canonicalize before every write under the consumer `.github` root, verify expected manifest-owned paths before success, fail loudly, and converge on unchanged retry; focused negative tests prove escape refusal and mutation outcomes. | Reject transaction/repair expansion evidenced by `a5ad22`. |
+| `623cc2` | External plugin JSON boundary | Required ecosystem interfaces must keep working. | `623cc2` | `623cc2` | `plugin.json`, published registry, and marketplace JSON remain only where external consumers require them; lifecycle-internal state/schema/receipt JSON is deleted or converted locally. | Preserve external contracts; reject internal receipt and repair formats. |
+
+### Direct dependencies
+
+| Dependent child | Prerequisite | Prerequisite-delivered behavior that is required |
+|---|---|---|
+| `2aa7ec` | _(independent)_ | Establishes the complete local operating baseline, focused validation, ownership inventory, and shared conventions without another child. |
+| `367e9a` | `2aa7ec` | Needs focused commands, accepted agent budgets, Markdown/history/choice/script rules, and explicit review/plan JSON ownership before replacing the full workflow. |
+| `3a4498` | `367e9a` | Needs the delivered bounded fenced learning-capture artifact plus the baseline's focused commands, accepted agent budgets, choice/script rules, and SI JSON ownership before replacing proposal harvest. |
+| `623cc2` | `2aa7ec` | Needs focused commands, external-JSON classification, direct-script rules, and explicit lifecycle JSON ownership before deleting plugin machinery. |
+
+### Delivery routes
+
+**Usable MVP.** `2aa7ec` immediately removes GitHub workflows, establishes the simplicity and
+single-operator contract, supplies focused local commands under the 60-second bound, and records the
+operator-approved cost RFC so every later child can work cheaply.
+
+**MVP to final.** From that baseline, `367e9a` and `623cc2` independently deliver and close the
+simple review-to-plan and plugin-lifecycle outcomes, including their subsystem JSON, contracts,
+documentation, and tests. `3a4498` then consumes `367e9a`'s bounded learning artifact to deliver and
+close SI. Completion of those routes satisfies the whole-epic done bar without a horizontal sweep.
+
+### Prior art
+
+| Candidate | Disposition | Owning child | Rationale |
+|---|---|---|---|
+| `2366ad` | reuse | `3a4498` | Retain untrusted-input treatment for harvested text; reject durable typed transport and lifecycle assumptions under the accepted single-operator boundary. |
+| `25aa23` | reuse | `367e9a` | Retain proportionality and concrete simplify/defer decisions; do not retain fixed fourteen-task review, verdict JSON, or receipt authority. |
+| `31a3ef` | reject | `2aa7ec` | Mandatory Fast/Slow CI and complete-tier coverage directly conflict with explicit-only whole-suite execution and no GitHub workflows. |
+| `768d7b` | extend | `2aa7ec` | Keep focused fail-loud selection, but replace runtime ceilings, tier manifests, profiles, and workflow enforcement with direct plugin commands and later value-based pruning. |
+| `a5ad22` | reuse | `2aa7ec` | Its 76-minute profile and 14-hour orchestration record are the accepted performance baseline and identify the highest-value owner-local audit targets. |
+| `c21cdc` | reject | `367e9a` | Content-addressed JSON, schemas, frozen stores, manifests, canonicalization, and compact signed receipts are the review complexity this epic removes atomically with plan consumers. |
+
+## Epic coherency verdict
+
+<!-- epic-coherency-verdict:start -->
+Schema: `skalary/epic-coherency-verdict@1`
+Prior source digest: `sha256:0917a694db93102858e3d5fa4d31271faad9599b92df3b3644dc5dff9f2aea81`
+Review run: `cbb948b4-2548-43eb-a9e1-1592a11929b1`
+Operator decision: **keep**
+Blocking: **no**
+Action: Operator reviewed and accepted the four-child cut. Discard review demands that restore receipts, journals, hosted automation, platform authorities, or other complexity beyond the stated single-operator safety boundary.
+
+| Task ID | Finding title | Proportionality class | Blocking | Operator decision | Concrete action |
+|---|---|---|---|---|---|
+| _(none)_ | | | | | |
+<!-- epic-coherency-verdict:end -->

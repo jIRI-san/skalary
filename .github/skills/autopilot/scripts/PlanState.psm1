@@ -1826,10 +1826,9 @@ function Get-PlanValidationDecision {
     Decides whether a plan file is far enough along to be worth validating, and says so out loud.
 
     .DESCRIPTION
-    One home for the floor and for the signal both entry points print. `npm test` validates plans twice —
-    `Validate-Plan.ps1` for the working plan, `scripts/validate.ps1` for the whole tree — and if only one
-    of them honours the floor, a below-floor plan is skipped by one leg and hard-failed by the other. The
-    floor then changes nothing except which leg reports the failure.
+    One home for the floor and for the signal printed by the explicit working-plan validator and direct
+    full-repository validation. Keeping the decision shared prevents independently invoked routes from
+    disagreeing about whether a plan is below the validation floor.
 
     An unrecognised stage propagates as a throw, with the offending plan named: a stage nobody recognises
     must never resolve to "skip", which is the failure the closed set exists to prevent.

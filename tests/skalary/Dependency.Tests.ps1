@@ -52,13 +52,12 @@ Describe 'Plan dependency start-gate' {
             Set-Content -LiteralPath (Join-Path $root 'README.md') -Value "# Fixture`n" -Encoding utf8NoBOM
             Set-Content -LiteralPath (Join-Path $root 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md') -Value "Use Test-Plan.ps1 for validation.`n" -Encoding utf8NoBOM
             Set-Content -LiteralPath (Join-Path $root 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md') -Value "- test:<TestId>`n- file:<path>#<assertion>`n- review:cr|dr`n" -Encoding utf8NoBOM
-            Set-Content -LiteralPath (Join-Path $root 'plugins/autopilot/agents/autopilot.agent.md') -Value 'In this repo, `test` stays allowlist-clean as `npm test`.' -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $root 'plugins/autopilot/agents/autopilot.agent.md') -Value 'Use Run-UnitTests.ps1 -TestPath for focused validation.' -Encoding utf8NoBOM
             Set-Content -LiteralPath (Join-Path $root 'docs/implementation-plans/007-workflow-memory-ledger/plan.md') -Value "# 007`n<!-- depends-on: 006 -->`n" -Encoding utf8NoBOM
             Set-Content -LiteralPath (Join-Path $root 'package.json') -Value @'
 {
   "scripts": {
-    "test": "npm run validate-plan && npm run test:unit",
-    "test:unit": "pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1"
+    "test": "pwsh -NoProfile -File scripts/skalary/Run-UnitTests.ps1 -TestPath tests/Focused.Tests.ps1"
   }
 }
 '@ -Encoding utf8NoBOM
@@ -82,15 +81,14 @@ Describe 'Plan dependency start-gate' {
         $result.ExitCode | Should -Be 0
     }
 
-    It 'test:validate-all keeps the committed full validation gate explicitly repository-wide' {
+    It 'test:validate-all keeps the configured test command explicitly focused' {
         $package = Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw |
             ConvertFrom-Json -Depth 20
-        [string]$package.scripts.test | Should -Match 'npm run validate-plan'
-        [string]$package.scripts.test | Should -Match 'npm run test:unit'
-        [string]$package.scripts.'test:unit' | Should -Match '(?i)-FullRepository'
+        [string]$package.scripts.test | Should -Match 'Run-UnitTests\.ps1 -TestPath'
+        [string]$package.scripts.test | Should -Not -Match '(?i)-FullRepository'
     }
 
-    It 'fails when the test:unit gate is missing' {
+    It 'fails when the focused test command is missing' {
         $fixture = New-DependencyFixture
         $planPath = Join-Path $fixture 'docs/implementation-plans/007-workflow-memory-ledger/plan.md'
         Set-Content -LiteralPath (Join-Path $fixture 'package.json') -Value @'
@@ -103,7 +101,7 @@ Describe 'Plan dependency start-gate' {
 
         $result = Invoke-DependencyGate -Root $fixture -PlanPath $planPath
         $result.ExitCode | Should -Not -Be 0
-        $result.Output | Should -Match "test:unit"
+        $result.Output | Should -Match 'focused Run-UnitTests'
     }
 
     It 'test:dep006-legacy triggers the preflight for a legacy 006 dependency' {

@@ -113,7 +113,7 @@ $contracts = @()
 if (Test-Path -LiteralPath $schemasDir -PathType Container) {
     $collectedFiles = @(
         Get-ChildItem -LiteralPath $schemasDir -File -Filter '*.json' -ErrorAction SilentlyContinue |
-            Where-Object { $_.Extension -eq '.json' -and $_.Name -ne 'architecture-contract.schema.json' }
+            Where-Object { $_.Extension -eq '.json' }
     )
     # Ordinal sort so the doc's component order matches the digest's canonical order exactly.
     $fileList = [System.Collections.Generic.List[object]]::new()

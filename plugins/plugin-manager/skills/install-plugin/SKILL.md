@@ -11,7 +11,12 @@ context: fork
 
 > Agent mode. Copies plugin payload into `.github/` and can edit `.vscode/settings.json`.
 
-> **Interaction rule:** every multiple-choice prompt uses `vscode_askQuestions` with `options`.
+> **Host-equivalent choices:** build one ordered option list for every predefined choice. Each option
+> includes the same label and decision context in both hosts, any recommendation/default,
+> `effort: <1-10>`, and `complexity: <1-10>`. In VS Code, pass that list to
+> `vscode_askQuestions`; in Copilot CLI, render the same list as numbered chat options and accept the
+> number or exact label. Never stop only because the VS Code picker is unavailable. Free-form
+> questions are unchanged.
 
 ## Step 1: Resolve the plugin and source
 
@@ -20,7 +25,9 @@ context: fork
 
 ## Step 2: Install
 
-Run the bundled installer **directly** (do not wrap with `pwsh -File` — direct invocation keeps terminal auto-approval working) and always pass `-RepoRoot .` so the consuming repo is targeted:
+Run the bundled installer **directly** (do not wrap with `pwsh -File`) and always pass
+`-RepoRoot .` so the consuming repo is targeted. Mutation remains subject to the terminal's
+per-run approval:
 
 ```
 .github/skills/install-plugin/scripts/Install-Plugin.ps1 -Name <name> -RepoRoot . -Repository jIRI-san/skalary -Ref main
@@ -32,7 +39,9 @@ Run the bundled installer **directly** (do not wrap with `pwsh -File` — direct
 ## Step 3: Offer read-only auto-approval
 
 1. List the newly-installed plugin's **read-only** scripts (verbs `Get`/`Find`/`Test`/`Validate`) and, for each, its skill and a one-line description of its function.
-2. Ask with `vscode_askQuestions` (options **Yes** / **No**): "Auto-approve these read-only scripts in `.vscode/settings.json` so they run without a prompt each time?"
+2. Ask with `vscode_askQuestions`: **Yes — add only the listed read-only paths** (`effort: 1`,
+   `complexity: 1`) or **No — keep prompting** (`effort: 1`, `complexity: 1`):
+   "Auto-approve these read-only scripts in `.vscode/settings.json` so they run without a prompt each time?"
 3. On **Yes**, run:
 
 ```

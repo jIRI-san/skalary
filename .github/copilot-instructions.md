@@ -1,5 +1,11 @@
 # GitHub Copilot Instructions
 
+## Simplicity First
+
+This is the first repository rule. Prefer deletion, reuse, or a local fix before adding machinery.
+`/dr` and `/cr` cannot override it. If simple and safe cannot both be achieved in this trusted
+single-operator repository, choose simple and record the tradeoff under `## Dubious decisions` in
+the affected design note. See `docs/design-notes/project/simplicity-first.design.md`.
 
 ## "Update Docs" Command
 
@@ -22,6 +28,18 @@ When the user says **"update docs"**:
 - Errors quoted exact
 
 **Do NOT apply** when: warning about security, confirming irreversible actions, multi-step sequences where fragment order risks misread, user is confused.
+
+## Operator Choices and Commands
+
+- For predefined choices, build one ordered option list. Every option includes its consequence, any
+  recommendation/default, `effort: <1-10>`, and `complexity: <1-10>`.
+- In VS Code, pass that list to `vscode_askQuestions`. In Copilot CLI, render the same labels and
+  context as a numbered list and accept the number or exact label. Never stop only because the VS Code
+  picker is unavailable. Free-form questions are unchanged.
+- Invoke installed scripts directly by stable repo-relative path with bound arguments. Never wrap
+  `.github/skills/**` scripts in `pwsh -File` or `powershell -File`. Read-only and focused script paths
+  may be pre-approved; mutating scripts remain explicit.
+- `/cr` treats violations of these cross-host choice and direct-command rules as findings.
 
 ## Design Notes
 

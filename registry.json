@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-03T05:10:58.6203448Z",
+  "generatedAt": "2026-09-04T21:01:30.1482895Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -21,12 +21,12 @@
         },
         {
           "dest": "prompts/uan.prompt.md",
-          "sha256": "f1d5a1dbd8136df4991620cbb5de1f22eec068bf58314eaffaae09b667c10389",
+          "sha256": "3865937c666bc03f7072e43e399889e7753adfc0941aa61190076792e4b83268",
           "src": "prompts/uan.prompt.md"
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "04858eef57efdf2651630146f9cd179d5f1688a872a0c0afb137c8f3becd2722",
+          "sha256": "1e40db4585bbc55e38cdc4dd7b33d6a9742628bb68ff895f37e1771a7961b892",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -36,37 +36,32 @@
         },
         {
           "dest": "skills/architecture-notes/assets/interview-guide.md",
-          "sha256": "541ec610cbec59d74a6ba54991f144ff2604207ea8c84ca5f5b650bc00d2b33e",
+          "sha256": "199697f554f6fb1626120b40e02a618f00f0751293f31315b2d383ed526bdf05",
           "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
-          "dest": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json",
-          "sha256": "28be3403dad12fb7992b0ed5799ee3b65c688baa923f4996406650417b9c4e05",
-          "src": "skills/architecture-notes/assets/schemas/architecture-contract.schema.json"
-        },
-        {
           "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-          "sha256": "3131df4a3ecee757de98d1073b7b1efa2fa8dbecae7dc53a983010aaf80a6ef4",
+          "sha256": "c260a941c79ff7089cdc6c0b23fd9b36c2181d34dd7503ccc56ce41ecb50417d",
           "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
-          "sha256": "ba7922421777e8275ad8039fa40f58bd5dd8b3a3dcfb172a57e517ad08e4b183",
+          "sha256": "9e335f84de08d0a994c50e5ca3dfdb3856b8754efaa7b28c01d2ab79ac9471e3",
           "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "6c861e909d7f98276759ea81f8e12e3534aa1434a32b9b3a34422e129b4a2e8e",
+          "sha256": "9aae6d0ed072bad0209fa5a13002b1530a3cc3dbd25af2b249ee40a4ecff1f84",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "f35a8d1c69cc108a6bca3d350fb5ea6c6396bf65e81d9fdc2514209b71e665ac",
+          "sha256": "a9d2f2f8bc7b52bbb3da34ef58c849cb757f4c8c36786472fa46df54c72cf643",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
           "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
-          "sha256": "15d756443b68c4f0429e7f5748a847edb71619c17c4047691bafa7b08677e02f",
+          "sha256": "0aee2a4e6104287af8bdf7174408cad9516cf6f8ec7cff3bc8126f5c260873de",
           "src": "scripts/Copy-ArchScaffold.ps1"
         },
         {
@@ -76,32 +71,27 @@
         },
         {
           "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
-          "sha256": "bcf90454ef982d409c864690adf1510530c84dc721582868b94ca8117109a2e5",
+          "sha256": "ca1fee15881afbb70aa9d8a39b6b343506928990a4e6863585ddbd3c31f2d52a",
           "src": "scripts/Get-ArchContractsHash.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
-          "sha256": "ef6bfa1de4fe4eaa4fab4ee8b56d669cfb73f3fdfad20a40f2826fb7b9cac242",
+          "sha256": "bc750b9dbb1824d40a2c0fe08d3817a2ec18396bbdd0c777f444b451ebed6863",
           "src": "scripts/Import-ArchAdr.ps1"
         },
         {
-          "dest": "skills/architecture-notes/scripts/Import-ArchHarvest.ps1",
-          "sha256": "f3fc84bf4e34fd3f47cba04643b92e638e0450265699cc40d434f20f839852fa",
-          "src": "scripts/Import-ArchHarvest.ps1"
-        },
-        {
           "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
-          "sha256": "2519dfdfc519adc0bfff59fa7b94c9a3692ecfe21299e6ec45917ff5933ef499",
+          "sha256": "6b8eb445e91421b1972cca92a831dfb53469ab13850e43c31f4bf5111e1ec20b",
           "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
-          "sha256": "ff00e65e11650f866ae82f1acfa47e76793120a4191f79b22b1d09c4bf86820a",
+          "sha256": "70e6cf99b1b4f520773d8c892a87fdfc06cdea3a14b3923f18b819a4defc9b91",
           "src": "scripts/New-ArchSeed.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
-          "sha256": "c06c7027cdee983d26f2775afb97f26c2b61c29d611ddb01336854b216be143a",
+          "sha256": "8ea01f4e818d1ab5322ee787aef3cf15b795d8ac54cdac3cdd3f5442c26705b9",
           "src": "scripts/Test-ArchContract.ps1"
         }
       ],
@@ -113,12 +103,6 @@
           "owner": "Copy-ArchScaffold.ps1",
           "path": "docs/architecture-notes/.architecture-notes.md",
           "trigger": "tier scaffold on first run"
-        },
-        {
-          "mode": "literal",
-          "owner": "Import-ArchHarvest.ps1",
-          "path": "docs/architecture-notes/.staging",
-          "trigger": "brownfield harvest"
         },
         {
           "mode": "literal",
@@ -137,12 +121,6 @@
           "owner": "New-ArchHumanDoc.ps1",
           "path": "docs/architecture-notes/architecture.human.md",
           "trigger": "first human-doc regeneration"
-        },
-        {
-          "mode": "literal",
-          "owner": "Copy-ArchScaffold.ps1",
-          "path": "schemas/architecture/architecture-contract.schema.json",
-          "trigger": "tier scaffold on first run"
         }
       ],
       "status": "partial",
@@ -152,7 +130,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.7"
+      "version": "1.0.8"
     },
     {
       "author": "jIRI-san",
@@ -168,7 +146,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "653485e321b0d362cfea820ba1e8dc2b2fface76fc3c27f2de20236fbdfa1d6d",
+          "sha256": "c45c1dcfb4df638bf6267d2c1bbcd75dfcb0efa59c73c36a389c13c0cb78b11f",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -193,7 +171,7 @@
         },
         {
           "dest": "skills/autopilot/devcontainer/container-toolchain-smoke.sh",
-          "sha256": "e0d616245eb01181280cb8581fe37e892bbcce7f9dd1549ba41adba1e60bd2da",
+          "sha256": "8f38211152754a5677fd83f9fd55ce987d4a7e8bfcbf505d3de1dc1a7e67d3c8",
           "src": "devcontainer/container-toolchain-smoke.sh"
         },
         {
@@ -273,7 +251,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/autopilot/scripts/PlanState.psm1"
         },
         {
@@ -283,7 +261,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/autopilot/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -293,7 +271,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "0145c8550dbc805652e9feb4ee46015a280c7f7c92d5c8a175d9f9e799c63cc7",
+          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
           "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -392,7 +370,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.2.94"
+      "version": "1.2.99"
     },
     {
       "author": "jIRI-san",
@@ -454,7 +432,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "2e73e189260fb78fac96fdd428421b64e7e777f33fbb7b184b93a7068328b2c4",
+          "sha256": "e241ef02b15a3d205e6173aabb447af34414ff2c8ada5446b39f87037856ffae",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -479,7 +457,7 @@
         },
         {
           "dest": "skills/cr/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cr/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -524,7 +502,7 @@
         },
         {
           "dest": "skills/cr/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/cr/scripts/PlanState.psm1"
         },
         {
@@ -539,7 +517,7 @@
         },
         {
           "dest": "skills/cr/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cr/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -591,7 +569,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.62"
+      "version": "1.0.67"
     },
     {
       "author": "jIRI-san",
@@ -607,17 +585,17 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "779343e8e12137b161952484f3ed6a895d563d67651ebba5421e739a655cc13e",
+          "sha256": "b8c0acec40f8e159c18517461374fc7aa1401cb2e40aa4f2b0eccac4a24a1f0c",
           "src": "skills/ci/SKILL.md"
         },
         {
           "dest": "skills/ci/assets/crosscheck-guide.md",
-          "sha256": "11308e6625cb47ffe5abbe3e33d42e1dab88700050a18d30cb5abe40845e0cd7",
+          "sha256": "63f2e8c356eb1699bde52db9229323d1928fda77d69d3447f931e95588295818",
           "src": "skills/ci/assets/crosscheck-guide.md"
         },
         {
           "dest": "skills/ci/assets/execution-guide.md",
-          "sha256": "a5fed3f16b17cedd2c26fca272a23ee474778f7a2bc3436b4da7788f9b868d0f",
+          "sha256": "d7e034293373e74fb3dfcee0980a7eaa225827c7d7aa9917a9aae440856db1c5",
           "src": "skills/ci/assets/execution-guide.md"
         },
         {
@@ -672,7 +650,7 @@
         },
         {
           "dest": "skills/ci/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/ci/scripts/PlanState.psm1"
         },
         {
@@ -692,7 +670,7 @@
         },
         {
           "dest": "skills/ci/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/ci/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -702,7 +680,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "0145c8550dbc805652e9feb4ee46015a280c7f7c92d5c8a175d9f9e799c63cc7",
+          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
           "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
         },
         {
@@ -787,7 +765,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.96"
+      "version": "1.0.102"
     },
     {
       "author": "jIRI-san",
@@ -801,17 +779,17 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "126d2f27d6ea432c3e37ae025654a3965b58d364ac7472bf1d1fc121cdf6a93b",
+          "sha256": "013db24d688417d9bf156a78a282ea882dc29f3ce4ffe5cfa080e1e10ee7db03",
           "src": "skills/cep/SKILL.md"
         },
         {
           "dest": "skills/cep/assets/decomposition-guide.md",
-          "sha256": "cf7b7e9a401cb0619111c021722b407c793f99fc65f013452b2c995282c92540",
+          "sha256": "43f7e85da53c215df607816b7f93cdb83460490fc1440f2029e08b44d93720d4",
           "src": "skills/cep/assets/decomposition-guide.md"
         },
         {
           "dest": "skills/cep/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cep/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -841,7 +819,7 @@
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "b2990ae72196d68b8e6622e4e764899e3cfd5a5adb204ef53b858d27eea051e9",
+          "sha256": "64e1280b94debf632b64e1232b0e595dbe4411ba8baf975d7de34efb2034818e",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
@@ -856,12 +834,12 @@
         },
         {
           "dest": "skills/cep/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/cep/scripts/PlanState.psm1"
         },
         {
           "dest": "skills/cep/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cep/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -881,7 +859,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "95d47d505a6652b0cb587e79ec2674bdf02b4680782d82d960bcba4cd6fb2a94",
+          "sha256": "f54af6f24086955648cbc15aafaee1636d87f85911507e47c4aa190cfd8c39a4",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -891,12 +869,12 @@
         },
         {
           "dest": "skills/cip/assets/dr-guide.md",
-          "sha256": "8ca525426521f1302afeeef16dd60015716a0ad91650147a8a01fd89d84b0b87",
+          "sha256": "86f4cb88aa11a06d4ea6e0f30eb2eb3383760a8970760424d65aeaabcd9587b0",
           "src": "skills/cip/assets/dr-guide.md"
         },
         {
           "dest": "skills/cip/assets/drafting-guide.md",
-          "sha256": "8f848fe368fb6b717126b21cd1049edd2da54e1cc471764f1256366fcbfa2f4d",
+          "sha256": "8b2ffb6b2498296edce591f57e5af0e15b28e18078894914440a95bb399c95b3",
           "src": "skills/cip/assets/drafting-guide.md"
         },
         {
@@ -911,12 +889,12 @@
         },
         {
           "dest": "skills/cip/assets/interview-guide.md",
-          "sha256": "e5ef452fcbb467fb9f5bf5d6470be5dfaa0ed268360d0c05cc338171d79802bd",
+          "sha256": "ffb40ef59903b7a03cbd5233617d42521e742cc49a00c53669a4e8844ba373ea",
           "src": "skills/cip/assets/interview-guide.md"
         },
         {
           "dest": "skills/cip/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/cip/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -966,7 +944,7 @@
         },
         {
           "dest": "skills/cip/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/cip/scripts/PlanState.psm1"
         },
         {
@@ -976,7 +954,7 @@
         },
         {
           "dest": "skills/cip/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/cip/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -1018,7 +996,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.80"
+      "version": "1.0.85"
     },
     {
       "author": "jIRI-san",
@@ -1150,7 +1128,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "4565e193ee99b7969df193407f294dd735464313e49c72dba3d320a9833b0a4c",
+          "sha256": "0402384a9b80291388e853da9e9a711e69c0ad93526996671449829622b4d856",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -1170,7 +1148,7 @@
         },
         {
           "dest": "skills/dr/assets/plan-artifact-consumer-protocol.md",
-          "sha256": "04fc04914cfe76d3232f6b57d6ab8f3d5791af791a8368a030c2ba5e5456c3fe",
+          "sha256": "bce846298ce2c45d031650cbfb3374aac24822e8116bbf3d613b5a59759dfd48",
           "src": "skills/dr/assets/plan-artifact-consumer-protocol.md"
         },
         {
@@ -1215,7 +1193,7 @@
         },
         {
           "dest": "skills/dr/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/dr/scripts/PlanState.psm1"
         },
         {
@@ -1230,7 +1208,7 @@
         },
         {
           "dest": "skills/dr/scripts/ReviewResultReceipt.psm1",
-          "sha256": "f02922404e51b0845b4e0606fb702fb5e052d1cfd3b495c835d8cb9fcd5b418e",
+          "sha256": "1c8758ecc47ba9f29248f217d34daf88b5fc960c272ef5e7a911d110089bc773",
           "src": "skills/dr/scripts/ReviewResultReceipt.psm1"
         },
         {
@@ -1282,7 +1260,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.61"
+      "version": "1.0.66"
     },
     {
       "author": "jIRI-san",
@@ -1294,7 +1272,7 @@
       "files": [
         {
           "dest": "skills/install-plugin/SKILL.md",
-          "sha256": "cec4d665494caf72a1064130c170a24776cf98930f3d2397c14a25b3ac1d223e",
+          "sha256": "e9ca301b72d5decdb8c0adeeacac783f2855f2b2db0cf93f711ff98e69c8f112",
           "src": "skills/install-plugin/SKILL.md"
         },
         {
@@ -1334,7 +1312,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/SKILL.md",
-          "sha256": "4f93051e88432b164d8b993f46a00c7827ed9c8e167526bfa9b1cc1d6d1ea0d7",
+          "sha256": "f02c6e96a6c4a4428acef83131abd085dab1a69226cb129595be9008e110976d",
           "src": "skills/uninstall-plugin/SKILL.md"
         },
         {
@@ -1354,7 +1332,7 @@
         },
         {
           "dest": "skills/update-plugin/SKILL.md",
-          "sha256": "c2c16193d89df72644b3a8a45ea077125c5424ae4cab1a7a48c975475c04ebd8",
+          "sha256": "567dc49d860e6437635dd03c92f319fde9e15df7802e15a510ea6dc9bdd6d22e",
           "src": "skills/update-plugin/SKILL.md"
         },
         {
@@ -1376,7 +1354,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.21"
+      "version": "1.0.23"
     },
     {
       "author": "jIRI-san",
@@ -1388,7 +1366,7 @@
       "files": [
         {
           "dest": "skills/process-pr-comments/SKILL.md",
-          "sha256": "c8a9b46c93537358e4c362446885a1d6209d1d57b4f3e506b6fa4a9fb22effa9",
+          "sha256": "a1dbcb87672c57b697143527d22f0299b5c8c6be5abe64e9baf176115399a63c",
           "src": "skills/process-pr-comments/SKILL.md"
         },
         {
@@ -1406,7 +1384,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "author": "jIRI-san",
@@ -1450,7 +1428,7 @@
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
@@ -1560,7 +1538,7 @@
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
@@ -1702,7 +1680,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.70"
+      "version": "1.0.71"
     },
     {
       "author": "jIRI-san",
@@ -1714,7 +1692,7 @@
       "files": [
         {
           "dest": "skills/work-hierarchy-sync/SKILL.md",
-          "sha256": "7d5f9479481d431fc49d681889a552d789afb00ac6e51e7cbff7bba2ae591b7b",
+          "sha256": "254f2df2a00e83a9f4620b1e591da83001cbd1237780c26d9926db1c0fe7e589",
           "src": "skills/work-hierarchy-sync/SKILL.md"
         },
         {
@@ -1724,7 +1702,7 @@
         },
         {
           "dest": "skills/work-hierarchy-sync/scripts/PlanState.psm1",
-          "sha256": "79e62cf6802116731ef9f8dbce1c9fe351ad0430e050f65e010ec9089647355e",
+          "sha256": "d19392b41e6641d71a565ad70e386e3f59715286a103e50aaf34f484515fd00c",
           "src": "skills/work-hierarchy-sync/scripts/PlanState.psm1"
         },
         {
@@ -1743,7 +1721,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.20"
+      "version": "1.0.22"
     }
   ],
   "retiredPlugins": [

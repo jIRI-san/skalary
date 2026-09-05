@@ -11,23 +11,43 @@ Describe 'required structural eval enforcement' {
         function Invoke-RequiredEvalFixture {
             param(
                 [Parameter(Mandatory)][string]$TestBody,
-                [Parameter(Mandatory)][string[]]$RequiredIds
+                [Parameter(Mandatory)][string[]]$RequiredIds,
+                [string]$AdditionalTestBody,
+                [string[]]$RequiredPreamble = @('# Required structural evals', ''),
+                [string[]]$AdditionalRequiredLines = @()
             )
 
             $root = Join-Path ([System.IO.Path]::GetTempPath()) ('required-evals-' + [guid]::NewGuid().ToString('N'))
             $evalDir = Join-Path $root 'plugins/fixture/evals'
             [void](New-Item -ItemType Directory -Path $evalDir -Force)
             Set-Content -LiteralPath (Join-Path $evalDir 'fixture.Tests.ps1') -Value $TestBody -Encoding utf8NoBOM
-            $requiredPath = Join-Path $root 'required.json'
-            [System.IO.File]::WriteAllText($requiredPath, (([ordered]@{
-                            schema = 'skalary/structural-eval-required@1'
-                            caseIds = $RequiredIds
-                        } | ConvertTo-Json -Depth 4 -Compress) + "`n"), [System.Text.UTF8Encoding]::new($false))
+            if ($AdditionalTestBody) {
+                Set-Content -LiteralPath (Join-Path $evalDir 'additional.Tests.ps1') `
+                    -Value $AdditionalTestBody -Encoding utf8NoBOM
+            }
+            $requiredPath = Join-Path $root 'required.md'
+            $requiredContent = @(
+                $RequiredPreamble
+                @($RequiredIds | ForEach-Object { "- ``$_``" })
+                $AdditionalRequiredLines
+            ) -join "`n"
+            [System.IO.File]::WriteAllText(
+                $requiredPath, $requiredContent + "`n", [System.Text.UTF8Encoding]::new($false))
             try {
-                $output = & pwsh -NoProfile -File $script:runner -RepoRoot $script:repoRoot `
-                    -PluginsRoot (Join-Path $root 'plugins') -RequiredContractPath $requiredPath `
-                    -OutputRoot (Join-Path $root 'output') 2>&1
-                return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
+                $outputRoot = Join-Path $root 'output'
+                $output = & pwsh -NoProfile -File $script:runner -RepoRoot $root `
+                    -PluginsRoot (Join-Path $root 'plugins') -RequiredListPath $requiredPath `
+                    -OutputRoot $outputRoot -FullRepository 2>&1
+                $reportPath = Get-ChildItem -LiteralPath $outputRoot -Recurse -File -Filter 'report.json' |
+                    Select-Object -First 1 -ExpandProperty FullName
+                $report = if ($reportPath) {
+                    Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+                }
+                return [pscustomobject]@{
+                    ExitCode = $LASTEXITCODE
+                    Output = ($output | Out-String)
+                    Report = $report
+                }
             }
             finally { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
         }
@@ -42,6 +62,22 @@ Describe 'fixture' {
         $pass = Invoke-RequiredEvalFixture -TestBody $passing -RequiredIds @('eval:Fixture.Required')
         $pass.ExitCode | Should -Be 0 -Because $pass.Output
         $pass.Output | Should -Match 'required: 1/1'
+
+        $prose = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') `
+            -RequiredPreamble @(
+                '# Required structural evals'
+                ''
+                'Keep one literal ``- `eval:...` `` entry per line.'
+                ''
+            )
+        $prose.ExitCode | Should -Be 0 -Because $prose.Output
+
+        $malformed = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') `
+            -AdditionalRequiredLines @('- eval:Fixture.Malformed')
+        $malformed.ExitCode | Should -Be 1
+        $malformed.Output | Should -Match 'required structural-eval list contains an invalid entry'
 
         $missing = Invoke-RequiredEvalFixture -TestBody $passing -RequiredIds @('eval:Fixture.Missing')
         $missing.ExitCode | Should -Be 1
@@ -65,5 +101,13 @@ Describe 'fixture' {
         $twice = Invoke-RequiredEvalFixture -TestBody $duplicate -RequiredIds @('eval:Fixture.Required')
         $twice.ExitCode | Should -Be 1
         $twice.Output | Should -Match "executed 2 times"
+
+        $unloadable = Invoke-RequiredEvalFixture -TestBody $passing `
+            -RequiredIds @('eval:Fixture.Required') -AdditionalTestBody 'this is not valid PowerShell {'
+        $unloadable.ExitCode | Should -Be 1
+        $unloadable.Output | Should -Match 'structural eval file\(s\) failed to load'
+        $unloadable.Output | Should -Match 'error:\s+1'
+        $unloadable.Report.summary.error | Should -Be 1
+        $unloadable.Report.requiredCases.failures | Should -Contain '1 structural eval file(s) failed to load'
     }
 }

@@ -1,41 +1,73 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Full-repository validation gate for the skalary customizations repo.
+    Focused syntax validation for explicitly selected repository paths.
 .DESCRIPTION
-    Dependency-free verification used as both the autopilot `build` and `test`
-    command (wired through package.json so it satisfies the autopilot config
-    schema's `npm run` / `npm test` prefixes). It:
-      * parses every PowerShell script (*.ps1/*.psm1/*.psd1) and fails on syntax
-        errors, and
-      * validates every JSON file (*.json) parses.
-    The file set comes from PayloadScope.psm1, which enumerates an allowlist of
-    payload roots so both platforms see the same files (REQ-8).
-    Full scope is opt-in through -FullRepository so a phase Fast check cannot
+    Dependency-free verification that parses selected PowerShell and JSON files.
+    Routine use requires -Path and always runs in a supervised child process executing the
+    private body `skalary/internal/Invoke-FocusedValidation.ps1`: the run targets less than
+    30 seconds, warns after a 30-60 second completion, and has its child process tree
+    terminated at 60 seconds. No parameter, variable or environment value selects an
+    unsupervised focused run, and no step of the dispatch is reachable by command-name
+    resolution. A child-start failure exits 14. The direct operator-only -FullRepository route runs in
+    this process and retains the repository-wide parse and supporting checks.
+    The full file set comes from PayloadScope.psm1, which enumerates an allowlist of
+    payload roots so supported hosts see the same files (REQ-8).
+    Full scope is opt-in through -FullRepository so a focused phase check cannot
     accidentally expand into this repository-wide scan.
     No external modules are required, so it runs identically on the Windows host
     and inside the Linux autopilot container (which ships pwsh).
+.EXAMPLE
+    pwsh -NoProfile -File scripts/validate.ps1 -Path scripts
+.EXAMPLE
+    pwsh -NoProfile -File scripts/validate.ps1 -FullRepository
 #>
 [CmdletBinding()]
 param(
-    [switch]$FullRepository
+    [string[]]$Path = @(),
+    [switch]$FullRepository,
+    [ValidateRange(0.05, 30)]
+    [double]$FocusedWarningSeconds = 30,
+    [ValidateRange(0.1, 60)]
+    [double]$FocusedTimeoutSeconds = 60
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if (-not $FullRepository) {
-    Write-Host 'FullRepositoryRequired: scripts/validate.ps1 scans the entire repository. Pass -FullRepository only at finalization or an explicit operator-requested full run.' -ForegroundColor Red
-    exit 2
+# Focused dispatch below resolves no command by name. Path and message handling use fully
+# qualified runtime APIs so an alias or function in the calling session cannot redirect the
+# supervised body, the request, or the refusal.
+$repoRoot = [System.IO.Path]::GetDirectoryName($PSScriptRoot)
+
+# The only checks that stay here: a warning threshold at or past the timeout would make the
+# supervisor unable to distinguish a slow run from a killed one, and a request that names both
+# scopes has no supervised operation to run.
+if ($FocusedWarningSeconds -ge $FocusedTimeoutSeconds) {
+    [System.Console]::Out.WriteLine('FocusedScopeRequired: focused warning threshold must be lower than the focused timeout.')
+    exit 12
+}
+if ($FullRepository -and @($Path).Count -gt 0) {
+    [System.Console]::Out.WriteLine('FocusedScopeRequired: Choose focused -Path values or -FullRepository, not both.')
+    exit 12
 }
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+# Every focused run enters the supervisor; nothing a caller can pass reaches past this branch
+# without -FullRepository, so no caller can select an unsupervised focused run.
+if (-not $FullRepository) {
+    $supervision = & ([System.IO.Path]::Combine($PSScriptRoot, 'skalary', 'internal', 'FocusedSupervision.ps1'))
+    exit (& $supervision.InvokeSupervisedBody `
+            -BodyPath ([System.IO.Path]::Combine($PSScriptRoot, 'skalary', 'internal', 'Invoke-FocusedValidation.ps1')) `
+            -Request @{ RepoRoot = $repoRoot; Path = @($Path) } `
+            -Label 'selected validation' -WarningSeconds $FocusedWarningSeconds `
+            -TimeoutSeconds $FocusedTimeoutSeconds)
+}
+
 $errors = [System.Collections.Generic.List[string]]::new()
 
 # REQ-8/RISK-5: the file set is an allowlist of payload roots, canonicalised, with
-# reparse points refused. Without it `.github` was parsed on Windows and skipped on
-# Linux — where pwsh treats dot-prefixed entries as hidden — so the two CI legs passed
-# over different files while both reported success.
+# reparse points refused. Without it hosts can enumerate dot-prefixed payloads differently and
+# report success over different file sets.
 Import-Module (Join-Path $PSScriptRoot 'skalary/PayloadScope.psm1') -Force -DisableNameChecking
 
 Write-Host '== Validating PowerShell scripts =='
@@ -72,21 +104,6 @@ foreach ($file in $jsonFiles) {
 Write-Host "  Parsed $($jsonFiles.Count) JSON file(s)."
 if ($jsonFiles.Count -eq 0) {
     $errors.Add('No JSON files were enumerated; the payload allowlist matched nothing, so this run asserted nothing.')
-}
-
-Write-Host '== Validating architecture contract integrity =='
-$contractIntegrityGate = Join-Path $repoRoot 'scripts/skalary/Test-ArchitectureContractIntegrity.ps1'
-try {
-    $contractIntegrity = & $contractIntegrityGate -RepoRoot $repoRoot -NoExit
-    if (-not $contractIntegrity.Valid) {
-        foreach ($message in $contractIntegrity.Errors) {
-            $errors.Add([string]$message)
-        }
-    }
-    Write-Host "  Checked $($contractIntegrity.Count) architecture contract(s)."
-}
-catch {
-    $errors.Add("Architecture contract integrity sweep failed: $($_.Exception.Message)")
 }
 
 Write-Host '== Validating plugin script bundles =='
@@ -133,9 +150,8 @@ $planPaths = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs/implementatio
 $checkedCount = 0
 $skippedCount = 0
 foreach ($plan in $planPaths) {
-    # The same decision `Validate-Plan.ps1` makes, from the same place. Both legs of `npm test` validate
-    # plans, so a floor honoured by only one of them changes nothing except which leg reports the
-    # failure. An unrecognised stage is a hard error here, never a skip.
+    # Use the same stage decision as the explicit working-plan validator so direct broad validation
+    # cannot reinterpret the floor. An unrecognised stage is a hard error here, never a skip.
     try {
         $decision = Get-PlanValidationDecision -Path $plan.FullName
     }

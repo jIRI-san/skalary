@@ -5,24 +5,22 @@ tier is the **AI-optimized source of truth**: terse, contract-focused, and auto-
 `/cip` and `/ci`. It captures the **unbreakable, high-level contracts** a human owns — the
 *what* and the boundaries — while implementation detail lives in `docs/design-notes/`.
 
-> The human-readable architecture document (diagrams, rationale, links) is a **generated
-> artifact** kept **out of this index** so it never pollutes agent context. Read it only on
-> explicit demand.
+> Markdown notes are the human-readable architecture. A generated compatibility view may exist
+> temporarily for legacy JSON contracts, but it is not authoritative or auto-loaded.
 
 ## How These Work
 
 - Load this index first. Then read only the arch note(s) and contract(s) relevant to the task.
-- Contracts are schema-validated and locked content is digest-pinned by the architecture-notes
-  write and repository integrity gates.
-- `locked` contracts are reviewer-approved and content-pinned; `draft`/`provisional` are advisory.
-  Human promotion is reviewer-enforced policy, not machine-authenticated identity.
+- Legacy JSON contracts follow the documented architecture-notes convention; locked content remains
+  digest-pinned. New boundaries should live directly in terse Markdown notes.
+- `locked` Markdown contracts are reviewer-approved; `draft`/`provisional` are advisory.
+  Transferred locked JSON contracts remain digest-pinned until converted.
 
 ## Maintenance Protocol (Required)
 
 When a change alters an interface-level contract or an architectural boundary, update the
-corresponding arch note and/or contract **in the same change**. Regenerate the human-readable
-document via the update flow (`/uan`). Treat these as part of the definition of done, not
-optional follow-up.
+corresponding Markdown note **in the same change**. Treat this as part of the definition of done,
+not optional follow-up.
 
 Keep the auto-loaded tier lean: retire superseded ADRs (archive/summarize) so only **active**
 decisions remain here.
@@ -47,9 +45,6 @@ decisions remain here.
 
 ## Adding a Contract or Note
 
-1. Author or update the contract JSON under `schemas/` (validated by
-   `architecture-contract.schema.json`); start at `draft` maturity.
-2. Add a terse arch note (see the arch-note template) describing the boundary and referencing
-   the contract id(s).
-3. Add rows to the tables above.
-4. Regenerate the human-readable doc via `/uan`.
+1. Add one terse Markdown note from the arch-note template.
+2. Add rows to the tables above.
+3. Use the update flow (`/uan`) for later changes.

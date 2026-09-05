@@ -85,8 +85,8 @@ rejecting one of them fails the test rather than silently moving the boundary.
 
 `Build-ReviewReport.ps1` stays `#requires -Version 7.0` so a consumer on an older host loads it and
 reports a diagnosis instead of failing to parse (D12). The capability itself is proven by
-`scripts/skalary/Test-ReviewSchemaCapability.ps1`, wired into `registry-ci.yml` as
-`gate:review-schema-capability` ahead of the repository and unit gates on both matrix legs.
+`scripts/skalary/Test-ReviewSchemaCapability.ps1`, available as a direct local diagnostic as
+`gate:review-schema-capability`, run ahead of the repository and unit checks on either host.
 
 It checks the two halves separately — PowerShell 7.6+ and `Test-Json -SchemaFile` — because they
 fail differently, then proves every assertion keyword against the committed schemas themselves. The
@@ -183,8 +183,8 @@ admission; `test:ReviewReport.MaximumEnvelopeBudget` proves the whole render-and
 inside the platform ceiling (10 seconds on Linux, 30 seconds on Windows) and 256 MiB of sampled
 private-byte growth in a child process. The worker records
 OS and PowerShell identity with its measured wall-clock/private-byte result, and the named test is
-mandatory on both Windows and Linux CI legs—never skipped—so "cross-platform" means the same committed
-recipe executes under each supported host rather than extrapolating one local measurement.
+mandatory on both the Windows and the Linux host—never skipped—so "cross-platform" means the same
+committed recipe executes under each supported host rather than extrapolating one local measurement.
 
 ## Artifact names
 
@@ -803,8 +803,9 @@ discoverable test source and also pins the exact structural eval sets.
 `test:ReviewReport.NoNewRuntimeDependency` keeps the engine native: both plugin dependency arrays stay
 empty, no root package lock is introduced, and neither plugin gains a vendored validator.
 
-These evidence layers are distinct. Ordinary `test:ReviewReport.*` cases run in `npm test`; the
-`eval:ReviewReport.*` cases run in the repository's deliberately separate Tier-1 `npm run eval` gate
-and are rerun at the phase crosscheck. Exact-ID discovery proves presence, not execution. A preserved
-plan-associated `review:cr` artifact proves the observed frozen roster and outcomes of a live run; it
-does not prove served-model identity or replace either deterministic layer.
+These evidence layers are distinct. Ordinary `test:ReviewReport.*` cases run through focused
+`Run-UnitTests.ps1 -TestPath <file>` selections; the `eval:ReviewReport.*` cases run in the
+repository's deliberately separate Tier-1 `Test-Evals.ps1 -Plugin <name>` gate and are rerun at the
+phase crosscheck. Neither has an npm alias. Exact-ID discovery proves presence, not execution. A
+preserved plan-associated `review:cr` artifact proves the observed frozen roster and outcomes of a
+live run; it does not prove served-model identity or replace either deterministic layer.

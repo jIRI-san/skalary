@@ -2,14 +2,14 @@
 <#
 .SYNOPSIS
     Opt-in Tier-2 LLM eval runner (plan 0f666f): provisions tooling, resolves a token,
-    discovers waza specs, runs them, and aggregates results. Never wired into the
-    always-on build/test/eval gates.
+    discovers waza specs, runs them, and aggregates results. Runs only by explicit
+    operator invocation; focused validation and package scripts never invoke it.
 .DESCRIPTION
     Orchestration order:
       1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
       2. Resolve-EvalToken — source a Copilot token into the process env for the waza child.
-      3. Discover plugins/<name>/evals/waza/eval.yaml (optionally filtered by -Plugin /
-         -ChangedOnly). For each spec, run every applicable MODE: a functional `waza run`
+      3. Validate one explicit -Plugin, then discover its evals/waza/eval.yaml. For each
+         spec, run every applicable MODE: a functional `waza run`
          when the spec declares `tasks:`, AND a safety `waza adversarial --spec ... --skill
          <name> --model <model> --on-unsafe-outcome fail` when it declares an `adversarial:`
          block. A spec with both runs BOTH (they are separate signals and must not share a
@@ -33,8 +33,6 @@
     Only run specs for this plugin (directory name under plugins/).
 .PARAMETER Case
     Only run this task/case id within each spec (passed to `waza run --task`).
-.PARAMETER ChangedOnly
-    Only run specs for plugins with changes vs the git working tree / index.
 .PARAMETER Quick
     Force a single trial per task (`--trials 1`) for fast iteration.
 .PARAMETER Approve
@@ -55,12 +53,66 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Assert-WazaFocusedScope {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$Plugin,
+        [switch]$ChangedOnly
+    )
+
+    if ($ChangedOnly) {
+        throw 'Waza requires one explicit -Plugin; -ChangedOnly is not a valid premium scope.'
+    }
+    if ([string]::IsNullOrWhiteSpace($Plugin) -or $Plugin -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw 'Waza requires one explicit lowercase -Plugin directory name.'
+    }
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        throw "Repository root does not exist: '$root'."
+    }
+    $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $root (Join-Path 'plugins' $Plugin)))
+    $relative = [System.IO.Path]::GetRelativePath($root, $pluginRoot)
+    if ([System.IO.Path]::IsPathRooted($relative) -or $relative -eq '..' -or
+        $relative.StartsWith("..$([System.IO.Path]::DirectorySeparatorChar)", [System.StringComparison]::Ordinal) -or
+        -not (Test-Path -LiteralPath $pluginRoot -PathType Container)) {
+        throw "Selected plugin does not exist inside the repository: '$Plugin'."
+    }
+    $spec = Join-Path $pluginRoot 'evals/waza/eval.yaml'
+    $cursor = $root
+    $specRelative = [System.IO.Path]::GetRelativePath($root, $spec)
+    foreach ($segment in $specRelative.Split(
+            [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
+            [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        $cursor = Join-Path $cursor $segment
+        $item = Get-Item -LiteralPath $cursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) { break }
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Selected plugin must not traverse a link or reparse point: '$cursor'."
+        }
+    }
+    if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) {
+        throw "Selected plugin has no Waza spec: '$Plugin'."
+    }
+    $outputCursor = $root
+    foreach ($segment in @('tests', 'evals', 'output')) {
+        $outputCursor = Join-Path $outputCursor $segment
+        $item = Get-Item -LiteralPath $outputCursor -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) { break }
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Waza output must not traverse a link or reparse point: '$outputCursor'."
+        }
+    }
+    return $pluginRoot
+}
+
 function Get-WazaEvalSpec {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$PluginsRoot,
 
+        [Parameter(Mandatory)]
         [string]$Plugin
     )
 
@@ -68,17 +120,9 @@ function Get-WazaEvalSpec {
         return @()
     }
 
-    $specs = Get-ChildItem -LiteralPath $PluginsRoot -Recurse -File -Filter 'eval.yaml' -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName.Replace('\', '/') -match '/plugins/(?<plugin>[^/]+)/evals/waza/eval\.yaml$' } |
-        Sort-Object FullName
-
-    if (-not [string]::IsNullOrWhiteSpace($Plugin)) {
-        $specs = $specs | Where-Object {
-            $_.FullName.Replace('\', '/') -match "/plugins/$([regex]::Escape($Plugin))/evals/waza/eval\.yaml$"
-        }
-    }
-
-    return @($specs | ForEach-Object { $_.FullName })
+    $spec = Join-Path $PluginsRoot (Join-Path $Plugin 'evals/waza/eval.yaml')
+    if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) { return @() }
+    return @((Get-Item -LiteralPath $spec).FullName)
 }
 
 function Get-PluginFromSpecPath {
@@ -322,45 +366,6 @@ function New-WazaRunArgument {
     return $runArgs.ToArray()
 }
 
-function Select-ChangedPlugin {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyCollection()]
-        [string[]]$ChangedPaths
-    )
-
-    $plugins = [System.Collections.Generic.List[string]]::new()
-    foreach ($path in $ChangedPaths) {
-        if ($path.Replace('\', '/') -match '(^|/)plugins/(?<plugin>[^/]+)/') {
-            $name = [string]$Matches.plugin
-            if (-not $plugins.Contains($name)) {
-                $plugins.Add($name)
-            }
-        }
-    }
-    return @($plugins)
-}
-
-function Get-ChangedPluginName {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RepoRoot
-    )
-
-    Push-Location $RepoRoot
-    try {
-        $changed = @(& git diff --name-only 2>$null) +
-        @(& git diff --name-only --cached 2>$null) +
-        @(& git ls-files --others --exclude-standard 2>$null)
-    }
-    finally {
-        Pop-Location
-    }
-    return Select-ChangedPlugin -ChangedPaths @($changed)
-}
-
 function Get-WazaCostEstimate {
     [CmdletBinding()]
     param(
@@ -391,115 +396,116 @@ function Invoke-WazaEvals {
         [switch]$Approve
     )
 
-    . (Join-Path $PSScriptRoot 'Ensure-EvalTools.ps1')
-    . (Join-Path $PSScriptRoot 'Resolve-EvalToken.ps1')
+    [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
 
-    $tools = Invoke-EnsureEvalTools -RepoRoot $RepoRoot -Approve:$Approve
-    foreach ($dir in @($tools.ResolvedPaths)) {
-        if (-not [string]::IsNullOrWhiteSpace($dir) -and ($env:PATH -split [System.IO.Path]::PathSeparator) -notcontains $dir) {
-            $env:PATH = $dir + [System.IO.Path]::PathSeparator + $env:PATH
-        }
-    }
+    $priorCopilotToken = [System.Environment]::GetEnvironmentVariable('COPILOT_GITHUB_TOKEN', 'Process')
+    $priorGhToken = [System.Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+    try {
+        . (Join-Path $PSScriptRoot 'Ensure-EvalTools.ps1')
+        . (Join-Path $PSScriptRoot 'Resolve-EvalToken.ps1')
 
-    $baseToken = Resolve-EvalToken -RepoRoot $RepoRoot
-
-    $pluginsRoot = Join-Path $RepoRoot 'plugins'
-    $specs = Get-WazaEvalSpec -PluginsRoot $pluginsRoot -Plugin $Plugin
-
-    if ($ChangedOnly) {
-        $changedPlugins = Get-ChangedPluginName -RepoRoot $RepoRoot
-        $specs = @($specs | Where-Object { $changedPlugins -contains (Get-PluginFromSpecPath -Path $_) })
-    }
-
-    $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
-    $runDir = Join-Path $RepoRoot (Join-Path 'tests/evals/output' $stamp)
-    [void](New-Item -ItemType Directory -Path $runDir -Force)
-
-    Write-Host ("Discovered {0} waza spec(s). Estimate: {1}" -f @($specs).Count, (Get-WazaCostEstimate -SpecCount @($specs).Count))
-
-    $executed = 0
-    $failed = 0
-    $skipped = 0
-
-    foreach ($spec in $specs) {
-        $pluginName = Get-PluginFromSpecPath -Path $spec
-        $hasTasks = Test-WazaSpecHasTasks -Path $spec
-        $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
-        $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
-
-        if (@($modes).Count -eq 0) {
-            $skipped++
-            Write-Host ("  SKIP {0}: spec declares neither tasks nor an adversarial block." -f $pluginName) -ForegroundColor Yellow
-            continue
+        $tools = Invoke-EnsureEvalTools -RepoRoot $RepoRoot -Approve:$Approve
+        foreach ($dir in @($tools.ResolvedPaths)) {
+            if (-not [string]::IsNullOrWhiteSpace($dir) -and ($env:PATH -split [System.IO.Path]::PathSeparator) -notcontains $dir) {
+                $env:PATH = $dir + [System.IO.Path]::PathSeparator + $env:PATH
+            }
         }
 
-        $specSkill = Get-WazaSpecSkill -Path $spec
-        $specModel = Get-WazaSpecModel -Path $spec
+        $baseToken = Resolve-EvalToken -RepoRoot $RepoRoot
+        $pluginsRoot = Join-Path $RepoRoot 'plugins'
+        $specs = Get-WazaEvalSpec -PluginsRoot $pluginsRoot -Plugin $Plugin
+        $stamp = (Get-Date).ToString('yyyy-MM-dd_HH-mm-ss')
+        $runDir = Join-Path $RepoRoot (Join-Path 'tests/evals/output' $stamp)
+        [void](New-Item -ItemType Directory -Path $runDir -Force)
+        Write-Host ("Discovered {0} waza spec(s). Estimate: {1}" -f @($specs).Count, (Get-WazaCostEstimate -SpecCount @($specs).Count))
 
-        foreach ($mode in $modes) {
-            $isAdversarial = ($mode -eq 'adversarial')
-            $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
+        $executed = 0
+        $failed = 0
+        $skipped = 0
+        foreach ($spec in $specs) {
+            $pluginName = Get-PluginFromSpecPath -Path $spec
+            $hasTasks = Test-WazaSpecHasTasks -Path $spec
+            $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
+            $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
 
-            if ($tokenChoice.ShouldSkip) {
+            if (@($modes).Count -eq 0) {
                 $skipped++
-                Write-Host ("  SKIP {0} ({1}): {2}" -f $pluginName, $mode, $tokenChoice.Reason) -ForegroundColor Yellow
+                Write-Host ("  SKIP {0}: spec declares neither tasks nor an adversarial block." -f $pluginName) -ForegroundColor Yellow
                 continue
             }
 
-            # Segregated child-process token for this run only.
-            $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
-            $env:GH_TOKEN = $tokenChoice.Token
+            $specSkill = Get-WazaSpecSkill -Path $spec
+            $specModel = Get-WazaSpecModel -Path $spec
 
-            $specOut = Join-Path $runDir (Join-Path $pluginName $mode)
-            [void](New-Item -ItemType Directory -Path $specOut -Force)
-            $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case -Skill $specSkill -Model $specModel
+            foreach ($mode in $modes) {
+                $isAdversarial = ($mode -eq 'adversarial')
+                $tokenChoice = Resolve-SpecTokenSource -IsAdversarial $isAdversarial -BaseSource ([string]$baseToken.Source) -BaseToken ([string]$baseToken.Token)
 
-            Write-Host ("  RUN  {0} ({1})" -f $pluginName, $mode)
-            # A non-zero waza exit is an expected outcome (failing evals, adversarial --on-unsafe-outcome fail).
-            # Guard against $PSNativeCommandUseErrorActionPreference turning that into a terminating error
-            # under $ErrorActionPreference='Stop', which would abort the REQ-18 aggregation loop.
-            $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
-            $PSNativeCommandUseErrorActionPreference = $false
-            try {
-                # Merge waza's streams to the host so its console output does NOT leak into
-                # this function's output stream (which would make the returned object an array
-                # and break `$result.ExitCode` at the call site).
-                & waza @wazaArgs 2>&1 | Out-Host
-                $exit = $LASTEXITCODE
-            }
-            finally {
-                $PSNativeCommandUseErrorActionPreference = $prevNativePref
-            }
-            $executed++
-            if ($exit -ne 0) {
-                $failed++
-                Write-Host ("  FAIL {0} ({1}): waza exit {2}" -f $pluginName, $mode, $exit) -ForegroundColor Red
+                if ($tokenChoice.ShouldSkip) {
+                    $skipped++
+                    Write-Host ("  SKIP {0} ({1}): {2}" -f $pluginName, $mode, $tokenChoice.Reason) -ForegroundColor Yellow
+                    continue
+                }
+
+                $env:COPILOT_GITHUB_TOKEN = $tokenChoice.Token
+                $env:GH_TOKEN = $tokenChoice.Token
+
+                $specOut = Join-Path $runDir (Join-Path $pluginName $mode)
+                [void](New-Item -ItemType Directory -Path $specOut -Force)
+                $wazaArgs = New-WazaRunArgument -SpecPath $spec -OutputDir $specOut -IsAdversarial:$isAdversarial -Quick:$Quick -Case $Case -Skill $specSkill -Model $specModel
+
+                Write-Host ("  RUN  {0} ({1})" -f $pluginName, $mode)
+                $prevNativePref = if (Test-Path variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
+                $PSNativeCommandUseErrorActionPreference = $false
+                try {
+                    & waza @wazaArgs 2>&1 | Out-Host
+                    $exit = $LASTEXITCODE
+                }
+                finally {
+                    $PSNativeCommandUseErrorActionPreference = $prevNativePref
+                }
+                $executed++
+                if ($exit -ne 0) {
+                    $failed++
+                    Write-Host ("  FAIL {0} ({1}): waza exit {2}" -f $pluginName, $mode, $exit) -ForegroundColor Red
+                }
             }
         }
+
+        $outcome = Get-ExecutedOutcome -Executed $executed -Failed $failed -Skipped $skipped
+
+        Write-Host ''
+        Write-Host 'Waza eval summary:' -ForegroundColor Cyan
+        Write-Host "  executed: $executed"
+        Write-Host "  failed:   $failed" -ForegroundColor Red
+        Write-Host "  skipped:  $skipped" -ForegroundColor Yellow
+        Write-Host "  outcome:  $($outcome.Outcome) ($($outcome.Reason))"
+        Write-Host "  run dir:  $runDir"
+
+        return [pscustomobject]@{
+            Executed = $executed
+            Failed = $failed
+            Skipped = $skipped
+            Outcome = $outcome.Outcome
+            ExitCode = $outcome.ExitCode
+            RunDir = $runDir
+        }
     }
-
-    $outcome = Get-ExecutedOutcome -Executed $executed -Failed $failed -Skipped $skipped
-
-    Write-Host ''
-    Write-Host 'Waza eval summary:' -ForegroundColor Cyan
-    Write-Host "  executed: $executed"
-    Write-Host "  failed:   $failed" -ForegroundColor Red
-    Write-Host "  skipped:  $skipped" -ForegroundColor Yellow
-    Write-Host "  outcome:  $($outcome.Outcome) ($($outcome.Reason))"
-    Write-Host "  run dir:  $runDir"
-
-    return [pscustomobject]@{
-        Executed = $executed
-        Failed = $failed
-        Skipped = $skipped
-        Outcome = $outcome.Outcome
-        ExitCode = $outcome.ExitCode
-        RunDir = $runDir
+    finally {
+        [System.Environment]::SetEnvironmentVariable('COPILOT_GITHUB_TOKEN', $priorCopilotToken, 'Process')
+        [System.Environment]::SetEnvironmentVariable('GH_TOKEN', $priorGhToken, 'Process')
     }
 }
 
 # Execute only when run as a script (not when dot-sourced for testing).
 if ($MyInvocation.InvocationName -ne '.') {
+    try {
+        [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
+    }
+    catch {
+        Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
+        exit 12
+    }
     $result = Invoke-WazaEvals -RepoRoot $RepoRoot -Plugin $Plugin -Case $Case -ChangedOnly:$ChangedOnly -Quick:$Quick -Approve:$Approve
     exit $result.ExitCode
 }

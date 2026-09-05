@@ -493,7 +493,8 @@ function ConvertTo-CoherencyVerdictBlock {
     $lines.Add($script:CoherencyBlockStart)
     $lines.Add('Schema: `skalary/epic-coherency-verdict@1`')
     $lines.Add("Prior source digest: ``$([string]$Verdict['sourceDigest'])``")
-    $lines.Add("Review run: $(if ($null -eq $reviewRunId) { '_not yet reviewed_' } else { "``$reviewRunId``" })")
+    $reviewRunDisplay = if ($null -eq $reviewRunId) { '_not yet reviewed_' } else { "``$reviewRunId``" }
+    $lines.Add("Review run: $reviewRunDisplay")
     $lines.Add("Operator decision: **$([string]$Verdict['decision'])**")
     $lines.Add("Blocking: **$(if ($Verdict['blocking']) { 'yes' } else { 'no' })**")
     $lines.Add("Action: $safeAction")

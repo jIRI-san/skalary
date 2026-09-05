@@ -6,7 +6,7 @@
 
 At phase and plan crosschecks, verify each requirement's typed markers from Acceptance Criteria:
 
-- `test:<TestId>` -> invoke the existing focused Fast runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
+- `test:<TestId>` -> invoke the focused runner with explicit `-TestPath`, batched `-EvidenceTestId <TestId[]>`, and `-EvidenceResultPath`; consume the structured results. Missing, failed, skipped, unrun, or degraded output is not passed, and a nonzero runner exit remains blocking even when one selected record passed.
 - `file:<path>#<assertion>` -> verify via `.github/skills/ci/scripts/Test-Plan.ps1 -EvidenceMarker ... -EvidenceStage <PhaseCrosscheck|PlanCrosscheck>` (delegates to the dot-sourceable `PlanEvidence` callable).
 - `review:cr|dr` -> verify the relevant review run reports no remaining findings for the claimed class; treat "no review run" as unrun evidence (fail the gate). A passed `review:cr` result must carry `ReviewRunId=<finalized-run-uuid>`; the formatter rechecks the retained pair, durable clean cycle, and reviewed commit.
 
@@ -16,7 +16,7 @@ Build the receipt with the shared formatter — do not hand-write receipt lines.
 
 ```powershell
 # $results = array of [pscustomobject]@{ Req='REQ-1'; Marker='test:foo'; Status='passed'; Note='' } ...
-$receipt = & .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
+$receipt = .github/skills/ci/scripts/Build-EvidenceReceipt.ps1 -Result $results -Commit <HEAD-sha> -Phase <N> -PlanDir <plan-folder>
 Set-Content -LiteralPath $receipt.ReceiptPath -Value $receipt.Text -Encoding utf8NoBOM
 ```
 
@@ -46,7 +46,7 @@ engine and is not a second harvest implementation.
    The phase is evidence-green only when every normalized outcome for every applicable requirement is
    `passed` or exactly `waived`. `failed`, `skipped`, `stale`, `unrun`, and `degraded` are unresolved
    and block phase promotion; do not reinterpret an unavailable or missing result as success.
-4. After all phase implementation, fixes, and focused checks are complete, run one **Fast** gate selected from the files and behavior changed in this phase. It must target only the highest-signal relevant tests. In this repository invoke `Run-UnitTests.ps1 -Tier Fast -TestPath <repo-relative-test-files> [-TestName <Pester-full-name-filters>]` through a bound argument array; `-TestName` is required when the owning file belongs to Slow. Never use `npm test`, `scripts/validate.ps1`, `-FullRepository`, or an unfiltered **Slow** suite at a phase boundary. `OverBudget`, `StaleMeasurement`, and `BudgetNotDefined` are advisory: report them, but never change budgets, runtime rows, implementation, or scope, and never rerun solely because of them. A failed assertion or nonzero correctness gate may be retried only after corrective changes; any later implementation change invalidates the successful run and requires one replacement run before phase completion.
+4. After all phase implementation and fixes are complete, run one focused gate selected from the files and behavior changed in this phase. Use `Run-UnitTests.ps1 -TestPath <repo-relative-test-files> [-TestName <Pester-full-name-filters>]` or `scripts/validate.ps1 -Path <repo-relative-paths>` through a bound argument array. Never widen scope or retry without a corrective change. Any later implementation change invalidates the successful run and requires one replacement run before phase completion.
 5. Build the review scope as the union of repo-relative implementation, test, and directly related documentation paths changed by this phase's completed step commits. Exclude plan progress and ephemeral log-only paths. If the exact phase union cannot be recovered, use `branch` scope rather than silently omitting files.
 6. Run the review loop below with stage `phase-<N>` and invoke `@cr post-phase <phase-paths-or-branch>`. The profile is primary-model only; apply clear findings and re-run the focused phase checks before the next round.
 7. Rebuild the evidence receipt via `Build-EvidenceReceipt` (with `-PlanDir`) at the current commit SHA and write it to `.ReceiptPath`.
@@ -85,11 +85,11 @@ operator resolves it through Revise or Stop.
 Pass the normalized receipt outcome statuses and high-impact-uncertainty flag to
 `Get-PhaseCheckpointOptions`, then use `vscode_askQuestions` with exactly the returned dispositions:
 
-- **Continue** — available only when the receipt reports `AllPassed` and no high-impact uncertainty
-  remains. Record the disposition, then permit the next phase.
-- **Revise** — record the requested correction, keep the phase incomplete, make the correction, and
-  rerun the affected evidence and checkpoint.
-- **Stop** — record the reason and leave all later-phase work untouched.
+- **Continue** (`effort: 1`, `complexity: 1`) — available only when the receipt reports `AllPassed`
+  and no high-impact uncertainty remains. Record the disposition, then permit the next phase.
+- **Revise** (`effort: 4`, `complexity: 3`) — record the requested correction, keep the phase
+  incomplete, make the correction, and rerun the affected evidence and checkpoint.
+- **Stop** (`effort: 1`, `complexity: 1`) — record the reason and leave all later-phase work untouched.
 
 When `/ci` resumes after Revise or Stop, treat that as **Resume**: reconstruct the checkpoint from
 current plan progress plus Capture, reread intent, and rerun the phase evidence. Never assume the
@@ -100,7 +100,8 @@ offer Revise and Stop only; Continue is not an available disposition.
 ## Plan crosscheck
 
 1. Re-anchor against the plan's intent asset: confirm the delivered plan satisfies the operator's definition of done and success signals, and that no non-goal was silently taken on. Unresolved intent drift is a gap, not a rounding error — record it explicitly.
-2. Run final project validation only after every implementation phase is complete. Full-repository validation must use the repository's explicit opt-in parameter. In this repository run `npm test` only after confirming its committed `test:unit` leg contains `Run-UnitTests.ps1 -Tier Fast -FullRepository`; then run the Slow suite exactly once (`npm run test:slow`). Never infer full scope from an omitted parameter or bypass the complete configured command. A failed final gate may be retried only after corrective changes.
+2. Run final project validation only after every implementation phase is complete. Run the configured `build` and `test` commands (`npm run build` and `npm test` in this repo); they are fixed-scope baseline checks, so also run the affected-surface checks with explicitly named scope (`scripts/validate.ps1 -Path <changed paths>`, `scripts/skalary/Run-UnitTests.ps1 -TestPath <affected test files>`).
+   Broad `-FullRepository` and premium Waza validation are direct operator choices and must never be invoked by this skill. These are local commands with no hosted-workflow requirement. A failed final gate may be retried only after corrective changes; never widen scope automatically.
 3. After every implementation phase is complete, run the review loop below with stage `plan-finalization` and invoke `@cr plan-finalization branch`. This is the only primary + secondary execution review and must cover the whole implementation. Apply clear findings and re-run complete project validation before the next round.
 4. Validate all REQ and RISK rows before completion.
 5. Ensure unresolved gaps are explicitly deferred in Decisions if not fixed.
@@ -123,7 +124,9 @@ offer it. It is not a gate condition: a declined or unanswered `/pfb` never bloc
 and a recorded verdict never substitutes for a `✗` marker.
 
 1. Skip silently when the `self-improvement` plugin is not installed (`Test-Path .github/skills/pfb/SKILL.md`).
-2. Interactive completion: offer the `/pfb` run before the archive commit. If the operator accepts,
+2. Interactive completion: offer **Run `/pfb` — record whether delivery met the intent** (`effort: 4`,
+   `complexity: 2`) or **Skip `/pfb` — archive without feedback** (`effort: 1`, `complexity: 1`)
+   before the archive commit. If the operator accepts,
    read `.github/skills/pfb/SKILL.md` by path and run it against the completing plan, then commit
    `docs/feedback/queue.md` by explicit path where harvest item 4 places it — before branch
    selection, so the `@human` escalation branch (which never makes an archive commit) still commits
@@ -150,7 +153,9 @@ skill is installed.
    dates, declined-before-ranking/no-candidate outcomes, completed disposition counts, and integrity
    states before the offer. A script failure is explicit non-blocking degradation: report it, do not
    claim SI state was surfaced, and continue plan completion without ranking partial state.
-3. Interactive completion: offer the run. On acceptance, read `.github/skills/si/SKILL.md` by path
+3. Interactive completion: offer **Run `/si` — rank and review improvement candidates** (`effort: 6`,
+   `complexity: 5`) or **Skip `/si` — finish without proposals** (`effort: 1`, `complexity: 1`).
+   On acceptance, read `.github/skills/si/SKILL.md` by path
    and follow it. `/si` produces a ranked candidate list and, only with explicit operator consent, a
    **draft** PR on a worktree branch cut from `origin/main` — never from the plan's branch, whose
    diff would otherwise land in the proposal's scope and be refused by the pre-PR guard. It never
@@ -171,10 +176,10 @@ skill is installed.
 For plans declaring `<!-- depends-on: <id> -->`, run this deterministic non-Pester check at plan start and again immediately before any interactive harvest/finalization branch:
 
 ```powershell
-pwsh -NoProfile -File .github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
+.github/skills/ci/scripts/Test-DependencyPlan006.ps1 -RepoRoot . -PlanPath <selected-plan-path>
 ```
 
-It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the `test:unit` gate, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
+It resolves the dependency through `Resolve-Plan` and validates the 006 behavior contracts through public script paths (pass/fail `file:` probes, evidence vocabulary, the focused unit command, and pinned compatibility-anchor tokens). If it exits non-zero, stop execution immediately.
 
 ## Interactive harvest trigger (`/ci`) — mirror of canonical autopilot flow
 
@@ -212,8 +217,9 @@ Before dispatch, run `-Action Check`. On `allow`, dispatch the selected profile.
 and triage through `Add-WorkflowNote -Kind CrLog`, then run
 `-Action Record -Outcome <clean|findings> -Summary <bounded-counts-and-run-id>`. On
 `operator-decision`, do not run a fourth review
-automatically: use `vscode_askQuestions` with exactly **Continue looping** and **Wrap up**. Continue
-authorizes one additional round; Wrap retains residual findings and never produces clean evidence.
+automatically: use `vscode_askQuestions` with exactly **Continue looping** (`effort: 7`,
+`complexity: 5`) and **Wrap up** (`effort: 1`, `complexity: 2`). Continue authorizes one additional
+round; Wrap retains residual findings and never produces clean evidence.
 The automatic cap is three rounds independently for each stage.
 
 Wrap is permanent non-clean history. If the operator later authorizes replacement evidence, invoke

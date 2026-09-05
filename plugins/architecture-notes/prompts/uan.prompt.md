@@ -12,9 +12,9 @@ Thin shortcut. The full, CLI-standalone workflow lives in the **architecture-not
 1. Invoke the **architecture-notes** skill with operation **update**.
 2. Pass the text after `/uan` as the contract/note to update: `${input}`.
 3. Follow the skill's Step 3 (update a contract) — never silently rewrite a `locked` contract
-   body; propose changes for human review. Re-validate with `Test-ArchContract.ps1`.
-4. Regenerate the human-readable doc (skill Step 8, `New-ArchHumanDoc.ps1`) so it stays in sync.
-5. **At plan finalization** (wrapping up a `/ci` run, or when `${input}` names a finalized plan),
+   body; propose changes for human review. Use `Test-ArchContract.ps1` only for a transferred legacy
+   JSON contract.
+4. **At plan finalization** (wrapping up a `/ci` run, or when `${input}` names a finalized plan),
    harvest that plan's decisions into proposed ADRs via the skill's **adr-harvest** operation
    (Step 9): `Import-ArchAdr.ps1 -PlanDir <plan-folder> -RepoRoot <repoRoot>`. The ADRs land
    quarantined (`reviewed: false`); promote accepted ones into the index's Decision Records (active)
