@@ -39,7 +39,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 - [x] 1.1 Replace the stale cost note with the dated 180K operating contract, exact model ladder, fallbacks, escalation criteria, and retained simplicity boundaries (REQ-2, REQ-8, REQ-10, RISK-2, RISK-3, RISK-7) `M`
 - [x] 1.2 Remove the autopilot context setting and every active `long_context` schema, example, launcher, container, sandbox, and configuration path; set routine autopilot to Luna/medium while retaining explicit model and effort overrides (REQ-1, REQ-2, REQ-4, REQ-9, RISK-1, RISK-4, RISK-7, RISK-10) [after: 1.1] `L`
-- [ ] 1.3 Add focused model-routing, default-context-only, schema, launcher, and active-residue fixtures without inspecting archived plans (REQ-1, REQ-2, REQ-4, REQ-9, RISK-1, RISK-4, RISK-7) [after: 1.2] `S`
+- [x] 1.3 Add focused model-routing, default-context-only, schema, launcher, and active-residue fixtures without inspecting archived plans (REQ-1, REQ-2, REQ-4, REQ-9, RISK-1, RISK-4, RISK-7) [after: 1.2] `S`
 
 ## Phase 2: Cheap-first planning, implementation, and review
 <!-- worktree: (recorded by /ci when worktree is created) -->
