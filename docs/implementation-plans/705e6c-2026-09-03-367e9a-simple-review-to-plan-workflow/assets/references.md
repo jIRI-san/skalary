@@ -79,3 +79,19 @@ The notes retain distinct owners, but the first two batches contain repeated dir
 distribution explanations; the resolved SI exploration is the only plausible archive/merge candidate.
 No cross-note merge or deletion was performed in Step 5.1. Step 5.3 must rerun discovery after Step 5.2
 and execute the plan's one final compaction pass, with operator approval for any cross-note merge/delete.
+
+## Step 5.2 residue disposition
+
+The 25-candidate Step 5.1 residue pass was rechecked against active manifests, canonical scripts,
+plugin sources, and installed `.github` payloads. The obsolete plan-006 compatibility preflight was
+deleted from its canonical source, CI/autopilot bundles, dogfood copies, manifest entries, launcher
+hook, and test. The retired diff-extraction suite was also deleted. Retained tests were narrowed to
+current direct intent, plan validation, script bundling, consumer installation, and external-format
+behavior; retired schema/ledger fixtures and assertions were removed from those tests.
+
+The historical adapter still reads only confined Markdown and imports `PlanState.psm1`,
+`SecretGuard.psm1`, and `DirectWorkflow.psm1`. The closed residue test independently scans the five
+direct source plugins and a manifest-built installed `.github` tree. SI proposal state/receipts owned
+by `3a4498`, plugin installation/retirement receipts and frozen fixtures owned by `623cc2`, legacy plan
+asset mappings, host/container/Sandbox configuration, published registries, and archived history were
+retained.

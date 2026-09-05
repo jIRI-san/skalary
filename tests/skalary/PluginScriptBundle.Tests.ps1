@@ -10,7 +10,6 @@ Describe 'Plugin script bundling' {
         $script:syncScript = Join-Path $repoRoot 'scripts/skalary/Sync-PluginScripts.ps1'
         $script:refRegex = [regex]'\.github/skills/(?<skill>[a-z0-9][a-z0-9-]*)/scripts/(?<name>[A-Za-z0-9][A-Za-z0-9._-]*\.psm?1)'
         $script:moduleRegex = [regex]'\$PSScriptRoot\s+''(?<mod>[A-Za-z0-9_][A-Za-z0-9._-]*\.psm?1)'''
-        $script:schemaRegex = [regex]'\$PSScriptRoot\s+''(?<schema>schemas/review/[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json)'''
 
         $script:bundlePlugins = @(
             [pscustomobject]@{ Plugin = 'continue-implementation'; Skill = 'ci' },
@@ -88,61 +87,6 @@ Describe 'Plugin script bundling' {
         }
     }
 
-    It 'test:bundle-schema-closure copies literal schema references from canonical schemas/review' {
-        foreach ($p in $bundlePlugins | Where-Object { $_.Skill -in @('cr', 'dr') }) {
-            $bundleDir = Join-Path $repoRoot "plugins/$($p.Plugin)/skills/$($p.Skill)/scripts"
-            $module = Get-Content -LiteralPath (Join-Path $bundleDir 'ReviewRun.psm1') -Raw
-            foreach ($m in @($schemaRegex.Matches($module))) {
-                $relative = $m.Groups['schema'].Value
-                $source = Join-Path $repoRoot $relative
-                $bundled = Join-Path $bundleDir $relative
-                Test-Path -LiteralPath $bundled -PathType Leaf | Should -BeTrue
-                (Get-FileHash -LiteralPath $bundled -Algorithm SHA256).Hash |
-                    Should -Be (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-            }
-        }
-    }
-
-    It 'test:bundle-schema-resolution ignores a parent schema directory in installed layouts' {
-        $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('bundle-schema-trust-' + [guid]::NewGuid().ToString('N'))
-        try {
-            $bundleDir = Join-Path $fixture 'skills/cr/scripts'
-            $decoyDir = Join-Path $fixture 'skills/schemas/review'
-            New-Item -ItemType Directory -Path $bundleDir, $decoyDir -Force | Out-Null
-            Copy-Item -Path (Join-Path $repoRoot 'plugins/code-review/skills/cr/scripts/*') `
-                -Destination $bundleDir -Recurse
-            Set-Content -LiteralPath (Join-Path $decoyDir 'review-limits.schema.json') `
-                -Value '{"x-skalary-limits":{"maxTasks":1}}' -Encoding utf8NoBOM
-
-            Import-Module (Join-Path $bundleDir 'ReviewRun.psm1') -Force -Prefix Bundled -DisableNameChecking
-            (Get-BundledReviewLimits).maxTasks | Should -Be 128
-        }
-        finally {
-            Remove-Module ReviewRun -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'test:bundle-schema-resolution recognizes canonical execution under a repo named skills' {
-        $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('bundle-schema-root-' + [guid]::NewGuid().ToString('N'))
-        try {
-            $repo = Join-Path $fixture 'skills'
-            $moduleDir = Join-Path $repo 'scripts/skalary'
-            $schemaDir = Join-Path $repo 'schemas/review'
-            New-Item -ItemType Directory -Path $moduleDir, $schemaDir -Force | Out-Null
-            Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/ReviewRun.psm1') -Destination $moduleDir
-            Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/skalary/SecretGuard.psm1') -Destination $moduleDir
-            Copy-Item -Path (Join-Path $repoRoot 'schemas/review/*.json') -Destination $schemaDir
-
-            Import-Module (Join-Path $moduleDir 'ReviewRun.psm1') -Force -Prefix Canonical -DisableNameChecking
-            (Get-CanonicalReviewLimits).maxTasks | Should -Be 128
-        }
-        finally {
-            Remove-Module ReviewRun -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
     It 'test:bundle-version-bump bumps the plugin version when a bundled source changes' {
         $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('bundle-bump-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $fixture -Force | Out-Null
@@ -213,48 +157,4 @@ Describe 'Plugin script bundling' {
         }
     }
 
-    It 'test:SyncPluginScripts.SchemaClosure uses canonical source, prunes stale sidecars, and bumps once' {
-        $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('bundle-schema-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $fixture -Force | Out-Null
-        try {
-            git init -q $fixture 2>$null | Out-Null
-            $skillDir = Join-Path $fixture 'plugins/review/skills/rv'
-            $schemaDir = Join-Path $fixture 'schemas/review'
-            New-Item -ItemType Directory -Path $skillDir, $schemaDir -Force | Out-Null
-            Copy-Item -Path (Join-Path $repoRoot 'schemas/review/*.json') -Destination $schemaDir
-            Set-Content -LiteralPath (Join-Path $skillDir 'SKILL.md') `
-                -Value 'Run `.github/skills/rv/scripts/Build-ReviewReport.ps1`.' -Encoding utf8NoBOM
-
-            $manifest = [ordered]@{
-                name = 'review'; version = '1.0.0'; description = 'fixture'; author = 'x'; license = 'MIT'
-                tags = @('skill'); dependencies = @(); status = 'stable'
-                files = @(@{ src = 'skills/rv/SKILL.md'; dest = 'skills/rv/SKILL.md' })
-            }
-            Set-Content -LiteralPath (Join-Path $fixture 'plugins/review/plugin.json') `
-                -Value ($manifest | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
-
-            & $syncScript -RepoRoot $fixture *> $null
-            $bundleDir = Join-Path $skillDir 'scripts'
-            (Get-FileHash -LiteralPath (Join-Path $bundleDir 'schemas/review/review-plan.schema.json') -Algorithm SHA256).Hash |
-                Should -Be (Get-FileHash -LiteralPath (Join-Path $schemaDir 'review-plan.schema.json') -Algorithm SHA256).Hash
-            ((Get-Content -LiteralPath (Join-Path $fixture 'plugins/review/plugin.json') -Raw | ConvertFrom-Json).version) |
-                Should -Be '1.0.1' -Because 'all closure changes in one sync produce one patch bump'
-
-            Set-Content -LiteralPath (Join-Path $bundleDir 'schemas/review/stale.schema.json') `
-                -Value '{}' -Encoding utf8NoBOM
-            $nestedScript = Join-Path $bundleDir 'custom/keep.ps1'
-            New-Item -ItemType Directory -Path (Split-Path -Parent $nestedScript) -Force | Out-Null
-            Set-Content -LiteralPath $nestedScript -Value '# not owned by the bundle closure' -Encoding utf8NoBOM
-            { & $syncScript -RepoRoot $fixture -WhatIf *> $null } | Should -Throw '*1 stale file*'
-            & $syncScript -RepoRoot $fixture *> $null
-            Test-Path -LiteralPath (Join-Path $bundleDir 'schemas/review/stale.schema.json') | Should -BeFalse
-            Test-Path -LiteralPath $nestedScript -PathType Leaf | Should -BeTrue
-            ((Get-Content -LiteralPath (Join-Path $fixture 'plugins/review/plugin.json') -Raw | ConvertFrom-Json).version) |
-                Should -Be '1.0.2'
-            { & $syncScript -RepoRoot $fixture -WhatIf *> $null } | Should -Not -Throw
-        }
-        finally {
-            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
 }

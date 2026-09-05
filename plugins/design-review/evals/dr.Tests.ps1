@@ -20,7 +20,7 @@ Describe 'dr direct structural evals' {
         }
     }
 
-    It 'ships the direct closure and no generated concern agents' {
+    It 'ships the direct closure and one orchestrator agent' {
         $dest = @($script:manifest.files | ForEach-Object { [string]$_.dest })
         foreach ($path in @(
                 'skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
@@ -31,6 +31,7 @@ Describe 'dr direct structural evals' {
             )) {
             $dest | Should -Contain $path
         }
-        ($dest -join "`n") | Should -Not -Match 'ReviewRun|Fleet|receipt|dr-(?:security|performance)'
+        @($dest | Where-Object { $_ -like 'agents/*.agent.md' }) |
+            Should -Be @('agents/dr.agent.md')
     }
 }

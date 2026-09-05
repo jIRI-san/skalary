@@ -224,9 +224,13 @@ Describe 'nested trap' {
         $dr = Get-Content -LiteralPath (
             Join-Path $script:repoRoot 'plugins/design-review/skills/dr/SKILL.md'
         ) -Raw
-        foreach ($text in @($simplicity, $instructions, $cr, $dr)) {
+        foreach ($text in @($simplicity, $instructions)) {
             $text | Should -Match '(?i)simplicity'
             $text | Should -Match '(?i)deletion, reuse, or a local fix'
+        }
+        foreach ($text in @($cr, $dr)) {
+            $text | Should -Match '(?i)simple option'
+            $text | Should -Match '(?i)no fixed concern matrix'
         }
         $simplicity | Should -Match '/dr.*?/cr.*?cannot override'
         $simplicity | Should -Match '## Dubious decisions'
@@ -426,11 +430,6 @@ Describe 'slow' {
         ($stale | Sort-Object -Unique) -join "`n" |
             Should -BeExactly '' -Because 'active architecture notes may not assert authority the removed workflows carried'
 
-        # The identifiers that merely contain the letters CI are names, not workflow claims, and
-        # must survive the correction.
-        $evalNotes = Get-Content -LiteralPath (Join-Path $authorityRoot 'plugin-evals.design.md') -Raw
-        $evalNotes | Should -Match 'eval:FleetDispatch\.CI\.ConsumerContract'
-        $evalNotes | Should -Match 'eval:FleetDispatch\.CIP\.ConsumerContract'
     }
 
     It 'test:LocalFirst.PackageScriptReferences keeps active guidance free of removed npm aliases' {

@@ -9,23 +9,27 @@ Describe 'planning direct structural evals' {
         $script:manifest = Get-Content (Join-Path $plugin 'plugin.json') -Raw | ConvertFrom-Json
         $script:cip = Get-Content (Join-Path $plugin 'skills/cip/SKILL.md') -Raw
         $script:cep = Get-Content (Join-Path $plugin 'skills/cep/SKILL.md') -Raw
+        $script:decision = Get-Content (
+            Join-Path $plugin 'skills/cip/assets/decision-protocol.md'
+        ) -Raw
     }
 
     It 'eval:DirectWorkflow.CIP.ConsumerContract uses decision-ready native planning with a normal judge' {
         foreach ($text in @($script:cip, $script:cep)) {
-            $text | Should -Match 'combined design/requirements'
+            $text | Should -Match 'combined\s+design/requirements'
             $text | Should -Match 'Judge'
             $text | Should -Match 'five maximum'
-            $text | Should -Match 'effort 1-10'
-            $text | Should -Match 'complexity 1-10'
-            $text | Should -Not -Match 'Fleet'
         }
+        $script:decision | Should -Match '`effort: <1-10>`'
+        $script:decision | Should -Match '`complexity: <1-10>`'
     }
 
-    It 'ships direct historical context without legacy receipt adapters' {
+    It 'ships direct historical context with its direct module' {
         $dest = @($script:manifest.files | ForEach-Object { [string]$_.dest }) -join "`n"
         $dest | Should -Match 'Get-DirectPlanArtifactConsumerContext\.ps1'
         $dest | Should -Match 'DirectWorkflow\.psm1'
-        $dest | Should -Not -Match 'Get-PlanArtifactConsumerContext|Fleet|ReviewResultReceipt|Repair'
+        @($script:manifest.files | Where-Object {
+                [string]$_.dest -match 'Get-DirectPlanArtifactConsumerContext\.ps1$'
+            }).Count | Should -Be 2
     }
 }

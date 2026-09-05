@@ -7,6 +7,9 @@ Describe 'Active direct workflow consumers' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:adapter = Join-Path $script:repoRoot 'scripts/skalary/Get-DirectPlanArtifactConsumerContext.ps1'
+        $script:installedAdapter = Join-Path $script:repoRoot (
+            '.github/skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1'
+        )
         $script:siReader = Join-Path $script:repoRoot '.github/skills/si/scripts/Get-SiHarvest.ps1'
         $script:learningWriter = Join-Path $script:repoRoot 'scripts/skalary/Write-RecentLearning.ps1'
         $script:active = @(
@@ -124,12 +127,51 @@ clean
 
     It 'reads direct stage Markdown without receipt authority and frames it once' {
         $fixture = New-DirectConsumerFixture
-        $result = & $script:adapter -PlanId abc123 -ArtifactKind Intent, Reviews `
-            -Relationship reuses -RepoRoot $fixture.Root
-        @($result.accepted).Count | Should -Be 2
-        $result.untrustedInput | Should -Match '^<UNTRUSTED_INPUT_'
-        ([regex]::Matches($result.untrustedInput, '<UNTRUSTED_INPUT_')).Count | Should -Be 1
-        $result.untrustedInput | Should -Not -Match '"receipt"'
+        foreach ($adapterPath in @($script:adapter, $script:installedAdapter)) {
+            $result = & $adapterPath -PlanId abc123 -ArtifactKind Intent, Reviews `
+                -Relationship reuses -RepoRoot $fixture.Root
+            @($result.accepted).Count | Should -Be 2
+            $result.untrustedInput | Should -Match '^<UNTRUSTED_INPUT_'
+            ([regex]::Matches($result.untrustedInput, '<UNTRUSTED_INPUT_')).Count | Should -Be 1
+            $result.untrustedInput | Should -Not -Match '"receipt"'
+        }
+    }
+
+    It 'keeps the historical adapter dependency closure direct and Markdown-only' {
+        $forbidden = @(
+            'ReviewRun', 'ReviewResultReceipt', 'PlanEvidence', 'LedgerStore',
+            'Invoke-PhaseHarvest', 'Build-EvidenceReceipt', 'Get-ReviewRun'
+        )
+        foreach ($adapterPath in @(
+                $script:adapter,
+                'plugins/code-review/skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
+                'plugins/design-review/skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
+                'plugins/create-implementation-plan/skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
+                'plugins/create-implementation-plan/skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
+                $script:installedAdapter
+            )) {
+            $resolved = if ([System.IO.Path]::IsPathRooted($adapterPath)) {
+                $adapterPath
+            }
+            else {
+                Join-Path $script:repoRoot $adapterPath
+            }
+            $content = [System.IO.File]::ReadAllText($resolved)
+            foreach ($token in $forbidden) {
+                $content | Should -Not -Match ([regex]::Escape($token))
+            }
+            $imports = @(
+                [regex]::Matches(
+                    $content,
+                    "Import-Module \(Join-Path \`$PSScriptRoot '(?<name>[^']+)'\)"
+                ) | ForEach-Object { $_.Groups['name'].Value }
+            )
+            $imports | Should -Be @(
+                'PlanState.psm1', 'SecretGuard.psm1', 'DirectWorkflow.psm1'
+            )
+            $content | Should -Match "supportedKinds = @\('Intent', 'Design', 'Decisions', 'Reviews', 'Learnings'\)"
+            $content | Should -Match '\(\?:phase-\[1-9\]\[0-9\]\*\|final\)\\\.md'
+        }
     }
 
     It 'distinguishes missing valid empty and stale recent learning with read-time fencing' {

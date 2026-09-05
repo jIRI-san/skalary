@@ -20,7 +20,7 @@ Describe 'cr direct structural evals' {
         }
     }
 
-    It 'ships only direct review scripts and one orchestrator agent' {
+    It 'ships the direct review scripts and one orchestrator agent' {
         $dest = @($script:manifest.files | ForEach-Object { [string]$_.dest })
         foreach ($path in @(
                 'skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1',
@@ -32,6 +32,7 @@ Describe 'cr direct structural evals' {
             )) {
             $dest | Should -Contain $path
         }
-        ($dest -join "`n") | Should -Not -Match 'ReviewRun|Fleet|receipt|cr-(?:security|performance)'
+        @($dest | Where-Object { $_ -like 'agents/*.agent.md' }) |
+            Should -Be @('agents/cr.agent.md')
     }
 }

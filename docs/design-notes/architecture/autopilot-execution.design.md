@@ -22,6 +22,8 @@ Every execution mode runs `Test-PlanCriteriaBaseline` before mutation. The agent
 uses optional combined design/validation plus a normal Judge, verifies current evidence directly, and
 commits each completed step. Background stuck recovery uses progress evidence, one redirect, and at most
 one replacement within the five-call budget.
+The launcher has no plan-006 compatibility preflight; current plan admission, typed evidence, and Git
+criteria checks are the only plan-start gates.
 
 If autonomous work reaches a complex operator decision, it exits `42` with a decision brief containing
 context, example, benefits, pros/cons, recommendation/default, effort and complexity from 1–10, and a

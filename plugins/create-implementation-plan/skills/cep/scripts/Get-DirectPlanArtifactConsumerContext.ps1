@@ -4,8 +4,8 @@
 Returns bounded current Markdown from explicitly selected plans as untrusted historical context.
 
 .DESCRIPTION
-Dormant direct-workflow entry point. It has no receipt dependency and is not referenced by an active
-skill or plugin manifest before the direct-workflow cutover.
+Active direct-workflow adapter. It reads only retained Markdown through PlanState confinement, screens
+secrets, and frames accepted content once as untrusted historical context.
 #>
 [CmdletBinding()]
 param(

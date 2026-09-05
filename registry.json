@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T10:07:40.1557978Z",
+  "generatedAt": "2026-09-05T10:37:47.1873984Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "1e40db4585bbc55e38cdc4dd7b33d6a9742628bb68ff895f37e1771a7961b892",
+          "sha256": "75b310423de1b68867d95100b2860c0622a456baef9fdaa046dc8a8d9567880e",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -56,7 +56,7 @@
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "a9d2f2f8bc7b52bbb3da34ef58c849cb757f4c8c36786472fa46df54c72cf643",
+          "sha256": "5e785f1a82b426df4158e6b6389ab284c6f53f14e560d90841ec4e1d9ecc0afd",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
@@ -262,11 +262,6 @@
           "src": "skills/autopilot/scripts/SecretGuard.psm1"
         },
         {
-          "dest": "skills/autopilot/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
-          "src": "skills/autopilot/scripts/Test-DependencyPlan006.ps1"
-        },
-        {
           "dest": "skills/autopilot/scripts/Test-Plan.ps1",
           "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
           "src": "skills/autopilot/scripts/Test-Plan.ps1"
@@ -318,7 +313,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "ae4da622f66f738d9fad3d74fd39a4499b09906c980da88cd92b09ca6e873a1f",
+          "sha256": "3363b5a65278778a3ca5db84ba9c1c7ed422446dcbbfd9dd72b9b559a26a1ea5",
           "src": "scripts/launch.ps1"
         },
         {
@@ -359,7 +354,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.8"
+      "version": "1.3.9"
     },
     {
       "author": "jIRI-san",
@@ -396,7 +391,7 @@
         },
         {
           "dest": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "5ad5f14bf9e5ffe1ec3f3ccbc7e31f7adb95389cdab7c3a336e96be52e4c35ae",
+          "sha256": "943354ee03a4f7794021b0e2d412df5e71c44c15805dcbdc8c518eef484e6b2f",
           "src": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -418,7 +413,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.74"
+      "version": "1.0.75"
     },
     {
       "author": "jIRI-san",
@@ -463,11 +458,6 @@
           "src": "skills/ci/scripts/SecretGuard.psm1"
         },
         {
-          "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1",
-          "sha256": "bc6f593ad97c4c893b2e845915501321880a328220b75a3048a93c63637e7423",
-          "src": "skills/ci/scripts/Test-DependencyPlan006.ps1"
-        },
-        {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
           "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
           "src": "skills/ci/scripts/Test-Plan.ps1"
@@ -486,7 +476,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.110"
+      "version": "1.0.111"
     },
     {
       "author": "jIRI-san",
@@ -525,7 +515,7 @@
         },
         {
           "dest": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "5ad5f14bf9e5ffe1ec3f3ccbc7e31f7adb95389cdab7c3a336e96be52e4c35ae",
+          "sha256": "943354ee03a4f7794021b0e2d412df5e71c44c15805dcbdc8c518eef484e6b2f",
           "src": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -590,7 +580,7 @@
         },
         {
           "dest": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "5ad5f14bf9e5ffe1ec3f3ccbc7e31f7adb95389cdab7c3a336e96be52e4c35ae",
+          "sha256": "943354ee03a4f7794021b0e2d412df5e71c44c15805dcbdc8c518eef484e6b2f",
           "src": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -647,7 +637,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.93"
+      "version": "1.0.94"
     },
     {
       "author": "jIRI-san",
@@ -754,7 +744,7 @@
         },
         {
           "dest": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "5ad5f14bf9e5ffe1ec3f3ccbc7e31f7adb95389cdab7c3a336e96be52e4c35ae",
+          "sha256": "943354ee03a4f7794021b0e2d412df5e71c44c15805dcbdc8c518eef484e6b2f",
           "src": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -776,7 +766,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.73"
+      "version": "1.0.74"
     },
     {
       "author": "jIRI-san",

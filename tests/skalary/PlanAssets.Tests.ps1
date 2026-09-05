@@ -475,7 +475,7 @@ Describe 'Plan assets layout' {
     }
 
     Context 'layout-aware writers' {
-        It 'test:planstate-capture-roots confines overflow and receipt roots to an inventoried plan' {
+        It 'test:planstate-capture-roots confines retained Markdown logs to an inventoried plan' {
             $tempRoot = & $newTempDir
             try {
                 $assetsPlanDir = Join-Path $tempRoot 'docs/implementation-plans/2026-01-01-abc123-assets-plan'
@@ -695,7 +695,9 @@ Describe 'Plan assets layout' {
                     $resolved | Should -Match ([regex]::Escape([System.IO.Path]::Combine('assets', ''))) -Because "$kind must resolve under assets/ for $planDir"
                 }
 
-                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md', 'learning-overflow', 'harvest-receipts', 'evolution-log.md', 'intent.md', 'references.md', 'requirements.md', 'risks.md', 'decisions.md', 'decisions')) {
+                foreach ($stray in @('evidence.md', 'cr-log.md', 'learnings.md', 'capture.md',
+                        'evolution-log.md', 'intent.md', 'references.md', 'requirements.md',
+                        'risks.md', 'decisions.md', 'decisions')) {
                     Test-Path -LiteralPath (Join-Path $planDir $stray) | Should -BeFalse -Because "$stray must not linger at the root of migrated plan $planDir"
                 }
             }

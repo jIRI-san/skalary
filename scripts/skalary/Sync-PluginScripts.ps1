@@ -781,11 +781,6 @@ foreach ($entry in ($expected.Values | Sort-Object Dir)) {
         $existing = @(
             Get-ChildItem -LiteralPath $entry.Dir -File |
                 Where-Object { $_.Extension -in @('.ps1', '.psm1') }
-            $schemaBundleDir = Join-Path $entry.Dir 'schemas/review'
-            if (Test-Path -LiteralPath $schemaBundleDir -PathType Container) {
-                Get-ChildItem -LiteralPath $schemaBundleDir -Recurse -File |
-                    Where-Object { $_.Name.EndsWith('.schema.json', [System.StringComparison]::OrdinalIgnoreCase) }
-            }
         )
         foreach ($existingFile in $existing) {
             $relative = [System.IO.Path]::GetRelativePath($entry.Dir, $existingFile.FullName).Replace('\', '/')

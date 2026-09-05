@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.110",
+  "version": "1.0.111",
   "description": "Direct plan implementation workflow with Git criteria protection.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -20,7 +20,6 @@
     { "src": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1" },
     { "src": "skills/ci/scripts/Write-RecentLearning.ps1", "dest": "skills/ci/scripts/Write-RecentLearning.ps1" },
     { "src": "skills/ci/scripts/Get-PlanState.ps1", "dest": "skills/ci/scripts/Get-PlanState.ps1" },
-    { "src": "skills/ci/scripts/Test-DependencyPlan006.ps1", "dest": "skills/ci/scripts/Test-DependencyPlan006.ps1" },
     { "src": "skills/ci/scripts/Test-Plan.ps1", "dest": "skills/ci/scripts/Test-Plan.ps1" },
     { "src": "skills/ci/scripts/DirectWorkflow.psm1", "dest": "skills/ci/scripts/DirectWorkflow.psm1" },
     { "src": "skills/ci/scripts/PlanState.psm1", "dest": "skills/ci/scripts/PlanState.psm1" },

@@ -10,6 +10,8 @@ globs:
 `DirectWorkflow.psm1` is the active shared module for CR, DR, CI, and autopilot. The direct historical
 adapter is active for CR, DR, CEP, and CIP. Plugin manifests install the canonical script closure;
 `Sync-PluginScripts.ps1` owns generated copies and dogfood follows manifest activation.
+The adapter imports only `PlanState.psm1`, `SecretGuard.psm1`, and `DirectWorkflow.psm1`; it reads
+confined retained Markdown directly and has no retired receipt, review-run, ledger, or harvest path.
 
 | Function | Contract |
 |---|---|
