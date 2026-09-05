@@ -1,5 +1,6 @@
 id: phased-plan-with-req-risk
 name: Produces a phased plan with explicit REQ and RISK tables
+# ai-credit-disposition: subjective
 description: >
   cip must turn a reasonably-scoped feature brief into an implementation plan with
   phased, ordered steps and explicit REQ (requirements) and RISK tables whose entries
@@ -48,7 +49,7 @@ graders:
   - type: prompt
     name: rubric_phased_plan_with_req_risk
     config:
-      model: claude-sonnet-4.6
+      model: gpt-5.6-terra
       continue_session: true
       prompt: |
         You are grading an implementation-planning agent's plan for adding Tier-2 LLM

@@ -1,5 +1,6 @@
 id: update-design-note
 name: Updates an existing note for sandboxed evals, calling out a trade-off
+# ai-credit-disposition: subjective
 description: >
   The design-notes skill's Update workflow must produce an update-oriented response (edits to
   an existing note, not a new unrelated doc), call out at least one limitation or trade-off of
@@ -51,7 +52,7 @@ graders:
   - type: prompt
     name: rubric_update_design_note
     config:
-      model: claude-sonnet-4.6
+      model: gpt-5.6-terra
       continue_session: true
       prompt: |
         You are grading the design-notes skill's Update workflow output — an update to an

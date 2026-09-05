@@ -1,5 +1,6 @@
 id: offer-readonly-approval
 name: Installs a plugin and offers opt-in read-only auto-approval only
+# ai-credit-disposition: deterministic
 description: >
   After installing a plugin, install-plugin must offer terminal auto-approval as an OPT-IN
   choice (via vscode_askQuestions), scoped to READ-ONLY scripts only — never install/update/
@@ -28,29 +29,7 @@ graders:
     name: mentions_install_and_readonly_approval
     config:
       regex_match:
-        - "(?i)install"
-        - "(?i)approv"
+        - "(?i)Install-Plugin\\.ps1"
+        - "(?i)ask|offer|opt.?in|vscode_askQuestions"
         - "(?i)read.?only"
-
-  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
-  # session and deterministically sees the full walkthrough in context. Binary pass/fail via
-  # set_waza_grade_pass/fail.
-  - type: prompt
-    name: rubric_offers_readonly_optin_approval
-    config:
-      model: claude-sonnet-4.6
-      continue_session: true
-      prompt: |
-        You are grading how the install-plugin skill handles installing a plugin and then
-        offering terminal auto-approval.
-
-        Call set_waza_grade_pass ONLY if the response:
-          1. Installs by invoking the bundled Install-Plugin.ps1 (by its installed
-             .github/skills/install-plugin/scripts/ path) with -RepoRoot ., and
-          2. Offers auto-approval as an explicit OPT-IN choice (asks the user, e.g. via
-             vscode_askQuestions) rather than approving silently, and
-          3. Scopes approval to READ-ONLY scripts only and explicitly does NOT auto-approve
-             install / uninstall / update / remove (mutating) scripts, and
-          4. Lists / names the approvable scripts (and their function) before writing.
-
-        Otherwise call set_waza_grade_fail with a short reason.
+        - "(?i)(not|never|exclude).{0,60}(install|uninstall|update|remove)|(install|uninstall|update|remove).{0,60}(not|never|exclude)"

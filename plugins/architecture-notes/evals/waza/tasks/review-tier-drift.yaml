@@ -1,5 +1,6 @@
 id: review-tier-drift
 name: Reviews the tier and flags locked-content digest drift
+# ai-credit-disposition: subjective
 description: >
   The architecture-notes skill's Review workflow must surface a locked contract whose canonical
   content no longer matches its digest while keeping draft contracts advisory.
@@ -34,7 +35,7 @@ graders:
   - type: prompt
     name: rubric_review_tier_drift
     config:
-      model: claude-sonnet-4.6
+      model: gpt-5.6-terra
       continue_session: true
       prompt: |
         You are grading the architecture-notes skill's Review workflow output over a tier with a

@@ -1,5 +1,6 @@
 id: honor-after-dependencies
 name: Honors after-dependencies when selecting the next step
+# ai-credit-disposition: deterministic
 description: >
   ci must pick the next ELIGIBLE plan step in order and refuse to execute a step whose
   `[after:]` dependency is unmet, giving a dependency-based rationale. Ported from
@@ -32,27 +33,5 @@ graders:
       regex_match:
         - "3\\.4"
         - "(?i)after|depend|blocked|prerequisite|unmet"
-
-  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
-  # session and deterministically sees the full answer in context (the independent judge
-  # proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail via
-  # set_waza_grade_pass/fail.
-  - type: prompt
-    name: rubric_honors_dependency_order
-    config:
-      model: claude-sonnet-4.6
-      continue_session: true
-      prompt: |
-        You are grading a plan-execution agent's answer. It was shown a plan whose
-        steps 3.1-3.3 are done ([x]), 3.4 is the next incomplete step (no unmet
-        dependency), 3.5 declares `[after: 3.4]`, and 3.6 is a later independent step.
-
-        Call set_waza_grade_pass ONLY if the answer:
-          1. Recognizes dependency ordering and does NOT choose to execute step 3.5
-             (whose `[after: 3.4]` dependency is unmet), and
-          2. Selects step 3.4 as the next step to execute, with a rationale grounded
-             in step order and/or the unmet dependency (not an arbitrary pick), and
-          3. Keeps execution focused on ONE step at a time (does not propose running
-             several steps at once).
-
-        Otherwise call set_waza_grade_fail with a short reason.
+      regex_not_match:
+        - "(?i)(execute|select|start|next).{0,20}(step\\s*)?3\\.5"

@@ -6,8 +6,7 @@ version: "1.0"
 
 config:
   executor: copilot-sdk
-  model: claude-sonnet-4.6
-  judge_model: claude-sonnet-4.6
+  model: gpt-5.6-luna
   trials_per_task: 2
   timeout_seconds: 300
   parallel: false

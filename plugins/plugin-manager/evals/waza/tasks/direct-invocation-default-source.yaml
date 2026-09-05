@@ -1,5 +1,6 @@
 id: direct-invocation-default-source
 name: Invokes the installer directly with -RepoRoot . and the default source
+# ai-credit-disposition: deterministic
 description: >
   install-plugin must invoke the bundled installer DIRECTLY (never wrapped in `pwsh -File`,
   which breaks terminal auto-approval prefix-matching), always pass -RepoRoot ., and default
@@ -27,27 +28,8 @@ graders:
     name: mentions_installer_reporoot_source
     config:
       regex_match:
-        - "(?i)Install-Plugin\\.ps1"
-        - "(?i)-RepoRoot"
-        - "(?i)skalary"
-
-  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
-  # session and deterministically sees the full answer in context. Binary pass/fail via
-  # set_waza_grade_pass/fail.
-  - type: prompt
-    name: rubric_direct_invocation_default_source
-    config:
-      model: claude-sonnet-4.6
-      continue_session: true
-      prompt: |
-        You are grading how the install-plugin skill forms the installer command when the user
-        gives no source.
-
-        Call set_waza_grade_pass ONLY if the response:
-          1. Invokes .github/skills/install-plugin/scripts/Install-Plugin.ps1 DIRECTLY (by
-             path, i.e. NOT wrapped in `pwsh -NoProfile -File ...`), and
-          2. Passes -RepoRoot . so the consuming repo is targeted, and
-          3. Defaults the source to jIRI-san/skalary at ref main (jIRI-san/skalary@main) when
-             the user specifies none.
-
-        Otherwise call set_waza_grade_fail with a short reason.
+        - "(?i)\\.github[/\\\\]skills[/\\\\]install-plugin[/\\\\]scripts[/\\\\]Install-Plugin\\.ps1"
+        - "(?i)-RepoRoot\\s+\\."
+        - "(?i)jIRI-san/skalary(@main|.*\\bmain\\b)"
+      regex_not_match:
+        - "(?i)pwsh(?:\\.exe)?\\s+.*-File"

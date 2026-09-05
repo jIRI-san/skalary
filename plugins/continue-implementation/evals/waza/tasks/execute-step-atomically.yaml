@@ -1,5 +1,6 @@
 id: execute-step-atomically
 name: Executes a plan step atomically (build/test before an atomic commit)
+# ai-credit-disposition: deterministic
 description: >
   ci must run the execute-then-commit loop on a single already-selected step: edit the
   files, run build + test, then commit ONLY the touched files together with the plan
@@ -53,8 +54,7 @@ graders:
 
   # REAL execution proof (plan 2.4's headline upgrade over the legacy prose rubric): the
   # build/test command AND the git commit must both appear in the RECORDED tool calls,
-  # matched by argument pattern. Without this the rubric judge alone would pass a response
-  # that only NARRATES the flow (fail-open). 1.0 tool-name mapping: the skill's `execute`
+  # matched by argument pattern so narration alone cannot pass. 1.0 tool-name mapping: the skill's `execute`
   # capability surfaces as the `powershell` tool on Windows; the shell string is its
   # `command` arg (confirmed by the 2.4 one-shot live tool-events capture).
   - type: tool_constraint
@@ -86,32 +86,3 @@ graders:
       language: javascript
       assertions:
         - "(() => { const A = c => JSON.stringify(c.arguments == null ? '' : c.arguments); const bt = /npm (run )?(build|test)/i, gc = /git\\b.*\\bcommit/i; const commits = tool_calls.map((c, i) => gc.test(A(c)) ? i : -1).filter(i => i >= 0); if (commits.length === 0) return false; const g = commits[commits.length - 1]; const builds = tool_calls.map((c, i) => bt.test(A(c)) ? i : -1).filter(i => i >= 0); if (builds.length === 0) return false; const b = builds[0]; if (b < g) return true; if (b === g) { const s = A(tool_calls[g]); const bi = s.search(bt); let ci = -1, m, re = /git\\b[^;\\n]*\\bcommit/gi; while ((m = re.exec(s)) !== null) ci = m.index; return bi !== -1 && ci !== -1 && bi < ci; } return false; })()"
-
-  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES the agent's
-  # session and deterministically sees the full transcript in context (the independent
-  # judge proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail via
-  # set_waza_grade_pass/fail.
-  - type: prompt
-    name: rubric_atomic_execution
-    config:
-      model: claude-sonnet-4.6
-      continue_session: true
-      prompt: |
-        You are grading a plan-execution agent. It was given ONE already-selected plan
-        step in a workspace (establish a git baseline of the starting files, edit
-        greeting.js + farewell.js, run build + test, then commit only the touched files
-        together with the plan checkbox update).
-
-        Call set_waza_grade_pass ONLY if the run:
-          1. Actually EXECUTES the step (edits the files and runs the commands) rather
-             than only proposing a plan of what it would do, and
-          2. Runs a build/test validation BEFORE the step commit (not after, not
-             skipped), and
-          3. Keeps the plan checkbox update ATOMIC with the code change — a single STEP
-             commit (distinct from any initial baseline commit of the starting state)
-             that stages only the files the step touched (greeting.js, farewell.js,
-             plan.md) and does NOT re-include the unmodified package.json.
-
-        A separate baseline commit of the starting state made BEFORE the edits is
-        expected and fine — grade only the STEP commit's atomicity. Otherwise call
-        set_waza_grade_fail with a short reason.

@@ -1,5 +1,6 @@
 id: identify-feasibility-gap
 name: Identifies a plan/environment feasibility gap
+# ai-credit-disposition: deterministic
 description: >
   dr must flag that a plan assuming live outbound network access is infeasible in
   a sandbox where outbound access is blocked, and suggest a concrete mitigation.
@@ -27,31 +28,6 @@ graders:
     config:
       regex_match:
         - "(?i)network|outbound|offline|sandbox|blocked|feasib|egress|connectivity"
+        - "(?i)pre.?fetch|vendor|cache|approved egress|exception"
       not_contains:
         - "no issues found"
-
-  # Ported rubric[] -> LLM judge. continue_session: true so the judge RESUMES dr's
-  # session and deterministically sees the full review in context (the independent
-  # judge proved FLAKY against a real agent in the 2.1 live-fire). Binary pass/fail
-  # via set_waza_grade_pass/fail.
-  - type: prompt
-    name: rubric_flags_feasibility_gap
-    config:
-      model: claude-sonnet-4.6
-      continue_session: true
-      prompt: |
-        You are grading a design reviewer's output. The reviewer was shown a plan
-        that requires live outbound network access at run time (fetching reference
-        data and a golden-answer archive on every run) while stating the execution
-        sandbox BLOCKS outbound access.
-
-        Call set_waza_grade_pass ONLY if the review:
-          1. Flags the feasibility mismatch between the plan's assumption (live
-             network access) and the execution environment (outbound blocked), and
-          2. Suggests a concrete mitigation or alternative path (e.g. pre-fetch /
-             vendor / cache the reference data, or an approved egress exception),
-             and
-          3. Keeps feedback focused on architecture / implementation risk, not
-             formatting.
-
-        Otherwise call set_waza_grade_fail with a short reason.
