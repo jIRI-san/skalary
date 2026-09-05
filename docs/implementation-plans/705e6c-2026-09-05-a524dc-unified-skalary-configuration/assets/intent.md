@@ -19,6 +19,11 @@ synchronization and focused validators. Direct subsystem configuration remains u
 
 - Autopilot, models/reviews, local review standards, terminal approvals, evals, note scaffolds, and
   advanced plugin/toolchain policy are discoverable from one skill.
+- The complete `33a78a` model ladder is one first-class configuration category: routine, standard,
+  deep, and independent primary models; replacement fallbacks; reasoning effort; default-context-only
+  policy; autopilot default; CR/DR routing; and waza executor/judge assignments.
+- Model configuration shows the 180K operating budget and 20K reserve, current canonical sources,
+  effective values, and every generated/dogfood consumer before proposing a change.
 - Missing optional configuration is created only when the operator selects that surface.
 - Every displayed value names its canonical source, default, precedence, generated copies, consumer,
   synchronizer, and focused validator.
@@ -28,7 +33,8 @@ synchronization and focused validators. Direct subsystem configuration remains u
 - Runtime state, plans, receipts, schemas, retirement history, generated catalogs, and workflows are
   excluded or explicitly read-only.
 - Focused tests cover discovery, precedence, bootstrap, diff-before-write, cancellation, apply,
-  reset, source synchronization, secret refusal, executable-setting confirmation, and invalid models.
+  reset, source synchronization, secret refusal, executable-setting confirmation, invalid models,
+  invalid role/fallback combinations, and refusal of retired long context.
 
 ## Non-goals
 
@@ -46,4 +52,5 @@ synchronization and focused validators. Direct subsystem configuration remains u
   and per-key `reset` flows across the accepted categories; its catalog matches the final repository;
   all mutations are canonical, confirmed, synchronized, focused-validated, and reversible from the
   shown diff; excluded surfaces remain untouched; and uninstalling the skill leaves every subsystem
-  directly configurable.
+  directly configurable. Every model assignment delivered by `33a78a` is visible and changeable through
+  the model category without introducing a central model-policy file.

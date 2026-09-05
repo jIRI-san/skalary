@@ -13,7 +13,7 @@
 | Surface | Current canonical source or owner |
 |---|---|
 | Autopilot project/runtime | `.autopilot.json`, plugin examples/schemas, autopilot launcher |
-| Models/review | `tools/model-allowlist.psd1`, CR preferences, DR/CR dispatch guidance pending `367e9a` |
+| Models/review | All `33a78a` routine/standard/deep/independent primaries, replacement fallbacks, reasoning efforts, default-context-only policy, autopilot default, CR/DR routing, and waza executor/judge assignments across their canonical skills, agents, configs, allowlists, and eval specs |
 | Local review policy | Optional `docs/review-standards.md` |
 | Terminal approvals | `.vscode/settings.json` through `scripts/skalary/Set-ScriptApproval.ps1` |
 | Evals | Per-plugin `evals/waza/eval.yaml`, optional `.eval.config.json` credential targets, `tools/eval-tools.psd1` advanced pins |
@@ -28,5 +28,6 @@ and transitional review/Fleet settings are evidence for simplification, not comp
 
 On 2026-09-05 the operator asked for one `/skalary-config` skill that collects configuration across all
 plugins/skills, guides bootstrap and edits, and manages examples such as model assignments and autopilot
-settings. The operator approved a separate child depending on `367e9a`, `3a4498`, and `623cc2`, with no
-new central configuration service.
+settings. They later clarified that every model assignment delivered by `33a78a` must be covered. The
+operator approved a separate child depending on `367e9a`, `33a78a`, `3a4498`, and `623cc2`, with no new
+central configuration service.

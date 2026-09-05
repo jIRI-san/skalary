@@ -11,6 +11,7 @@
 | Proposal | An in-memory set of canonical changes and required follow-up commands shown as one diff before mutation. |
 | Synchronizer | An existing subsystem script that regenerates dogfood, catalogs, concern outputs, or other derived artifacts after canonical edits. |
 | Advanced configuration | Maintainer-facing policy such as allowlists, plugin manifests, eval pins, or toolchains that needs stronger context and confirmation. |
+| Model assignment | One role's primary model, replacement fallback, reasoning effort, context rule, canonical source, generated consumers, and focused validator. |
 
 ## Actors and boundaries
 
@@ -22,6 +23,7 @@
 | Generated/dogfood boundary | Receives changes only through existing synchronization; never edited as authority. |
 | Secret boundary | Reports only whether an approved credential source is available; values never enter prompts, diffs, or files. |
 | Executable-setting boundary | Build/test/host command/container extension changes require an explicit warning and final confirmation. |
+| Model-policy boundary | The façade edits the canonical role-specific sources delivered by `33a78a`; it does not invent routing semantics or consolidate them into a second authority. |
 
 ## Invariants
 
@@ -35,3 +37,5 @@
   configuration.
 - Installed-consumer mode never assumes repository-maintainer tools that are absent; unsupported advanced
   categories are shown with the missing prerequisite.
+- The model category covers autopilot, planning, implementation, CR/DR, independent review, and premium
+  eval execution/judgment as one guided proposal while preserving each subsystem's canonical source.
