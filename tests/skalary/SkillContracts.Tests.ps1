@@ -317,6 +317,9 @@ Describe 'Skill contract token guards' {
         $text | Should -Match 'At most \*\*5 supporting artifacts\*\*'
         $text | Should -Match '\*\*600-word target\*\*'
         $text | Should -Match '\*\*1,200-word cap\*\*'
+        $text | Should -Match 'GPT-5\.6 Sol.+GPT-5\.4'
+        $text | Should -Match 'Claude Opus 5.+Claude Sonnet 4\.6'
+        $text | Should -Match 'all 44 were single-source'
         $text | Should -Match 'No policy engine, receipt, schema, telemetry pipeline, or runtime budget service'
     }
 

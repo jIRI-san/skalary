@@ -65,6 +65,8 @@ Describe 'model allowlist validator' {
 
             $allowlist.VSCodeModels | Should -Contain 'Claude Opus 5 (copilot)'
             $allowlist.VSCodeModels | Should -Contain 'GPT-5.6 Sol (copilot)'
+            $allowlist.VSCodeModels | Should -Contain 'GPT-5.4 (copilot)'
+            $allowlist.CliModels | Should -Contain 'gpt-5.4'
             $allowlist.CliModels | Should -Contain 'gpt-5.6-sol'
 
             # Formats are never normalized into one another.

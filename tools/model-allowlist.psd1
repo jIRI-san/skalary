@@ -15,6 +15,7 @@
     VSCodeModels = @(
         'Claude Opus 5 (copilot)'
         'GPT-5.6 Sol (copilot)'
+        'GPT-5.4 (copilot)'
         'Claude Sonnet 4.6 (copilot)'
     )
 
@@ -23,6 +24,7 @@
     CliModels = @(
         'claude-opus-5'
         'gpt-5.6-sol'
+        'gpt-5.4'
         'claude-sonnet-4.6'
     )
 
