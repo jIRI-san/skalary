@@ -1,15 +1,14 @@
 ## Source
 
-9c4384cdef778dca6e0b943ba1b34e1a74182166
+41e2ebe5a1f358f91102b82ecbfc409e3d904bae
 
 ## Scope
 
-- tests/autopilot-close-detector-proof.txt
-- docs/implementation-plans/standalone-2026-09-06-c61185-autopilot-close-detector-proof/plan.md
+- tests/skalary/DirectWorkflow.Tests.ps1
 
 ## Completed tasks
 
-- [x] Review disposable proof implementation — complete
+- [x] Review portable directory-link fixture correction — complete
 
 ## Findings
 
