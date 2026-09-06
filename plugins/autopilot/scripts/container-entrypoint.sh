@@ -135,18 +135,13 @@ checkout_epic_work_branch() {
 }
 
 autopilot_expected_close_target_branch() {
-    local expected_start_commit="${1:-}"
-    local repo_branch="${2:-}"
+    local expected_pr_base="${1:-}"
 
-    if [ -z "${expected_start_commit}" ]; then
+    if [ -z "${expected_pr_base}" ]; then
         printf '\n'
         return 0
     fi
-    if [ -z "${repo_branch}" ]; then
-        echo "ERROR: REPO_BRANCH is required when EXPECTED_START_COMMIT is set." >&2
-        return 2
-    fi
-    printf '%s\n' "${repo_branch}"
+    printf '%s\n' "${expected_pr_base}"
 }
 
 autopilot_entrypoint_target_close_state() {
@@ -158,7 +153,7 @@ autopilot_entrypoint_target_close_state() {
 
     expected_close_target_branch="$(
         autopilot_expected_close_target_branch \
-            "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}"
+            "${AUTOPILOT_EXPECTED_PR_BASE:-}"
     )" || return $?
     autopilot_target_close_state \
         "${plan_path}" "${target}" "${final_phase_number}" \
@@ -183,8 +178,13 @@ if [ -n "${EXPECTED_START_COMMIT:-}" ] &&
     echo "ERROR: EXPECTED_START_COMMIT must be a full lowercase Git commit id." >&2
     exit 2
 fi
+if [ -n "${AUTOPILOT_EXPECTED_PR_BASE:-}" ] &&
+    ! git check-ref-format --branch "${AUTOPILOT_EXPECTED_PR_BASE}" > /dev/null 2>&1; then
+    echo "ERROR: AUTOPILOT_EXPECTED_PR_BASE is not a valid branch name." >&2
+    exit 2
+fi
 autopilot_expected_close_target_branch \
-    "${EXPECTED_START_COMMIT:-}" "${REPO_BRANCH:-}" >/dev/null || exit $?
+    "${AUTOPILOT_EXPECTED_PR_BASE:-}" >/dev/null || exit $?
 TRUSTED_INTERNAL_RETRY="${AUTOPILOT_TRUSTED_INTERNAL_RETRY:-false}"
 if [ "${TRUSTED_INTERNAL_RETRY}" != "false" ] &&
     [ "${TRUSTED_INTERNAL_RETRY}" != "true" ]; then

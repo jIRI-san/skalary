@@ -27,6 +27,8 @@ param(
 
     [string]$ExpectedStartCommit,
 
+    [string]$ExpectedPullRequestBase,
+
     [switch]$TrustedInternalRetry,
 
     # When set, inject offline-restore env so the entrypoint restores from the
@@ -102,6 +104,9 @@ if ($Branch) {
 }
 if ($expectedStartEnvironment.Count -gt 0) {
     $envContent += $expectedStartEnvironment
+}
+if ($ExpectedPullRequestBase) {
+    $envContent += "AUTOPILOT_EXPECTED_PR_BASE=$ExpectedPullRequestBase"
 }
 
 # Offline restore: point the entrypoint at the read-only feed mount.

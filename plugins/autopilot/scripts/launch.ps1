@@ -26,6 +26,8 @@ param(
 
     [string]$ExpectedStartCommit,
 
+    [string]$ExpectedPullRequestBase,
+
     [string]$Run
 )
 
@@ -52,6 +54,17 @@ if ($Branch -and (
 if ($ExpectedStartCommit -and
     $ExpectedStartCommit -cnotmatch '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
     Write-Error "Invalid expected start commit '$ExpectedStartCommit'. Use a full Git commit id."
+    exit 1
+}
+if ($ExpectedPullRequestBase -and (
+        $ExpectedPullRequestBase -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $ExpectedPullRequestBase.Contains('..') -or
+        $ExpectedPullRequestBase.Contains('//') -or
+        $ExpectedPullRequestBase.EndsWith('/') -or
+        $ExpectedPullRequestBase.EndsWith('.') -or
+        $ExpectedPullRequestBase.EndsWith('.lock', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $ExpectedPullRequestBase.Contains('@{'))) {
+    Write-Error "Invalid expected pull request base '$ExpectedPullRequestBase'. Use a simple Git ref containing only letters, digits, '.', '_', '/', and '-'."
     exit 1
 }
 $expectedStartCommitNormalized = if ($ExpectedStartCommit) {
@@ -277,6 +290,13 @@ $dispatchParams = @{
 }
 if ($expectedStartCommitNormalized) {
     $dispatchParams.ExpectedStartCommit = $expectedStartCommitNormalized
+}
+if ($ExpectedPullRequestBase) {
+    if ($effectiveRuntime -ne 'container') {
+        Write-Error "ExpectedPullRequestBase is supported only by the container runtime."
+        exit 1
+    }
+    $dispatchParams.ExpectedPullRequestBase = $ExpectedPullRequestBase
 }
 if ($Run) {
     $dispatchParams.Run = $Run
