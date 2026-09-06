@@ -24,6 +24,15 @@ Before running the one-liner:
 For the human workflow from planning through implementation and review, start with the
 [operator guide](docs/operator-guide/README.md).
 
+Discover configuration authorities, effective values, and bounded change previews:
+
+```powershell
+.github/skills/skalary-config/scripts/Read-SkalaryConfig.ps1 -Action show -Category autopilot -RepoRoot .
+```
+
+See the [configuration guide](docs/operator-guide/configuration.md) for supported categories and
+direct subsystem commands.
+
 Install a plugin (dependencies are resolved and installed automatically):
 
 ```powershell
@@ -81,5 +90,6 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `plugin-manager` | 1.0.28 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.83 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
+| `skalary-config` | 1.0.2 | stable | — | 5 | Discover Skalary configuration surfaces and safely preview category-scoped changes. |
 | `work-hierarchy-sync` | 1.0.26 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
 <!-- END SKALARY PLUGIN CATALOG -->

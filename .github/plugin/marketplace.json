@@ -142,6 +142,19 @@
       "version": "1.0.83"
     },
     {
+      "description": "Discover Skalary configuration surfaces and safely preview category-scoped changes.",
+      "license": "MIT",
+      "name": "skalary-config",
+      "source": "plugins/skalary-config",
+      "strict": false,
+      "tags": [
+        "configuration",
+        "skalary",
+        "skill"
+      ],
+      "version": "1.0.2"
+    },
+    {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
       "license": "MIT",
       "name": "work-hierarchy-sync",

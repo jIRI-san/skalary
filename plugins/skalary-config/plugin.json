@@ -1,6 +1,6 @@
 {
   "name": "skalary-config",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Discover Skalary configuration surfaces and safely preview category-scoped changes.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "skalary"
   ],
   "dependencies": [],
-  "status": "partial",
+  "status": "stable",
   "files": [
     {
       "src": "skills/skalary-config/SKILL.md",

@@ -38,6 +38,16 @@ synchronizer followed by its allowlist validator. A write, synchronization, or v
 throws a non-success error that explicitly states no rollback was attempted, retains the Git diff, and
 provides the category's direct recovery command.
 
+## Distribution
+
+The plugin ships its skill, catalog, and three local scripts through the ordinary manifest. Its
+`stable` manifest state, registry entry, Copilot CLI marketplace entry, README catalog row, and
+dogfood `.github/skills/skalary-config/` payload are generator-owned and converge in this order:
+`Sync-PluginScripts.ps1`, `Build-Registry.ps1`, `Build-Marketplace.ps1`, then `Sync-Dogfood.ps1`.
+The human-facing configuration guide links to the installed facade and direct subsystem owners; it
+does not duplicate their configuration semantics. Removing the plugin removes only its declared
+`.github` payload, so every underlying canonical configuration path and owner remains usable.
+
 ## Constraints
 
 - Generated registry, marketplace, README, dogfood, receipts, plan/runtime state, workflows, and

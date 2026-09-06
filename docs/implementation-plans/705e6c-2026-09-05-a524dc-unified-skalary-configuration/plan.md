@@ -174,7 +174,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 4: Distribution and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 4.1 Publish the plugin through existing bundle/registry/marketplace/dogfood generators and document the unified façade without replacing direct subsystem guidance (REQ-1, REQ-6, REQ-9, RISK-1, RISK-2, RISK-5, RISK-7) [after: 3.2] `M`
+- [x] 4.1 Publish the plugin through existing bundle/registry/marketplace/dogfood generators and document the unified façade without replacing direct subsystem guidance (REQ-1, REQ-6, REQ-9, RISK-1, RISK-2, RISK-5, RISK-7) [after: 3.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the canonical plugin, installed `.github` copy, registry, marketplace, README catalog,

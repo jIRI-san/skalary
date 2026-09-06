@@ -93,15 +93,14 @@ Describe 'Skalary configuration catalog and read-only adapter' {
         $fixture = Join-Path $TestDrive 'mutation-repo'
         New-Item -ItemType Directory -Path @(
             (Join-Path $fixture 'plugins/skalary-config/skills/skalary-config/scripts'),
-            (Join-Path $fixture 'plugins/autopilot/schemas'),
-            (Join-Path $fixture 'scripts/skalary')
+            (Join-Path $fixture '.github/skills/autopilot/schemas')
         ) -Force | Out-Null
         Copy-Item -LiteralPath $script:reader -Destination (Join-Path $fixture 'plugins/skalary-config/skills/skalary-config/scripts/Read-SkalaryConfig.ps1')
         Copy-Item -LiteralPath $script:writer -Destination (Join-Path $fixture 'plugins/skalary-config/skills/skalary-config/scripts/Set-SkalaryConfig.ps1')
-        Copy-Item -LiteralPath (Join-Path $script:repoRoot 'plugins/autopilot/.autopilot.json.example') -Destination (Join-Path $fixture 'plugins/autopilot/.autopilot.json.example')
-        Copy-Item -LiteralPath (Join-Path $script:repoRoot 'plugins/autopilot/schemas/autopilot.schema.json') -Destination (Join-Path $fixture 'plugins/autopilot/schemas/autopilot.schema.json')
+        Copy-Item -LiteralPath (Join-Path $script:repoRoot '.github/skills/autopilot/.autopilot.json.example') -Destination (Join-Path $fixture '.github/skills/autopilot/.autopilot.json.example')
+        Copy-Item -LiteralPath (Join-Path $script:repoRoot '.github/skills/autopilot/schemas/autopilot.schema.json') -Destination (Join-Path $fixture '.github/skills/autopilot/schemas/autopilot.schema.json')
         $configPath = Join-Path $fixture '.autopilot.json'
-        $config = Get-Content -LiteralPath (Join-Path $fixture 'plugins/autopilot/.autopilot.json.example') -Raw | ConvertFrom-Json -AsHashtable
+        $config = Get-Content -LiteralPath (Join-Path $fixture '.github/skills/autopilot/.autopilot.json.example') -Raw | ConvertFrom-Json -AsHashtable
         $config.unrelated = 'preserve-me'
         $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding utf8NoBOM
 
@@ -210,5 +209,61 @@ Describe 'Skalary configuration catalog and read-only adapter' {
         $auth | Should -Match 'Microsoft.PowerShell.Utility\\Invoke-RestMethod'
         $auth | Should -Match 'Microsoft.PowerShell.Utility\\Invoke-WebRequest'
         $auth | Should -Not -Match 'CredentialValue'
+    }
+
+    It 'test:SkalaryConfig.Distribution publishes the stable source manifest through every catalog and dogfood payload' {
+        $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw | ConvertFrom-Json
+        [string]$manifest.status | Should -Be 'stable'
+
+        $registry = Get-Content -LiteralPath (Join-Path $script:repoRoot 'registry.json') -Raw | ConvertFrom-Json -Depth 100
+        $registryEntry = @($registry.plugins | Where-Object { $_.name -eq 'skalary-config' })
+        $registryEntry | Should -HaveCount 1
+        [string]$registryEntry[0].version | Should -Be ([string]$manifest.version)
+
+        $marketplace = Get-Content -LiteralPath (Join-Path $script:repoRoot '.github/plugin/marketplace.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $marketplaceEntry = @($marketplace.plugins | Where-Object { $_.name -eq 'skalary-config' })
+        $marketplaceEntry | Should -HaveCount 1
+        [string]$marketplaceEntry[0].version | Should -Be ([string]$manifest.version)
+        [string]$marketplaceEntry[0].source | Should -Be 'plugins/skalary-config'
+
+        foreach ($mapping in @($manifest.files)) {
+            $source = Join-Path $script:pluginRoot ([string]$mapping.src)
+            $installed = Join-Path $script:repoRoot ('.github/' + [string]$mapping.dest)
+            Test-Path -LiteralPath $installed -PathType Leaf | Should -BeTrue
+            (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash |
+                Should -Be (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash
+        }
+
+        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'README.md') -Raw) |
+            Should -Match '\| `skalary-config` \|'
+        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/operator-guide/configuration.md') -Raw) |
+            Should -Match 'skalary-config'
+    }
+
+    It 'test:SkalaryConfig.ConsumerInstall runs the installed read-only payload without source files' {
+        $consumer = Join-Path $TestDrive 'installed-consumer'
+        $manifest = Get-Content -LiteralPath (Join-Path $script:pluginRoot 'plugin.json') -Raw | ConvertFrom-Json
+        foreach ($mapping in @($manifest.files)) {
+            $source = Join-Path $script:pluginRoot ([string]$mapping.src)
+            $destination = Join-Path $consumer ('.github/' + [string]$mapping.dest)
+            New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+            Copy-Item -LiteralPath $source -Destination $destination
+        }
+
+        $reader = Join-Path $consumer '.github/skills/skalary-config/scripts/Read-SkalaryConfig.ps1'
+        $result = & $reader -Action validate -Category autopilot -RepoRoot $consumer | ConvertFrom-Json
+        $result.Layout | Should -Be 'installed-consumer'
+        $result.InstalledConsumerAvailable | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $consumer 'plugins') | Should -BeFalse
+    }
+
+    It 'test:SkalaryConfig.Final retains the facade boundary and direct subsystem routes' {
+        $guide = Get-Content -LiteralPath (Join-Path $script:repoRoot 'docs/operator-guide/configuration.md') -Raw
+        $guide | Should -Match 'central\s+configuration store'
+        $guide | Should -Match 'Set-ScriptApproval'
+        $guide | Should -Match 'Invoke-WazaEvals'
+        $guide | Should -Match 'removes only this facade'
+        $skill | Should -Match 'generated registry, marketplace, README, dogfood'
     }
 }
