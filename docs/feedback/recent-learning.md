@@ -1,9 +1,8 @@
 # Recent learning
 
-Source plan: `623cc2 simple-plugin-lifecycle`
-Source commit: `5023b896c75921e6ebfc37639cd1de7ffb275187`
+Source plan: `c61185 autopilot-close-detector-proof`
+Source commit: `5b2edb41a5eb6a19111dd205225af96824c01ada`
 
 ## Lessons
 
-- Validate a confined receipt path before creating its parent directories so a linked existing component cannot receive a write. — `scripts/skalary/_Common.ps1`
-- Regenerate bundles, catalogs, and dogfood through the prescribed generator sequence after canonical lifecycle changes. — `docs/design-notes/architecture/plugin-registry.design.md`
+- Current exact-file evidence confirms a completed disposable proof. — `tests/autopilot-close-detector-proof.txt`
