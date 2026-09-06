@@ -174,4 +174,56 @@ fi
         & $script:phaseStateScript -PlanPath $planPath -Phase 1 -RepoRoot $root |
             Should -BeExactly 'closed'
     }
+
+    It 'accepts finalization artifacts added during and after the archive commit' {
+        $root = Join-Path $script:repoRoot (
+            'tests\.autopilot-archive-transition-' + [guid]::NewGuid().ToString('N')
+        )
+        $script:scratch.Add($root)
+        $activeDir = 'docs/implementation-plans/standalone-2026-01-01-abc123-fixture'
+        $archivedDir = "docs/implementation-plans/archived/$(Split-Path $activeDir -Leaf)"
+        $activePath = Join-Path $root $activeDir
+        New-Item -ItemType Directory -Path (Join-Path $activePath 'assets') -Force |
+            Out-Null
+        Set-Content -LiteralPath (Join-Path $activePath 'plan.md') `
+            -Value '# Fixture' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $activePath 'assets/intent.md') `
+            -Value '# Intent' -Encoding utf8NoBOM
+        & git -C $root init --quiet --initial-branch=main
+        & git -C $root config user.name 'Autopilot Fixture'
+        & git -C $root config user.email 'autopilot-fixture@example.invalid'
+        & git -C $root add .
+        & git -C $root commit --quiet -m 'add active plan'
+
+        New-Item -ItemType Directory -Path (Join-Path $activePath 'assets/reviews') -Force |
+            Out-Null
+        Set-Content -LiteralPath (Join-Path $activePath 'assets/reviews/final.md') `
+            -Value '# Final review' -Encoding utf8NoBOM
+        New-Item -ItemType Directory -Path (Split-Path (Join-Path $root $archivedDir) -Parent) `
+            -Force | Out-Null
+        & git -C $root mv $activeDir $archivedDir
+        & git -C $root add .
+        & git -C $root commit --quiet -m 'archive with final review'
+        $archiveCommit = (& git -C $root rev-parse HEAD)
+
+        Add-Content -LiteralPath (Join-Path $root "$archivedDir/assets/reviews/final.md") `
+            -Value 'refreshed evidence'
+        & git -C $root add .
+        & git -C $root commit --quiet -m 'refresh archived review'
+
+        $result = & bash -c @'
+. "$1"
+autopilot_archive_transition_is_committed "$2" "$3" "$4" "$4/plan.md" "$5"
+'@ bash $script:dispatch ($root.Replace('\', '/')) $activeDir $archivedDir $archiveCommit
+        $LASTEXITCODE | Should -Be 0
+        $result | Should -BeNullOrEmpty
+
+        Add-Content -LiteralPath (Join-Path $root "$archivedDir/plan.md") `
+            -Value 'dirty'
+        & bash -c @'
+. "$1"
+autopilot_archive_transition_is_committed "$2" "$3" "$4" "$4/plan.md" "$5"
+'@ bash $script:dispatch ($root.Replace('\', '/')) $activeDir $archivedDir $archiveCommit
+        $LASTEXITCODE | Should -Be 1
+    }
 }

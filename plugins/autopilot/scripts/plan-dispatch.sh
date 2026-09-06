@@ -193,6 +193,33 @@ autopilot_tree_records() {
         done
 }
 
+autopilot_archive_transition_is_committed() {
+    local repo_root="$1"
+    local active_dir="$2"
+    local archived_dir="$3"
+    local archived_plan="$4"
+    local archive_commit="$5"
+    local archive_parent="${archive_commit}^"
+    local active_tree_at_parent
+    local archived_tree_at_parent
+    local archived_tree_at_commit
+    local archived_tree_at_head
+
+    active_tree_at_parent=$(autopilot_tree_records "${repo_root}" "${archive_parent}" "${active_dir}")
+    archived_tree_at_parent=$(autopilot_tree_records "${repo_root}" "${archive_parent}" "${archived_dir}")
+    archived_tree_at_commit=$(autopilot_tree_records "${repo_root}" "${archive_commit}" "${archived_dir}")
+    archived_tree_at_head=$(autopilot_tree_records "${repo_root}" HEAD "${archived_dir}")
+
+    git -C "${repo_root}" cat-file -e "HEAD:${archived_plan}" 2>/dev/null &&
+        [ -n "${active_tree_at_parent}" ] &&
+        [ -z "${archived_tree_at_parent}" ] &&
+        [ -n "${archived_tree_at_commit}" ] &&
+        [ -n "${archived_tree_at_head}" ] &&
+        [ -z "$(git -C "${repo_root}" ls-tree -r --name-only "${archive_commit}" -- "${active_dir}")" ] &&
+        [ -z "$(git -C "${repo_root}" ls-tree -r --name-only HEAD -- "${active_dir}")" ] &&
+        [ -z "$(git -C "${repo_root}" status --porcelain --untracked-files=all -- "${active_dir}" "${archived_dir}")" ]
+}
+
 autopilot_target_close_state() {
     local plan_path="$1"
     local target="$2"
@@ -217,10 +244,6 @@ autopilot_target_close_state() {
     local active_dir_relative
     local archive_commit
     local archive_parent
-    local active_tree
-    local archived_tree_at_commit
-    local archived_tree_at_head
-    local archived_tree_at_parent
     local pr_status
     local plan_status
 
@@ -336,18 +359,9 @@ autopilot_target_close_state() {
                 return
             fi
             active_dir_relative=$(dirname "${active_plan_relative}")
-            active_tree=$(autopilot_tree_records "${repo_root_full}" "${archive_parent}" "${active_dir_relative}")
-            archived_tree_at_parent=$(autopilot_tree_records "${repo_root_full}" "${archive_parent}" "${archived_dir_relative}")
-            archived_tree_at_commit=$(autopilot_tree_records "${repo_root_full}" "${archive_commit}" "${archived_dir_relative}")
-            archived_tree_at_head=$(autopilot_tree_records "${repo_root_full}" HEAD "${archived_dir_relative}")
-            if ! git -C "${repo_root_full}" cat-file -e "HEAD:${archived_plan_relative}" 2>/dev/null ||
-                [ -n "$(git -C "${repo_root_full}" ls-tree -r --name-only "${archive_commit}" -- "${active_dir_relative}")" ] ||
-                [ -n "$(git -C "${repo_root_full}" ls-tree -r --name-only HEAD -- "${active_dir_relative}")" ] ||
-                [ -n "${archived_tree_at_parent}" ] ||
-                [ -z "${active_tree}" ] ||
-                [ "${active_tree}" != "${archived_tree_at_commit}" ] ||
-                [ "${archived_tree_at_commit}" != "${archived_tree_at_head}" ] ||
-                [ -n "$(git -C "${repo_root_full}" status --porcelain --untracked-files=all -- "${active_dir_relative}" "${archived_dir_relative}")" ]; then
+            if ! autopilot_archive_transition_is_committed \
+                "${repo_root_full}" "${active_dir_relative}" "${archived_dir_relative}" \
+                "${archived_plan_relative}" "${archive_commit}"; then
                 printf '%s\n' 'close-pending'
                 return
             fi

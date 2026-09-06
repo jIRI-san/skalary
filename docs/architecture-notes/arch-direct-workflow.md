@@ -41,6 +41,7 @@ globs:
   target after every phase is closed, including all-closed resumes. It skips terminal-phase post-phase
   review and runs one whole-plan review; unchanged scope is not rerun. A clean archived plan with an
   exact-head open or merged pull request is terminal and cannot cause another completion handoff.
+  Committed finalization artifacts may be added during or after the archive move.
 - Finalization runs one design-note compaction pass only when implementation changed
   `docs/design-notes/**`. Candidate reads are index-led and bounded to five full notes; cross-note
   merge/delete requires explicit operator approval, and headless execution stops with visible changes.

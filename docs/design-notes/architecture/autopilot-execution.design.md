@@ -41,7 +41,10 @@ leaves the diff and exits `42`.
 
 Terminal close proof follows the completed plan into its canonical archive path and accepts the exact
 published work head through either its open or merged pull request. A clean archived plan plus that
-provider proof is `closed`; it must not trigger another same-session completion handoff.
+provider proof is `closed`; it must not trigger another same-session completion handoff. Final review
+and other completion artifacts may be added in the archive commit or later committed finalization work;
+close proof requires a committed move and clean current archive, not byte identity with the pre-archive
+tree.
 
 After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1` replaces—not
 appends—the strict 16-KiB handoff with zero to ten secret-screened lessons and repo-relative

@@ -72,7 +72,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.10 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.3.17 | partial | code-review, create-implementation-plan | 38 | Self-contained direct-workflow autonomous plan executor. |
+| `autopilot` | 1.3.18 | partial | code-review, create-implementation-plan | 38 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.81 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
 | `continue-implementation` | 1.0.118 | stable | autopilot, code-review, create-implementation-plan | 9 | Direct plan implementation workflow with Git criteria protection. |
 | `create-implementation-plan` | 1.0.101 | stable | design-review | 27 | Direct implementation and epic plan creation. |
