@@ -1,9 +1,9 @@
 # Recent learning
 
-Source plan: `3a4498 simple-self-improvement`
-Source commit: `281e1316458b821413d674065377d2df78a1e3f1`
+Source plan: `623cc2 simple-plugin-lifecycle`
+Source commit: `5023b896c75921e6ebfc37639cd1de7ffb275187`
 
 ## Lessons
 
-- Post-write confinement must enumerate the worktree itself; a caller-supplied path list can omit an unintended mutation. — `scripts/skalary/Test-SiWriteScope.ps1`
-- A canonical non-script plugin payload change needs its owner version bumped before catalogs are regenerated so consumers can discover the update. — `scripts/skalary/Sync-PluginScripts.ps1`
+- Validate a confined receipt path before creating its parent directories so a linked existing component cannot receive a write. — `scripts/skalary/_Common.ps1`
+- Regenerate bundles, catalogs, and dogfood through the prescribed generator sequence after canonical lifecycle changes. — `docs/design-notes/architecture/plugin-registry.design.md`
