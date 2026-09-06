@@ -308,7 +308,8 @@ function Test-GithubRelativePath {
     }
 
     $segments = ($RelativePath -replace '\\', '/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
-    if ($segments.Count -gt 0 -and $segments[0] -ceq 'workflows') {
+    $meaningfulSegments = @($segments | Where-Object { $_ -ne '.' })
+    if ($meaningfulSegments.Count -gt 0 -and $meaningfulSegments[0] -ceq 'workflows') {
         return $false
     }
     foreach ($segment in $segments) {
@@ -946,7 +947,13 @@ function Invoke-PluginRemovalPrimitive {
         }
         $candidateIdentity = New-PluginSourceIdentity -LocalPath $candidate
         if (Test-PluginSourceIdentityEqual -Left $receipt.sourceIdentity -Right $candidateIdentity) {
-            $sourceRoot = $candidate
+            $temporary = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-remove-" + [guid]::NewGuid().ToString('N'))
+            [void](New-Item -ItemType Directory -Path $temporary -Force)
+            git -C $candidate archive $receipt.ref | tar -xf - -C $temporary
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to materialize installed ref '$($receipt.ref)' from local source."
+            }
+            $sourceRoot = $temporary
         } elseif ([string]$receipt.sourceIdentity.kind -ceq 'github') {
             $temporary = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-remove-" + [guid]::NewGuid().ToString('N'))
             git clone -c core.autocrlf=false -c core.eol=lf --no-checkout "https://$($receipt.sourceIdentity.identity).git" $temporary 2>$null | Out-Null

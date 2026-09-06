@@ -240,6 +240,7 @@ function Get-InstallOperationPlan {
     }
 
     $operations = [System.Collections.Generic.List[object]]::new()
+    $destinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $index = 0
     foreach ($plugin in $PendingPlugins) {
         $pluginName = [string]$plugin.name
@@ -254,6 +255,12 @@ function Get-InstallOperationPlan {
             $targetPath = Resolve-GithubConstrainedPath -RepoRoot $TargetRepoRoot -RelativePath $dest
             Assert-GithubStatePathSafe -RepoRoot $TargetRepoRoot -Path $targetPath
             $destKey = [System.IO.Path]::GetFullPath($targetPath).ToLowerInvariant()
+            if (-not $destinations.Add($destKey)) {
+                throw "Plugin manifests map multiple pending payloads to destination '$dest'."
+            }
+            if (Test-Path -LiteralPath $targetPath -PathType Container) {
+                throw "Refusing overwrite of directory destination '$dest'."
+            }
             if ((Test-Path -LiteralPath $targetPath -PathType Leaf) -and -not $Force) {
                 throw "Refusing overwrite of existing unowned path '$dest'. Use -Force to overwrite."
             }

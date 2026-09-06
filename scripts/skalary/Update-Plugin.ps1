@@ -21,6 +21,9 @@ function Get-SourceSnapshot {
         $source = (git -C $TargetRepoRoot remote get-url origin).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Unable to resolve git remote 'origin' for '$TargetRepoRoot'." }
     }
+    elseif ($source -match '^[^/\s:@]+/[^/\s:@]+$') {
+        $source = "https://github.com/$source.git"
+    }
     $identity = try { New-PluginSourceIdentity -Repository $source } catch {
         if (-not (Test-Path -LiteralPath $source)) { throw }
         New-PluginSourceIdentity -LocalPath (Resolve-RepoRoot -StartPath $source)
@@ -89,6 +92,9 @@ try {
     foreach ($dest in $destinations) {
         $path = Resolve-GithubConstrainedPath -RepoRoot $targetRoot -RelativePath $dest
         Assert-GithubStatePathSafe -RepoRoot $targetRoot -Path $path
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            throw "Managed destination '$dest' is a directory."
+        }
     }
     foreach ($dest in $destinations | Sort-Object) {
         $path = Resolve-GithubConstrainedPath -RepoRoot $targetRoot -RelativePath $dest
