@@ -109,8 +109,15 @@ Describe 'PlanState Get-PlanInventory' {
         New-Item -ItemType Directory -Path $epicChild -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $epicChild 'plan.md') -Value "# child`n<!-- plan-id: 789abc -->`n<!-- epic: fedcba -->`n" -Encoding utf8NoBOM
 
+        $artifactOnly = Join-Path $plans 'fedcba-2026-06-29-789abc-child'
+        New-Item -ItemType Directory -Path (Join-Path $artifactOnly 'transcripts') -Force |
+            Out-Null
+        Set-Content -LiteralPath (Join-Path $artifactOnly 'transcripts/session.md') `
+            -Value '# retained runtime artifact' -Encoding utf8NoBOM
+
         try {
             $inv = @(Get-PlanInventory -RepoRoot $root)
+            $inv | Should -HaveCount 4
             ($inv | Where-Object Scheme -eq 'legacy').Id | Should -Be '003'
             ($inv | Where-Object Scheme -eq 'legacy').IsArchived | Should -BeTrue
             $newEntry = $inv | Where-Object FolderName -eq '2026-06-27-abc123-shiny'

@@ -39,6 +39,10 @@ CR without rerunning unchanged scope. If design notes changed, finalization runs
 compaction once before validation; cross-note merge/delete requires approval, so headless execution
 leaves the diff and exits `42`.
 
+Terminal close proof follows the completed plan into its canonical archive path and accepts the exact
+published work head through either its open or merged pull request. A clean archived plan plus that
+provider proof is `closed`; it must not trigger another same-session completion handoff.
+
 After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1` replaces—not
 appends—the strict 16-KiB handoff with zero to ten secret-screened lessons and repo-relative
 source-commit citations. Runtime resume otherwise uses committed checklist state. Epic orchestration

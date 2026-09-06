@@ -32,7 +32,7 @@ function Invoke-DirectGit {
     }
 }
 
-function Read-GitBlobBytes {
+function Get-GitBlobId {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][string]$Revision,
@@ -47,31 +47,7 @@ function Read-GitBlobBytes {
         throw "Confirmed criteria file '$RelativePath' is missing from baseline commit '$Revision'."
     }
 
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = 'git'
-    $startInfo.UseShellExecute = $false
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    foreach ($argument in @('-C', $RepoRoot, 'cat-file', 'blob', $blob.Output[0])) {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    [void]$process.Start()
-    $memory = [System.IO.MemoryStream]::new()
-    try {
-        $process.StandardOutput.BaseStream.CopyTo($memory)
-        $errorText = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
-        if ($process.ExitCode -ne 0) {
-            throw "git cat-file failed for '$RelativePath': $errorText"
-        }
-        return $memory.ToArray()
-    }
-    finally {
-        $memory.Dispose()
-        $process.Dispose()
-    }
+    return $blob.Output[0]
 }
 
 function Test-ByteArrayEqual {
@@ -170,20 +146,26 @@ function Test-PlanCriteriaBaseline {
     }
 
     $needle = "<!-- planning-confirmed: $marker -->"
+    $planPathspec = ':(glob)docs/implementation-plans/**/plan.md'
     $history = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
-        'log', '--follow', '--format=%H', "-S$needle", '--', $relativePlanPath
+        'log', '--format=%H', "-S$needle", '--', $planPathspec
     )
     $candidates = [System.Collections.Generic.List[string]]::new()
+    $candidatePlanPaths = @{}
     foreach ($commit in @($history.Output | Where-Object { $_ -cmatch '^[0-9a-f]{40,64}$' })) {
-        $candidatePlan = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
-            'show', "$commit`:$relativePlanPath"
+        $markerPaths = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+            'grep', '-l', '-F', $needle, $commit, '--', $planPathspec
         ) -AllowFailure
-        if ($candidatePlan.ExitCode -ne 0) { continue }
-        $candidateMarker = (
-            Get-PlanHeaderMarkers -Content ($candidatePlan.Output -join "`n")
-        ).PlanningConfirmed
-        if ($candidateMarker -ceq $marker) {
+        $markerPathPrefix = "$commit`:"
+        if ($markerPaths.ExitCode -eq 0 -and $markerPaths.Output.Count -eq 1 -and
+            $markerPaths.Output[0].StartsWith(
+                $markerPathPrefix,
+                [System.StringComparison]::Ordinal
+            )) {
             $candidates.Add($commit)
+            $candidatePlanPaths[$commit] = $markerPaths.Output[0].Substring(
+                $markerPathPrefix.Length
+            )
         }
     }
     if ($candidates.Count -eq 0) {
@@ -192,6 +174,10 @@ function Test-PlanCriteriaBaseline {
     if ($candidates.Count -ne 1) {
         throw "Planning-confirmed marker '$marker' has an ambiguous baseline: $($candidates -join ', ')."
     }
+    $baselineCommit = $candidates[0]
+    $baselinePlanPath = $candidatePlanPaths[$baselineCommit]
+    $currentPlanDirectory = Split-Path -Path $planPath -Parent
+    $baselinePlanDirectory = Split-Path -Path $baselinePlanPath -Parent
 
     $criteria = [ordered]@{
         Intent = Resolve-PlanAssetPath -PlanDir $resolved.Plan.Path -Kind Intent `
@@ -209,32 +195,35 @@ function Test-PlanCriteriaBaseline {
             $resolved.RepoRoot,
             $confined.Item.FullName
         ).Replace('\', '/')
-        $null = Read-GitBlobBytes -RepoRoot $resolved.RepoRoot `
-            -Revision $candidates[0] -RelativePath $relativePath
-        $indexComparison = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
-            'diff', '--cached', '--quiet', '--no-ext-diff', $candidates[0], '--', $relativePath
+        $planRelativePath = [System.IO.Path]::GetRelativePath(
+            $currentPlanDirectory,
+            $confined.Item.FullName
+        ).Replace('\', '/')
+        $baselineRelativePath = "$baselinePlanDirectory/$planRelativePath".Replace('\', '/')
+        $baselineBlob = Get-GitBlobId -RepoRoot $resolved.RepoRoot `
+            -Revision $baselineCommit -RelativePath $baselineRelativePath
+        $indexBlob = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+            'rev-parse', '--verify', ":$relativePath"
         ) -AllowFailure
-        if ($indexComparison.ExitCode -eq 1) {
-            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from staged Git-filtered baseline commit '$($candidates[0])'. Return to /cip."
-        }
-        if ($indexComparison.ExitCode -ne 0) {
-            throw "Unable to compare staged confirmed $($entry.Key.ToLowerInvariant()) with baseline commit '$($candidates[0])'."
-        }
-        $comparison = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
-            'diff', '--quiet', '--no-ext-diff', $candidates[0], '--', $relativePath
+        $worktreeBlob = Invoke-DirectGit -RepoRoot $resolved.RepoRoot -Argument @(
+            'hash-object', "--path=$relativePath", '--', $confined.Item.FullName
         ) -AllowFailure
-        if ($comparison.ExitCode -eq 1) {
-            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from Git-filtered baseline commit '$($candidates[0])'. Return to /cip."
+        if ($indexBlob.ExitCode -ne 0 -or $indexBlob.Output.Count -ne 1 -or
+            $worktreeBlob.ExitCode -ne 0 -or $worktreeBlob.Output.Count -ne 1) {
+            throw "Unable to compare confirmed $($entry.Key.ToLowerInvariant()) with baseline commit '$baselineCommit'."
         }
-        if ($comparison.ExitCode -ne 0) {
-            throw "Unable to compare confirmed $($entry.Key.ToLowerInvariant()) with baseline commit '$($candidates[0])'."
+        if ($indexBlob.Output[0] -cne $baselineBlob) {
+            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from staged Git-filtered baseline commit '$baselineCommit'. Return to /cip."
+        }
+        if ($worktreeBlob.Output[0] -cne $baselineBlob) {
+            throw "Confirmed $($entry.Key.ToLowerInvariant()) differs from Git-filtered baseline commit '$baselineCommit'. Return to /cip."
         }
     }
 
     return [pscustomobject]@{
         Status = 'ready'
         PlanId = $resolved.Plan.Id
-        BaselineCommit = $candidates[0]
+        BaselineCommit = $baselineCommit
         Marker = $marker
     }
 }

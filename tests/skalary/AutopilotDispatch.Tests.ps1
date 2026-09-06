@@ -9,6 +9,8 @@ Describe 'Autopilot container dispatch' {
         $script:dispatch = (
             Join-Path $script:repoRoot 'plugins/autopilot/scripts/plan-dispatch.sh'
         ).Replace('\', '/')
+        $script:phaseStateScript = Join-Path $script:repoRoot `
+            'scripts/skalary/Get-PhaseExecutionState.ps1'
         $script:scratch = [System.Collections.Generic.List[string]]::new()
 
         function Invoke-DispatchTargets {
@@ -45,6 +47,53 @@ autopilot_execution_targets "$2" "$3"
                 throw "plan dispatch failed with exit $LASTEXITCODE`: $($output -join "`n")"
             }
             return @($output)
+        }
+
+        function Invoke-PublishedPrCloseProof {
+            param(
+                [Parameter(Mandatory)][ValidateSet('OPEN', 'MERGED', 'CLOSED')]
+                [string]$State,
+                [string]$Base = 'main',
+                [bool]$Published = $true
+            )
+
+            $output = & bash -c @'
+. "$1"
+oid="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+fixture_base="$2"
+fixture_state="$3"
+fixture_published="$4"
+git() {
+    case "$*" in
+        "-C . check-ref-format --branch feature/test") return 0 ;;
+        "-C . check-ref-format --branch main") return 0 ;;
+        "-C . branch --show-current") printf '%s\n' 'feature/test'; return 0 ;;
+        "-C . rev-parse --verify HEAD^{commit}") printf '%s\n' "${oid}"; return 0 ;;
+        "-C . ls-remote --refs origin refs/heads/feature/test")
+            if [ "${fixture_published}" = "true" ]; then
+                printf '%s\t%s\n' "${oid}" 'refs/heads/feature/test'
+            fi
+            return 0
+            ;;
+    esac
+    printf 'unexpected git call: %s\n' "$*" >&2
+    return 2
+}
+gh() {
+    printf 'feature/test\t%s\t%s\t%s\n' "${oid}" "${fixture_base}" "${fixture_state}"
+}
+AUTOPILOT_GH_BIN=gh
+autopilot_branch_has_published_pr . feature/test main
+status=$?
+if [ "${status}" -eq 0 ]; then
+    autopilot_completion_handoff_action 0 closed 0 3
+fi
+exit "${status}"
+'@ bash $script:dispatch $Base $State $Published.ToString().ToLowerInvariant()
+            return [pscustomobject]@{
+                ExitCode = $LASTEXITCODE
+                Output = @($output)
+            }
         }
     }
 
@@ -83,5 +132,46 @@ fi
 '@ bash $script:dispatch
         $LASTEXITCODE | Should -Be 0
         @($owner) | Should -BeExactly @('completion-only')
+    }
+
+    It 'treats open and merged pull requests as terminal close proof' {
+        foreach ($state in @('OPEN', 'MERGED')) {
+            $result = Invoke-PublishedPrCloseProof -State $state
+            $result.ExitCode | Should -Be 0 -Because $state
+            $result.Output | Should -BeExactly @('complete') -Because $state
+        }
+
+        (Invoke-PublishedPrCloseProof -State CLOSED).ExitCode | Should -Be 1
+        (Invoke-PublishedPrCloseProof -State MERGED -Base wrong).ExitCode | Should -Be 1
+        (Invoke-PublishedPrCloseProof -State MERGED -Published $false).ExitCode |
+            Should -Be 0
+        (Invoke-PublishedPrCloseProof -State OPEN -Published $false).ExitCode |
+            Should -Be 1
+    }
+
+    It 'treats a clean committed archived plan phase as closed' {
+        $root = Join-Path $script:repoRoot (
+            'tests\.autopilot-archived-' + [guid]::NewGuid().ToString('N')
+        )
+        $script:scratch.Add($root)
+        $planPath = Join-Path $root (
+            'docs/implementation-plans/archived/' +
+            'standalone-2026-01-01-abc123-fixture/plan.md'
+        )
+        New-Item -ItemType Directory -Path (Split-Path $planPath -Parent) -Force |
+            Out-Null
+        [System.IO.File]::WriteAllText(
+            $planPath,
+            "# Fixture`n`n## Phase 1: Done`n`n- [x] 1.1 Complete",
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        & git -C $root init --quiet --initial-branch=main
+        & git -C $root config user.name 'Autopilot Fixture'
+        & git -C $root config user.email 'autopilot-fixture@example.invalid'
+        & git -C $root add .
+        & git -C $root commit --quiet -m 'archive completed plan'
+
+        & $script:phaseStateScript -PlanPath $planPath -Phase 1 -RepoRoot $root |
+            Should -BeExactly 'closed'
     }
 }

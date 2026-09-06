@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.16"
+      "version": "1.3.17"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.80"
+      "version": "1.0.81"
     },
     {
       "description": "Direct plan implementation workflow with Git criteria protection.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.117"
+      "version": "1.0.118"
     },
     {
       "description": "Direct implementation and epic plan creation.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.100"
+      "version": "1.0.101"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.79"
+      "version": "1.0.80"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
@@ -139,7 +139,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.82"
+      "version": "1.0.83"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
@@ -154,7 +154,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.25"
+      "version": "1.0.26"
     }
   ]
 }

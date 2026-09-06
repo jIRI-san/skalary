@@ -79,6 +79,8 @@ autopilot_branch_has_published_pr() {
     local pr_oid
     local pr_base
     local pr_state
+    local matching_prs=0
+    local branch_published=0
     local extra
     local row
     local -a remote_rows=()
@@ -115,9 +117,6 @@ autopilot_branch_has_published_pr() {
     if [ -n "${remote_output}" ]; then
         mapfile -t remote_rows <<< "${remote_output}"
     fi
-    if [ "${#remote_rows[@]}" -eq 0 ]; then
-        return 1
-    fi
     for row in "${remote_rows[@]}"; do
         IFS=$'\t' read -r remote_oid remote_ref extra <<< "${row}"
         if [ -n "${extra:-}" ] ||
@@ -130,11 +129,12 @@ autopilot_branch_has_published_pr() {
             return 1
         fi
     done
-    if [ "${#remote_rows[@]}" -ne 1 ]; then
-        return 1
-    fi
-    IFS=$'\t' read -r remote_oid remote_ref extra <<< "${remote_rows[0]}"
-    if [ "${remote_oid}" != "${local_head}" ]; then
+    if [ "${#remote_rows[@]}" -eq 1 ]; then
+        IFS=$'\t' read -r remote_oid remote_ref extra <<< "${remote_rows[0]}"
+        if [ "${remote_oid}" = "${local_head}" ]; then
+            branch_published=1
+        fi
+    elif [ "${#remote_rows[@]}" -gt 1 ]; then
         return 1
     fi
 
@@ -142,7 +142,8 @@ autopilot_branch_has_published_pr() {
         cd "${repo_root}" &&
             "${gh_bin}" pr list \
                 --head "${expected_branch}" \
-                --state open \
+                --state all \
+                --limit 100 \
                 --json headRefName,headRefOid,baseRefName,state \
                 --jq '.[] | [.headRefName, .headRefOid, .baseRefName, .state] | @tsv'
     ); then
@@ -165,15 +166,15 @@ autopilot_branch_has_published_pr() {
             printf 'ERROR: pull request close proof returned malformed typed metadata.\n' >&2
             return 2
         fi
+        if [ "${pr_head}" = "${expected_branch}" ] &&
+            [ "${pr_oid}" = "${local_head}" ] &&
+            { [ -z "${target_branch}" ] || [ "${pr_base}" = "${target_branch}" ]; } &&
+            { [ "${pr_state}" = "MERGED" ] ||
+                { [ "${pr_state}" = "OPEN" ] && [ "${branch_published}" -eq 1 ]; }; }; then
+            matching_prs=$((matching_prs + 1))
+        fi
     done
-    if [ "${#pr_rows[@]}" -ne 1 ]; then
-        return 1
-    fi
-    IFS=$'\t' read -r pr_head pr_oid pr_base pr_state extra <<< "${pr_rows[0]}"
-    if [ "${pr_head}" != "${expected_branch}" ] ||
-        [ "${pr_oid}" != "${local_head}" ] ||
-        [ "${pr_state}" != "OPEN" ] ||
-        { [ -n "${target_branch}" ] && [ "${pr_base}" != "${target_branch}" ]; }; then
+    if [ "${matching_prs}" -ne 1 ]; then
         return 1
     fi
     return 0

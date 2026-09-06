@@ -72,14 +72,14 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.10 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.3.16 | partial | code-review, create-implementation-plan | 38 | Self-contained direct-workflow autonomous plan executor. |
-| `code-review` | 1.0.80 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
-| `continue-implementation` | 1.0.117 | stable | autopilot, code-review, create-implementation-plan | 9 | Direct plan implementation workflow with Git criteria protection. |
-| `create-implementation-plan` | 1.0.100 | stable | design-review | 27 | Direct implementation and epic plan creation. |
+| `autopilot` | 1.3.17 | partial | code-review, create-implementation-plan | 38 | Self-contained direct-workflow autonomous plan executor. |
+| `code-review` | 1.0.81 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
+| `continue-implementation` | 1.0.118 | stable | autopilot, code-review, create-implementation-plan | 9 | Direct plan implementation workflow with Git criteria protection. |
+| `create-implementation-plan` | 1.0.101 | stable | design-review | 27 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
-| `design-review` | 1.0.79 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
+| `design-review` | 1.0.80 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
 | `plugin-manager` | 1.0.28 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
-| `self-improvement` | 1.0.82 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
-| `work-hierarchy-sync` | 1.0.25 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
+| `self-improvement` | 1.0.83 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
+| `work-hierarchy-sync` | 1.0.26 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
 <!-- END SKALARY PLUGIN CATALOG -->

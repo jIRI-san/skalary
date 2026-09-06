@@ -222,6 +222,31 @@ Describe 'Dormant direct workflow core' {
                 -PlanReference $fixture.PlanReference).Status | Should -BeExactly 'ready'
     }
 
+    It 'test:SimpleWorkflow.CriteriaProtection follows a confirmed plan into the archive' {
+        $fixture = New-DirectWorkflowFixture -Id 'a1c100'
+        $archiveRoot = Join-Path $fixture.Root 'docs/implementation-plans/archived'
+        $archivedPlanDir = Join-Path $archiveRoot (Split-Path $fixture.PlanDir -Leaf)
+        New-Item -ItemType Directory -Path $archiveRoot -Force | Out-Null
+        Invoke-DirectFixtureGit -Root $fixture.Root -Argument @(
+            'mv', '--', $fixture.PlanDir, $archivedPlanDir
+        ) | Out-Null
+        Invoke-DirectFixtureGit -Root $fixture.Root -Argument @(
+            'commit', '--quiet', '-m', 'archive confirmed fixture'
+        ) | Out-Null
+
+        $result = Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+            -PlanReference $fixture.PlanReference
+        $result.Status | Should -BeExactly 'ready'
+        $result.BaselineCommit | Should -BeExactly $fixture.Source
+
+        Add-Content -LiteralPath (Join-Path $archivedPlanDir 'assets/intent.md') `
+            -Value "`nmutated after archival" -Encoding utf8NoBOM -NoNewline
+        {
+            Test-PlanCriteriaBaseline -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference
+        } | Should -Throw '*Confirmed intent differs from Git-filtered baseline*'
+    }
+
     It 'test:SimpleWorkflow.CriteriaProtection refuses each protected criteria mutation independently' {
         foreach ($name in @('intent', 'requirements', 'risks', 'decisions')) {
             $fixture = New-DirectWorkflowFixture -Id (

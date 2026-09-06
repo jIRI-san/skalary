@@ -13,9 +13,12 @@ The adapter imports only `PlanState.psm1`, `SecretGuard.psm1`, and `DirectWorkfl
 three confined Markdown artifacts, screens secrets, and frames accepted content once. It has no retired
 receipt, review-run, ledger, or harvest path.
 
+Plan inventory includes only folders containing `plan.md`; retained transcript-only directories from an
+archive move are artifacts, not duplicate plan identities.
+
 | Primitive | Contract |
 |---|---|
-| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions through Git clean filters. |
+| `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker across active and archived plan paths, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions by Git-filtered blob identity. |
 | `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
 | `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. |
 | `Resolve-DirectReviewStandards` | Parses optional bounded local Markdown against caller-supplied base rules. |

@@ -1414,21 +1414,22 @@ function Get-PlanInventory {
         }
 
         $planFile = Join-Path $entry.Dir.FullName 'plan.md'
+        if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
+            continue
+        }
         $anchorId = $null
         $epicId = $null
-        if (Test-Path -LiteralPath $planFile) {
-            $raw = Get-Content -LiteralPath $planFile -Raw
-            if ($raw -match '<!--\s*plan-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->') {
-                $anchorId = $Matches.id.ToLowerInvariant()
-            }
-            # Epic membership is carried by the child plan, never by the epic's own table: the marker
-            # travels with the plan folder (including into archived/), so a rollup cannot go stale.
-            # It is read through the same header-scoped view every other marker uses, so a plan that
-            # merely documents the marker in its body is not silently enrolled in that epic.
-            $headerEpicId = (Get-PlanHeaderMarkers -Content $raw).EpicId
-            if ($headerEpicId -and $headerEpicId -match '^[0-9a-fA-F]{3,}$') {
-                $epicId = $headerEpicId.ToLowerInvariant()
-            }
+        $raw = Get-Content -LiteralPath $planFile -Raw
+        if ($raw -match '<!--\s*plan-id:\s*(?<id>[0-9a-fA-F]{3,})\s*-->') {
+            $anchorId = $Matches.id.ToLowerInvariant()
+        }
+        # Epic membership is carried by the child plan, never by the epic's own table: the marker
+        # travels with the plan folder (including into archived/), so a rollup cannot go stale.
+        # It is read through the same header-scoped view every other marker uses, so a plan that
+        # merely documents the marker in its body is not silently enrolled in that epic.
+        $headerEpicId = (Get-PlanHeaderMarkers -Content $raw).EpicId
+        if ($headerEpicId -and $headerEpicId -match '^[0-9a-fA-F]{3,}$') {
+            $epicId = $headerEpicId.ToLowerInvariant()
         }
 
         $canonicalId = if ($anchorId) { $anchorId } else { $parsedFolder.FolderId }
