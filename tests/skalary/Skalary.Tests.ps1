@@ -149,17 +149,13 @@ Describe 'skalary plugin registry scripts' {
         Test-Path -LiteralPath (Join-Path $target '.github/skills/ci/SKILL.md') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $target '.github/agents/cr.agent.md') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $target '.github/agents/autopilot.agent.md') | Should -BeTrue
-        Test-Path -LiteralPath (Join-Path $target '.github/skills/si/scripts/Enqueue-SiDue.ps1') |
-            Should -BeTrue
-
         $receipts = Get-ChildItem -LiteralPath (Join-Path $target '.github/.skalary/receipts') -File -Filter '*.json' | Sort-Object Name
         @($receipts.Name) | Should -Be @(
             'autopilot.json',
             'code-review.json',
             'continue-implementation.json',
             'create-implementation-plan.json',
-            'design-review.json',
-            'self-improvement.json'
+            'design-review.json'
         )
     }
 

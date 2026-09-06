@@ -5,11 +5,7 @@ param(
     [Parameter(Mandatory)][string]$PlanReference,
     [Parameter(Mandatory)]
     [ValidatePattern('^(?:[0-9a-f]{40}|[0-9a-f]{64})$')]
-    [string]$PinnedBaseOid,
-    [switch]$IssueReceipt,
-    [ValidatePattern('^[0-9a-f]{64}$')][string]$DueId,
-    [ValidatePattern('^[0-9a-f]{64}$')][string]$RunId,
-    [string]$CandidateJson = '[]'
+    [string]$PinnedBaseOid
 )
 
 Set-StrictMode -Version Latest
@@ -17,9 +13,6 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'SecretGuard.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'SiStateStore.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'SiResolverReceipt.psm1') -Force
 
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $root = (Resolve-Path -LiteralPath ([System.IO.Path]::GetFullPath($RepoRoot))).Path
@@ -181,57 +174,6 @@ foreach ($row in $lessonRows) {
 }
 
 $wrapped = New-UntrustedLearningBlock -Text $body
-$sourceDigest = [Convert]::ToHexString(
-    [System.Security.Cryptography.SHA256]::HashData($blob.Bytes)
-).ToLowerInvariant()
-$selectedDigest = [Convert]::ToHexString(
-    [System.Security.Cryptography.SHA256]::HashData($utf8.GetBytes($body))
-).ToLowerInvariant()
-$issuedReceipt = $null
-if ($IssueReceipt) {
-    if (-not $DueId -or -not $RunId) {
-        throw 'Resolver receipt issuance requires -DueId and -RunId.'
-    }
-    if ($utf8.GetByteCount($CandidateJson) -gt 1MB) {
-        throw 'Resolver candidate JSON exceeds 1 MiB.'
-    }
-    try {
-        $candidateInput = @($CandidateJson | ConvertFrom-Json -Depth 20)
-    }
-    catch {
-        throw "Resolver candidate JSON is malformed: $($_.Exception.Message)"
-    }
-    $ranked = New-SiRankedCandidates -Candidate $candidateInput
-    $payload = [pscustomobject][ordered]@{
-        protocol = 'si-resolver-receipt-v1'
-        dueId = $DueId
-        runId = $RunId
-        pinnedBaseOid = $PinnedBaseOid
-        snapshotDigest = $sourceDigest
-        selectedDigest = $selectedDigest
-        rankedSetDigest = $ranked.RankedSetDigest
-        candidates = $ranked.CandidateIds
-    }
-    $receiptId = Get-SiResolverReceiptId -Payload $payload
-    $stateContract = Get-SiStateContract
-    $receiptPath = Resolve-SiStatePath -RepoRoot $root -Segments (
-        @($stateContract.Topology.ResolverReceiptSegments) + "$receiptId.json"
-    )
-    $receiptJson = ([pscustomobject][ordered]@{
-            receiptId = $receiptId
-            payload = $payload
-        } | ConvertTo-Json -Depth 20 -Compress) + "`n"
-    $write = Invoke-AtomicStoreUpdate -Path $receiptPath -Transform { $receiptJson }
-    if ($write.Status -ne 'complete') {
-        throw "Resolver receipt write failed with status '$($write.Status)'."
-    }
-    $issuedReceipt = [pscustomobject]@{
-        ReceiptId = $receiptId
-        Path = $receiptPath
-        RankedSetDigest = $ranked.RankedSetDigest
-        Candidates = $ranked.Candidates
-    }
-}
 
 [pscustomobject][ordered]@{
     Status = 'valid'
@@ -240,7 +182,6 @@ if ($IssueReceipt) {
     PinnedBaseOid = $PinnedBaseOid
     SourceCommit = $sourceCommit
     LessonCount = $lessons.Count
-    ResolverReceipt = $issuedReceipt
     Items = @(
         [pscustomobject][ordered]@{
             source = $relativePath

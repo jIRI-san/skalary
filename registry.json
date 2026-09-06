@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-05T18:52:00.4652913Z",
+  "generatedAt": "2026-09-06T06:26:56.1927332Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -151,7 +151,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "899c33d1db8b749331e0105cab26ce953dec5531f5d8b2eb5b04efd278af236a",
+          "sha256": "b4bcea81f13b06023d564e601c910deecdec8766353d3e5a9abcf17f04c950f3",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -357,7 +357,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.15"
+      "version": "1.3.16"
     },
     {
       "author": "jIRI-san",
@@ -437,7 +437,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "7b76f93c7ff57e218fc92c381d5efcedb045d66a316ab5b20cd8f93732aa719c",
+          "sha256": "aac35afe100f55dc9e453c16a7e38d11146c54bd7ca2d1a67862622539559c60",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -489,7 +489,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.116"
+      "version": "1.0.117"
     },
     {
       "author": "jIRI-san",
@@ -925,7 +925,7 @@
       "dependencies": [
         "create-implementation-plan"
       ],
-      "description": "Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements.",
+      "description": "Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff.",
       "evals": {
         "status": "none"
       },
@@ -942,23 +942,13 @@
         },
         {
           "dest": "skills/pfb/SKILL.md",
-          "sha256": "6e8febf47c11cd1d3485ac78b383a944214d39f6bdf9319908c35d28fccf2513",
+          "sha256": "8021a9c73b0354f45f9a0fe45bb01ac234c00013c33ea6c6ce49621de0ca801b",
           "src": "skills/pfb/SKILL.md"
         },
         {
           "dest": "skills/pfb/assets/feedback-guide.md",
-          "sha256": "4e2cd47b428f6bf979845c674c08637491bfde4047426fdce525225f416848b9",
+          "sha256": "c659a01d2a6681af67d5ee6ad9c9f4ab6a4a50d1e6e9bec839bbba38364779e9",
           "src": "skills/pfb/assets/feedback-guide.md"
-        },
-        {
-          "dest": "skills/pfb/assets/queue-guide.md",
-          "sha256": "dc6eff23d039affd516c684130c00d4492746f03535cf6d978cdfd1992985e41",
-          "src": "skills/pfb/assets/queue-guide.md"
-        },
-        {
-          "dest": "skills/pfb/scripts/AtomicStore.psm1",
-          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
-          "src": "skills/pfb/scripts/AtomicStore.psm1"
         },
         {
           "dest": "skills/pfb/scripts/PlanState.psm1",
@@ -966,114 +956,24 @@
           "src": "skills/pfb/scripts/PlanState.psm1"
         },
         {
-          "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-          "sha256": "ab7124ea73a405e9576195cf07a4ed6f694970cf9ba519228fdf4a095664a6f7",
-          "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
-        },
-        {
           "dest": "skills/si/SKILL.md",
-          "sha256": "ff5166b8fd280fe090785ef924e98694b6e470b42f71a20b2d43d924261a4987",
+          "sha256": "a950260431d6a44a8b57ad6aad314346fadf600ec8aa3e2d5f224e28e5d68cd4",
           "src": "skills/si/SKILL.md"
         },
         {
-          "dest": "skills/si/assets/cross-repo-guide.md",
-          "sha256": "7a09759cf0deda8c9219cb0132e7a160e1839fedde16e5a9ea6a9461b07d3186",
-          "src": "skills/si/assets/cross-repo-guide.md"
-        },
-        {
           "dest": "skills/si/assets/harvest-guide.md",
-          "sha256": "41b453413322f4e532b92fa4d1a5f83f3441918d29af28a2b6e9611e688e430c",
+          "sha256": "3017579f2c865faa626278c2748e7c83da0253c79ac9790026d0939780e66b5f",
           "src": "skills/si/assets/harvest-guide.md"
         },
         {
-          "dest": "skills/si/assets/lifecycle-guide.md",
-          "sha256": "8164594833d50c85363d2f4b0708d0a92bad210938527c71c7c65c29de22193b",
-          "src": "skills/si/assets/lifecycle-guide.md"
-        },
-        {
           "dest": "skills/si/assets/propose-guide.md",
-          "sha256": "f88f04463e613afcf03c74e6458bce343069f014981790c9a2fe2f53726df4a9",
+          "sha256": "25294888db4775cf118881cf3c607c2c4e066423b8bf3c0c54ca9140ebbbd766",
           "src": "skills/si/assets/propose-guide.md"
         },
         {
-          "dest": "skills/si/schemas/cross-repo-export.schema.json",
-          "sha256": "a594be3a4eda44c48e3ad8fd907c3814323b629b069a5dba137f589de648acd1",
-          "src": "schemas/cross-repo-export.schema.json"
-        },
-        {
-          "dest": "skills/si/schemas/manifest.schema.json",
-          "sha256": "08e3e7f6073ba521dd1b92c5db5fbca81349a59d65499b0336a171bb1e88a5ba",
-          "src": "schemas/manifest.schema.json"
-        },
-        {
-          "dest": "skills/si/schemas/repair-observation.schema.json",
-          "sha256": "8ca2270a4e3c58293a9cbaa50e49932c608d8082903dc5e338aad246162112c2",
-          "src": "schemas/repair-observation.schema.json"
-        },
-        {
-          "dest": "skills/si/schemas/repair-receipt.schema.json",
-          "sha256": "92f8d23c33815519257741112905ea1b43a6e01ae6079f2593e8f0e0d7101196",
-          "src": "schemas/repair-receipt.schema.json"
-        },
-        {
-          "dest": "skills/si/schemas/resolver-receipt.schema.json",
-          "sha256": "354582bcf286f4c12188321055a7dff3dd17f62121a2d5acfa3e0b8d3b714297",
-          "src": "schemas/resolver-receipt.schema.json"
-        },
-        {
-          "dest": "skills/si/schemas/run.schema.json",
-          "sha256": "a97e6f93a865ecd4f77db4e0d7483fa6278f211a05fcaece7f6af780d0cb1016",
-          "src": "schemas/run.schema.json"
-        },
-        {
-          "dest": "skills/si/scripts/Archive-SiState.ps1",
-          "sha256": "18755cfc745fc0c28c7746c12d7579e383e91b9c249606f188c2bc1893ab4345",
-          "src": "scripts/Archive-SiState.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/AtomicStore.psm1",
-          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
-          "src": "skills/si/scripts/AtomicStore.psm1"
-        },
-        {
-          "dest": "skills/si/scripts/Complete-SiProposal.ps1",
-          "sha256": "f0c9ed6da3a0e9cd2c1c507839b562e4aef880e62e4c76036d5b331443300d25",
-          "src": "scripts/Complete-SiProposal.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Enqueue-SiDue.ps1",
-          "sha256": "4510467179eea93b66d2e10dab798efdcd2f694a8c96ceac4de64c50b4bc1fb0",
-          "src": "scripts/Enqueue-SiDue.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Export-CrossRepoSi.ps1",
-          "sha256": "c8455b26918cf5c0688ad736880546d6f8123a0b5fcb58933aa57c6b11f7eb19",
-          "src": "scripts/Export-CrossRepoSi.ps1"
-        },
-        {
           "dest": "skills/si/scripts/Get-SiHarvest.ps1",
-          "sha256": "b90e3dac2c22825d03282fcfc348fd9d00200f384b16a475d62b498b3d027bad",
+          "sha256": "29bc6f101b778157fd942133b730e56786e37bcd6acc69a044a8b2e6583c94de",
           "src": "scripts/Get-SiHarvest.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Get-SiState.ps1",
-          "sha256": "388447ebf88eecd830a86bac62d59c1a2bdb238bfb8515e73c31646d254e6b67",
-          "src": "scripts/Get-SiState.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1",
-          "sha256": "39ede9512a7c1685001cf19543b5693b7c84a4cda09959c217444cbd8f42ed76",
-          "src": "scripts/Invoke-CrossRepoSiHandoff.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1",
-          "sha256": "06ec324fca259bc06c7d41f4e706d70afaab9b301c592bf81c2bc992bafd3452",
-          "src": "scripts/Invoke-SiLifecycle.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1",
-          "sha256": "c416653ddc0e2ec58c81f2911eda786e36fb604b3617ec059be6720af3d8fe46",
-          "src": "scripts/Invoke-SiProposalSync.ps1"
         },
         {
           "dest": "skills/si/scripts/PlanState.psm1",
@@ -1081,136 +981,18 @@
           "src": "skills/si/scripts/PlanState.psm1"
         },
         {
-          "dest": "skills/si/scripts/Repair-SiState.ps1",
-          "sha256": "7b849a526582dcc5a147aab2b8585ae532fc3fb186803f9d1e695451d9fb99f3",
-          "src": "scripts/Repair-SiState.ps1"
-        },
-        {
           "dest": "skills/si/scripts/SecretGuard.psm1",
           "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
           "src": "scripts/SecretGuard.psm1"
         },
         {
-          "dest": "skills/si/scripts/SiResolverReceipt.psm1",
-          "sha256": "a91d965d45dcf8136f8d7248faf89687c486d40fd89558a7c3416f37648192f3",
-          "src": "scripts/SiResolverReceipt.psm1"
-        },
-        {
-          "dest": "skills/si/scripts/SiStateStore.psm1",
-          "sha256": "c6b319109773dbeed240602491ad1834559007225d100a4e562c17881bc85227",
-          "src": "scripts/SiStateStore.psm1"
-        },
-        {
-          "dest": "skills/si/scripts/Test-SiResolverReceipt.ps1",
-          "sha256": "6f1d45fb5f7d623698356a9bcbac4cb53a860c355c016d77dc873842b44506b3",
-          "src": "scripts/Test-SiResolverReceipt.ps1"
-        },
-        {
           "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
-          "sha256": "a656313e9034482d7ead0688b541e25c9d9b92ca0914982cd22f12968ebf6625",
+          "sha256": "891ad0cb7c910f6f6728913a20ca91f830e2e6a1f141f022edcb0b91d4453c6b",
           "src": "skills/si/scripts/Test-SiWriteScope.ps1"
-        },
-        {
-          "dest": "skills/si/scripts/Update-SiState.ps1",
-          "sha256": "c8d3b4affd5665988730a9e83170ac7d56112109d5673d2a44b10aa4613e2f3a",
-          "src": "scripts/Update-SiState.ps1"
         }
       ],
       "license": "MIT",
       "name": "self-improvement",
-      "scaffolds": [
-        {
-          "mode": "literal",
-          "owner": "Update-FeedbackQueue.ps1",
-          "path": "docs/feedback/queue.md",
-          "trigger": "first queued /pfb marker"
-        },
-        {
-          "mode": "literal",
-          "owner": "Archive-SiState.ps1",
-          "path": "docs/self-improvement/archive-journal.json",
-          "trigger": "recover interrupted completed-run archive"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Archive-SiState.ps1",
-          "path": "docs/self-improvement/archive/<yyyy>/<mm>/<run>.json",
-          "trigger": "completed-run archive"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/backups/<observation>/**",
-          "trigger": "repair apply journal and backup"
-        },
-        {
-          "mode": "literal",
-          "owner": "Export-CrossRepoSi.ps1",
-          "path": "docs/self-improvement/cross-repo-export.json",
-          "trigger": "consumer-to-upstream SI handoff"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/quarantine/<observation>/**",
-          "trigger": "corrupt artifact quarantine"
-        },
-        {
-          "mode": "literal",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/quarantine/index.json",
-          "trigger": "first corrupt artifact quarantine"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/repair-observations/<observation>.json",
-          "trigger": "repair snapshot"
-        },
-        {
-          "mode": "literal",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/repair-receipts",
-          "trigger": "repair receipt enumeration"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Repair-SiState.ps1",
-          "path": "docs/self-improvement/repair-receipts/<receipt>.json",
-          "trigger": "repair apply or rollback completion"
-        },
-        {
-          "mode": "literal",
-          "owner": "Get-SiHarvest.ps1",
-          "path": "docs/self-improvement/resolver-receipts",
-          "trigger": "resolver receipt verification"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "Get-SiHarvest.ps1",
-          "path": "docs/self-improvement/resolver-receipts/<receipt>.json",
-          "trigger": "resolver receipt issuance"
-        },
-        {
-          "confine": "Resolve-SiStatePath",
-          "mode": "parameterized",
-          "owner": "SiStateStore.psm1",
-          "path": "docs/self-improvement/runs/<yyyy>/<mm>/<run>.json",
-          "trigger": "SI run begin or update"
-        },
-        {
-          "mode": "literal",
-          "owner": "SiStateStore.psm1",
-          "path": "docs/self-improvement/state.json",
-          "trigger": "first SI due or repaired manifest"
-        }
-      ],
       "status": "stable",
       "tags": [
         "feedback",
@@ -1218,7 +1000,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.77"
+      "version": "1.0.82"
     },
     {
       "author": "jIRI-san",

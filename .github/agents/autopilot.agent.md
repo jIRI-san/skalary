@@ -58,7 +58,6 @@ repo-relative citation to evidence or changed
 context at that commit; zero lessons writes the explicit empty marker. Commit the replacement. Never
 append it or write auxiliary history, recovery, or lifecycle state.
 
-Before headless completion, if `.github/skills/pfb/SKILL.md` is installed, read it and follow its queue
-guide: `/pfb` queues the question instead of prompting and is never blocking. Commit only its queue
-change. Skip silently when absent, and never invent an operator verdict.
+Headless completion skips `/pfb`; it never queues or invents an operator verdict. Interactive `/ci`
+may offer the installed skill separately, and feedback never substitutes for implementation evidence.
 Exit `0` only for complete, `42` for operator action, `43` for offline rebundle, and nonzero otherwise.

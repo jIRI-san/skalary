@@ -1,7 +1,7 @@
 {
   "name": "self-improvement",
-  "version": "1.0.77",
-  "description": "Self-improvement loop — /pfb records operator feedback and /si reads the bounded recent-learning handoff as untrusted input for ranked customization improvements.",
+  "version": "1.0.82",
+  "description": "Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff.",
   "author": "jIRI-san",
   "license": "MIT",
   "tags": [
@@ -28,18 +28,6 @@
       "dest": "skills/pfb/assets/feedback-guide.md"
     },
     {
-      "src": "skills/pfb/assets/queue-guide.md",
-      "dest": "skills/pfb/assets/queue-guide.md"
-    },
-    {
-      "src": "skills/pfb/scripts/Update-FeedbackQueue.ps1",
-      "dest": "skills/pfb/scripts/Update-FeedbackQueue.ps1"
-    },
-    {
-      "src": "skills/pfb/scripts/AtomicStore.psm1",
-      "dest": "skills/pfb/scripts/AtomicStore.psm1"
-    },
-    {
       "src": "skills/pfb/scripts/PlanState.psm1",
       "dest": "skills/pfb/scripts/PlanState.psm1"
     },
@@ -56,16 +44,8 @@
       "dest": "skills/si/assets/harvest-guide.md"
     },
     {
-      "src": "skills/si/assets/lifecycle-guide.md",
-      "dest": "skills/si/assets/lifecycle-guide.md"
-    },
-    {
       "src": "skills/si/assets/propose-guide.md",
       "dest": "skills/si/assets/propose-guide.md"
-    },
-    {
-      "src": "skills/si/assets/cross-repo-guide.md",
-      "dest": "skills/si/assets/cross-repo-guide.md"
     },
     {
       "src": "skills/si/scripts/PlanState.psm1",
@@ -76,185 +56,12 @@
       "dest": "skills/si/scripts/Test-SiWriteScope.ps1"
     },
     {
-      "src": "schemas/manifest.schema.json",
-      "dest": "skills/si/schemas/manifest.schema.json"
-    },
-    {
-      "src": "schemas/run.schema.json",
-      "dest": "skills/si/schemas/run.schema.json"
-    },
-    {
-      "src": "schemas/cross-repo-export.schema.json",
-      "dest": "skills/si/schemas/cross-repo-export.schema.json"
-    },
-    {
-      "src": "schemas/resolver-receipt.schema.json",
-      "dest": "skills/si/schemas/resolver-receipt.schema.json"
-    },
-    {
-      "src": "schemas/repair-observation.schema.json",
-      "dest": "skills/si/schemas/repair-observation.schema.json"
-    },
-    {
-      "src": "schemas/repair-receipt.schema.json",
-      "dest": "skills/si/schemas/repair-receipt.schema.json"
-    },
-    {
-      "src": "scripts/Enqueue-SiDue.ps1",
-      "dest": "skills/si/scripts/Enqueue-SiDue.ps1"
-    },
-    {
-      "src": "scripts/Invoke-SiLifecycle.ps1",
-      "dest": "skills/si/scripts/Invoke-SiLifecycle.ps1"
-    },
-    {
-      "src": "scripts/Invoke-SiProposalSync.ps1",
-      "dest": "skills/si/scripts/Invoke-SiProposalSync.ps1"
-    },
-    {
-      "src": "scripts/Complete-SiProposal.ps1",
-      "dest": "skills/si/scripts/Complete-SiProposal.ps1"
-    },
-    {
-      "src": "scripts/Update-SiState.ps1",
-      "dest": "skills/si/scripts/Update-SiState.ps1"
-    },
-    {
-      "src": "scripts/Get-SiState.ps1",
-      "dest": "skills/si/scripts/Get-SiState.ps1"
-    },
-    {
       "src": "scripts/Get-SiHarvest.ps1",
       "dest": "skills/si/scripts/Get-SiHarvest.ps1"
     },
     {
       "src": "scripts/SecretGuard.psm1",
       "dest": "skills/si/scripts/SecretGuard.psm1"
-    },
-    {
-      "src": "scripts/Export-CrossRepoSi.ps1",
-      "dest": "skills/si/scripts/Export-CrossRepoSi.ps1"
-    },
-    {
-      "src": "scripts/Invoke-CrossRepoSiHandoff.ps1",
-      "dest": "skills/si/scripts/Invoke-CrossRepoSiHandoff.ps1"
-    },
-    {
-      "src": "scripts/Test-SiResolverReceipt.ps1",
-      "dest": "skills/si/scripts/Test-SiResolverReceipt.ps1"
-    },
-    {
-      "src": "scripts/Repair-SiState.ps1",
-      "dest": "skills/si/scripts/Repair-SiState.ps1"
-    },
-    {
-      "src": "scripts/Archive-SiState.ps1",
-      "dest": "skills/si/scripts/Archive-SiState.ps1"
-    },
-    {
-      "src": "scripts/SiStateStore.psm1",
-      "dest": "skills/si/scripts/SiStateStore.psm1"
-    },
-    {
-      "src": "scripts/SiResolverReceipt.psm1",
-      "dest": "skills/si/scripts/SiResolverReceipt.psm1"
-    },
-    {
-      "src": "skills/si/scripts/AtomicStore.psm1",
-      "dest": "skills/si/scripts/AtomicStore.psm1"
-    }
-  ],
-  "scaffolds": [
-    {
-      "path": "docs/feedback/queue.md",
-      "mode": "literal",
-      "owner": "Update-FeedbackQueue.ps1",
-      "trigger": "first queued /pfb marker"
-    },
-    {
-      "path": "docs/self-improvement/state.json",
-      "mode": "literal",
-      "owner": "SiStateStore.psm1",
-      "trigger": "first SI due or repaired manifest"
-    },
-    {
-      "path": "docs/self-improvement/runs/<yyyy>/<mm>/<run>.json",
-      "mode": "parameterized",
-      "owner": "SiStateStore.psm1",
-      "trigger": "SI run begin or update",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/archive/<yyyy>/<mm>/<run>.json",
-      "mode": "parameterized",
-      "owner": "Archive-SiState.ps1",
-      "trigger": "completed-run archive",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/archive-journal.json",
-      "mode": "literal",
-      "owner": "Archive-SiState.ps1",
-      "trigger": "recover interrupted completed-run archive"
-    },
-    {
-      "path": "docs/self-improvement/backups/<observation>/**",
-      "mode": "parameterized",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "repair apply journal and backup",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/quarantine/index.json",
-      "mode": "literal",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "first corrupt artifact quarantine"
-    },
-    {
-      "path": "docs/self-improvement/quarantine/<observation>/**",
-      "mode": "parameterized",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "corrupt artifact quarantine",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/repair-observations/<observation>.json",
-      "mode": "parameterized",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "repair snapshot",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/repair-receipts/<receipt>.json",
-      "mode": "parameterized",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "repair apply or rollback completion",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/repair-receipts",
-      "mode": "literal",
-      "owner": "Repair-SiState.ps1",
-      "trigger": "repair receipt enumeration"
-    },
-    {
-      "path": "docs/self-improvement/resolver-receipts/<receipt>.json",
-      "mode": "parameterized",
-      "owner": "Get-SiHarvest.ps1",
-      "trigger": "resolver receipt issuance",
-      "confine": "Resolve-SiStatePath"
-    },
-    {
-      "path": "docs/self-improvement/resolver-receipts",
-      "mode": "literal",
-      "owner": "Get-SiHarvest.ps1",
-      "trigger": "resolver receipt verification"
-    },
-    {
-      "path": "docs/self-improvement/cross-repo-export.json",
-      "mode": "literal",
-      "owner": "Export-CrossRepoSi.ps1",
-      "trigger": "consumer-to-upstream SI handoff"
     }
   ],
   "evals": {

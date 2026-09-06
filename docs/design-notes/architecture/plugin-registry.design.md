@@ -97,14 +97,17 @@ an empty run. It replaces platform-dependent recursive enumeration.
 declared payloads and does not prune the generator-owned marketplace. Runtime PowerShell lives once in
 `scripts/skalary/`; `Sync-PluginScripts.ps1` copies manifest-declared entry points and `.ps1`/`.psm1`
 closures, prunes stale generated copies, and patch-bumps every affected independently versioned plugin.
+Callers that directly change declared non-script payloads pass their repo-relative paths through
+`-ChangedPath`; the sync compares those canonical sources with dogfood and patch-bumps their owners
+before registry generation.
 Installed content references installed paths, never authoring paths. `docs/review-standards.md` is the
 exact optional read-only exception for direct-workflow consumers. Autopilot is one self-contained
 plugin (agent, skill, launchers, schemas, devcontainer, and templates), with no separate infra bootstrap.
 
-Plugin-owned SI lifecycle/schema and architecture-note scripts remain canonical in their plugins and
-dogfood directly. `AtomicStore.psm1` is a normal shared canonical bundle. CI/autopilot bundle
-`Write-RecentLearning.ps1` and scaffold its handoff without depending on SI; SI owns its reader and
-proposal lifecycle. npm aliases are dogfood-only.
+Plugin-owned SI reader/write-guard and architecture-note scripts remain canonical in their plugins and
+dogfood directly. CI/autopilot bundle `Write-RecentLearning.ps1` and scaffold its handoff without
+depending on SI; SI owns the bounded reader and interactive source-edit workflow. npm aliases are
+dogfood-only.
 
 After a payload or manifest change, run in order:
 `Sync-PluginScripts.ps1`, `Build-Registry.ps1`, `Build-Marketplace.ps1`, then `Sync-Dogfood.ps1`.
@@ -125,8 +128,9 @@ supported-root composition fails. Fenced examples, comments, and final bare plac
 an unterminated fence errors. Verified `$PSScriptRoot`/asset-root sidecars are exempt only when installed
 or bundled. The bootstrap-owned `scripts/skalary/registry.json` fallback remains valid.
 
-Self-improvement's declared topology includes literal manifests/indexes and confined parameterized
-active/archive/backup/quarantine/repair/receipt paths; installed SI materializes them on first use.
+Self-improvement declares no state scaffold. Its installed payload is the stateless `/pfb` comparison,
+the bounded recent-learning reader, the direct `/si` instructions, and the physical Markdown
+write-scope guard.
 Architecture notes may read a consumer-owned optional `schemas/architecture` legacy-contract directory,
 but no plugin writer owns or scaffolds that path.
 

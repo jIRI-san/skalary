@@ -1,32 +1,33 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Pre-PR write-scope gate for `/si` self-improvement proposals.
+    Write-scope gate for direct `/si` self-improvement edits.
 .DESCRIPTION
-    Plan b0c0d3 REQ-14 (RISK-6, RISK-12). `/si` proposes edits to the files that govern every
-    later agent run and then opens a **same-repo** pull request. Prose confinement is an
-    instruction the model may or may not honour; this script is the enforcement.
+    `/si` applies operator-selected changes in the current worktree. Prose confinement is an
+    instruction the model may or may not honor; this script is the enforcement.
 
-    It collects every path the proposal touches — committed against the diff base, staged,
-    unstaged, and untracked — canonicalizes each one, and confines it to the allowlist:
+    Explicit -Path values support the pre-write check. Without -Path, the script collects every
+    path the worktree touches - committed against the diff base, staged, unstaged, and untracked.
+    Every path is canonicalized and confined to canonical Markdown customization sources:
 
-        plugins/  docs/  .github/skills/  .github/agents/  .github/prompts/
+        .github/copilot-instructions.md
+        plugins/*/skills/**/*.md
+        plugins/*/agents/**/*.md
+        plugins/*/prompts/**/*.md
+        docs/design-notes/**/*.md
+        docs/architecture-notes/**/*.md
 
-    `.github/workflows/` and `.github/actions/` are denied outright, ahead of the allowlist.
-    They are not documents: a same-repo PR branch runs workflows with repository secrets at
-    PR-open time, before the draft-PR and human-review backstops apply, so a workflow edit
-    that reached a coarse `.github/` allowlist would execute attacker-influenced code with
-    full credentials.
+    Generated `.github` copies, executable code, workflows/actions, plans, schemas, configuration,
+    and runtime state are outside the allowlist. Workflows and actions are denied explicitly.
 
     Symlinks are resolved component by component before confinement, so a link inside an
     allowed folder cannot redirect a write outside the repository.
 
-    Exit code 0 = every touched path is in scope. Exit code 1 = refuse; the PR must not be
-    opened.
+    Exit code 0 = every supplied or touched path is in scope. Exit code 1 = refuse.
 .EXAMPLE
-    pwsh -NoProfile -File scripts/skalary/Test-SiWriteScope.ps1
+    & scripts/skalary/Test-SiWriteScope.ps1 -Path @('plugins/self-improvement/skills/si/SKILL.md')
 .EXAMPLE
-    pwsh -NoProfile -File scripts/skalary/Test-SiWriteScope.ps1 -RepoRoot ../worktree -BaseRef main -PassThru
+    & scripts/skalary/Test-SiWriteScope.ps1 -RepoRoot ../worktree -BaseRef main -PassThru
 #>
 [CmdletBinding()]
 param(
@@ -35,6 +36,9 @@ param(
     # Diff base for the committed half of the proposal. `main` is the documented default;
     # the ref is resolved against origin first so a stale local branch cannot narrow scope.
     [string]$BaseRef = 'main',
+
+    [Alias('Paths')]
+    [string[]]$Path,
 
     [switch]$PassThru
 )
@@ -45,7 +49,11 @@ $ErrorActionPreference = 'Stop'
 # Ordered deny-then-allow. Deny wins: an entry that matches both is refused, so widening the
 # allowlist can never silently re-expose an execution-carrying path.
 $script:DeniedPrefixes = @('.github/workflows/', '.github/actions/')
-$script:AllowedPrefixes = @('plugins/', 'docs/', '.github/skills/', '.github/agents/', '.github/prompts/')
+$script:AllowedPatterns = @(
+    '^\.github/copilot-instructions\.md$',
+    '^plugins/[^/]+/(?:skills|agents|prompts)/.+\.md$',
+    '^docs/(?:design-notes|architecture-notes)/.+\.md$'
+)
 
 function Invoke-Git {
     param(
@@ -112,7 +120,14 @@ function Resolve-BaseRef {
         [Parameter(Mandatory)][string]$Ref
     )
 
-    foreach ($candidate in @("refs/remotes/origin/$Ref", "refs/heads/$Ref", $Ref)) {
+    $candidates = if ($Ref -ceq 'HEAD') {
+        @('HEAD')
+    }
+    else {
+        @("refs/remotes/origin/$Ref", "refs/heads/$Ref", $Ref)
+    }
+
+    foreach ($candidate in $candidates) {
         $resolved = Invoke-Git -WorkingDirectory $Root -Arguments @('rev-parse', '--verify', '--quiet', $candidate) -AllowFailure
         if ($resolved -and -not [string]::IsNullOrWhiteSpace([string]$resolved[0])) {
             return ($candidate -replace '^refs/remotes/', '' -replace '^refs/heads/', '')
@@ -214,6 +229,15 @@ function Test-PrefixMatch {
     $Path.Equals($bare, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Test-AllowedPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    foreach ($pattern in $script:AllowedPatterns) {
+        if ($Path -cmatch $pattern) { return $true }
+    }
+    return $false
+}
+
 function Test-ScopeEntry {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -245,12 +269,12 @@ function Test-ScopeEntry {
         }
     }
 
-    $literalAllowed = $false
-    foreach ($allowed in $script:AllowedPrefixes) {
-        if (Test-PrefixMatch -Path $normalized -Prefix $allowed) { $literalAllowed = $true; break }
-    }
-    if (-not $literalAllowed) {
-        return [pscustomobject]@{ Path = $normalized; Allowed = $false; Reason = 'outside the /si write allowlist' }
+    if (-not (Test-AllowedPath -Path $normalized)) {
+        return [pscustomobject]@{
+            Path = $normalized
+            Allowed = $false
+            Reason = 'outside the /si canonical Markdown write allowlist'
+        }
     }
 
     $real = Resolve-RealPath -Root $Root -RelativePath $normalized
@@ -271,13 +295,19 @@ function Test-ScopeEntry {
         }
     }
 
-    foreach ($allowed in $script:AllowedPrefixes) {
-        if (Test-PrefixMatch -Path $resolvedRelative -Prefix $allowed) {
-            return [pscustomobject]@{ Path = $normalized; Allowed = $true; Reason = "in scope ('$allowed')" }
+    if (Test-AllowedPath -Path $resolvedRelative) {
+        return [pscustomobject]@{
+            Path = $normalized
+            Allowed = $true
+            Reason = 'in scope (canonical Markdown customization source)'
         }
     }
 
-    return [pscustomobject]@{ Path = $normalized; Allowed = $false; Reason = "resolves outside the /si write allowlist ('$resolvedRelative')" }
+    return [pscustomobject]@{
+        Path = $normalized
+        Allowed = $false
+        Reason = "resolves outside the /si canonical Markdown write allowlist ('$resolvedRelative')"
+    }
 }
 
 try {
@@ -288,30 +318,39 @@ catch {
     exit 1
 }
 
-$resolvedBase = Resolve-BaseRef -Root $root -Ref $BaseRef
-if (-not $resolvedBase) {
-    # No base ref means the committed half of the proposal cannot be enumerated. Refusing is the
-    # only safe answer: passing here would approve an unexamined set of commits.
-    Write-Host "Test-SiWriteScope failed: cannot resolve diff base '$BaseRef' in '$root'." -ForegroundColor Red
-    exit 1
+$resolvedBase = $null
+if ($PSBoundParameters.ContainsKey('Path')) {
+    $touched = @($Path | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($touched.Count -eq 0) {
+        Write-Host 'Test-SiWriteScope REFUSED: explicit -Path must contain at least one non-blank path.' -ForegroundColor Red
+        exit 1
+    }
+}
+else {
+    $resolvedBase = Resolve-BaseRef -Root $root -Ref $BaseRef
+    if (-not $resolvedBase) {
+        Write-Host "Test-SiWriteScope failed: cannot resolve diff base '$BaseRef' in '$root'." -ForegroundColor Red
+        exit 1
+    }
+    $touched = Get-TouchedPath -Root $root -ResolvedBase $resolvedBase
 }
 
-$touched = Get-TouchedPath -Root $root -ResolvedBase $resolvedBase
-
-$unique = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
-foreach ($path in $touched) {
-    if (-not [string]::IsNullOrWhiteSpace($path)) { [void]$unique.Add($path.Replace('\', '/')) }
-}
+$unique = @(
+    $touched |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+        ForEach-Object { ([string]$_).Replace('\', '/') } |
+        Sort-Object -Unique -CaseSensitive
+)
 
 $results = [System.Collections.Generic.List[object]]::new()
-foreach ($path in $unique) {
-    $results.Add((Test-ScopeEntry -Root $root -RelativePath $path))
+foreach ($candidatePath in $unique) {
+    $results.Add((Test-ScopeEntry -Root $root -RelativePath ([string]$candidatePath)))
 }
 
 $violations = @($results | Where-Object { -not $_.Allowed })
 
 if ($violations.Count -gt 0) {
-    Write-Host "Test-SiWriteScope REFUSED: $($violations.Count) path(s) outside the /si write scope (base $resolvedBase...HEAD)." -ForegroundColor Red
+    Write-Host "Test-SiWriteScope REFUSED: $($violations.Count) path(s) outside the /si canonical Markdown write scope." -ForegroundColor Red
     foreach ($violation in $violations) {
         Write-Host "  DENY $($violation.Path) - $($violation.Reason)" -ForegroundColor Red
     }
@@ -319,6 +358,6 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host "Test-SiWriteScope passed: $($results.Count) touched path(s) in scope (base $resolvedBase...HEAD)." -ForegroundColor Green
+Write-Host "Test-SiWriteScope passed: $($results.Count) path(s) in canonical Markdown scope." -ForegroundColor Green
 if ($PassThru) { $results }
 exit 0

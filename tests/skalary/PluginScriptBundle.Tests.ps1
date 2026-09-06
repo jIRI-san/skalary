@@ -102,6 +102,7 @@ Describe 'Plugin script bundling' {
                 tags = @('skill'); dependencies = @(); status = 'stable'
                 files = @(@{ src = 'skills/ts/SKILL.md'; dest = 'skills/ts/SKILL.md' })
             }
+
             Set-Content -LiteralPath (Join-Path $fixture 'plugins/testplug/plugin.json') `
                 -Value ($manifest | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
@@ -119,6 +120,34 @@ Describe 'Plugin script bundling' {
             Add-Content -LiteralPath $bundled -Value "`n# drift"
             & $syncScript -RepoRoot $fixture *> $null
             (& $getVersion) | Should -Be '1.0.2' -Because 're-syncing a changed bundle is another payload change'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:bundle-selected-payload-bump bumps a changed declared Markdown owner' {
+        $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('payload-bump-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+        try {
+            git init -q $fixture 2>$null | Out-Null
+            $skillDir = Join-Path $fixture 'plugins/testplug/skills/ts'
+            $dogfoodDir = Join-Path $fixture '.github/skills/ts'
+            New-Item -ItemType Directory -Path $skillDir, $dogfoodDir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $skillDir 'SKILL.md') -Value 'changed' -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $dogfoodDir 'SKILL.md') -Value 'previous' -Encoding utf8NoBOM
+
+            $manifest = [ordered]@{
+                name = 'testplug'; version = '1.0.0'; description = 'fixture'; author = 'x'; license = 'MIT'
+                tags = @('skill'); dependencies = @(); status = 'stable'
+                files = @(@{ src = 'skills/ts/SKILL.md'; dest = 'skills/ts/SKILL.md' })
+            }
+            Set-Content -LiteralPath (Join-Path $fixture 'plugins/testplug/plugin.json') `
+                -Value ($manifest | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
+
+            & $syncScript -RepoRoot $fixture -ChangedPath 'plugins/testplug/skills/ts/SKILL.md' *> $null
+            (Get-Content -LiteralPath (Join-Path $fixture 'plugins/testplug/plugin.json') -Raw |
+                ConvertFrom-Json).version | Should -Be '1.0.1'
         }
         finally {
             Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue

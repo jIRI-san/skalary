@@ -32,7 +32,6 @@ This tier is **not** a backlog of features. It holds *analysis* — the constrai
 | File | Resolution |
 |---|---|
 | [asset-scanner-root-bound.design.md](asset-scanner-root-bound.design.md) | The closed runtime-root grammar shipped; undeclared scaffold roots now fail. |
-| [si-cross-repo-proposal-protocol.design.md](si-cross-repo-proposal-protocol.design.md) | Plan `2366ad` shipped a bounded typed export and clean upstream-rooted handoff; the broader platform alternatives remain rejected. |
 
 ## Scheduled review
 

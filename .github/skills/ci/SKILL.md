@@ -31,7 +31,7 @@ preserve its exact exit status and outcome.
 Work directly with zero delegated calls. Resolve aliases through
 [`model-aliases.psd1`](./assets/model-aliases.psd1). Routine work uses `primary-model-low`/medium with
 `secondary-model-low` replacement. One unresolved design/acceptance choice permits a combined
-`primary-model-mid`/high Designer/Validator with `secondary-model-mid` replacement. Use `primary-model-high`/high only
+`primary-model-mid`/high Designer/Validator with `secondary-model-mid` replacement. Use `primary-model-high`/high
 after unresolved standard work, and one `secondary-model-high`/high pass only for a named high-risk
 concern. No automatic Judge exists: deterministic evidence is
 the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a fourth
@@ -60,6 +60,6 @@ During finalization, invoke `.github/skills/autopilot/assets/design-note-compact
 On completion, run `Write-RecentLearning.ps1` against the source commit with zero to ten
 repo-cited lessons. Commit its replacement of `docs/feedback/recent-learning.md`; create no extra state.
 
-Before interactive archival, offer installed `/pfb` and follow its skill when accepted. A decline,
-unanswered offer, or absent skill skips it silently: feedback is never blocking, and never substitutes
-for a failed evidence marker. Headless autopilot queues the question instead of prompting.
+Before interactive archival, offer installed `/pfb`. Decline, no answer, or an absent skill skips it:
+feedback is never blocking and never substitutes
+for a failed evidence marker. Headless execution skips `/pfb`; it never queues or invents a verdict.

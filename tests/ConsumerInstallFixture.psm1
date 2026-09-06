@@ -1062,19 +1062,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                         else { $Root })
                 )
             }
-            'Update-FeedbackQueue.ps1' {
-                $scriptPath = Get-InstalledPath -Root $Root -Destination (
-                    'skills/pfb/scripts/Update-FeedbackQueue.ps1'
-                )
-                @(
-                    '-NoProfile', '-File', $scriptPath,
-                    '-Action', 'Queue',
-                    '-Plan', $(if ($Hostile) { '../bad' } else { 'b0c0d3' }),
-                    '-Question', 'Did the scaffold lifecycle preserve consumer files?',
-                    '-Date', '2026-01-02',
-                    '-RepoRoot', $Root
-                )
-            }
             default {
                 return [pscustomobject]@{
                     ExitCode = -1
@@ -1263,7 +1250,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                     'docs/implementation-plans/epics/2026-01-02-d4e5f6-consumer-epic/epic.md'
                 }
                 'Initialize-DesignNotes.ps1' { 'docs/design-notes/.design-notes.md' }
-                'Update-FeedbackQueue.ps1' { 'docs/feedback/queue.md' }
                 default { $null }
             }
             if ($modifiedPath) {

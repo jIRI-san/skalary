@@ -90,9 +90,9 @@ Describe 'AI credit budget contracts' {
         }
 
         $manifest = Read-RepoText 'plugins/self-improvement/plugin.json' | ConvertFrom-Json
-        @($manifest.files.src) | Should -Contain 'skills/si/assets/lifecycle-guide.md'
+        @($manifest.files.src) | Should -Contain 'skills/si/assets/propose-guide.md'
         Test-Path -LiteralPath (
-            Join-Path $script:repoRoot '.github/skills/si/assets/lifecycle-guide.md'
+            Join-Path $script:repoRoot '.github/skills/si/assets/propose-guide.md'
         ) -PathType Leaf | Should -BeTrue
     }
 

@@ -1,7 +1,8 @@
 #requires -Version 7.0
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path,
+    [string[]]$ChangedPath = @()
 )
 
 Set-StrictMode -Version Latest
@@ -475,6 +476,9 @@ if ($manifestPaths.Count -eq 0) {
 }
 
 $expected = @{}        # managedDirKey -> @{ Dir; Files = @{ name -> sourcePath } }
+$payloadOwners = [System.Collections.Generic.Dictionary[string, object]]::new(
+    [System.StringComparer]::Ordinal
+)
 
 # Every installed destination across *every* plugin: a payload may legitimately reference an
 # asset another plugin owns (the autopilot agent reads the cr/dr concern map), so declaration
@@ -484,8 +488,20 @@ $declaredScaffolds = [System.Collections.Generic.List[object]]::new()
 $scaffoldRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($manifestPath in $manifestPaths) {
     $manifest = Read-JsonFile -Path $manifestPath.FullName
+    $pluginRoot = Split-Path -Parent $manifestPath.FullName
     foreach ($file in @($manifest.files)) {
         [void]$declaredDests.Add(([string]$file.dest).Replace('\', '/'))
+        $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath ([string]$file.src)
+        $sourceRelative = [System.IO.Path]::GetRelativePath(
+            $repoRootPath,
+            $sourcePath
+        ).Replace('\', '/')
+        $payloadOwners[$sourceRelative] = [pscustomobject]@{
+            ManifestPath = $manifestPath.FullName
+            SourcePath = $sourcePath
+            TargetPath = Resolve-GithubConstrainedPath -RepoRoot $repoRootPath `
+                -RelativePath ([string]$file.dest)
+        }
     }
 
     if ($manifest.PSObject.Properties.Name -notcontains 'scaffolds' -or $null -eq $manifest.scaffolds) { continue }
@@ -741,7 +757,33 @@ foreach ($manifestPath in $manifestPaths) {
 
 $changedCount = 0
 $staleCount = 0
+$selectedPayloadCount = 0
 $changedManifests = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+foreach ($path in $ChangedPath) {
+    $normalized = ([string]$path).Trim().Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($normalized)) { continue }
+    if ([System.IO.Path]::IsPathRooted($normalized) -or
+        ($normalized -split '/') -contains '..') {
+        throw "Changed payload path must be repository-relative and confined: '$path'."
+    }
+    if (-not $normalized.StartsWith('plugins/', [System.StringComparison]::Ordinal)) { continue }
+    if (-not $payloadOwners.ContainsKey($normalized)) {
+        throw "Changed plugin payload is not declared by any manifest: '$normalized'."
+    }
+
+    $owner = $payloadOwners[$normalized]
+    $sourceHash = Get-FileSha256 -Path $owner.SourcePath
+    $targetHash = if (Test-Path -LiteralPath $owner.TargetPath -PathType Leaf) {
+        Get-FileSha256 -Path $owner.TargetPath
+    }
+    else {
+        $null
+    }
+    if ($sourceHash -ne $targetHash -and $changedManifests.Add($owner.ManifestPath)) {
+        $selectedPayloadCount++
+    }
+}
 
 # An undeclared asset reference is not drift the sync can repair — only the plugin author
 # knows whether the file should ship or the reference should go — so it fails in both the
@@ -799,8 +841,8 @@ foreach ($entry in ($expected.Values | Sort-Object Dir)) {
     }
 }
 
-if ($WhatIfPreference -and ($changedCount + $staleCount) -gt 0) {
-    throw "Plugin-script bundle drift detected: $changedCount file(s) differ from scripts/skalary sources, $staleCount stale file(s). Run scripts/skalary/Sync-PluginScripts.ps1 and rebuild the registry."
+if ($WhatIfPreference -and ($changedCount + $staleCount + $selectedPayloadCount) -gt 0) {
+    throw "Plugin payload drift detected: $changedCount bundled file(s) differ, $staleCount stale bundled file(s), $selectedPayloadCount selected payload owner(s) need a version bump. Run scripts/skalary/Sync-PluginScripts.ps1 and rebuild the registry."
 }
 
 # A bundled copy is part of each plugin's installable payload, so a content change
@@ -816,4 +858,4 @@ if (-not $WhatIfPreference) {
     }
 }
 
-Write-Host "Plugin-script bundle sync completed. Changed: $changedCount. Removed stale: $staleCount. Version-bumped plugins: $bumpedCount."
+Write-Host "Plugin-script bundle sync completed. Changed: $changedCount. Removed stale: $staleCount. Selected payload owners: $selectedPayloadCount. Version-bumped plugins: $bumpedCount."

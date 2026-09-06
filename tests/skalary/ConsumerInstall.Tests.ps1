@@ -475,14 +475,7 @@ exit 37
         # on a selected durable record. Their dedicated SI suites exercise confinement,
         # recovery, and idempotence. This generic starter-content harness owns only persistent
         # first-use scaffolds whose complete declared shape exists after one invocation.
-        $transactionalOwners = @(
-            'Archive-SiState.ps1',
-            'Export-CrossRepoSi.ps1',
-            'Get-SiHarvest.ps1',
-            'Repair-SiState.ps1',
-            'SiStateStore.psm1'
-            'Write-RecentLearning.ps1'
-        )
+        $transactionalOwners = @('Write-RecentLearning.ps1')
         $allDeclaredOwners = @(
             $script:fixture.Catalog.Plugins |
                 ForEach-Object { @($_.Scaffolds) } |

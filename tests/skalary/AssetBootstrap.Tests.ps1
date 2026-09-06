@@ -532,8 +532,8 @@ $registry = Join-Path $RepoRoot 'scripts/skalary/registry.json'
 
         It 'test:scaffold-literal-mode accepts a fixed path and rejects a placeholder or a confine helper' {
             $literal = [ordered]@{
-                path = 'docs/feedback/queue.md'; mode = 'literal'
-                owner = 'Update-FeedbackQueue.ps1'; trigger = 'first queued marker'
+                path = 'docs/operator/notes.md'; mode = 'literal'
+                owner = 'Initialize-OperatorNotes.ps1'; trigger = 'first note'
             }
             (& $script:schemaAccepts -Json (& $script:baseManifest -Scaffolds @($literal)) -SchemaFile $script:pluginSchema) |
                 Should -BeTrue
@@ -542,14 +542,14 @@ $registry = Join-Path $RepoRoot 'scripts/skalary/registry.json'
             # label — the mode is what decides whether a confine helper is required.
             $placeholder = [ordered]@{
                 path = 'docs/feedback/<plan>.md'; mode = 'literal'
-                owner = 'Update-FeedbackQueue.ps1'; trigger = 'first queued marker'
+                owner = 'Initialize-OperatorNotes.ps1'; trigger = 'first note'
             }
             (& $script:schemaAccepts -Json (& $script:baseManifest -Scaffolds @($placeholder)) -SchemaFile $script:pluginSchema) |
                 Should -BeFalse
 
             $withConfine = [ordered]@{
-                path = 'docs/feedback/queue.md'; mode = 'literal'
-                owner = 'Update-FeedbackQueue.ps1'; trigger = 'first queued marker'; confine = 'Resolve-RepoPath'
+                path = 'docs/operator/notes.md'; mode = 'literal'
+                owner = 'Initialize-OperatorNotes.ps1'; trigger = 'first note'; confine = 'Resolve-RepoPath'
             }
             (& $script:schemaAccepts -Json (& $script:baseManifest -Scaffolds @($withConfine)) -SchemaFile $script:pluginSchema) |
                 Should -BeFalse

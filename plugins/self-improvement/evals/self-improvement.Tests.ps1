@@ -64,16 +64,14 @@ Describe 'self-improvement structural evals' {
         )
         foreach ($required in @(
                 'skills/pfb/assets/feedback-guide.md',
-                'skills/pfb/assets/queue-guide.md',
-                'skills/pfb/scripts/Update-FeedbackQueue.ps1',
+                'skills/pfb/scripts/PlanState.psm1',
                 'skills/si/assets/harvest-guide.md',
                 'skills/si/assets/propose-guide.md',
                 'skills/si/scripts/Get-SiHarvest.ps1',
-                'skills/si/scripts/Invoke-SiLifecycle.ps1',
-                'skills/si/scripts/Invoke-SiProposalSync.ps1',
-                'skills/si/scripts/Complete-SiProposal.ps1'
+                'skills/si/scripts/Test-SiWriteScope.ps1'
             )) {
             $declaredDestinations | Should -Contain $required
         }
+        @($script:manifest.scaffolds | Where-Object { $null -ne $_ }).Count | Should -Be 0
     }
 }
