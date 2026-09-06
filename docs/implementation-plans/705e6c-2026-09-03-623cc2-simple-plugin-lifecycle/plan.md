@@ -140,7 +140,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** detect-only bundle, registry, marketplace, dogfood, and foreign-consumer drift checks pass.
 
   </details>
-- [ ] 3.3 Run focused direct lifecycle, registry, distribution, and consumer evidence, then one risk-selected whole-plan CR (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7) [after: 3.2] `M`
+- [x] 3.3 Run focused direct lifecycle, registry, distribution, and consumer evidence, then one risk-selected whole-plan CR (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7) [after: 3.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** typed deterministic evidence proves the confirmed lifecycle contract and one final direct review covers the complete plan diff without an automatic second model or unchanged-scope rerun.
