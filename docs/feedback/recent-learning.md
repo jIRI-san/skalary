@@ -1,9 +1,10 @@
 # Recent learning
 
-Source plan: `623cc2 simple-plugin-lifecycle`
-Source commit: `5023b896c75921e6ebfc37639cd1de7ffb275187`
+Source plan: `a524dc unified-skalary-configuration`
+Source commit: `7024838ef922cee94ba981034f474866a386de2d`
 
 ## Lessons
 
-- Validate a confined receipt path before creating its parent directories so a linked existing component cannot receive a write. — `scripts/skalary/_Common.ps1`
-- Regenerate bundles, catalogs, and dogfood through the prescribed generator sequence after canonical lifecycle changes. — `docs/design-notes/architecture/plugin-registry.design.md`
+- Keep consumer-facing helpers on declared installed paths; source-tree paths break isolated plugin delivery. — `plugins/skalary-config/skills/skalary-config/scripts/Set-SkalaryConfig.ps1`
+- Treat git diff exit code 1 as a successful changed preview before running later native commands. — `plugins/skalary-config/skills/skalary-config/scripts/Set-SkalaryConfig.ps1`
+- Preserve secret redaction at output boundaries while forwarding credentials only inside the existing validator. — `plugins/skalary-config/skills/skalary-config/scripts/Test-AutopilotAuth.ps1`
