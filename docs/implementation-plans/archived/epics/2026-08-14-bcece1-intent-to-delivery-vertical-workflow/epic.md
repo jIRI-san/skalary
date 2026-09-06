@@ -2,6 +2,10 @@
 <!-- epic-id: bcece1 -->
 <!-- Folder naming: epics/<yyyy-mm-dd>-<6hex>-<slug> · epic-id is the canonical handle. -->
 
+> **Superseded 2026-09-06.** The review-run and coherency mechanisms described below were retired by
+> plan `367e9a`. Current behavior is governed by `ARCH-Direct-Workflow` and the repository-wide
+> Simplicity First rule. This epic is retained as delivery history.
+
 ## Goal
 
 Make `/cip`, `/cep`, and `/ci` produce and execute complete, operator-aligned plans as usable vertical increments, with confirmed intent and concise program design agreed before implementation.
@@ -38,7 +42,7 @@ Make `/cip`, `/cep`, and `/ci` produce and execute complete, operator-aligned pl
 |---|---|---|
 | `57cc2c` | intent-capture-and-rfc _(archived)_ | — |
 | `8a0644` | dispatch-plan-up-front _(archived)_ | `57cc2c`, `6a629b`, `c21cdc` |
-| `25aa23` | epic-coherency-review | `8a0644` |
+| `25aa23` | epic-coherency-review _(archived)_ | `8a0644` |
 | `4dd933` | cross-plan-artifact-context _(archived)_ | — |
 | `669ad3` | epic-prefixed-plan-folder-naming _(archived)_ | — |
 | `6a629b` | vertical-implementation-requirement-loop _(archived)_ | `57cc2c`, `863d97` |
@@ -56,7 +60,7 @@ Membership is the `<!-- epic: bcece1 -->` marker in each child `plan.md`. The ta
 | `57cc2c` | Confirm operator intent and concise design | Existing Markdown assets, three checkpoints, one lifecycle marker, invalidation on intent/design edits |
 | `6a629b` | Implement and verify vertical phases | Existing plan parser/state, evidence crosscheck, `Add-WorkflowNote`, operator checkpoint, one-phase stop/resume |
 | `8a0644` | Declare and dispatch bounded agent work | Pure planner plus run-scoped adapter; review-run v1 remains authoritative |
-| `25aa23` | Prevent incoherent or overcomplicated epic cuts | Existing design review plus proportionality rubric and one compact operator-resolved verdict |
+| `25aa23` | Prevent incoherent or overcomplicated epic cuts | Superseded by direct risk-selected review and the repository-wide Simplicity First rule |
 | `4dd933` | Load related-plan artifacts with provenance | One resolver beside `Get-PlanIndex`, existing layout resolution, path/byte bounds |
 | `669ad3` | Prefix new hash-plan folders and offer bounded migration | New-plan naming plus one operator-run `-WhatIf` mapping/move/resume script |
 | `9fda0b` | Synchronize a GitHub work hierarchy | Pure projection, dry run, confirmed `gh` apply, mapping/markers, conflict refusal, no-op convergence |
@@ -105,6 +109,8 @@ The coherency review compares every proposed mechanism to confirmed operator int
 
 The accepted 2026-08-22 cut removes duplicated platforms, speculative protocols, versioned authorities, exhaustive imagined fault matrices, and infrastructure-only dependencies. Each child owns one operator-visible outcome and reuses current plan/layout/review/launcher/generator/test machinery. Historical review, evolution, and log artifacts remain unchanged.
 
-## Before each child run
+## Supersession
 
-Run the `25aa23` proportionality rubric against the current child plan and dependency graph before implementation starts. Reconfirm operator intent; detect duplicated mechanisms, unclear ownership, and infrastructure-only edges; and classify the result as `keep`, `simplify`, `split`, or `defer`. A minor or local review finding cannot justify a schema, protocol, store, state machine, compatibility layer, provider, or dependency without a demonstrated cross-plan invariant. Resolve blocking simplification findings before running the plan and record the compact result in the existing epic verdict or plan decisions. Use [the 2026-08-22 simplification review](../2026-08-22-plan-simplification-review.md) as the baseline; no new review-state system is required. Apply the checklist manually until `25aa23` adds the same prompt-level gate to `/ci`.
+The direct workflow removed the fixed per-child coherency gate and durable epic verdict. Current work
+applies Simplicity First directly: prefer deletion, reuse, or a local fix, and reject review-driven
+platform machinery unless a current user-visible failure cannot be fixed locally.

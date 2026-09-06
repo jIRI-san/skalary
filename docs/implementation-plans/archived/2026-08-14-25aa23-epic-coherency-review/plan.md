@@ -2,7 +2,7 @@
 <!-- plan-id: 25aa23 -->
 <!-- depends-on: 8a0644 -->
 <!-- epic: bcece1 -->
-<!-- cip-stage: dr-round-3 -->
+<!-- cip-stage: done -->
 <!-- Folder naming: <yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle. -->
 
 <!-- execution-mode: manual -->
@@ -19,7 +19,7 @@
 - Decisions - [assets/decisions.md](assets/decisions.md)
 - References - [assets/references.md](assets/references.md)
 - Evolution log - [assets/evolution-log.md](assets/evolution-log.md)
-- Evidence receipt - `assets/evidence.md` (rebuilt by `Build-EvidenceReceipt`)
+- Supersession evidence - [assets/evidence.md](assets/evidence.md)
 
 ## Phase 1: Fixed coherency review
 <!-- worktree: (recorded by /ci when worktree is created) -->
@@ -38,4 +38,12 @@
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
 - [x] 3.1 Add focused fixtures for minor-finding escalation, duplicated mechanisms, owner conflicts, unnecessary dependencies, demonstrated cross-plan invariants, pre-run stale-plan detection, and compact verdict persistence; synchronize existing plugin/generated copies (REQ-3, REQ-5, REQ-6, REQ-7, RISK-2, RISK-4, RISK-5, RISK-6) [after: 2.3] `M`
-- [ ] 3.2 Run focused coherency, installed-consumer, review-run, and generated-drift checks; rebuild the existing evidence receipt and complete final intent/requirement review (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 3.1] `M`
+- [x] 3.2 Reevaluate the remaining coherency work against the direct workflow, record the supersession of retired review-run and evidence-receipt requirements, remove the orphaned verdict writer, and close the plan without restoring deleted machinery (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 3.1] `M`
+
+## Closure
+
+Closed as superseded on 2026-09-06. Plan `367e9a` and commit
+`a652134251e217e8227e184dae1bf49a32b294df` replaced review-run authority, durable review receipts,
+the fixed review fleet, and the per-child coherency gate with direct risk-selected review, current Git
+criteria, and the repository-wide Simplicity First rule. The retained 72-finding review applies to the
+deleted implementation and is historical evidence, not current work.
