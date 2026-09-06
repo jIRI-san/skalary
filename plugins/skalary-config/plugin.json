@@ -1,0 +1,53 @@
+{
+  "name": "skalary-config",
+  "version": "1.0.0",
+  "description": "Discover Skalary configuration surfaces and safely preview category-scoped changes.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "configuration",
+    "skill",
+    "skalary"
+  ],
+  "dependencies": [],
+  "status": "partial",
+  "files": [
+    {
+      "src": "skills/skalary-config/SKILL.md",
+      "dest": "skills/skalary-config/SKILL.md"
+    },
+    {
+      "src": "skills/skalary-config/assets/catalog.md",
+      "dest": "skills/skalary-config/assets/catalog.md"
+    },
+    {
+      "src": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1",
+      "dest": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/review-standards.md",
+      "mode": "literal",
+      "owner": "skalary-config",
+      "trigger": "selected local-review-standards bootstrap"
+    },
+    {
+      "path": "tools/eval-tools.psd1",
+      "mode": "literal",
+      "owner": "skalary-config",
+      "trigger": "source-only eval toolchain discovery"
+    },
+    {
+      "path": "tools/model-allowlist.psd1",
+      "mode": "literal",
+      "owner": "skalary-config",
+      "trigger": "source-only model-routing discovery"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

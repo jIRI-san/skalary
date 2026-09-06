@@ -38,7 +38,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add the `skalary-config` plugin shell and the closed human-readable configuration catalog for every accepted category and current source/generated/precedence boundary (REQ-1, REQ-9, RISK-1, RISK-2, RISK-5) `M`
+- [x] 1.1 Add the `skalary-config` plugin shell and the closed human-readable configuration catalog for every accepted category and current source/generated/precedence boundary (REQ-1, REQ-9, RISK-1, RISK-2, RISK-5) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the canonical plugin contains a compact `/skalary-config` entrypoint and a catalog row for
@@ -55,7 +55,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
   </details>
 
-- [ ] 1.2 Implement confined read-only discovery, effective-value resolution, validation, current-diff, and mutation preview with secret redaction and source-change detection (REQ-2, REQ-3, REQ-7, RISK-1, RISK-3, RISK-6) [after: 1.1] `L`
+- [x] 1.2 Implement confined read-only discovery, effective-value resolution, validation, current-diff, and mutation preview with secret redaction and source-change detection (REQ-2, REQ-3, REQ-7, RISK-1, RISK-3, RISK-6) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** guided and direct `show`, `validate`, `diff`, and proposal paths resolve source versus
