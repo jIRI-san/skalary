@@ -39,7 +39,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Replace file-ownership receipts with the minimal installed-version receipt and direct shape validation (REQ-2, REQ-7, RISK-2, RISK-6) `M`
+- [x] 1.1 Replace file-ownership receipts with the minimal installed-version receipt and direct shape validation (REQ-2, REQ-7, RISK-2, RISK-6) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** each installed plugin has one confined receipt containing only `name`, `version`, `sourceIdentity`, and immutable `ref`; list/get/dependency checks use it for installed and outdated status without file ownership, degraded state, timestamps, or a schema.
@@ -53,7 +53,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** an active external consumer is proven to require a removed receipt field; stop for an explicit compatibility decision rather than retaining it speculatively.
 
   </details>
-- [ ] 1.2 Simplify install and update to confined direct writes, result verification, and receipt-last convergence (REQ-1, REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) [after: 1.1] `M`
+- [x] 1.2 Simplify install and update to confined direct writes, result verification, and receipt-last convergence (REQ-1, REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** install refuses unowned collisions unless forced; update uses a matching minimal receipt to detect version/ref changes, replaces the plugin's old and new manifest-owned paths, verifies the resulting bytes in memory, and writes the new receipt only after success; unchanged reruns make no change.
@@ -67,7 +67,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** the prior immutable ref cannot be materialized to derive the installed manifest, or a manifest maps two plugins to the same destination; fail without advancing the receipt and stop for operator action.
 
   </details>
-- [ ] 1.3 Replace transactional removal and automatic retirement with preflighted explicit removal and retired-name refusal (REQ-1, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.2] `M`
+- [x] 1.3 Replace transactional removal and automatic retirement with preflighted explicit removal and retired-name refusal (REQ-1, REQ-5, REQ-6, RISK-1, RISK-2, RISK-3, RISK-5) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** remove derives the exact installed manifest from the receipt ref, preflights the complete delete set, refuses before any deletion when a present file differs unless `-Force`, deletes missing-safe targets and the receipt last, and converges on retry; install/update refuse published retired names and direct the operator to explicit removal.

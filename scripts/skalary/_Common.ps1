@@ -308,6 +308,9 @@ function Test-GithubRelativePath {
     }
 
     $segments = ($RelativePath -replace '\\', '/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+    if ($segments.Count -gt 0 -and $segments[0] -ceq 'workflows') {
+        return $false
+    }
     foreach ($segment in $segments) {
         if ($segment -eq '..') {
             return $false
@@ -1189,17 +1192,12 @@ function Test-PluginReceiptShape {
         $ExpectedSourceIdentity
     )
 
-    $allowed = @('name', 'version', 'source', 'sourceIdentity', 'ref', 'installedAt', 'degraded', 'evalStatus', 'files')
     $properties = @($Receipt.PSObject.Properties.Name)
-    foreach ($property in $properties) {
-        if ($property -notin $allowed) {
-            throw "Plugin receipt contains unsupported property '$property'."
-        }
-    }
-    foreach ($required in @('name', 'version', 'ref', 'installedAt', 'files')) {
-        if ($properties -notcontains $required) {
-            throw "Plugin receipt is missing required property '$required'."
-        }
+    $required = @('name', 'version', 'sourceIdentity', 'ref')
+    if ($properties.Count -ne $required.Count -or
+        @($properties | Where-Object { $_ -notin $required }).Count -gt 0 -or
+        @($required | Where-Object { $_ -notin $properties }).Count -gt 0) {
+        throw 'Plugin receipt must contain exactly name, version, sourceIdentity, and ref.'
     }
     Assert-PluginName -PluginName ([string]$Receipt.name)
     if (-not [string]::IsNullOrWhiteSpace($ExpectedPluginName) -and
@@ -1210,45 +1208,13 @@ function Test-PluginReceiptShape {
     if ([string]$Receipt.ref -cnotmatch '^[a-f0-9]{40}([a-f0-9]{24})?$') {
         throw 'Plugin receipt immutable ref is invalid.'
     }
-    $installedAt = [DateTimeOffset]::MinValue
-    if (-not [DateTimeOffset]::TryParse(
-            [string]$Receipt.installedAt,
-            [System.Globalization.CultureInfo]::InvariantCulture,
-            [System.Globalization.DateTimeStyles]::RoundtripKind,
-            [ref]$installedAt)) {
-        throw 'Plugin receipt installedAt timestamp is invalid.'
-    }
-
-    $sourceIdentity = Resolve-PluginReceiptSourceIdentity -Receipt $Receipt
+    Assert-PluginSourceIdentity -SourceIdentity $Receipt.sourceIdentity
+    $sourceIdentity = $Receipt.sourceIdentity
     if ($null -ne $ExpectedSourceIdentity -and
         -not (Test-PluginSourceIdentityEqual -Left $sourceIdentity -Right $ExpectedSourceIdentity)) {
         throw 'Plugin receipt source identity does not match the expected recovery source.'
     }
 
-    $files = @($Receipt.files)
-    if ($files.Count -eq 0) {
-        throw 'Plugin receipt must own at least one file.'
-    }
-    $destinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($entry in $files) {
-        $entryProperties = @($entry.PSObject.Properties.Name)
-        if ($entryProperties.Count -ne 3 -or
-            $entryProperties -notcontains 'dest' -or
-            $entryProperties -notcontains 'sha256' -or
-            $entryProperties -notcontains 'outcome') {
-            throw 'Plugin receipt file entry has an unsupported shape.'
-        }
-        $dest = [string]$entry.dest
-        if (-not $destinations.Add($dest) -or -not (Test-GithubRelativePath -RelativePath $dest)) {
-            throw "Plugin receipt contains an invalid or duplicate destination '$dest'."
-        }
-        if ([string]$entry.sha256 -cnotmatch '^[a-f0-9]{64}$') {
-            throw "Plugin receipt contains an invalid hash for '$dest'."
-        }
-        if ([string]$entry.outcome -cnotin @('installed', 'updated', 'skipped-modified')) {
-            throw "Plugin receipt contains an invalid outcome for '$dest'."
-        }
-    }
     return $sourceIdentity
 }
 
@@ -2733,11 +2699,36 @@ function Read-PluginReceipt {
     )
 
     $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
         return $null
     }
 
-    return Read-JsonFile -Path $receiptPath
+    $receipt = Read-JsonFile -Path $receiptPath
+    [void](Test-PluginReceiptShape -Receipt $receipt -ExpectedPluginName $PluginName)
+    return $receipt
+}
+
+function Write-PluginReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        $Receipt
+    )
+
+    $pluginName = [string]$Receipt.name
+    [void](Test-PluginReceiptShape -Receipt $Receipt -ExpectedPluginName $pluginName)
+    $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $pluginName
+    $receiptDirectory = Split-Path -Parent $receiptPath
+    if (-not (Test-Path -LiteralPath $receiptDirectory -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $receiptDirectory -Force)
+    }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
+    Write-JsonFileStable -Path $receiptPath -InputObject $Receipt
+    return $receiptPath
 }
 
 function Test-PluginReceiptUpToDate {
@@ -2755,48 +2746,85 @@ function Test-PluginReceiptUpToDate {
         return $false
     }
 
-    if ([string]$receipt.version -ne [string]$Plugin.version) {
-        return $false
+    return [string]$receipt.version -ceq [string]$Plugin.version
+}
+
+function Invoke-PluginRemovalPrimitive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$PluginName,
+        [string]$Source,
+        [switch]$Force
+    )
+
+    $receipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $PluginName
+    if ($null -eq $receipt) { throw "Plugin '$PluginName' is not installed (receipt missing)." }
+    $sourceRoot = $null
+    $temporary = $null
+    try {
+        $candidate = if ([string]::IsNullOrWhiteSpace($Source)) {
+            Resolve-RepoRoot -StartPath $RepoRoot
+        } else {
+            Resolve-RepoRoot -StartPath $Source
+        }
+        $candidateIdentity = New-PluginSourceIdentity -LocalPath $candidate
+        if (Test-PluginSourceIdentityEqual -Left $receipt.sourceIdentity -Right $candidateIdentity) {
+            $sourceRoot = $candidate
+        } elseif ([string]$receipt.sourceIdentity.kind -ceq 'github') {
+            $temporary = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-remove-" + [guid]::NewGuid().ToString('N'))
+            git clone -c core.autocrlf=false -c core.eol=lf --no-checkout "https://$($receipt.sourceIdentity.identity).git" $temporary 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Unable to materialize installed source '$($receipt.sourceIdentity.identity)'." }
+            git -C $temporary checkout --quiet $receipt.ref
+            if ($LASTEXITCODE -ne 0) { throw "Unable to materialize installed ref '$($receipt.ref)'." }
+            $sourceRoot = $temporary
+        } else {
+            throw "Installed local source for '$PluginName' cannot be materialized from its opaque source identity."
+        }
+
+        $manifestPath = Join-Path $sourceRoot "plugins/$PluginName/plugin.json"
+        if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+            throw "Installed manifest for '$PluginName' is unavailable at ref '$($receipt.ref)'."
+        }
+        $manifest = Read-JsonFile -Path $manifestPath
+        if ([string]$manifest.version -cne [string]$receipt.version) {
+            throw "Installed manifest version does not match receipt version for '$PluginName'."
+        }
+        $files = @($manifest.files | Where-Object { [string]$_.src -notmatch '^evals(?:/|$)' })
+        $modified = @()
+        $missing = 0
+        foreach ($file in $files) {
+            $sourcePath = Resolve-PluginConstrainedPath -PluginRoot (Join-Path $sourceRoot "plugins/$PluginName") -RelativePath ([string]$file.src)
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$file.dest)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) { $missing++; continue }
+            if ((Get-FileSha256 -Path $targetPath) -cne (Get-FileSha256 -Path $sourcePath)) {
+                $modified += [string]$file.dest
+            }
+        }
+        if ($modified.Count -gt 0 -and -not $Force) {
+            throw "Refusing removal of modified file(s): $($modified -join ', '). Use -Force to remove."
+        }
+        $removed = 0
+        foreach ($file in $files) {
+            $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$file.dest)
+            Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+                Remove-Item -LiteralPath $targetPath -Force
+                if (Test-Path -LiteralPath $targetPath -PathType Leaf) { throw "Delete verification failed for '$([string]$file.dest)'." }
+                $removed++
+            }
+        }
+        $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $PluginName
+        Remove-Item -LiteralPath $receiptPath -Force
+        if (Test-Path -LiteralPath $receiptPath -PathType Leaf) { throw "Receipt deletion verification failed for '$PluginName'." }
+        return [pscustomobject]@{ RemovedCount = $removed; ModifiedCount = 0; MissingCount = $missing }
     }
-
-    $receiptFiles = @($receipt.files)
-    if ($receiptFiles.Count -eq 0) {
-        return $false
-    }
-
-    $receiptByDest = @{}
-    foreach ($receiptFile in $receiptFiles) {
-        $dest = [string]$receiptFile.dest
-        if (-not [string]::IsNullOrWhiteSpace($dest)) {
-            $receiptByDest[$dest] = $receiptFile
+    finally {
+        if ($null -ne $temporary -and (Test-Path -LiteralPath $temporary)) {
+            Remove-Item -LiteralPath $temporary -Recurse -Force
         }
     }
-
-    foreach ($pluginFile in @($Plugin.files)) {
-        $src = [string]$pluginFile.src
-        if ($src -match '^evals(?:/|$)') {
-            continue
-        }
-
-        $dest = [string]$pluginFile.dest
-        if (-not $receiptByDest.ContainsKey($dest)) {
-            return $false
-        }
-
-        if ([string]$receiptByDest[$dest].sha256 -ne [string]$pluginFile.sha256) {
-            return $false
-        }
-
-        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
-        if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
-            return $false
-        }
-        if ((Get-FileSha256 -Path $targetPath) -ne [string]$pluginFile.sha256) {
-            return $false
-        }
-    }
-
-    return $true
 }
 
 function Resolve-PluginDependencyOrder {
