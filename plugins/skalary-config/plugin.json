@@ -23,6 +23,14 @@
     {
       "src": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1",
       "dest": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1"
+    },
+    {
+      "src": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1",
+      "dest": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1"
+    },
+    {
+      "src": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1",
+      "dest": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1"
     }
   ],
   "scaffolds": [

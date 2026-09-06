@@ -79,7 +79,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Safe routine mutation
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add lazy bootstrap, secret-setup handoff and validation, edit, Apply/Cancel, and per-key reset for autopilot and local review standards while preserving unknown and unrelated content (REQ-3, REQ-4, REQ-7, REQ-8, REQ-10, RISK-3, RISK-4, RISK-6, RISK-9, RISK-10) [after: 1.2] `L`
+- [x] 2.1 Add lazy bootstrap, secret-setup handoff and validation, edit, Apply/Cancel, and per-key reset for autopilot and local review standards while preserving unknown and unrelated content (REQ-3, REQ-4, REQ-7, REQ-8, REQ-10, RISK-3, RISK-4, RISK-6, RISK-9, RISK-10) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the selected category alone can be bootstrapped from its current shipped example, edited,
@@ -106,7 +106,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
   </details>
 
-- [ ] 2.2 Add one complete model-routing proposal across aliases, host bindings, roles, fallbacks, effort, context, autopilot, CR/DR, and Waza consumers (REQ-5, REQ-7, REQ-8, RISK-2, RISK-6, RISK-8, RISK-9) [after: 1.2] `L`
+- [x] 2.2 Add one complete model-routing proposal across aliases, host bindings, roles, fallbacks, effort, context, autopilot, CR/DR, and Waza consumers (REQ-5, REQ-7, REQ-8, RISK-2, RISK-6, RISK-8, RISK-9) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the model category shows and edits the six stable aliases and every role assignment in

@@ -126,19 +126,36 @@ $sourceLayout = (Test-Path -LiteralPath (Join-Path $root 'plugins') -PathType Co
     (Test-Path -LiteralPath (Join-Path $root 'scripts/skalary') -PathType Container)
 $layout = if ($sourceLayout) { 'source' } else { 'installed-consumer' }
 
-$inputs = foreach ($relative in $entry.Canonical) {
+$inputs = @()
+foreach ($relative in $entry.Canonical) {
     $path = Join-Path $root $relative
     if (Test-Path -LiteralPath $path) {
         $item = Get-Item -LiteralPath $path -Force
         if ($item.LinkType) { throw "Refusing linked configuration path: $relative" }
-        if ($item -is [System.IO.FileInfo]) { $path }
+        if ($item -is [System.IO.FileInfo]) { $inputs += $path }
+    }
+}
+$digestInputs = @($inputs)
+if ($Category -eq 'autopilot') {
+    $defaultPath = Join-Path $root 'plugins/autopilot/.autopilot.json.example'
+    if (Test-Path -LiteralPath $defaultPath -PathType Leaf) {
+        $defaultItem = Get-Item -LiteralPath $defaultPath -Force
+        if ($defaultItem.LinkType) { throw 'Refusing linked configuration path: plugins/autopilot/.autopilot.json.example' }
+        $digestInputs += $defaultPath
     }
 }
 $hasher = [System.Security.Cryptography.SHA256]::Create()
 try {
-    $digestMaterial = foreach ($path in @($inputs | Sort-Object)) {
+    $digestMaterial = foreach ($path in @($digestInputs | Sort-Object -Unique)) {
         $relative = [System.IO.Path]::GetRelativePath($root, $path)
         "${relative}:$([Convert]::ToHexString($hasher.ComputeHash([System.IO.File]::ReadAllBytes($path))))"
+    }
+    if ($Category -eq 'models-reviews' -and $sourceLayout) {
+        $headPolicy = & git -C $root rev-parse --verify 'HEAD:tools/model-allowlist.psd1' 2>$null
+        if ($LASTEXITCODE -ne 0 -or $headPolicy -notmatch '^[0-9a-f]{40,64}$') {
+            throw 'Cannot derive shipped model defaults from HEAD.'
+        }
+        $digestMaterial += "HEAD:tools/model-allowlist.psd1:$headPolicy"
     }
     $digest = [Convert]::ToHexString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes(($digestMaterial -join "`n")))).ToLowerInvariant()
 }
@@ -167,6 +184,35 @@ $result = [ordered]@{
     SourceDigest = $digest
 }
 
+if ($Action -eq 'show' -and $Category -eq 'autopilot' -and $inputs) {
+    try {
+        $config = [System.IO.File]::ReadAllText($inputs[0]) | ConvertFrom-Json -AsHashtable
+    }
+    catch {
+        throw ".autopilot.json is malformed: $($_.Exception.Message)"
+    }
+    $safeKeys = @(
+        'runtime', 'copilotAuth', 'gitProvider', 'gitAuth', 'model', 'context',
+        'reasoningEffort', 'maxIterationsPerStep', 'build', 'test'
+    )
+    $result.EffectiveValues = [ordered]@{}
+    foreach ($key in $safeKeys) {
+        if ($config.ContainsKey($key)) { $result.EffectiveValues[$key] = $config[$key] }
+    }
+}
+if ($Action -eq 'show' -and $Category -eq 'models-reviews' -and $sourceLayout -and $inputs) {
+    try {
+        $policy = Import-PowerShellDataFile -LiteralPath $inputs[0]
+    }
+    catch {
+        throw "tools/model-allowlist.psd1 is malformed: $($_.Exception.Message)"
+    }
+    $result.EffectiveValues = [ordered]@{
+        Aliases = $policy.Aliases
+        Roles = $policy.Roles
+        Fallback = $policy.Fallback
+    }
+}
 if ($Action -eq 'diff') {
     $result.CurrentDiff = if ($sourceLayout -and $inputs) {
         (& git -C $root diff --no-ext-diff -- @($inputs | ForEach-Object { [System.IO.Path]::GetRelativePath($root, $_) })) -join "`n"
