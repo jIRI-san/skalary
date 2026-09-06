@@ -25,7 +25,7 @@ outside `.github/`.
   absolute dests are rejected.
 - Existing destinations and every parent segment are rejected when they are links/reparse points,
   before receipt reads or writes, payload access, deletion, or directory pruning.
-- Each installed plugin has exactly one confined receipt with `name`, `version`,
+- Each installed plugin has exactly one confined minimal receipt with `name`, `version`,
   `sourceIdentity`, and immutable `ref`. Receipt paths and shape are revalidated before use.
 - Install and update preflight their complete manifest sets, apply and verify payload bytes, then
   write the receipt last. A failure exposes any partial payload state and leaves the prior receipt
